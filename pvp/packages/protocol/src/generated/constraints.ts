@@ -31,6 +31,10 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
     "min": 0,
     "max": 20
   },
+  "fade_ms": {
+    "min": 0,
+    "max": 500
+  },
   "window_ms": {
     "min": 200,
     "max": 5000
@@ -43,6 +47,18 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
     "min": 0,
     "max": 2000
   },
+  "jitter_warn_ms": {
+    "min": 0,
+    "max": 500
+  },
+  "spike_ms": {
+    "min": 0,
+    "max": 1000
+  },
+  "window": {
+    "min": 3,
+    "max": 60
+  },
   "decimals": {
     "min": 0,
     "max": 2
@@ -50,6 +66,14 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "warn_below": {
     "min": 0,
     "max": 1
+  },
+  "hidden_effects": {
+    "min": 0,
+    "max": 16777215
+  },
+  "blink_below_s": {
+    "min": 0,
+    "max": 30
   },
   "gamma": {
     "min": 1,
@@ -102,6 +126,94 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "strength": {
     "min": 0,
     "max": 1
+  },
+  "always_draw_within": {
+    "min": 1,
+    "max": 16
+  },
+  "block_entity_distance": {
+    "min": 16,
+    "max": 64
+  },
+  "armor_stand_distance": {
+    "min": 8,
+    "max": 64
+  },
+  "item_frame_distance": {
+    "min": 8,
+    "max": 64
+  },
+  "sign_text_distance": {
+    "min": 4,
+    "max": 64
+  },
+  "particle_cap": {
+    "min": 100,
+    "max": 4000
+  },
+  "block_break_particles": {
+    "min": 0,
+    "max": 1
+  },
+  "explosion_particles": {
+    "min": 0,
+    "max": 1
+  },
+  "unfocused_fps": {
+    "min": 5,
+    "max": 120
+  },
+  "menu_fps": {
+    "min": 15,
+    "max": 240
+  },
+  "outline_width": {
+    "min": 0.5,
+    "max": 6
+  },
+  "glint_passes": {
+    "min": 1,
+    "max": 3
+  },
+  "tag_background": {
+    "min": 0,
+    "max": 1
+  },
+  "tag_scale": {
+    "min": 0.5,
+    "max": 1.5
+  },
+  "hotbar_scale": {
+    "min": 0,
+    "max": 6
+  },
+  "inventory_scale": {
+    "min": 0,
+    "max": 6
+  },
+  "blur_radius": {
+    "min": 1,
+    "max": 10
+  },
+  "menu_dim": {
+    "min": 0,
+    "max": 1
+  },
+  "time_ticks": {
+    "min": 0,
+    "max": 23999
+  },
+  "hide_after_ms": {
+    "min": 0,
+    "max": 30000
+  },
+  "background_opacity": {
+    "min": 0,
+    "max": 1
+  },
+  "history_length": {
+    "min": 100,
+    "max": 5000
   }
 } as const;
 
@@ -327,6 +439,23 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "normal",
     "roomy"
   ],
+  "item_counter.track": [
+    "held_stack",
+    "held_total",
+    "ender_pearl",
+    "golden_apple",
+    "arrow",
+    "snowball",
+    "egg",
+    "cobweb",
+    "wool",
+    "tnt",
+    "fire_charge",
+    "iron_ingot",
+    "gold_ingot",
+    "diamond",
+    "emerald"
+  ],
   "stopwatch.background": [
     "none",
     "subtle",
@@ -368,6 +497,66 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
   "old_animations.block_hit": [
     "vanilla",
     "one_seven"
+  ],
+  "block_outline.outline_style": [
+    "outline",
+    "fill",
+    "both",
+    "none"
+  ],
+  "scoreboard.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "scoreboard.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "fog.distance_fog": [
+    "vanilla",
+    "reduced",
+    "off"
+  ],
+  "fog.water_fog": [
+    "vanilla",
+    "reduced",
+    "off"
+  ],
+  "fog.lava_fog": [
+    "vanilla",
+    "reduced",
+    "off"
+  ],
+  "potion_counter.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "potion_counter.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "potion_counter.track": [
+    "health_potion",
+    "soup",
+    "both"
+  ],
+  "reach.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "reach.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "reach.mode": [
+    "last",
+    "average"
   ]
 } as const;
 

@@ -2961,6 +2961,12 @@ hr.divider {
   outline: none;
 }
 
+/* A width or height in pixels: four digits and a little air. */
+.inline-form__field--num {
+  width: 72px;
+  text-align: center;
+}
+
 .inline-form__field--wide {
   width: 320px;
 }

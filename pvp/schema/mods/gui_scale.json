@@ -1,0 +1,35 @@
+{
+  "id": "gui_scale",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "GUI scale",
+  "icon": "move",
+  "the": false,
+  "on_description": "the hotbar and inventories have their own scale",
+  "description": "Sizes the hotbar and inventories independently of Minecraft's GUI scale.",
+  "settings_title": "GUI scale settings",
+  "settings_description": "Settings for the GUI scale gameplay mod. Minecraft has one GUI scale for everything, so at 1080p the choice is between a hotbar that fills the bottom of the screen and an inventory too small to read. Each value here is a whole GUI-scale step, exactly like Minecraft's own setting, so textures stay pixel-crisp; 0 means \"follow Minecraft\". Like vanilla, a value larger than the window allows is clamped to the largest that fits.",
+  "source": "`InGameHud#render` (hotbar, bars, experience, held-item name) and `Screen#init` for container screens",
+  "enabled": false,
+  "defaults": {
+    "hotbar_scale": 2,
+    "inventory_scale": 3
+  },
+  "settings": {
+    "hotbar_scale": {
+      "description": "GUI scale step for the hotbar and the health, hunger, armour and experience bars above it, which move as one block. 0 follows Minecraft. 2 by default: a compact hotbar at 1080p, where Minecraft's own auto scale is 4.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6,
+      "default": 2
+    },
+    "inventory_scale": {
+      "description": "GUI scale step for the inventory, chests, furnaces and every other container screen. 0 follows Minecraft. Other menus — chat, the pause menu, VOID's own — are unaffected.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6,
+      "default": 3
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$comment": "Loadout share codes made by each implementation (`void_loadout::share` in Rust, `ShareCode` in the Java mod, `share-code.ts` in @void/protocol). Every implementation's test suite decodes every code here and checks it against `expect`, so the three readers and three writers cannot drift apart without a test failing. `expect.mods` lists the settings that must come out (a subset of the effective settings), `hud_items` how many HUD items survive. Regenerate a code deliberately when its writer's payload changes; each writer has a test that pins its own entry.",
+  "codes": [
+    {
+      "made_by": "rust",
+      "code": "VOID1.TY_NDoIwEIRfxewZiGj869GH8GKMwXaBRmCxrUYlvLtTjImnznb7zUwHqu-G1HGgotO1OFJ0kRCkTRsuAyVknqTyzSqbQ75Ipfl8G7UFRLr3NCZ_aJD-n1ssf9hXTVAJKCGvi4bhnK3GExZaupjMBqtWQ-bZNtvFQYwnNUxRODDyt2KNZHqLtPG6lMfZ2If1scU6Rl0ZqXSgEa-6oo3Q3llT8ax3hQ5WM8xvd6uv-Dx6V1XDZ98728Xyk28yhaKd4wpNl-MH.5da3d392",
+      "expect": {
+        "name": "Bridge practice",
+        "mods": { "zoom": { "fov_divisor": 6, "key": "V" }, "cps": { "on": true, "mode": "both" }, "fps": { "on": true } },
+        "hud_items": 2,
+        "quick": ["toggle_sprint", "zoom", "cps"]
+      }
+    },
+    {
+      "made_by": "java",
+      "code": "VOID1.VY_NDoIwEIRfxey5EpH416MP4cUYg22BRmCxVKOSvrtT1ERPszvdb3Y7UJs3hiRtndWlmXQuV94qQ4Ks4hYPJ6PRNAplmqyTDRpnSpJpBpd1T3Ig1Y2CNkad2FcUBD2Zm2ifzQPuDmDBt6O2N9uzI7lMZgFT1VWT3A9kIWOQoLxVVZyISZ6baW0KD1vfsXW1QIG8aTpbC-pVXmNlGsQnoPgP8Nz90vPsDUf9oskiHARdrladcQeIsqzNse-cbSM2fkKMhx3CCw.d18cf04a",
+      "expect": {
+        "name": "Bridge practice",
+        "mods": { "zoom": { "fov_divisor": 6, "key": "V" }, "cps": { "on": true, "mode": "both" }, "fps": { "on": true } },
+        "hud_items": 2,
+        "quick": ["toggle_sprint", "zoom", "cps"]
+      }
+    }
+  ]
+}

@@ -248,6 +248,14 @@ pub struct Loadout {
     pub mods: ModStates,
     /// Layout of the HUD items this loadout draws.
     pub hud: HudLayout,
+    /// Mods pinned to the in-match quick panel, in toggle order; `None` means the
+    /// client's factory pins (`loadout.json#/definitions/quick_pins`).
+    ///
+    /// Read leniently: an id this build does not know, a repeat, or anything past the
+    /// eighth is dropped rather than failing the whole loadout, so a loadout pinned on a
+    /// newer client still loads here.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "lenient_quick")]
+    pub quick: Option<Vec<ModId>>,
     /// Accumulated play statistics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stats: Option<LoadoutStats>,
@@ -264,6 +272,7 @@ impl Loadout {
             mc: DEFAULT_MC.to_string(),
             mods: ModStates::default(),
             hud: Vec::new(),
+            quick: None,
             stats: None,
         }
     }
@@ -325,6 +334,16 @@ impl Loadout {
                 }
             }
         }
+        if let Some(quick) = &self.quick {
+            if quick.len() > MAX_QUICK_PINS {
+                return Err(Error::Invalid(format!("`quick` holds at most {MAX_QUICK_PINS} pins")));
+            }
+            for (i, id) in quick.iter().enumerate() {
+                if quick[..i].contains(id) {
+                    return Err(Error::Invalid(format!("`quick` pins `{id}` twice")));
+                }
+            }
+        }
         // Round-trips every present mod through its settings sub-schema.
         for id in self.mods.present() {
             if let Some(settings) = self.mods.get(id) {
@@ -333,6 +352,27 @@ impl Loadout {
         }
         Ok(())
     }
+}
+
+/// Most mods the quick panel holds (`loadout.json#/definitions/quick_pins`).
+pub const MAX_QUICK_PINS: usize = 8;
+
+/// Normalises a list of pin ids: unknown ids and repeats dropped, cut to eight.
+pub fn normalise_quick<'a>(ids: impl IntoIterator<Item = &'a str>) -> Vec<ModId> {
+    let mut out: Vec<ModId> = Vec::new();
+    for raw in ids {
+        if let Some(id) = ModId::parse(raw) {
+            if !out.contains(&id) && out.len() < MAX_QUICK_PINS {
+                out.push(id);
+            }
+        }
+    }
+    out
+}
+
+fn lenient_quick<'de, D: Deserializer<'de>>(d: D) -> Result<Option<Vec<ModId>>, D::Error> {
+    let raw: Option<Vec<Value>> = Option::deserialize(d)?;
+    Ok(raw.map(|items| normalise_quick(items.iter().filter_map(Value::as_str))))
 }
 
 /// The reduced loadout form sent in `init.loadouts`.

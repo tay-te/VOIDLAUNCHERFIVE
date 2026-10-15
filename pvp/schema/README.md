@@ -10,7 +10,7 @@ cross-directory need is expressed by reading a schema here.
 | `mods.json` | **Generated** (`build.mjs`). The closed registry of every mod VOID ships (the 12 of §3, the VOID watermark, and the readouts added since): id, `kind`, `category` (§3), `hypixel_safe` (§11), the panel `label`, defaults, and a settings sub-schema per mod | `core` | everyone |
 | `loadout.json` | The loadout model (§8): mod state + anchor-based HUD layout + stats | `core` | everyone |
 | `protocol.json` | Every Rust ⇄ Java WS message (§7), a `oneOf` on `t` — 10 Java→Rust, 5 Rust→Java (`emote` goes both ways) | `core` | `core`, `mod` |
-| `bridge.json` | The `window.void` surface (§6.5): 12 events Java→JS, 12 calls JS→Java | `core` | `mod`, `ingame`, `ui` |
+| `bridge.json` | The `window.void` surface (§6.5): 14 events Java→JS, 21 calls JS→Java | `core` | `mod`, `ingame`, `ui` |
 | `cosmetics.json` | The cosmetics catalog (data, validated against `cosmetics.schema.json`): id, kind, rarity, price, tint. Generated into `CosmeticCatalog.java`, `@void/protocol`'s `generated/cosmetics.ts` by `scripts/gen-cosmetics.mjs`; the backend seed reads the same file | `core` | everyone |
 
 `mods.json` is the root: `loadout.json` `$ref`s its mod ids and settings, and both
@@ -156,11 +156,12 @@ Newest first. Each entry says what moved, why, and what had to change to follow 
 ### 2026-10-15 (later) — the wardrobe reaches the page, and a switch for what the client draws
 
 `protocol.json` untouched by this entry (its cosmetics messages arrived from `pvp-backend`, in the
-entry below); `mods.json` registry `version` 10 → 11 (a mod added).
+entry below); `mods.json` registry `version` 10 → 11 (a mod added) on the cosmetics branch; merged into
+`pvp-launch` after the FPS boost and depth waves as registry 12 → 13, 44 → 45 mods.
 
 **The cosmetics catalog becomes a contract file.** `cosmetics.json` is the single source of what
 exists — id, kind (`cape back head face halo trail badge` or `emote`), name, rarity,
-`availability` (`store`/`free`/`grant`), price, `tintable` + `default_tint`, the Store preview —
+`availability` (`paid`/`free`/`grant`), price, `tintable` + `default_tint`, the Store preview —
 and `cosmetics.schema.json` is its shape. `validate.mjs` validates the data and cross-checks what
 a schema cannot say: unique ids, store items cost something and free/grant items cost nothing,
 tint defaults only on tintable items, and that `protocol.json`'s `cosmetic_slot` enum *is* the

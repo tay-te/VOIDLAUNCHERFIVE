@@ -166,11 +166,22 @@ export function buildCommands(store: VoidState): Command[] {
     {
       id: 'open:loadouts',
       title: 'Loadouts',
-      sub: 'Compare and switch loadouts',
+      sub: 'Compare, switch, create, share and import loadouts',
       icon: 'layers',
       section: 'also',
       weight: 3,
       run: (s) => s.setRoute({ name: 'loadouts' }),
+    },
+    {
+      id: 'loadout:copy-code',
+      title: 'Copy share code',
+      sub: loadout ? `${loadout.name}  ·  to the clipboard` : 'The active loadout, to the clipboard',
+      icon: 'layers',
+      section: 'also',
+      weight: 2,
+      run: (s) => {
+        if (s.loadout) s.copyShareCode(s.loadout.id);
+      },
     },
     {
       id: 'open:party',

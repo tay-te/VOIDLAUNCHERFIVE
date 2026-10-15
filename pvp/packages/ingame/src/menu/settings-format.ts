@@ -66,6 +66,33 @@ export function settingLabel(key: string): string {
     smooth: 'Smooth',
     cinematic: 'Cinematic',
     color: 'Colour',
+    // The depth wave's keys. Spelled out wherever the `_`-to-space fallback would read wrong or
+    // flat: `Jitter warn ms` is a variable name, not a label.
+    track: 'Counts',
+    low_threshold: 'Warn at',
+    hide_after_ms: 'Hide after',
+    show_average: 'Show average',
+    show_jitter: 'Show jitter',
+    jitter_warn_ms: 'Jitter warn',
+    spike_ms: 'Spike over',
+    window: 'Window',
+    animate: 'Animate release',
+    fade_ms: 'Fade',
+    ignore_cancelled: 'Ignore cancelled clicks',
+    hidden_effects: 'Hidden effects',
+    blink_below_s: 'Blink under',
+    state_colors: 'State colours',
+    hittable_color: 'Hittable colour',
+    damaged_color: 'Damaged colour',
+    scroll_adjust: 'Scroll to adjust',
+    scale_sensitivity: 'Scale sensitivity',
+    timestamps: 'Timestamps',
+    stack_repeats: 'Stack repeats',
+    click_to_copy: 'Right-click to copy',
+    background_opacity: 'Background',
+    history_length: 'History',
+    show_host: 'Show server',
+    show_peak: 'Show peak',
   };
   if (overrides[key]) return overrides[key]!;
   const words = key.replace(/_/g, ' ');
@@ -81,6 +108,26 @@ export const SETTING_SUBTITLES: Record<string, string> = {
   center_dot: 'A dot on the centre, under the arms',
   dynamic: 'The gap widens while sprinting',
   warn_below: 'Where a durability bar turns amber',
+  low_threshold: 'At or below this the figure turns amber · 0 is off',
+  hide_after_ms: 'After the last landed hit · 0 keeps it up',
+  show_average: 'avg over the window, after the figure',
+  show_jitter: 'How much the ping swings, reading to reading',
+  jitter_warn_ms: 'Where the jitter aside turns amber · 0 is off',
+  spike_ms: 'A jump this far over average marks the chip · 0 is off',
+  window: 'Readings the average and jitter cover',
+  animate: 'Released keys ease back instead of snapping',
+  fade_ms: 'How long a released key takes to rest',
+  ignore_cancelled: 'Count swings the game ran, not every press',
+  hidden_effects: 'Lit effects are never listed',
+  blink_below_s: 'An effect this close to ending blinks · 0 is off',
+  state_colors: 'Colour by hurt and in-reach',
+  scroll_adjust: 'The wheel changes the zoom while held',
+  scale_sensitivity: 'Aim moves the same share of the view zoomed',
+  timestamps: 'The arrival time before each line',
+  stack_repeats: 'A repeated line becomes one line with a count',
+  click_to_copy: 'In open chat, without colour codes',
+  background_opacity: 'The band behind the lines · 50% is vanilla',
+  history_length: 'Messages kept to scroll back · vanilla keeps 100',
 };
 
 /** The value printed to the right of a slider. */
@@ -95,13 +142,44 @@ export function formatSetting(key: string, value: SettingValue): string {
     case 'warn_below':
       return value <= 0 ? 'Never' : `${Math.round(value * 100)}%`;
     case 'opacity':
+    case 'background_opacity':
       return `${Math.round(value * 100)}%`;
+    // 0 is the setting off, not a tiny value — the same reasoning as `warn_below`'s `Never`.
+    case 'low_threshold':
+    case 'jitter_warn_ms':
+    case 'spike_ms':
+    case 'blink_below_s':
+      if (value <= 0) return 'Off';
+      return key === 'low_threshold' ? String(value) : key === 'blink_below_s' ? `${value} s` : `${value} ms`;
+    case 'hide_after_ms':
+      return value <= 0 ? 'Never' : `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)} s`;
+    case 'window':
+      return `${value} readings`;
+    case 'history_length':
+      return `${value} lines`;
     case 'fov_divisor':
       return `${value.toFixed(1)}×`;
+    case 'tag_scale':
+      return `${value.toFixed(2)}×`;
+    // A GUI scale step, where 0 is not a size: it hands the choice back to Minecraft.
+    case 'hotbar_scale':
+    case 'inventory_scale':
+      return value <= 0 ? 'Auto' : `${value}`;
+    // Ticks are what the game stores and nobody reads; the clock is what a player means. Tick 0
+    // is sunrise, which Minecraft's own clock calls 06:00.
+    case 'time_ticks': {
+      const minutes = Math.round(((value / 1000 + 6) % 24) * 60) % (24 * 60);
+      const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+      const mm = String(minutes % 60).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
     default: {
       const unit = SETTING_RANGES[key]?.unit;
-      if (unit === 'px') return `${value} px`;
-      if (unit === 'ms') return `${value} ms`;
+      // Every `%` setting is a 0-1 fraction, like `opacity` above; printing the raw value with a
+      // percent sign would read `0.25%` for a quarter.
+      if (unit === '%') return `${Math.round(value * 100)}%`;
+      // A word unit takes a space — `30 fps`, `64 blocks` — and a glyph does not (`2×`).
+      if (unit && /^[a-z]/i.test(unit)) return `${value} ${unit}`;
       if (unit) return `${value}${unit}`;
       return String(value);
     }

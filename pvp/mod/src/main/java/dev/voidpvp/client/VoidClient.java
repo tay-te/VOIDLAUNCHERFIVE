@@ -5,6 +5,7 @@ import com.google.gson.JsonPrimitive;
 import dev.voidpvp.client.actuator.DamageTint;
 import dev.voidpvp.client.actuator.FreeLook;
 import dev.voidpvp.client.actuator.SprintLatch;
+import dev.voidpvp.client.actuator.ChatTweaks;
 import dev.voidpvp.client.actuator.ZoomController;
 import dev.voidpvp.client.bridge.BridgeHost;
 import dev.voidpvp.client.bridge.VoidBridge;
@@ -16,8 +17,10 @@ import dev.voidpvp.client.render.CrosshairRenderer;
 import dev.voidpvp.client.screen.VoidMenuScreen;
 import dev.voidpvp.client.sensor.ArmorSlot;
 import dev.voidpvp.client.sensor.HitTally;
+import dev.voidpvp.client.sensor.InventoryCounts;
 import dev.voidpvp.client.sensor.KeyStateTracker;
 import dev.voidpvp.client.sensor.PotionFx;
+import dev.voidpvp.client.sensor.ReachMeter;
 import dev.voidpvp.client.sensor.ServerWatcher;
 import dev.voidpvp.client.sensor.TickCoalescer;
 import dev.voidpvp.client.sensor.TickInput;
@@ -40,6 +43,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -94,9 +98,27 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      */
     private final HitTally hits = new HitTally();
 
+    /** The reach display's reading: one measurement per attack {@link #hits} counts as landed. */
+    private final ReachMeter reach = new ReachMeter();
+
+    /**
+     * The tick delta of the most recent crosshair pick ({@code GameRenderer.updateTargetedEntity}),
+     * i.e. the one {@code MinecraftClient.result} holds. See {@link #onCrosshairPick}.
+     */
+    private float pickDelta = 1f;
+
+    /** The {@code counts} walk, reused every tick; see {@link InventoryCounts}. */
+    private final InventoryCounts inventoryCounts = new InventoryCounts();
+
+    /** The Chat mod's run, ids and originals; the two chat mixins share it through {@link #chat}. */
+    private final ChatTweaks chat = new ChatTweaks();
+
     /** Previous-tick values, so an edge is counted once rather than every tick it persists. */
     private int lastAttackCooldownSeen;
     private final ServerWatcher server = new ServerWatcher();
+    /** The {@code scoreboard} HUD mod's sensor; see {@link #tickWave7}. */
+    private final dev.voidpvp.client.sensor.ScoreboardSensor scoreboard =
+            new dev.voidpvp.client.sensor.ScoreboardSensor();
     /** {@code VOID_UI_TICKLOG}: print every coalesced `tick` payload. See the emit site. */
     private static final boolean TICK_LOG = System.getenv("VOID_UI_TICKLOG") != null;
 
@@ -403,6 +425,38 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         return zoom.factor();
     }
 
+    /**
+     * {@code zoom.scale_sensitivity}: what {@code GameRenderer} should read for
+     * {@code GameOptions.sensitivity} this frame. The player's own value unless the zoom is on,
+     * engaged (including its ease-out, so aim speed returns with the view rather than ahead of
+     * it) and the setting is on.
+     */
+    public float zoomSensitivity(float sensitivity) {
+        if (!state.zoomOn || !state.zoomScaleSensitivity || !zoom.isActive()) {
+            return sensitivity;
+        }
+        return ZoomController.scaledSensitivity(sensitivity, zoom.factor());
+    }
+
+    /**
+     * {@code zoom.scroll_adjust}: one mouse-wheel event from {@code MinecraftClient.tick},
+     * offered to the zoom before the hotbar.
+     *
+     * @return true when the zoom took it and the hotbar must not scroll
+     */
+    public boolean onZoomScroll(int wheel) {
+        MinecraftClient mc = minecraft();
+        if (mc == null || !state.zoomScrollAdjust) {
+            return false;
+        }
+        return zoom.scroll(zoomKeyHeld(mc), wheel, state.zoomFovDivisor);
+    }
+
+    /** The Chat mod's shared state, for {@code ChatHudMixin} and {@code ChatScreenMixin}. */
+    public ChatTweaks chat() {
+        return chat;
+    }
+
     /** True when our crosshair replaces the vanilla pass this frame. */
     public boolean suppressesVanillaCrosshair() {
         return state.crosshairOn
@@ -512,10 +566,18 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         double frameFactor = lastFrameNanos == 0 ? 1
                 : (now - lastFrameNanos) / 16_666_666.0;
         lastFrameNanos = now;
-        boolean held = state.zoomOn && mc.currentScreen == null
+        zoom.update(zoomKeyHeld(mc), state.zoomFovDivisor, state.zoomSmooth, frameFactor);
+    }
+
+    /**
+     * The zoom's one definition of "held", shared by the frame ({@link #advanceZoom}) and the
+     * wheel ({@link #onZoomScroll}) so the two can never disagree about whether a notch belongs
+     * to the zoom or to the hotbar.
+     */
+    private boolean zoomKeyHeld(MinecraftClient mc) {
+        return state.zoomOn && mc.currentScreen == null
                 && state.zoomKeyCode != KeyNames.KEY_NONE
                 && isKeyDown(state.zoomKeyCode);
-        zoom.update(held, state.zoomFovDivisor, state.zoomSmooth, frameFactor);
     }
 
     /** {@code Minecraft.onResolutionChanged}: the view follows the framebuffer. */
@@ -557,6 +619,21 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         applyActuators(mc);
         pushTick(mc);
         pushSession(mc);
+        tickWave7(mc);
+    }
+
+    /**
+     * The Wave 7 mods' once-a-tick work: the scoreboard sensor (pushed on its own channel, only
+     * when the board changed), the clear-glass chunk rebuild and menu-blur cleanup
+     * ({@code visual/VisualHooks}), and the benchmark's driver when {@code -Dvoid.bench} is set.
+     */
+    private void tickWave7(MinecraftClient mc) {
+        JsonObject board = scoreboard.poll(mc);
+        if (board != null) {
+            bridge.emit(VoidBridge.EVENT_SCOREBOARD, board);
+        }
+        dev.voidpvp.client.visual.VisualHooks.tick(mc);
+        dev.voidpvp.client.bench.PerfBench.tick(mc, bridge);
     }
 
     /**
@@ -954,6 +1031,10 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
                 new JsonPrimitive(Boolean.valueOf(!on)));
         if (stored != null) {
             bridge.emitSetting(modId, "on", stored);
+            boolean nowOn = stored.isJsonPrimitive() && stored.getAsBoolean();
+            bridge.emitToast(VoidBridge.TOAST_MOD,
+                    dev.voidpvp.client.state.ModRegistry.label(modId) + (nowOn ? " on" : " off"),
+                    null, modId);
             // These hotkeys can take the last thing off the overlay — hiding a HUD widget with
             // no menu open — and a page with nothing left to draw submits no draw commands, so
             // the accelerated renderer would go on showing what was just hidden. Same reason as
@@ -990,6 +1071,10 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (next != null && !next.equals(state.loadoutId())) {
             if (state.switchLoadout(next)) {
                 emitLoadout();
+                // The menu is closed when the cycle key works, so nothing else on screen would
+                // say which loadout the key landed on.
+                bridge.emitToast(VoidBridge.TOAST_LOADOUT, state.loadout().name(),
+                        "Loadout switched", null);
                 // The launcher's own pointer has to follow, or the tray and the next
                 // launch disagree with the running game (protocol.json, `msg_hotkey`).
                 reportHotkey(dev.voidpvp.client.net.Protocol.HOTKEY_LOADOUT_NEXT);
@@ -1413,8 +1498,81 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
             hits.sawHurtTime(player.hurtTime);
             tickIn.hitsDealt = Integer.valueOf(hits.dealt());
             tickIn.hitsTaken = Integer.valueOf(hits.taken());
+            tickIn.hitsSwings = Integer.valueOf(hits.swings());
         } catch (Throwable ignored) {
             // Same reasoning as above.
+        }
+        // Absent until the first landed attack has been measured, as `bridge.json` says.
+        if (reach.n() > 0) {
+            tickIn.reachBlocks = Double.valueOf(reach.last());
+            tickIn.reachN = Integer.valueOf(reach.n());
+        }
+        try {
+            tickIn.counts = readCounts(player);
+        } catch (Throwable ignored) {
+            // Same reasoning as above: no `counts` this tick rather than a wrong one.
+        }
+    }
+
+    /**
+     * The {@code counts} reading: the 36 main slots ({@code PlayerInventory.main}, hotbar
+     * included; armour and the cursor stack are separate fields and excluded, as the schema
+     * says), handed to {@link InventoryCounts} as id, metadata and count. Metadata is
+     * {@code ItemStack.getData()} — the raw damage value, which for potions, wool and golden
+     * apples is the variant.
+     */
+    private Map<String, Integer> readCounts(ClientPlayerEntity player) {
+        ItemStack held = player.inventory.getMainHandStack();
+        boolean hasHeld = held != null && held.getItem() != null && held.count > 0;
+        inventoryCounts.begin(hasHeld ? itemId(held) : null, hasHeld ? held.getData() : 0,
+                hasHeld && held.hasSubTypes());
+        ItemStack[] main = player.inventory.main;
+        for (int i = 0; i < main.length; i++) {
+            ItemStack stack = main[i];
+            if (stack == null || stack.getItem() == null) {
+                continue;
+            }
+            inventoryCounts.add(itemId(stack), stack.getData(), stack.count);
+        }
+        return inventoryCounts.result();
+    }
+
+    /**
+     * {@code GameRenderer.updateTargetedEntity(tickDelta)} is about to cast the crosshair ray;
+     * remembered so the reach meter measures from the same interpolated eye.
+     */
+    public void onCrosshairPick(float tickDelta) {
+        pickDelta = tickDelta;
+    }
+
+    /**
+     * One landed attack, for the reach display: from the camera entity's eye at the pick's tick
+     * delta to {@code hitPos} — {@code MinecraftClient.result.pos}, the crosshair ray's
+     * intercept with the target's box — or, without one, to the closest point of that box
+     * expanded by the same targeting margin vanilla's pick used. The arithmetic and the counter
+     * are {@link ReachMeter}'s; this only reads the game.
+     */
+    public void onLandedAttack(net.minecraft.entity.Entity target,
+                               net.minecraft.util.math.Vec3d hitPos) {
+        try {
+            MinecraftClient mc = minecraft();
+            net.minecraft.entity.Entity camera = mc == null ? null : mc.getCameraEntity();
+            if (camera == null || target == null) {
+                return;
+            }
+            net.minecraft.util.math.Vec3d eye = camera.getCameraPosVec(pickDelta);
+            double blocks;
+            if (hitPos != null) {
+                blocks = ReachMeter.toPoint(eye.x, eye.y, eye.z, hitPos.x, hitPos.y, hitPos.z);
+            } else {
+                double m = target.getTargetingMargin();
+                net.minecraft.util.math.Box box = target.getBoundingBox().expand(m, m, m);
+                blocks = ReachMeter.toBox(eye.x, eye.y, eye.z,
+                        box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);
+            }
+            reach.record(blocks);
+        } catch (Throwable ignored) {
+            // A reach reading is worth less than the attack path it runs inside.
         }
     }
 
@@ -1435,9 +1593,9 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      * {@code hits.dealt} counted swings at air and shipped as a second CPS counter with a
      * different window.</p>
      */
-    public void onAttackSwing(HitTally.Swing at, boolean targetAlive, boolean targetAttackable,
+    public boolean onAttackSwing(HitTally.Swing at, boolean targetAlive, boolean targetAttackable,
             boolean spectating) {
-        hits.swung(at, targetAlive, targetAttackable, spectating);
+        return hits.swung(at, targetAlive, targetAttackable, spectating);
     }
 
     private List<ArmorSlot> readArmor(ClientPlayerEntity player) {
@@ -1627,6 +1785,7 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     @Override
     public void resendSensors() {
         resendSensors = true;
+        scoreboard.forget();
     }
 
     public boolean captureActive() {
@@ -1731,6 +1890,45 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         state.applyRemoteLoadout(loadout);
         emitLoadouts();
         emitLoadout();
+        bridge.emitToast(VoidBridge.TOAST_LOADOUT, loadout.name(),
+                "Loadout switched from the launcher", null);
+    }
+
+    /** {@code void.setClipboard}: {@code Screen.setClipboard} is AWT's system clipboard. */
+    @Override
+    public boolean setClipboard(String text) {
+        try {
+            net.minecraft.client.gui.screen.Screen.setClipboard(text);
+            return true;
+        } catch (RuntimeException | LinkageError e) {
+            VoidLog.warn("could not write the clipboard: " + e);
+            return false;
+        }
+    }
+
+    /** {@code void.getClipboard}: {@code Screen.getClipboard}, empty string when there is no text. */
+    @Override
+    public String clipboard() {
+        try {
+            return net.minecraft.client.gui.screen.Screen.getClipboard();
+        } catch (RuntimeException | LinkageError e) {
+            VoidLog.warn("could not read the clipboard: " + e);
+            return null;
+        }
+    }
+
+    @Override
+    public void onLibrary(List<Loadout> loadouts) {
+        // The launcher changed the library under the game (or refused an in-game change). The
+        // live active loadout survives it unless the launcher deleted it.
+        boolean switched = state.applyLibrary(loadouts);
+        emitLoadouts();
+        if (switched) {
+            emitLoadout();
+            bridge.emitToast(VoidBridge.TOAST_LOADOUT, state.loadout().name(),
+                    "Loadout switched from the launcher", null);
+        }
+        ui.requestRender();
     }
 
     @Override

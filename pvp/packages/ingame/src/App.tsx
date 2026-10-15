@@ -9,6 +9,7 @@ import { useVoidStore } from '@/store/store';
 import { HudLayer } from '@/hud/HudLayer';
 import { useEffectSurfaces } from '@/effects/surfaces';
 import { MenuLayer } from '@/menu/MenuLayer';
+import { ToastStack } from '@/toasts/ToastStack';
 import { isDebugBridge } from '@/bridge/connect';
 import { FAKE_MOD_COUNT } from '@/dev/fake-mods';
 
@@ -189,6 +190,10 @@ export function App({ debugFrame, backdrop }: AppProps) {
           onExitEnd={onExitEnd}
         />
       )}
+
+      {/* Above both layers: a notice raised by the cycle key shows over the game, one raised
+          by the Loadouts screen over the menu. */}
+      <ToastStack />
 
       {/* One badge, whatever is true of this build. The fake-mod count is on it because a
           screenshot of a padded grid must never be mistaken for the real registry — it is the

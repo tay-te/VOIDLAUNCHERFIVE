@@ -12,6 +12,7 @@ import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.ClientPlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.util.hit.BlockHitResult;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -105,10 +106,16 @@ public abstract class MinecraftClientMixin {
         } else {
             at = HitTally.Swing.AIR;
         }
-        client.onAttackSwing(at,
+        boolean landed = client.onAttackSwing(at,
                 target != null && target.isAlive(),
                 target != null && target.isAttackable(),
                 mc.player != null && mc.player.isSpectator());
+        // The reach display measures exactly the attacks `hits.dealt` counts. `hit.pos` is the
+        // ray's intercept with the target's (margin-expanded) box, which is what
+        // `GameRenderer.updateTargetedEntity` stored as `new BlockHitResult(entity, pos)`.
+        if (landed) {
+            client.onLandedAttack(target, hit.pos);
+        }
         // The same swing, reported a second way for `hit_color.own_hits_only`. Separate from the
         // HitTally call on purpose: that one is a counter with a defended definition of "landed"
         // and this one is a scope filter that only has to know which entity was under the
@@ -117,6 +124,27 @@ public abstract class MinecraftClientMixin {
         if (at == HitTally.Swing.ENTITY && target != null) {
             client.onAttackedEntity(target.getEntityId());
         }
+    }
+
+    /**
+     * {@code zoom.scroll_adjust}: while the zoom is held, the wheel changes the zoom instead of
+     * the hotbar slot.
+     *
+     * <p>In {@code tick()V} the mouse-event loop reads {@code Mouse.getEventDWheel()} at offset
+     * 446 and, when it is non-zero and the player is not a spectator, hands it to
+     * {@code PlayerInventory.scrollInHotbar(I)V} at offset 558 — the only call to it in the
+     * class. Redirecting that call, and asking the zoom first, means the spectator branches
+     * (fly speed, the spectator menu) are untouched and a wheel event the zoom does not want
+     * reaches the hotbar exactly as before.</p>
+     */
+    @Redirect(method = "tick", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/entity/player/PlayerInventory;scrollInHotbar(I)V"))
+    private void void$zoomScroll(PlayerInventory inventory, int wheel) {
+        VoidClient client = VoidClient.get();
+        if (client != null && client.onZoomScroll(wheel)) {
+            return;
+        }
+        inventory.scrollInHotbar(wheel);
     }
 
     /**

@@ -713,8 +713,11 @@ button.pbfield:hover,
   left: 45px;
 }
 
+/* Opens upward, like the play bar's menus: the strip sits on the window's bottom edge, and
+   once the menu carried Copy share code and the import field under the library there was
+   no longer room for it below the title at the 800px minimum height. */
 .popmenu--loadout {
-  top: calc(100% + 6px);
+  bottom: calc(100% + 6px);
   left: -8px;
   width: 260px;
 }
@@ -756,6 +759,15 @@ button.pbfield:hover,
 
 .popmenu__item:hover {
   background: var(--ground);
+}
+
+/* A menu's list part, when it can outgrow the window: five 36px rows, then it scrolls. */
+.popmenu__scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 188px;
+  overflow-y: auto;
 }
 
 .popmenu__divider {
@@ -882,6 +894,16 @@ button.pbfield:hover,
 .popadd__input.is-error,
 .ffield.is-error {
   border-color: var(--bad) !important;
+}
+
+/* Why a pasted loadout code was refused, under the field — `popitem__sub`'s type in the
+   bad colour, indented to the field's text. */
+.popadd__error {
+  margin: -2px 0 0;
+  padding: 0 14px 6px 22px;
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--bad);
 }
 
 /* ------------------------------------------------------------- sheets */

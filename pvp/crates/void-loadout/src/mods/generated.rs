@@ -27,7 +27,7 @@ use super::{ModEntry, ModInfo, Registry};
 // identity
 // ---------------------------------------------------------------------------
 
-/// One of the 30 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
+/// One of the 45 mods VOID ships — the closed `mod_id` enum of `schema/mods.json`.
 ///
 /// Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the
 /// id of a HUD item.
@@ -56,7 +56,7 @@ pub enum ModId {
     Fullbright,
     /// Draws entity bounding boxes.
     Hitboxes,
-    /// Narrows FOV while the zoom key is held.
+    /// Narrows FOV while the zoom key is held; the mouse wheel adjusts it.
     Zoom,
     /// Replaces the vanilla crosshair with a configurable one at the exact screen centre.
     Crosshair,
@@ -72,7 +72,7 @@ pub enum ModId {
     Memory,
     /// The host you are actually connected to.
     ServerAddress,
-    /// How many of the item in your hand you have left.
+    /// How many of the item in your hand, or a chosen item, you have left.
     ItemCounter,
     /// A manual timer, started and zeroed from the keyboard.
     Stopwatch,
@@ -94,13 +94,46 @@ pub enum ModId {
     /// Removes the input interlocks 1.8 added, so a click is not swallowed by what your other
     /// hand is doing.
     OldInput,
+    /// Skips drawing entities and chests, signs and banners that are hidden behind walls or too
+    /// far away.
+    Culling,
+    /// Caps live particles, skips the ones outside your view, and thins out block-break and
+    /// explosion bursts.
+    Particles,
+    /// Lowers the frame rate while the game is in the background, in a menu, or minimised.
+    FrameLimiter,
+    /// Recolours, thickens, fills or removes the outline on the block you are looking at.
+    BlockOutline,
+    /// Gives every potion a strong enchantment glint so pots read at a glance in the hotbar.
+    ShinyPots,
+    /// Draws glass as clear air, without a resource pack.
+    ClearGlass,
+    /// Shows your own nametag in third person and restyles every nametag's background, size and
+    /// shadow.
+    Nametags,
+    /// The server's sidebar scoreboard, redrawn as a HUD chip you can move, scale or hide.
+    Scoreboard,
+    /// Sizes the hotbar and inventories independently of Minecraft's GUI scale.
+    GuiScale,
+    /// Reduces or removes distance, water and lava fog. Blindness is never touched.
+    Fog,
+    /// Blurs the world behind inventories, chests and the pause menu.
+    MenuBlur,
+    /// Fixes the time of day and clears the rain, on your screen only.
+    TimeWeather,
+    /// Healing potions or soup left in your inventory.
+    PotionCounter,
+    /// How far away your last hit landed, in blocks.
+    Reach,
+    /// Timestamps, stacked repeats, click to copy and a longer history.
+    Chat,
     /// Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.
     Cosmetics,
 }
 
 impl ModId {
     /// Every mod id, in registry order.
-    pub const ALL: [ModId; 30] = [
+    pub const ALL: [ModId; 45] = [
         ModId::Fps,
         ModId::Keystrokes,
         ModId::Cps,
@@ -130,6 +163,21 @@ impl ModId {
         ModId::DamageTint,
         ModId::OldAnimations,
         ModId::OldInput,
+        ModId::Culling,
+        ModId::Particles,
+        ModId::FrameLimiter,
+        ModId::BlockOutline,
+        ModId::ShinyPots,
+        ModId::ClearGlass,
+        ModId::Nametags,
+        ModId::Scoreboard,
+        ModId::GuiScale,
+        ModId::Fog,
+        ModId::MenuBlur,
+        ModId::TimeWeather,
+        ModId::PotionCounter,
+        ModId::Reach,
+        ModId::Chat,
         ModId::Cosmetics,
     ];
 
@@ -165,12 +213,27 @@ impl ModId {
             ModId::DamageTint => "damage_tint",
             ModId::OldAnimations => "old_animations",
             ModId::OldInput => "old_input",
+            ModId::Culling => "culling",
+            ModId::Particles => "particles",
+            ModId::FrameLimiter => "frame_limiter",
+            ModId::BlockOutline => "block_outline",
+            ModId::ShinyPots => "shiny_pots",
+            ModId::ClearGlass => "clear_glass",
+            ModId::Nametags => "nametags",
+            ModId::Scoreboard => "scoreboard",
+            ModId::GuiScale => "gui_scale",
+            ModId::Fog => "fog",
+            ModId::MenuBlur => "menu_blur",
+            ModId::TimeWeather => "time_weather",
+            ModId::PotionCounter => "potion_counter",
+            ModId::Reach => "reach",
+            ModId::Chat => "chat",
             ModId::Cosmetics => "cosmetics",
         }
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `hud`: the 16 mods that own a draggable HUD item.
+/// The subset of [`ModId`] whose `kind` is `hud`: the 19 mods that own a draggable HUD item.
 ///
 /// A mod may only appear in `loadout.hud` if it is listed here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -204,15 +267,21 @@ pub enum HudModId {
     Memory,
     /// The host you are actually connected to.
     ServerAddress,
-    /// How many of the item in your hand you have left.
+    /// How many of the item in your hand, or a chosen item, you have left.
     ItemCounter,
     /// A manual timer, started and zeroed from the keyboard.
     Stopwatch,
+    /// The server's sidebar scoreboard, redrawn as a HUD chip you can move, scale or hide.
+    Scoreboard,
+    /// Healing potions or soup left in your inventory.
+    PotionCounter,
+    /// How far away your last hit landed, in blocks.
+    Reach,
 }
 
 impl HudModId {
     /// Every HUD mod id, in registry order.
-    pub const ALL: [HudModId; 16] = [
+    pub const ALL: [HudModId; 19] = [
         HudModId::Fps,
         HudModId::Keystrokes,
         HudModId::Cps,
@@ -229,6 +298,9 @@ impl HudModId {
         HudModId::ServerAddress,
         HudModId::ItemCounter,
         HudModId::Stopwatch,
+        HudModId::Scoreboard,
+        HudModId::PotionCounter,
+        HudModId::Reach,
     ];
 
     /// Widens to the full mod id enum.
@@ -250,6 +322,9 @@ impl HudModId {
             HudModId::ServerAddress => ModId::ServerAddress,
             HudModId::ItemCounter => ModId::ItemCounter,
             HudModId::Stopwatch => ModId::Stopwatch,
+            HudModId::Scoreboard => ModId::Scoreboard,
+            HudModId::PotionCounter => ModId::PotionCounter,
+            HudModId::Reach => ModId::Reach,
         }
     }
 
@@ -264,7 +339,7 @@ impl HudModId {
     }
 }
 
-/// The subset of [`ModId`] whose `kind` is `gameplay`: the 14 mods an actuator Mixin reads
+/// The subset of [`ModId`] whose `kind` is `gameplay`: the 26 mods an actuator Mixin reads
 /// every frame.
 ///
 /// These are the only ids accepted by `void.setGameplay`.
@@ -277,7 +352,7 @@ pub enum GameplayModId {
     Fullbright,
     /// Draws entity bounding boxes.
     Hitboxes,
-    /// Narrows FOV while the zoom key is held.
+    /// Narrows FOV while the zoom key is held; the mouse wheel adjusts it.
     Zoom,
     /// Replaces the vanilla crosshair with a configurable one at the exact screen centre.
     Crosshair,
@@ -299,13 +374,40 @@ pub enum GameplayModId {
     /// Removes the input interlocks 1.8 added, so a click is not swallowed by what your other
     /// hand is doing.
     OldInput,
+    /// Skips drawing entities and chests, signs and banners that are hidden behind walls or too
+    /// far away.
+    Culling,
+    /// Caps live particles, skips the ones outside your view, and thins out block-break and
+    /// explosion bursts.
+    Particles,
+    /// Lowers the frame rate while the game is in the background, in a menu, or minimised.
+    FrameLimiter,
+    /// Recolours, thickens, fills or removes the outline on the block you are looking at.
+    BlockOutline,
+    /// Gives every potion a strong enchantment glint so pots read at a glance in the hotbar.
+    ShinyPots,
+    /// Draws glass as clear air, without a resource pack.
+    ClearGlass,
+    /// Shows your own nametag in third person and restyles every nametag's background, size and
+    /// shadow.
+    Nametags,
+    /// Sizes the hotbar and inventories independently of Minecraft's GUI scale.
+    GuiScale,
+    /// Reduces or removes distance, water and lava fog. Blindness is never touched.
+    Fog,
+    /// Blurs the world behind inventories, chests and the pause menu.
+    MenuBlur,
+    /// Fixes the time of day and clears the rain, on your screen only.
+    TimeWeather,
+    /// Timestamps, stacked repeats, click to copy and a longer history.
+    Chat,
     /// Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.
     Cosmetics,
 }
 
 impl GameplayModId {
     /// Every gameplay mod id, in registry order.
-    pub const ALL: [GameplayModId; 14] = [
+    pub const ALL: [GameplayModId; 26] = [
         GameplayModId::ToggleSprint,
         GameplayModId::Fullbright,
         GameplayModId::Hitboxes,
@@ -319,6 +421,18 @@ impl GameplayModId {
         GameplayModId::DamageTint,
         GameplayModId::OldAnimations,
         GameplayModId::OldInput,
+        GameplayModId::Culling,
+        GameplayModId::Particles,
+        GameplayModId::FrameLimiter,
+        GameplayModId::BlockOutline,
+        GameplayModId::ShinyPots,
+        GameplayModId::ClearGlass,
+        GameplayModId::Nametags,
+        GameplayModId::GuiScale,
+        GameplayModId::Fog,
+        GameplayModId::MenuBlur,
+        GameplayModId::TimeWeather,
+        GameplayModId::Chat,
         GameplayModId::Cosmetics,
     ];
 
@@ -338,6 +452,18 @@ impl GameplayModId {
             GameplayModId::DamageTint => ModId::DamageTint,
             GameplayModId::OldAnimations => ModId::OldAnimations,
             GameplayModId::OldInput => ModId::OldInput,
+            GameplayModId::Culling => ModId::Culling,
+            GameplayModId::Particles => ModId::Particles,
+            GameplayModId::FrameLimiter => ModId::FrameLimiter,
+            GameplayModId::BlockOutline => ModId::BlockOutline,
+            GameplayModId::ShinyPots => ModId::ShinyPots,
+            GameplayModId::ClearGlass => ModId::ClearGlass,
+            GameplayModId::Nametags => ModId::Nametags,
+            GameplayModId::GuiScale => ModId::GuiScale,
+            GameplayModId::Fog => ModId::Fog,
+            GameplayModId::MenuBlur => ModId::MenuBlur,
+            GameplayModId::TimeWeather => ModId::TimeWeather,
+            GameplayModId::Chat => ModId::Chat,
             GameplayModId::Cosmetics => ModId::Cosmetics,
         }
     }
@@ -414,6 +540,9 @@ impl Registry {
             HudModId::ServerAddress => self.mods.server_address.default_placement,
             HudModId::ItemCounter => self.mods.item_counter.default_placement,
             HudModId::Stopwatch => self.mods.stopwatch.default_placement,
+            HudModId::Scoreboard => self.mods.scoreboard.default_placement,
+            HudModId::PotionCounter => self.mods.potion_counter.default_placement,
+            HudModId::Reach => self.mods.reach.default_placement,
         };
         entry.expect("schema/mods.json requires default_placement on every kind: hud entry")
     }
@@ -683,6 +812,47 @@ pub enum ServerAddressStyle {
     Full,
 }
 
+/// What the chip counts. `held_stack` is the stack in your hand; `held_total` is every stack in
+/// the inventory matching the held item; the rest count that item across the whole inventory
+/// whatever you are holding. `wool` is every colour together. Healing potions and soup are the
+/// Potion counter's.
+///
+/// `mods.json#/definitions/item_counter_settings/properties/track`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemCounterTrack {
+    /// `held_stack` is the stack in your hand.
+    HeldStack,
+    /// `held_total` is every stack in the inventory matching the held item.
+    HeldTotal,
+    /// `ender_pearl`.
+    EnderPearl,
+    /// `golden_apple`.
+    GoldenApple,
+    /// `arrow`.
+    Arrow,
+    /// `snowball`.
+    Snowball,
+    /// `egg`.
+    Egg,
+    /// `cobweb`.
+    Cobweb,
+    /// `wool` is every colour together.
+    Wool,
+    /// `tnt`.
+    Tnt,
+    /// `fire_charge`.
+    FireCharge,
+    /// `iron_ingot`.
+    IronIngot,
+    /// `gold_ingot`.
+    GoldIngot,
+    /// `diamond`.
+    Diamond,
+    /// `emerald`.
+    Emerald,
+}
+
 /// How the elapsed time is written. `auto` grows the field as the clock does — `4:07` until an
 /// hour has passed and `1:04:07` after — which keeps the chip as narrow as the reading allows
 /// and is right for almost everyone. `mmss` pins it to minutes and seconds and lets the minutes
@@ -847,6 +1017,94 @@ pub enum OldAnimationsBlockHit {
     OneSeven,
 }
 
+/// What is drawn round the targeted block. `outline` is vanilla's box in your colour; `fill`
+/// shades the faces and drops the lines; `both` does both; `none` draws nothing, for players
+/// who aim off the crosshair alone.
+///
+/// `mods.json#/definitions/block_outline_settings/properties/outline_style`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BlockOutlineOutlineStyle {
+    /// `outline` is vanilla's box in your colour.
+    Outline,
+    /// `fill` shades the faces and drops the lines.
+    Fill,
+    /// `both` does both.
+    Both,
+    /// `none` draws nothing, for players who aim off the crosshair alone.
+    None,
+}
+
+/// Fog at the edge of your render distance, and the thick fog of the nether. `reduced` starts
+/// it at the last chunk rather than three quarters of the way out.
+///
+/// `mods.json#/definitions/fog_settings/properties/distance_fog`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FogDistanceFog {
+    /// `vanilla`.
+    Vanilla,
+    /// `reduced` starts it at the last chunk rather than three quarters of the way out.
+    Reduced,
+    /// `off`.
+    Off,
+}
+
+/// Fog while your head is under water. `reduced` is roughly what Respiration III gives.
+///
+/// `mods.json#/definitions/fog_settings/properties/water_fog`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FogWaterFog {
+    /// `vanilla`.
+    Vanilla,
+    /// `reduced` is roughly what Respiration III gives.
+    Reduced,
+    /// `off`.
+    Off,
+}
+
+/// Fog while your head is in lava. `vanilla` by default: seeing out of lava is the clearest
+/// advantage on this page.
+///
+/// `mods.json#/definitions/fog_settings/properties/lava_fog`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FogLavaFog {
+    /// `vanilla` by default.
+    Vanilla,
+    /// `reduced`.
+    Reduced,
+    /// `off`.
+    Off,
+}
+
+/// What is counted: splash potions of Healing, bowls of mushroom stew, or both side by side.
+///
+/// `mods.json#/definitions/potion_counter_settings/properties/track`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PotionCounterTrack {
+    /// `health_potion`.
+    HealthPotion,
+    /// `soup`.
+    Soup,
+    /// `both`.
+    Both,
+}
+
+/// Which figure is drawn: the last landed hit, or the mean of the last ten.
+///
+/// `mods.json#/definitions/reach_settings/properties/mode`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReachMode {
+    /// `last`.
+    Last,
+    /// `average`.
+    Average,
+}
+
 // ---------------------------------------------------------------------------
 // per-mod settings
 // ---------------------------------------------------------------------------
@@ -992,6 +1250,16 @@ pub struct KeystrokesSettings {
     /// offers. `accent` follows the loadout accent, which is the frame's default.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pressed_color: Option<PressedSwatch>,
+
+    /// Whether keys ease between the resting and pressed treatment instead of switching on the
+    /// frame. The press itself is always immediate; this only shapes the release.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub animate: Option<bool>,
+
+    /// How long a released key takes to fade back to rest, in milliseconds, when `animate` is
+    /// on. Long fades read as a trail of recent presses; short ones as a crisp tap.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fade_ms: Option<i64>,
 }
 
 /// CPS counter settings.
@@ -1056,6 +1324,14 @@ pub struct CpsSettings {
     /// never sits still long enough to show.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_peak: Option<bool>,
+
+    /// Whether only clicks the game acted on are counted. A left click swallowed by 1.8's miss
+    /// delay, or made while a screen was open, is a press of the button but not a swing, and
+    /// with this on it does not count. Left button only; right clicks are always counted as
+    /// pressed. Fed by `hits.swings` on the tick payload rather than by the mouse edge, so a
+    /// counted click is one `doAttack` ran for.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ignore_cancelled: Option<bool>,
 }
 
 /// Ping display settings.
@@ -1117,6 +1393,33 @@ pub struct PingSettings {
     /// most often.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_host: Option<bool>,
+
+    /// Whether the rolling average of the last `window` readings is drawn as a trailing aside,
+    /// `avg 54`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_average: Option<bool>,
+
+    /// Whether jitter is drawn as a trailing aside, `±7`: the mean change between consecutive
+    /// readings over the last `window`. A steady 90 ms plays better than a 40 ms that swings by
+    /// 30, and only this figure tells the two apart.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_jitter: Option<bool>,
+
+    /// Jitter at or above this many milliseconds draws in the warn treatment. 0 disables the
+    /// warning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jitter_warn_ms: Option<i64>,
+
+    /// A reading this many milliseconds above the rolling average counts as a spike and briefly
+    /// marks the chip. 0 disables spike detection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spike_ms: Option<i64>,
+
+    /// How many readings the average, the jitter and the spike baseline are taken over. The
+    /// server sends a new latency every few seconds, so 10 readings is roughly the last half
+    /// minute.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub window: Option<i64>,
 }
 
 /// Coordinates settings.
@@ -1295,6 +1598,17 @@ pub struct PotionEffectsSettings {
     /// Whether to omit ambient effects such as a beacon aura from the list.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hide_ambient: Option<bool>,
+
+    /// Effects never listed, as a bit mask over vanilla's status effect ids: bit 1 is Speed,
+    /// bit 16 Night Vision, up to bit 23 Saturation. Set from the settings page's effect chips
+    /// rather than by hand. 0 lists everything.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hidden_effects: Option<i64>,
+
+    /// An effect with this many seconds or fewer left blinks, once a second, on the tick that
+    /// redraws its timer. 0 disables blinking.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blink_below_s: Option<i64>,
 }
 
 /// VOID watermark settings.
@@ -1435,6 +1749,21 @@ pub struct HitboxesSettings {
     /// next, which is a decision made mid-match rather than in a menu.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keybind: Option<Keybind>,
+
+    /// Whether a box changes colour with what you can do to its entity: `damaged_color` while
+    /// it is in its hurt animation, `hittable_color` while your crosshair is on it within
+    /// attack range, and `color` otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_colors: Option<bool>,
+
+    /// Box colour for the entity your crosshair is on, when `state_colors` is on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hittable_color: Option<HexColor>,
+
+    /// Box colour for an entity in its hurt animation, when `state_colors` is on. Takes
+    /// precedence over `hittable_color`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub damaged_color: Option<HexColor>,
 }
 
 /// Zoom settings.
@@ -1462,6 +1791,18 @@ pub struct ZoomSettings {
     /// Whether smooth-camera mouse damping is applied while zoomed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cinematic: Option<bool>,
+
+    /// Whether the mouse wheel changes the zoom while the key is held, between 1.1x and 10x in
+    /// multiplicative steps. The hotbar does not scroll while this is in use, and the level
+    /// goes back to `fov_divisor` on release. Eased when `smooth` is on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scroll_adjust: Option<bool>,
+
+    /// Whether mouse sensitivity is scaled down with the zoom, so a flick moves the crosshair
+    /// across the same share of the screen zoomed as unzoomed. Off is vanilla: at 4x every
+    /// mouse movement turns the view four times as far across what you can see.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale_sensitivity: Option<bool>,
 }
 
 /// Crosshair settings.
@@ -1922,17 +2263,15 @@ pub struct ServerAddressSettings {
 
 /// Item counter settings.
 ///
-/// Settings for the Item counter HUD mod. Reads `held_count` off the tick payload, which is the
-/// stack size of the **held** item and nothing else. Be clear about the scope, because the name
-/// is borrowed from mods that do more: Lunar's and Badlion's item counters track a *chosen*
-/// item across the whole inventory — tell it pearls, and it counts your pearls whether or not
-/// they are in your hand. This one counts the hand, because `held_count` is the sensor that
-/// exists. It answers "how many blocks are left" while you are bridging with them and "how many
-/// gapples" while you are holding one; it does not answer "how many pearls do I have" while you
-/// are holding a sword. An inventory-wide counter needs a slot-scanning sensor and a way to
-/// pick the item it watches, and neither exists yet; when they do, that is a superset of this
-/// mod rather than a rewrite of it. The stack size is value-checked at the sensor rather than
-/// rate-limited: it changes on use, not on a clock, so every push is news.
+/// Settings for the Item counter HUD mod. `track` picks what is counted. `held_stack` is the
+/// stack in the hand (`held_count` on the tick payload) and is the default, because it is what
+/// the chip has always shown. Every other value reads `counts`, the inventory-wide sensor:
+/// `held_total` adds up every stack in the inventory that matches the held item (same item,
+/// same variant, so white wool is not red wool), and the named items count that item wherever
+/// it is, whether or not it is in your hand. That last group is the Lunar and Badlion meaning
+/// of an item counter: tell it pearls and it counts your pearls while you hold a sword. The
+/// counts are value-checked at the sensor rather than rate-limited: they change on use and
+/// pickup, not on a clock, so every push is news.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ItemCounterSettings {
@@ -1986,6 +2325,13 @@ pub struct ItemCounterSettings {
     /// ceiling is 64: a full stack, above which the warning would be permanently on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub low_threshold: Option<i64>,
+
+    /// What the chip counts. `held_stack` is the stack in your hand; `held_total` is every
+    /// stack in the inventory matching the held item; the rest count that item across the whole
+    /// inventory whatever you are holding. `wool` is every colour together. Healing potions and
+    /// soup are the Potion counter's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub track: Option<ItemCounterTrack>,
 }
 
 /// Stopwatch settings.
@@ -2552,6 +2898,598 @@ pub struct OldInputSettings {
     pub no_miss_delay: Option<bool>,
 }
 
+/// Entity culling settings.
+///
+/// Settings for the Entity culling gameplay mod — the FPS boost. A background thread casts rays
+/// from the camera through the block grid to each entity and block entity in view, and the
+/// render pass skips anything no ray reaches through air. Results trail the camera by one pass
+/// (a few milliseconds), so everything within `always_draw_within` is drawn regardless — a
+/// player who steps round a corner beside you is never one pass late. The distance cut-offs are
+/// plain distance culling on top, for the cheap-but-numerous things a lobby is full of. Turns
+/// itself off for occlusion in third person, where the camera is not where the rays start;
+/// distance culling still applies.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CullingSettings {
+    /// Whether entity and block-entity culling is enabled.
+    pub on: bool,
+
+    /// Whether mobs, players, items and other entities that no ray from the camera can reach
+    /// are skipped. The bulk of the win in a crowded lobby. Never culls the entity you are
+    /// riding or your own player.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub occlude_entities: Option<bool>,
+
+    /// Whether chests, signs, banners, skulls and the other tile entities that no ray reaches
+    /// are skipped. Tile entities are the expensive half of a 1.8.9 frame in a built-up map —
+    /// every chest is a model drawn every frame — so this is on by default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub occlude_block_entities: Option<bool>,
+
+    /// Radius in blocks inside which nothing is ever occlusion-culled. The ray test runs on its
+    /// own thread and its answer is one pass old by the time a frame reads it; inside this
+    /// radius that lag could show as a player appearing a moment after stepping into view, so
+    /// the test is not consulted at all. 4 covers melee range with a margin.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub always_draw_within: Option<i64>,
+
+    /// Whether a culled entity still draws its nametag. Vanilla draws a player's name through
+    /// walls (unless they sneak), so culling the body must not take the name with it — on by
+    /// default, which keeps exactly what vanilla shows. Off also skips the label of anything
+    /// culled, which is a little faster and shows less than vanilla, never more.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nametags_through_walls: Option<bool>,
+
+    /// Farthest a tile entity is drawn, in blocks. 64 is vanilla's own limit, so the default
+    /// changes nothing; lower it on a weak machine in chest-heavy maps.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block_entity_distance: Option<i64>,
+
+    /// Farthest an armour stand is drawn, in blocks. Lobby holograms are stacks of invisible
+    /// armour stands with a name each, and hundreds of them is common. 64 is vanilla; lowering
+    /// it hides far hologram text along with the stands.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub armor_stand_distance: Option<i64>,
+
+    /// Farthest the item inside an item frame is drawn, in blocks. The frame itself is
+    /// unaffected. 64 is vanilla.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub item_frame_distance: Option<i64>,
+
+    /// Farthest a sign's text is drawn, in blocks; the board is drawn to the tile-entity
+    /// distance either way. Sign text is a font draw per line per sign per frame, and past
+    /// about 32 blocks a line of it is two or three pixels tall at 1080p — unreadable, but
+    /// still paid for. 32 by default for that reason; 64 is vanilla.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sign_text_distance: Option<i64>,
+}
+
+/// Particle limiter settings.
+///
+/// Settings for the Particle limiter gameplay mod. Vanilla builds the vertices of every live
+/// particle every frame, including the half behind you, and a TNT run or a Bedwars bed break
+/// can put thousands on screen at once. `frustum_cull` is free — a particle outside the view
+/// cone is never seen — and is the default win. The two fractions thin a burst at the moment it
+/// is spawned; they only ever remove particles, never add one, which is the direction Hypixel's
+/// allowlist has no objection to. Crit, sharpness and hit particles are untouched by both: they
+/// are the cue that a hit landed.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ParticlesSettings {
+    /// Whether the particle limiter is enabled.
+    pub on: bool,
+
+    /// Whether particles outside the camera's view cone skip their draw. Invisible by
+    /// construction, which is why it is on by default and why it is a switch rather than a
+    /// number.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frustum_cull: Option<bool>,
+
+    /// Most particles alive per render layer; when full, the oldest goes first, exactly as
+    /// vanilla does at its own limit. 4000 is vanilla's limit, so the default changes nothing —
+    /// lower it if explosions stall your frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub particle_cap: Option<i64>,
+
+    /// Fraction of block-break and block-hit particles kept. 1 is vanilla's 64-piece burst; 0
+    /// breaks blocks with no debris. A bridging or Bedwars player breaks hundreds of blocks a
+    /// game and every one used to spawn 64 particles.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block_break_particles: Option<f64>,
+
+    /// Fraction of explosion particles kept — TNT, fireballs and creepers. 1 is vanilla. The
+    /// blast itself, its sound and its knockback are untouched; only the smoke is thinned.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub explosion_particles: Option<f64>,
+}
+
+/// Frame limiter settings.
+///
+/// Settings for the Frame limiter gameplay mod. None of these caps ever applies while you are
+/// in the world with the window focused — that frame rate is the one you set in Minecraft's
+/// options, untouched. Vanilla 1.8.9 renders a backgrounded or minimised window as fast as it
+/// can, so a game left on a second monitor heats the GPU the player is about to need for
+/// something else. The menu cap covers the title screen, the server list and the pause menu; it
+/// never covers an inventory or a chest, because the fight carries on behind those.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FrameLimiterSettings {
+    /// Whether the frame limiter is enabled.
+    pub on: bool,
+
+    /// Frame cap while the game window does not have focus. 30 keeps a game on a second monitor
+    /// watchable while giving most of the GPU back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unfocused_fps: Option<i64>,
+
+    /// Frame cap on the title screen, the server list and the pause menu. Vanilla already holds
+    /// the title screen at 30; 60 is smoother than that and still a fraction of an uncapped
+    /// menu.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub menu_fps: Option<i64>,
+
+    /// Whether a minimised window drops to 5 frames a second. Nothing is visible, so nothing is
+    /// lost; sound and the connection carry on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub idle_minimized: Option<bool>,
+}
+
+/// Block outline settings.
+///
+/// Settings for the Block outline gameplay mod. It restyles the box vanilla already draws round
+/// the targeted block — same block, same shape, same moment — and nothing else; it never
+/// outlines a block the game would not, so it says nothing the vanilla outline did not. `kind:
+/// gameplay` for `hitboxes`' reason: it is a world mark, not a placeable HUD item.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BlockOutlineSettings {
+    /// Whether the block outline is restyled.
+    pub on: bool,
+
+    /// What is drawn round the targeted block. `outline` is vanilla's box in your colour;
+    /// `fill` shades the faces and drops the lines; `both` does both; `none` draws nothing, for
+    /// players who aim off the crosshair alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outline_style: Option<BlockOutlineOutlineStyle>,
+
+    /// Colour of the outline, alpha included. Vanilla's is black at 40%, which disappears
+    /// against obsidian, coal and every dark wool — the near-white default reads on all of
+    /// them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outline_color: Option<HexColor>,
+
+    /// Line width in screen pixels. Vanilla's is 2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outline_width: Option<f64>,
+
+    /// Colour of the face shading when `outline_style` is `fill` or `both`, alpha included.
+    /// Keep the alpha low: a fill is drawn over the block's own texture.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill_color: Option<HexColor>,
+}
+
+/// Shiny pots settings.
+///
+/// Settings for the Shiny pots gameplay mod. 1.8.9 gives a potion the glint only when its
+/// effect list resolves, at vanilla strength, so on a busy hotbar a pot reads no differently
+/// from a water bottle. This draws the same glint pass vanilla uses, more times and on every
+/// potion, and can tint it with the potion's own colour. Purely the item's look: it changes
+/// nothing about which potion is which or what is in your inventory.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShinyPotsSettings {
+    /// Whether potions are drawn with a stronger glint.
+    pub on: bool,
+
+    /// Whether potions with no listed effect — water bottles, and server pots whose effects
+    /// live only in their lore — glint too. On by default: on most servers that is exactly the
+    /// pot you were trying to find.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub all_potions: Option<bool>,
+
+    /// How many times the glint is laid over a potion. 1 is vanilla's strength; 2 is the
+    /// classic 1.7 look; 3 is as shiny as it gets before the item's own colour washes out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub glint_passes: Option<i64>,
+
+    /// Whether the glint takes the potion's own liquid colour instead of vanilla's purple, so a
+    /// healing pot shimmers red and a speed pot blue.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tint_glint: Option<bool>,
+}
+
+/// Clear glass settings.
+///
+/// Settings for the Clear glass gameplay mod. Glass in 1.8.9 is a cut-out texture whose frame
+/// and streaks cover a quarter of what is behind it; this skips glass when chunks are built, so
+/// the block is still there, still solid and still targetable — the block outline still finds
+/// it — but nothing is drawn. It is what a clear-glass resource pack does, without the pack.
+/// Changing a setting rebuilds the loaded chunks once.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ClearGlassSettings {
+    /// Whether glass is drawn clear.
+    pub on: bool,
+
+    /// Whether glass panes are cleared as well as full glass blocks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clear_panes: Option<bool>,
+
+    /// Whether stained glass is cleared too. Off by default: stained glass carries team colour
+    /// in Bedwars and bases, and clearing it would throw that away.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clear_stained: Option<bool>,
+}
+
+/// Nametags settings.
+///
+/// Settings for the Nametags gameplay mod. Restyles the label vanilla already draws over a
+/// player or named mob — the same labels, at the same moments, through the same walls — so it
+/// never shows a name the game would not. `tag_scale` tops out at 1.5 for that reason: a bigger
+/// label is legible farther, but it cannot appear anywhere vanilla's would not.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NametagsSettings {
+    /// Whether nametags are restyled.
+    pub on: bool,
+
+    /// Whether your own nametag is drawn over your head in third person. Vanilla never draws
+    /// it; on by default because that is the one thing players switch this mod on for.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_own: Option<bool>,
+
+    /// Whether other players' and named mobs' nametags are hidden. Armour stands are exempt:
+    /// lobby holograms are stacks of named stands, and they are world text rather than
+    /// nametags. Off by default — a name is how you tell a teammate from an enemy — and on for
+    /// recording and for crowded lobbies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hide_others: Option<bool>,
+
+    /// Alpha of the dark plate behind each name. 0.25 is vanilla's; 0 draws the text alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_background: Option<f64>,
+
+    /// Size of every nametag as a multiple of vanilla's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_scale: Option<f64>,
+
+    /// Whether the name is drawn with Minecraft's text shadow, which keeps it legible against
+    /// sky and snow. Vanilla draws it without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tag_shadow: Option<bool>,
+}
+
+/// Scoreboard settings.
+///
+/// Settings for the Scoreboard HUD mod. Reads the sidebar objective the server set — title,
+/// lines and scores — exactly as vanilla would draw it, team prefixes and suffixes included,
+/// and draws it on the HUD where the editor puts it. It adds nothing the sidebar did not say.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ScoreboardSettings {
+    /// Whether the scoreboard is drawn by VOID.
+    pub on: bool,
+
+    /// Size multiplier of the scoreboard.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the scoreboard.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the scoreboard, as a step on the system's own scale rather than a
+    /// colour. `none` is the vanilla treatment and the default — the readout sits on the game.
+    /// `subtle` is the card ground at low alpha, which is enough to hold a chip together over a
+    /// busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read
+    /// as a panel. A step rather than a hex value because a per-mod background colour is what
+    /// §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the scoreboard, at the system's own `--border-panel`
+    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
+    /// edge either separates the chip from the game or it does not, and the one useful answer
+    /// is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the scoreboard — the inset between its content and its edge, as one of three
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// Whether the scoreboard is hidden entirely — vanilla's and this one. For recording, and
+    /// for servers whose sidebar is an advert.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hidden: Option<bool>,
+
+    /// Whether each line's score is drawn at its right edge. Off by default: on nearly every
+    /// server the score is a sort key the server uses to order the lines, the red numbers carry
+    /// no meaning, and hiding them is the single most requested scoreboard tweak.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_numbers: Option<bool>,
+
+    /// Whether the objective's title is drawn above the lines.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_title: Option<bool>,
+
+    /// Whether the server's own colour codes are honoured. On by default: on team modes the
+    /// colour is the information. Off draws every line in the HUD's own ink.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_colors: Option<bool>,
+}
+
+/// GUI scale settings.
+///
+/// Settings for the GUI scale gameplay mod. Minecraft has one GUI scale for everything, so at
+/// 1080p the choice is between a hotbar that fills the bottom of the screen and an inventory
+/// too small to read. Each value here is a whole GUI-scale step, exactly like Minecraft's own
+/// setting, so textures stay pixel-crisp; 0 means "follow Minecraft". Like vanilla, a value
+/// larger than the window allows is clamped to the largest that fits.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GuiScaleSettings {
+    /// Whether the hotbar and inventories have their own scale.
+    pub on: bool,
+
+    /// GUI scale step for the hotbar and the health, hunger, armour and experience bars above
+    /// it, which move as one block. 0 follows Minecraft. 2 by default: a compact hotbar at
+    /// 1080p, where Minecraft's own auto scale is 4.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hotbar_scale: Option<i64>,
+
+    /// GUI scale step for the inventory, chests, furnaces and every other container screen. 0
+    /// follows Minecraft. Other menus — chat, the pause menu, VOID's own — are unaffected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inventory_scale: Option<i64>,
+}
+
+/// Fog settings.
+///
+/// Settings for the Fog gameplay mod. Each kind of fog has three steps: `vanilla`, `reduced`
+/// and `off`. Distance fog hides the edge of the loaded world, so turning it off shows the
+/// chunk border instead of a haze — `reduced` pushes the haze out to the edge. Classified
+/// `grey`; see the top of this file.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FogSettings {
+    /// Whether fog is customised.
+    pub on: bool,
+
+    /// Fog at the edge of your render distance, and the thick fog of the nether. `reduced`
+    /// starts it at the last chunk rather than three quarters of the way out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub distance_fog: Option<FogDistanceFog>,
+
+    /// Fog while your head is under water. `reduced` is roughly what Respiration III gives.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub water_fog: Option<FogWaterFog>,
+
+    /// Fog while your head is in lava. `vanilla` by default: seeing out of lava is the clearest
+    /// advantage on this page.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lava_fog: Option<FogLavaFog>,
+}
+
+/// Menu blur settings.
+///
+/// Settings for the Menu blur gameplay mod. Runs the backdrop blur VOID already carries — a
+/// quarter-resolution copy of the frame through a separable Gaussian — under Minecraft's own
+/// screens. Chat and VOID's own menu are not blurred. Costs a few frames a second while a
+/// screen is open and nothing otherwise.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MenuBlurSettings {
+    /// Whether the world is blurred behind menus.
+    pub on: bool,
+
+    /// How soft the blur is, in passes of the Gaussian. 1 is a light softening; 10 is
+    /// unrecognisable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blur_radius: Option<i64>,
+
+    /// Whether the blur eases in over a fifth of a second as the screen opens, rather than
+    /// snapping on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blur_fade: Option<bool>,
+
+    /// How much of vanilla's dark wash is kept over the blur, as a fraction of vanilla's own. 1
+    /// is vanilla's darkness on top of the blur; 0 is the blur alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub menu_dim: Option<f64>,
+}
+
+/// Time & weather settings.
+///
+/// Settings for the Time & weather gameplay mod. Client-side only: the server's clock and
+/// weather are unchanged, mobs still burn when the server says it is day, and nobody else sees
+/// a difference. It changes the sky, the light and the rain you see.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TimeWeatherSettings {
+    /// Whether time and weather are set client-side.
+    pub on: bool,
+
+    /// Whether the time of day is held at `time_ticks` instead of following the server.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lock_time: Option<bool>,
+
+    /// Time of day to hold, in ticks: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time_ticks: Option<i64>,
+
+    /// Whether rain, snow and thunder are hidden. The rain also stops darkening the sky.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clear_weather: Option<bool>,
+}
+
+/// Potion counter settings.
+///
+/// Settings for the Potion counter HUD mod. Reads `counts` on the tick payload, the same
+/// inventory-wide sensor the Item counter's named items use: `health_potion` is every splash
+/// potion of Healing (I and II) in the inventory and `soup` is every bowl of mushroom stew. A
+/// separate mod rather than two more `item_counter.track` values because the two are read at
+/// different moments: the item counter answers what you are building or throwing with, and this
+/// answers how many heals are left, which is the one number a pot or soup fight is decided by
+/// and the one worth a chip of its own.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PotionCounterSettings {
+    /// Whether the potion counter is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the potion chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the potion chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the potion chip, as a step on the system's own scale rather than a
+    /// colour. `none` is the vanilla treatment and the default — the readout sits on the game.
+    /// `subtle` is the card ground at low alpha, which is enough to hold a chip together over a
+    /// busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read
+    /// as a panel. A step rather than a hex value because a per-mod background colour is what
+    /// §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the potion chip, at the system's own `--border-panel`
+    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
+    /// edge either separates the chip from the game or it does not, and the one useful answer
+    /// is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the potion chip — the inset between its content and its edge, as one of three
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// What is counted: splash potions of Healing, bowls of mushroom stew, or both side by
+    /// side.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub track: Option<PotionCounterTrack>,
+
+    /// Whether the count is followed by its unit, `pots` or `soup`. With `both` the units are
+    /// what tell the two figures apart, so they are always drawn there.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+
+    /// A count at or below this many draws in the warn treatment. Unlike the Item counter this
+    /// has a non-zero default, because what is in the slot is known: three heals is low in
+    /// every pot and soup mode. 0 disables the warning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub low_threshold: Option<i64>,
+}
+
+/// Reach display settings.
+///
+/// Settings for the Reach display HUD mod. Reads `reach` on the tick payload. The figure is
+/// measured on the client at the moment the attack is sent: from your eye position,
+/// interpolated to the frame the crosshair ray was cast on, to the exact point where that ray
+/// met the target's hitbox. That is the distance the game itself used to decide the hit, not an
+/// entity-centre distance (which reads about 0.3 blocks long) and not the server's view (which
+/// it never tells the client). Only attacks the hit counter counts as landed are measured, so a
+/// swing at air never moves the number.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReachSettings {
+    /// Whether the reach display is enabled.
+    pub on: bool,
+
+    /// Size multiplier of the reach chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<f64>,
+
+    /// Alpha of the reach chip.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
+
+    /// Ground drawn behind the reach chip, as a step on the system's own scale rather than a
+    /// colour. `none` is the vanilla treatment and the default — the readout sits on the game.
+    /// `subtle` is the card ground at low alpha, which is enough to hold a chip together over a
+    /// busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read
+    /// as a panel. A step rather than a hex value because a per-mod background colour is what
+    /// §1 names as the far side of the line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<HudBackground>,
+
+    /// Whether a hairline is drawn around the reach chip, at the system's own `--border-panel`
+    /// alpha. Boolean rather than a colour or a width for the same reason as `background`: the
+    /// edge either separates the chip from the game or it does not, and the one useful answer
+    /// is already a token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border: Option<bool>,
+
+    /// Density of the reach chip — the inset between its content and its edge, as one of three
+    /// steps. `density` is named in §1 as legitimate customisation, and it is what a player
+    /// actually means by 'make the HUD smaller' when `scale` has already made the text too
+    /// small to read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub padding: Option<HudPadding>,
+
+    /// Digits after the decimal point. Two is the precision the measurement actually has; one
+    /// reads faster, and none is the whole-block figure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decimals: Option<i64>,
+
+    /// Which figure is drawn: the last landed hit, or the mean of the last ten.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<ReachMode>,
+
+    /// Whether the figure is followed by its unit, `blocks`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub show_label: Option<bool>,
+
+    /// Hide the chip this long after the last landed hit; 0 keeps it on screen. A reach figure
+    /// is only interesting while you are trading hits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hide_after_ms: Option<i64>,
+}
+
+/// Chat settings.
+///
+/// Settings for the Chat gameplay mod. Every setting changes how vanilla's own chat (`ChatHud`)
+/// stores and draws messages on this client; nothing is sent, and no message anyone else sees
+/// is altered. With the mod off the chat is vanilla, byte for byte.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ChatSettings {
+    /// Whether the chat changes are enabled.
+    pub on: bool,
+
+    /// Whether each message is prefixed with the time it arrived, `\[14:03]`, in grey.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timestamps: Option<bool>,
+
+    /// Whether a message identical to the one before it replaces it with a count, `(x3)`,
+    /// instead of adding another line. Lobby spam and repeated server notices collapse to one
+    /// line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stack_repeats: Option<bool>,
+
+    /// Whether right-clicking a message in the open chat copies the whole message, without
+    /// colour codes, to the clipboard.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub click_to_copy: Option<bool>,
+
+    /// Opacity of the dark band behind chat lines, as a fraction of the line's own fade. 0.5 is
+    /// vanilla; 0 draws text only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background_opacity: Option<f64>,
+
+    /// How many messages the chat keeps for scrolling back. Vanilla keeps 100.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_length: Option<i64>,
+}
+
 /// Cosmetics settings.
 ///
 /// Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored
@@ -2597,7 +3535,7 @@ pub struct CosmeticsSettings {
 // the registry entries, and the three per-mod dispatches
 // ---------------------------------------------------------------------------
 
-/// Every mod VOID ships, keyed by id. Closed set of 30.
+/// Every mod VOID ships, keyed by id. Closed set of 45.
 ///
 /// `deny_unknown_fields` here is what makes a mod added to `mods.json` but not to this file a
 /// loud failure rather than a silently missing entry.
@@ -2637,7 +3575,7 @@ pub struct ModRegistryEntries {
     /// Hitboxes — Draws entity bounding boxes.
     pub hitboxes: ModEntry<HitboxesSettings>,
 
-    /// Zoom — Narrows FOV while the zoom key is held.
+    /// Zoom — Narrows FOV while the zoom key is held; the mouse wheel adjusts it.
     pub zoom: ModEntry<ZoomSettings>,
 
     /// Crosshair — Replaces the vanilla crosshair with a configurable one at the exact screen
@@ -2663,7 +3601,7 @@ pub struct ModRegistryEntries {
     /// Server address — The host you are actually connected to.
     pub server_address: ModEntry<ServerAddressSettings>,
 
-    /// Item counter — How many of the item in your hand you have left.
+    /// Item counter — How many of the item in your hand, or a chosen item, you have left.
     pub item_counter: ModEntry<ItemCounterSettings>,
 
     /// Stopwatch — A manual timer, started and zeroed from the keyboard.
@@ -2696,6 +3634,58 @@ pub struct ModRegistryEntries {
     /// Old input — Removes the input interlocks 1.8 added, so a click is not swallowed by what
     /// your other hand is doing.
     pub old_input: ModEntry<OldInputSettings>,
+
+    /// Entity culling — Skips drawing entities and chests, signs and banners that are hidden
+    /// behind walls or too far away.
+    pub culling: ModEntry<CullingSettings>,
+
+    /// Particle limiter — Caps live particles, skips the ones outside your view, and thins out
+    /// block-break and explosion bursts.
+    pub particles: ModEntry<ParticlesSettings>,
+
+    /// Frame limiter — Lowers the frame rate while the game is in the background, in a menu, or
+    /// minimised.
+    pub frame_limiter: ModEntry<FrameLimiterSettings>,
+
+    /// Block outline — Recolours, thickens, fills or removes the outline on the block you are
+    /// looking at.
+    pub block_outline: ModEntry<BlockOutlineSettings>,
+
+    /// Shiny pots — Gives every potion a strong enchantment glint so pots read at a glance in
+    /// the hotbar.
+    pub shiny_pots: ModEntry<ShinyPotsSettings>,
+
+    /// Clear glass — Draws glass as clear air, without a resource pack.
+    pub clear_glass: ModEntry<ClearGlassSettings>,
+
+    /// Nametags — Shows your own nametag in third person and restyles every nametag's
+    /// background, size and shadow.
+    pub nametags: ModEntry<NametagsSettings>,
+
+    /// Scoreboard — The server's sidebar scoreboard, redrawn as a HUD chip you can move, scale
+    /// or hide.
+    pub scoreboard: ModEntry<ScoreboardSettings>,
+
+    /// GUI scale — Sizes the hotbar and inventories independently of Minecraft's GUI scale.
+    pub gui_scale: ModEntry<GuiScaleSettings>,
+
+    /// Fog — Reduces or removes distance, water and lava fog. Blindness is never touched.
+    pub fog: ModEntry<FogSettings>,
+
+    /// Menu blur — Blurs the world behind inventories, chests and the pause menu.
+    pub menu_blur: ModEntry<MenuBlurSettings>,
+
+    /// Time & weather — Fixes the time of day and clears the rain, on your screen only.
+    pub time_weather: ModEntry<TimeWeatherSettings>,
+
+    /// Potion counter — Healing potions or soup left in your inventory.
+    pub potion_counter: ModEntry<PotionCounterSettings>,
+
+    /// Reach display — How far away your last hit landed, in blocks.
+    pub reach: ModEntry<ReachSettings>,
+
+    /// Chat — Timestamps, stacked repeats, click to copy and a longer history.
+    pub chat: ModEntry<ChatSettings>,
 
     /// Cosmetics — Capes, wings, hats, halos, trails and emotes, on you and on other VOID
     /// players.
@@ -2770,6 +3760,36 @@ pub struct ModStates {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub old_input: Option<OldInputSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub culling: Option<CullingSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub particles: Option<ParticlesSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame_limiter: Option<FrameLimiterSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block_outline: Option<BlockOutlineSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shiny_pots: Option<ShinyPotsSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clear_glass: Option<ClearGlassSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nametags: Option<NametagsSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scoreboard: Option<ScoreboardSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gui_scale: Option<GuiScaleSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fog: Option<FogSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub menu_blur: Option<MenuBlurSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub time_weather: Option<TimeWeatherSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub potion_counter: Option<PotionCounterSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reach: Option<ReachSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat: Option<ChatSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cosmetics: Option<CosmeticsSettings>,
 }
 
@@ -2806,6 +3826,21 @@ impl Registry {
             ModId::DamageTint => self.mods.damage_tint.info(),
             ModId::OldAnimations => self.mods.old_animations.info(),
             ModId::OldInput => self.mods.old_input.info(),
+            ModId::Culling => self.mods.culling.info(),
+            ModId::Particles => self.mods.particles.info(),
+            ModId::FrameLimiter => self.mods.frame_limiter.info(),
+            ModId::BlockOutline => self.mods.block_outline.info(),
+            ModId::ShinyPots => self.mods.shiny_pots.info(),
+            ModId::ClearGlass => self.mods.clear_glass.info(),
+            ModId::Nametags => self.mods.nametags.info(),
+            ModId::Scoreboard => self.mods.scoreboard.info(),
+            ModId::GuiScale => self.mods.gui_scale.info(),
+            ModId::Fog => self.mods.fog.info(),
+            ModId::MenuBlur => self.mods.menu_blur.info(),
+            ModId::TimeWeather => self.mods.time_weather.info(),
+            ModId::PotionCounter => self.mods.potion_counter.info(),
+            ModId::Reach => self.mods.reach.info(),
+            ModId::Chat => self.mods.chat.info(),
             ModId::Cosmetics => self.mods.cosmetics.info(),
         }
     }
@@ -2844,6 +3879,21 @@ impl Registry {
             ModId::DamageTint => self.mods.damage_tint.defaults_object(),
             ModId::OldAnimations => self.mods.old_animations.defaults_object(),
             ModId::OldInput => self.mods.old_input.defaults_object(),
+            ModId::Culling => self.mods.culling.defaults_object(),
+            ModId::Particles => self.mods.particles.defaults_object(),
+            ModId::FrameLimiter => self.mods.frame_limiter.defaults_object(),
+            ModId::BlockOutline => self.mods.block_outline.defaults_object(),
+            ModId::ShinyPots => self.mods.shiny_pots.defaults_object(),
+            ModId::ClearGlass => self.mods.clear_glass.defaults_object(),
+            ModId::Nametags => self.mods.nametags.defaults_object(),
+            ModId::Scoreboard => self.mods.scoreboard.defaults_object(),
+            ModId::GuiScale => self.mods.gui_scale.defaults_object(),
+            ModId::Fog => self.mods.fog.defaults_object(),
+            ModId::MenuBlur => self.mods.menu_blur.defaults_object(),
+            ModId::TimeWeather => self.mods.time_weather.defaults_object(),
+            ModId::PotionCounter => self.mods.potion_counter.defaults_object(),
+            ModId::Reach => self.mods.reach.defaults_object(),
+            ModId::Chat => self.mods.chat.defaults_object(),
             ModId::Cosmetics => self.mods.cosmetics.defaults_object(),
         }
     }
@@ -2883,6 +3933,21 @@ pub(crate) fn check_settings(id: ModId, value: Value) -> Result<Value, Error> {
         ModId::DamageTint => super::check::<DamageTintSettings>(id, value),
         ModId::OldAnimations => super::check::<OldAnimationsSettings>(id, value),
         ModId::OldInput => super::check::<OldInputSettings>(id, value),
+        ModId::Culling => super::check::<CullingSettings>(id, value),
+        ModId::Particles => super::check::<ParticlesSettings>(id, value),
+        ModId::FrameLimiter => super::check::<FrameLimiterSettings>(id, value),
+        ModId::BlockOutline => super::check::<BlockOutlineSettings>(id, value),
+        ModId::ShinyPots => super::check::<ShinyPotsSettings>(id, value),
+        ModId::ClearGlass => super::check::<ClearGlassSettings>(id, value),
+        ModId::Nametags => super::check::<NametagsSettings>(id, value),
+        ModId::Scoreboard => super::check::<ScoreboardSettings>(id, value),
+        ModId::GuiScale => super::check::<GuiScaleSettings>(id, value),
+        ModId::Fog => super::check::<FogSettings>(id, value),
+        ModId::MenuBlur => super::check::<MenuBlurSettings>(id, value),
+        ModId::TimeWeather => super::check::<TimeWeatherSettings>(id, value),
+        ModId::PotionCounter => super::check::<PotionCounterSettings>(id, value),
+        ModId::Reach => super::check::<ReachSettings>(id, value),
+        ModId::Chat => super::check::<ChatSettings>(id, value),
         ModId::Cosmetics => super::check::<CosmeticsSettings>(id, value),
     }
 }

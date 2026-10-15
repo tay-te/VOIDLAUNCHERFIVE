@@ -293,7 +293,7 @@ describe('Mods screen — the grid, and the page one click away', () => {
     const { container } = render(<App />);
     const overlay = () => container.querySelector('.overlay') as HTMLElement;
     expect(overlay().className).toContain('overlay--grid');
-    // Twenty-nine mods: seven across, five down — the shape that fills the panel, solved from
+    // Forty-four mods: seven across, seven down — the shape that fills the panel, solved from
     // the registry's count and the window and handed to the CSS as lengths. Six across at
     // twelve, seven when the watermark landed, eight at Wave 2's readouts, and seven again now
     // that the cap is seven: past twenty-one no column count fits, so the width stopped being
@@ -302,15 +302,16 @@ describe('Mods screen — the grid, and the page one click away', () => {
     // re-guessed, which is why this is rewritten each time rather than derived away.
     const solved = solveGrid(MOD_ORDER.length, IN_GAME_VIEW.width, IN_GAME_VIEW.height);
     expect(solved.columns).toBe(7);
-    expect(solved.rows).toBe(5);
+    // Wave 7 took it from twenty-nine to forty-four (both halves), and from five rows to seven.
+    expect(solved.rows).toBe(7);
     expect(overlay().style.getPropertyValue('--panel-cols')).toBe('7');
-    expect(overlay().style.getPropertyValue('--panel-rows')).toBe('5');
+    expect(overlay().style.getPropertyValue('--panel-rows')).toBe('7');
     expect(overlay().style.getPropertyValue('--panel-w')).toBe(`${solved.panelW}px`);
     expect(overlay().style.getPropertyValue('--panel-h')).toBe(`${solved.panelH}px`);
     expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${solved.tileW}px`);
     // **Twenty-two is where it flips now.** Three full rows of seven is exactly the panel; the
     // fourth overflows it, so a gutter is held back for the scrollbar and the grid gains
-    // `overlay--scrolls`. Twenty-nine is well past that, and the panel is deliberately sized to
+    // `overlay--scrolls`. Forty-one is well past that, and the panel is deliberately sized to
     // show three of the five rows rather than to hold all of them: the panel is a fixed box
     // rather than the size of the registry, and "does it scroll yet" is the question a fixed box
     // exists to answer. It is answered here, once, in a test with the count in it.
@@ -335,47 +336,51 @@ describe('Mods screen — the grid, and the page one click away', () => {
     set(() => useVoidStore.getState().setLayout('list'));
     expect(overlay().className).toContain('overlay--list');
 
-    // A filter matching two mods must not resize the tiles in the window it is filtering.
+    // A filter matching a handful of mods must not resize the tiles in the window it is
+    // filtering. Utility rather than Visual since Wave 7: Visual now fills two rows of its own.
     set(() => useVoidStore.getState().setLayout('grid'));
-    set(() => useVoidStore.getState().setModFilter('VISUAL'));
+    set(() => useVoidStore.getState().setModFilter('UTILITY'));
     expect(container.querySelectorAll('.mods-row')).toHaveLength(1);
     expect(overlay().style.getPropertyValue('--panel-cols')).toBe('7');
     expect(overlay().style.getPropertyValue('--tile-w')).toBe(`${solved.tileW}px`);
   });
 
   it('walks the grid the way it reads: Left/Right within a row, Up/Down a whole row', () => {
-    // Row-major, so the arrow keys had to change with the fill order. Twenty-nine mods are seven
-    // across: `fps` is index 0, `toggle_sneak` index 6 (end of row one), `old_animations` index 7
-    // (start of row two), `watermark` index 28 (the last, alone on a fifth row).
+    // Row-major, so the arrow keys had to change with the fill order. Read the column count off
+    // the grid rather than writing it down: it is solved from the registry size, and it moved
+    // every time a wave of mods landed (seven across at twenty-nine).
     const { container } = render(<App />);
     const overlay = container.querySelector('.overlay') as HTMLElement;
+    const cols = Number(overlay.style.getPropertyValue('--panel-cols'));
+    expect(cols).toBeGreaterThan(1);
     const at = () => useVoidStore.getState().selectedMod;
     const press = (key: string) => fireEvent.keyDown(overlay, { key });
+    const last = MOD_ORDER[MOD_ORDER.length - 1]!;
 
-    set(() => useVoidStore.getState().selectMod('fps'));
+    set(() => useVoidStore.getState().selectMod(MOD_ORDER[0]!));
     press('ArrowRight');
-    expect(at()).toBe('memory');
+    expect(at()).toBe(MOD_ORDER[1]);
     press('ArrowDown');
-    expect(at()).toBe('old_input'); // index 1 + 7
+    expect(at()).toBe(MOD_ORDER[1 + cols]);
     press('ArrowUp');
-    expect(at()).toBe('memory');
+    expect(at()).toBe(MOD_ORDER[1]);
 
     // A row boundary is a step, not a wall: the grid is one sequence laid out in rows.
-    set(() => useVoidStore.getState().selectMod('old_animations'));
+    set(() => useVoidStore.getState().selectMod(MOD_ORDER[cols - 1]!));
     press('ArrowRight');
-    expect(at()).toBe('old_input');
+    expect(at()).toBe(MOD_ORDER[cols]);
 
     // Both ends clamp rather than wrapping.
-    set(() => useVoidStore.getState().selectMod('fps'));
+    set(() => useVoidStore.getState().selectMod(MOD_ORDER[0]!));
     press('ArrowLeft');
-    expect(at()).toBe('fps');
+    expect(at()).toBe(MOD_ORDER[0]);
     press('ArrowUp');
-    expect(at()).toBe('fps');
-    set(() => useVoidStore.getState().selectMod('watermark'));
+    expect(at()).toBe(MOD_ORDER[0]);
+    set(() => useVoidStore.getState().selectMod(last));
     press('ArrowRight');
-    expect(at()).toBe('watermark');
+    expect(at()).toBe(last);
     press('ArrowDown');
-    expect(at()).toBe('watermark');
+    expect(at()).toBe(last);
 
     // The list is one column of rows: Down is the next mod, and Left/Right have nowhere to go.
     set(() => useVoidStore.getState().setLayout('list'));
@@ -421,8 +426,23 @@ describe('Mods screen — the grid, and the page one click away', () => {
     );
     // The watermark is Visual too — it is a mark drawn over the game, not a readout. `overlay`
     // joined them in Wave 4: it is the mod whose whole subject is what the game draws over you.
-    // `cosmetics` in Wave 7: what this client draws on players, which is nothing but a look.
-    expect(ids.sort()).toEqual(['cosmetics', 'crosshair', 'fullbright', 'overlay', 'watermark']);
+    // Wave 7 added the eight visual table stakes, and `cosmetics`: what this client draws on
+    // players, which is nothing but a look.
+    expect(ids.sort()).toEqual([
+      'block_outline',
+      'clear_glass',
+      'cosmetics',
+      'crosshair',
+      'fog',
+      'fullbright',
+      'gui_scale',
+      'menu_blur',
+      'nametags',
+      'overlay',
+      'shiny_pots',
+      'time_weather',
+      'watermark',
+    ]);
 
     set(() => useVoidStore.getState().setModFilter('all'));
     set(() => useVoidStore.getState().setLayout('list'));
@@ -688,9 +708,9 @@ describe('Mods screen — the grid, and the page one click away', () => {
     expect(useVoidStore.getState().globals).toEqual({
       menuKey: 'F1',
       uiScale: 2,
-      theme: 'void-dark',
-      // Absent from the push, so it keeps the factory value — a partial push must not blank a
+      // Absent from the push, so they keep the factory values — a partial push must not blank a
       // setting, which is what the `?? current` in `applyGlobals` is for.
+      cycleLoadoutKey: 'L',
       hudEditorGrid: 4,
     });
     expect(container.querySelector('.oset__meta')!.textContent).toContain('F1 OPENS');
@@ -832,9 +852,9 @@ describe('The mod page — contract §8', () => {
     // genuinely moved — but it does mean this branch is covered by the gameplay mods alone.
     //
     // It was `toggle_sprint` until `mode` was removed for being provably a no-op, which left
-    // that mod one property and moved it down a structure. `zoom`'s four carry the case now —
-    // not `hitboxes`, which has six and is grouped.
-    open('zoom');
+    // that mod one property and moved it down a structure. It was `zoom` until the wheel and the
+    // sensitivity scaling gave it six; `freelook`'s four carry the case now.
+    open('freelook');
     expect(container.querySelector('[data-structure="flat"]')).not.toBeNull();
     expect(container.querySelectorAll('.mprops__group')).toHaveLength(0);
     expect(container.querySelector('.mprops__cap')).toBeNull();

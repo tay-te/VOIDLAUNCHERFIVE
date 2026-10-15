@@ -3,9 +3,9 @@
  *
  * There are no devtools in game (§9), so the in-game bundle must also run in a normal
  * browser against a fake bridge. This is that fake: it emits realistic `tick`, `keys`,
- * `server`, `session`, `settings`, `loadout`, `cosmetics`, `emote` and `menu` pushes, answers
- * all twelve calls with the same clamping and refusals the Java side applies, and holds a small
- * loadout library, a set of globals and a cosmetics wardrobe.
+ * `server`, `session`, `settings`, `scoreboard`, `loadout`, `cosmetics`, `emote` and `menu`
+ * pushes, answers all twenty-one calls with the same clamping and refusals the Java side applies,
+ * and holds a small loadout library, a set of globals and a cosmetics wardrobe.
  *
  * It is **deterministic**: give it a `seed` and drive it with {@link FakeVoid.advance}
  * and every number it produces is reproducible, which is what makes it usable in tests.
@@ -32,10 +32,13 @@ import type {
   LoadoutId,
   ModId,
   PotionEffect,
+  ScoreboardPayload,
   ServerPayload,
   TickPayload,
+  ToastPayload,
 } from './generated/schema.js';
 import { getModDefaults, isModId } from './mods.js';
+import { decodeShareCode, encodeShareCode } from './share-code.js';
 import type {
   GlobalSettingValue,
   HudPlacement,
@@ -147,6 +150,26 @@ const SETTING_RANGES: Record<string, readonly [number, number]> = {
   line_width: [0.5, 5],
   corner_radius: [0, 20],
   warn_below: [0, 1],
+  // Wave 7 — FPS boost and the visual table stakes. Each pair is its `schema/mods/<id>.json`.
+  always_draw_within: [1, 16],
+  block_entity_distance: [16, 64],
+  armor_stand_distance: [8, 64],
+  item_frame_distance: [8, 64],
+  sign_text_distance: [4, 64],
+  particle_cap: [100, 4000],
+  block_break_particles: [0, 1],
+  explosion_particles: [0, 1],
+  unfocused_fps: [5, 120],
+  menu_fps: [15, 240],
+  outline_width: [0.5, 6],
+  glint_passes: [1, 3],
+  tag_background: [0, 1],
+  tag_scale: [0.5, 1.5],
+  hotbar_scale: [0, 6],
+  inventory_scale: [0, 6],
+  blur_radius: [1, 10],
+  menu_dim: [0, 1],
+  time_ticks: [0, 23999],
 };
 
 const INTEGER_SETTINGS = new Set([
@@ -158,6 +181,19 @@ const INTEGER_SETTINGS = new Set([
   'bad_ms',
   'decimals',
   'corner_radius',
+  'always_draw_within',
+  'block_entity_distance',
+  'armor_stand_distance',
+  'item_frame_distance',
+  'sign_text_distance',
+  'particle_cap',
+  'unfocused_fps',
+  'menu_fps',
+  'glint_passes',
+  'hotbar_scale',
+  'inventory_scale',
+  'blur_radius',
+  'time_ticks',
 ]);
 
 function clampSetting(key: string, value: ModSettingValue): ModSettingValue {
@@ -170,6 +206,15 @@ function clampSetting(key: string, value: ModSettingValue): ModSettingValue {
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
 
+/** `LiveState.MAX_LIBRARY`. */
+const MAX_LIBRARY = 128;
+
+/** `LiveState.cleanName`: trimmed, at most 48 code points, null when nothing is left. */
+function cleanName(name: string): string | null {
+  const trimmed = [...(name ?? '').trim()].slice(0, 48).join('').trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 /** The factory globals: every default `protocol.json#/definitions/global_settings` states. */
 export const FAKE_GLOBAL_SETTINGS: GlobalSettings = Object.freeze({
   menu_key: 'RSHIFT',
@@ -178,6 +223,28 @@ export const FAKE_GLOBAL_SETTINGS: GlobalSettings = Object.freeze({
   ui_scale: 1,
   hud_editor_grid: 4,
 });
+
+/**
+ * A sidebar to draw before a real server sends one: `bridge.json`'s own Bed Wars example, line
+ * for line. Raw `§` codes, a blank spacer line and a bold team letter on every row, because those
+ * are the three things the `scoreboard` widget has to get right and a tidier board would hide all
+ * three. The scores are the sort keys a real server sends — 9 down to 1.
+ */
+export const FAKE_SCOREBOARD: ScoreboardPayload = Object.freeze({
+  visible: true,
+  title: '§e§lBED WARS',
+  lines: [
+    { text: '§710/15/26 §8m512A', score: 9 },
+    { text: '', score: 8 },
+    { text: '§fDiamond II in §a0:42', score: 7 },
+    { text: '§c§lR §fRed: §a✔', score: 6 },
+    { text: '§9§lB §fBlue: §a✔ §7YOU', score: 5 },
+    { text: '§a§lG §fGreen: §c✘', score: 4 },
+    { text: '§e§lY §fYellow: §e2', score: 3 },
+    { text: '', score: 2 },
+    { text: '§ewww.hypixel.net', score: 1 },
+  ],
+}) as ScoreboardPayload;
 
 /** `mods.json#/definitions/keybind`, as an anchored regex. `openKeybindCapture` produces these. */
 const KEYBIND_RE =
@@ -270,6 +337,8 @@ export interface FakeVoidOptions {
   server?: ServerPayload;
   /** Who is playing. Defaults to an offline `Player`. */
   session?: SessionInfo;
+  /** The sidebar. Defaults to {@link FAKE_SCOREBOARD}, the Bed Wars board. */
+  scoreboard?: ScoreboardPayload;
   /** Initial globals. Defaults to {@link FAKE_GLOBAL_SETTINGS}. */
   settings?: GlobalSettings;
   /**
@@ -311,7 +380,7 @@ export interface FakeVoid extends VoidBridge {
   tickOnce(): void;
   /**
    * Push the opening world of state — `loadouts`, `loadout`, `server`, `session`,
-   * `settings`, then `menu` — the way Java does after `init`. {@link FakeVoid.start} calls this once; call it
+   * `settings`, `scoreboard`, then `menu` — the way Java does after `init`. {@link FakeVoid.start} calls this once; call it
    * yourself when you drive the fake with {@link FakeVoid.advance} instead.
    */
   emitInitialState(): void;
@@ -325,6 +394,8 @@ export interface FakeVoid extends VoidBridge {
   getKeys(): KeysPayload;
   /** Set server presence, emitting `server`. */
   setServer(server: ServerPayload): void;
+  /** Replace the sidebar the way Java does when the server rewrites it, emitting `scoreboard`. */
+  setScoreboard(board: ScoreboardPayload): void;
   /** Who is playing. Immutable, like the real one. */
   getSession(): SessionInfo;
   /** The globals as currently stored (a copy). */
@@ -348,6 +419,8 @@ export interface FakeVoid extends VoidBridge {
    * this returns nothing where {@link FakeVoid.applyModSetting} returns the stored value.
    */
   emitModAction(id: ModId, action: string): void;
+  /** Push a `toast` the way Java does for something that happened with the menu closed. */
+  emitToast(toast: ToastPayload): void;
   /** The `cosmetics` payload as it stands — what a reloaded wardrobe would be pushed now. */
   getCosmetics(): CosmeticsPayload;
   /**
@@ -496,6 +569,8 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   const pendingCaptures: Array<(key: Keybind | null) => void> = [];
 
   let menuOpen = options.menuOpen ?? false;
+  /** The harness's clipboard; see `setClipboard`. */
+  let clipboard = '';
   let server: ServerPayload = options.server ?? { host: 'mc.hypixel.net', connected: true };
   const session: SessionInfo = options.session ?? {
     name: 'Player',
@@ -503,6 +578,7 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     kind: 'offline',
   };
   let settings: GlobalSettings = { ...FAKE_GLOBAL_SETTINGS, ...(options.settings ?? {}) };
+  let scoreboard: ScoreboardPayload = structuredCloneish(options.scoreboard ?? FAKE_SCOREBOARD);
 
   // ---- cosmetics: CosmeticState and Emotes, in miniature ---------------------
   //
@@ -592,6 +668,16 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   let fps = 142;
   let ping = 42;
   let pos = { x: 118.0, y: 64.0, z: -212.0, yaw: -45.0 };
+
+  // The depth wave's sensors — `hits.swings`, `reach` and `counts`.
+  /** Left presses seen, and the swings `doAttack` would have run for them. */
+  let presses = 0;
+  let swings = 0;
+  let lastLmb: 0 | 1 = 0;
+  /** `reach.n`, and the `dealt` count it was last advanced at. */
+  let reachN = 0;
+  let reachDealt = 0;
+  let lastCountsSignature = '';
 
   const armor: ArmorSlot[] = [
     { slot: 'helmet', item: 'diamond_helmet', damage: 132, max_damage: 363, count: 1, enchanted: true },
@@ -687,6 +773,15 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     for (const effect of fx) {
       effect.duration_ms = Math.max(0, effect.duration_ms - stepMs);
     }
+
+    // A left press is a swing unless the game swallowed it. Every fifth press lands in 1.8's
+    // miss delay here — deterministic, so the seeded key stream is not disturbed — which is the
+    // gap between presses and swings that `cps.ignore_cancelled` exists to show.
+    if (keys.lmb === 1 && lastLmb === 0) {
+      presses += 1;
+      if (presses % 5 !== 0) swings += 1;
+    }
+    lastLmb = keys.lmb;
   }
 
   /** Build this tick's payload, omitting fields whose sensor has nothing to report. */
@@ -738,10 +833,51 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     // Monotonic, like the real thing. A hit roughly every 700 ms and a hit taken every ~5 s, so
     // a combo builds and then breaks — which is the whole behaviour the combo mod draws, and it
     // would be invisible in a fake that only ever incremented one counter.
+    const dealt = Math.floor(clockMs / 700);
     payload.hits = {
-      dealt: Math.floor(clockMs / 700),
+      dealt,
       taken: Math.floor(clockMs / 5000),
+      swings,
     };
+
+    // A reach reading on the tick each hit lands, and only then — like the sensor. Spread across
+    // a believable 2.5–3.0 so the average and the last figure differ.
+    if (dealt > reachDealt) {
+      reachDealt = dealt;
+      reachN += 1;
+      payload.reach = {
+        blocks: Math.round((2.5 + 0.5 * Math.abs(Math.sin(reachN * 1.7))) * 1000) / 1000,
+        n: reachN,
+      };
+    }
+
+    // Inventory counts, sent whole when any figure moves — like `armor`, this one IS coalesced,
+    // because "absent means unchanged" is the contract a consumer is tested against. Heals run
+    // down to zero and refill so the warn treatment and the zero reading both get exercised;
+    // `held_total` follows the hand and is absent with it.
+    const counts: NonNullable<TickPayload['counts']> = {
+      ender_pearl: 16 - (Math.floor(clockMs / 5000) % 17),
+      golden_apple: 12 - (Math.floor(clockMs / 11000) % 13),
+      arrow: 64,
+      snowball: 32,
+      egg: 16,
+      cobweb: 8,
+      wool: 128,
+      tnt: 4,
+      fire_charge: 6,
+      iron_ingot: 23,
+      gold_ingot: 9,
+      diamond: 5,
+      emerald: 2,
+      health_potion: 8 - (Math.floor(clockMs / 6000) % 9),
+      soup: 6 - (Math.floor(clockMs / 9000) % 7),
+    };
+    if (payload.held_count !== undefined) counts.held_total = payload.held_count + 64;
+    const countsSignature = signature(counts);
+    if (countsSignature !== lastCountsSignature) {
+      lastCountsSignature = countsSignature;
+      payload.counts = counts;
+    }
     return payload;
   }
 
@@ -759,6 +895,30 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
 
   function record<C extends VoidCallEnvelope>(envelope: C): void {
     calls.push(envelope);
+  }
+
+  function emitLibrary(): void {
+    emit({ e: 'loadouts', payload: library.map(structuredCloneish) });
+  }
+
+  /** `LiveState.uniqueId`: the name slugified as Rust's `LoadoutId::slugify`, then `-2`, `-3`… */
+  function uniqueId(name: string): LoadoutId {
+    let base = name
+      .split('')
+      .map((ch) => (/[A-Za-z0-9]/.test(ch) ? ch.toLowerCase() : '-'))
+      .join('')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 48)
+      .replace(/-$/, '');
+    if (base === '') base = 'loadout';
+    const taken = new Set(library.map((l) => l.id));
+    if (!taken.has(base)) return base;
+    for (let n = 2; ; n++) {
+      const suffix = `-${n}`;
+      const stem = base.length + suffix.length > 48 ? base.slice(0, 48 - suffix.length).replace(/-+$/, '') : base;
+      if (!taken.has(stem + suffix)) return stem + suffix;
+    }
   }
 
   function settingsFor(id: Parameters<typeof getModDefaults>[0]): Record<string, unknown> {
@@ -865,6 +1025,104 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       return null;
     },
 
+    // ---- the library: the same rules as `LiveState`, so the harness teaches the real thing.
+
+    createLoadout(name) {
+      record({ c: 'createLoadout', params: [name] });
+      const clean = cleanName(name);
+      if (clean === null || library.length >= MAX_LIBRARY) return null;
+      const created: Loadout = {
+        id: uniqueId(clean),
+        name: clean,
+        icon: 'sword',
+        server: null,
+        mc: '1.8.9',
+        mods: {},
+        hud: structuredCloneish(active.hud),
+      };
+      library.push(created);
+      emitLibrary();
+      return structuredCloneish(created);
+    },
+
+    renameLoadout(id, name) {
+      record({ c: 'renameLoadout', params: [id, name] });
+      const clean = cleanName(name);
+      const target = library.find((l) => l.id === id);
+      if (clean === null || !target) return null;
+      target.name = clean;
+      emitLibrary();
+      if (target === active) emit({ e: 'loadout', payload: structuredCloneish(active) });
+      return clean;
+    },
+
+    duplicateLoadout(id) {
+      record({ c: 'duplicateLoadout', params: [id] });
+      const source = library.find((l) => l.id === id);
+      if (!source || library.length >= MAX_LIBRARY) return null;
+      const name = `${[...source.name].slice(0, 43).join('').trim()} copy`;
+      const copy: Loadout = { ...structuredCloneish(source), id: uniqueId(name), name };
+      delete copy.stats;
+      library.push(copy);
+      emitLibrary();
+      return structuredCloneish(copy);
+    },
+
+    deleteLoadout(id) {
+      record({ c: 'deleteLoadout', params: [id] });
+      const at = library.findIndex((l) => l.id === id);
+      if (at < 0 || library.length <= 1) return false;
+      const wasActive = library[at] === active;
+      library.splice(at, 1);
+      if (wasActive) active = library[0] as Loadout;
+      emitLibrary();
+      if (wasActive) emit({ e: 'loadout', payload: structuredCloneish(active) });
+      return true;
+    },
+
+    exportLoadout(id) {
+      record({ c: 'exportLoadout', params: [id] });
+      const found = library.find((l) => l.id === id);
+      return found ? encodeShareCode(found) : null;
+    },
+
+    importLoadout(code) {
+      record({ c: 'importLoadout', params: [code] });
+      const decoded = decodeShareCode(code);
+      if (!decoded.ok) return { ok: false, error: decoded.error };
+      if (library.length >= MAX_LIBRARY) return { ok: false, error: 'full' };
+      const imported: Loadout = { ...decoded.loadout, id: uniqueId(decoded.loadout.name) };
+      library.push(imported);
+      emitLibrary();
+      return { ok: true, loadout: structuredCloneish(imported), dropped: decoded.dropped };
+    },
+
+    setClipboard(text) {
+      record({ c: 'setClipboard', params: [text] });
+      // The harness keeps its own clipboard (`getClipboard` must answer synchronously, which
+      // the browser's async Clipboard API cannot) and mirrors to the real one when it may.
+      clipboard = text;
+      void (globalThis as { navigator?: { clipboard?: { writeText(t: string): Promise<void> } } })
+        .navigator?.clipboard?.writeText(text)
+        .catch(() => undefined);
+      return true;
+    },
+
+    getClipboard() {
+      record({ c: 'getClipboard', params: [] });
+      return clipboard;
+    },
+
+    setQuickPins(ids) {
+      record({ c: 'setQuickPins', params: [ids] });
+      const stored: ModId[] = [];
+      for (const id of ids) {
+        if (isModId(id) && !stored.includes(id) && stored.length < 8) stored.push(id);
+      }
+      active.quick = stored;
+      return [...stored];
+    },
+
     setSurfaces(surfaces) {
       // The harness has no GL pass, so there is nothing to draw — but recording the call keeps
       // the shape honest for the tests that round-trip every example in bridge.json.
@@ -932,6 +1190,8 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       // world state the page cannot ask for, only be told.
       emit({ e: 'session', payload: { ...session } });
       emit({ e: 'settings', payload: { ...settings } });
+      // Whole state, like Java's first push after `init`: the board as it stands.
+      emit({ e: 'scoreboard', payload: structuredCloneish(scoreboard) });
       // After the loadout and before the menu, where Java's pushWholeState puts it.
       emit({ e: 'cosmetics', payload: cosmeticsPayload() });
       emit({ e: 'menu', payload: menuOpen });
@@ -993,6 +1253,11 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       emit({ e: 'server', payload: { ...server } });
     },
 
+    setScoreboard(next) {
+      scoreboard = structuredCloneish(next);
+      emit({ e: 'scoreboard', payload: structuredCloneish(scoreboard) });
+    },
+
     getSession() {
       return { ...session };
     },
@@ -1015,6 +1280,10 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       settingsFor(id)[key] = applied;
       emit({ e: 'setting', payload: { id, key, value: applied } });
       return applied;
+    },
+
+    emitToast(toast) {
+      emit({ e: 'toast', payload: { ...toast } });
     },
 
     emitModAction(id, action) {
@@ -1110,6 +1379,17 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
           if (event.repeat) return;
           event.preventDefault?.();
           bridge.setMenuOpen(!menuOpen);
+          return;
+        }
+        // The cycle key, with the menu closed — Java's `VoidClient.cycleLoadout`, toast and all.
+        if (event.code === 'KeyL' && !menuOpen && !event.repeat) {
+          const at = library.indexOf(active);
+          const next = library[(at + 1) % library.length] as Loadout;
+          if (next !== active) {
+            active = next;
+            emit({ e: 'loadout', payload: structuredCloneish(active) });
+            bridge.emitToast({ kind: 'loadout', title: active.name, detail: 'Loadout switched' });
+          }
         }
       };
 

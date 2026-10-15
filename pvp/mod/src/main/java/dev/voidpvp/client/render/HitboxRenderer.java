@@ -36,15 +36,16 @@ public final class HitboxRenderer {
     /**
      * Draws one entity's hitbox.
      *
+     * @param argb     the box colour, chosen per entity by {@link HitboxGeometry#boxColor}
+     *                 ({@code state_colors}); the eye line keeps its own colour regardless
      * @param box      the entity's bounding box, already rebased into camera space
      * @param eye      the look ray, or {@code null} when {@code show_eye_line} is off
      */
-    public static void draw(LiveState state, HitboxGeometry.Aabb box,
+    public static void draw(LiveState state, int argb, HitboxGeometry.Aabb box,
                             HitboxGeometry.Edge eye) {
         if (!state.hitboxesOn) {
             return;
         }
-        int argb = state.hitboxColor;
         float a = ((argb >>> 24) & 0xFF) / 255f;
         float r = ((argb >> 16) & 0xFF) / 255f;
         float g = ((argb >> 8) & 0xFF) / 255f;

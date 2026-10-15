@@ -17,5 +17,9 @@ export default defineMod({
   id: 'ping',
   Thumbnail: PingThumbnail,
   Preview: HudPing,
-  previewZoom: 3,
+  // Two, not the chip mods' shared 3. The preview is a band of three chips (one per threshold
+  // band, `HudPing`), each carrying the host and — with `show_average` / `show_jitter` on — two
+  // trailing asides; at 3x the widest of them ran past both edges of the frame and the figure
+  // the settings are about was the part clipped off.
+  previewZoom: 2,
 });

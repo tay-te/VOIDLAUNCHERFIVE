@@ -7,7 +7,7 @@
   "icon": "zoom",
   "the": false,
   "on_description": "zoom is enabled",
-  "description": "Narrows FOV while the zoom key is held.",
+  "description": "Narrows FOV while the zoom key is held; the mouse wheel adjusts it.",
   "settings_title": "Zoom settings",
   "settings_description": "Settings for the Zoom gameplay mod. Overrides FOV while `key` is held.",
   "source": "FOV override while key held",
@@ -16,7 +16,9 @@
     "key": "C",
     "fov_divisor": 4,
     "smooth": true,
-    "cinematic": false
+    "cinematic": false,
+    "scroll_adjust": true,
+    "scale_sensitivity": true
   },
   "settings": {
     "key": {
@@ -40,6 +42,16 @@
       "description": "Whether smooth-camera mouse damping is applied while zoomed.",
       "type": "boolean",
       "default": false
+    },
+    "scroll_adjust": {
+      "description": "Whether the mouse wheel changes the zoom while the key is held, between 1.1x and 10x in multiplicative steps. The hotbar does not scroll while this is in use, and the level goes back to `fov_divisor` on release. Eased when `smooth` is on.",
+      "type": "boolean",
+      "default": true
+    },
+    "scale_sensitivity": {
+      "description": "Whether mouse sensitivity is scaled down with the zoom, so a flick moves the crosshair across the same share of the screen zoomed as unzoomed. Off is vanilla: at 4x every mouse movement turns the view four times as far across what you can see.",
+      "type": "boolean",
+      "default": true
     }
   }
 }

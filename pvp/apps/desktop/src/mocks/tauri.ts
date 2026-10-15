@@ -33,7 +33,8 @@ import {
   PREVIEW_LAST_SESSION,
   SWORD_PVP,
 } from './fixtures';
-import { resolveModSettings } from '@void/protocol';
+import { decodeShareCode, encodeShareCode, resolveModSettings } from '@void/protocol';
+import { createOnlineMock, fakeUuid } from './online';
 import type {
   Account,
   Loadout,
@@ -64,6 +65,8 @@ export function emit(event: string, payload: unknown): void {
 
 interface MockState {
   account: Account | null;
+  /** Every signed-in account; `account` is the active one. */
+  accounts: Account[];
   loadouts: Loadout[];
   settings: Settings;
   running: boolean;
@@ -74,6 +77,7 @@ interface MockState {
 
 const state: MockState = {
   account: null,
+  accounts: [],
   loadouts: [
     structuredClone(SWORD_PVP),
     structuredClone(BEDWARS),
@@ -135,22 +139,41 @@ function seedPreview(): void {
   const force = PREVIEW !== '';
 
   state.account = PREVIEW === 'signedout' ? null : structuredClone(PREVIEW_ACCOUNT);
+  state.accounts = state.account ? [state.account] : [];
 
-  put(
-    'void.friends.v1',
+  // Friends and cosmetics live on the (mock) server now, as they do on the real one: the
+  // stores fetch them once signed in and keep only an offline copy in localStorage. The
+  // backend knows who is online, on which server, and when they were last seen — not which
+  // game mode they are in — so the preview shows exactly that much.
+  online.seed(
     PREVIEW === 'empty'
-      ? { friends: [], incoming: [], outgoing: [] }
+      ? { owned: PREVIEW_COSMETICS.owned, equipped: PREVIEW_COSMETICS.equipped, friends: [], incoming: [] }
       : {
-          ...PREVIEW_FRIENDS,
-          friends: PREVIEW_FRIENDS.friends.map((f) =>
-            'lastSeen' in f.presence && typeof f.presence.lastSeen === 'number'
-              ? { ...f, presence: { ...f.presence, lastSeen: now + f.presence.lastSeen } }
-              : f,
-          ),
+          owned: PREVIEW_COSMETICS.owned,
+          equipped: PREVIEW_COSMETICS.equipped,
+          incoming: PREVIEW_FRIENDS.incoming,
+          friends: PREVIEW_FRIENDS.friends.map((f) => {
+            const p = f.presence as { state: 'online' | 'offline'; server?: string; lastSeen?: number };
+            return {
+              uuid: fakeUuid(f.name),
+              name: f.name,
+              presence: {
+                state: p.state,
+                ...(p.state === 'online' && p.server ? { server: p.server } : {}),
+                ...(typeof p.lastSeen === 'number' ? { last_seen: now + p.lastSeen } : {}),
+              },
+            };
+          }),
         },
-    force,
   );
-  put('void.cosmetics.v1', PREVIEW_COSMETICS, force);
+  if (force) {
+    try {
+      localStorage.removeItem('void.friends.v1');
+      localStorage.removeItem('void.cosmetics.v1');
+    } catch {
+      /* nothing cached */
+    }
+  }
 
   if (PREVIEW === 'first') {
     try {
@@ -178,6 +201,8 @@ function seedPreview(): void {
   }
 }
 
+const online = createOnlineMock(emit, later);
+
 seedPreview();
 
 /** Reset between tests. Not used by the browser preview. */
@@ -185,6 +210,7 @@ export function __resetMock(): void {
   state.timers.forEach(clearTimeout);
   state.timers = [];
   state.account = null;
+  state.accounts = [];
   state.loadouts = [
     structuredClone(SWORD_PVP),
     structuredClone(BEDWARS),
@@ -194,12 +220,33 @@ export function __resetMock(): void {
   state.running = false;
   state.log = [];
   handlers.clear();
+  online.reset();
 }
 
 /** Sign in up front, for tests that are not about auth. */
 export function __signIn(): Account {
   state.account = structuredClone(MOCK_ACCOUNT);
+  addAccount(state.account);
   return state.account;
+}
+
+/** Adds (or refreshes) an account and makes it active, as `void_core::auth` does. */
+function addAccount(account: Account): void {
+  state.accounts = [...state.accounts.filter((a) => a.uuid !== account.uuid), account];
+  state.account = account;
+}
+
+const accountList = () => ({ active: state.account?.uuid ?? null, accounts: structuredClone(state.accounts) });
+
+/** Give the mock server some state — owned items, friends, requests — for tests. */
+export function __seedOnline(seed: Parameters<typeof online.seed>[0]): void {
+  online.seed(seed);
+}
+
+/** Sign in with a Microsoft account, so online features answer — for the Store and friends tests. */
+export function __signInOnline(): Account {
+  addAccount(structuredClone(PREVIEW_ACCOUNT));
+  return state.account!;
 }
 
 /** Speed knob: tests set 0 so a launch is instant; the preview keeps real timings. */
@@ -233,6 +280,33 @@ const slugify = (name: string): string =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+
+/** `void_loadout::share::unique_id`: the name slugified, then `-2`, `-3`, … */
+const uniqueId = (name: string): string => {
+  const base = slugify(name) || 'loadout';
+  if (!find(base)) return base;
+  for (let n = 2; ; n += 1) {
+    const suffix = `-${n}`;
+    const stem = base.slice(0, 48 - suffix.length).replace(/-+$/, '');
+    if (!find(`${stem}${suffix}`)) return `${stem}${suffix}`;
+  }
+};
+
+/** `void_loadout::store::MAX_LIBRARY`. */
+const MAX_LIBRARY = 128;
+
+/**
+ * The sentence `error.rs` makes of each `ShareError` — its `Display`, capitalised and
+ * stopped — so the import field shows the same words in the preview as in the app.
+ */
+const SHARE_ERRORS: Record<'empty' | 'format' | 'version' | 'checksum' | 'invalid' | 'full', string> = {
+  empty: 'Nothing to import.',
+  format: 'That is not a VOID loadout code.',
+  version: 'That code was made by a newer VOID.',
+  checksum: 'That code is damaged — copy it again.',
+  invalid: 'That code does not contain a loadout.',
+  full: 'The library is full.',
+};
 
 // ----------------------------------------------------------------------- invoke
 
@@ -271,8 +345,9 @@ const commands: Record<string, (args: Args) => unknown> = {
     ];
     stages.forEach((s, i) => {
       later(() => {
-        if (s.stage === 'complete') state.account = (s as { account: Account }).account;
+        if (s.stage === 'complete') addAccount((s as { account: Account }).account);
         emit('auth:status', s);
+        if (s.stage === 'complete') emit('online:status', online.status(state.account));
       }, 700 * (i + 1));
     });
     return {
@@ -285,7 +360,34 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
 
   auth_logout: () => {
-    state.account = null;
+    if (state.account) {
+      const gone = state.account.uuid;
+      state.accounts = state.accounts.filter((a) => a.uuid !== gone);
+    }
+    state.account = state.accounts[0] ?? null;
+    // The backend follows the active account (`commands::online::follow_account`).
+    emit('online:status', online.status(state.account));
+    return state.account;
+  },
+
+  auth_accounts: () => accountList(),
+
+  auth_switch: ({ uuid }) => {
+    if (state.running) throw 'Close Minecraft before switching accounts.';
+    const found = state.accounts.find((a) => a.uuid === uuid);
+    if (!found) throw 'That account is not signed in on this launcher.';
+    state.account = found;
+    emit('online:status', online.status(state.account));
+    return structuredClone(found);
+  },
+
+  auth_remove: ({ uuid }) => {
+    state.accounts = state.accounts.filter((a) => a.uuid !== uuid);
+    if (state.account?.uuid === uuid) {
+      state.account = state.accounts[0] ?? null;
+      emit('online:status', online.status(state.account));
+    }
+    return accountList();
   },
 
   auth_current: () => state.account,
@@ -295,7 +397,8 @@ const commands: Record<string, (args: Args) => unknown> = {
     if (!n || n.length > 16 || !/^[A-Za-z0-9_]+$/.test(n)) {
       throw 'A Minecraft name is 1–16 characters: letters, digits and underscores.';
     }
-    state.account = { ...structuredClone(MOCK_ACCOUNT), name: n };
+    addAccount({ ...structuredClone(MOCK_ACCOUNT), name: n, uuid: `offline-${n.toLowerCase()}` });
+    emit('online:status', online.status(state.account));
     return state.account;
   },
 
@@ -358,6 +461,8 @@ const commands: Record<string, (args: Args) => unknown> = {
             duration_ms: 25 * (tick + 1),
             java_path: '/usr/lib/jvm/java-8/bin/java',
             java_version: '1.8.0_412',
+            mod_version: '0.1.0',
+            mod_source: 'fresh',
           }),
         25 * (tick + 2),
       );
@@ -429,6 +534,7 @@ const commands: Record<string, (args: Args) => unknown> = {
                     '[Client thread/ERROR]: Unreported exception thrown!',
                     'java.lang.OutOfMemoryError: Java heap space (preview fixture)',
                   ],
+                  crash_report: `${MOCK_SYSTEM.data_dir}/game/crash-reports/crash-preview-client.txt`,
                 }
               : {}),
           });
@@ -525,6 +631,27 @@ const commands: Record<string, (args: Args) => unknown> = {
     return structuredClone(l);
   },
 
+  // The same codec the mod and Rust use (`@void/protocol`'s share-code, held to Rust's
+  // vectors by its tests), so a code copied from the preview pastes into the real app.
+  loadouts_export: ({ id }) => {
+    const l = find(String(id));
+    if (!l) throw `no loadout \`${id}\` in the library`;
+    return encodeShareCode(l);
+  },
+
+  loadouts_import: ({ code }) => {
+    const decoded = decodeShareCode(String(code ?? ''));
+    if (!decoded.ok) throw SHARE_ERRORS[decoded.error];
+    if (state.loadouts.length >= MAX_LIBRARY) throw SHARE_ERRORS.full;
+    const loadout: Loadout = {
+      ...structuredClone(decoded.loadout),
+      id: uniqueId(decoded.loadout.name),
+      stats: { played_ms: 0, fps_avg: 0 },
+    };
+    state.loadouts.push(loadout);
+    return { loadout: structuredClone(loadout), dropped: decoded.dropped };
+  },
+
   // --- settings -----------------------------------------------------------
   settings_get: () => structuredClone(state.settings),
 
@@ -541,7 +668,18 @@ const commands: Record<string, (args: Args) => unknown> = {
         : {}),
       // Turning auto-detect back on forgets the configured path, as Rust does.
       ...(p.java_auto === true ? { java_path: null } : {}),
+      ...(p.game_width != null ? { game_width: Math.max(640, p.game_width) } : {}),
+      ...(p.game_height != null ? { game_height: Math.max(480, p.game_height) } : {}),
+      ...(p.game_dir !== undefined
+        ? { game_dir_effective: p.game_dir ?? `${MOCK_SYSTEM.data_dir}/game` }
+        : {}),
+      ...(p.update_channel !== undefined
+        ? { update_channel: p.update_channel === 'beta' ? 'beta' : 'stable' }
+        : {}),
     };
+    if (p.jvm_args !== undefined && /(^|\s)-Xm[xs]/.test(p.jvm_args)) {
+      throw `\`${p.jvm_args.match(/-Xm[xs]\S*/)?.[0]}\` is set by the Memory slider; remove it from the JVM arguments.`;
+    }
     return structuredClone(state.settings);
   },
 
@@ -578,17 +716,43 @@ const commands: Record<string, (args: Args) => unknown> = {
 
   open_data_dir: () => MOCK_SYSTEM.data_dir,
 
+  open_path: ({ which, path }) => {
+    const game = `${MOCK_SYSTEM.data_dir}/game`;
+    switch (which) {
+      case 'launcher_log':
+        return `${MOCK_SYSTEM.data_dir}/logs/launcher.log`;
+      case 'game_log':
+        return `${game}/logs/latest.log`;
+      case 'crash_reports':
+        return `${game}/crash-reports`;
+      case 'crash_report':
+        if (typeof path !== 'string' || !path.includes('/crash-reports/')) throw 'That is not a crash report.';
+        return path;
+      case 'game_dir':
+        return game;
+      default:
+        throw `Nothing to open called \`${String(which)}\`.`;
+    }
+  },
+
   updater_check: () => ({
     available: false,
     current_version: MOCK_SYSTEM.app_version,
     version: null,
     notes: null,
     date: null,
-    error: 'The updater endpoint is a placeholder (updates.void.invalid) until release signing exists.',
+    error: 'The browser preview cannot reach the release channel.',
   }),
+
+  updater_install: () => {
+    throw 'The browser preview cannot install updates.';
+  },
 
   // --- window -------------------------------------------------------------
   window_minimize: () => undefined,
   window_toggle_maximize: () => undefined,
   window_close: () => undefined,
+
+  // --- online (mocks/online.ts) -----------------------------------------------
+  ...online.commands(() => state.account),
 };

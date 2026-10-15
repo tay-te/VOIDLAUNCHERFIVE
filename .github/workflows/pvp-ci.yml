@@ -14,12 +14,19 @@ name: pvp CI
 
 on:
   push:
+    # Branches only: path filters are not evaluated for tag pushes, so without this every
+    # `pvp-v*` tag would run CI twice (here and inside pvp-release.yml).
+    branches: ['**']
     paths: ['pvp/**', '.github/workflows/pvp-ci.yml']
   pull_request:
     paths: ['pvp/**', '.github/workflows/pvp-ci.yml']
+  # pvp-release.yml calls this whole workflow and ships its `void-client-platform-jars`.
+  workflow_call:
 
 concurrency:
-  group: pvp-ci-${{ github.ref }}
+  # `github.workflow` is the *caller's* name when called, so a release run and a push run
+  # on the same ref never cancel each other.
+  group: pvp-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

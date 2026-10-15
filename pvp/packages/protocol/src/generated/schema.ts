@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 30 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 45 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -77,6 +77,21 @@ export type ModId =
   | 'damage_tint'
   | 'old_animations'
   | 'old_input'
+  | 'culling'
+  | 'particles'
+  | 'frame_limiter'
+  | 'block_outline'
+  | 'shiny_pots'
+  | 'clear_glass'
+  | 'nametags'
+  | 'scoreboard'
+  | 'gui_scale'
+  | 'fog'
+  | 'menu_blur'
+  | 'time_weather'
+  | 'potion_counter'
+  | 'reach'
+  | 'chat'
   | 'cosmetics';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
@@ -866,6 +881,399 @@ export type OldInputEntry = RegistryEntry & {
   defaults?: OldInputSettings;
 };
 /**
+ * Registry entry for Entity culling, narrowed to its constant classification.
+ */
+export type EntityCullingEntry = RegistryEntry & {
+  /**
+   * Always `culling`.
+   */
+  id?: 'culling';
+  /**
+   * Always `eye`.
+   */
+  icon?: 'eye';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: EntityCullingSettings;
+};
+/**
+ * Registry entry for the Particle limiter, narrowed to its constant classification.
+ */
+export type ParticleLimiterEntry = RegistryEntry & {
+  /**
+   * Always `particles`.
+   */
+  id?: 'particles';
+  /**
+   * Always `sparkle`.
+   */
+  icon?: 'sparkle';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ParticleLimiterSettings;
+};
+/**
+ * Registry entry for the Frame limiter, narrowed to its constant classification.
+ */
+export type FrameLimiterEntry = RegistryEntry & {
+  /**
+   * Always `frame_limiter`.
+   */
+  id?: 'frame_limiter';
+  /**
+   * Always `gauge`.
+   */
+  icon?: 'gauge';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: FrameLimiterSettings;
+};
+/**
+ * Registry entry for the Block outline, narrowed to its constant classification.
+ */
+export type BlockOutlineEntry = RegistryEntry & {
+  /**
+   * Always `block_outline`.
+   */
+  id?: 'block_outline';
+  /**
+   * Always `cube`.
+   */
+  icon?: 'cube';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: BlockOutlineSettings;
+};
+/**
+ * Registry entry for Shiny pots, narrowed to its constant classification.
+ */
+export type ShinyPotsEntry = RegistryEntry & {
+  /**
+   * Always `shiny_pots`.
+   */
+  id?: 'shiny_pots';
+  /**
+   * Always `flask`.
+   */
+  icon?: 'flask';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ShinyPotsSettings;
+};
+/**
+ * Registry entry for Clear glass, narrowed to its constant classification.
+ */
+export type ClearGlassEntry = RegistryEntry & {
+  /**
+   * Always `clear_glass`.
+   */
+  id?: 'clear_glass';
+  /**
+   * Always `box`.
+   */
+  icon?: 'box';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ClearGlassSettings;
+};
+/**
+ * Registry entry for Nametags, narrowed to its constant classification.
+ */
+export type NametagsEntry = RegistryEntry & {
+  /**
+   * Always `nametags`.
+   */
+  id?: 'nametags';
+  /**
+   * Always `users`.
+   */
+  icon?: 'users';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: NametagsSettings;
+};
+/**
+ * Registry entry for the Scoreboard, narrowed to its constant classification.
+ */
+export type ScoreboardEntry = RegistryEntry & {
+  /**
+   * Always `scoreboard`.
+   */
+  id?: 'scoreboard';
+  /**
+   * Always `star`.
+   */
+  icon?: 'star';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `hud`; the Mods panel tabs it under HUD (frame 244:538).
+   */
+  category?: 'hud';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ScoreboardSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for GUI scale, narrowed to its constant classification.
+ */
+export type GUIScaleEntry = RegistryEntry & {
+  /**
+   * Always `gui_scale`.
+   */
+  id?: 'gui_scale';
+  /**
+   * Always `move`.
+   */
+  icon?: 'move';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: GUIScaleSettings;
+};
+/**
+ * Registry entry for Fog, narrowed to its constant classification.
+ */
+export type FogEntry = RegistryEntry & {
+  /**
+   * Always `fog`.
+   */
+  id?: 'fog';
+  /**
+   * Always `droplet`.
+   */
+  icon?: 'droplet';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `grey` (§11).
+   */
+  hypixel_safe?: 'grey';
+  defaults?: FogSettings;
+};
+/**
+ * Registry entry for Menu blur, narrowed to its constant classification.
+ */
+export type MenuBlurEntry = RegistryEntry & {
+  /**
+   * Always `menu_blur`.
+   */
+  id?: 'menu_blur';
+  /**
+   * Always `layers`.
+   */
+  icon?: 'layers';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: MenuBlurSettings;
+};
+/**
+ * Registry entry for Time & weather, narrowed to its constant classification.
+ */
+export type TimeWeatherEntry = RegistryEntry & {
+  /**
+   * Always `time_weather`.
+   */
+  id?: 'time_weather';
+  /**
+   * Always `clock`.
+   */
+  icon?: 'clock';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `visual`; the Mods panel tabs it under Visual (frame 244:538).
+   */
+  category?: 'visual';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: TimeWeatherSettings;
+};
+/**
+ * Registry entry for the Potion counter, narrowed to its constant classification.
+ */
+export type PotionCounterEntry = RegistryEntry & {
+  /**
+   * Always `potion_counter`.
+   */
+  id?: 'potion_counter';
+  /**
+   * Always `heart`.
+   */
+  icon?: 'heart';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: PotionCounterSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for the Reach display, narrowed to its constant classification.
+ */
+export type ReachDisplayEntry = RegistryEntry & {
+  /**
+   * Always `reach`.
+   */
+  id?: 'reach';
+  /**
+   * Always `sword`.
+   */
+  icon?: 'sword';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `grey` (§11).
+   */
+  hypixel_safe?: 'grey';
+  defaults?: ReachDisplaySettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for Chat, narrowed to its constant classification.
+ */
+export type ChatEntry = RegistryEntry & {
+  /**
+   * Always `chat`.
+   */
+  id?: 'chat';
+  /**
+   * Always `users`.
+   */
+  icon?: 'users';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ChatSettings;
+};
+/**
  * Registry entry for Cosmetics, narrowed to its constant classification.
  */
 export type CosmeticsEntry = RegistryEntry & {
@@ -896,7 +1304,7 @@ export type CosmeticsEntry = RegistryEntry & {
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 16 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 19 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -914,7 +1322,10 @@ export type HUDModId =
   | 'memory'
   | 'server_address'
   | 'item_counter'
-  | 'stopwatch';
+  | 'stopwatch'
+  | 'scoreboard'
+  | 'potion_counter'
+  | 'reach';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -929,17 +1340,23 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 16, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 19, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 16
+ * @maxItems 19
  */
 export type HUDLayout = HUDItem[];
+/**
+ * Up to eight distinct mod ids, in quick-panel order. An id this build does not know is dropped on read rather than refused, so a loadout pinned on a newer client still loads.
+ *
+ * @maxItems 8
+ */
+export type QuickPins = ModId[];
 /**
  * Every message on the localhost WebSocket between the Rust launcher (server, `void-bridge`) and the Java mod (client, `net/`), as specified in PVP_ARCHITECTURE.md §7. One JSON object per WS text frame, discriminated on `t`. The link carries state and telemetry summaries only, never per-frame data (§2): telemetry that is drawn never leaves the JVM. Forward compatibility rule of §7: a receiver ignores an unknown `t` and ignores unknown fields, which is why every message here sets additionalProperties true. `v` is the protocol version and is carried only on the two handshake messages, `hello` and `init`; a mismatch makes the launcher refuse to launch and prompt for an update, since mod and launcher ship together. Connection parameters reach the JVM as -Dvoid.port and -Dvoid.token (§6.9).
  */
 export type ProtocolMessage = JavaToRust | RustToJava;
 /**
- * The ten messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
+ * The thirteen messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
  */
 export type JavaToRust =
   | HelloJavaToRust
@@ -951,7 +1368,10 @@ export type JavaToRust =
   | HotkeyJavaToRust
   | CosmeticsQueryJavaToRust
   | EmoteJavaToRust
-  | EquipJavaToRust;
+  | EquipJavaToRust
+  | LoadoutSaveJavaToRust
+  | LoadoutDeleteJavaToRust
+  | LoadoutSelectJavaToRust;
 /**
  * Version of this message set. Bumped on any breaking change. Carried on `hello` and `init` only; both sides compare and refuse to proceed on a mismatch (§7). **2** since `init.loadouts` changed from `loadout_summary` to whole loadouts: a v1 mod would read a v2 `init` without complaint, but a v2 mod against a v1 launcher would receive summaries, materialise every mod at its factory default, and silently apply the wrong loadout on a switch. That is exactly the mixed-halves case `v` exists to refuse.
  */
@@ -973,14 +1393,15 @@ export type CosmeticItemId = string;
  */
 export type CosmeticSlot = 'cape' | 'back' | 'head' | 'face' | 'halo' | 'trail' | 'badge';
 /**
- * The five messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.
+ * The six messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.
  */
 export type RustToJava =
   | InitRustToJava
   | LoadoutRustToJava
   | SettingsRustToJava
   | CosmeticsRustToJava
-  | EmoteRustToJava;
+  | EmoteRustToJava
+  | LibraryRustToJava;
 /**
  * The single `window.void` object that joins the Java mod and the in-game React app, as specified in PVP_ARCHITECTURE.md §6.5. Java to JS is push, delivered through `void.on(event, handler)` and batched once per frame; JS to Java is a direct call. The bridge is in-process (Ultralight lives inside the JVM, §6.2), so calls are synchronous and return real applied state -- there is no ack, no optimistic UI and no request id. This file therefore does not describe a transport; it describes, per event, the shape of the payload handed to the handler, and per call, the positional `params` and the `returns` value. An instance of this schema is one enveloped event, call or call result, which is exactly the form the browser `?debug` harness of §9 records and replays against a fake window.void. Payloads are additionalProperties:false: unlike protocol.json this surface is not forward-compatible across versions, because the mod JAR embeds the UI bundle and the two always ship as one binary. The channel list below is the whole contract and both shims close over it: `on` returns a no-op subscription for a name it does not know and `__emit` drops an envelope whose channel has no list, so a channel Java pushes and this file does not declare is lost in total silence. That is how `session` went missing between Java and the page the first time, and why it is written down here now.
  */
@@ -999,6 +1420,8 @@ export type Event =
   | SessionEvent
   | SettingsEvent
   | ModactionEvent
+  | ScoreboardEvent
+  | ToastEvent
   | CosmeticsEvent
   | EmoteEvent;
 /**
@@ -1027,6 +1450,15 @@ export type Call =
   | OpenKeybindCaptureCall
   | SetSurfacesCall
   | SetGlobalCall
+  | CreateLoadoutCall
+  | RenameLoadoutCall
+  | DuplicateLoadoutCall
+  | DeleteLoadoutCall
+  | ExportLoadoutCall
+  | ImportLoadoutCall
+  | SetQuickPinsCall
+  | SetClipboardCall
+  | GetClipboardCall
   | EquipCosmeticCall
   | SetCosmeticTintCall
   | SetEmoteWheelCall
@@ -1055,6 +1487,18 @@ export type GameplayModId =
   | 'damage_tint'
   | 'old_animations'
   | 'old_input'
+  | 'culling'
+  | 'particles'
+  | 'frame_limiter'
+  | 'block_outline'
+  | 'shiny_pots'
+  | 'clear_glass'
+  | 'nametags'
+  | 'gui_scale'
+  | 'fog'
+  | 'menu_blur'
+  | 'time_weather'
+  | 'chat'
   | 'cosmetics';
 /**
  * [id, { anchor, dx, dy, scale }].
@@ -1122,6 +1566,68 @@ export type SetSurfacesParams = [EffectSurface[]];
  */
 export type SetGlobalParams = [string, boolean | number | string | null];
 /**
+ * [name].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type CreateLoadoutParams = [string];
+/**
+ * [id, name].
+ *
+ * @minItems 2
+ * @maxItems 2
+ */
+export type RenameLoadoutParams = [LoadoutId, string];
+/**
+ * [id].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type DuplicateLoadoutParams = [LoadoutId];
+/**
+ * [id].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type DeleteLoadoutParams = [LoadoutId];
+/**
+ * [id].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type ExportLoadoutParams = [LoadoutId];
+/**
+ * [code].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type ImportLoadoutParams = [string];
+/**
+ * [ids].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type SetQuickPinsParams = [ModId[]];
+/**
+ * [text].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type SetClipboardParams = [string];
+/**
+ * No arguments.
+ *
+ * @maxItems 0
+ */
+export type GetClipboardParams = any[];
+/**
  * [slot, id].
  *
  * @minItems 2
@@ -1165,6 +1671,15 @@ export type CallResult =
   | OpenKeybindCaptureResult
   | SetSurfacesResult
   | SetGlobalResult
+  | CreateLoadoutResult
+  | RenameLoadoutResult
+  | DuplicateLoadoutResult
+  | DeleteLoadoutResult
+  | ExportLoadoutResult
+  | ImportLoadoutResult
+  | SetQuickPinsResult
+  | SetClipboardResult
+  | GetClipboardResult
   | EquipCosmeticResult
   | SetCosmeticTintResult
   | SetEmoteWheelResult
@@ -1198,6 +1713,59 @@ export type SetSurfacesReturns = number;
  */
 export type SetGlobalReturns = boolean | number | string | null;
 /**
+ * The new loadout, or null when the name was empty or the library is full (128).
+ */
+export type CreateLoadoutReturns = Loadout | null;
+/**
+ * The name actually stored, after trimming, or null when the id is unknown or the name empty.
+ */
+export type RenameLoadoutReturns = string | null;
+/**
+ * The copy, or null when the id is unknown or the library is full.
+ */
+export type DuplicateLoadoutReturns = Loadout | null;
+/**
+ * True when the loadout was deleted; false when the id was unknown or it was the last one.
+ */
+export type DeleteLoadoutReturns = boolean;
+/**
+ * The share code, or null when the id is unknown.
+ */
+export type ExportLoadoutReturns = string | null;
+/**
+ * The answer of `importLoadout`.
+ */
+export type ImportResult =
+  | {
+      ok: true;
+      loadout: Loadout;
+      /**
+       * Settings, mods, HUD items and pins the code carried that this build could not use.
+       */
+      dropped: number;
+    }
+  | {
+      ok: false;
+      /**
+       * Why the code was refused: `empty` nothing was pasted; `format` it is not a share code or its data does not decode; `version` it was made by a newer format; `checksum` it was damaged in transit; `invalid` it decoded but carries no usable loadout; `full` the library already holds 128.
+       */
+      error: 'empty' | 'format' | 'version' | 'checksum' | 'invalid' | 'full';
+    };
+/**
+ * The pins actually stored.
+ *
+ * @maxItems 8
+ */
+export type SetQuickPinsReturns = ModId[];
+/**
+ * True when the host put it on the clipboard.
+ */
+export type SetClipboardReturns = boolean;
+/**
+ * The clipboard's text, cut to 16384 characters; empty when there is none.
+ */
+export type GetClipboardReturns = string;
+/**
  * The id now worn in that slot, or null when it is empty. Equals the request on success; on a refusal it is whatever was already there.
  */
 export type EquipCosmeticReturns = CosmeticItemId | null;
@@ -1224,7 +1792,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 30 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 45 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1256,6 +1824,21 @@ export interface Mods {
   damage_tint: DamageTintEntry;
   old_animations: OldAnimationsEntry;
   old_input: OldInputEntry;
+  culling: EntityCullingEntry;
+  particles: ParticleLimiterEntry;
+  frame_limiter: FrameLimiterEntry;
+  block_outline: BlockOutlineEntry;
+  shiny_pots: ShinyPotsEntry;
+  clear_glass: ClearGlassEntry;
+  nametags: NametagsEntry;
+  scoreboard: ScoreboardEntry;
+  gui_scale: GUIScaleEntry;
+  fog: FogEntry;
+  menu_blur: MenuBlurEntry;
+  time_weather: TimeWeatherEntry;
+  potion_counter: PotionCounterEntry;
+  reach: ReachDisplayEntry;
+  chat: ChatEntry;
   cosmetics: CosmeticsEntry;
 }
 /**
@@ -1385,6 +1968,14 @@ export interface KeystrokesSettings {
   corner_radius?: number;
   key_color?: KeyColourSwatch;
   pressed_color?: PressedColourSwatch;
+  /**
+   * Whether keys ease between the resting and pressed treatment instead of switching on the frame. The press itself is always immediate; this only shapes the release.
+   */
+  animate?: boolean;
+  /**
+   * How long a released key takes to fade back to rest, in milliseconds, when `animate` is on. Long fades read as a trail of recent presses; short ones as a crisp tap.
+   */
+  fade_ms?: number;
 }
 /**
  * Settings for the CPS counter HUD mod. Derived entirely in JS from mouse edges on the `keys` event (§3), so no Java sensor exists for it.
@@ -1421,6 +2012,10 @@ export interface CPSCounterSettings {
    * Whether the highest rate seen this session is drawn as a trailing aside. `window_ms` already averages, so the live figure answers "how fast am I clicking"; this answers "how fast can I", which is the number worth comparing against and the one the live figure never sits still long enough to show.
    */
   show_peak?: boolean;
+  /**
+   * Whether only clicks the game acted on are counted. A left click swallowed by 1.8's miss delay, or made while a screen was open, is a press of the button but not a swing, and with this on it does not count. Left button only; right clicks are always counted as pressed. Fed by `hits.swings` on the tick payload rather than by the mouse edge, so a counted click is one `doAttack` ran for.
+   */
+  ignore_cancelled?: boolean;
 }
 /**
  * Settings for the Ping display HUD mod. Reads the player's own `NetworkPlayerInfo.responseTime`.
@@ -1457,6 +2052,26 @@ export interface PingDisplaySettings {
    * Whether the shortened server name is drawn after the figure. A player who only ever plays one server is being told something they already know, on the chip they look at most often.
    */
   show_host?: boolean;
+  /**
+   * Whether the rolling average of the last `window` readings is drawn as a trailing aside, `avg 54`.
+   */
+  show_average?: boolean;
+  /**
+   * Whether jitter is drawn as a trailing aside, `±7`: the mean change between consecutive readings over the last `window`. A steady 90 ms plays better than a 40 ms that swings by 30, and only this figure tells the two apart.
+   */
+  show_jitter?: boolean;
+  /**
+   * Jitter at or above this many milliseconds draws in the warn treatment. 0 disables the warning.
+   */
+  jitter_warn_ms?: number;
+  /**
+   * A reading this many milliseconds above the rolling average counts as a spike and briefly marks the chip. 0 disables spike detection.
+   */
+  spike_ms?: number;
+  /**
+   * How many readings the average, the jitter and the spike baseline are taken over. The server sends a new latency every few seconds, so 10 readings is roughly the last half minute.
+   */
+  window?: number;
 }
 /**
  * Settings for the Coordinates HUD mod. Reads `EntityPlayerSP` position and yaw once per tick.
@@ -1558,6 +2173,14 @@ export interface PotionEffectsSettings {
    * Whether to omit ambient effects such as a beacon aura from the list.
    */
   hide_ambient?: boolean;
+  /**
+   * Effects never listed, as a bit mask over vanilla's status effect ids: bit 1 is Speed, bit 16 Night Vision, up to bit 23 Saturation. Set from the settings page's effect chips rather than by hand. 0 lists everything.
+   */
+  hidden_effects?: number;
+  /**
+   * An effect with this many seconds or fewer left blinks, once a second, on the tick that redraws its timer. 0 disables blinking.
+   */
+  blink_below_s?: number;
 }
 /**
  * Settings for the VOID watermark HUD mod. It reads nothing from the game: the overlay draws the mark itself, which is why its `source` says so rather than naming a 1.8.9 field. Modelled on `fps_settings` and `crosshair_settings`, and deliberately without a `color`: `design/quiet-cell-system.md` §1 reserves colour for a live value or a selected item, and a watermark is neither.
@@ -1621,6 +2244,12 @@ export interface HitboxesSettings {
    */
   max_distance?: number;
   keybind?: Keybind;
+  /**
+   * Whether a box changes colour with what you can do to its entity: `damaged_color` while it is in its hurt animation, `hittable_color` while your crosshair is on it within attack range, and `color` otherwise.
+   */
+  state_colors?: boolean;
+  hittable_color?: Colour;
+  damaged_color?: Colour;
 }
 /**
  * Settings for the Zoom gameplay mod. Overrides FOV while `key` is held.
@@ -1640,6 +2269,14 @@ export interface ZoomSettings {
    * Whether smooth-camera mouse damping is applied while zoomed.
    */
   cinematic?: boolean;
+  /**
+   * Whether the mouse wheel changes the zoom while the key is held, between 1.1x and 10x in multiplicative steps. The hotbar does not scroll while this is in use, and the level goes back to `fov_divisor` on release. Eased when `smooth` is on.
+   */
+  scroll_adjust?: boolean;
+  /**
+   * Whether mouse sensitivity is scaled down with the zoom, so a flick moves the crosshair across the same share of the screen zoomed as unzoomed. Off is vanilla: at 4x every mouse movement turns the view four times as far across what you can see.
+   */
+  scale_sensitivity?: boolean;
 }
 /**
  * Settings for the Crosshair mod. Uniquely among the 13 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.
@@ -1854,11 +2491,9 @@ export interface ServerAddressSettings {
   style?: 'short' | 'full';
 }
 /**
- * Settings for the Item counter HUD mod. Reads `held_count` off the tick payload, which is the stack size of the **held** item and nothing else.
+ * Settings for the Item counter HUD mod. `track` picks what is counted. `held_stack` is the stack in the hand (`held_count` on the tick payload) and is the default, because it is what the chip has always shown. Every other value reads `counts`, the inventory-wide sensor: `held_total` adds up every stack in the inventory that matches the held item (same item, same variant, so white wool is not red wool), and the named items count that item wherever it is, whether or not it is in your hand. That last group is the Lunar and Badlion meaning of an item counter: tell it pearls and it counts your pearls while you hold a sword.
  *
- * Be clear about the scope, because the name is borrowed from mods that do more: Lunar's and Badlion's item counters track a *chosen* item across the whole inventory — tell it pearls, and it counts your pearls whether or not they are in your hand. This one counts the hand, because `held_count` is the sensor that exists. It answers "how many blocks are left" while you are bridging with them and "how many gapples" while you are holding one; it does not answer "how many pearls do I have" while you are holding a sword. An inventory-wide counter needs a slot-scanning sensor and a way to pick the item it watches, and neither exists yet; when they do, that is a superset of this mod rather than a rewrite of it.
- *
- * The stack size is value-checked at the sensor rather than rate-limited: it changes on use, not on a clock, so every push is news.
+ * The counts are value-checked at the sensor rather than rate-limited: they change on use and pickup, not on a clock, so every push is news.
  */
 export interface ItemCounterSettings {
   on: Enabled;
@@ -1884,6 +2519,25 @@ export interface ItemCounterSettings {
    * A count at or below this many draws in the warn treatment instead of the normal ink. **0 disables the warning entirely, and 0 is the default**, because what counts as low depends completely on what is in the hand: eight is nearly out of blocks and a generous stash of pearls, and a client that guessed one number would be wrong for every player who does not build the way it assumed. So VOID does not guess — a player who knows what they are counting sets it, and everybody else gets a chip that never cries wolf. The ceiling is 64: a full stack, above which the warning would be permanently on.
    */
   low_threshold?: number;
+  /**
+   * What the chip counts. `held_stack` is the stack in your hand; `held_total` is every stack in the inventory matching the held item; the rest count that item across the whole inventory whatever you are holding. `wool` is every colour together. Healing potions and soup are the Potion counter's.
+   */
+  track?:
+    | 'held_stack'
+    | 'held_total'
+    | 'ender_pearl'
+    | 'golden_apple'
+    | 'arrow'
+    | 'snowball'
+    | 'egg'
+    | 'cobweb'
+    | 'wool'
+    | 'tnt'
+    | 'fire_charge'
+    | 'iron_ingot'
+    | 'gold_ingot'
+    | 'diamond'
+    | 'emerald';
 }
 /**
  * Settings for the Stopwatch HUD mod. Along with the watermark it is one of two mods with no game field behind it: the elapsed time is the overlay's own, counted from `Date.now()` exactly as the combo chip already counts its own timeout, and no sensor field, no tick payload and no wire message carries it. What does cross the bridge is the *input*. `start_key` and `reset_key` are dispatched by Java and arrive as `modaction` — `{mod: 'stopwatch', action: 'start_stop' | 'reset'}` — because a timer's keys ask the page to do something rather than flipping a boolean, which is all the existing per-mod `keybind` hotkeys can say. Java therefore owns the key and the page owns the clock, and the two never disagree about elapsed time because only one of them counts it.
@@ -2075,6 +2729,356 @@ export interface OldInputSettings {
   no_miss_delay?: boolean;
 }
 /**
+ * Settings for the Entity culling gameplay mod — the FPS boost. A background thread casts rays from the camera through the block grid to each entity and block entity in view, and the render pass skips anything no ray reaches through air. Results trail the camera by one pass (a few milliseconds), so everything within `always_draw_within` is drawn regardless — a player who steps round a corner beside you is never one pass late. The distance cut-offs are plain distance culling on top, for the cheap-but-numerous things a lobby is full of. Turns itself off for occlusion in third person, where the camera is not where the rays start; distance culling still applies.
+ */
+export interface EntityCullingSettings {
+  on: Enabled;
+  /**
+   * Whether mobs, players, items and other entities that no ray from the camera can reach are skipped. The bulk of the win in a crowded lobby. Never culls the entity you are riding or your own player.
+   */
+  occlude_entities?: boolean;
+  /**
+   * Whether chests, signs, banners, skulls and the other tile entities that no ray reaches are skipped. Tile entities are the expensive half of a 1.8.9 frame in a built-up map — every chest is a model drawn every frame — so this is on by default.
+   */
+  occlude_block_entities?: boolean;
+  /**
+   * Radius in blocks inside which nothing is ever occlusion-culled. The ray test runs on its own thread and its answer is one pass old by the time a frame reads it; inside this radius that lag could show as a player appearing a moment after stepping into view, so the test is not consulted at all. 4 covers melee range with a margin.
+   */
+  always_draw_within?: number;
+  /**
+   * Whether a culled entity still draws its nametag. Vanilla draws a player's name through walls (unless they sneak), so culling the body must not take the name with it — on by default, which keeps exactly what vanilla shows. Off also skips the label of anything culled, which is a little faster and shows less than vanilla, never more.
+   */
+  nametags_through_walls?: boolean;
+  /**
+   * Farthest a tile entity is drawn, in blocks. 64 is vanilla's own limit, so the default changes nothing; lower it on a weak machine in chest-heavy maps.
+   */
+  block_entity_distance?: number;
+  /**
+   * Farthest an armour stand is drawn, in blocks. Lobby holograms are stacks of invisible armour stands with a name each, and hundreds of them is common. 64 is vanilla; lowering it hides far hologram text along with the stands.
+   */
+  armor_stand_distance?: number;
+  /**
+   * Farthest the item inside an item frame is drawn, in blocks. The frame itself is unaffected. 64 is vanilla.
+   */
+  item_frame_distance?: number;
+  /**
+   * Farthest a sign's text is drawn, in blocks; the board is drawn to the tile-entity distance either way. Sign text is a font draw per line per sign per frame, and past about 32 blocks a line of it is two or three pixels tall at 1080p — unreadable, but still paid for. 32 by default for that reason; 64 is vanilla.
+   */
+  sign_text_distance?: number;
+}
+/**
+ * Settings for the Particle limiter gameplay mod. Vanilla builds the vertices of every live particle every frame, including the half behind you, and a TNT run or a Bedwars bed break can put thousands on screen at once. `frustum_cull` is free — a particle outside the view cone is never seen — and is the default win. The two fractions thin a burst at the moment it is spawned; they only ever remove particles, never add one, which is the direction Hypixel's allowlist has no objection to. Crit, sharpness and hit particles are untouched by both: they are the cue that a hit landed.
+ */
+export interface ParticleLimiterSettings {
+  on: Enabled;
+  /**
+   * Whether particles outside the camera's view cone skip their draw. Invisible by construction, which is why it is on by default and why it is a switch rather than a number.
+   */
+  frustum_cull?: boolean;
+  /**
+   * Most particles alive per render layer; when full, the oldest goes first, exactly as vanilla does at its own limit. 4000 is vanilla's limit, so the default changes nothing — lower it if explosions stall your frame.
+   */
+  particle_cap?: number;
+  /**
+   * Fraction of block-break and block-hit particles kept. 1 is vanilla's 64-piece burst; 0 breaks blocks with no debris. A bridging or Bedwars player breaks hundreds of blocks a game and every one used to spawn 64 particles.
+   */
+  block_break_particles?: number;
+  /**
+   * Fraction of explosion particles kept — TNT, fireballs and creepers. 1 is vanilla. The blast itself, its sound and its knockback are untouched; only the smoke is thinned.
+   */
+  explosion_particles?: number;
+}
+/**
+ * Settings for the Frame limiter gameplay mod. None of these caps ever applies while you are in the world with the window focused — that frame rate is the one you set in Minecraft's options, untouched. Vanilla 1.8.9 renders a backgrounded or minimised window as fast as it can, so a game left on a second monitor heats the GPU the player is about to need for something else. The menu cap covers the title screen, the server list and the pause menu; it never covers an inventory or a chest, because the fight carries on behind those.
+ */
+export interface FrameLimiterSettings {
+  on: Enabled;
+  /**
+   * Frame cap while the game window does not have focus. 30 keeps a game on a second monitor watchable while giving most of the GPU back.
+   */
+  unfocused_fps?: number;
+  /**
+   * Frame cap on the title screen, the server list and the pause menu. Vanilla already holds the title screen at 30; 60 is smoother than that and still a fraction of an uncapped menu.
+   */
+  menu_fps?: number;
+  /**
+   * Whether a minimised window drops to 5 frames a second. Nothing is visible, so nothing is lost; sound and the connection carry on.
+   */
+  idle_minimized?: boolean;
+}
+/**
+ * Settings for the Block outline gameplay mod. It restyles the box vanilla already draws round the targeted block — same block, same shape, same moment — and nothing else; it never outlines a block the game would not, so it says nothing the vanilla outline did not. `kind: gameplay` for `hitboxes`' reason: it is a world mark, not a placeable HUD item.
+ */
+export interface BlockOutlineSettings {
+  on: Enabled;
+  /**
+   * What is drawn round the targeted block. `outline` is vanilla's box in your colour; `fill` shades the faces and drops the lines; `both` does both; `none` draws nothing, for players who aim off the crosshair alone.
+   */
+  outline_style?: 'outline' | 'fill' | 'both' | 'none';
+  outline_color?: Colour;
+  /**
+   * Line width in screen pixels. Vanilla's is 2.
+   */
+  outline_width?: number;
+  fill_color?: Colour;
+}
+/**
+ * Settings for the Shiny pots gameplay mod. 1.8.9 gives a potion the glint only when its effect list resolves, at vanilla strength, so on a busy hotbar a pot reads no differently from a water bottle. This draws the same glint pass vanilla uses, more times and on every potion, and can tint it with the potion's own colour. Purely the item's look: it changes nothing about which potion is which or what is in your inventory.
+ */
+export interface ShinyPotsSettings {
+  on: Enabled;
+  /**
+   * Whether potions with no listed effect — water bottles, and server pots whose effects live only in their lore — glint too. On by default: on most servers that is exactly the pot you were trying to find.
+   */
+  all_potions?: boolean;
+  /**
+   * How many times the glint is laid over a potion. 1 is vanilla's strength; 2 is the classic 1.7 look; 3 is as shiny as it gets before the item's own colour washes out.
+   */
+  glint_passes?: number;
+  /**
+   * Whether the glint takes the potion's own liquid colour instead of vanilla's purple, so a healing pot shimmers red and a speed pot blue.
+   */
+  tint_glint?: boolean;
+}
+/**
+ * Settings for the Clear glass gameplay mod. Glass in 1.8.9 is a cut-out texture whose frame and streaks cover a quarter of what is behind it; this skips glass when chunks are built, so the block is still there, still solid and still targetable — the block outline still finds it — but nothing is drawn. It is what a clear-glass resource pack does, without the pack. Changing a setting rebuilds the loaded chunks once.
+ */
+export interface ClearGlassSettings {
+  on: Enabled;
+  /**
+   * Whether glass panes are cleared as well as full glass blocks.
+   */
+  clear_panes?: boolean;
+  /**
+   * Whether stained glass is cleared too. Off by default: stained glass carries team colour in Bedwars and bases, and clearing it would throw that away.
+   */
+  clear_stained?: boolean;
+}
+/**
+ * Settings for the Nametags gameplay mod. Restyles the label vanilla already draws over a player or named mob — the same labels, at the same moments, through the same walls — so it never shows a name the game would not. `tag_scale` tops out at 1.5 for that reason: a bigger label is legible farther, but it cannot appear anywhere vanilla's would not.
+ */
+export interface NametagsSettings {
+  on: Enabled;
+  /**
+   * Whether your own nametag is drawn over your head in third person. Vanilla never draws it; on by default because that is the one thing players switch this mod on for.
+   */
+  show_own?: boolean;
+  /**
+   * Whether other players' and named mobs' nametags are hidden. Armour stands are exempt: lobby holograms are stacks of named stands, and they are world text rather than nametags. Off by default — a name is how you tell a teammate from an enemy — and on for recording and for crowded lobbies.
+   */
+  hide_others?: boolean;
+  /**
+   * Alpha of the dark plate behind each name. 0.25 is vanilla's; 0 draws the text alone.
+   */
+  tag_background?: number;
+  /**
+   * Size of every nametag as a multiple of vanilla's.
+   */
+  tag_scale?: number;
+  /**
+   * Whether the name is drawn with Minecraft's text shadow, which keeps it legible against sky and snow. Vanilla draws it without one.
+   */
+  tag_shadow?: boolean;
+}
+/**
+ * Settings for the Scoreboard HUD mod. Reads the sidebar objective the server set — title, lines and scores — exactly as vanilla would draw it, team prefixes and suffixes included, and draws it on the HUD where the editor puts it. It adds nothing the sidebar did not say.
+ */
+export interface ScoreboardSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the scoreboard, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the scoreboard, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the scoreboard — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * Whether the scoreboard is hidden entirely — vanilla's and this one. For recording, and for servers whose sidebar is an advert.
+   */
+  hidden?: boolean;
+  /**
+   * Whether each line's score is drawn at its right edge. Off by default: on nearly every server the score is a sort key the server uses to order the lines, the red numbers carry no meaning, and hiding them is the single most requested scoreboard tweak.
+   */
+  show_numbers?: boolean;
+  /**
+   * Whether the objective's title is drawn above the lines.
+   */
+  show_title?: boolean;
+  /**
+   * Whether the server's own colour codes are honoured. On by default: on team modes the colour is the information. Off draws every line in the HUD's own ink.
+   */
+  server_colors?: boolean;
+}
+/**
+ * Settings for the GUI scale gameplay mod. Minecraft has one GUI scale for everything, so at 1080p the choice is between a hotbar that fills the bottom of the screen and an inventory too small to read. Each value here is a whole GUI-scale step, exactly like Minecraft's own setting, so textures stay pixel-crisp; 0 means "follow Minecraft". Like vanilla, a value larger than the window allows is clamped to the largest that fits.
+ */
+export interface GUIScaleSettings {
+  on: Enabled;
+  /**
+   * GUI scale step for the hotbar and the health, hunger, armour and experience bars above it, which move as one block. 0 follows Minecraft. 2 by default: a compact hotbar at 1080p, where Minecraft's own auto scale is 4.
+   */
+  hotbar_scale?: number;
+  /**
+   * GUI scale step for the inventory, chests, furnaces and every other container screen. 0 follows Minecraft. Other menus — chat, the pause menu, VOID's own — are unaffected.
+   */
+  inventory_scale?: number;
+}
+/**
+ * Settings for the Fog gameplay mod. Each kind of fog has three steps: `vanilla`, `reduced` and `off`. Distance fog hides the edge of the loaded world, so turning it off shows the chunk border instead of a haze — `reduced` pushes the haze out to the edge. Classified `grey`; see the top of this file.
+ */
+export interface FogSettings {
+  on: Enabled;
+  /**
+   * Fog at the edge of your render distance, and the thick fog of the nether. `reduced` starts it at the last chunk rather than three quarters of the way out.
+   */
+  distance_fog?: 'vanilla' | 'reduced' | 'off';
+  /**
+   * Fog while your head is under water. `reduced` is roughly what Respiration III gives.
+   */
+  water_fog?: 'vanilla' | 'reduced' | 'off';
+  /**
+   * Fog while your head is in lava. `vanilla` by default: seeing out of lava is the clearest advantage on this page.
+   */
+  lava_fog?: 'vanilla' | 'reduced' | 'off';
+}
+/**
+ * Settings for the Menu blur gameplay mod. Runs the backdrop blur VOID already carries — a quarter-resolution copy of the frame through a separable Gaussian — under Minecraft's own screens. Chat and VOID's own menu are not blurred. Costs a few frames a second while a screen is open and nothing otherwise.
+ */
+export interface MenuBlurSettings {
+  on: Enabled;
+  /**
+   * How soft the blur is, in passes of the Gaussian. 1 is a light softening; 10 is unrecognisable.
+   */
+  blur_radius?: number;
+  /**
+   * Whether the blur eases in over a fifth of a second as the screen opens, rather than snapping on.
+   */
+  blur_fade?: boolean;
+  /**
+   * How much of vanilla's dark wash is kept over the blur, as a fraction of vanilla's own. 1 is vanilla's darkness on top of the blur; 0 is the blur alone.
+   */
+  menu_dim?: number;
+}
+/**
+ * Settings for the Time & weather gameplay mod. Client-side only: the server's clock and weather are unchanged, mobs still burn when the server says it is day, and nobody else sees a difference. It changes the sky, the light and the rain you see.
+ */
+export interface TimeWeatherSettings {
+  on: Enabled;
+  /**
+   * Whether the time of day is held at `time_ticks` instead of following the server.
+   */
+  lock_time?: boolean;
+  /**
+   * Time of day to hold, in ticks: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight.
+   */
+  time_ticks?: number;
+  /**
+   * Whether rain, snow and thunder are hidden. The rain also stops darkening the sky.
+   */
+  clear_weather?: boolean;
+}
+/**
+ * Settings for the Potion counter HUD mod. Reads `counts` on the tick payload, the same inventory-wide sensor the Item counter's named items use: `health_potion` is every splash potion of Healing (I and II) in the inventory and `soup` is every bowl of mushroom stew. A separate mod rather than two more `item_counter.track` values because the two are read at different moments: the item counter answers what you are building or throwing with, and this answers how many heals are left, which is the one number a pot or soup fight is decided by and the one worth a chip of its own.
+ */
+export interface PotionCounterSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the potion chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the potion chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the potion chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * What is counted: splash potions of Healing, bowls of mushroom stew, or both side by side.
+   */
+  track?: 'health_potion' | 'soup' | 'both';
+  /**
+   * Whether the count is followed by its unit, `pots` or `soup`. With `both` the units are what tell the two figures apart, so they are always drawn there.
+   */
+  show_label?: boolean;
+  /**
+   * A count at or below this many draws in the warn treatment. Unlike the Item counter this has a non-zero default, because what is in the slot is known: three heals is low in every pot and soup mode. 0 disables the warning.
+   */
+  low_threshold?: number;
+}
+/**
+ * Settings for the Reach display HUD mod. Reads `reach` on the tick payload. The figure is measured on the client at the moment the attack is sent: from your eye position, interpolated to the frame the crosshair ray was cast on, to the exact point where that ray met the target's hitbox. That is the distance the game itself used to decide the hit, not an entity-centre distance (which reads about 0.3 blocks long) and not the server's view (which it never tells the client). Only attacks the hit counter counts as landed are measured, so a swing at air never moves the number.
+ */
+export interface ReachDisplaySettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the reach chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the reach chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the reach chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * Digits after the decimal point. Two is the precision the measurement actually has; one reads faster, and none is the whole-block figure.
+   */
+  decimals?: number;
+  /**
+   * Which figure is drawn: the last landed hit, or the mean of the last ten.
+   */
+  mode?: 'last' | 'average';
+  /**
+   * Whether the figure is followed by its unit, `blocks`.
+   */
+  show_label?: boolean;
+  /**
+   * Hide the chip this long after the last landed hit; 0 keeps it on screen. A reach figure is only interesting while you are trading hits.
+   */
+  hide_after_ms?: number;
+}
+/**
+ * Settings for the Chat gameplay mod. Every setting changes how vanilla's own chat (`ChatHud`) stores and draws messages on this client; nothing is sent, and no message anyone else sees is altered. With the mod off the chat is vanilla, byte for byte.
+ */
+export interface ChatSettings {
+  on: Enabled;
+  /**
+   * Whether each message is prefixed with the time it arrived, `[14:03]`, in grey.
+   */
+  timestamps?: boolean;
+  /**
+   * Whether a message identical to the one before it replaces it with a count, `(x3)`, instead of adding another line. Lobby spam and repeated server notices collapse to one line.
+   */
+  stack_repeats?: boolean;
+  /**
+   * Whether right-clicking a message in the open chat copies the whole message, without colour codes, to the clipboard.
+   */
+  click_to_copy?: boolean;
+  /**
+   * Opacity of the dark band behind chat lines, as a fraction of the line's own fade. 0.5 is vanilla; 0 draws text only.
+   */
+  background_opacity?: number;
+  /**
+   * How many messages the chat keeps for scrolling back. Vanilla keeps 100.
+   */
+  history_length?: number;
+}
+/**
  * Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored by the launcher against your account; these four switches are only about what this client draws. Off hides every cosmetic, yours included, and stops answering other players' emotes — but your own set is untouched, and other VOID players still see it.
  */
 export interface CosmeticsSettings {
@@ -2119,10 +3123,11 @@ export interface Loadout {
   mc: string;
   mods: ModStates;
   hud: HUDLayout;
+  quick?: QuickPins;
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 30 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 45 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2154,6 +3159,21 @@ export interface ModStates {
   damage_tint?: DamageTintSettings;
   old_animations?: OldAnimationsSettings;
   old_input?: OldInputSettings;
+  culling?: EntityCullingSettings;
+  particles?: ParticleLimiterSettings;
+  frame_limiter?: FrameLimiterSettings;
+  block_outline?: BlockOutlineSettings;
+  shiny_pots?: ShinyPotsSettings;
+  clear_glass?: ClearGlassSettings;
+  nametags?: NametagsSettings;
+  scoreboard?: ScoreboardSettings;
+  gui_scale?: GUIScaleSettings;
+  fog?: FogSettings;
+  menu_blur?: MenuBlurSettings;
+  time_weather?: TimeWeatherSettings;
+  potion_counter?: PotionCounterSettings;
+  reach?: ReachDisplaySettings;
+  chat?: ChatSettings;
   cosmetics?: CosmeticsSettings;
 }
 /**
@@ -2369,6 +3389,39 @@ export interface EquipJavaToRust {
   [k: string]: any | undefined;
 }
 /**
+ * Sent when the in-game Loadouts screen created, renamed, duplicated or imported a loadout, or changed its quick pins (`window.void` calls of the same names). Carries the whole loadout: Rust creates it at the end of the library order when the id is new and overwrites it otherwise, validating it first. Like `state`, a notification of what Java already did, not a request; if Rust cannot store it, it answers with `library` so the game shows what is actually on disk.
+ */
+export interface LoadoutSaveJavaToRust {
+  /**
+   * Message discriminator; always `loadout_save`.
+   */
+  t: 'loadout_save';
+  loadout: Loadout;
+  [k: string]: any | undefined;
+}
+/**
+ * Sent when the in-game Loadouts screen deleted a loadout. Java has already removed it, and switched away from it first when it was active (that switch travels as its own `loadout_select`). Rust never deletes the last loadout on disk.
+ */
+export interface LoadoutDeleteJavaToRust {
+  /**
+   * Message discriminator; always `loadout_delete`.
+   */
+  t: 'loadout_delete';
+  id: LoadoutId;
+  [k: string]: any | undefined;
+}
+/**
+ * Sent when the player picked a loadout in game other than with the cycle key, which reports itself as `hotkey` `loadout.next`. Moves Rust's active pointer so the tray and the next launch agree with the running game.
+ */
+export interface LoadoutSelectJavaToRust {
+  /**
+   * Message discriminator; always `loadout_select`.
+   */
+  t: 'loadout_select';
+  id: LoadoutId;
+  [k: string]: any | undefined;
+}
+/**
  * The launcher's answer to `hello` (§6.9). Delivers the entire world of persisted state in one frame: the active loadout, **every other loadout in full**, and global settings. The mod keeps no config files of its own (§6.1); everything it knows arrives here. `loadouts` carries whole loadouts rather than summaries on purpose: a loadout is roughly 1 KB and a library is capped at 128, so the whole library is a few hundred kilobytes at worst, sent once per launch — and in exchange `void.switchLoadout` and the L-key cycle can apply any loadout in under a frame (§8.2) with no round trip, and the in-game Loadouts screen can list the library without a bridge accessor of its own. There is deliberately no `request_loadout` message: nothing the mod does needs one.
  */
 export interface InitRustToJava {
@@ -2514,6 +3567,23 @@ export interface EmoteRustToJava {
   [k: string]: any | undefined;
 }
 /**
+ * The whole loadout library, in full and in library order, exactly as `init.loadouts`. Sent when the launcher created, deleted, imported or edited a loadout while the game is running, and as the answer to an in-game `loadout_save` or `loadout_delete` Rust could not apply. Java replaces its library with it, keeping its own live copy of the active loadout, and pushes the `loadouts` bridge event.
+ */
+export interface LibraryRustToJava {
+  /**
+   * Message discriminator; always `library`.
+   */
+  t: 'library';
+  /**
+   * Every loadout, in full and in library order.
+   *
+   * @minItems 1
+   * @maxItems 128
+   */
+  loadouts: Loadout[];
+  [k: string]: any | undefined;
+}
+/**
  * Envelope for the `keys` event.
  */
 export interface KeysEvent {
@@ -2608,6 +3678,44 @@ export interface TickPayload {
      * Times the player has been hit since the session began. Monotonic. A combo breaks when this moves, which is why it is sent rather than derived from health.
      */
     taken: number;
+    /**
+     * Times `MinecraftClient.doAttack` has run since the session began, whatever it hit. Monotonic. A left click the game swallowed (1.8's miss delay, a screen open) never reaches `doAttack`, so the difference between this and the mouse edges on `keys` is exactly the cancelled clicks; `cps.ignore_cancelled` counts these instead of the edges. Optional so a sensor that predates it still validates.
+     */
+    swings?: number;
+  };
+  /**
+   * Inventory-wide item counts, for the Item counter's named `track` values and the Potion counter. Every key is the total across the 36 main inventory slots (hotbar included, armour and the cursor stack excluded). `held_total` is every stack matching the held item, same item and same variant, and is absent with an empty hand; `wool` is every colour together; `health_potion` is splash potions of Healing I and II; `soup` is mushroom stew. Sent whole whenever any key changes and omitted otherwise, like `armor`: an absent field means unchanged. Value-checked, never rate-limited, because a count changes on use and pickup rather than on a clock.
+   */
+  counts?: {
+    held_total?: number;
+    ender_pearl?: number;
+    golden_apple?: number;
+    arrow?: number;
+    snowball?: number;
+    egg?: number;
+    cobweb?: number;
+    wool?: number;
+    tnt?: number;
+    fire_charge?: number;
+    iron_ingot?: number;
+    gold_ingot?: number;
+    diamond?: number;
+    emerald?: number;
+    health_potion?: number;
+    soup?: number;
+  };
+  /**
+   * The reach of the most recent landed attack, for the Reach display. Measured on the client when the attack is sent: from the eye position interpolated to the frame the crosshair ray was cast on, to the point where that ray met the target's hitbox. `n` counts measured attacks and is monotonic, so two hits at the same distance are still two readings; the page keeps the history it averages over. Absent until the first measured attack, and after that sent only on the tick a new one lands.
+   */
+  reach?: {
+    /**
+     * Eye-to-hit-point distance in blocks, rounded to 3 decimals.
+     */
+    blocks: number;
+    /**
+     * Measured attacks since the session began. Monotonic.
+     */
+    n: number;
   };
 }
 /**
@@ -2824,6 +3932,72 @@ export interface ModactionPayload {
   action: string;
 }
 /**
+ * Envelope for the `scoreboard` event.
+ */
+export interface ScoreboardEvent {
+  /**
+   * Event discriminator; always `scoreboard`.
+   */
+  e: 'scoreboard';
+  payload: ScoreboardPayload;
+}
+/**
+ * The sidebar scoreboard, read the way `InGameHud#renderScoreboardObjective` reads it: the objective in the sidebar display slot, its scores sorted as vanilla sorts them, names starting with `#` dropped, the last fifteen kept, and each name decorated with its team prefix and suffix. `visible: false` when there is no sidebar objective — the page draws nothing then.
+ */
+export interface ScoreboardPayload {
+  /**
+   * Whether a sidebar objective is set.
+   */
+  visible: boolean;
+  /**
+   * The objective's display name, raw, `§` formatting codes included. Empty when `visible` is false.
+   */
+  title: string;
+  /**
+   * The lines top to bottom — highest score first, exactly the order vanilla draws them. At most fifteen.
+   *
+   * @maxItems 15
+   */
+  lines: {
+    /**
+     * The line as vanilla prints it: team prefix + player name + team suffix, raw, `§` codes included.
+     */
+    text: string;
+    /**
+     * The line's score — the red number vanilla draws at the right edge.
+     */
+    score: number;
+  }[];
+}
+/**
+ * Envelope for the `toast` event.
+ */
+export interface ToastEvent {
+  /**
+   * Event discriminator; always `toast`.
+   */
+  e: 'toast';
+  payload: ToastPayload;
+}
+/**
+ * One short notice, drawn over the game for a moment and then gone. Purely informational: nothing waits on it and nothing is lost if the page misses it.
+ */
+export interface ToastPayload {
+  /**
+   * What the notice is about, so the page can pick its mark: `loadout` for a switch or a library change, `mod` for a mod a key flipped, `info` for anything else.
+   */
+  kind: 'loadout' | 'mod' | 'info';
+  /**
+   * The main line, e.g. the loadout's name or `Fullbright on`.
+   */
+  title: string;
+  /**
+   * An optional second line, e.g. `Loadout switched`.
+   */
+  detail?: string;
+  mod?: ModId;
+}
+/**
  * Envelope for the `cosmetics` event.
  */
 export interface CosmeticsEvent {
@@ -3007,6 +4181,96 @@ export interface SetGlobalCall {
   params: SetGlobalParams;
 }
 /**
+ * `void.createLoadout(name)`. Adds a loadout to the end of the library with every mod at its registry defaults and the factory HUD layout, and does not switch to it. Java picks the id (the name slugified, with a numeric suffix when taken) and tells Rust with `loadout_save`, which is what persists it. A `loadouts` event follows with the new library.
+ */
+export interface CreateLoadoutCall {
+  /**
+   * Call discriminator; always `createLoadout`.
+   */
+  c: 'createLoadout';
+  params: CreateLoadoutParams;
+}
+/**
+ * `void.renameLoadout(id, name)`. Changes a loadout's display name; the id is stable and does not follow it. Persisted with `loadout_save`; a `loadouts` event follows, and a `loadout` event too when the renamed loadout is the active one.
+ */
+export interface RenameLoadoutCall {
+  /**
+   * Call discriminator; always `renameLoadout`.
+   */
+  c: 'renameLoadout';
+  params: RenameLoadoutParams;
+}
+/**
+ * `void.duplicateLoadout(id)`. Appends a copy of a loadout, mods, settings, HUD layout and quick pins, named `<name> copy`, with no stats. Does not switch to it. Persisted with `loadout_save`; a `loadouts` event follows.
+ */
+export interface DuplicateLoadoutCall {
+  /**
+   * Call discriminator; always `duplicateLoadout`.
+   */
+  c: 'duplicateLoadout';
+  params: DuplicateLoadoutParams;
+}
+/**
+ * `void.deleteLoadout(id)`. Removes a loadout from the library. Refused for the last one. When it was the active loadout, the first remaining one is applied exactly as a switch is, and a `loadout` event follows. Persisted with `loadout_delete`; a `loadouts` event follows.
+ */
+export interface DeleteLoadoutCall {
+  /**
+   * Call discriminator; always `deleteLoadout`.
+   */
+  c: 'deleteLoadout';
+  params: DeleteLoadoutParams;
+}
+/**
+ * `void.exportLoadout(id)`. Encodes a loadout as a share code: `VOID1.` + base64url (no padding) of the raw-DEFLATE-compressed UTF-8 JSON of the loadout's name, icon, server, mc, registry version, HUD layout, quick pins and *only the settings that differ from the registry defaults*, then `.` + the CRC-32 of that JSON as 8 lowercase hex digits. Ids and stats are never in a code. The same format is produced and read by `void_loadout::share` in Rust and `ShareCode` in Java; `schema/share-code.fixtures.json` holds codes each side made, and both test suites decode all of them.
+ */
+export interface ExportLoadoutCall {
+  /**
+   * Call discriminator; always `exportLoadout`.
+   */
+  c: 'exportLoadout';
+  params: ExportLoadoutParams;
+}
+/**
+ * `void.importLoadout(code)`. Decodes a share code and appends the loadout it carries to the library under a fresh id, without switching to it. Structure is strict: an unknown version, a bad checksum, undecodable data or a missing name refuses the whole code. Content is lenient: a mod or setting this build does not know, or a value outside its schema range, is dropped (the mod falls back to its default) and counted in `dropped`, so a code made on a newer client still imports. The result is a valid `loadout.json` loadout. Persisted with `loadout_save`; a `loadouts` event follows.
+ */
+export interface ImportLoadoutCall {
+  /**
+   * Call discriminator; always `importLoadout`.
+   */
+  c: 'importLoadout';
+  params: ImportLoadoutParams;
+}
+/**
+ * `void.setQuickPins(ids)`. Replaces the active loadout's quick-panel pins (`loadout.json#/definitions/quick_pins`). Unknown and repeated ids are dropped and the list is cut to eight. Persisted with `loadout_save`; nothing is pushed back, the return is the stored list.
+ */
+export interface SetQuickPinsCall {
+  /**
+   * Call discriminator; always `setQuickPins`.
+   */
+  c: 'setQuickPins';
+  params: SetQuickPinsParams;
+}
+/**
+ * `void.setClipboard(text)`. Puts plain text on the system clipboard — what the Loadouts screen's `Copy code` does with a share code. Why the bridge carries a clipboard at all: the Ultralight binding implements no platform clipboard, so Ctrl+C / Ctrl+V do nothing inside the in-game page and `navigator.clipboard` does not exist there. A share code is a line of text a player has to get out of the game and into Discord, and back. Java owns the system clipboard (`Screen.setClipboard` / `getClipboard`), so the page asks it.
+ */
+export interface SetClipboardCall {
+  /**
+   * Call discriminator; always `setClipboard`.
+   */
+  c: 'setClipboard';
+  params: SetClipboardParams;
+}
+/**
+ * `void.getClipboard()`. The system clipboard's plain text, for the Loadouts screen's `Paste code`. Empty when the clipboard holds no text or cannot be read. Only ever called on a click, never polled.
+ */
+export interface GetClipboardCall {
+  /**
+   * Call discriminator; always `getClipboard`.
+   */
+  c: 'getClipboard';
+  params: GetClipboardParams;
+}
+/**
  * `void.equipCosmetic(slot, id)`. Wears `id` in `slot`, or takes the slot off when `id` is null. Applied in Java at once — the next frame draws it — and forwarded to the launcher as an `equip` protocol message, which persists it to the backend. Java refuses only what it can see is wrong: an id the catalog does not know, an item for another slot, or one it knows the account does not own. When it does not know what the account owns, the backend validates and the launcher reverts a refused equip with a `cosmetics` message, which reaches the page as a `cosmetics` event. Synchronous and authoritative like every call here: an item the account does not own, an id the catalog does not know, or an item for another slot is **refused**, and the answer is then what the slot still holds. Bind the wardrobe to the return, never to what was sent. No `cosmetics` event follows.
  */
 export interface EquipCosmeticCall {
@@ -3125,6 +4389,96 @@ export interface SetGlobalResult {
    */
   c: 'setGlobal';
   returns: SetGlobalReturns;
+}
+/**
+ * Envelope for a createLoadout return value.
+ */
+export interface CreateLoadoutResult {
+  /**
+   * Call discriminator; always `createLoadout`.
+   */
+  c: 'createLoadout';
+  returns: CreateLoadoutReturns;
+}
+/**
+ * Envelope for a renameLoadout return value.
+ */
+export interface RenameLoadoutResult {
+  /**
+   * Call discriminator; always `renameLoadout`.
+   */
+  c: 'renameLoadout';
+  returns: RenameLoadoutReturns;
+}
+/**
+ * Envelope for a duplicateLoadout return value.
+ */
+export interface DuplicateLoadoutResult {
+  /**
+   * Call discriminator; always `duplicateLoadout`.
+   */
+  c: 'duplicateLoadout';
+  returns: DuplicateLoadoutReturns;
+}
+/**
+ * Envelope for a deleteLoadout return value.
+ */
+export interface DeleteLoadoutResult {
+  /**
+   * Call discriminator; always `deleteLoadout`.
+   */
+  c: 'deleteLoadout';
+  returns: DeleteLoadoutReturns;
+}
+/**
+ * Envelope for a exportLoadout return value.
+ */
+export interface ExportLoadoutResult {
+  /**
+   * Call discriminator; always `exportLoadout`.
+   */
+  c: 'exportLoadout';
+  returns: ExportLoadoutReturns;
+}
+/**
+ * Envelope for a importLoadout return value.
+ */
+export interface ImportLoadoutResult {
+  /**
+   * Call discriminator; always `importLoadout`.
+   */
+  c: 'importLoadout';
+  returns: ImportResult;
+}
+/**
+ * Envelope for a setQuickPins return value.
+ */
+export interface SetQuickPinsResult {
+  /**
+   * Call discriminator; always `setQuickPins`.
+   */
+  c: 'setQuickPins';
+  returns: SetQuickPinsReturns;
+}
+/**
+ * Envelope for a setClipboard return value.
+ */
+export interface SetClipboardResult {
+  /**
+   * Call discriminator; always `setClipboard`.
+   */
+  c: 'setClipboard';
+  returns: SetClipboardReturns;
+}
+/**
+ * Envelope for a getClipboard return value.
+ */
+export interface GetClipboardResult {
+  /**
+   * Call discriminator; always `getClipboard`.
+   */
+  c: 'getClipboard';
+  returns: GetClipboardReturns;
 }
 /**
  * Envelope for a equipCosmetic return value.

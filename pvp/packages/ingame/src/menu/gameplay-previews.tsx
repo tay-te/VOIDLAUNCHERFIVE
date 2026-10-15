@@ -1,5 +1,5 @@
 /**
- * Previews for the twelve mods that draw into the world, not onto the page.
+ * Previews for the mods that draw into the world, not onto the page.
  *
  * ## Why these are different from the rest of the registry
  *
@@ -73,7 +73,7 @@ import { keybindLabel } from './settings-format';
 /* -------------------------------------------------------------------------- */
 
 /** A labelled row of cells — the primitive both the ramp and the timeline are built from. */
-function CellRow({
+export function CellRow({
   label,
   cells,
   joined = false,
@@ -181,17 +181,17 @@ export function rgbOnly(color: string): string {
   return /^#[0-9a-fA-F]{8}$/.test(color) ? color.slice(0, 7) : color;
 }
 
-function steps(dense: boolean): number {
+export function steps(dense: boolean): number {
   return dense ? 7 : 12;
 }
 
 /** The one-line reading under a diagram: what the current value actually means. */
-function Reading({ children }: { children: React.ReactNode }): React.ReactElement {
+export function Reading({ children }: { children: React.ReactNode }): React.ReactElement {
   return <p className="gprev__reading">{children}</p>;
 }
 
 /** The diagram root's classes. `--tile` is the density modifier; the rest is unchanged. */
-function root(dense: boolean, modifier?: string, extra?: string): string {
+export function root(dense: boolean, modifier?: string, extra?: string): string {
   return ['gprev', modifier, dense ? 'gprev--tile' : null, extra].filter(Boolean).join(' ');
 }
 
@@ -261,6 +261,18 @@ const BASE_FOV = 70;
  * small divisors and diverge at large ones — at 10x the naive answer is 10% and the real one is
  * 8.4% — and using the real one is free.
  */
+/**
+ * The levels the wheel can reach with `scroll_adjust`: 1.1x to 10x in multiplicative steps, as the
+ * schema describes them. Eight rungs is what the frame's height holds legibly; the real wheel's
+ * step is finer, and the ladder is the range, not a count of clicks.
+ */
+const ZOOM_LADDER: readonly number[] = Array.from({ length: 8 }, (_, i) =>
+  Math.round(1.1 * Math.pow(10 / 1.1, i / 7) * 100) / 100,
+).reverse();
+
+/** Share of the view one illustrative flick crosses with sensitivity scaled — the unzoomed share. */
+const FLICK_SHARE = 0.36;
+
 export function zoomFraction(divisor: number): number {
   const half = (BASE_FOV / 2) * (Math.PI / 180);
   const d = Math.max(1, divisor);
@@ -293,13 +305,46 @@ export function ZoomPreview({ dense = false, className }: DiagramProps = {}): Re
   // rendered, that is noise rather than motion — it read as a moire, and it was what made the
   // divisor illegible. Page only.
   const ghosts = smooth && !dense ? [0.72, 0.48, 0.3].map((t) => 1 - (1 - fraction) * (1 - t)) : [];
+  // `scroll_adjust`: the wheel walks the zoom between the schema's ends while the key is held. A
+  // ladder up the frame's right edge, one cell per step the wheel can reach, the current level
+  // lit — the range is the content of the setting, so the range is what is drawn. Absent when off,
+  // because then there is no range: the key gives one level and that is the inner frame.
+  const scroll = settings.scroll_adjust !== false;
+  const ladder = scroll && !dense ? ZOOM_LADDER : [];
+  const litStep = ladder.reduce(
+    (best, level, i) => (Math.abs(level - divisor) < Math.abs(ladder[best]! - divisor) ? i : best),
+    0,
+  );
+  // `scale_sensitivity`: how far one mouse flick carries the crosshair across what you can see.
+  // Scaled, the same flick crosses the same share of the zoomed view as of the unzoomed one;
+  // vanilla, it crosses `divisor` times as much and runs off the frame. Drawn as the flick's
+  // travel inside the inner frame — a bar that fits, or one clipped at the edge.
+  const scaled = settings.scale_sensitivity !== false;
+  const flick = Math.min(1, FLICK_SHARE * (scaled ? 1 : Math.max(1, divisor)));
   return (
     <div className={root(dense, 'gprev--zoom', className)}>
       <div className="gprev__fov">
         {ghosts.map((f, i) => (
           <span key={i} className="gprev__fovstep" style={frame(f)} />
         ))}
-        <span className="gprev__fovinner" style={frame(fraction)} />
+        <span className="gprev__fovinner" style={frame(fraction)}>
+          {dense ? null : (
+            <span
+              className={`gprev__flick${flick >= 1 ? ' gprev__flick--over' : ''}`}
+              style={{ width: `${(flick * 100).toFixed(1)}%` }}
+            />
+          )}
+        </span>
+        {ladder.length > 0 ? (
+          <span className="gprev__ladder">
+            {ladder.map((level, i) => (
+              <span
+                key={level}
+                className={`gprev__rung${i === litStep ? ' gprev__rung--lit' : ''}`}
+              />
+            ))}
+          </span>
+        ) : null}
         {/* The key is part of the sentence this diagram is making — you hold *this* to get
             *that*. It is printed in the page's meta line too, but there it is a fact about the
             mod; here it is the first half of the interaction. */}
@@ -325,6 +370,10 @@ export function ZoomPreview({ dense = false, className }: DiagramProps = {}): Re
             `${Math.round(fraction * 100)}% of the width, filling the screen.`}
           {divisor <= range.min ? ' Barely a zoom at all.' : ''}
           {smooth ? ' It eases in through the steps behind it.' : ' It snaps straight there.'}
+          {scroll ? ' The wheel walks the ladder from 1.1× to 10× while you hold it.' : ''}
+          {scaled
+            ? ' A flick crosses the same share of the view as unzoomed.'
+            : ` A flick turns ${Math.max(1, divisor).toFixed(1)}× as far across what you see.`}
         </Reading>
       )}
     </div>
@@ -390,9 +439,25 @@ export function HitboxPreview({ dense = false, className }: DiagramProps = {}): 
   // than a sentence about a number.
   const limit = Number(settings.max_distance ?? 64);
   const far = limit >= FAR_BLOCKS;
+  // `state_colors`: the box says what you can do to its entity. The two figures are already two
+  // situations, so each takes one state — the near one is under your crosshair inside attack
+  // range (`hittable_color`), the far one is mid-hurt-animation from the hit before
+  // (`damaged_color`, which outranks hittable in game, so it is the one a far, just-hit entity
+  // shows). A crosshair mark on the near box says which one the reticle is on. Page only, for the
+  // same §1 reason the box's own ink is page only: the tile stays monochrome.
+  const stateColors = settings.state_colors === true;
+  const hittable =
+    stateColors && !dense && typeof settings.hittable_color === 'string'
+      ? settings.hittable_color
+      : color;
+  const damaged =
+    stateColors && !dense && typeof settings.damaged_color === 'string'
+      ? settings.damaged_color
+      : color;
   return (
     <div className={root(dense, 'gprev--hitbox', className)}>
-      <div className="gprev__box" style={{ borderWidth: `${width}px`, borderColor: color }}>
+      <div className="gprev__box" style={{ borderWidth: `${width}px`, borderColor: hittable }}>
+        {stateColors ? <span className="gprev__aim" /> : null}
         {eye ? (
           <span
             className="gprev__eye"
@@ -403,7 +468,7 @@ export function HitboxPreview({ dense = false, className }: DiagramProps = {}): 
       {far ? (
         <div
           className="gprev__box gprev__box--far"
-          style={{ borderWidth: `${Math.max(1, width * 0.5)}px`, borderColor: color }}
+          style={{ borderWidth: `${Math.max(1, width * 0.5)}px`, borderColor: damaged }}
         />
       ) : null}
       {dense ? null : (
@@ -411,7 +476,10 @@ export function HitboxPreview({ dense = false, className }: DiagramProps = {}): 
           {`A player's box is 0.6 by 1.8 blocks, drawn at ${Number(
             settings.line_width ?? 2,
           )} px.${eye ? ' The eye line leaves at 1.62, where they are looking.' : ''}` +
-            ` Boxes stop at ${limit} blocks, so the second figure${far ? ' is drawn' : ' is not'}.`}
+            ` Boxes stop at ${limit} blocks, so the second figure${far ? ' is drawn' : ' is not'}.` +
+            (stateColors
+              ? ' The box under your crosshair takes the hittable colour; one still flashing from a hit takes the damaged colour.'
+              : '')}
         </Reading>
       )}
     </div>
@@ -1761,6 +1829,109 @@ export function InputPreview({ dense = false, className }: DiagramProps = {}): R
             (noMissDelay
               ? `A whiff no longer costs the next ${MISS_COOLDOWN_TICKS} ticks, so all ${CLICK_CELLS.length} clicks are sent — which is ${eaten} more swing packets on this miss than vanilla sends.`
               : `A whiff still costs the next ${MISS_COOLDOWN_TICKS} ticks: ${eaten} of these clicks reach nothing at all.`)}
+        </Reading>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Chat                                                                       */
+/* -------------------------------------------------------------------------- */
+
+/** Vanilla's chat history, for the reading's comparison. */
+const VANILLA_HISTORY = 100;
+
+/** Lines the open chat shows at once — vanilla's focused height, the window the scrollbar is. */
+const CHAT_VISIBLE = 20;
+
+/**
+ * A short stretch of lobby chat, including the server notice the lobby repeats.
+ *
+ * Fixed text, not live chat: the page has no chat feed, and a diagram of the *settings* needs the
+ * one situation each of them changes — a repeated line for `stack_repeats`, a player line to
+ * right-click for `click_to_copy`, arrival times for `timestamps`. Names and text are generic.
+ */
+const CHAT_LINES: ReadonlyArray<{ time: string; who?: string; text: string; repeat?: number }> = [
+  { time: '14:02', who: 'Steve', text: 'gg, rematch?' },
+  { time: '14:03', text: 'Welcome to the lobby!', repeat: 3 },
+  { time: '14:03', who: 'Alex', text: 'queueing 1v1 now' },
+];
+
+/**
+ * Chat, as the chat box: a few lines over their dark band, drawn the way the game will draw them.
+ *
+ * Chat is a gameplay mod — it changes `GuiNewChat` rather than placing a widget — so this is a
+ * diagram in this file's sense: the drawing is ours, the numbers are the mod's.
+ *
+ * - `timestamps` — each line is prefixed with its arrival time, in grey.
+ * - `stack_repeats` — the repeated notice is one line with `(x3)` instead of three lines.
+ * - `background_opacity` — the band behind the lines, at the setting's share of vanilla's own
+ *   0.5 black. 0 is text on the game.
+ * - `click_to_copy` — the last line is drawn as the one under the cursor, with the mouse key that
+ *   copies it; off, the line is just a line.
+ * - `history_length` — the scrollbar. Its thumb is the twenty lines the open chat shows against
+ *   the messages kept, so a longer history is a shorter thumb: 20% of the track at vanilla's 100,
+ *   0.4% at 5000. That one is mostly told by the reading at the top of the range, where the thumb
+ *   is a hairline either way — the thumb is still the true proportion.
+ *
+ * Tile density keeps the band, the stamps and the stacking — the three a glance can read — and
+ * drops the cursor, the scrollbar and the reading.
+ */
+export function ChatPreview({ dense = false, className }: DiagramProps = {}): React.ReactElement {
+  const settings = useModSettings('chat');
+  const timestamps = settings.timestamps !== false;
+  const stack = settings.stack_repeats !== false;
+  const copy = settings.click_to_copy !== false;
+  const opacity = Math.min(1, Math.max(0, Number(settings.background_opacity ?? 0.5)));
+  const history = Math.max(1, Number(settings.history_length ?? 1000));
+  const lines = CHAT_LINES.flatMap((line) =>
+    stack || !line.repeat
+      ? [line]
+      : Array.from({ length: line.repeat }, () => ({ ...line, repeat: undefined })),
+  );
+  // Vanilla's band is black at 0.5 of the line's own fade; the setting is a share of that.
+  const band = `rgba(0, 0, 0, ${(0.5 * opacity).toFixed(3)})`;
+  const thumb = Math.min(1, CHAT_VISIBLE / history);
+  return (
+    <div className={root(dense, 'gprev--chat', className)}>
+      <div className="gprev__chat">
+        <div className="gprev__chatlines">
+          {lines.map((line, i) => {
+            const hovered = copy && !dense && i === lines.length - 1;
+            return (
+              <div
+                key={i}
+                className={`gprev__chatline${hovered ? ' gprev__chatline--hover' : ''}`}
+                style={{ background: band }}
+              >
+                {timestamps ? <span className="gprev__chattime">[{line.time}]</span> : null}
+                <span className="gprev__chattext">
+                  {line.who ? `<${line.who}> ` : ''}
+                  {line.text}
+                </span>
+                {line.repeat ? <span className="gprev__chatrep tnum">(x{line.repeat})</span> : null}
+                {hovered ? <span className="gprev__kbd gprev__chatcopy">RMB</span> : null}
+              </div>
+            );
+          })}
+        </div>
+        {dense ? null : (
+          <span className="gprev__chatscroll">
+            <span
+              className="gprev__chatthumb"
+              style={{ height: `${(thumb * 100).toFixed(2)}%` }}
+            />
+          </span>
+        )}
+      </div>
+      {dense ? null : (
+        <Reading>
+          {`Keeps ${history} messages to scroll back through${
+            history > VANILLA_HISTORY ? `, ${Number((history / VANILLA_HISTORY).toFixed(1))}× vanilla's ${VANILLA_HISTORY}` : ', as vanilla does'
+          }.` +
+            (stack ? ' A repeated line becomes one line with a count.' : '') +
+            (copy ? ' Right-click a line in open chat to copy it.' : '')}
         </Reading>
       )}
     </div>

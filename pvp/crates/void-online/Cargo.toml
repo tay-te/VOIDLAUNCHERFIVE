@@ -1,0 +1,28 @@
+[package]
+name = "void-online"
+description = "The VOID PvP launcher's Supabase client: Minecraft sign-in, cosmetics, friends, presence and emotes."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# No Tauri here, for the same reason as void-core: the desktop app wraps this crate, it does
+# not live inside it, so everything below is testable without a webview.
+
+[dependencies]
+void-bridge.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+futures-util.workspace = true
+reqwest.workspace = true
+rand.workspace = true
+tokio-rustls.workspace = true
+rustls-platform-verifier.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

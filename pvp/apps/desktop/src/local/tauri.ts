@@ -17,26 +17,39 @@ import { listen as rawListen } from '@tauri-apps/api/event';
 
 import type {
   Account,
+  AccountList,
+  CheckoutSession,
+  CosmeticsState,
   DeviceCode,
+  EquippedSet,
+  FriendsList,
+  ImportedLoadout,
   JavaStatus,
   LaunchReport,
   Loadout,
   LoadoutPatch,
   LoadoutSummary,
+  OpenTarget,
+  OnlineStatus,
   PingResult,
   PrepareReport,
   Settings,
   SettingsPatch,
   SystemInfo,
   UpdateInfo,
+  UpdateProgress,
 } from './protocol';
 
 /** Every command, its argument object and its return type. */
 export interface Cmd {
   auth_login: [Record<string, never>, DeviceCode];
-  auth_logout: [Record<string, never>, void];
+  /** Signs the active account out; resolves to the account active afterwards. */
+  auth_logout: [Record<string, never>, Account | null];
   auth_current: [Record<string, never>, Account | null];
   auth_offline: [{ name: string }, Account];
+  auth_accounts: [Record<string, never>, AccountList];
+  auth_switch: [{ uuid: string }, Account];
+  auth_remove: [{ uuid: string }, AccountList];
 
   prepare: [{ loadoutId: string }, PrepareReport];
   /** `server` is the play bar's choice; `null` launches to the title screen. */
@@ -51,6 +64,10 @@ export interface Cmd {
   loadouts_update: [{ id: string; patch: LoadoutPatch }, Loadout];
   loadouts_delete: [{ id: string }, LoadoutSummary[]];
   loadouts_switch: [{ id: string }, Loadout];
+  /** The loadout's share code, `VOID1.…`. */
+  loadouts_export: [{ id: string }, string];
+  /** Appends the code's loadout under a fresh id; does not switch. Rejects with the reason. */
+  loadouts_import: [{ code: string }, ImportedLoadout];
 
   settings_get: [Record<string, never>, Settings];
   settings_set: [{ patch: SettingsPatch }, Settings];
@@ -59,11 +76,30 @@ export interface Cmd {
   java_status: [Record<string, never>, JavaStatus];
   server_ping: [{ host: string }, PingResult];
   open_data_dir: [Record<string, never>, string];
+  /** Reveals one of a closed set of places; `path` names a crash report. */
+  open_path: [{ which: OpenTarget; path?: string }, string];
   updater_check: [Record<string, never>, UpdateInfo];
+  /** Downloads, verifies and installs the pending update, then relaunches. */
+  updater_install: [Record<string, never>, void];
 
   window_minimize: [Record<string, never>, void];
   window_toggle_maximize: [Record<string, never>, void];
   window_close: [Record<string, never>, void];
+
+  // online — docs/online-contract.md, "Launcher commands"
+  online_status: [Record<string, never>, OnlineStatus];
+  cosmetics_state: [Record<string, never>, CosmeticsState];
+  /** `id: null` takes the slot's item off. */
+  cosmetics_equip: [{ slot: string; id: string | null }, EquippedSet];
+  cosmetics_set_emotes: [{ ids: string[] }, EquippedSet];
+  /** Opens Stripe Checkout in the system browser and returns the session. */
+  store_checkout: [{ item: string }, CheckoutSession];
+  friends_list: [Record<string, never>, FriendsList];
+  friends_request: [{ name: string }, FriendsList];
+  friends_accept: [{ uuid: string }, FriendsList];
+  friends_decline: [{ uuid: string }, FriendsList];
+  friends_cancel: [{ uuid: string }, FriendsList];
+  friends_remove: [{ uuid: string }, FriendsList];
 }
 
 export type CmdName = keyof Cmd;
@@ -91,6 +127,10 @@ export interface Evt {
   'bridge:server': import('./protocol').BridgeServer;
   'loadout:switched': Loadout;
   'update:available': UpdateInfo;
+  'update:progress': UpdateProgress;
+  'online:status': OnlineStatus;
+  'online:cosmetics': CosmeticsState;
+  'online:friends': FriendsList;
 }
 
 export type EvtName = keyof Evt;

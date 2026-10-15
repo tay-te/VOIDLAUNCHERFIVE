@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -35,6 +36,43 @@ public abstract class GameRendererMixin {
             return;
         }
         cir.setReturnValue(Float.valueOf((float) (cir.getReturnValueF() * factor)));
+    }
+
+    /**
+     * {@code zoom.scale_sensitivity}: the mouse turns the view less while zoomed.
+     *
+     * <p>Vanilla reads {@code GameOptions.sensitivity} in exactly two places in this class, once
+     * each, both as {@code f = s * 0.6 + 0.2} cubed into the per-delta multiplier
+     * {@code f * f * f * 8}: {@code render(FJ)V} at offset 168 (the raw mouse path, every frame)
+     * and {@code tick()V} at offset 59 (the cinematic smoother, which {@code zoom.cinematic}
+     * switches on while zoomed). Answering both reads keeps the two paths on one curve. The
+     * replacement value is {@code ZoomController.scaledSensitivity}; outside an active zoom, or
+     * with the setting off, this returns the field untouched.</p>
+     */
+    @Redirect(method = {"render(FJ)V", "tick()V"}, at = @At(value = "FIELD",
+            target = "Lnet/minecraft/client/option/GameOptions;sensitivity:F",
+            opcode = Opcodes.GETFIELD), require = 2)
+    private float void$zoomSensitivity(GameOptions options) {
+        VoidClient client = VoidClient.get();
+        return client == null ? options.sensitivity : client.zoomSensitivity(options.sensitivity);
+    }
+
+    /**
+     * The tick delta each crosshair pick was cast at, for the reach display.
+     *
+     * <p>{@code updateTargetedEntity(F)V} computes {@code MinecraftClient.result} from
+     * {@code cameraEntity.getCameraPosVec(tickDelta)}. It runs once per frame from the render
+     * path and once more at the start of every client tick ({@code MinecraftClient.tick} offset
+     * 53, {@code fconst_1}) — which is the cast {@code doAttack} later reads in the same tick.
+     * Recording the argument rather than assuming 1.0 keeps the reach meter measuring from the
+     * eye that ray actually started at, whichever call made it.</p>
+     */
+    @Inject(method = "updateTargetedEntity(F)V", at = @At("HEAD"))
+    private void void$pickDelta(float tickDelta, CallbackInfo ci) {
+        VoidClient client = VoidClient.get();
+        if (client != null) {
+            client.onCrosshairPick(tickDelta);
+        }
     }
 
     /**

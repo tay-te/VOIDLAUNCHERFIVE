@@ -81,9 +81,19 @@ const ORDER = [
   // `hypixel_safe` is per mod: `old_animations` is `safe`, `old_input` is `grey`. Each file argues
   // its own half. Appended, never inserted.
   'old_animations', 'old_input',
-  // Wave 7 — the switches over the cosmetics renderer. What a player *wears* is account data the
-  // launcher owns (`cosmetics.json`, the `cosmetics` protocol message); this is only what the
-  // client draws. Appended, never inserted.
+  // Wave 7 — the FPS boost (three `utility` gameplay mods: culling, particles, frame cap) and the
+  // §3.3 visual table stakes, with the scoreboard as the one HUD mod (its `$comment` says why).
+  // Appended, never inserted.
+  'culling', 'particles', 'frame_limiter',
+  'block_outline', 'shiny_pots', 'clear_glass', 'nametags', 'scoreboard', 'gui_scale', 'fog',
+  'menu_blur', 'time_weather',
+  // Wave 7, second half — the depth pass for launch, merged after the FPS boost above: two
+  // readouts the inventory and reach sensors opened (`potion_counter`, `reach`) and the chat
+  // mod. Appended, never inserted. registry_version 12 counts both halves.
+  'potion_counter', 'reach', 'chat',
+  // Wave 7, third part — the switches over the cosmetics renderer. What a player *wears* is
+  // account data the launcher owns (`cosmetics.json`, the `cosmetics` protocol message); this is
+  // only what the client draws. Appended, never inserted. registry_version 13.
   'cosmetics',
 ];
 

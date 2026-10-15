@@ -18,11 +18,14 @@ src/main/java/dev/voidpvp/client/
 ├── sensor/             the plain, testable half of the sensors
 ├── actuator/           the plain, testable half of the actuators
 ├── render/             crosshair geometry, crosshair drawing, the textured quad
+├── perf/               the FPS boost: async occlusion culler, voxel ray test, frame cap
+├── visual/             the Wave 7 visual mods' config mirror and arithmetic
+├── bench/              PerfBench — the benchmark scene and screenshot tour (dev only)
 └── input/              LWJGL key names, edge-triggered hotkeys
 native/                 NOT OURS — the JNI binding (see CONTRACTS.md)
 src/main/resources/
 ├── fabric.mod.json     mod id `void`, client entrypoint
-├── void.mixins.json    five mixins, JAVA_8
+├── void.mixins.json    every mixin, JAVA_8 (one class per injection target)
 └── assets/void/
     ├── shaders/        the two-pass Gaussian for the menu backdrop (GLSL 1.20)
     ├── shim/           void-shim.js — the source of truth for the bridge shim
@@ -100,9 +103,26 @@ too.
 
 `legacy-fabric-api` is deliberately **not** a dependency. Everything is done with Mixin.
 
+## The FPS benchmark and the screenshot tour
+
+`bench/PerfBench` is a dev harness, inert unless the JVM gets `-Dvoid.bench`:
+
+```sh
+./gradlew runBench                                   # boost off/on/off/on -> run/void-bench.json
+./gradlew runBench -PvoidBench=shots                 # run/screenshots/void-*.png
+./gradlew runBench -PvoidUltralightDir=<natives dir> # with the in-game UI (needed for HUD shots)
+```
+
+It creates a fresh superflat world, builds a 9×9 town (162 chests, 81 signs, 81 torches,
+243 villagers with no AI, 324 armour stands including three-line holograms), and flies a fixed
+street loop at eye height. Phases alternate the boost off and on (`PerfConfig.benchForceOff`)
+so drift cannot favour a side; each phase records every frame time and reports average FPS and
+1% low (FPS of the 99th-percentile frame). Take the shared game-test lock first (see
+`docs/TESTING.md`); only one Minecraft runs on a machine at a time.
+
 ## One generated source file
 
-`state/ModRegistry.java` is **generated and committed**. Its table — the thirteen ids, their
+`state/ModRegistry.java` is **generated and committed**. Its table — every mod id, their
 `kind` and `category`, the panel labels, the factory defaults and the clamp descriptor of
 every setting — comes from `schema/mods.json`, which is itself generated from
 `schema/mods/<id>.json`. So a mod is declared in one file and reaches this side by running
@@ -183,6 +203,29 @@ loom {
 }
 ```
 
+## The loadout library in game, share codes and notices
+
+The in-game Loadouts screen manages the library through seven bridge calls
+(`createLoadout`, `renameLoadout`, `duplicateLoadout`, `deleteLoadout`, `exportLoadout`,
+`importLoadout`, `setQuickPins`). Each is a synchronous write to `LiveState` answered with
+what was stored, followed by a `loadouts` push to the page. Rust owns persistence: `LiveState`
+tells it through the sink as `loadout_save` (the whole loadout; Rust creates or overwrites) and
+`loadout_delete`, and a pick on the Loadouts screen as `loadout_select` (the cycle key keeps
+reporting itself as `hotkey`). If Rust cannot store a change it answers with `library`, which
+`LiveState.applyLibrary` applies — as it does when the launcher changes the library while the
+game runs. While the link is down these queue in `OutboundQueue` ahead of `state` patches.
+
+Share codes (`state/ShareCode.java`) are `VOID1.<base64url raw DEFLATE of the JSON>.<crc32>`,
+carrying only settings that differ from the registry defaults; the same format is read and
+written by `void_loadout::share` in Rust and `share-code.ts` in `@void/protocol`, and
+`schema/share-code.fixtures.json` holds codes from each that every suite decodes. The Ultralight
+binding implements no clipboard, so the page copies and pastes codes through Java
+(`setClipboard` / `getClipboard`, AWT's system clipboard via `Screen`).
+
+`toast` is a push channel for short notices about things that happen with the menu closed —
+the cycle key landing on a loadout, the launcher switching it, a mod's own key flipping it
+(`VoidBridge.emitToast`).
+
 ## What is verified here, and what is not
 
 Minecraft cannot run in this environment, so the line is sharp.
@@ -191,13 +234,14 @@ Minecraft cannot run in this environment, so the line is sharp.
 
 - The whole mod compiles against real remapped 1.8.9 (legacy yarn `1.8.9+build.604`) and
   emits Java 8 bytecode (class file major version 52, checked in the JAR).
-- All five Mixins are remapped into intermediary by Loom — `InGameHud.render` →
+- Every Mixin is remapped into intermediary by Loom — for example `InGameHud.render` →
   `method_9420`, `GameOptions.perspective` → `field_949`, `MinecraftClient.tick` →
   `method_2954`, `onResolutionChanged` → `method_2923`, `connect` → `method_2930`,
   `Minecraft.debugFPS` → `field_3787`. A name that did not exist would have failed the
   build, so the *names* are right even though the *behaviour* is not exercised.
-- 75 JUnit tests over the protocol codec, the bridge, `LiveState`, the loadout diff, the
-  mod registry, the sensors and the actuators. Every `examples` entry in
+- The JUnit suite over the protocol codec, the bridge, `LiveState`, the loadout library and its
+  share codes, the loadout diff, the mod registry, the sensors and the actuators. Every
+  `examples` entry in
   `schema/protocol.json`, `schema/bridge.json`, `schema/loadout.json` and
   `schema/mods.json` is replayed against the code that has to speak it — the tests read
   the schema files themselves, so a contract change that this mod has not caught up with

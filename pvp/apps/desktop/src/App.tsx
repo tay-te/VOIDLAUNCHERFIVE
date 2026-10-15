@@ -22,6 +22,7 @@ import { FriendsDrawer } from './features/FriendsDrawer';
 import { LaunchError, LogDrawer } from './features/LogDrawer';
 import { PlayBar } from './features/PlayBar';
 import { TopNav } from './features/TopNav';
+import { UpdatePrompt, wireUpdateEvents } from './features/UpdatePrompt';
 import { IS_TAURI } from './local/tauri';
 import { ComingSoonScreen } from './screens/ComingSoon';
 import { HomeScreen, WHATS_NEW } from './screens/Home';
@@ -31,6 +32,7 @@ import { SettingsPanel } from './screens/Settings';
 import { StoreScreen } from './screens/Store';
 import { useCosmetics } from './stores/cosmetics';
 import { useFriends } from './stores/friends';
+import { useOnlineStatus, wireOnlineEvents } from './stores/online';
 import { useLaunch, wireLaunchEvents } from './stores/launch';
 import { useLoadouts, wireLoadoutEvents } from './stores/loadouts';
 import { useSession, wireSessionEvents } from './stores/session';
@@ -91,20 +93,28 @@ export function App() {
   const hydrateLoadouts = useLoadouts((s) => s.hydrate);
   const hydrateFriends = useFriends((s) => s.hydrate);
   const hydrateCosmetics = useCosmetics((s) => s.hydrate);
+  const hydrateOnline = useOnlineStatus((s) => s.hydrate);
   const phase = useLaunch((s) => s.phase);
   const material = useUi((s) => s.material);
 
   useEffect(() => {
     void hydrateSession();
     void hydrateLoadouts();
+    void hydrateOnline();
     hydrateFriends();
     hydrateCosmetics();
-  }, [hydrateSession, hydrateLoadouts, hydrateFriends, hydrateCosmetics]);
+  }, [hydrateSession, hydrateLoadouts, hydrateOnline, hydrateFriends, hydrateCosmetics]);
 
   useEffect(() => {
     // One subscription set for the whole app. Every store's events are wired here so
     // that a screen mounting or unmounting can never drop a `game:closed`.
-    const pending = Promise.all([wireSessionEvents(), wireLoadoutEvents(), wireLaunchEvents()]);
+    const pending = Promise.all([
+      wireSessionEvents(),
+      wireLoadoutEvents(),
+      wireLaunchEvents(),
+      wireUpdateEvents(),
+      wireOnlineEvents(),
+    ]);
     return () => {
       void pending.then((unlisteners) => unlisteners.forEach((u) => u()));
     };
@@ -138,6 +148,7 @@ export function App() {
       </div>
 
       <div className="banners">
+        <UpdatePrompt />
         <LaunchError />
         {!IS_TAURI ? (
           <div className="banner banner--preview" role="status">

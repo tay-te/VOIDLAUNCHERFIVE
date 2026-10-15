@@ -51,6 +51,8 @@ export interface Crash {
   played_ms: number;
   server?: string;
   tail: string[];
+  /** The crash report or JVM `hs_err` file the session wrote, when it wrote one. */
+  report?: string;
 }
 
 function loadLastSession(): LastSession | null {
@@ -78,6 +80,8 @@ interface LaunchState {
   log: LogLine[];
   bridgePort: number | null;
   error: string | null;
+  /** A non-fatal note from `prepare` — e.g. a newer VOID client needs a launcher update. */
+  notice: string | null;
   /** `Date.now()` at `game:started` — the play bar's "12 min" counts from here. */
   startedAt: number | null;
   /** The server this launch was asked to join; `null` for the title screen. */
@@ -92,6 +96,7 @@ interface LaunchState {
   start: (loadoutId: string, server: string | null) => Promise<void>;
   kill: () => Promise<void>;
   dismissError: () => void;
+  dismissNotice: () => void;
   dismissCrash: () => void;
   clearLog: () => void;
 }
@@ -102,6 +107,7 @@ export const useLaunch = create<LaunchState>((set, get) => ({
   log: [],
   bridgePort: null,
   error: null,
+  notice: null,
   startedAt: null,
   launchedServer: null,
   lastSession: loadLastSession(),
@@ -114,7 +120,8 @@ export const useLaunch = create<LaunchState>((set, get) => ({
 
     set({ phase: 'preparing' });
     try {
-      await invoke('prepare', { loadoutId });
+      const report = await invoke('prepare', { loadoutId });
+      set({ notice: report.notice ?? null });
     } catch (e) {
       set({ phase: 'idle', error: errorText(e), progress: null });
       return;
@@ -140,6 +147,7 @@ export const useLaunch = create<LaunchState>((set, get) => ({
   },
 
   dismissError: () => set({ error: null }),
+  dismissNotice: () => set({ notice: null }),
   dismissCrash: () => set({ crash: null }),
   clearLog: () => set({ log: [] }),
 }));
@@ -198,6 +206,7 @@ export async function wireLaunchEvents(): Promise<() => void> {
               played_ms: stats.played_ms,
               ...(server ? { server } : {}),
               tail: stats.crash_tail ?? [],
+              ...(stats.crash_report ? { report: stats.crash_report } : {}),
             },
       });
     }),

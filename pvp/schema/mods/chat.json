@@ -1,0 +1,53 @@
+{
+  "id": "chat",
+  "kind": "gameplay",
+  "category": "utility",
+  "hypixel_safe": "safe",
+  "label": "Chat",
+  "icon": "users",
+  "the": false,
+  "on_description": "the chat changes are enabled",
+  "description": "Timestamps, stacked repeats, click to copy and a longer history.",
+  "settings_title": "Chat settings",
+  "settings_description": "Settings for the Chat gameplay mod. Every setting changes how vanilla's own chat (`ChatHud`) stores and draws messages on this client; nothing is sent, and no message anyone else sees is altered. With the mod off the chat is vanilla, byte for byte.",
+  "source": "ChatHud: message add, line render and history cap; ChatScreen: mouse click",
+  "enabled": false,
+  "defaults": {
+    "timestamps": true,
+    "stack_repeats": true,
+    "click_to_copy": true,
+    "background_opacity": 0.5,
+    "history_length": 1000
+  },
+  "settings": {
+    "timestamps": {
+      "description": "Whether each message is prefixed with the time it arrived, `[14:03]`, in grey.",
+      "type": "boolean",
+      "default": true
+    },
+    "stack_repeats": {
+      "description": "Whether a message identical to the one before it replaces it with a count, `(x3)`, instead of adding another line. Lobby spam and repeated server notices collapse to one line.",
+      "type": "boolean",
+      "default": true
+    },
+    "click_to_copy": {
+      "description": "Whether right-clicking a message in the open chat copies the whole message, without colour codes, to the clipboard.",
+      "type": "boolean",
+      "default": true
+    },
+    "background_opacity": {
+      "description": "Opacity of the dark band behind chat lines, as a fraction of the line's own fade. 0.5 is vanilla; 0 draws text only.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.5
+    },
+    "history_length": {
+      "description": "How many messages the chat keeps for scrolling back. Vanilla keeps 100.",
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 5000,
+      "default": 1000
+    }
+  }
+}

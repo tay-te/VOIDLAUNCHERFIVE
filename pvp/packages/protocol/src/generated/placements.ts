@@ -96,4 +96,21 @@ export const DEFAULT_HUD_PLACEMENTS = {
    * sweep while playing.
    */
   stopwatch: { anchor: 'bottom-right', dx: -25, dy: -99 },
+  /**
+   * Right edge, vertically centred — where vanilla draws the sidebar, so turning the mod on
+   * restyles it in place before anyone moves it.
+   */
+  scoreboard: { anchor: 'right', dx: -25, dy: 0 },
+  /**
+   * Directly above the Item counter (`-146`) in the 175 column, on the same 38 px rhythm: the
+   * hand-and-clicks corner reads, bottom to top, how fast the hand is going (CPS), what it is
+   * going through (Item counter) and how many heals are left.
+   */
+  potion_counter: { anchor: 'bottom-left', dx: 175, dy: -184 },
+  /**
+   * Below Momentum (`293`) in the top-left column, 38 px down: the column already holds the two
+   * other numbers a fight produces, Combo and Momentum, and reach is read at the same moment as
+   * both.
+   */
+  reach: { anchor: 'top-left', dx: 23, dy: 331 },
 } as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;

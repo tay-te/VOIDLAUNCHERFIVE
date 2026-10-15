@@ -245,6 +245,30 @@ const PREVIEWS: Record<ModId, () => ReactElement> = {
   damage_tint: () => <Numeral value="3" unit="hearts" />,
   old_animations: () => <Numeral value="1.7" unit="block" />,
   old_input: () => <Numeral value="3" unit="gates" />,
+  culling: () => <Numeral value="+FPS" unit="culling" />,
+  particles: () => <Numeral value="4000" unit="cap" />,
+  frame_limiter: () => <Numeral value="30" unit="bg fps" />,
+  block_outline: () => <Numeral value="2.5" unit="px" />,
+  shiny_pots: () => <Numeral value="2×" unit="glint" />,
+  clear_glass: () => <Numeral value="0%" unit="frame" />,
+  nametags: () => <Numeral value="1.0×" unit="tags" />,
+  scoreboard: () => <Numeral value="15" unit="lines" />,
+  gui_scale: () => <Numeral value="2 / 3" unit="scale" />,
+  fog: () => <Numeral value="far" unit="fog" />,
+  menu_blur: () => <Numeral value="4" unit="blur" />,
+  time_weather: () => <Numeral value="12:00" unit="clear" />,
+  // The figure over its unit, as the chips draw them with `show_label` on (their default).
+  potion_counter: () => <Numeral value="8" unit="pots" />,
+  reach: () => <Numeral value="2.94" unit="blocks" />,
+  // Two lines of chat with the mod's own additions: the arrival time, and a stacked repeat.
+  chat: () => (
+    <Effects
+      rows={[
+        ['14:03', 'gg'],
+        ['14:04', 'gl ×3'],
+      ]}
+    />
+  ),
   cosmetics: () => <Numeral value="7" unit="slots" />,
   toggle_sprint: () => <CellGlyph rows={SPRINT_GLYPH} caption="sprint" size={10} />,
   fullbright: () => <CellGlyph rows={FULL_GLYPH} size={18} />,

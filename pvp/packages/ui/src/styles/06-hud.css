@@ -67,6 +67,55 @@
   color: var(--warn);
 }
 
+/** The same warn state on an aside — `PingChip`'s jitter past `jitter_warn_ms`. */
+.v-hudchip__aside--warn {
+  color: var(--warn);
+}
+
+/**
+ * One figure and its noun, kept together — `PotionCounterChip` draws one or two of these.
+ * Tighter than the chip's own 8px gap, which is the space *between* readings, not inside one.
+ */
+.v-hudchip__figure {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+/**
+ * `PingChip`'s spike tick: the latest reading jumped past the rolling average by more than
+ * `spike_ms`. A short upright bar in the warn ink, beside the figure it qualifies.
+ *
+ * **Brief by animation, not by timer.** The mark fades itself out over 1.6 s, so the widget
+ * needs no clock and the store writes nothing when it expires; the widget re-keys the element
+ * per reading, which remounts it and replays the fade. Ultralight repaints while an animation
+ * is running and stops when it ends — `forwards` holds the last frame, so an idle chip is idle.
+ * Opacity only, flat colour, no glow.
+ */
+.v-hudchip__spike {
+  flex: 0 0 auto;
+  width: 3px;
+  height: 12px;
+  border-radius: var(--radius-hairline);
+  background: var(--warn);
+  animation: v-hudchip-spike 1600ms var(--ease-standard) forwards;
+}
+
+/** The settings preview's form: held, because a mark that fades is a setting you cannot see. */
+.v-hudchip__spike--held {
+  animation: none;
+}
+
+@keyframes v-hudchip-spike {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /**
  * A level on a chip — `SaturationChip`'s `bar` and `MemoryChip`'s `show_bar`.
  *
@@ -245,6 +294,21 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
+}
+
+/**
+ * `potion_effects.blink_below_s`: a row about to run out, on its dim beat.
+ *
+ * The widget toggles this on the parity of the effect's remaining whole seconds, so the blink
+ * is driven by the tick data that already redraws the timer — once a second, no timer of its
+ * own. A short opacity ease so the beat reads as a pulse rather than a flicker.
+ */
+.v-potionlist__row--dim {
+  opacity: 0.35;
+}
+
+.v-potionlist__row {
+  transition: opacity var(--duration-instant) var(--ease-standard);
 }
 
 .v-potionlist__swatch {
@@ -432,6 +496,9 @@
 /* -------------------------------------------------------- KeystrokesWidget */
 
 .v-keystrokes {
+  /* How long a released cap eases back to rest. `HudKeystrokes` overrides it inline from
+     `animate` + `fade_ms`; this is the value for any other caller (the launcher's cards). */
+  --key-fade: var(--duration-instant);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -456,9 +523,15 @@
   font-weight: var(--weight-bold);
   font-size: var(--text-lg);
   color: var(--text-primary);
+  /* The **release**. A cap going back to rest eases over `--key-fade`, which the widget sets
+     from `keystrokes.animate` and `fade_ms` (0ms when animate is off, which is a snap). The
+     press is the `--pressed` rule's own zero duration below: a transition takes the duration
+     of the state it is going *to*, so one variable shapes the release and the press stays on
+     the frame, which is what the schema promises. */
   transition:
-    background-color var(--duration-instant) var(--ease-standard),
-    border-color var(--duration-instant) var(--ease-standard);
+    background-color var(--key-fade) var(--ease-standard),
+    border-color var(--key-fade) var(--ease-standard),
+    color var(--key-fade) var(--ease-standard);
 }
 
 /** LMB / RMB are 62.5px wide at full HUD size. */
@@ -522,6 +595,8 @@
   background: var(--key-pressed-bg, var(--hue, var(--accent)));
   border-color: var(--tint-35);
   color: var(--accent-fg);
+  /* Immediate: a press is never eased, whatever `fade_ms` says (see the rest rule above). */
+  transition-duration: 0ms;
 }
 
 /** CPS printed inside the mouse keys when `show_cps` is on. */

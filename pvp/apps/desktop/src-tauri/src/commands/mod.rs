@@ -12,6 +12,7 @@
 pub mod auth;
 pub mod launch;
 pub mod loadouts;
+pub mod online;
 pub mod servers;
 pub mod settings;
 pub mod system;

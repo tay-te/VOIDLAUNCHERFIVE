@@ -48,18 +48,24 @@ import type {
   HUDAnchor,
   HUDItem,
   HUDModId,
+  ImportResult,
   Keybind,
   KeysPayload,
   Loadout,
   LoadoutId,
   LoadoutsPayload,
   ModactionPayload,
+  ScoreboardPayload,
   ModId,
   ServerPayload,
   SessionPayload,
   SettingPayload,
   TickPayload,
+  ToastPayload,
 } from './generated/schema.js';
+
+/** Re-exported for the Loadouts screen and the launcher, which both show its `error`. */
+export type { ImportResult, ToastPayload };
 
 /**
  * Who is playing — the payload of the {@link VoidEventPayloadMap.session} channel.
@@ -82,7 +88,7 @@ export type { CosmeticsPayload, EmotePayload };
 /* -------------------------------------------------------------------------- */
 
 /**
- * The twelve channels Java pushes on.
+ * The fourteen channels Java pushes on.
  *
  * **Closed, and that is load-bearing.** Both shims look the name up in a map: `on` returns
  * a no-op subscription for a name it does not know, and `__emit` drops an envelope whose
@@ -102,11 +108,13 @@ export const VOID_EVENTS = [
   'session',
   'settings',
   'modaction',
+  'scoreboard',
+  'toast',
   'cosmetics',
   'emote',
 ] as const;
 
-/** Name of one of the twelve push channels. */
+/** Name of one of the fourteen push channels. */
 export type VoidEventName = (typeof VOID_EVENTS)[number];
 
 /** Payload handed to the handler of each channel. */
@@ -166,6 +174,18 @@ export interface VoidEventPayloadMap {
    */
   modaction: ModactionPayload;
   /**
+   * The sidebar scoreboard, whole state, pushed only when it changed — and re-sent after a page
+   * reload. Text is raw with `§` codes; the `scoreboard` HUD mod owns how they are drawn.
+   */
+  scoreboard: ScoreboardPayload;
+  /**
+   * A short notice for the player, drawn over the game for a moment: the cycle key switched
+   * the loadout, the launcher switched it, a mod's own key flipped it. Pushed by Java only for
+   * things that happen with the menu closed; the page raises its own notices for what it did
+   * itself (an import, a delete). Informational only — nothing waits on it.
+   */
+  toast: ToastPayload;
+  /**
    * What the local player wears (`self`, `protocol.json`'s `equipped_set`), every item the
    * account owns, free ones included, and the catalog version the jar was built with. Whole
    * state: replace, never merge.
@@ -199,7 +219,7 @@ export type VoidEventEnvelope = {
 /* Calls                                                                      */
 /* -------------------------------------------------------------------------- */
 
-/** The twelve methods JS may call on `window.void`. Closed set. */
+/** The twenty-one methods JS may call on `window.void`. Closed set. */
 export const VOID_CALLS = [
   'setGameplay',
   'setHud',
@@ -209,13 +229,22 @@ export const VOID_CALLS = [
   'openKeybindCapture',
   'setSurfaces',
   'setGlobal',
+  'createLoadout',
+  'renameLoadout',
+  'duplicateLoadout',
+  'deleteLoadout',
+  'exportLoadout',
+  'importLoadout',
+  'setQuickPins',
+  'setClipboard',
+  'getClipboard',
   'equipCosmetic',
   'setCosmeticTint',
   'setEmoteWheel',
   'playEmote',
 ] as const;
 
-/** Name of one of the twelve calls. */
+/** Name of one of the twenty-one calls. */
 export type VoidCallName = (typeof VOID_CALLS)[number];
 
 /** Value a mod setting may take. Scalars only; no mod has an object- or array-valued setting. */
@@ -265,6 +294,15 @@ export interface VoidCallParamsMap {
   closeMenu: [];
   openKeybindCapture: [modId: ModId];
   setSurfaces: [surfaces: EffectSurface[]];
+  createLoadout: [name: string];
+  renameLoadout: [id: LoadoutId, name: string];
+  duplicateLoadout: [id: LoadoutId];
+  deleteLoadout: [id: LoadoutId];
+  exportLoadout: [id: LoadoutId];
+  importLoadout: [code: string];
+  setQuickPins: [ids: ModId[]];
+  setClipboard: [text: string];
+  getClipboard: [];
   equipCosmetic: [slot: CosmeticSlot, id: CosmeticId | null];
   setCosmeticTint: [slot: CosmeticSlot, hex: string | null];
   setEmoteWheel: [ids: CosmeticId[]];
@@ -281,6 +319,15 @@ export interface VoidCallReturnsMap {
   closeMenu: null;
   openKeybindCapture: Keybind | null;
   setSurfaces: number;
+  createLoadout: Loadout | null;
+  renameLoadout: string | null;
+  duplicateLoadout: Loadout | null;
+  deleteLoadout: boolean;
+  exportLoadout: string | null;
+  importLoadout: ImportResult;
+  setQuickPins: ModId[];
+  setClipboard: boolean;
+  getClipboard: string;
   equipCosmetic: CosmeticId | null;
   setCosmeticTint: string | null;
   setEmoteWheel: CosmeticId[];
@@ -371,6 +418,43 @@ export interface VoidBridge {
   /** Close VoidMenuScreen and return the mouse to the game. Always returns null. */
   closeMenu(): null;
 
+  /*
+   * The library — the in-game Loadouts screen. Each is synchronous and authoritative like
+   * every call above; each that changes the library is followed by a `loadouts` push, and by
+   * `loadout` when the active loadout changed. Rust is told afterwards and persists it.
+   */
+
+  /** Add a loadout at the registry defaults, appended, not switched to. Null when refused. */
+  createLoadout(name: string): Loadout | null;
+
+  /** Rename a loadout; the id stays. Returns the stored (trimmed) name, or null. */
+  renameLoadout(id: LoadoutId, name: string): string | null;
+
+  /** Append a copy named `<name> copy`, without stats. Null for an unknown id or a full library. */
+  duplicateLoadout(id: LoadoutId): Loadout | null;
+
+  /** Delete a loadout — never the last; the active one switches away first. */
+  deleteLoadout(id: LoadoutId): boolean;
+
+  /** The loadout's share code (`VOID1.<data>.<crc>`), or null for an unknown id. */
+  exportLoadout(id: LoadoutId): string | null;
+
+  /** Import a share code under a fresh id, not switched to. Never throws. */
+  importLoadout(code: string): ImportResult;
+
+  /** Replace the active loadout's quick-panel pins. Returns the stored pins (≤ 8, known, unique). */
+  setQuickPins(ids: ModId[]): ModId[];
+
+  /**
+   * Put plain text on the system clipboard. The in-game page has no clipboard of its own — the
+   * Ultralight binding implements none, so Ctrl+C does nothing and `navigator.clipboard` is
+   * absent — and a share code has to get out of the game somehow. Returns whether it was copied.
+   */
+  setClipboard(text: string): boolean;
+
+  /** The system clipboard's plain text, or `''`. Call on a click, never poll it. */
+  getClipboard(): string;
+
   /**
    * Take over key input until the next key press. Resolves with the captured key, or
    * null when the player cancelled with Escape. Never rejects.
@@ -450,7 +534,7 @@ declare global {
 /* Envelope guards                                                            */
 /* -------------------------------------------------------------------------- */
 
-/** True when `value` is one of the twelve event envelopes. */
+/** True when `value` is one of the event envelopes. */
 export function isVoidEventEnvelope(value: unknown): value is VoidEventEnvelope {
   return (
     typeof value === 'object' &&
@@ -648,6 +732,42 @@ export function installVoidShim(options: InstallVoidShimOptions = {}): VoidBridg
     closeMenu() {
       call('closeMenu', []);
       return null;
+    },
+
+    createLoadout(name) {
+      return call('createLoadout', [name]) ?? null;
+    },
+
+    renameLoadout(id, name) {
+      return call('renameLoadout', [id, name]) ?? null;
+    },
+
+    duplicateLoadout(id) {
+      return call('duplicateLoadout', [id]) ?? null;
+    },
+
+    deleteLoadout(id) {
+      return call('deleteLoadout', [id]) ?? false;
+    },
+
+    exportLoadout(id) {
+      return call('exportLoadout', [id]) ?? null;
+    },
+
+    importLoadout(code) {
+      return call('importLoadout', [code]) ?? { ok: false, error: 'format' };
+    },
+
+    setQuickPins(ids) {
+      return call('setQuickPins', [ids]) ?? [];
+    },
+
+    setClipboard(text) {
+      return call('setClipboard', [text]) ?? false;
+    },
+
+    getClipboard() {
+      return call('getClipboard', []) ?? '';
     },
 
     setSurfaces(surfaces) {

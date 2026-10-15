@@ -95,6 +95,7 @@ pub fn sword_pvp() -> Loadout {
             (HudModId::Keystrokes, Anchor::BottomLeft, 32.0, -40.0),
             (HudModId::Cps, Anchor::BottomLeft, 32.0, -8.0),
         ]),
+        quick: None,
         stats: None,
     }
 }
@@ -131,6 +132,7 @@ pub fn bedwars() -> Loadout {
             (HudModId::ArmorStatus, Anchor::Right, -20.0, 0.0),
             (HudModId::Keystrokes, Anchor::BottomLeft, 24.0, -24.0),
         ]),
+        quick: None,
         stats: None,
     }
 }
@@ -168,6 +170,7 @@ pub fn uhc() -> Loadout {
             (HudModId::PotionEffects, Anchor::TopRight, -20.0, 20.0),
             (HudModId::ArmorStatus, Anchor::Right, -20.0, 0.0),
         ]),
+        quick: None,
         stats: None,
     }
 }

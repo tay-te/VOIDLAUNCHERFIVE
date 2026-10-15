@@ -49,10 +49,17 @@ const CATEGORY_OVERRIDES: Partial<Record<ModId, ModCategory>> = {
   fullbright: 'VISUAL',
   crosshair: 'VISUAL',
   zoom: 'UTILITY',
+  // A gameplay mod that changes vanilla's chat, not a HUD chip — the schema files it under
+  // utility too.
+  chat: 'UTILITY',
 };
 
 export function categoryOf(id: ModId): ModCategory {
-  return CATEGORY_OVERRIDES[id] ?? 'HUD';
+  // The registry carries `category` (schema `mods/<id>.json`), so read it rather than defaulting
+  // every mod the override table has not heard of to HUD — which is what every gameplay mod since
+  // Wave 4 (`overlay`, `fov`, `culling`, …) silently became in the launcher's filter tabs.
+  const declared = (MOD_REGISTRY[id] as { category?: string } | undefined)?.category;
+  return CATEGORY_OVERRIDES[id] ?? (declared ? (declared.toUpperCase() as ModCategory) : 'HUD');
 }
 
 /**
@@ -128,12 +135,16 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'show_mouse', label: 'Show mouse', control: 'switch' },
     { key: 'show_spacebar', label: 'Show spacebar', control: 'switch' },
     { key: 'show_cps', label: 'Show CPS', control: 'switch' },
+    { key: 'animate', label: 'Ease releases', control: 'switch' },
+    // Only read while `animate` is on; the row stays because the form has no dependent rows.
+    { key: 'fade_ms', label: 'Release fade', control: 'slider', min: 0, max: 500, step: 10, format: 'ms' },
   ],
   cps: [
     SCALE,
     OPACITY,
     { key: 'mode', label: 'Buttons', control: 'select', options: ['left', 'right', 'both'] },
     { key: 'window_ms', label: 'Window', control: 'slider', min: 200, max: 5000, step: 50, format: 'ms' },
+    { key: 'ignore_cancelled', label: 'Count only real swings', control: 'switch' },
   ],
   // Added when the watermark landed as the thirteenth mod. This table is
   // `Record<ModId, …>`, so a missing entry is a type error rather than a property
@@ -149,6 +160,12 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'show_label', label: 'Show label', control: 'switch' },
     { key: 'good_ms', label: 'Good under', control: 'slider', min: 0, max: 1000, step: 5, format: 'ms' },
     { key: 'bad_ms', label: 'Bad over', control: 'slider', min: 0, max: 2000, step: 5, format: 'ms' },
+    { key: 'show_average', label: 'Show average', control: 'switch' },
+    { key: 'show_jitter', label: 'Show jitter', control: 'switch' },
+    // 0 disables the warning / spike mark, which is why both floors are 0.
+    { key: 'jitter_warn_ms', label: 'Warn at jitter', control: 'slider', min: 0, max: 500, step: 5, format: 'ms' },
+    { key: 'spike_ms', label: 'Spike above average', control: 'slider', min: 0, max: 1000, step: 10, format: 'ms' },
+    { key: 'window', label: 'Readings averaged', control: 'slider', min: 3, max: 60, step: 1, format: 'plain' },
   ],
   coordinates: [
     SCALE,
@@ -204,6 +221,46 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'show_label', label: 'Show label', control: 'switch' },
     // 0 disables the warn treatment, which is why the floor is 0 rather than 1.
     { key: 'low_threshold', label: 'Warn at or below', control: 'slider', min: 0, max: 64, step: 1, format: 'plain' },
+    {
+      key: 'track',
+      label: 'Counts',
+      control: 'select',
+      options: [
+        'held_stack',
+        'held_total',
+        'ender_pearl',
+        'golden_apple',
+        'arrow',
+        'snowball',
+        'egg',
+        'cobweb',
+        'wool',
+        'tnt',
+        'fire_charge',
+        'iron_ingot',
+        'gold_ingot',
+        'diamond',
+        'emerald',
+      ],
+    },
+  ],
+  // Heals left, which the item counter deliberately does not track — see
+  // schema/mods/potion_counter.json for why it is a mod of its own.
+  potion_counter: [
+    SCALE,
+    OPACITY,
+    { key: 'track', label: 'Counts', control: 'select', options: ['health_potion', 'soup', 'both'] },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+    { key: 'low_threshold', label: 'Warn at or below', control: 'slider', min: 0, max: 64, step: 1, format: 'plain' },
+  ],
+  reach: [
+    SCALE,
+    OPACITY,
+    { key: 'mode', label: 'Shows', control: 'select', options: ['last', 'average'] },
+    { key: 'decimals', label: 'Decimals', control: 'slider', min: 0, max: 2, step: 1, format: 'plain' },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+    // 0 keeps the chip on screen.
+    { key: 'hide_after_ms', label: 'Hide after', control: 'slider', min: 0, max: 30000, step: 500, format: 'ms' },
   ],
   armor_status: [
     SCALE,
@@ -218,6 +275,12 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'show_duration', label: 'Show duration', control: 'switch' },
     { key: 'show_amplifier', label: 'Show amplifier', control: 'switch' },
     { key: 'hide_ambient', label: 'Hide ambient', control: 'switch' },
+    // 0 disables blinking.
+    { key: 'blink_below_s', label: 'Blink under', control: 'slider', min: 0, max: 30, step: 1, format: 'plain' },
+    // `hidden_effects` has no row: it is a bit mask over vanilla's effect ids, and this form
+    // has no multi-select control to draw it with. The overlay's settings page sets it from
+    // its effect chips; whatever it holds is kept, because the launcher patches only the
+    // keys it touches.
   ],
   toggle_sprint: [
     { key: 'mode', label: 'Mode', control: 'select', options: ['toggle', 'hold'] },
@@ -298,12 +361,27 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'line_width', label: 'Line width', control: 'slider', min: 0.5, max: 5, step: 0.5, format: 'plain' },
     { key: 'color', label: 'Colour', control: 'color' },
     { key: 'show_eye_line', label: 'Show eye line', control: 'switch' },
+    { key: 'state_colors', label: 'Colour by state', control: 'switch' },
+    // Both only read while `state_colors` is on.
+    { key: 'hittable_color', label: 'In reach', control: 'color' },
+    { key: 'damaged_color', label: 'Hurt', control: 'color' },
   ],
   zoom: [
     { key: 'key', label: 'Keybind', control: 'keybind' },
     { key: 'fov_divisor', label: 'Amount', control: 'slider', min: 1.1, max: 10, step: 0.1, format: 'multiplier' },
     { key: 'smooth', label: 'Smooth', control: 'switch' },
     { key: 'cinematic', label: 'Cinematic', control: 'switch' },
+    { key: 'scroll_adjust', label: 'Scroll to adjust', control: 'switch' },
+    { key: 'scale_sensitivity', label: 'Scale sensitivity', control: 'switch' },
+  ],
+  // Changes vanilla's own chat on this client only; nothing is sent. No SCALE/OPACITY: it
+  // draws no chip of its own — `background_opacity` is the chat band's, not a HUD fade.
+  chat: [
+    { key: 'timestamps', label: 'Timestamps', control: 'switch' },
+    { key: 'stack_repeats', label: 'Stack repeats', control: 'switch' },
+    { key: 'click_to_copy', label: 'Right-click to copy', control: 'switch' },
+    { key: 'background_opacity', label: 'Background', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+    { key: 'history_length', label: 'History', control: 'slider', min: 100, max: 5000, step: 100, format: 'plain' },
   ],
   crosshair: [
     {
@@ -318,6 +396,77 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'color', label: 'Colour', control: 'color' },
     { key: 'outline', label: 'Outline', control: 'switch' },
     { key: 'dynamic', label: 'Dynamic', control: 'switch' },
+  ],
+  // Wave 7 — the FPS boost and the §3.3 visual table stakes.
+  culling: [
+    { key: 'occlude_entities', label: 'Cull hidden entities', control: 'switch' },
+    { key: 'occlude_block_entities', label: 'Cull hidden chests and signs', control: 'switch' },
+    { key: 'always_draw_within', label: 'Always draw within', control: 'slider', min: 1, max: 16, step: 1, format: 'plain' },
+    { key: 'nametags_through_walls', label: 'Nametags through walls', control: 'switch' },
+    { key: 'block_entity_distance', label: 'Block entity distance', control: 'slider', min: 16, max: 64, step: 1, format: 'plain' },
+    { key: 'armor_stand_distance', label: 'Armour stand distance', control: 'slider', min: 8, max: 64, step: 1, format: 'plain' },
+    { key: 'item_frame_distance', label: 'Item frame distance', control: 'slider', min: 8, max: 64, step: 1, format: 'plain' },
+    { key: 'sign_text_distance', label: 'Sign text distance', control: 'slider', min: 4, max: 64, step: 1, format: 'plain' },
+  ],
+  particles: [
+    { key: 'frustum_cull', label: 'Skip particles out of view', control: 'switch' },
+    { key: 'particle_cap', label: 'Particle cap', control: 'slider', min: 100, max: 4000, step: 100, format: 'plain' },
+    { key: 'block_break_particles', label: 'Block break particles', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+    { key: 'explosion_particles', label: 'Explosion particles', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+  ],
+  frame_limiter: [
+    { key: 'unfocused_fps', label: 'Unfocused FPS', control: 'slider', min: 5, max: 120, step: 5, format: 'plain' },
+    { key: 'menu_fps', label: 'Menu FPS', control: 'slider', min: 15, max: 240, step: 5, format: 'plain' },
+    { key: 'idle_minimized', label: 'Idle when minimised', control: 'switch' },
+  ],
+  block_outline: [
+    { key: 'outline_style', label: 'Style', control: 'select', options: ['outline', 'fill', 'both', 'none'] },
+    { key: 'outline_color', label: 'Outline colour', control: 'color' },
+    { key: 'outline_width', label: 'Line width', control: 'slider', min: 0.5, max: 6, step: 0.5, format: 'plain' },
+    { key: 'fill_color', label: 'Fill colour', control: 'color' },
+  ],
+  shiny_pots: [
+    { key: 'all_potions', label: 'Every potion', control: 'switch' },
+    { key: 'glint_passes', label: 'Glint strength', control: 'slider', min: 1, max: 3, step: 1, format: 'plain' },
+    { key: 'tint_glint', label: 'Tint with potion colour', control: 'switch' },
+  ],
+  clear_glass: [
+    { key: 'clear_panes', label: 'Clear panes', control: 'switch' },
+    { key: 'clear_stained', label: 'Clear stained glass', control: 'switch' },
+  ],
+  nametags: [
+    { key: 'show_own', label: 'Show own nametag', control: 'switch' },
+    { key: 'hide_others', label: 'Hide other nametags', control: 'switch' },
+    { key: 'tag_background', label: 'Background', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+    { key: 'tag_scale', label: 'Scale', control: 'slider', min: 0.5, max: 1.5, step: 0.05, format: 'multiplier' },
+    { key: 'tag_shadow', label: 'Text shadow', control: 'switch' },
+  ],
+  scoreboard: [
+    SCALE,
+    OPACITY,
+    { key: 'hidden', label: 'Hide scoreboard', control: 'switch' },
+    { key: 'show_numbers', label: 'Show numbers', control: 'switch' },
+    { key: 'show_title', label: 'Show title', control: 'switch' },
+    { key: 'server_colors', label: 'Server colours', control: 'switch' },
+  ],
+  gui_scale: [
+    { key: 'hotbar_scale', label: 'Hotbar scale', control: 'slider', min: 0, max: 6, step: 1, format: 'plain' },
+    { key: 'inventory_scale', label: 'Inventory scale', control: 'slider', min: 0, max: 6, step: 1, format: 'plain' },
+  ],
+  fog: [
+    { key: 'distance_fog', label: 'Distance fog', control: 'select', options: ['vanilla', 'reduced', 'off'] },
+    { key: 'water_fog', label: 'Water fog', control: 'select', options: ['vanilla', 'reduced', 'off'] },
+    { key: 'lava_fog', label: 'Lava fog', control: 'select', options: ['vanilla', 'reduced', 'off'] },
+  ],
+  menu_blur: [
+    { key: 'blur_radius', label: 'Blur', control: 'slider', min: 1, max: 10, step: 1, format: 'plain' },
+    { key: 'blur_fade', label: 'Fade in', control: 'switch' },
+    { key: 'menu_dim', label: 'Dim', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+  ],
+  time_weather: [
+    { key: 'lock_time', label: 'Lock time', control: 'switch' },
+    { key: 'time_ticks', label: 'Time of day', control: 'slider', min: 0, max: 23999, step: 500, format: 'plain' },
+    { key: 'clear_weather', label: 'Clear weather', control: 'switch' },
   ],
 };
 
@@ -368,6 +517,22 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'damage_tint',
   'old_animations',
   'old_input',
+  // Wave 7: the FPS boost, then the visual table stakes.
+  'culling',
+  'particles',
+  'frame_limiter',
+  'block_outline',
+  'shiny_pots',
+  'clear_glass',
+  'nametags',
+  'scoreboard',
+  'gui_scale',
+  'fog',
+  'menu_blur',
+  'time_weather',
+  'potion_counter',
+  'reach',
+  'chat',
   'cosmetics',
 ];
 

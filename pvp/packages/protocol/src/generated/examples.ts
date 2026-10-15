@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 11,
+    "version": 13,
     "mods": {
       "fps": {
         "id": "fps",
@@ -65,7 +65,9 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "show_cps": false,
           "corner_radius": 8,
           "key_color": "shell",
-          "pressed_color": "accent"
+          "pressed_color": "accent",
+          "animate": true,
+          "fade_ms": 120
         },
         "default_placement": {
           "anchor": "bottom-left",
@@ -92,7 +94,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "mode": "left",
           "show_label": true,
           "window_ms": 1000,
-          "show_peak": false
+          "show_peak": false,
+          "ignore_cancelled": false
         },
         "default_placement": {
           "anchor": "bottom-left",
@@ -119,7 +122,12 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "show_label": true,
           "good_ms": 60,
           "bad_ms": 150,
-          "show_host": true
+          "show_host": true,
+          "show_average": false,
+          "show_jitter": false,
+          "jitter_warn_ms": 20,
+          "spike_ms": 80,
+          "window": 10
         },
         "default_placement": {
           "anchor": "top-left",
@@ -199,7 +207,9 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "padding": "normal",
           "show_duration": true,
           "show_amplifier": true,
-          "hide_ambient": false
+          "hide_ambient": false,
+          "hidden_effects": 0,
+          "blink_below_s": 5
         },
         "default_placement": {
           "anchor": "top-right",
@@ -276,7 +286,10 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "show_eye_line": false,
           "eye_line_color": "#7ADFFFFF",
           "max_distance": 64,
-          "keybind": "NONE"
+          "keybind": "NONE",
+          "state_colors": false,
+          "hittable_color": "#2FB8A6FF",
+          "damaged_color": "#FF5A5AFF"
         }
       },
       "zoom": {
@@ -286,14 +299,16 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         "hypixel_safe": "safe",
         "label": "Zoom",
         "icon": "zoom",
-        "description": "Narrows FOV while the zoom key is held.",
+        "description": "Narrows FOV while the zoom key is held; the mouse wheel adjusts it.",
         "source": "FOV override while key held",
         "defaults": {
           "on": true,
           "key": "C",
           "fov_divisor": 4,
           "smooth": true,
-          "cinematic": false
+          "cinematic": false,
+          "scroll_adjust": true,
+          "scale_sensitivity": true
         }
       },
       "crosshair": {
@@ -477,8 +492,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         "hypixel_safe": "safe",
         "label": "Item counter",
         "icon": "box",
-        "description": "How many of the item in your hand you have left.",
-        "source": "`held_count` on the tick payload — the stack size of the held item",
+        "description": "How many of the item in your hand, or a chosen item, you have left.",
+        "source": "`held_count` and `counts` on the tick payload: the held stack, or an inventory-wide count",
         "defaults": {
           "on": false,
           "scale": 1,
@@ -487,7 +502,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "border": false,
           "padding": "normal",
           "show_label": true,
-          "low_threshold": 0
+          "low_threshold": 0,
+          "track": "held_stack"
         },
         "default_placement": {
           "anchor": "bottom-left",
@@ -649,6 +665,287 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "use_while_digging": false,
           "dig_while_using": false,
           "no_miss_delay": false
+        }
+      },
+      "culling": {
+        "id": "culling",
+        "kind": "gameplay",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Entity culling",
+        "icon": "eye",
+        "description": "Skips drawing entities and chests, signs and banners that are hidden behind walls or too far away.",
+        "source": "an async voxel ray test against `EntityRenderDispatcher#shouldRender` and `BlockEntityRenderDispatcher#renderEntity`",
+        "defaults": {
+          "on": true,
+          "occlude_entities": true,
+          "occlude_block_entities": true,
+          "always_draw_within": 4,
+          "nametags_through_walls": true,
+          "block_entity_distance": 64,
+          "armor_stand_distance": 64,
+          "item_frame_distance": 64,
+          "sign_text_distance": 32
+        }
+      },
+      "particles": {
+        "id": "particles",
+        "kind": "gameplay",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Particle limiter",
+        "icon": "sparkle",
+        "description": "Caps live particles, skips the ones outside your view, and thins out block-break and explosion bursts.",
+        "source": "`ParticleManager#addParticle`, `#addBlockBreakParticles` and `#renderParticles`",
+        "defaults": {
+          "on": true,
+          "frustum_cull": true,
+          "particle_cap": 4000,
+          "block_break_particles": 1,
+          "explosion_particles": 1
+        }
+      },
+      "frame_limiter": {
+        "id": "frame_limiter",
+        "kind": "gameplay",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Frame limiter",
+        "icon": "gauge",
+        "description": "Lowers the frame rate while the game is in the background, in a menu, or minimised.",
+        "source": "`MinecraftClient#getMaxFramerate`, which feeds vanilla's own `Display.sync`",
+        "defaults": {
+          "on": true,
+          "unfocused_fps": 30,
+          "menu_fps": 60,
+          "idle_minimized": true
+        }
+      },
+      "block_outline": {
+        "id": "block_outline",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Block outline",
+        "icon": "cube",
+        "description": "Recolours, thickens, fills or removes the outline on the block you are looking at.",
+        "source": "`WorldRenderer#drawBlockOutline`",
+        "defaults": {
+          "on": false,
+          "outline_style": "outline",
+          "outline_color": "#EDEEEFCC",
+          "outline_width": 2.5,
+          "fill_color": "#EDEEEF26"
+        }
+      },
+      "shiny_pots": {
+        "id": "shiny_pots",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Shiny pots",
+        "icon": "flask",
+        "description": "Gives every potion a strong enchantment glint so pots read at a glance in the hotbar.",
+        "source": "`ItemRenderer#renderItem` and its private glint pass",
+        "defaults": {
+          "on": false,
+          "all_potions": true,
+          "glint_passes": 2,
+          "tint_glint": false
+        }
+      },
+      "clear_glass": {
+        "id": "clear_glass",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Clear glass",
+        "icon": "box",
+        "description": "Draws glass as clear air, without a resource pack.",
+        "source": "`BlockRenderManager#renderBlock` during chunk builds",
+        "defaults": {
+          "on": false,
+          "clear_panes": true,
+          "clear_stained": false
+        }
+      },
+      "nametags": {
+        "id": "nametags",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Nametags",
+        "icon": "users",
+        "description": "Shows your own nametag in third person and restyles every nametag's background, size and shadow.",
+        "source": "`EntityRenderer#renderLabelIfPresent` and `LivingEntityRenderer#hasLabel`",
+        "defaults": {
+          "on": false,
+          "show_own": true,
+          "hide_others": false,
+          "tag_background": 0.25,
+          "tag_scale": 1,
+          "tag_shadow": true
+        }
+      },
+      "scoreboard": {
+        "id": "scoreboard",
+        "kind": "hud",
+        "category": "hud",
+        "hypixel_safe": "safe",
+        "label": "Scoreboard",
+        "icon": "star",
+        "description": "The server's sidebar scoreboard, redrawn as a HUD chip you can move, scale or hide.",
+        "source": "the sidebar `ScoreboardObjective`, via the `scoreboard` bridge channel",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "hidden": false,
+          "show_numbers": false,
+          "show_title": true,
+          "server_colors": true
+        },
+        "default_placement": {
+          "anchor": "right",
+          "dx": -25,
+          "dy": 0
+        }
+      },
+      "gui_scale": {
+        "id": "gui_scale",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "GUI scale",
+        "icon": "move",
+        "description": "Sizes the hotbar and inventories independently of Minecraft's GUI scale.",
+        "source": "`InGameHud#render` (hotbar, bars, experience, held-item name) and `Screen#init` for container screens",
+        "defaults": {
+          "on": false,
+          "hotbar_scale": 2,
+          "inventory_scale": 3
+        }
+      },
+      "fog": {
+        "id": "fog",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "grey",
+        "label": "Fog",
+        "icon": "droplet",
+        "description": "Reduces or removes distance, water and lava fog. Blindness is never touched.",
+        "source": "`GameRenderer#renderFog`",
+        "defaults": {
+          "on": false,
+          "distance_fog": "reduced",
+          "water_fog": "reduced",
+          "lava_fog": "vanilla"
+        }
+      },
+      "menu_blur": {
+        "id": "menu_blur",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Menu blur",
+        "icon": "layers",
+        "description": "Blurs the world behind inventories, chests and the pause menu.",
+        "source": "`Screen#renderBackground`, through `screen/BlurBackdrop.java`",
+        "defaults": {
+          "on": false,
+          "blur_radius": 4,
+          "blur_fade": true,
+          "menu_dim": 0.5
+        }
+      },
+      "time_weather": {
+        "id": "time_weather",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Time & weather",
+        "icon": "clock",
+        "description": "Fixes the time of day and clears the rain, on your screen only.",
+        "source": "`World#getSkyAngle`, `#getRainGradient` and `#getThunderGradient` on the client world",
+        "defaults": {
+          "on": false,
+          "lock_time": true,
+          "time_ticks": 6000,
+          "clear_weather": true
+        }
+      },
+      "potion_counter": {
+        "id": "potion_counter",
+        "kind": "hud",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Potion counter",
+        "icon": "heart",
+        "description": "Healing potions or soup left in your inventory.",
+        "source": "`counts.health_potion` and `counts.soup` on the tick payload",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "track": "health_potion",
+          "show_label": true,
+          "low_threshold": 3
+        },
+        "default_placement": {
+          "anchor": "bottom-left",
+          "dx": 175,
+          "dy": -184
+        }
+      },
+      "reach": {
+        "id": "reach",
+        "kind": "hud",
+        "category": "pvp",
+        "hypixel_safe": "grey",
+        "label": "Reach display",
+        "icon": "sword",
+        "description": "How far away your last hit landed, in blocks.",
+        "source": "`reach` on the tick payload: eye-to-hit-point distance at the moment of each landed attack",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "decimals": 2,
+          "mode": "last",
+          "show_label": true,
+          "hide_after_ms": 0
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 331
+        }
+      },
+      "chat": {
+        "id": "chat",
+        "kind": "gameplay",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Chat",
+        "icon": "users",
+        "description": "Timestamps, stacked repeats, click to copy and a longer history.",
+        "source": "ChatHud: message add, line render and history cap; ChatScreen: mouse click",
+        "defaults": {
+          "on": false,
+          "timestamps": true,
+          "stack_repeats": true,
+          "click_to_copy": true,
+          "background_opacity": 0.5,
+          "history_length": 1000
         }
       },
       "cosmetics": {
@@ -1165,6 +1462,68 @@ export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
     "uuid": "853c80ef-3c37-49fd-aa49-938b674adae6",
     "id": "emote-wave",
     "at": 1760527200000
+  },
+  {
+    "t": "loadout_save",
+    "loadout": {
+      "id": "bridge-practice",
+      "name": "Bridge practice",
+      "icon": "sword",
+      "server": null,
+      "mc": "1.8.9",
+      "mods": {
+        "cps": {
+          "on": true,
+          "mode": "both"
+        }
+      },
+      "hud": [
+        {
+          "id": "cps",
+          "anchor": "bottom-left",
+          "dx": 175,
+          "dy": -108
+        }
+      ],
+      "quick": [
+        "toggle_sprint",
+        "zoom",
+        "cps"
+      ]
+    }
+  },
+  {
+    "t": "loadout_delete",
+    "id": "uhc"
+  },
+  {
+    "t": "loadout_select",
+    "id": "bedwars"
+  },
+  {
+    "t": "library",
+    "loadouts": [
+      {
+        "id": "bedwars",
+        "name": "Bedwars",
+        "icon": "bed",
+        "server": null,
+        "mc": "1.8.9",
+        "mods": {
+          "keystrokes": {
+            "on": true
+          }
+        },
+        "hud": [
+          {
+            "id": "keystrokes",
+            "anchor": "bottom-left",
+            "dx": 24,
+            "dy": -24
+          }
+        ]
+      }
+    ]
   }
 ];
 
@@ -1522,6 +1881,199 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
       "mod": "stopwatch",
       "action": "reset"
     }
+  },
+  {
+    "e": "scoreboard",
+    "payload": {
+      "visible": true,
+      "title": "§e§lBED WARS",
+      "lines": [
+        {
+          "text": "§710/15/26 §8m512A",
+          "score": 9
+        },
+        {
+          "text": "",
+          "score": 8
+        },
+        {
+          "text": "§fDiamond II in §a0:42",
+          "score": 7
+        },
+        {
+          "text": "§c§lR §fRed: §a✔",
+          "score": 6
+        },
+        {
+          "text": "§9§lB §fBlue: §a✔ §7YOU",
+          "score": 5
+        },
+        {
+          "text": "§a§lG §fGreen: §c✘",
+          "score": 4
+        },
+        {
+          "text": "§e§lY §fYellow: §e2",
+          "score": 3
+        },
+        {
+          "text": "",
+          "score": 2
+        },
+        {
+          "text": "§ewww.hypixel.net",
+          "score": 1
+        }
+      ]
+    }
+  },
+  {
+    "e": "scoreboard",
+    "payload": {
+      "visible": false,
+      "title": "",
+      "lines": []
+    }
+  },
+  {
+    "e": "tick",
+    "payload": {
+      "hits": {
+        "dealt": 12,
+        "taken": 4,
+        "swings": 19
+      },
+      "counts": {
+        "held_total": 64,
+        "ender_pearl": 3,
+        "golden_apple": 2,
+        "health_potion": 7,
+        "soup": 0,
+        "wool": 128
+      },
+      "reach": {
+        "blocks": 2.874,
+        "n": 12
+      }
+    }
+  },
+  {
+    "e": "toast",
+    "payload": {
+      "kind": "loadout",
+      "title": "Bedwars",
+      "detail": "Loadout switched"
+    }
+  },
+  {
+    "e": "toast",
+    "payload": {
+      "kind": "mod",
+      "title": "Fullbright on",
+      "mod": "fullbright"
+    }
+  },
+  {
+    "c": "createLoadout",
+    "params": [
+      "Bridge practice"
+    ]
+  },
+  {
+    "c": "createLoadout",
+    "returns": null
+  },
+  {
+    "c": "renameLoadout",
+    "params": [
+      "uhc",
+      "UHC Champions"
+    ]
+  },
+  {
+    "c": "renameLoadout",
+    "returns": "UHC Champions"
+  },
+  {
+    "c": "duplicateLoadout",
+    "params": [
+      "sword-pvp"
+    ]
+  },
+  {
+    "c": "duplicateLoadout",
+    "returns": null
+  },
+  {
+    "c": "deleteLoadout",
+    "params": [
+      "uhc"
+    ]
+  },
+  {
+    "c": "deleteLoadout",
+    "returns": true
+  },
+  {
+    "c": "exportLoadout",
+    "params": [
+      "sword-pvp"
+    ]
+  },
+  {
+    "c": "exportLoadout",
+    "returns": "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+  },
+  {
+    "c": "importLoadout",
+    "params": [
+      "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+    ]
+  },
+  {
+    "c": "importLoadout",
+    "returns": {
+      "ok": false,
+      "error": "checksum"
+    }
+  },
+  {
+    "c": "setQuickPins",
+    "params": [
+      [
+        "toggle_sprint",
+        "zoom",
+        "hitboxes",
+        "fullbright"
+      ]
+    ]
+  },
+  {
+    "c": "setQuickPins",
+    "returns": [
+      "toggle_sprint",
+      "zoom",
+      "hitboxes",
+      "fullbright"
+    ]
+  },
+  {
+    "c": "setClipboard",
+    "params": [
+      "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+    ]
+  },
+  {
+    "c": "setClipboard",
+    "returns": true
+  },
+  {
+    "c": "getClipboard",
+    "params": []
+  },
+  {
+    "c": "getClipboard",
+    "returns": ""
   },
   {
     "e": "cosmetics",

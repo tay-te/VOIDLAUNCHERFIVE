@@ -401,6 +401,8 @@ mod tests {
             fov_divisor: None,
             smooth: None,
             cinematic: None,
+            scroll_adjust: None,
+            scale_sensitivity: None,
         });
         let patch = diff_split(&a, &b).state_patch();
         let mut replayed = a.clone();

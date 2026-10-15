@@ -29,31 +29,72 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: https://crafatar.com https://mc-heads.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: https://crafatar.com https://mc-heads.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://*.supabase.co wss://*.supabase.co"
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis",
+      "app",
+      "dmg"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.png"
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
     ],
     "category": "Game",
     "shortDescription": "VOID PVP — a Minecraft 1.8.9 PVP client",
     "longDescription": "The VOID PVP launcher: sign in, pick a loadout, and launch Minecraft 1.8.9 with the VOID client mod.",
-    "copyright": "Copyright (c) VOID"
+    "copyright": "Copyright (c) VOID",
+    "createUpdaterArtifacts": true,
+    "publisher": "VOID",
+    "homepage": "https://github.com/tay-te/VOIDLAUNCHERFIVE",
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com",
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "hardenedRuntime": true,
+      "dmg": {
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        },
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        }
+      }
+    }
   },
   "plugins": {
     "updater": {
-      "active": true,
       "endpoints": [
-        "https://updates.void.invalid/pvp/{{target}}/{{arch}}/{{current_version}}"
+        "https://github.com/tay-te/VOIDLAUNCHERFIVE/releases/download/pvp-stable/latest.json"
       ],
-      "dialog": false,
-      "pubkey": "PLACEHOLDER_REPLACE_WITH_TAURI_SIGNING_PUBLIC_KEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk3RjQ4QkJENUU2OTc0Q0MKUldUTWRHbGV2WXYwbC9Qd2VXbW8rUnpUdWhZWjI4WHFLWFh6aiswczlWL0Z2UUdldnp1Z05wcnEK",
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

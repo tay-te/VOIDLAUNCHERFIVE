@@ -24,6 +24,7 @@ import {
 } from '@void/ui';
 import { useEffect, useMemo, useState } from 'react';
 
+import { copyText } from '../local/clipboard';
 import { MOD_GRID_ORDER, MOD_REGISTRY, isOn } from '../local/registry';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
@@ -81,7 +82,8 @@ export function CommandPalette() {
   const openModSetup = useUi((s) => s.openModSetup);
   const toggleLog = useUi((s) => s.toggleLog);
 
-  const { library, active, switchTo, setMod } = useLoadouts();
+  const { library, active, switchTo, setMod, exportCode } = useLoadouts();
+  const openLoadoutImport = useUi((s) => s.openLoadoutImport);
   const servers = useServers((s) => s.servers);
   const target = useServers((s) => s.target);
   const chooseServer = useServers((s) => s.choose);
@@ -136,6 +138,29 @@ export function CommandPalette() {
         run: () => void switchTo(l.id),
       });
     }
+
+    if (active) {
+      all.push({
+        id: 'loadout-action:copy',
+        group: 'LOADOUTS',
+        title: 'Copy share code',
+        sub: `${active.name} · to the clipboard`,
+        icon: 'layers',
+        // Fire and forget: the palette closes on run, and a code that could not be made
+        // leaves its reason in the loadout store like any other loadout error.
+        run: () =>
+          void exportCode(active.id).then((code) => (code === null ? false : copyText(code))),
+      });
+    }
+    all.push({
+      id: 'loadout-action:import',
+      group: 'LOADOUTS',
+      title: 'Import loadout code',
+      sub: 'Paste a code from a friend',
+      icon: 'plus',
+      // Lands in the loadout menu's paste field, where a refused code says why.
+      run: openLoadoutImport,
+    });
 
     for (const id of MOD_GRID_ORDER) {
       const entry = MOD_REGISTRY[id];
@@ -234,7 +259,7 @@ export function CommandPalette() {
     // this the list reads `MODS · ACTIONS · MODS`.
     const order = [...new Set(ranked.map((r) => r.group))];
     return order.flatMap((group) => ranked.filter((r) => r.group === group));
-  }, [query, library, active, servers, target, phase, go, switchTo, openModSetup, setMod, chooseServer, start, toggleLog, openSettings, toggleFriends]);
+  }, [query, library, active, servers, target, phase, go, switchTo, openModSetup, setMod, exportCode, openLoadoutImport, chooseServer, start, toggleLog, openSettings, toggleFriends]);
 
   if (!open) return null;
 

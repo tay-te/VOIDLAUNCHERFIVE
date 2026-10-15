@@ -29,6 +29,7 @@ public final class HitTally {
 
     private int dealt;
     private int taken;
+    private int swings;
     private int lastHurtTime;
 
     /**
@@ -66,12 +67,20 @@ public final class HitTally {
      * @param spectating        the player is in spectator mode, where
      *                          {@code attackEntity} sends the packet but skips
      *                          {@code PlayerEntity.attack} and the server ignores it
+     * @return whether this swing landed, so the caller can measure its reach — the reach
+     *         display measures exactly the attacks {@code dealt} counts and no others, and
+     *         restating the rule at the call site would let the two drift apart
      */
-    public void swung(Swing at, boolean targetAlive, boolean targetAttackable,
+    public boolean swung(Swing at, boolean targetAlive, boolean targetAttackable,
             boolean spectating) {
+        // Every call is a swing, whatever it hit: `hits.swings` counts the clicks the game let
+        // through, which is what `cps.ignore_cancelled` counts instead of mouse edges.
+        swings++;
         if (at == Swing.ENTITY && targetAlive && targetAttackable && !spectating) {
             dealt++;
+            return true;
         }
+        return false;
     }
 
     /**
@@ -97,5 +106,17 @@ public final class HitTally {
     /** Times the player has been hit since the session began. Monotonic. */
     public int taken() {
         return taken;
+    }
+
+    /**
+     * Runs of {@code doAttack} that got past its cooldown, landed or not. Monotonic.
+     *
+     * <p>The caller reports from {@code doAttack}'s TAIL, which the cooldown's early return
+     * (offset 7) never reaches — so a click 1.8's miss delay swallowed is not a swing here, and
+     * the gap between this and the mouse edges on {@code keys} is exactly the cancelled clicks,
+     * which is the reading {@code bridge.json} defines it for.</p>
+     */
+    public int swings() {
+        return swings;
     }
 }

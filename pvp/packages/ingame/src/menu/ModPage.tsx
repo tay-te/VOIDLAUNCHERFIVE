@@ -44,7 +44,7 @@ import { useState } from 'react';
 import { Toggle } from '@/ui';
 import { MOD_REGISTRY, type ModId } from '@/bridge/protocol';
 import { MOD_CATEGORY, hueStyle, modLabel } from '@/registry';
-import { isModOn, useModSettings, useVoidStore } from '@/store/store';
+import { MAX_QUICK_PINS, isModOn, quickPins, useModSettings, useVoidStore } from '@/store/store';
 import { ModProperties } from './ModSettingsScreen';
 import { keybindLabel } from './settings-format';
 
@@ -79,6 +79,11 @@ export function ModPage({ id }: ModPageProps): React.ReactElement {
   const toggleMod = useVoidStore((s) => s.toggleMod);
   const resetMod = useVoidStore((s) => s.resetMod);
   const closeMod = useVoidStore((s) => s.closeMod);
+  const toggleQuickPin = useVoidStore((s) => s.toggleQuickPin);
+  // The in-match quick panel's pins live on the loadout (`loadout.quick`). Booleans, so a toggle
+  // elsewhere in the loadout does not re-render the page.
+  const pinned = useVoidStore((s) => quickPins(s.loadout).includes(id));
+  const pinsFull = useVoidStore((s) => quickPins(s.loadout).length >= MAX_QUICK_PINS);
 
   // The arrival animation, dropped the moment it has run. Same discipline as `.menu-layer`
   // (App.tsx): an element carrying a standing animation is an element the engine may keep on a
@@ -130,6 +135,19 @@ export function ModPage({ id }: ModPageProps): React.ReactElement {
       <div className="modpage__actions">
         <button type="button" className="modpage__reset" onClick={() => resetMod(id)}>
           Reset to default
+        </button>
+        {/* The quick panel — the whole menu in a match — shows this loadout's pins. Pinned from
+            here because this is where a player decides a mod matters mid-fight; a ghost button
+            like Reset, because it is a property of the loadout rather than the page's verb. */}
+        <button
+          type="button"
+          className="modpage__reset modpage__pin"
+          aria-pressed={pinned}
+          disabled={!pinned && pinsFull}
+          title={!pinned && pinsFull ? `The quick panel holds ${MAX_QUICK_PINS}; unpin one first` : undefined}
+          onClick={() => toggleQuickPin(id)}
+        >
+          {pinned ? 'Unpin from quick panel' : 'Pin to quick panel'}
         </button>
         <button type="button" className="modpage__done" onClick={closeMod}>
           Done

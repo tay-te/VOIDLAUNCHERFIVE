@@ -1,0 +1,39 @@
+{
+  "id": "time_weather",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "Time & weather",
+  "icon": "clock",
+  "the": false,
+  "on_description": "time and weather are set client-side",
+  "description": "Fixes the time of day and clears the rain, on your screen only.",
+  "settings_title": "Time & weather settings",
+  "settings_description": "Settings for the Time & weather gameplay mod. Client-side only: the server's clock and weather are unchanged, mobs still burn when the server says it is day, and nobody else sees a difference. It changes the sky, the light and the rain you see.",
+  "source": "`World#getSkyAngle`, `#getRainGradient` and `#getThunderGradient` on the client world",
+  "enabled": false,
+  "defaults": {
+    "lock_time": true,
+    "time_ticks": 6000,
+    "clear_weather": true
+  },
+  "settings": {
+    "lock_time": {
+      "description": "Whether the time of day is held at `time_ticks` instead of following the server.",
+      "type": "boolean",
+      "default": true
+    },
+    "time_ticks": {
+      "description": "Time of day to hold, in ticks: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 23999,
+      "default": 6000
+    },
+    "clear_weather": {
+      "description": "Whether rain, snow and thunder are hidden. The rain also stops darkening the sky.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

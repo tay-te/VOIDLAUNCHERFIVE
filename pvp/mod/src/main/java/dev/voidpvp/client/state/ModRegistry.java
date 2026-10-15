@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 30 mods.
+ * The closed registry of the 45 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -177,8 +177,15 @@ public final class ModRegistry {
     // UI get it too, and re-generate.
     // =================================================================
 
+    /**
+     * {@code examples[0].version} of {@code schema/mods.json}: bumped whenever a mod is added,
+     * removed or reclassified. Carried in a loadout share code ({@code ShareCode}) so a code
+     * made against a newer registry can be recognised as such.
+     */
+    public static final int REGISTRY_VERSION = 13;
+
     static {
-        // --- HUD mods (16) — they read game state and draw -------------------------------------
+        // --- HUD mods (19) — they read game state and draw -------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -246,7 +253,15 @@ public final class ModRegistry {
                 // frame offers. `accent` follows the loadout accent, which is the frame's
                 // default.
                 // Type: mods.json#/definitions/pressed_swatch.
-                "pressed_color", enumOf("accent", "accent", "sky", "warn", "fear", "teal"));
+                "pressed_color", enumOf("accent", "accent", "sky", "warn", "fear", "teal"),
+                // Whether keys ease between the resting and pressed treatment instead of
+                // switching on the frame. The press itself is always immediate; this only shapes
+                // the release.
+                "animate", bool(true),
+                // How long a released key takes to fade back to rest, in milliseconds, when
+                // `animate` is on. Long fades read as a trail of recent presses; short ones as a
+                // crisp tap.
+                "fade_ms", integer(0, 500, 120));
 
         // CPS counter — kind hud, hud tab, §11 safe.
         // Clicks per second over a sliding window.
@@ -275,7 +290,13 @@ public final class ModRegistry {
                 // `window_ms` already averages, so the live figure answers "how fast am I
                 // clicking"; this answers "how fast can I", which is the number worth comparing
                 // against and the one the live figure never sits still long enough to show.
-                "show_peak", bool(false));
+                "show_peak", bool(false),
+                // Whether only clicks the game acted on are counted. A left click swallowed by
+                // 1.8's miss delay, or made while a screen was open, is a press of the button but
+                // not a swing, and with this on it does not count. Left button only; right clicks
+                // are always counted as pressed. Fed by `hits.swings` on the tick payload rather
+                // than by the mouse edge, so a counted click is one `doAttack` ran for.
+                "ignore_cancelled", bool(false));
 
         // Ping display — kind hud, hud tab, §11 safe.
         // Round-trip time to the current server.
@@ -300,7 +321,24 @@ public final class ModRegistry {
                 // Whether the shortened server name is drawn after the figure. A player who only
                 // ever plays one server is being told something they already know, on the chip
                 // they look at most often.
-                "show_host", bool(true));
+                "show_host", bool(true),
+                // Whether the rolling average of the last `window` readings is drawn as a
+                // trailing aside, `avg 54`.
+                "show_average", bool(false),
+                // Whether jitter is drawn as a trailing aside, `±7`: the mean change between
+                // consecutive readings over the last `window`. A steady 90 ms plays better than a
+                // 40 ms that swings by 30, and only this figure tells the two apart.
+                "show_jitter", bool(false),
+                // Jitter at or above this many milliseconds draws in the warn treatment. 0
+                // disables the warning.
+                "jitter_warn_ms", integer(0, 500, 20),
+                // A reading this many milliseconds above the rolling average counts as a spike
+                // and briefly marks the chip. 0 disables spike detection.
+                "spike_ms", integer(0, 1000, 80),
+                // How many readings the average, the jitter and the spike baseline are taken
+                // over. The server sends a new latency every few seconds, so 10 readings is
+                // roughly the last half minute.
+                "window", integer(3, 60, 10));
 
         // Coordinates — kind hud, hud tab, §11 safe.
         // Player position and facing direction.
@@ -378,7 +416,14 @@ public final class ModRegistry {
                 // Whether to print the roman-numeral amplifier next to each effect name.
                 "show_amplifier", bool(true),
                 // Whether to omit ambient effects such as a beacon aura from the list.
-                "hide_ambient", bool(false));
+                "hide_ambient", bool(false),
+                // Effects never listed, as a bit mask over vanilla's status effect ids: bit 1 is
+                // Speed, bit 16 Night Vision, up to bit 23 Saturation. Set from the settings
+                // page's effect chips rather than by hand. 0 lists everything.
+                "hidden_effects", integer(0, 16777215, 0),
+                // An effect with this many seconds or fewer left blinks, once a second, on the
+                // tick that redraws its timer. 0 disables blinking.
+                "blink_below_s", integer(0, 30, 5));
 
         // Watermark — kind hud, visual tab, §11 safe.
         // The VOID mark, drawn over the game.
@@ -404,7 +449,7 @@ public final class ModRegistry {
                 // `mark` is the ring alone, `word` is the wordmark alone.
                 "style", enumOf("full", "full", "mark", "word"));
 
-        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (26) — they mutate a client-side option -----------------------------
 
         // Toggle sprint — kind gameplay, pvp tab, §11 safe.
         // Latches sprint instead of holding the key.
@@ -479,10 +524,21 @@ public final class ModRegistry {
                 // `void.openKeybindCapture('hitboxes')`. Boxes are worth having for one fight and
                 // not the next, which is a decision made mid-match rather than in a menu.
                 // Type: mods.json#/definitions/keybind.
-                "keybind", keybind("NONE"));
+                "keybind", keybind("NONE"),
+                // Whether a box changes colour with what you can do to its entity:
+                // `damaged_color` while it is in its hurt animation, `hittable_color` while your
+                // crosshair is on it within attack range, and `color` otherwise.
+                "state_colors", bool(false),
+                // Box colour for the entity your crosshair is on, when `state_colors` is on.
+                // Type: mods.json#/definitions/hex_color.
+                "hittable_color", color("#2FB8A6FF"),
+                // Box colour for an entity in its hurt animation, when `state_colors` is on.
+                // Takes precedence over `hittable_color`.
+                // Type: mods.json#/definitions/hex_color.
+                "damaged_color", color("#FF5A5AFF"));
 
         // Zoom — kind gameplay, utility tab, §11 safe.
-        // Narrows FOV while the zoom key is held.
+        // Narrows FOV while the zoom key is held; the mouse wheel adjusts it.
         // Source: FOV override while key held.
         mod("zoom", Kind.GAMEPLAY, Category.UTILITY, "Zoom",
                 // Whether zoom is enabled.
@@ -496,7 +552,17 @@ public final class ModRegistry {
                 // Whether the FOV change is eased over a few frames rather than snapping.
                 "smooth", bool(true),
                 // Whether smooth-camera mouse damping is applied while zoomed.
-                "cinematic", bool(false));
+                "cinematic", bool(false),
+                // Whether the mouse wheel changes the zoom while the key is held, between 1.1x
+                // and 10x in multiplicative steps. The hotbar does not scroll while this is in
+                // use, and the level goes back to `fov_divisor` on release. Eased when `smooth`
+                // is on.
+                "scroll_adjust", bool(true),
+                // Whether mouse sensitivity is scaled down with the zoom, so a flick moves the
+                // crosshair across the same share of the screen zoomed as unzoomed. Off is
+                // vanilla: at 4x every mouse movement turns the view four times as far across
+                // what you can see.
+                "scale_sensitivity", bool(true));
 
         // Crosshair — kind gameplay, visual tab, §11 safe.
         // Replaces the vanilla crosshair with a configurable one at the exact screen centre.
@@ -527,7 +593,7 @@ public final class ModRegistry {
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
 
-        // --- HUD mods (16) — they read game state and draw -------------------------------------
+        // --- HUD mods (19) — they read game state and draw -------------------------------------
 
         // Direction — kind hud, hud tab, §11 safe.
         // Which way you are facing, as its own placeable readout.
@@ -722,8 +788,9 @@ public final class ModRegistry {
                 "style", enumOf("short", "short", "full"));
 
         // Item counter — kind hud, pvp tab, §11 safe.
-        // How many of the item in your hand you have left.
-        // Source: `held_count` on the tick payload — the stack size of the held item.
+        // How many of the item in your hand, or a chosen item, you have left.
+        // Source: `held_count` and `counts` on the tick payload: the held stack, or an
+        // inventory-wide count.
         mod("item_counter", Kind.HUD, Category.PVP, "Item counter",
                 // Whether the item counter is enabled.
                 "on", bool(false),
@@ -748,7 +815,12 @@ public final class ModRegistry {
                 // does not guess — a player who knows what they are counting sets it, and
                 // everybody else gets a chip that never cries wolf. The ceiling is 64: a full
                 // stack, above which the warning would be permanently on.
-                "low_threshold", integer(0, 64, 0));
+                "low_threshold", integer(0, 64, 0),
+                // What the chip counts. `held_stack` is the stack in your hand; `held_total` is
+                // every stack in the inventory matching the held item; the rest count that item
+                // across the whole inventory whatever you are holding. `wool` is every colour
+                // together. Healing potions and soup are the Potion counter's.
+                "track", enumOf("held_stack", "held_stack", "held_total", "ender_pearl", "golden_apple", "arrow", "snowball", "egg", "cobweb", "wool", "tnt", "fire_charge", "iron_ingot", "gold_ingot", "diamond", "emerald"));
 
         // Stopwatch — kind hud, utility tab, §11 safe.
         // A manual timer, started and zeroed from the keyboard.
@@ -802,7 +874,7 @@ public final class ModRegistry {
                 // Type: mods.json#/definitions/keybind.
                 "reset_key", keybind("NONE"));
 
-        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (26) — they mutate a client-side option -----------------------------
 
         // FOV changer — kind gameplay, pvp tab, §11 safe.
         // Holds your field of view still, so sprint and speed stop punching the camera.
@@ -1137,6 +1209,342 @@ public final class ModRegistry {
                 // suppressing the field outright goes past 1.7 rather than back to it.
                 "no_miss_delay", bool(false));
 
+        // Entity culling — kind gameplay, utility tab, §11 safe.
+        // Skips drawing entities and chests, signs and banners that are hidden behind walls or
+        // too far away.
+        // Source: an async voxel ray test against `EntityRenderDispatcher#shouldRender` and
+        // `BlockEntityRenderDispatcher#renderEntity`.
+        mod("culling", Kind.GAMEPLAY, Category.UTILITY, "Entity culling",
+                // Whether entity and block-entity culling is enabled.
+                "on", bool(true),
+                // Whether mobs, players, items and other entities that no ray from the camera can
+                // reach are skipped. The bulk of the win in a crowded lobby. Never culls the
+                // entity you are riding or your own player.
+                "occlude_entities", bool(true),
+                // Whether chests, signs, banners, skulls and the other tile entities that no ray
+                // reaches are skipped. Tile entities are the expensive half of a 1.8.9 frame in a
+                // built-up map — every chest is a model drawn every frame — so this is on by
+                // default.
+                "occlude_block_entities", bool(true),
+                // Radius in blocks inside which nothing is ever occlusion-culled. The ray test
+                // runs on its own thread and its answer is one pass old by the time a frame reads
+                // it; inside this radius that lag could show as a player appearing a moment after
+                // stepping into view, so the test is not consulted at all. 4 covers melee range
+                // with a margin.
+                "always_draw_within", integer(1, 16, 4),
+                // Whether a culled entity still draws its nametag. Vanilla draws a player's name
+                // through walls (unless they sneak), so culling the body must not take the name
+                // with it — on by default, which keeps exactly what vanilla shows. Off also skips
+                // the label of anything culled, which is a little faster and shows less than
+                // vanilla, never more.
+                "nametags_through_walls", bool(true),
+                // Farthest a tile entity is drawn, in blocks. 64 is vanilla's own limit, so the
+                // default changes nothing; lower it on a weak machine in chest-heavy maps.
+                "block_entity_distance", integer(16, 64, 64),
+                // Farthest an armour stand is drawn, in blocks. Lobby holograms are stacks of
+                // invisible armour stands with a name each, and hundreds of them is common. 64 is
+                // vanilla; lowering it hides far hologram text along with the stands.
+                "armor_stand_distance", integer(8, 64, 64),
+                // Farthest the item inside an item frame is drawn, in blocks. The frame itself is
+                // unaffected. 64 is vanilla.
+                "item_frame_distance", integer(8, 64, 64),
+                // Farthest a sign's text is drawn, in blocks; the board is drawn to the
+                // tile-entity distance either way. Sign text is a font draw per line per sign per
+                // frame, and past about 32 blocks a line of it is two or three pixels tall at
+                // 1080p — unreadable, but still paid for. 32 by default for that reason; 64 is
+                // vanilla.
+                "sign_text_distance", integer(4, 64, 32));
+
+        // Particle limiter — kind gameplay, utility tab, §11 safe.
+        // Caps live particles, skips the ones outside your view, and thins out block-break and
+        // explosion bursts.
+        // Source: `ParticleManager#addParticle`, `#addBlockBreakParticles` and
+        // `#renderParticles`.
+        mod("particles", Kind.GAMEPLAY, Category.UTILITY, "Particle limiter",
+                // Whether the particle limiter is enabled.
+                "on", bool(true),
+                // Whether particles outside the camera's view cone skip their draw. Invisible by
+                // construction, which is why it is on by default and why it is a switch rather
+                // than a number.
+                "frustum_cull", bool(true),
+                // Most particles alive per render layer; when full, the oldest goes first,
+                // exactly as vanilla does at its own limit. 4000 is vanilla's limit, so the
+                // default changes nothing — lower it if explosions stall your frame.
+                "particle_cap", integer(100, 4000, 4000),
+                // Fraction of block-break and block-hit particles kept. 1 is vanilla's 64-piece
+                // burst; 0 breaks blocks with no debris. A bridging or Bedwars player breaks
+                // hundreds of blocks a game and every one used to spawn 64 particles.
+                "block_break_particles", number(0, 1, 1),
+                // Fraction of explosion particles kept — TNT, fireballs and creepers. 1 is
+                // vanilla. The blast itself, its sound and its knockback are untouched; only the
+                // smoke is thinned.
+                "explosion_particles", number(0, 1, 1));
+
+        // Frame limiter — kind gameplay, utility tab, §11 safe.
+        // Lowers the frame rate while the game is in the background, in a menu, or minimised.
+        // Source: `MinecraftClient#getMaxFramerate`, which feeds vanilla's own `Display.sync`.
+        mod("frame_limiter", Kind.GAMEPLAY, Category.UTILITY, "Frame limiter",
+                // Whether the frame limiter is enabled.
+                "on", bool(true),
+                // Frame cap while the game window does not have focus. 30 keeps a game on a
+                // second monitor watchable while giving most of the GPU back.
+                "unfocused_fps", integer(5, 120, 30),
+                // Frame cap on the title screen, the server list and the pause menu. Vanilla
+                // already holds the title screen at 30; 60 is smoother than that and still a
+                // fraction of an uncapped menu.
+                "menu_fps", integer(15, 240, 60),
+                // Whether a minimised window drops to 5 frames a second. Nothing is visible, so
+                // nothing is lost; sound and the connection carry on.
+                "idle_minimized", bool(true));
+
+        // Block outline — kind gameplay, visual tab, §11 safe.
+        // Recolours, thickens, fills or removes the outline on the block you are looking at.
+        // Source: `WorldRenderer#drawBlockOutline`.
+        mod("block_outline", Kind.GAMEPLAY, Category.VISUAL, "Block outline",
+                // Whether the block outline is restyled.
+                "on", bool(false),
+                // What is drawn round the targeted block. `outline` is vanilla's box in your
+                // colour; `fill` shades the faces and drops the lines; `both` does both; `none`
+                // draws nothing, for players who aim off the crosshair alone.
+                "outline_style", enumOf("outline", "outline", "fill", "both", "none"),
+                // Colour of the outline, alpha included. Vanilla's is black at 40%, which
+                // disappears against obsidian, coal and every dark wool — the near-white default
+                // reads on all of them.
+                // Type: mods.json#/definitions/hex_color.
+                "outline_color", color("#EDEEEFCC"),
+                // Line width in screen pixels. Vanilla's is 2.
+                "outline_width", number(0.5, 6, 2.5),
+                // Colour of the face shading when `outline_style` is `fill` or `both`, alpha
+                // included. Keep the alpha low: a fill is drawn over the block's own texture.
+                // Type: mods.json#/definitions/hex_color.
+                "fill_color", color("#EDEEEF26"));
+
+        // Shiny pots — kind gameplay, visual tab, §11 safe.
+        // Gives every potion a strong enchantment glint so pots read at a glance in the hotbar.
+        // Source: `ItemRenderer#renderItem` and its private glint pass.
+        mod("shiny_pots", Kind.GAMEPLAY, Category.VISUAL, "Shiny pots",
+                // Whether potions are drawn with a stronger glint.
+                "on", bool(false),
+                // Whether potions with no listed effect — water bottles, and server pots whose
+                // effects live only in their lore — glint too. On by default: on most servers
+                // that is exactly the pot you were trying to find.
+                "all_potions", bool(true),
+                // How many times the glint is laid over a potion. 1 is vanilla's strength; 2 is
+                // the classic 1.7 look; 3 is as shiny as it gets before the item's own colour
+                // washes out.
+                "glint_passes", integer(1, 3, 2),
+                // Whether the glint takes the potion's own liquid colour instead of vanilla's
+                // purple, so a healing pot shimmers red and a speed pot blue.
+                "tint_glint", bool(false));
+
+        // Clear glass — kind gameplay, visual tab, §11 safe.
+        // Draws glass as clear air, without a resource pack.
+        // Source: `BlockRenderManager#renderBlock` during chunk builds.
+        mod("clear_glass", Kind.GAMEPLAY, Category.VISUAL, "Clear glass",
+                // Whether glass is drawn clear.
+                "on", bool(false),
+                // Whether glass panes are cleared as well as full glass blocks.
+                "clear_panes", bool(true),
+                // Whether stained glass is cleared too. Off by default: stained glass carries
+                // team colour in Bedwars and bases, and clearing it would throw that away.
+                "clear_stained", bool(false));
+
+        // Nametags — kind gameplay, visual tab, §11 safe.
+        // Shows your own nametag in third person and restyles every nametag's background, size
+        // and shadow.
+        // Source: `EntityRenderer#renderLabelIfPresent` and `LivingEntityRenderer#hasLabel`.
+        mod("nametags", Kind.GAMEPLAY, Category.VISUAL, "Nametags",
+                // Whether nametags are restyled.
+                "on", bool(false),
+                // Whether your own nametag is drawn over your head in third person. Vanilla never
+                // draws it; on by default because that is the one thing players switch this mod
+                // on for.
+                "show_own", bool(true),
+                // Whether other players' and named mobs' nametags are hidden. Armour stands are
+                // exempt: lobby holograms are stacks of named stands, and they are world text
+                // rather than nametags. Off by default — a name is how you tell a teammate from
+                // an enemy — and on for recording and for crowded lobbies.
+                "hide_others", bool(false),
+                // Alpha of the dark plate behind each name. 0.25 is vanilla's; 0 draws the text
+                // alone.
+                "tag_background", number(0, 1, 0.25),
+                // Size of every nametag as a multiple of vanilla's.
+                "tag_scale", number(0.5, 1.5, 1),
+                // Whether the name is drawn with Minecraft's text shadow, which keeps it legible
+                // against sky and snow. Vanilla draws it without one.
+                "tag_shadow", bool(true));
+
+        // --- HUD mods (19) — they read game state and draw -------------------------------------
+
+        // Scoreboard — kind hud, hud tab, §11 safe.
+        // The server's sidebar scoreboard, redrawn as a HUD chip you can move, scale or hide.
+        // Source: the sidebar `ScoreboardObjective`, via the `scoreboard` bridge channel.
+        mod("scoreboard", Kind.HUD, Category.HUD, "Scoreboard",
+                // Whether the scoreboard is drawn by VOID.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // Whether the scoreboard is hidden entirely — vanilla's and this one. For
+                // recording, and for servers whose sidebar is an advert.
+                "hidden", bool(false),
+                // Whether each line's score is drawn at its right edge. Off by default: on nearly
+                // every server the score is a sort key the server uses to order the lines, the
+                // red numbers carry no meaning, and hiding them is the single most requested
+                // scoreboard tweak.
+                "show_numbers", bool(false),
+                // Whether the objective's title is drawn above the lines.
+                "show_title", bool(true),
+                // Whether the server's own colour codes are honoured. On by default: on team
+                // modes the colour is the information. Off draws every line in the HUD's own ink.
+                "server_colors", bool(true));
+
+        // --- Gameplay mods (26) — they mutate a client-side option -----------------------------
+
+        // GUI scale — kind gameplay, visual tab, §11 safe.
+        // Sizes the hotbar and inventories independently of Minecraft's GUI scale.
+        // Source: `InGameHud#render` (hotbar, bars, experience, held-item name) and `Screen#init`
+        // for container screens.
+        mod("gui_scale", Kind.GAMEPLAY, Category.VISUAL, "GUI scale",
+                // Whether the hotbar and inventories have their own scale.
+                "on", bool(false),
+                // GUI scale step for the hotbar and the health, hunger, armour and experience
+                // bars above it, which move as one block. 0 follows Minecraft. 2 by default: a
+                // compact hotbar at 1080p, where Minecraft's own auto scale is 4.
+                "hotbar_scale", integer(0, 6, 2),
+                // GUI scale step for the inventory, chests, furnaces and every other container
+                // screen. 0 follows Minecraft. Other menus — chat, the pause menu, VOID's own —
+                // are unaffected.
+                "inventory_scale", integer(0, 6, 3));
+
+        // Fog — kind gameplay, visual tab, §11 grey.
+        // Reduces or removes distance, water and lava fog. Blindness is never touched.
+        // Source: `GameRenderer#renderFog`.
+        mod("fog", Kind.GAMEPLAY, Category.VISUAL, "Fog",
+                // Whether fog is customised.
+                "on", bool(false),
+                // Fog at the edge of your render distance, and the thick fog of the nether.
+                // `reduced` starts it at the last chunk rather than three quarters of the way
+                // out.
+                "distance_fog", enumOf("reduced", "vanilla", "reduced", "off"),
+                // Fog while your head is under water. `reduced` is roughly what Respiration III
+                // gives.
+                "water_fog", enumOf("reduced", "vanilla", "reduced", "off"),
+                // Fog while your head is in lava. `vanilla` by default: seeing out of lava is the
+                // clearest advantage on this page.
+                "lava_fog", enumOf("vanilla", "vanilla", "reduced", "off"));
+
+        // Menu blur — kind gameplay, visual tab, §11 safe.
+        // Blurs the world behind inventories, chests and the pause menu.
+        // Source: `Screen#renderBackground`, through `screen/BlurBackdrop.java`.
+        mod("menu_blur", Kind.GAMEPLAY, Category.VISUAL, "Menu blur",
+                // Whether the world is blurred behind menus.
+                "on", bool(false),
+                // How soft the blur is, in passes of the Gaussian. 1 is a light softening; 10 is
+                // unrecognisable.
+                "blur_radius", integer(1, 10, 4),
+                // Whether the blur eases in over a fifth of a second as the screen opens, rather
+                // than snapping on.
+                "blur_fade", bool(true),
+                // How much of vanilla's dark wash is kept over the blur, as a fraction of
+                // vanilla's own. 1 is vanilla's darkness on top of the blur; 0 is the blur alone.
+                "menu_dim", number(0, 1, 0.5));
+
+        // Time & weather — kind gameplay, visual tab, §11 safe.
+        // Fixes the time of day and clears the rain, on your screen only.
+        // Source: `World#getSkyAngle`, `#getRainGradient` and `#getThunderGradient` on the client
+        // world.
+        mod("time_weather", Kind.GAMEPLAY, Category.VISUAL, "Time & weather",
+                // Whether time and weather are set client-side.
+                "on", bool(false),
+                // Whether the time of day is held at `time_ticks` instead of following the
+                // server.
+                "lock_time", bool(true),
+                // Time of day to hold, in ticks: 0 is sunrise, 6000 noon, 12000 sunset, 18000
+                // midnight.
+                "time_ticks", integer(0, 23999, 6000),
+                // Whether rain, snow and thunder are hidden. The rain also stops darkening the
+                // sky.
+                "clear_weather", bool(true));
+
+        // --- HUD mods (19) — they read game state and draw -------------------------------------
+
+        // Potion counter — kind hud, pvp tab, §11 safe.
+        // Healing potions or soup left in your inventory.
+        // Source: `counts.health_potion` and `counts.soup` on the tick payload.
+        mod("potion_counter", Kind.HUD, Category.PVP, "Potion counter",
+                // Whether the potion counter is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // What is counted: splash potions of Healing, bowls of mushroom stew, or both
+                // side by side.
+                "track", enumOf("health_potion", "health_potion", "soup", "both"),
+                // Whether the count is followed by its unit, `pots` or `soup`. With `both` the
+                // units are what tell the two figures apart, so they are always drawn there.
+                "show_label", bool(true),
+                // A count at or below this many draws in the warn treatment. Unlike the Item
+                // counter this has a non-zero default, because what is in the slot is known:
+                // three heals is low in every pot and soup mode. 0 disables the warning.
+                "low_threshold", integer(0, 64, 3));
+
+        // Reach display — kind hud, pvp tab, §11 grey.
+        // How far away your last hit landed, in blocks.
+        // Source: `reach` on the tick payload: eye-to-hit-point distance at the moment of each
+        // landed attack.
+        mod("reach", Kind.HUD, Category.PVP, "Reach display",
+                // Whether the reach display is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // Digits after the decimal point. Two is the precision the measurement actually
+                // has; one reads faster, and none is the whole-block figure.
+                "decimals", integer(0, 2, 2),
+                // Which figure is drawn: the last landed hit, or the mean of the last ten.
+                "mode", enumOf("last", "last", "average"),
+                // Whether the figure is followed by its unit, `blocks`.
+                "show_label", bool(true),
+                // Hide the chip this long after the last landed hit; 0 keeps it on screen. A
+                // reach figure is only interesting while you are trading hits.
+                "hide_after_ms", integer(0, 30000, 0));
+
+        // --- Gameplay mods (26) — they mutate a client-side option -----------------------------
+
+        // Chat — kind gameplay, utility tab, §11 safe.
+        // Timestamps, stacked repeats, click to copy and a longer history.
+        // Source: ChatHud: message add, line render and history cap; ChatScreen: mouse click.
+        mod("chat", Kind.GAMEPLAY, Category.UTILITY, "Chat",
+                // Whether the chat changes are enabled.
+                "on", bool(false),
+                // Whether each message is prefixed with the time it arrived, `[14:03]`, in grey.
+                "timestamps", bool(true),
+                // Whether a message identical to the one before it replaces it with a count,
+                // `(x3)`, instead of adding another line. Lobby spam and repeated server notices
+                // collapse to one line.
+                "stack_repeats", bool(true),
+                // Whether right-clicking a message in the open chat copies the whole message,
+                // without colour codes, to the clipboard.
+                "click_to_copy", bool(true),
+                // Opacity of the dark band behind chat lines, as a fraction of the line's own
+                // fade. 0.5 is vanilla; 0 draws text only.
+                "background_opacity", number(0, 1, 0.5),
+                // How many messages the chat keeps for scrolling back. Vanilla keeps 100.
+                "history_length", integer(100, 5000, 1000));
+
         // Cosmetics — kind gameplay, visual tab, §11 safe.
         // Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.
         // Source: the cosmetic renderer's player-model layer (cape, back, head, face, halo,
@@ -1167,7 +1575,7 @@ public final class ModRegistry {
                 // straight back.
                 "emote_camera", bool(true));
 
-        // --- The factory HUD layout (16) — where each widget starts ----------------------------
+        // --- The factory HUD layout (19) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
         // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
@@ -1250,13 +1658,27 @@ public final class ModRegistry {
         // belong in the corner furthest from the crosshair, and the top-left column stays what it
         // is — the things you sweep while playing.
         place("stopwatch", "bottom-right", -25, -99);
+
+        // Scoreboard: Right edge, vertically centred — where vanilla draws the sidebar, so
+        // turning the mod on restyles it in place before anyone moves it.
+        place("scoreboard", "right", -25, 0);
+
+        // Potion counter: Directly above the Item counter (`-146`) in the 175 column, on the same
+        // 38 px rhythm: the hand-and-clicks corner reads, bottom to top, how fast the hand is
+        // going (CPS), what it is going through (Item counter) and how many heals are left.
+        place("potion_counter", "bottom-left", 175, -184);
+
+        // Reach display: Below Momentum (`293`) in the top-left column, 38 px down: the column
+        // already holds the two other numbers a fight produces, Combo and Momentum, and reach is
+        // read at the same moment as both.
+        place("reach", "top-left", 23, 331);
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The 30 mod ids, in registry order. */
+    /** The 45 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

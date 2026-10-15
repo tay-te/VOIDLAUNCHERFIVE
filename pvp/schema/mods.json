@@ -19,7 +19,7 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 30 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 45 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps",
@@ -51,6 +51,21 @@
         "damage_tint",
         "old_animations",
         "old_input",
+        "culling",
+        "particles",
+        "frame_limiter",
+        "block_outline",
+        "shiny_pots",
+        "clear_glass",
+        "nametags",
+        "scoreboard",
+        "gui_scale",
+        "fog",
+        "menu_blur",
+        "time_weather",
+        "potion_counter",
+        "reach",
+        "chat",
         "cosmetics"
       ],
       "additionalProperties": false,
@@ -171,6 +186,66 @@
           "description": "Old input registry entry.",
           "$ref": "#/definitions/old_input_entry"
         },
+        "culling": {
+          "description": "Entity culling registry entry.",
+          "$ref": "#/definitions/culling_entry"
+        },
+        "particles": {
+          "description": "Particle limiter registry entry.",
+          "$ref": "#/definitions/particles_entry"
+        },
+        "frame_limiter": {
+          "description": "Frame limiter registry entry.",
+          "$ref": "#/definitions/frame_limiter_entry"
+        },
+        "block_outline": {
+          "description": "Block outline registry entry.",
+          "$ref": "#/definitions/block_outline_entry"
+        },
+        "shiny_pots": {
+          "description": "Shiny pots registry entry.",
+          "$ref": "#/definitions/shiny_pots_entry"
+        },
+        "clear_glass": {
+          "description": "Clear glass registry entry.",
+          "$ref": "#/definitions/clear_glass_entry"
+        },
+        "nametags": {
+          "description": "Nametags registry entry.",
+          "$ref": "#/definitions/nametags_entry"
+        },
+        "scoreboard": {
+          "description": "Scoreboard registry entry.",
+          "$ref": "#/definitions/scoreboard_entry"
+        },
+        "gui_scale": {
+          "description": "GUI scale registry entry.",
+          "$ref": "#/definitions/gui_scale_entry"
+        },
+        "fog": {
+          "description": "Fog registry entry.",
+          "$ref": "#/definitions/fog_entry"
+        },
+        "menu_blur": {
+          "description": "Menu blur registry entry.",
+          "$ref": "#/definitions/menu_blur_entry"
+        },
+        "time_weather": {
+          "description": "Time & weather registry entry.",
+          "$ref": "#/definitions/time_weather_entry"
+        },
+        "potion_counter": {
+          "description": "Potion counter registry entry.",
+          "$ref": "#/definitions/potion_counter_entry"
+        },
+        "reach": {
+          "description": "Reach display registry entry.",
+          "$ref": "#/definitions/reach_entry"
+        },
+        "chat": {
+          "description": "Chat registry entry.",
+          "$ref": "#/definitions/chat_entry"
+        },
         "cosmetics": {
           "description": "Cosmetics registry entry.",
           "$ref": "#/definitions/cosmetics_entry"
@@ -181,7 +256,7 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 30 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 45 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps",
@@ -213,12 +288,27 @@
         "damage_tint",
         "old_animations",
         "old_input",
+        "culling",
+        "particles",
+        "frame_limiter",
+        "block_outline",
+        "shiny_pots",
+        "clear_glass",
+        "nametags",
+        "scoreboard",
+        "gui_scale",
+        "fog",
+        "menu_blur",
+        "time_weather",
+        "potion_counter",
+        "reach",
+        "chat",
         "cosmetics"
       ]
     },
     "hud_mod_id": {
       "title": "HUD mod id",
-      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the 16 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
+      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the 19 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
       "type": "string",
       "enum": [
         "fps",
@@ -236,7 +326,10 @@
         "memory",
         "server_address",
         "item_counter",
-        "stopwatch"
+        "stopwatch",
+        "scoreboard",
+        "potion_counter",
+        "reach"
       ]
     },
     "gameplay_mod_id": {
@@ -257,6 +350,18 @@
         "damage_tint",
         "old_animations",
         "old_input",
+        "culling",
+        "particles",
+        "frame_limiter",
+        "block_outline",
+        "shiny_pots",
+        "clear_glass",
+        "nametags",
+        "gui_scale",
+        "fog",
+        "menu_blur",
+        "time_weather",
+        "chat",
         "cosmetics"
       ]
     },
@@ -606,6 +711,18 @@
           "description": "Fill of a pressed key tile, as one of the five named swatches the Mod settings frame offers. `accent` follows the loadout accent, which is the frame's default.",
           "$ref": "#/definitions/pressed_swatch",
           "default": "accent"
+        },
+        "animate": {
+          "description": "Whether keys ease between the resting and pressed treatment instead of switching on the frame. The press itself is always immediate; this only shapes the release.",
+          "type": "boolean",
+          "default": true
+        },
+        "fade_ms": {
+          "description": "How long a released key takes to fade back to rest, in milliseconds, when `animate` is on. Long fades read as a trail of recent presses; short ones as a crisp tap.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500,
+          "default": 120
         }
       }
     },
@@ -681,6 +798,11 @@
           "description": "Whether the highest rate seen this session is drawn as a trailing aside. `window_ms` already averages, so the live figure answers \"how fast am I clicking\"; this answers \"how fast can I\", which is the number worth comparing against and the one the live figure never sits still long enough to show.",
           "type": "boolean",
           "default": false
+        },
+        "ignore_cancelled": {
+          "description": "Whether only clicks the game acted on are counted. A left click swallowed by 1.8's miss delay, or made while a screen was open, is a press of the button but not a swing, and with this on it does not count. Left button only; right clicks are always counted as pressed. Fed by `hits.swings` on the tick payload rather than by the mouse edge, so a counted click is one `doAttack` ran for.",
+          "type": "boolean",
+          "default": false
         }
       }
     },
@@ -753,6 +875,37 @@
           "description": "Whether the shortened server name is drawn after the figure. A player who only ever plays one server is being told something they already know, on the chip they look at most often.",
           "type": "boolean",
           "default": true
+        },
+        "show_average": {
+          "description": "Whether the rolling average of the last `window` readings is drawn as a trailing aside, `avg 54`.",
+          "type": "boolean",
+          "default": false
+        },
+        "show_jitter": {
+          "description": "Whether jitter is drawn as a trailing aside, `±7`: the mean change between consecutive readings over the last `window`. A steady 90 ms plays better than a 40 ms that swings by 30, and only this figure tells the two apart.",
+          "type": "boolean",
+          "default": false
+        },
+        "jitter_warn_ms": {
+          "description": "Jitter at or above this many milliseconds draws in the warn treatment. 0 disables the warning.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500,
+          "default": 20
+        },
+        "spike_ms": {
+          "description": "A reading this many milliseconds above the rolling average counts as a spike and briefly marks the chip. 0 disables spike detection.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 80
+        },
+        "window": {
+          "description": "How many readings the average, the jitter and the spike baseline are taken over. The server sends a new latency every few seconds, so 10 readings is roughly the last half minute.",
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 60,
+          "default": 10
         }
       }
     },
@@ -963,6 +1116,20 @@
           "description": "Whether to omit ambient effects such as a beacon aura from the list.",
           "type": "boolean",
           "default": false
+        },
+        "hidden_effects": {
+          "description": "Effects never listed, as a bit mask over vanilla's status effect ids: bit 1 is Speed, bit 16 Night Vision, up to bit 23 Saturation. Set from the settings page's effect chips rather than by hand. 0 lists everything.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16777215,
+          "default": 0
+        },
+        "blink_below_s": {
+          "description": "An effect with this many seconds or fewer left blinks, once a second, on the tick that redraws its timer. 0 disables blinking.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30,
+          "default": 5
         }
       }
     },
@@ -1116,6 +1283,21 @@
           "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('hitboxes')`. Boxes are worth having for one fight and not the next, which is a decision made mid-match rather than in a menu.",
           "$ref": "#/definitions/keybind",
           "default": "NONE"
+        },
+        "state_colors": {
+          "description": "Whether a box changes colour with what you can do to its entity: `damaged_color` while it is in its hurt animation, `hittable_color` while your crosshair is on it within attack range, and `color` otherwise.",
+          "type": "boolean",
+          "default": false
+        },
+        "hittable_color": {
+          "description": "Box colour for the entity your crosshair is on, when `state_colors` is on.",
+          "$ref": "#/definitions/hex_color",
+          "default": "#2FB8A6FF"
+        },
+        "damaged_color": {
+          "description": "Box colour for an entity in its hurt animation, when `state_colors` is on. Takes precedence over `hittable_color`.",
+          "$ref": "#/definitions/hex_color",
+          "default": "#FF5A5AFF"
         }
       }
     },
@@ -1153,6 +1335,16 @@
           "description": "Whether smooth-camera mouse damping is applied while zoomed.",
           "type": "boolean",
           "default": false
+        },
+        "scroll_adjust": {
+          "description": "Whether the mouse wheel changes the zoom while the key is held, between 1.1x and 10x in multiplicative steps. The hotbar does not scroll while this is in use, and the level goes back to `fov_divisor` on release. Eased when `smooth` is on.",
+          "type": "boolean",
+          "default": true
+        },
+        "scale_sensitivity": {
+          "description": "Whether mouse sensitivity is scaled down with the zoom, so a flick moves the crosshair across the same share of the screen zoomed as unzoomed. Off is vanilla: at 4x every mouse movement turns the view four times as far across what you can see.",
+          "type": "boolean",
+          "default": true
         }
       }
     },
@@ -1617,7 +1809,7 @@
     },
     "item_counter_settings": {
       "title": "Item counter settings",
-      "description": "Settings for the Item counter HUD mod. Reads `held_count` off the tick payload, which is the stack size of the **held** item and nothing else.\n\nBe clear about the scope, because the name is borrowed from mods that do more: Lunar's and Badlion's item counters track a *chosen* item across the whole inventory — tell it pearls, and it counts your pearls whether or not they are in your hand. This one counts the hand, because `held_count` is the sensor that exists. It answers \"how many blocks are left\" while you are bridging with them and \"how many gapples\" while you are holding one; it does not answer \"how many pearls do I have\" while you are holding a sword. An inventory-wide counter needs a slot-scanning sensor and a way to pick the item it watches, and neither exists yet; when they do, that is a superset of this mod rather than a rewrite of it.\n\nThe stack size is value-checked at the sensor rather than rate-limited: it changes on use, not on a clock, so every push is news.",
+      "description": "Settings for the Item counter HUD mod. `track` picks what is counted. `held_stack` is the stack in the hand (`held_count` on the tick payload) and is the default, because it is what the chip has always shown. Every other value reads `counts`, the inventory-wide sensor: `held_total` adds up every stack in the inventory that matches the held item (same item, same variant, so white wool is not red wool), and the named items count that item wherever it is, whether or not it is in your hand. That last group is the Lunar and Badlion meaning of an item counter: tell it pearls and it counts your pearls while you hold a sword.\n\nThe counts are value-checked at the sensor rather than rate-limited: they change on use and pickup, not on a clock, so every push is news.",
       "type": "object",
       "required": [
         "on"
@@ -1672,6 +1864,28 @@
           "minimum": 0,
           "maximum": 64,
           "default": 0
+        },
+        "track": {
+          "description": "What the chip counts. `held_stack` is the stack in your hand; `held_total` is every stack in the inventory matching the held item; the rest count that item across the whole inventory whatever you are holding. `wool` is every colour together. Healing potions and soup are the Potion counter's.",
+          "type": "string",
+          "enum": [
+            "held_stack",
+            "held_total",
+            "ender_pearl",
+            "golden_apple",
+            "arrow",
+            "snowball",
+            "egg",
+            "cobweb",
+            "wool",
+            "tnt",
+            "fire_charge",
+            "iron_ingot",
+            "gold_ingot",
+            "diamond",
+            "emerald"
+          ],
+          "default": "held_stack"
         }
       }
     },
@@ -2026,6 +2240,688 @@
           "description": "Whether the half-second dead time after a whiffed click is removed. On a click that hits nothing, 1.8.9's `doAttack` reaches `hasLimitedAttackSpeed()` and sets `attackCooldown = 10`, and for those ten ticks every click returns at the top of the method — a whiff costs you the next half second of clicking, and in survival only. 1.7.10's switch has no MISS entry and falls through to `return`, so a whiff cost nothing. **This is the setting the withdrawn draft got wrong**, and the correction is worth keeping: that draft called it `always_swing` and said 1.8 only swings when a click connects. It does not. Both versions call `swingHand()` unconditionally at offset 12, before the hit result is even read, so the arm swings on a miss in 1.8 exactly as it does in 1.7. The only difference was ever this cooldown. Turning this on restores 1.7's click cadence and, because a click that is not swallowed is a click that sends `HandSwingC2SPacket`, raises outbound swing volume on whiffs in proportion to CPS — which is what classes this mod `grey`, and is the reason the purely local, packetless version of this lives in `old_animations.swing_during_delay` instead. Off by default. Scope it to the MISS branch: 1.7 still set the same cooldown on a null hit result and on a BLOCK hit that resolved to air, so suppressing the field outright goes past 1.7 rather than back to it.",
           "type": "boolean",
           "default": false
+        }
+      }
+    },
+    "culling_settings": {
+      "title": "Entity culling settings",
+      "description": "Settings for the Entity culling gameplay mod — the FPS boost. A background thread casts rays from the camera through the block grid to each entity and block entity in view, and the render pass skips anything no ray reaches through air. Results trail the camera by one pass (a few milliseconds), so everything within `always_draw_within` is drawn regardless — a player who steps round a corner beside you is never one pass late. The distance cut-offs are plain distance culling on top, for the cheap-but-numerous things a lobby is full of. Turns itself off for occlusion in third person, where the camera is not where the rays start; distance culling still applies.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether entity and block-entity culling is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "occlude_entities": {
+          "description": "Whether mobs, players, items and other entities that no ray from the camera can reach are skipped. The bulk of the win in a crowded lobby. Never culls the entity you are riding or your own player.",
+          "type": "boolean",
+          "default": true
+        },
+        "occlude_block_entities": {
+          "description": "Whether chests, signs, banners, skulls and the other tile entities that no ray reaches are skipped. Tile entities are the expensive half of a 1.8.9 frame in a built-up map — every chest is a model drawn every frame — so this is on by default.",
+          "type": "boolean",
+          "default": true
+        },
+        "always_draw_within": {
+          "description": "Radius in blocks inside which nothing is ever occlusion-culled. The ray test runs on its own thread and its answer is one pass old by the time a frame reads it; inside this radius that lag could show as a player appearing a moment after stepping into view, so the test is not consulted at all. 4 covers melee range with a margin.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16,
+          "default": 4
+        },
+        "nametags_through_walls": {
+          "description": "Whether a culled entity still draws its nametag. Vanilla draws a player's name through walls (unless they sneak), so culling the body must not take the name with it — on by default, which keeps exactly what vanilla shows. Off also skips the label of anything culled, which is a little faster and shows less than vanilla, never more.",
+          "type": "boolean",
+          "default": true
+        },
+        "block_entity_distance": {
+          "description": "Farthest a tile entity is drawn, in blocks. 64 is vanilla's own limit, so the default changes nothing; lower it on a weak machine in chest-heavy maps.",
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 64,
+          "default": 64
+        },
+        "armor_stand_distance": {
+          "description": "Farthest an armour stand is drawn, in blocks. Lobby holograms are stacks of invisible armour stands with a name each, and hundreds of them is common. 64 is vanilla; lowering it hides far hologram text along with the stands.",
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 64,
+          "default": 64
+        },
+        "item_frame_distance": {
+          "description": "Farthest the item inside an item frame is drawn, in blocks. The frame itself is unaffected. 64 is vanilla.",
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 64,
+          "default": 64
+        },
+        "sign_text_distance": {
+          "description": "Farthest a sign's text is drawn, in blocks; the board is drawn to the tile-entity distance either way. Sign text is a font draw per line per sign per frame, and past about 32 blocks a line of it is two or three pixels tall at 1080p — unreadable, but still paid for. 32 by default for that reason; 64 is vanilla.",
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 64,
+          "default": 32
+        }
+      }
+    },
+    "particles_settings": {
+      "title": "Particle limiter settings",
+      "description": "Settings for the Particle limiter gameplay mod. Vanilla builds the vertices of every live particle every frame, including the half behind you, and a TNT run or a Bedwars bed break can put thousands on screen at once. `frustum_cull` is free — a particle outside the view cone is never seen — and is the default win. The two fractions thin a burst at the moment it is spawned; they only ever remove particles, never add one, which is the direction Hypixel's allowlist has no objection to. Crit, sharpness and hit particles are untouched by both: they are the cue that a hit landed.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the particle limiter is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "frustum_cull": {
+          "description": "Whether particles outside the camera's view cone skip their draw. Invisible by construction, which is why it is on by default and why it is a switch rather than a number.",
+          "type": "boolean",
+          "default": true
+        },
+        "particle_cap": {
+          "description": "Most particles alive per render layer; when full, the oldest goes first, exactly as vanilla does at its own limit. 4000 is vanilla's limit, so the default changes nothing — lower it if explosions stall your frame.",
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 4000,
+          "default": 4000
+        },
+        "block_break_particles": {
+          "description": "Fraction of block-break and block-hit particles kept. 1 is vanilla's 64-piece burst; 0 breaks blocks with no debris. A bridging or Bedwars player breaks hundreds of blocks a game and every one used to spawn 64 particles.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "explosion_particles": {
+          "description": "Fraction of explosion particles kept — TNT, fireballs and creepers. 1 is vanilla. The blast itself, its sound and its knockback are untouched; only the smoke is thinned.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        }
+      }
+    },
+    "frame_limiter_settings": {
+      "title": "Frame limiter settings",
+      "description": "Settings for the Frame limiter gameplay mod. None of these caps ever applies while you are in the world with the window focused — that frame rate is the one you set in Minecraft's options, untouched. Vanilla 1.8.9 renders a backgrounded or minimised window as fast as it can, so a game left on a second monitor heats the GPU the player is about to need for something else. The menu cap covers the title screen, the server list and the pause menu; it never covers an inventory or a chest, because the fight carries on behind those.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the frame limiter is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "unfocused_fps": {
+          "description": "Frame cap while the game window does not have focus. 30 keeps a game on a second monitor watchable while giving most of the GPU back.",
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 120,
+          "default": 30
+        },
+        "menu_fps": {
+          "description": "Frame cap on the title screen, the server list and the pause menu. Vanilla already holds the title screen at 30; 60 is smoother than that and still a fraction of an uncapped menu.",
+          "type": "integer",
+          "minimum": 15,
+          "maximum": 240,
+          "default": 60
+        },
+        "idle_minimized": {
+          "description": "Whether a minimised window drops to 5 frames a second. Nothing is visible, so nothing is lost; sound and the connection carry on.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "block_outline_settings": {
+      "title": "Block outline settings",
+      "description": "Settings for the Block outline gameplay mod. It restyles the box vanilla already draws round the targeted block — same block, same shape, same moment — and nothing else; it never outlines a block the game would not, so it says nothing the vanilla outline did not. `kind: gameplay` for `hitboxes`' reason: it is a world mark, not a placeable HUD item.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the block outline is restyled.",
+          "$ref": "#/definitions/on"
+        },
+        "outline_style": {
+          "description": "What is drawn round the targeted block. `outline` is vanilla's box in your colour; `fill` shades the faces and drops the lines; `both` does both; `none` draws nothing, for players who aim off the crosshair alone.",
+          "type": "string",
+          "enum": [
+            "outline",
+            "fill",
+            "both",
+            "none"
+          ],
+          "default": "outline"
+        },
+        "outline_color": {
+          "description": "Colour of the outline, alpha included. Vanilla's is black at 40%, which disappears against obsidian, coal and every dark wool — the near-white default reads on all of them.",
+          "$ref": "#/definitions/hex_color",
+          "default": "#EDEEEFCC"
+        },
+        "outline_width": {
+          "description": "Line width in screen pixels. Vanilla's is 2.",
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 6,
+          "default": 2.5
+        },
+        "fill_color": {
+          "description": "Colour of the face shading when `outline_style` is `fill` or `both`, alpha included. Keep the alpha low: a fill is drawn over the block's own texture.",
+          "$ref": "#/definitions/hex_color",
+          "default": "#EDEEEF26"
+        }
+      }
+    },
+    "shiny_pots_settings": {
+      "title": "Shiny pots settings",
+      "description": "Settings for the Shiny pots gameplay mod. 1.8.9 gives a potion the glint only when its effect list resolves, at vanilla strength, so on a busy hotbar a pot reads no differently from a water bottle. This draws the same glint pass vanilla uses, more times and on every potion, and can tint it with the potion's own colour. Purely the item's look: it changes nothing about which potion is which or what is in your inventory.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether potions are drawn with a stronger glint.",
+          "$ref": "#/definitions/on"
+        },
+        "all_potions": {
+          "description": "Whether potions with no listed effect — water bottles, and server pots whose effects live only in their lore — glint too. On by default: on most servers that is exactly the pot you were trying to find.",
+          "type": "boolean",
+          "default": true
+        },
+        "glint_passes": {
+          "description": "How many times the glint is laid over a potion. 1 is vanilla's strength; 2 is the classic 1.7 look; 3 is as shiny as it gets before the item's own colour washes out.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3,
+          "default": 2
+        },
+        "tint_glint": {
+          "description": "Whether the glint takes the potion's own liquid colour instead of vanilla's purple, so a healing pot shimmers red and a speed pot blue.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "clear_glass_settings": {
+      "title": "Clear glass settings",
+      "description": "Settings for the Clear glass gameplay mod. Glass in 1.8.9 is a cut-out texture whose frame and streaks cover a quarter of what is behind it; this skips glass when chunks are built, so the block is still there, still solid and still targetable — the block outline still finds it — but nothing is drawn. It is what a clear-glass resource pack does, without the pack. Changing a setting rebuilds the loaded chunks once.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether glass is drawn clear.",
+          "$ref": "#/definitions/on"
+        },
+        "clear_panes": {
+          "description": "Whether glass panes are cleared as well as full glass blocks.",
+          "type": "boolean",
+          "default": true
+        },
+        "clear_stained": {
+          "description": "Whether stained glass is cleared too. Off by default: stained glass carries team colour in Bedwars and bases, and clearing it would throw that away.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "nametags_settings": {
+      "title": "Nametags settings",
+      "description": "Settings for the Nametags gameplay mod. Restyles the label vanilla already draws over a player or named mob — the same labels, at the same moments, through the same walls — so it never shows a name the game would not. `tag_scale` tops out at 1.5 for that reason: a bigger label is legible farther, but it cannot appear anywhere vanilla's would not.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether nametags are restyled.",
+          "$ref": "#/definitions/on"
+        },
+        "show_own": {
+          "description": "Whether your own nametag is drawn over your head in third person. Vanilla never draws it; on by default because that is the one thing players switch this mod on for.",
+          "type": "boolean",
+          "default": true
+        },
+        "hide_others": {
+          "description": "Whether other players' and named mobs' nametags are hidden. Armour stands are exempt: lobby holograms are stacks of named stands, and they are world text rather than nametags. Off by default — a name is how you tell a teammate from an enemy — and on for recording and for crowded lobbies.",
+          "type": "boolean",
+          "default": false
+        },
+        "tag_background": {
+          "description": "Alpha of the dark plate behind each name. 0.25 is vanilla's; 0 draws the text alone.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.25
+        },
+        "tag_scale": {
+          "description": "Size of every nametag as a multiple of vanilla's.",
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 1.5,
+          "default": 1
+        },
+        "tag_shadow": {
+          "description": "Whether the name is drawn with Minecraft's text shadow, which keeps it legible against sky and snow. Vanilla draws it without one.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "scoreboard_settings": {
+      "title": "Scoreboard settings",
+      "description": "Settings for the Scoreboard HUD mod. Reads the sidebar objective the server set — title, lines and scores — exactly as vanilla would draw it, team prefixes and suffixes included, and draws it on the HUD where the editor puts it. It adds nothing the sidebar did not say.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the scoreboard is drawn by VOID.",
+          "$ref": "#/definitions/on"
+        },
+        "scale": {
+          "description": "Size multiplier of the scoreboard.",
+          "$ref": "#/definitions/scale"
+        },
+        "opacity": {
+          "description": "Alpha of the scoreboard.",
+          "$ref": "#/definitions/opacity"
+        },
+        "background": {
+          "description": "Ground drawn behind the scoreboard, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.",
+          "type": "string",
+          "enum": [
+            "none",
+            "subtle",
+            "solid"
+          ],
+          "default": "none"
+        },
+        "border": {
+          "description": "Whether a hairline is drawn around the scoreboard, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+          "type": "boolean",
+          "default": false
+        },
+        "padding": {
+          "description": "Density of the scoreboard — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "type": "string",
+          "enum": [
+            "tight",
+            "normal",
+            "roomy"
+          ],
+          "default": "normal"
+        },
+        "hidden": {
+          "description": "Whether the scoreboard is hidden entirely — vanilla's and this one. For recording, and for servers whose sidebar is an advert.",
+          "type": "boolean",
+          "default": false
+        },
+        "show_numbers": {
+          "description": "Whether each line's score is drawn at its right edge. Off by default: on nearly every server the score is a sort key the server uses to order the lines, the red numbers carry no meaning, and hiding them is the single most requested scoreboard tweak.",
+          "type": "boolean",
+          "default": false
+        },
+        "show_title": {
+          "description": "Whether the objective's title is drawn above the lines.",
+          "type": "boolean",
+          "default": true
+        },
+        "server_colors": {
+          "description": "Whether the server's own colour codes are honoured. On by default: on team modes the colour is the information. Off draws every line in the HUD's own ink.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "gui_scale_settings": {
+      "title": "GUI scale settings",
+      "description": "Settings for the GUI scale gameplay mod. Minecraft has one GUI scale for everything, so at 1080p the choice is between a hotbar that fills the bottom of the screen and an inventory too small to read. Each value here is a whole GUI-scale step, exactly like Minecraft's own setting, so textures stay pixel-crisp; 0 means \"follow Minecraft\". Like vanilla, a value larger than the window allows is clamped to the largest that fits.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the hotbar and inventories have their own scale.",
+          "$ref": "#/definitions/on"
+        },
+        "hotbar_scale": {
+          "description": "GUI scale step for the hotbar and the health, hunger, armour and experience bars above it, which move as one block. 0 follows Minecraft. 2 by default: a compact hotbar at 1080p, where Minecraft's own auto scale is 4.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6,
+          "default": 2
+        },
+        "inventory_scale": {
+          "description": "GUI scale step for the inventory, chests, furnaces and every other container screen. 0 follows Minecraft. Other menus — chat, the pause menu, VOID's own — are unaffected.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6,
+          "default": 3
+        }
+      }
+    },
+    "fog_settings": {
+      "title": "Fog settings",
+      "description": "Settings for the Fog gameplay mod. Each kind of fog has three steps: `vanilla`, `reduced` and `off`. Distance fog hides the edge of the loaded world, so turning it off shows the chunk border instead of a haze — `reduced` pushes the haze out to the edge. Classified `grey`; see the top of this file.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether fog is customised.",
+          "$ref": "#/definitions/on"
+        },
+        "distance_fog": {
+          "description": "Fog at the edge of your render distance, and the thick fog of the nether. `reduced` starts it at the last chunk rather than three quarters of the way out.",
+          "type": "string",
+          "enum": [
+            "vanilla",
+            "reduced",
+            "off"
+          ],
+          "default": "reduced"
+        },
+        "water_fog": {
+          "description": "Fog while your head is under water. `reduced` is roughly what Respiration III gives.",
+          "type": "string",
+          "enum": [
+            "vanilla",
+            "reduced",
+            "off"
+          ],
+          "default": "reduced"
+        },
+        "lava_fog": {
+          "description": "Fog while your head is in lava. `vanilla` by default: seeing out of lava is the clearest advantage on this page.",
+          "type": "string",
+          "enum": [
+            "vanilla",
+            "reduced",
+            "off"
+          ],
+          "default": "vanilla"
+        }
+      }
+    },
+    "menu_blur_settings": {
+      "title": "Menu blur settings",
+      "description": "Settings for the Menu blur gameplay mod. Runs the backdrop blur VOID already carries — a quarter-resolution copy of the frame through a separable Gaussian — under Minecraft's own screens. Chat and VOID's own menu are not blurred. Costs a few frames a second while a screen is open and nothing otherwise.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the world is blurred behind menus.",
+          "$ref": "#/definitions/on"
+        },
+        "blur_radius": {
+          "description": "How soft the blur is, in passes of the Gaussian. 1 is a light softening; 10 is unrecognisable.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 4
+        },
+        "blur_fade": {
+          "description": "Whether the blur eases in over a fifth of a second as the screen opens, rather than snapping on.",
+          "type": "boolean",
+          "default": true
+        },
+        "menu_dim": {
+          "description": "How much of vanilla's dark wash is kept over the blur, as a fraction of vanilla's own. 1 is vanilla's darkness on top of the blur; 0 is the blur alone.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5
+        }
+      }
+    },
+    "time_weather_settings": {
+      "title": "Time & weather settings",
+      "description": "Settings for the Time & weather gameplay mod. Client-side only: the server's clock and weather are unchanged, mobs still burn when the server says it is day, and nobody else sees a difference. It changes the sky, the light and the rain you see.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether time and weather are set client-side.",
+          "$ref": "#/definitions/on"
+        },
+        "lock_time": {
+          "description": "Whether the time of day is held at `time_ticks` instead of following the server.",
+          "type": "boolean",
+          "default": true
+        },
+        "time_ticks": {
+          "description": "Time of day to hold, in ticks: 0 is sunrise, 6000 noon, 12000 sunset, 18000 midnight.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23999,
+          "default": 6000
+        },
+        "clear_weather": {
+          "description": "Whether rain, snow and thunder are hidden. The rain also stops darkening the sky.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "potion_counter_settings": {
+      "title": "Potion counter settings",
+      "description": "Settings for the Potion counter HUD mod. Reads `counts` on the tick payload, the same inventory-wide sensor the Item counter's named items use: `health_potion` is every splash potion of Healing (I and II) in the inventory and `soup` is every bowl of mushroom stew. A separate mod rather than two more `item_counter.track` values because the two are read at different moments: the item counter answers what you are building or throwing with, and this answers how many heals are left, which is the one number a pot or soup fight is decided by and the one worth a chip of its own.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the potion counter is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "scale": {
+          "description": "Size multiplier of the potion chip.",
+          "$ref": "#/definitions/scale"
+        },
+        "opacity": {
+          "description": "Alpha of the potion chip.",
+          "$ref": "#/definitions/opacity"
+        },
+        "background": {
+          "description": "Ground drawn behind the potion chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.",
+          "type": "string",
+          "enum": [
+            "none",
+            "subtle",
+            "solid"
+          ],
+          "default": "none"
+        },
+        "border": {
+          "description": "Whether a hairline is drawn around the potion chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+          "type": "boolean",
+          "default": false
+        },
+        "padding": {
+          "description": "Density of the potion chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "type": "string",
+          "enum": [
+            "tight",
+            "normal",
+            "roomy"
+          ],
+          "default": "normal"
+        },
+        "track": {
+          "description": "What is counted: splash potions of Healing, bowls of mushroom stew, or both side by side.",
+          "type": "string",
+          "enum": [
+            "health_potion",
+            "soup",
+            "both"
+          ],
+          "default": "health_potion"
+        },
+        "show_label": {
+          "description": "Whether the count is followed by its unit, `pots` or `soup`. With `both` the units are what tell the two figures apart, so they are always drawn there.",
+          "type": "boolean",
+          "default": true
+        },
+        "low_threshold": {
+          "description": "A count at or below this many draws in the warn treatment. Unlike the Item counter this has a non-zero default, because what is in the slot is known: three heals is low in every pot and soup mode. 0 disables the warning.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64,
+          "default": 3
+        }
+      }
+    },
+    "reach_settings": {
+      "title": "Reach display settings",
+      "description": "Settings for the Reach display HUD mod. Reads `reach` on the tick payload. The figure is measured on the client at the moment the attack is sent: from your eye position, interpolated to the frame the crosshair ray was cast on, to the exact point where that ray met the target's hitbox. That is the distance the game itself used to decide the hit, not an entity-centre distance (which reads about 0.3 blocks long) and not the server's view (which it never tells the client). Only attacks the hit counter counts as landed are measured, so a swing at air never moves the number.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the reach display is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "scale": {
+          "description": "Size multiplier of the reach chip.",
+          "$ref": "#/definitions/scale"
+        },
+        "opacity": {
+          "description": "Alpha of the reach chip.",
+          "$ref": "#/definitions/opacity"
+        },
+        "background": {
+          "description": "Ground drawn behind the reach chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.",
+          "type": "string",
+          "enum": [
+            "none",
+            "subtle",
+            "solid"
+          ],
+          "default": "none"
+        },
+        "border": {
+          "description": "Whether a hairline is drawn around the reach chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+          "type": "boolean",
+          "default": false
+        },
+        "padding": {
+          "description": "Density of the reach chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "type": "string",
+          "enum": [
+            "tight",
+            "normal",
+            "roomy"
+          ],
+          "default": "normal"
+        },
+        "decimals": {
+          "description": "Digits after the decimal point. Two is the precision the measurement actually has; one reads faster, and none is the whole-block figure.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 2
+        },
+        "mode": {
+          "description": "Which figure is drawn: the last landed hit, or the mean of the last ten.",
+          "type": "string",
+          "enum": [
+            "last",
+            "average"
+          ],
+          "default": "last"
+        },
+        "show_label": {
+          "description": "Whether the figure is followed by its unit, `blocks`.",
+          "type": "boolean",
+          "default": true
+        },
+        "hide_after_ms": {
+          "description": "Hide the chip this long after the last landed hit; 0 keeps it on screen. A reach figure is only interesting while you are trading hits.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000,
+          "default": 0
+        }
+      }
+    },
+    "chat_settings": {
+      "title": "Chat settings",
+      "description": "Settings for the Chat gameplay mod. Every setting changes how vanilla's own chat (`ChatHud`) stores and draws messages on this client; nothing is sent, and no message anyone else sees is altered. With the mod off the chat is vanilla, byte for byte.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the chat changes are enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "timestamps": {
+          "description": "Whether each message is prefixed with the time it arrived, `[14:03]`, in grey.",
+          "type": "boolean",
+          "default": true
+        },
+        "stack_repeats": {
+          "description": "Whether a message identical to the one before it replaces it with a count, `(x3)`, instead of adding another line. Lobby spam and repeated server notices collapse to one line.",
+          "type": "boolean",
+          "default": true
+        },
+        "click_to_copy": {
+          "description": "Whether right-clicking a message in the open chat copies the whole message, without colour codes, to the clipboard.",
+          "type": "boolean",
+          "default": true
+        },
+        "background_opacity": {
+          "description": "Opacity of the dark band behind chat lines, as a fraction of the line's own fade. 0.5 is vanilla; 0 draws text only.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5
+        },
+        "history_length": {
+          "description": "How many messages the chat keeps for scrolling back. Vanilla keeps 100.",
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000,
+          "default": 1000
         }
       }
     },
@@ -3333,6 +4229,657 @@
         }
       ]
     },
+    "culling_entry": {
+      "title": "Entity culling entry",
+      "description": "Registry entry for Entity culling, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `culling`.",
+              "const": "culling"
+            },
+            "icon": {
+              "description": "Always `eye`.",
+              "const": "eye"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `utility`; the Mods panel tabs it under Utility (frame 244:538).",
+              "const": "utility"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Entity culling settings.",
+              "$ref": "#/definitions/culling_settings"
+            }
+          },
+          "not": {
+            "$comment": "Entity culling is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "particles_entry": {
+      "title": "Particle limiter entry",
+      "description": "Registry entry for the Particle limiter, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `particles`.",
+              "const": "particles"
+            },
+            "icon": {
+              "description": "Always `sparkle`.",
+              "const": "sparkle"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `utility`; the Mods panel tabs it under Utility (frame 244:538).",
+              "const": "utility"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Particle limiter settings.",
+              "$ref": "#/definitions/particles_settings"
+            }
+          },
+          "not": {
+            "$comment": "the Particle limiter is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "frame_limiter_entry": {
+      "title": "Frame limiter entry",
+      "description": "Registry entry for the Frame limiter, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `frame_limiter`.",
+              "const": "frame_limiter"
+            },
+            "icon": {
+              "description": "Always `gauge`.",
+              "const": "gauge"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `utility`; the Mods panel tabs it under Utility (frame 244:538).",
+              "const": "utility"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Frame limiter settings.",
+              "$ref": "#/definitions/frame_limiter_settings"
+            }
+          },
+          "not": {
+            "$comment": "the Frame limiter is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "block_outline_entry": {
+      "title": "Block outline entry",
+      "description": "Registry entry for the Block outline, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `block_outline`.",
+              "const": "block_outline"
+            },
+            "icon": {
+              "description": "Always `cube`.",
+              "const": "cube"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Block outline settings.",
+              "$ref": "#/definitions/block_outline_settings"
+            }
+          },
+          "not": {
+            "$comment": "the Block outline is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "shiny_pots_entry": {
+      "title": "Shiny pots entry",
+      "description": "Registry entry for Shiny pots, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `shiny_pots`.",
+              "const": "shiny_pots"
+            },
+            "icon": {
+              "description": "Always `flask`.",
+              "const": "flask"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Shiny pots settings.",
+              "$ref": "#/definitions/shiny_pots_settings"
+            }
+          },
+          "not": {
+            "$comment": "Shiny pots is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "clear_glass_entry": {
+      "title": "Clear glass entry",
+      "description": "Registry entry for Clear glass, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `clear_glass`.",
+              "const": "clear_glass"
+            },
+            "icon": {
+              "description": "Always `box`.",
+              "const": "box"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Clear glass settings.",
+              "$ref": "#/definitions/clear_glass_settings"
+            }
+          },
+          "not": {
+            "$comment": "Clear glass is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "nametags_entry": {
+      "title": "Nametags entry",
+      "description": "Registry entry for Nametags, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `nametags`.",
+              "const": "nametags"
+            },
+            "icon": {
+              "description": "Always `users`.",
+              "const": "users"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Nametags settings.",
+              "$ref": "#/definitions/nametags_settings"
+            }
+          },
+          "not": {
+            "$comment": "Nametags is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "scoreboard_entry": {
+      "title": "Scoreboard entry",
+      "description": "Registry entry for the Scoreboard, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `scoreboard`.",
+              "const": "scoreboard"
+            },
+            "icon": {
+              "description": "Always `star`.",
+              "const": "star"
+            },
+            "kind": {
+              "description": "Always `hud`.",
+              "const": "hud"
+            },
+            "category": {
+              "description": "Always `hud`; the Mods panel tabs it under HUD (frame 244:538).",
+              "const": "hud"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Scoreboard settings.",
+              "$ref": "#/definitions/scoreboard_settings"
+            },
+            "default_placement": {
+              "$comment": "Right edge, vertically centred — where vanilla draws the sidebar, so turning the mod on restyles it in place before anyone moves it.",
+              "description": "Where the Scoreboard starts on an untouched HUD. Required, because the Scoreboard is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
+            }
+          },
+          "required": [
+            "default_placement"
+          ]
+        }
+      ]
+    },
+    "gui_scale_entry": {
+      "title": "GUI scale entry",
+      "description": "Registry entry for GUI scale, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `gui_scale`.",
+              "const": "gui_scale"
+            },
+            "icon": {
+              "description": "Always `move`.",
+              "const": "move"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory GUI scale settings.",
+              "$ref": "#/definitions/gui_scale_settings"
+            }
+          },
+          "not": {
+            "$comment": "GUI scale is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "fog_entry": {
+      "title": "Fog entry",
+      "description": "Registry entry for Fog, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `fog`.",
+              "const": "fog"
+            },
+            "icon": {
+              "description": "Always `droplet`.",
+              "const": "droplet"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `grey` (§11).",
+              "const": "grey"
+            },
+            "defaults": {
+              "description": "Factory Fog settings.",
+              "$ref": "#/definitions/fog_settings"
+            }
+          },
+          "not": {
+            "$comment": "Fog is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "menu_blur_entry": {
+      "title": "Menu blur entry",
+      "description": "Registry entry for Menu blur, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `menu_blur`.",
+              "const": "menu_blur"
+            },
+            "icon": {
+              "description": "Always `layers`.",
+              "const": "layers"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Menu blur settings.",
+              "$ref": "#/definitions/menu_blur_settings"
+            }
+          },
+          "not": {
+            "$comment": "Menu blur is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "time_weather_entry": {
+      "title": "Time & weather entry",
+      "description": "Registry entry for Time & weather, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `time_weather`.",
+              "const": "time_weather"
+            },
+            "icon": {
+              "description": "Always `clock`.",
+              "const": "clock"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `visual`; the Mods panel tabs it under Visual (frame 244:538).",
+              "const": "visual"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Time & weather settings.",
+              "$ref": "#/definitions/time_weather_settings"
+            }
+          },
+          "not": {
+            "$comment": "Time & weather is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
+    "potion_counter_entry": {
+      "title": "Potion counter entry",
+      "description": "Registry entry for the Potion counter, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `potion_counter`.",
+              "const": "potion_counter"
+            },
+            "icon": {
+              "description": "Always `heart`.",
+              "const": "heart"
+            },
+            "kind": {
+              "description": "Always `hud`.",
+              "const": "hud"
+            },
+            "category": {
+              "description": "Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).",
+              "const": "pvp"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Potion counter settings.",
+              "$ref": "#/definitions/potion_counter_settings"
+            },
+            "default_placement": {
+              "$comment": "Directly above the Item counter (`-146`) in the 175 column, on the same 38 px rhythm: the hand-and-clicks corner reads, bottom to top, how fast the hand is going (CPS), what it is going through (Item counter) and how many heals are left.",
+              "description": "Where the Potion counter starts on an untouched HUD. Required, because the Potion counter is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
+            }
+          },
+          "required": [
+            "default_placement"
+          ]
+        }
+      ]
+    },
+    "reach_entry": {
+      "title": "Reach display entry",
+      "description": "Registry entry for the Reach display, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `reach`.",
+              "const": "reach"
+            },
+            "icon": {
+              "description": "Always `sword`.",
+              "const": "sword"
+            },
+            "kind": {
+              "description": "Always `hud`.",
+              "const": "hud"
+            },
+            "category": {
+              "description": "Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).",
+              "const": "pvp"
+            },
+            "hypixel_safe": {
+              "description": "Always `grey` (§11).",
+              "const": "grey"
+            },
+            "defaults": {
+              "description": "Factory Reach display settings.",
+              "$ref": "#/definitions/reach_settings"
+            },
+            "default_placement": {
+              "$comment": "Below Momentum (`293`) in the top-left column, 38 px down: the column already holds the two other numbers a fight produces, Combo and Momentum, and reach is read at the same moment as both.",
+              "description": "Where the Reach display starts on an untouched HUD. Required, because the Reach display is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
+            }
+          },
+          "required": [
+            "default_placement"
+          ]
+        }
+      ]
+    },
+    "chat_entry": {
+      "title": "Chat entry",
+      "description": "Registry entry for Chat, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `chat`.",
+              "const": "chat"
+            },
+            "icon": {
+              "description": "Always `users`.",
+              "const": "users"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `utility`; the Mods panel tabs it under Utility (frame 244:538).",
+              "const": "utility"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Chat settings.",
+              "$ref": "#/definitions/chat_settings"
+            }
+          },
+          "not": {
+            "$comment": "Chat is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
+    },
     "cosmetics_entry": {
       "title": "Cosmetics entry",
       "description": "Registry entry for Cosmetics, narrowed to its constant classification.",
@@ -3379,7 +4926,7 @@
   },
   "examples": [
     {
-      "version": 11,
+      "version": 13,
       "mods": {
         "fps": {
           "id": "fps",
@@ -3430,7 +4977,9 @@
             "show_cps": false,
             "corner_radius": 8,
             "key_color": "shell",
-            "pressed_color": "accent"
+            "pressed_color": "accent",
+            "animate": true,
+            "fade_ms": 120
           },
           "default_placement": {
             "anchor": "bottom-left",
@@ -3457,7 +5006,8 @@
             "mode": "left",
             "show_label": true,
             "window_ms": 1000,
-            "show_peak": false
+            "show_peak": false,
+            "ignore_cancelled": false
           },
           "default_placement": {
             "anchor": "bottom-left",
@@ -3484,7 +5034,12 @@
             "show_label": true,
             "good_ms": 60,
             "bad_ms": 150,
-            "show_host": true
+            "show_host": true,
+            "show_average": false,
+            "show_jitter": false,
+            "jitter_warn_ms": 20,
+            "spike_ms": 80,
+            "window": 10
           },
           "default_placement": {
             "anchor": "top-left",
@@ -3564,7 +5119,9 @@
             "padding": "normal",
             "show_duration": true,
             "show_amplifier": true,
-            "hide_ambient": false
+            "hide_ambient": false,
+            "hidden_effects": 0,
+            "blink_below_s": 5
           },
           "default_placement": {
             "anchor": "top-right",
@@ -3641,7 +5198,10 @@
             "show_eye_line": false,
             "eye_line_color": "#7ADFFFFF",
             "max_distance": 64,
-            "keybind": "NONE"
+            "keybind": "NONE",
+            "state_colors": false,
+            "hittable_color": "#2FB8A6FF",
+            "damaged_color": "#FF5A5AFF"
           }
         },
         "zoom": {
@@ -3651,14 +5211,16 @@
           "hypixel_safe": "safe",
           "label": "Zoom",
           "icon": "zoom",
-          "description": "Narrows FOV while the zoom key is held.",
+          "description": "Narrows FOV while the zoom key is held; the mouse wheel adjusts it.",
           "source": "FOV override while key held",
           "defaults": {
             "on": true,
             "key": "C",
             "fov_divisor": 4,
             "smooth": true,
-            "cinematic": false
+            "cinematic": false,
+            "scroll_adjust": true,
+            "scale_sensitivity": true
           }
         },
         "crosshair": {
@@ -3842,8 +5404,8 @@
           "hypixel_safe": "safe",
           "label": "Item counter",
           "icon": "box",
-          "description": "How many of the item in your hand you have left.",
-          "source": "`held_count` on the tick payload — the stack size of the held item",
+          "description": "How many of the item in your hand, or a chosen item, you have left.",
+          "source": "`held_count` and `counts` on the tick payload: the held stack, or an inventory-wide count",
           "defaults": {
             "on": false,
             "scale": 1,
@@ -3852,7 +5414,8 @@
             "border": false,
             "padding": "normal",
             "show_label": true,
-            "low_threshold": 0
+            "low_threshold": 0,
+            "track": "held_stack"
           },
           "default_placement": {
             "anchor": "bottom-left",
@@ -4014,6 +5577,287 @@
             "use_while_digging": false,
             "dig_while_using": false,
             "no_miss_delay": false
+          }
+        },
+        "culling": {
+          "id": "culling",
+          "kind": "gameplay",
+          "category": "utility",
+          "hypixel_safe": "safe",
+          "label": "Entity culling",
+          "icon": "eye",
+          "description": "Skips drawing entities and chests, signs and banners that are hidden behind walls or too far away.",
+          "source": "an async voxel ray test against `EntityRenderDispatcher#shouldRender` and `BlockEntityRenderDispatcher#renderEntity`",
+          "defaults": {
+            "on": true,
+            "occlude_entities": true,
+            "occlude_block_entities": true,
+            "always_draw_within": 4,
+            "nametags_through_walls": true,
+            "block_entity_distance": 64,
+            "armor_stand_distance": 64,
+            "item_frame_distance": 64,
+            "sign_text_distance": 32
+          }
+        },
+        "particles": {
+          "id": "particles",
+          "kind": "gameplay",
+          "category": "utility",
+          "hypixel_safe": "safe",
+          "label": "Particle limiter",
+          "icon": "sparkle",
+          "description": "Caps live particles, skips the ones outside your view, and thins out block-break and explosion bursts.",
+          "source": "`ParticleManager#addParticle`, `#addBlockBreakParticles` and `#renderParticles`",
+          "defaults": {
+            "on": true,
+            "frustum_cull": true,
+            "particle_cap": 4000,
+            "block_break_particles": 1,
+            "explosion_particles": 1
+          }
+        },
+        "frame_limiter": {
+          "id": "frame_limiter",
+          "kind": "gameplay",
+          "category": "utility",
+          "hypixel_safe": "safe",
+          "label": "Frame limiter",
+          "icon": "gauge",
+          "description": "Lowers the frame rate while the game is in the background, in a menu, or minimised.",
+          "source": "`MinecraftClient#getMaxFramerate`, which feeds vanilla's own `Display.sync`",
+          "defaults": {
+            "on": true,
+            "unfocused_fps": 30,
+            "menu_fps": 60,
+            "idle_minimized": true
+          }
+        },
+        "block_outline": {
+          "id": "block_outline",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Block outline",
+          "icon": "cube",
+          "description": "Recolours, thickens, fills or removes the outline on the block you are looking at.",
+          "source": "`WorldRenderer#drawBlockOutline`",
+          "defaults": {
+            "on": false,
+            "outline_style": "outline",
+            "outline_color": "#EDEEEFCC",
+            "outline_width": 2.5,
+            "fill_color": "#EDEEEF26"
+          }
+        },
+        "shiny_pots": {
+          "id": "shiny_pots",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Shiny pots",
+          "icon": "flask",
+          "description": "Gives every potion a strong enchantment glint so pots read at a glance in the hotbar.",
+          "source": "`ItemRenderer#renderItem` and its private glint pass",
+          "defaults": {
+            "on": false,
+            "all_potions": true,
+            "glint_passes": 2,
+            "tint_glint": false
+          }
+        },
+        "clear_glass": {
+          "id": "clear_glass",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Clear glass",
+          "icon": "box",
+          "description": "Draws glass as clear air, without a resource pack.",
+          "source": "`BlockRenderManager#renderBlock` during chunk builds",
+          "defaults": {
+            "on": false,
+            "clear_panes": true,
+            "clear_stained": false
+          }
+        },
+        "nametags": {
+          "id": "nametags",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Nametags",
+          "icon": "users",
+          "description": "Shows your own nametag in third person and restyles every nametag's background, size and shadow.",
+          "source": "`EntityRenderer#renderLabelIfPresent` and `LivingEntityRenderer#hasLabel`",
+          "defaults": {
+            "on": false,
+            "show_own": true,
+            "hide_others": false,
+            "tag_background": 0.25,
+            "tag_scale": 1,
+            "tag_shadow": true
+          }
+        },
+        "scoreboard": {
+          "id": "scoreboard",
+          "kind": "hud",
+          "category": "hud",
+          "hypixel_safe": "safe",
+          "label": "Scoreboard",
+          "icon": "star",
+          "description": "The server's sidebar scoreboard, redrawn as a HUD chip you can move, scale or hide.",
+          "source": "the sidebar `ScoreboardObjective`, via the `scoreboard` bridge channel",
+          "defaults": {
+            "on": false,
+            "scale": 1,
+            "opacity": 1,
+            "background": "none",
+            "border": false,
+            "padding": "normal",
+            "hidden": false,
+            "show_numbers": false,
+            "show_title": true,
+            "server_colors": true
+          },
+          "default_placement": {
+            "anchor": "right",
+            "dx": -25,
+            "dy": 0
+          }
+        },
+        "gui_scale": {
+          "id": "gui_scale",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "GUI scale",
+          "icon": "move",
+          "description": "Sizes the hotbar and inventories independently of Minecraft's GUI scale.",
+          "source": "`InGameHud#render` (hotbar, bars, experience, held-item name) and `Screen#init` for container screens",
+          "defaults": {
+            "on": false,
+            "hotbar_scale": 2,
+            "inventory_scale": 3
+          }
+        },
+        "fog": {
+          "id": "fog",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "grey",
+          "label": "Fog",
+          "icon": "droplet",
+          "description": "Reduces or removes distance, water and lava fog. Blindness is never touched.",
+          "source": "`GameRenderer#renderFog`",
+          "defaults": {
+            "on": false,
+            "distance_fog": "reduced",
+            "water_fog": "reduced",
+            "lava_fog": "vanilla"
+          }
+        },
+        "menu_blur": {
+          "id": "menu_blur",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Menu blur",
+          "icon": "layers",
+          "description": "Blurs the world behind inventories, chests and the pause menu.",
+          "source": "`Screen#renderBackground`, through `screen/BlurBackdrop.java`",
+          "defaults": {
+            "on": false,
+            "blur_radius": 4,
+            "blur_fade": true,
+            "menu_dim": 0.5
+          }
+        },
+        "time_weather": {
+          "id": "time_weather",
+          "kind": "gameplay",
+          "category": "visual",
+          "hypixel_safe": "safe",
+          "label": "Time & weather",
+          "icon": "clock",
+          "description": "Fixes the time of day and clears the rain, on your screen only.",
+          "source": "`World#getSkyAngle`, `#getRainGradient` and `#getThunderGradient` on the client world",
+          "defaults": {
+            "on": false,
+            "lock_time": true,
+            "time_ticks": 6000,
+            "clear_weather": true
+          }
+        },
+        "potion_counter": {
+          "id": "potion_counter",
+          "kind": "hud",
+          "category": "pvp",
+          "hypixel_safe": "safe",
+          "label": "Potion counter",
+          "icon": "heart",
+          "description": "Healing potions or soup left in your inventory.",
+          "source": "`counts.health_potion` and `counts.soup` on the tick payload",
+          "defaults": {
+            "on": false,
+            "scale": 1,
+            "opacity": 1,
+            "background": "none",
+            "border": false,
+            "padding": "normal",
+            "track": "health_potion",
+            "show_label": true,
+            "low_threshold": 3
+          },
+          "default_placement": {
+            "anchor": "bottom-left",
+            "dx": 175,
+            "dy": -184
+          }
+        },
+        "reach": {
+          "id": "reach",
+          "kind": "hud",
+          "category": "pvp",
+          "hypixel_safe": "grey",
+          "label": "Reach display",
+          "icon": "sword",
+          "description": "How far away your last hit landed, in blocks.",
+          "source": "`reach` on the tick payload: eye-to-hit-point distance at the moment of each landed attack",
+          "defaults": {
+            "on": false,
+            "scale": 1,
+            "opacity": 1,
+            "background": "none",
+            "border": false,
+            "padding": "normal",
+            "decimals": 2,
+            "mode": "last",
+            "show_label": true,
+            "hide_after_ms": 0
+          },
+          "default_placement": {
+            "anchor": "top-left",
+            "dx": 23,
+            "dy": 331
+          }
+        },
+        "chat": {
+          "id": "chat",
+          "kind": "gameplay",
+          "category": "utility",
+          "hypixel_safe": "safe",
+          "label": "Chat",
+          "icon": "users",
+          "description": "Timestamps, stacked repeats, click to copy and a longer history.",
+          "source": "ChatHud: message add, line render and history cap; ChatScreen: mouse click",
+          "defaults": {
+            "on": false,
+            "timestamps": true,
+            "stack_repeats": true,
+            "click_to_copy": true,
+            "background_opacity": 0.5,
+            "history_length": 1000
           }
         },
         "cosmetics": {

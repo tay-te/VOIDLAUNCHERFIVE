@@ -1,0 +1,49 @@
+{
+  "id": "particles",
+  "kind": "gameplay",
+  "category": "utility",
+  "hypixel_safe": "safe",
+  "label": "Particle limiter",
+  "icon": "sparkle",
+  "the": true,
+  "on_description": "the particle limiter is enabled",
+  "description": "Caps live particles, skips the ones outside your view, and thins out block-break and explosion bursts.",
+  "settings_title": "Particle limiter settings",
+  "settings_description": "Settings for the Particle limiter gameplay mod. Vanilla builds the vertices of every live particle every frame, including the half behind you, and a TNT run or a Bedwars bed break can put thousands on screen at once. `frustum_cull` is free — a particle outside the view cone is never seen — and is the default win. The two fractions thin a burst at the moment it is spawned; they only ever remove particles, never add one, which is the direction Hypixel's allowlist has no objection to. Crit, sharpness and hit particles are untouched by both: they are the cue that a hit landed.",
+  "source": "`ParticleManager#addParticle`, `#addBlockBreakParticles` and `#renderParticles`",
+  "enabled": true,
+  "defaults": {
+    "frustum_cull": true,
+    "particle_cap": 4000,
+    "block_break_particles": 1,
+    "explosion_particles": 1
+  },
+  "settings": {
+    "frustum_cull": {
+      "description": "Whether particles outside the camera's view cone skip their draw. Invisible by construction, which is why it is on by default and why it is a switch rather than a number.",
+      "type": "boolean",
+      "default": true
+    },
+    "particle_cap": {
+      "description": "Most particles alive per render layer; when full, the oldest goes first, exactly as vanilla does at its own limit. 4000 is vanilla's limit, so the default changes nothing — lower it if explosions stall your frame.",
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 4000,
+      "default": 4000
+    },
+    "block_break_particles": {
+      "description": "Fraction of block-break and block-hit particles kept. 1 is vanilla's 64-piece burst; 0 breaks blocks with no debris. A bridging or Bedwars player breaks hundreds of blocks a game and every one used to spawn 64 particles.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 1
+    },
+    "explosion_particles": {
+      "description": "Fraction of explosion particles kept — TNT, fireballs and creepers. 1 is vanilla. The blast itself, its sound and its knockback are untouched; only the smoke is thinned.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 1
+    }
+  }
+}

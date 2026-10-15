@@ -70,4 +70,8 @@ pub enum Error {
     /// The home directory could not be determined, so `~/.void-pvp` has no meaning.
     #[error("cannot determine the home directory; set VOID_PVP_HOME")]
     NoHome,
+
+    /// A share code was refused, or the library has no room for what it carried.
+    #[error("{0}")]
+    Share(#[from] crate::share::ShareError),
 }

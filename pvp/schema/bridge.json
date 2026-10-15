@@ -20,7 +20,7 @@
   "definitions": {
     "event_name": {
       "title": "Event name",
-      "description": "The twelve channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
+      "description": "The fourteen channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
       "type": "string",
       "enum": [
         "keys",
@@ -33,13 +33,15 @@
         "session",
         "settings",
         "modaction",
+        "scoreboard",
+        "toast",
         "cosmetics",
         "emote"
       ]
     },
     "call_name": {
       "title": "Call name",
-      "description": "The twelve methods JS may call on `window.void`. Closed set.",
+      "description": "The twenty-one methods JS may call on `window.void`. Closed set.",
       "type": "string",
       "enum": [
         "setGameplay",
@@ -50,6 +52,15 @@
         "openKeybindCapture",
         "setSurfaces",
         "setGlobal",
+        "createLoadout",
+        "renameLoadout",
+        "duplicateLoadout",
+        "deleteLoadout",
+        "exportLoadout",
+        "importLoadout",
+        "setQuickPins",
+        "setClipboard",
+        "getClipboard",
         "equipCosmetic",
         "setCosmeticTint",
         "setEmoteWheel",
@@ -99,6 +110,14 @@
         {
           "description": "A key bound to one mod asked that mod to do something.",
           "$ref": "#/definitions/event_modaction"
+        },
+        {
+          "description": "The sidebar scoreboard changed.",
+          "$ref": "#/definitions/event_scoreboard"
+        },
+        {
+          "description": "A short notice for the player.",
+          "$ref": "#/definitions/event_toast"
         },
         {
           "description": "What the local player wears and owns.",
@@ -320,9 +339,9 @@
         }
       }
     },
-    "event_cosmetics": {
-      "title": "cosmetics event",
-      "description": "Envelope for the `cosmetics` event.",
+    "event_scoreboard": {
+      "title": "scoreboard event",
+      "description": "Envelope for the `scoreboard` event.",
       "type": "object",
       "required": [
         "e",
@@ -331,34 +350,13 @@
       "additionalProperties": false,
       "properties": {
         "e": {
-          "description": "Event discriminator; always `cosmetics`.",
+          "description": "Event discriminator; always `scoreboard`.",
           "type": "string",
-          "const": "cosmetics"
+          "const": "scoreboard"
         },
         "payload": {
-          "description": "The local player's set, what they own, and the catalog version.",
-          "$ref": "#/definitions/cosmetics_payload"
-        }
-      }
-    },
-    "event_emote": {
-      "title": "emote event",
-      "description": "Envelope for the `emote` event.",
-      "type": "object",
-      "required": [
-        "e",
-        "payload"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "e": {
-          "description": "Event discriminator; always `emote`.",
-          "type": "string",
-          "const": "emote"
-        },
-        "payload": {
-          "description": "The emote now playing, or null when it ended.",
-          "$ref": "#/definitions/emote_payload"
+          "description": "The sidebar as vanilla would draw it.",
+          "$ref": "#/definitions/scoreboard_payload"
         }
       }
     },
@@ -518,6 +516,120 @@
               "description": "Times the player has been hit since the session began. Monotonic. A combo breaks when this moves, which is why it is sent rather than derived from health.",
               "type": "integer",
               "minimum": 0
+            },
+            "swings": {
+              "description": "Times `MinecraftClient.doAttack` has run since the session began, whatever it hit. Monotonic. A left click the game swallowed (1.8's miss delay, a screen open) never reaches `doAttack`, so the difference between this and the mouse edges on `keys` is exactly the cancelled clicks; `cps.ignore_cancelled` counts these instead of the edges. Optional so a sensor that predates it still validates.",
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "counts": {
+          "description": "Inventory-wide item counts, for the Item counter's named `track` values and the Potion counter. Every key is the total across the 36 main inventory slots (hotbar included, armour and the cursor stack excluded). `held_total` is every stack matching the held item, same item and same variant, and is absent with an empty hand; `wool` is every colour together; `health_potion` is splash potions of Healing I and II; `soup` is mushroom stew. Sent whole whenever any key changes and omitted otherwise, like `armor`: an absent field means unchanged. Value-checked, never rate-limited, because a count changes on use and pickup rather than on a clock.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "held_total": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "ender_pearl": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "golden_apple": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "arrow": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "snowball": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "egg": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "cobweb": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "wool": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "tnt": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "fire_charge": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "iron_ingot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "gold_ingot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "diamond": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "emerald": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "health_potion": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "soup": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            }
+          }
+        },
+        "reach": {
+          "description": "The reach of the most recent landed attack, for the Reach display. Measured on the client when the attack is sent: from the eye position interpolated to the frame the crosshair ray was cast on, to the point where that ray met the target's hitbox. `n` counts measured attacks and is monotonic, so two hits at the same distance are still two readings; the page keeps the history it averages over. Absent until the first measured attack, and after that sent only on the tick a new one lands.",
+          "type": "object",
+          "required": [
+            "blocks",
+            "n"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "blocks": {
+              "description": "Eye-to-hit-point distance in blocks, rounded to 3 decimals.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 16
+            },
+            "n": {
+              "description": "Measured attacks since the session began. Monotonic.",
+              "type": "integer",
+              "minimum": 1
             }
           }
         }
@@ -780,67 +892,52 @@
         }
       }
     },
-    "cosmetics_payload": {
-      "title": "cosmetics payload",
-      "description": "What the in-game wardrobe needs: the local player's whole equipped set, every item the account owns, and the version of the catalog this jar was built with. Whole state, so a newer one in the same frame replaces an older one. Pushed on `pushWholeState()` (first paint, a launcher `init`, a reloaded document) and whenever the launcher changes either half underneath the game \u2014 a `cosmetics` message after an equip from the launcher Store, or a purchase landing. **Not** pushed as an echo of the page's own `equipCosmetic`, `setCosmeticTint` or `setEmoteWheel`: each of those already returned what was stored, and \u00a76.5 does not push a change back to the page that made it.",
+    "scoreboard_payload": {
+      "$comment": "**Whole state, pushed only on change.** Java reads the sidebar objective once a tick and compares it with the last push; a server that rewrites its board every second costs one envelope a second, and one that never changes costs nothing after the first. Older envelopes on the channel are dropped from the queue, as `keys` and `menu` are, because each one is the whole board. A reloaded page asks the sensor to forget what it sent, so the next tick resends it. Text is sent raw, `\u00a7` codes included: the page owns how a colour code is drawn, and the `scoreboard` mod's `server_colors` decides whether it is drawn at all.",
+      "title": "scoreboard payload",
+      "description": "The sidebar scoreboard, read the way `InGameHud#renderScoreboardObjective` reads it: the objective in the sidebar display slot, its scores sorted as vanilla sorts them, names starting with `#` dropped, the last fifteen kept, and each name decorated with its team prefix and suffix. `visible: false` when there is no sidebar objective \u2014 the page draws nothing then.",
       "type": "object",
       "required": [
-        "self",
-        "owned",
-        "catalog_version"
+        "visible",
+        "title",
+        "lines"
       ],
       "additionalProperties": false,
       "properties": {
-        "self": {
-          "description": "What the local player wears \u2014 `protocol.json`'s `equipped_set`, the same object the launcher sends in `cosmetics.self`, so the wardrobe and the wire cannot disagree about its shape.",
-          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/equipped_set"
+        "visible": {
+          "description": "Whether a sidebar objective is set.",
+          "type": "boolean"
         },
-        "owned": {
-          "description": "Every item the account owns, free items included, in catalog order. An item not listed shows as locked; equipping it is refused.",
+        "title": {
+          "description": "The objective's display name, raw, `\u00a7` formatting codes included. Empty when `visible` is false.",
+          "type": "string",
+          "maxLength": 256
+        },
+        "lines": {
+          "description": "The lines top to bottom \u2014 highest score first, exactly the order vanilla draws them. At most fifteen.",
           "type": "array",
-          "maxItems": 512,
-          "uniqueItems": true,
+          "maxItems": 15,
           "items": {
-            "description": "One owned item.",
-            "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
-          }
-        },
-        "catalog_version": {
-          "description": "`cosmetics.json#/version` as compiled into this jar. The page's catalog is generated from the same file, so a mismatch means the bundle and the jar were not built together.",
-          "type": "integer",
-          "minimum": 1
-        }
-      }
-    },
-    "emote_payload": {
-      "title": "emote payload",
-      "description": "The local player's emote started (`id`) or ended (`null`), so the wheel can light the one playing and the HUD can step aside for the third-person camera. Not coalesced: a start and an end in one slow frame are two facts, and the page should see both in order. The start is **not** pushed when the page's own `playEmote` started it \u2014 that call returned `true` and is the notification \u2014 but the end always is, because only Java knows when a clip finishes or is cancelled by movement.",
-      "type": "object",
-      "required": [
-        "id"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "description": "The emote now playing, or null when none is.",
-          "oneOf": [
-            {
-              "description": "The emote.",
-              "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
-            },
-            {
-              "description": "No emote is playing.",
-              "type": "null"
+            "type": "object",
+            "required": [
+              "text",
+              "score"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "description": "The line as vanilla prints it: team prefix + player name + team suffix, raw, `\u00a7` codes included.",
+                "type": "string",
+                "maxLength": 256
+              },
+              "score": {
+                "description": "The line's score \u2014 the red number vanilla draws at the right edge.",
+                "type": "integer"
+              }
             }
-          ]
+          }
         }
       }
-    },
-    "cosmetic_tint": {
-      "title": "Cosmetic tint",
-      "description": "A per-slot recolour, `#rrggbb`. The same pattern `protocol.json`'s `equipped_set.tints` uses; Java accepts either case and answers lower case.",
-      "type": "string",
-      "pattern": "^#[0-9a-fA-F]{6}$"
     },
     "call": {
       "title": "Call",
@@ -876,6 +973,42 @@
         {
           "description": "Change one global setting.",
           "$ref": "#/definitions/call_setGlobal"
+        },
+        {
+          "description": "Create a loadout.",
+          "$ref": "#/definitions/call_createLoadout"
+        },
+        {
+          "description": "Rename a loadout.",
+          "$ref": "#/definitions/call_renameLoadout"
+        },
+        {
+          "description": "Copy a loadout.",
+          "$ref": "#/definitions/call_duplicateLoadout"
+        },
+        {
+          "description": "Delete a loadout.",
+          "$ref": "#/definitions/call_deleteLoadout"
+        },
+        {
+          "description": "Make a share code.",
+          "$ref": "#/definitions/call_exportLoadout"
+        },
+        {
+          "description": "Import a share code.",
+          "$ref": "#/definitions/call_importLoadout"
+        },
+        {
+          "description": "Pin mods to the quick panel.",
+          "$ref": "#/definitions/call_setQuickPins"
+        },
+        {
+          "description": "Put text on the system clipboard.",
+          "$ref": "#/definitions/call_setClipboard"
+        },
+        {
+          "description": "Read text from the system clipboard.",
+          "$ref": "#/definitions/call_getClipboard"
         },
         {
           "description": "Wear or take off one cosmetic.",
@@ -929,6 +1062,42 @@
         {
           "description": "Result of setGlobal.",
           "$ref": "#/definitions/result_setGlobal"
+        },
+        {
+          "description": "Result of createLoadout.",
+          "$ref": "#/definitions/result_createLoadout"
+        },
+        {
+          "description": "Result of renameLoadout.",
+          "$ref": "#/definitions/result_renameLoadout"
+        },
+        {
+          "description": "Result of duplicateLoadout.",
+          "$ref": "#/definitions/result_duplicateLoadout"
+        },
+        {
+          "description": "Result of deleteLoadout.",
+          "$ref": "#/definitions/result_deleteLoadout"
+        },
+        {
+          "description": "Result of exportLoadout.",
+          "$ref": "#/definitions/result_exportLoadout"
+        },
+        {
+          "description": "Result of importLoadout.",
+          "$ref": "#/definitions/result_importLoadout"
+        },
+        {
+          "description": "Result of setQuickPins.",
+          "$ref": "#/definitions/result_setQuickPins"
+        },
+        {
+          "description": "Result of setClipboard.",
+          "$ref": "#/definitions/result_setClipboard"
+        },
+        {
+          "description": "Result of getClipboard.",
+          "$ref": "#/definitions/result_getClipboard"
         },
         {
           "description": "Result of equipCosmetic.",
@@ -1261,305 +1430,6 @@
         "returns": {
           "description": "The stored value, or null.",
           "$ref": "#/definitions/setGlobal_returns"
-        }
-      }
-    },
-    "call_equipCosmetic": {
-      "title": "equipCosmetic call",
-      "description": "`void.equipCosmetic(slot, id)`. Wears `id` in `slot`, or takes the slot off when `id` is null. Applied in Java at once \u2014 the next frame draws it \u2014 and forwarded to the launcher as an `equip` protocol message, which persists it to the backend. Java refuses only what it can see is wrong: an id the catalog does not know, an item for another slot, or one it knows the account does not own. When it does not know what the account owns, the backend validates and the launcher reverts a refused equip with a `cosmetics` message, which reaches the page as a `cosmetics` event. Synchronous and authoritative like every call here: an item the account does not own, an id the catalog does not know, or an item for another slot is **refused**, and the answer is then what the slot still holds. Bind the wardrobe to the return, never to what was sent. No `cosmetics` event follows.",
-      "type": "object",
-      "required": [
-        "c",
-        "params"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "c": {
-          "description": "Call discriminator; always `equipCosmetic`.",
-          "type": "string",
-          "const": "equipCosmetic"
-        },
-        "params": {
-          "description": "Positional arguments.",
-          "$ref": "#/definitions/equipCosmetic_params"
-        }
-      }
-    },
-    "equipCosmetic_params": {
-      "title": "equipCosmetic params",
-      "description": "[slot, id].",
-      "type": "array",
-      "minItems": 2,
-      "maxItems": 2,
-      "additionalItems": false,
-      "items": [
-        {
-          "description": "Which slot.",
-          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_slot"
-        },
-        {
-          "description": "The item to wear, or null to take the slot off.",
-          "oneOf": [
-            {
-              "description": "The item.",
-              "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
-            },
-            {
-              "description": "Take the slot off.",
-              "type": "null"
-            }
-          ]
-        }
-      ]
-    },
-    "equipCosmetic_returns": {
-      "title": "equipCosmetic returns",
-      "description": "The id now worn in that slot, or null when it is empty. Equals the request on success; on a refusal it is whatever was already there.",
-      "oneOf": [
-        {
-          "description": "The worn item.",
-          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
-        },
-        {
-          "description": "The slot is empty.",
-          "type": "null"
-        }
-      ]
-    },
-    "result_equipCosmetic": {
-      "title": "equipCosmetic result",
-      "description": "Envelope for a equipCosmetic return value.",
-      "type": "object",
-      "required": [
-        "c",
-        "returns"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "c": {
-          "description": "Call discriminator; always `equipCosmetic`.",
-          "type": "string",
-          "const": "equipCosmetic"
-        },
-        "returns": {
-          "description": "The id worn in that slot now.",
-          "$ref": "#/definitions/equipCosmetic_returns"
-        }
-      }
-    },
-    "call_setCosmeticTint": {
-      "title": "setCosmeticTint call",
-      "description": "`void.setCosmeticTint(slot, hex)`. Recolours the item worn in `slot`, or clears the tint when `hex` is null. Only items flagged `tintable` in `cosmetics.json` take one; for any other slot the call is refused and answers the tint already set. Applied in game only for now: the wire's `equip` carries a slot and an id, not a tint, so a tint chosen here lasts the session until the protocol grows one. No `cosmetics` event follows.",
-      "type": "object",
-      "required": [
-        "c",
-        "params"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "c": {
-          "description": "Call discriminator; always `setCosmeticTint`.",
-          "type": "string",
-          "const": "setCosmeticTint"
-        },
-        "params": {
-          "description": "Positional arguments.",
-          "$ref": "#/definitions/setCosmeticTint_params"
-        }
-      }
-    },
-    "setCosmeticTint_params": {
-      "title": "setCosmeticTint params",
-      "description": "[slot, hex].",
-      "type": "array",
-      "minItems": 2,
-      "maxItems": 2,
-      "additionalItems": false,
-      "items": [
-        {
-          "description": "Which slot.",
-          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_slot"
-        },
-        {
-          "description": "The colour, `#rrggbb`, or null to clear it.",
-          "oneOf": [
-            {
-              "description": "The colour.",
-              "$ref": "#/definitions/cosmetic_tint"
-            },
-            {
-              "description": "Clear the tint.",
-              "type": "null"
-            }
-          ]
-        }
-      ]
-    },
-    "setCosmeticTint_returns": {
-      "title": "setCosmeticTint returns",
-      "description": "The tint now applied, lower case, or null when the slot has none.",
-      "oneOf": [
-        {
-          "description": "The applied colour.",
-          "$ref": "#/definitions/cosmetic_tint"
-        },
-        {
-          "description": "No tint.",
-          "type": "null"
-        }
-      ]
-    },
-    "result_setCosmeticTint": {
-      "title": "setCosmeticTint result",
-      "description": "Envelope for a setCosmeticTint return value.",
-      "type": "object",
-      "required": [
-        "c",
-        "returns"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "c": {
-          "description": "Call discriminator; always `setCosmeticTint`.",
-          "type": "string",
-          "const": "setCosmeticTint"
-        },
-        "returns": {
-          "description": "The applied tint.",
-          "$ref": "#/definitions/setCosmeticTint_returns"
-        }
-      }
-    },
-    "call_setEmoteWheel": {
-      "title": "setEmoteWheel call",
-      "description": "`void.setEmoteWheel(ids)`. Replaces the whole emote wheel. Ids that are not emotes, are not owned, or repeat are dropped, and the wheel keeps at most eight. Applied in game only for now: the wire has no message for the wheel, so it lasts the session until the protocol grows one; the launcher Store edits the stored wheel. No `cosmetics` event follows.",
-      "type": "object",
-      "required": [
-        "c",
-        "params"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "c": {
-          "description": "Call discriminator; always `setEmoteWheel`.",
-          "type": "string",
-          "const": "setEmoteWheel"
-        },
-        "params": {
-          "description": "Positional arguments.",
-          "$ref": "#/definitions/setEmoteWheel_params"
-        }
-      }
-    },
-    "setEmoteWheel_params": {
-      "title": "setEmoteWheel params",
-      "description": "[ids].",
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 1,
-      "additionalItems": false,
-      "items": [
-        {
-          "description": "The wheel, in wheel order.",
-          "type": "array",
-          "maxItems": 32,
-          "items": {
-            "description": "One emote.",
-            "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
-          }
-        }
-      ]
-    },
-    "setEmoteWheel_returns": {
-      "title": "setEmoteWheel returns",
-      "description": "The wheel as stored, after dropping what could not be kept.",
-      "type": "array",
-      "maxItems": 8,
-      "uniqueItems": true,
-      "items": {
-        "description": "One emote.",
-        "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
-      }
-    },
-    "result_setEmoteWheel": {
-      "title": "setEmoteWheel result",
-      "description": "Envelope for a setEmoteWheel return value.",
-      "type": "object",
-      "required": [
-        "c",
-        "returns"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "c": {
-          "description": "Call discriminator; always `setEmoteWheel`.",
-          "type": "string",
-          "const": "setEmoteWheel"
-        },
-        "returns": {
-          "description": "The stored wheel.",
-          "$ref": "#/definitions/setEmoteWheel_returns"
-        }
-      }
-    },
-    "call_playEmote": {
-      "title": "playEmote call",
-      "description": "`void.playEmote(id)`. Starts an emote for the local player and tells the launcher, which relays it to the other VOID players on the server as a remote `emote`. Refused \u2014 `false`, and nothing plays \u2014 for an id that is not an emote, is not owned, or has no bundled animation. The `emote` event's start is not pushed for a call that succeeded, since this answer is the notification; its end is.",
-      "type": "object",
-      "required": [
-        "c",
-        "params"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "c": {
-          "description": "Call discriminator; always `playEmote`.",
-          "type": "string",
-          "const": "playEmote"
-        },
-        "params": {
-          "description": "Positional arguments.",
-          "$ref": "#/definitions/playEmote_params"
-        }
-      }
-    },
-    "playEmote_params": {
-      "title": "playEmote params",
-      "description": "[id].",
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 1,
-      "additionalItems": false,
-      "items": [
-        {
-          "description": "Which emote.",
-          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
-        }
-      ]
-    },
-    "playEmote_returns": {
-      "title": "playEmote returns",
-      "description": "True when the emote started; false when it was refused.",
-      "type": "boolean"
-    },
-    "result_playEmote": {
-      "title": "playEmote result",
-      "description": "Envelope for a playEmote return value.",
-      "type": "object",
-      "required": [
-        "c",
-        "returns"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "c": {
-          "description": "Call discriminator; always `playEmote`.",
-          "type": "string",
-          "const": "playEmote"
-        },
-        "returns": {
-          "description": "Whether the emote started.",
-          "$ref": "#/definitions/playEmote_returns"
         }
       }
     },
@@ -1900,6 +1770,1104 @@
         "returns": {
           "description": "Surfaces kept.",
           "$ref": "#/definitions/setSurfaces_returns"
+        }
+      }
+    },
+    "event_toast": {
+      "title": "toast event",
+      "description": "Envelope for the `toast` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `toast`.",
+          "type": "string",
+          "const": "toast"
+        },
+        "payload": {
+          "description": "The notice.",
+          "$ref": "#/definitions/toast_payload"
+        }
+      }
+    },
+    "toast_payload": {
+      "$comment": "Pushed by Java for things that happen with the menu closed, where nothing else on screen would say so: the loadout key cycled the loadout, the launcher switched or changed the library under the game, a mod's own key flipped it. Never pushed for a change the page made itself; the page raises its own notice for those (an import, a delete) without a round trip. Not coalesced, and not forwarded to Rust.",
+      "title": "toast payload",
+      "description": "One short notice, drawn over the game for a moment and then gone. Purely informational: nothing waits on it and nothing is lost if the page misses it.",
+      "type": "object",
+      "required": [
+        "kind",
+        "title"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "description": "What the notice is about, so the page can pick its mark: `loadout` for a switch or a library change, `mod` for a mod a key flipped, `info` for anything else.",
+          "type": "string",
+          "enum": [
+            "loadout",
+            "mod",
+            "info"
+          ]
+        },
+        "title": {
+          "description": "The main line, e.g. the loadout's name or `Fullbright on`.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "detail": {
+          "description": "An optional second line, e.g. `Loadout switched`.",
+          "type": "string",
+          "maxLength": 96
+        },
+        "mod": {
+          "description": "For `kind: mod`, which mod. Lets the page draw the mod's own glyph.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id"
+        }
+      }
+    },
+    "call_createLoadout": {
+      "title": "createLoadout call",
+      "description": "`void.createLoadout(name)`. Adds a loadout to the end of the library with every mod at its registry defaults and the factory HUD layout, and does not switch to it. Java picks the id (the name slugified, with a numeric suffix when taken) and tells Rust with `loadout_save`, which is what persists it. A `loadouts` event follows with the new library.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `createLoadout`.",
+          "type": "string",
+          "const": "createLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/createLoadout_params"
+        }
+      }
+    },
+    "createLoadout_params": {
+      "title": "createLoadout params",
+      "description": "[name].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Display name. Trimmed; 1 to 48 characters after trimming.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        }
+      ]
+    },
+    "createLoadout_returns": {
+      "title": "createLoadout returns",
+      "description": "The new loadout, or null when the name was empty or the library is full (128).",
+      "oneOf": [
+        {
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "result_createLoadout": {
+      "title": "createLoadout result",
+      "description": "Envelope for a createLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `createLoadout`.",
+          "type": "string",
+          "const": "createLoadout"
+        },
+        "returns": {
+          "description": "The new loadout, or null.",
+          "$ref": "#/definitions/createLoadout_returns"
+        }
+      }
+    },
+    "call_renameLoadout": {
+      "title": "renameLoadout call",
+      "description": "`void.renameLoadout(id, name)`. Changes a loadout's display name; the id is stable and does not follow it. Persisted with `loadout_save`; a `loadouts` event follows, and a `loadout` event too when the renamed loadout is the active one.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `renameLoadout`.",
+          "type": "string",
+          "const": "renameLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/renameLoadout_params"
+        }
+      }
+    },
+    "renameLoadout_params": {
+      "title": "renameLoadout params",
+      "description": "[id, name].",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The loadout to rename.",
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id"
+        },
+        {
+          "description": "The new name. Trimmed; 1 to 48 characters after trimming.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        }
+      ]
+    },
+    "renameLoadout_returns": {
+      "title": "renameLoadout returns",
+      "description": "The name actually stored, after trimming, or null when the id is unknown or the name empty.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "result_renameLoadout": {
+      "title": "renameLoadout result",
+      "description": "Envelope for a renameLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `renameLoadout`.",
+          "type": "string",
+          "const": "renameLoadout"
+        },
+        "returns": {
+          "description": "The stored name, or null.",
+          "$ref": "#/definitions/renameLoadout_returns"
+        }
+      }
+    },
+    "call_duplicateLoadout": {
+      "title": "duplicateLoadout call",
+      "description": "`void.duplicateLoadout(id)`. Appends a copy of a loadout, mods, settings, HUD layout and quick pins, named `<name> copy`, with no stats. Does not switch to it. Persisted with `loadout_save`; a `loadouts` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `duplicateLoadout`.",
+          "type": "string",
+          "const": "duplicateLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/duplicateLoadout_params"
+        }
+      }
+    },
+    "duplicateLoadout_params": {
+      "title": "duplicateLoadout params",
+      "description": "[id].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The loadout to copy.",
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id"
+        }
+      ]
+    },
+    "duplicateLoadout_returns": {
+      "title": "duplicateLoadout returns",
+      "description": "The copy, or null when the id is unknown or the library is full.",
+      "oneOf": [
+        {
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "result_duplicateLoadout": {
+      "title": "duplicateLoadout result",
+      "description": "Envelope for a duplicateLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `duplicateLoadout`.",
+          "type": "string",
+          "const": "duplicateLoadout"
+        },
+        "returns": {
+          "description": "The copy, or null.",
+          "$ref": "#/definitions/duplicateLoadout_returns"
+        }
+      }
+    },
+    "call_deleteLoadout": {
+      "title": "deleteLoadout call",
+      "description": "`void.deleteLoadout(id)`. Removes a loadout from the library. Refused for the last one. When it was the active loadout, the first remaining one is applied exactly as a switch is, and a `loadout` event follows. Persisted with `loadout_delete`; a `loadouts` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `deleteLoadout`.",
+          "type": "string",
+          "const": "deleteLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/deleteLoadout_params"
+        }
+      }
+    },
+    "deleteLoadout_params": {
+      "title": "deleteLoadout params",
+      "description": "[id].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The loadout to delete.",
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id"
+        }
+      ]
+    },
+    "deleteLoadout_returns": {
+      "title": "deleteLoadout returns",
+      "description": "True when the loadout was deleted; false when the id was unknown or it was the last one.",
+      "type": "boolean"
+    },
+    "result_deleteLoadout": {
+      "title": "deleteLoadout result",
+      "description": "Envelope for a deleteLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `deleteLoadout`.",
+          "type": "string",
+          "const": "deleteLoadout"
+        },
+        "returns": {
+          "description": "Whether it was deleted.",
+          "$ref": "#/definitions/deleteLoadout_returns"
+        }
+      }
+    },
+    "call_exportLoadout": {
+      "title": "exportLoadout call",
+      "description": "`void.exportLoadout(id)`. Encodes a loadout as a share code: `VOID1.` + base64url (no padding) of the raw-DEFLATE-compressed UTF-8 JSON of the loadout's name, icon, server, mc, registry version, HUD layout, quick pins and *only the settings that differ from the registry defaults*, then `.` + the CRC-32 of that JSON as 8 lowercase hex digits. Ids and stats are never in a code. The same format is produced and read by `void_loadout::share` in Rust and `ShareCode` in Java; `schema/share-code.fixtures.json` holds codes each side made, and both test suites decode all of them.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `exportLoadout`.",
+          "type": "string",
+          "const": "exportLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/exportLoadout_params"
+        }
+      }
+    },
+    "exportLoadout_params": {
+      "title": "exportLoadout params",
+      "description": "[id].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The loadout to export.",
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id"
+        }
+      ]
+    },
+    "exportLoadout_returns": {
+      "title": "exportLoadout returns",
+      "description": "The share code, or null when the id is unknown.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^VOID[0-9]+\\.[A-Za-z0-9_-]+\\.[0-9a-f]{8}$",
+      "maxLength": 16384
+    },
+    "result_exportLoadout": {
+      "title": "exportLoadout result",
+      "description": "Envelope for a exportLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `exportLoadout`.",
+          "type": "string",
+          "const": "exportLoadout"
+        },
+        "returns": {
+          "description": "The code, or null.",
+          "$ref": "#/definitions/exportLoadout_returns"
+        }
+      }
+    },
+    "call_importLoadout": {
+      "title": "importLoadout call",
+      "description": "`void.importLoadout(code)`. Decodes a share code and appends the loadout it carries to the library under a fresh id, without switching to it. Structure is strict: an unknown version, a bad checksum, undecodable data or a missing name refuses the whole code. Content is lenient: a mod or setting this build does not know, or a value outside its schema range, is dropped (the mod falls back to its default) and counted in `dropped`, so a code made on a newer client still imports. The result is a valid `loadout.json` loadout. Persisted with `loadout_save`; a `loadouts` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `importLoadout`.",
+          "type": "string",
+          "const": "importLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/importLoadout_params"
+        }
+      }
+    },
+    "importLoadout_params": {
+      "title": "importLoadout params",
+      "description": "[code].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The share code as pasted. Surrounding whitespace is ignored.",
+          "type": "string",
+          "maxLength": 16384
+        }
+      ]
+    },
+    "importLoadout_returns": {
+      "title": "importLoadout returns",
+      "description": "What happened.",
+      "$ref": "#/definitions/import_result"
+    },
+    "result_importLoadout": {
+      "title": "importLoadout result",
+      "description": "Envelope for a importLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `importLoadout`.",
+          "type": "string",
+          "const": "importLoadout"
+        },
+        "returns": {
+          "description": "What happened.",
+          "$ref": "#/definitions/importLoadout_returns"
+        }
+      }
+    },
+    "import_result": {
+      "title": "Import result",
+      "description": "The answer of `importLoadout`.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "ok",
+            "loadout",
+            "dropped"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "const": true
+            },
+            "loadout": {
+              "description": "The imported loadout, as now stored in the library.",
+              "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout"
+            },
+            "dropped": {
+              "description": "Settings, mods, HUD items and pins the code carried that this build could not use.",
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "ok",
+            "error"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "const": false
+            },
+            "error": {
+              "description": "Why the code was refused: `empty` nothing was pasted; `format` it is not a share code or its data does not decode; `version` it was made by a newer format; `checksum` it was damaged in transit; `invalid` it decoded but carries no usable loadout; `full` the library already holds 128.",
+              "type": "string",
+              "enum": [
+                "empty",
+                "format",
+                "version",
+                "checksum",
+                "invalid",
+                "full"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "call_setQuickPins": {
+      "title": "setQuickPins call",
+      "description": "`void.setQuickPins(ids)`. Replaces the active loadout's quick-panel pins (`loadout.json#/definitions/quick_pins`). Unknown and repeated ids are dropped and the list is cut to eight. Persisted with `loadout_save`; nothing is pushed back, the return is the stored list.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setQuickPins`.",
+          "type": "string",
+          "const": "setQuickPins"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/setQuickPins_params"
+        }
+      }
+    },
+    "setQuickPins_params": {
+      "title": "setQuickPins params",
+      "description": "[ids].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Mod ids in quick-panel order.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id"
+          }
+        }
+      ]
+    },
+    "setQuickPins_returns": {
+      "title": "setQuickPins returns",
+      "description": "The pins actually stored.",
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id"
+      }
+    },
+    "result_setQuickPins": {
+      "title": "setQuickPins result",
+      "description": "Envelope for a setQuickPins return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setQuickPins`.",
+          "type": "string",
+          "const": "setQuickPins"
+        },
+        "returns": {
+          "description": "The stored pins.",
+          "$ref": "#/definitions/setQuickPins_returns"
+        }
+      }
+    },
+    "call_setClipboard": {
+      "title": "setClipboard call",
+      "description": "`void.setClipboard(text)`. Puts plain text on the system clipboard \u2014 what the Loadouts screen's `Copy code` does with a share code. Why the bridge carries a clipboard at all: the Ultralight binding implements no platform clipboard, so Ctrl+C / Ctrl+V do nothing inside the in-game page and `navigator.clipboard` does not exist there. A share code is a line of text a player has to get out of the game and into Discord, and back. Java owns the system clipboard (`Screen.setClipboard` / `getClipboard`), so the page asks it.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setClipboard`.",
+          "type": "string",
+          "const": "setClipboard"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/setClipboard_params"
+        }
+      },
+      "$comment": "Why the bridge carries a clipboard at all: the Ultralight binding implements no platform clipboard, so Ctrl+C / Ctrl+V do nothing inside the in-game page and `navigator.clipboard` does not exist there. A share code is a line of text a player has to get out of the game and into Discord, and back. Java owns the system clipboard (`Screen.setClipboard` / `getClipboard`), so the page asks it."
+    },
+    "setClipboard_params": {
+      "title": "setClipboard params",
+      "description": "[text].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The text to copy.",
+          "type": "string",
+          "maxLength": 16384
+        }
+      ]
+    },
+    "setClipboard_returns": {
+      "title": "setClipboard returns",
+      "description": "True when the host put it on the clipboard.",
+      "type": "boolean"
+    },
+    "result_setClipboard": {
+      "title": "setClipboard result",
+      "description": "Envelope for a setClipboard return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setClipboard`.",
+          "type": "string",
+          "const": "setClipboard"
+        },
+        "returns": {
+          "description": "Whether it was copied.",
+          "$ref": "#/definitions/setClipboard_returns"
+        }
+      }
+    },
+    "call_getClipboard": {
+      "title": "getClipboard call",
+      "description": "`void.getClipboard()`. The system clipboard's plain text, for the Loadouts screen's `Paste code`. Empty when the clipboard holds no text or cannot be read. Only ever called on a click, never polled.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `getClipboard`.",
+          "type": "string",
+          "const": "getClipboard"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/getClipboard_params"
+        }
+      }
+    },
+    "getClipboard_params": {
+      "title": "getClipboard params",
+      "description": "No arguments.",
+      "type": "array",
+      "maxItems": 0
+    },
+    "getClipboard_returns": {
+      "title": "getClipboard returns",
+      "description": "The clipboard's text, cut to 16384 characters; empty when there is none.",
+      "type": "string",
+      "maxLength": 16384
+    },
+    "result_getClipboard": {
+      "title": "getClipboard result",
+      "description": "Envelope for a getClipboard return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `getClipboard`.",
+          "type": "string",
+          "const": "getClipboard"
+        },
+        "returns": {
+          "description": "The text.",
+          "$ref": "#/definitions/getClipboard_returns"
+        }
+      }
+    },
+    "event_cosmetics": {
+      "title": "cosmetics event",
+      "description": "Envelope for the `cosmetics` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `cosmetics`.",
+          "type": "string",
+          "const": "cosmetics"
+        },
+        "payload": {
+          "description": "The local player's set, what they own, and the catalog version.",
+          "$ref": "#/definitions/cosmetics_payload"
+        }
+      }
+    },
+    "event_emote": {
+      "title": "emote event",
+      "description": "Envelope for the `emote` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `emote`.",
+          "type": "string",
+          "const": "emote"
+        },
+        "payload": {
+          "description": "The emote now playing, or null when it ended.",
+          "$ref": "#/definitions/emote_payload"
+        }
+      }
+    },
+    "cosmetics_payload": {
+      "title": "cosmetics payload",
+      "description": "What the in-game wardrobe needs: the local player's whole equipped set, every item the account owns, and the version of the catalog this jar was built with. Whole state, so a newer one in the same frame replaces an older one. Pushed on `pushWholeState()` (first paint, a launcher `init`, a reloaded document) and whenever the launcher changes either half underneath the game \u2014 a `cosmetics` message after an equip from the launcher Store, or a purchase landing. **Not** pushed as an echo of the page's own `equipCosmetic`, `setCosmeticTint` or `setEmoteWheel`: each of those already returned what was stored, and \u00a76.5 does not push a change back to the page that made it.",
+      "type": "object",
+      "required": [
+        "self",
+        "owned",
+        "catalog_version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "self": {
+          "description": "What the local player wears \u2014 `protocol.json`'s `equipped_set`, the same object the launcher sends in `cosmetics.self`, so the wardrobe and the wire cannot disagree about its shape.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/equipped_set"
+        },
+        "owned": {
+          "description": "Every item the account owns, free items included, in catalog order. An item not listed shows as locked; equipping it is refused.",
+          "type": "array",
+          "maxItems": 512,
+          "uniqueItems": true,
+          "items": {
+            "description": "One owned item.",
+            "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+          }
+        },
+        "catalog_version": {
+          "description": "`cosmetics.json#/version` as compiled into this jar. The page's catalog is generated from the same file, so a mismatch means the bundle and the jar were not built together.",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "emote_payload": {
+      "title": "emote payload",
+      "description": "The local player's emote started (`id`) or ended (`null`), so the wheel can light the one playing and the HUD can step aside for the third-person camera. Not coalesced: a start and an end in one slow frame are two facts, and the page should see both in order. The start is **not** pushed when the page's own `playEmote` started it \u2014 that call returned `true` and is the notification \u2014 but the end always is, because only Java knows when a clip finishes or is cancelled by movement.",
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "The emote now playing, or null when none is.",
+          "oneOf": [
+            {
+              "description": "The emote.",
+              "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+            },
+            {
+              "description": "No emote is playing.",
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "cosmetic_tint": {
+      "title": "Cosmetic tint",
+      "description": "A per-slot recolour, `#rrggbb`. The same pattern `protocol.json`'s `equipped_set.tints` uses; Java accepts either case and answers lower case.",
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "call_equipCosmetic": {
+      "title": "equipCosmetic call",
+      "description": "`void.equipCosmetic(slot, id)`. Wears `id` in `slot`, or takes the slot off when `id` is null. Applied in Java at once \u2014 the next frame draws it \u2014 and forwarded to the launcher as an `equip` protocol message, which persists it to the backend. Java refuses only what it can see is wrong: an id the catalog does not know, an item for another slot, or one it knows the account does not own. When it does not know what the account owns, the backend validates and the launcher reverts a refused equip with a `cosmetics` message, which reaches the page as a `cosmetics` event. Synchronous and authoritative like every call here: an item the account does not own, an id the catalog does not know, or an item for another slot is **refused**, and the answer is then what the slot still holds. Bind the wardrobe to the return, never to what was sent. No `cosmetics` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `equipCosmetic`.",
+          "type": "string",
+          "const": "equipCosmetic"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/equipCosmetic_params"
+        }
+      }
+    },
+    "equipCosmetic_params": {
+      "title": "equipCosmetic params",
+      "description": "[slot, id].",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Which slot.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_slot"
+        },
+        {
+          "description": "The item to wear, or null to take the slot off.",
+          "oneOf": [
+            {
+              "description": "The item.",
+              "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+            },
+            {
+              "description": "Take the slot off.",
+              "type": "null"
+            }
+          ]
+        }
+      ]
+    },
+    "equipCosmetic_returns": {
+      "title": "equipCosmetic returns",
+      "description": "The id now worn in that slot, or null when it is empty. Equals the request on success; on a refusal it is whatever was already there.",
+      "oneOf": [
+        {
+          "description": "The worn item.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+        },
+        {
+          "description": "The slot is empty.",
+          "type": "null"
+        }
+      ]
+    },
+    "result_equipCosmetic": {
+      "title": "equipCosmetic result",
+      "description": "Envelope for a equipCosmetic return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `equipCosmetic`.",
+          "type": "string",
+          "const": "equipCosmetic"
+        },
+        "returns": {
+          "description": "The id worn in that slot now.",
+          "$ref": "#/definitions/equipCosmetic_returns"
+        }
+      }
+    },
+    "call_setCosmeticTint": {
+      "title": "setCosmeticTint call",
+      "description": "`void.setCosmeticTint(slot, hex)`. Recolours the item worn in `slot`, or clears the tint when `hex` is null. Only items flagged `tintable` in `cosmetics.json` take one; for any other slot the call is refused and answers the tint already set. Applied in game only for now: the wire's `equip` carries a slot and an id, not a tint, so a tint chosen here lasts the session until the protocol grows one. No `cosmetics` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setCosmeticTint`.",
+          "type": "string",
+          "const": "setCosmeticTint"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/setCosmeticTint_params"
+        }
+      }
+    },
+    "setCosmeticTint_params": {
+      "title": "setCosmeticTint params",
+      "description": "[slot, hex].",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Which slot.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_slot"
+        },
+        {
+          "description": "The colour, `#rrggbb`, or null to clear it.",
+          "oneOf": [
+            {
+              "description": "The colour.",
+              "$ref": "#/definitions/cosmetic_tint"
+            },
+            {
+              "description": "Clear the tint.",
+              "type": "null"
+            }
+          ]
+        }
+      ]
+    },
+    "setCosmeticTint_returns": {
+      "title": "setCosmeticTint returns",
+      "description": "The tint now applied, lower case, or null when the slot has none.",
+      "oneOf": [
+        {
+          "description": "The applied colour.",
+          "$ref": "#/definitions/cosmetic_tint"
+        },
+        {
+          "description": "No tint.",
+          "type": "null"
+        }
+      ]
+    },
+    "result_setCosmeticTint": {
+      "title": "setCosmeticTint result",
+      "description": "Envelope for a setCosmeticTint return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setCosmeticTint`.",
+          "type": "string",
+          "const": "setCosmeticTint"
+        },
+        "returns": {
+          "description": "The applied tint.",
+          "$ref": "#/definitions/setCosmeticTint_returns"
+        }
+      }
+    },
+    "call_setEmoteWheel": {
+      "title": "setEmoteWheel call",
+      "description": "`void.setEmoteWheel(ids)`. Replaces the whole emote wheel. Ids that are not emotes, are not owned, or repeat are dropped, and the wheel keeps at most eight. Applied in game only for now: the wire has no message for the wheel, so it lasts the session until the protocol grows one; the launcher Store edits the stored wheel. No `cosmetics` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setEmoteWheel`.",
+          "type": "string",
+          "const": "setEmoteWheel"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/setEmoteWheel_params"
+        }
+      }
+    },
+    "setEmoteWheel_params": {
+      "title": "setEmoteWheel params",
+      "description": "[ids].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The wheel, in wheel order.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "description": "One emote.",
+            "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+          }
+        }
+      ]
+    },
+    "setEmoteWheel_returns": {
+      "title": "setEmoteWheel returns",
+      "description": "The wheel as stored, after dropping what could not be kept.",
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "description": "One emote.",
+        "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+      }
+    },
+    "result_setEmoteWheel": {
+      "title": "setEmoteWheel result",
+      "description": "Envelope for a setEmoteWheel return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setEmoteWheel`.",
+          "type": "string",
+          "const": "setEmoteWheel"
+        },
+        "returns": {
+          "description": "The stored wheel.",
+          "$ref": "#/definitions/setEmoteWheel_returns"
+        }
+      }
+    },
+    "call_playEmote": {
+      "title": "playEmote call",
+      "description": "`void.playEmote(id)`. Starts an emote for the local player and tells the launcher, which relays it to the other VOID players on the server as a remote `emote`. Refused \u2014 `false`, and nothing plays \u2014 for an id that is not an emote, is not owned, or has no bundled animation. The `emote` event's start is not pushed for a call that succeeded, since this answer is the notification; its end is.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `playEmote`.",
+          "type": "string",
+          "const": "playEmote"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/playEmote_params"
+        }
+      }
+    },
+    "playEmote_params": {
+      "title": "playEmote params",
+      "description": "[id].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Which emote.",
+          "$ref": "https://schema.void.dev/pvp/protocol.json#/definitions/cosmetic_id"
+        }
+      ]
+    },
+    "playEmote_returns": {
+      "title": "playEmote returns",
+      "description": "True when the emote started; false when it was refused.",
+      "type": "boolean"
+    },
+    "result_playEmote": {
+      "title": "playEmote result",
+      "description": "Envelope for a playEmote return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `playEmote`.",
+          "type": "string",
+          "const": "playEmote"
+        },
+        "returns": {
+          "description": "Whether the emote started.",
+          "$ref": "#/definitions/playEmote_returns"
         }
       }
     }
@@ -2257,6 +3225,199 @@
         "mod": "stopwatch",
         "action": "reset"
       }
+    },
+    {
+      "e": "scoreboard",
+      "payload": {
+        "visible": true,
+        "title": "\u00a7e\u00a7lBED WARS",
+        "lines": [
+          {
+            "text": "\u00a7710/15/26 \u00a78m512A",
+            "score": 9
+          },
+          {
+            "text": "",
+            "score": 8
+          },
+          {
+            "text": "\u00a7fDiamond II in \u00a7a0:42",
+            "score": 7
+          },
+          {
+            "text": "\u00a7c\u00a7lR \u00a7fRed: \u00a7a\u2714",
+            "score": 6
+          },
+          {
+            "text": "\u00a79\u00a7lB \u00a7fBlue: \u00a7a\u2714 \u00a77YOU",
+            "score": 5
+          },
+          {
+            "text": "\u00a7a\u00a7lG \u00a7fGreen: \u00a7c\u2718",
+            "score": 4
+          },
+          {
+            "text": "\u00a7e\u00a7lY \u00a7fYellow: \u00a7e2",
+            "score": 3
+          },
+          {
+            "text": "",
+            "score": 2
+          },
+          {
+            "text": "\u00a7ewww.hypixel.net",
+            "score": 1
+          }
+        ]
+      }
+    },
+    {
+      "e": "scoreboard",
+      "payload": {
+        "visible": false,
+        "title": "",
+        "lines": []
+      }
+    },
+    {
+      "e": "tick",
+      "payload": {
+        "hits": {
+          "dealt": 12,
+          "taken": 4,
+          "swings": 19
+        },
+        "counts": {
+          "held_total": 64,
+          "ender_pearl": 3,
+          "golden_apple": 2,
+          "health_potion": 7,
+          "soup": 0,
+          "wool": 128
+        },
+        "reach": {
+          "blocks": 2.874,
+          "n": 12
+        }
+      }
+    },
+    {
+      "e": "toast",
+      "payload": {
+        "kind": "loadout",
+        "title": "Bedwars",
+        "detail": "Loadout switched"
+      }
+    },
+    {
+      "e": "toast",
+      "payload": {
+        "kind": "mod",
+        "title": "Fullbright on",
+        "mod": "fullbright"
+      }
+    },
+    {
+      "c": "createLoadout",
+      "params": [
+        "Bridge practice"
+      ]
+    },
+    {
+      "c": "createLoadout",
+      "returns": null
+    },
+    {
+      "c": "renameLoadout",
+      "params": [
+        "uhc",
+        "UHC Champions"
+      ]
+    },
+    {
+      "c": "renameLoadout",
+      "returns": "UHC Champions"
+    },
+    {
+      "c": "duplicateLoadout",
+      "params": [
+        "sword-pvp"
+      ]
+    },
+    {
+      "c": "duplicateLoadout",
+      "returns": null
+    },
+    {
+      "c": "deleteLoadout",
+      "params": [
+        "uhc"
+      ]
+    },
+    {
+      "c": "deleteLoadout",
+      "returns": true
+    },
+    {
+      "c": "exportLoadout",
+      "params": [
+        "sword-pvp"
+      ]
+    },
+    {
+      "c": "exportLoadout",
+      "returns": "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+    },
+    {
+      "c": "importLoadout",
+      "params": [
+        "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+      ]
+    },
+    {
+      "c": "importLoadout",
+      "returns": {
+        "ok": false,
+        "error": "checksum"
+      }
+    },
+    {
+      "c": "setQuickPins",
+      "params": [
+        [
+          "toggle_sprint",
+          "zoom",
+          "hitboxes",
+          "fullbright"
+        ]
+      ]
+    },
+    {
+      "c": "setQuickPins",
+      "returns": [
+        "toggle_sprint",
+        "zoom",
+        "hitboxes",
+        "fullbright"
+      ]
+    },
+    {
+      "c": "setClipboard",
+      "params": [
+        "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+      ]
+    },
+    {
+      "c": "setClipboard",
+      "returns": true
+    },
+    {
+      "c": "getClipboard",
+      "params": []
+    },
+    {
+      "c": "getClipboard",
+      "returns": ""
     },
     {
       "e": "cosmetics",

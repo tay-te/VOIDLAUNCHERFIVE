@@ -1,0 +1,42 @@
+{
+  "$comment": "**The blur is on the game, not on VOID's chrome.** `design/quiet-cell-system.md` §1 rules blur out of the menu's own surfaces and `screen/BlurBackdrop.java` is off behind VOID's panel for exactly that reason; nothing here changes that. This mod blurs the *world* behind Minecraft's own screens — the inventory, chests, the pause menu — which is a game-visual preference Lunar and Badlion both ship, and it is off by default.",
+  "id": "menu_blur",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "Menu blur",
+  "icon": "layers",
+  "the": false,
+  "on_description": "the world is blurred behind menus",
+  "description": "Blurs the world behind inventories, chests and the pause menu.",
+  "settings_title": "Menu blur settings",
+  "settings_description": "Settings for the Menu blur gameplay mod. Runs the backdrop blur VOID already carries — a quarter-resolution copy of the frame through a separable Gaussian — under Minecraft's own screens. Chat and VOID's own menu are not blurred. Costs a few frames a second while a screen is open and nothing otherwise.",
+  "source": "`Screen#renderBackground`, through `screen/BlurBackdrop.java`",
+  "enabled": false,
+  "defaults": {
+    "blur_radius": 4,
+    "blur_fade": true,
+    "menu_dim": 0.5
+  },
+  "settings": {
+    "blur_radius": {
+      "description": "How soft the blur is, in passes of the Gaussian. 1 is a light softening; 10 is unrecognisable.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "default": 4
+    },
+    "blur_fade": {
+      "description": "Whether the blur eases in over a fifth of a second as the screen opens, rather than snapping on.",
+      "type": "boolean",
+      "default": true
+    },
+    "menu_dim": {
+      "description": "How much of vanilla's dark wash is kept over the blur, as a fraction of vanilla's own. 1 is vanilla's darkness on top of the blur; 0 is the blur alone.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.5
+    }
+  }
+}

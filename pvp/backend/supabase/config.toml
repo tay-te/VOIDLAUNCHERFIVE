@@ -1,0 +1,100 @@
+# Supabase project config for the VOID PvP online backend.
+#
+# Used by the Supabase CLI for `supabase start` (local) and as the source of truth for the
+# settings `supabase config push` sends to the linked project. Deploy steps: ../README.md.
+# Contract: ../../docs/online-contract.md.
+
+project_id = "void-pvp"
+
+[api]
+enabled = true
+port = 54321
+# Only `public` is exposed. Service-only functions live there too and are locked down with
+# explicit REVOKE/GRANT in the migrations (see README, Security notes).
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[db.seed]
+# The catalog is seeded by scripts/seed-catalog.mjs from pvp/schema/cosmetics.json, which
+# writes supabase/seed.sql for local resets and upserts over the REST API for remote projects.
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = false
+
+[storage]
+enabled = false
+
+[auth]
+enabled = true
+# Nobody signs up: every user is created by the `auth-minecraft` edge function through the
+# admin API (which ignores this flag), with id = the player's Minecraft UUID.
+enable_signup = false
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+site_url = "http://127.0.0.1:54321"
+additional_redirect_urls = []
+# Access tokens live an hour; the launcher refreshes a minute before expiry.
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+
+[auth.rate_limit]
+# Each launcher redeems its own one-time login (`/auth/v1/verify`) from its own IP, so the
+# per-IP default is plenty; raise it if many players share a NAT (LAN centres, schools).
+token_verifications = 30
+token_refresh = 150
+
+[auth.email]
+# The synthetic emails are undeliverable; nothing is ever mailed.
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = false
+secure_password_change = true
+
+[auth.sms]
+enable_signup = false
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+deno_version = 2
+
+# Every function verifies its caller in code (GET /auth/v1/user for players, the Stripe
+# signature for the webhook), so the gateway's JWT check is off: it does not understand the
+# new publishable/secret API keys, and `auth-minecraft` and `stripe-webhook` are called by
+# clients that have no session yet.
+[functions.auth-minecraft]
+verify_jwt = false
+
+[functions.cosmetics-lookup]
+verify_jwt = false
+
+[functions.equip]
+verify_jwt = false
+
+[functions.checkout]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.friends]
+verify_jwt = false

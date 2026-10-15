@@ -5,13 +5,15 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Extracts {@code natives/<os>-<arch>/} from the classpath into a temporary directory and loads the
- * libraries in dependency order.
+ * Extracts {@code natives/<os>-<arch>/} from the classpath into a content-addressed cache
+ * directory and loads the libraries in dependency order.
  *
  * <p>Layout on the classpath, produced by the CMake build (see mod/native/README.md):
  *
@@ -26,7 +28,19 @@ import java.util.Locale;
  * </pre>
  *
  * <p>{@code files.txt} lists every payload path, one per line: a JAR gives no way to enumerate a
- * "directory", so the manifest is generated at build time and read here.
+ * "directory", so the manifest is generated at build time and read here. Each line is
+ * {@code <path>\t<size>[\t<sha256>]}; the hash column is what makes the cache trustworthy.
+ *
+ * <p><b>Where it extracts.</b> The launcher passes {@code -Dvoid.nativesCache=<data dir>/natives-cache}
+ * and the libraries go to {@code <that>/voidultralight-<key>-<hash>/}, where {@code <hash>} is a
+ * SHA-256 over {@code files.txt} (which itself carries every file's SHA-256) and {@code version.txt}.
+ * So the directory name <i>is</i> the content: a rebuilt binding can never run against a previously
+ * extracted copy of itself, and nothing has to be compared but sizes on a warm start. Extraction goes
+ * to a staging directory, every file is hashed as it is written and checked against the manifest, and
+ * only a complete, verified tree is renamed into place (with a {@code .complete} marker) — so a crash
+ * or a full disk mid-extraction leaves nothing that a later launch would trust. Without the property
+ * (a plain {@code runClient}, the CPU tests) or when that directory is not writable, the same scheme
+ * runs under {@code java.io.tmpdir}.
  *
  * <p>Load order matters. Ultralight's libraries are loaded before ours so that our library's
  * imports resolve against modules already in the process — on Windows that is the only thing that
@@ -39,6 +53,12 @@ final class NativeLoader {
 
   /** Property to point at a pre-staged natives directory (the CMake build tree, in development). */
   private static final String DIR_PROPERTY = "void.ultralight.nativeDir";
+
+  /** Property the launcher sets: the parent directory for content-addressed extraction. */
+  private static final String CACHE_PROPERTY = "void.nativesCache";
+
+  /** Written last into a fully extracted and verified directory. */
+  private static final String COMPLETE_MARKER = ".complete";
 
   private static String nativeDir;
 
@@ -128,37 +148,154 @@ final class NativeLoader {
   private static File extract(String key) {
     String base = "natives/" + key + "/";
     List<Entry> files = manifest(base);
+    String name = "voidultralight-" + key + "-" + stamp(base);
 
-    File root = new File(System.getProperty("java.io.tmpdir"),
-        "voidultralight-" + key + "-" + stamp(base));
-    if (!root.isDirectory() && !root.mkdirs()) {
-      throw new UnsatisfiedLinkError("could not create " + root.getAbsolutePath());
-    }
-
-    for (Entry entry : files) {
-      File target = new File(root, entry.path);
-      // Already there and the right size? Leave it: libWebCore alone is ~96 MB and this runs on
-      // every launch.
-      if (target.isFile() && entry.size >= 0 && target.length() == entry.size) {
-        continue;
+    UnsatisfiedLinkError last = null;
+    for (File parent : cacheRoots()) {
+      try {
+        File dir = extractInto(new File(parent, name), base, files);
+        if (parent != tmpRoot()) {
+          pruneSiblings(parent, "voidultralight-" + key + "-", dir);
+        }
+        return dir;
+      } catch (UnsatisfiedLinkError e) {
+        last = e;
       }
-      File parent = target.getParentFile();
-      if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
-        throw new UnsatisfiedLinkError("could not create " + parent.getAbsolutePath());
-      }
-      copy(base + entry.path, target);
     }
-    return root;
+    throw last != null ? last : new UnsatisfiedLinkError("no directory to extract natives into");
   }
 
-  /** One manifest line: a payload path and the size it must have once extracted. */
+  /** The launcher's cache directory first (when set), then the JVM temp directory. */
+  private static List<File> cacheRoots() {
+    List<File> roots = new ArrayList<File>(2);
+    String cache = System.getProperty(CACHE_PROPERTY);
+    if (cache != null && !cache.trim().isEmpty()) {
+      roots.add(new File(cache.trim()));
+    }
+    roots.add(tmpRoot());
+    return roots;
+  }
+
+  private static File tmpRootFile;
+
+  private static synchronized File tmpRoot() {
+    if (tmpRootFile == null) {
+      tmpRootFile = new File(System.getProperty("java.io.tmpdir"));
+    }
+    return tmpRootFile;
+  }
+
+  /**
+   * Returns {@code root} once it holds a complete, verified copy of {@code files}, extracting into a
+   * staging directory and renaming it into place when it does not.
+   */
+  private static File extractInto(File root, String base, List<Entry> files) {
+    if (isComplete(root, files)) {
+      return root;
+    }
+    File parent = root.getParentFile();
+    if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
+      throw new UnsatisfiedLinkError("could not create " + parent.getAbsolutePath());
+    }
+    File staging = new File(parent, root.getName() + ".tmp-" + Long.toHexString(System.nanoTime()));
+    try {
+      for (Entry entry : files) {
+        File target = new File(staging, entry.path);
+        File dir = target.getParentFile();
+        if (dir != null && !dir.isDirectory() && !dir.mkdirs()) {
+          throw new UnsatisfiedLinkError("could not create " + dir.getAbsolutePath());
+        }
+        String actual = copy(base + entry.path, target);
+        if (entry.size >= 0 && target.length() != entry.size) {
+          throw new UnsatisfiedLinkError("extracted " + entry.path + " is " + target.length()
+              + " bytes, the manifest says " + entry.size);
+        }
+        if (entry.sha256 != null && !entry.sha256.equalsIgnoreCase(actual)) {
+          throw new UnsatisfiedLinkError("extracted " + entry.path + " does not match its sha256");
+        }
+      }
+      writeMarker(new File(staging, COMPLETE_MARKER));
+
+      // An incomplete tree from an interrupted run is in the way; a complete one means another
+      // process won the race, and its copy is as good as ours.
+      if (root.exists() && !isComplete(root, files)) {
+        deleteTree(root);
+      }
+      if (!root.exists() && staging.renameTo(root)) {
+        return root;
+      }
+      if (isComplete(root, files)) {
+        return root;
+      }
+      throw new UnsatisfiedLinkError("could not move extracted natives into " + root.getAbsolutePath());
+    } finally {
+      if (staging.exists()) {
+        deleteTree(staging);
+      }
+    }
+  }
+
+  /** A directory carries the marker and every file at its manifest size. */
+  private static boolean isComplete(File root, List<Entry> files) {
+    if (!new File(root, COMPLETE_MARKER).isFile()) {
+      return false;
+    }
+    for (Entry entry : files) {
+      File f = new File(root, entry.path);
+      if (!f.isFile() || (entry.size >= 0 && f.length() != entry.size)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** Removes older extractions for the same platform; locked ones (in use) are left alone. */
+  private static void pruneSiblings(File parent, String prefix, File keep) {
+    File[] entries = parent.listFiles();
+    if (entries == null) {
+      return;
+    }
+    for (File f : entries) {
+      if (f.isDirectory() && f.getName().startsWith(prefix) && !f.equals(keep)) {
+        deleteTree(f);
+      }
+    }
+  }
+
+  private static void deleteTree(File f) {
+    File[] children = f.listFiles();
+    if (children != null) {
+      for (File c : children) {
+        deleteTree(c);
+      }
+    }
+    if (!f.delete()) {
+      f.deleteOnExit();
+    }
+  }
+
+  private static void writeMarker(File marker) {
+    OutputStream out = null;
+    try {
+      out = new FileOutputStream(marker);
+      out.write("ok\n".getBytes("UTF-8"));
+    } catch (IOException e) {
+      throw new UnsatisfiedLinkError("could not write " + marker.getAbsolutePath() + ": " + e.getMessage());
+    } finally {
+      close(out);
+    }
+  }
+
+  /** One manifest line: a payload path, the size it must have, and its SHA-256 when known. */
   private static final class Entry {
     final String path;
     final long size;
+    final String sha256;
 
-    Entry(String path, long size) {
+    Entry(String path, long size, String sha256) {
       this.path = path;
       this.size = size;
+      this.sha256 = sha256;
     }
   }
 
@@ -180,51 +317,75 @@ final class NativeLoader {
       if (entry.isEmpty() || entry.startsWith("#")) {
         continue;
       }
-      int tab = entry.indexOf('\t');
-      if (tab < 0) {
-        out.add(new Entry(entry, -1L));
-      } else {
-        long size;
+      String[] cols = entry.split("\t");
+      long size = -1L;
+      if (cols.length > 1) {
         try {
-          size = Long.parseLong(entry.substring(tab + 1).trim());
+          size = Long.parseLong(cols[1].trim());
         } catch (NumberFormatException e) {
           size = -1L;
         }
-        out.add(new Entry(entry.substring(0, tab), size));
       }
+      String sha = cols.length > 2 && cols[2].trim().length() == 64 ? cols[2].trim() : null;
+      if (cols[0].contains("..")) {
+        throw new UnsatisfiedLinkError("refusing manifest path " + cols[0]);
+      }
+      out.add(new Entry(cols[0], size, sha));
     }
     return out;
   }
 
   /**
-   * Cache key for the extracted directory: the sizes of everything in the manifest. Cheap, and it
-   * changes whenever a library does, so a rebuilt mod never runs against stale natives.
+   * Cache key for the extracted directory: SHA-256 over {@code files.txt} (every file's size and
+   * hash) and {@code version.txt}, first 16 hex digits. It changes whenever any library does, so a
+   * rebuilt mod never runs against stale natives.
    */
-  private static String stamp(String base) {
-    byte[] version = Resources.read(base + "version.txt");
-    if (version != null) {
-      try {
-        return new String(version, "UTF-8").trim().replaceAll("[^A-Za-z0-9._-]", "");
-      } catch (IOException ignored) {
-        // fall through
+  static String stamp(String base) {
+    try {
+      MessageDigest md = MessageDigest.getInstance("SHA-256");
+      byte[] listing = Resources.read(base + "files.txt");
+      byte[] version = Resources.read(base + "version.txt");
+      if (listing != null) {
+        md.update(listing);
       }
+      md.update((byte) 0);
+      if (version != null) {
+        md.update(version);
+      }
+      return hex(md.digest()).substring(0, 16);
+    } catch (NoSuchAlgorithmException e) {
+      throw new UnsatisfiedLinkError("no SHA-256 in this JVM");
     }
-    byte[] listing = Resources.read(base + "files.txt");
-    int hash = listing == null ? 0 : java.util.Arrays.hashCode(listing);
-    return Integer.toHexString(hash);
   }
 
-  private static void copy(String resource, File target) {
+  private static String hex(byte[] bytes) {
+    StringBuilder sb = new StringBuilder(bytes.length * 2);
+    for (byte b : bytes) {
+      sb.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
+    }
+    return sb.toString();
+  }
+
+  /** Copies a classpath resource to {@code target}, returning the SHA-256 of what was written. */
+  private static String copy(String resource, File target) {
     InputStream in = NativeLoader.class.getClassLoader().getResourceAsStream(resource);
     if (in == null) {
       throw new UnsatisfiedLinkError("missing classpath entry " + resource);
     }
     OutputStream out = null;
+    MessageDigest md;
+    try {
+      md = MessageDigest.getInstance("SHA-256");
+    } catch (NoSuchAlgorithmException e) {
+      close(in);
+      throw new UnsatisfiedLinkError("no SHA-256 in this JVM");
+    }
     try {
       out = new FileOutputStream(target);
       byte[] buf = new byte[64 * 1024];
       int n;
       while ((n = in.read(buf)) > 0) {
+        md.update(buf, 0, n);
         out.write(buf, 0, n);
       }
     } catch (IOException e) {
@@ -237,6 +398,7 @@ final class NativeLoader {
         || target.getName().endsWith(".dll")) {
       target.setExecutable(true, false);
     }
+    return hex(md.digest());
   }
 
   private static void close(java.io.Closeable c) {

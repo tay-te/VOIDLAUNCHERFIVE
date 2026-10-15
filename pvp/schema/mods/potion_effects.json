@@ -21,7 +21,9 @@
   "defaults": {
     "show_duration": true,
     "show_amplifier": true,
-    "hide_ambient": false
+    "hide_ambient": false,
+    "hidden_effects": 0,
+    "blink_below_s": 5
   },
   "settings": {
     "show_duration": {
@@ -38,6 +40,20 @@
       "description": "Whether to omit ambient effects such as a beacon aura from the list.",
       "type": "boolean",
       "default": false
+    },
+    "hidden_effects": {
+      "description": "Effects never listed, as a bit mask over vanilla's status effect ids: bit 1 is Speed, bit 16 Night Vision, up to bit 23 Saturation. Set from the settings page's effect chips rather than by hand. 0 lists everything.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 16777215,
+      "default": 0
+    },
+    "blink_below_s": {
+      "description": "An effect with this many seconds or fewer left blinks, once a second, on the tick that redraws its timer. 0 disables blinking.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 30,
+      "default": 5
     }
   }
 }

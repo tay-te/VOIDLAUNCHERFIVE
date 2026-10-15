@@ -31,6 +31,9 @@ pub struct PrepareProgressSink {
     done_files: u64,
     total_files: u64,
     downloaded_bytes: u64,
+    /// Bytes counted from `Progress::Bytes` for the file still streaming; subtracted
+    /// again when its `Finished` (which carries the full size) arrives.
+    streamed: u64,
 }
 
 impl PrepareProgressSink {
@@ -43,6 +46,7 @@ impl PrepareProgressSink {
             done_files: 0,
             total_files: 0,
             downloaded_bytes: 0,
+            streamed: 0,
         }
     }
 
@@ -73,7 +77,21 @@ impl PrepareProgressSink {
                 self.total_bytes += bytes;
                 self.emit(emitter, Some(format!("{files} files")));
             }
+            Progress::Bytes { delta } => {
+                self.streamed += delta;
+                self.done_bytes += delta;
+                self.downloaded_bytes += delta;
+                if self.done_bytes > self.total_bytes {
+                    self.total_bytes = self.done_bytes;
+                }
+                self.emit(emitter, None);
+            }
             Progress::Finished { bytes, cached, .. } => {
+                if self.streamed > 0 {
+                    self.done_bytes -= self.streamed.min(self.done_bytes);
+                    self.downloaded_bytes -= self.streamed.min(self.downloaded_bytes);
+                    self.streamed = 0;
+                }
                 self.done_files += 1;
                 self.done_bytes += bytes;
                 // A batch whose manifest published no sizes would otherwise sit at 0/0;
@@ -206,6 +224,23 @@ mod tests {
         assert_eq!(last["total"], 500);
         // A cached file counts toward the bar but not toward the download rate.
         assert_eq!(last["bytes_per_sec"], 0);
+    }
+
+    #[test]
+    fn a_streamed_file_moves_the_bar_while_it_downloads_and_is_counted_once() {
+        let rec = Recorder::default();
+        let mut sink = PrepareProgressSink::new();
+        sink.absorb(&rec, Progress::Started { files: 1, bytes: 1000 });
+        sink.absorb(&rec, Progress::Bytes { delta: 300 });
+        assert_eq!(rec.payloads(PREPARE_PROGRESS).pop().unwrap()["done"], 300);
+        sink.absorb(&rec, Progress::Bytes { delta: 700 });
+        sink.absorb(
+            &rec,
+            Progress::Finished { path: PathBuf::from("jre.zip"), bytes: 1000, cached: false, done: 1, total: 1 },
+        );
+        let last = rec.payloads(PREPARE_PROGRESS).pop().unwrap();
+        assert_eq!(last["done"], 1000, "not 2000: the Finished replaces the streamed bytes");
+        assert_eq!(sink.downloaded_bytes(), 1000);
     }
 
     #[test]

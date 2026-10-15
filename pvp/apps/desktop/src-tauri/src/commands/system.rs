@@ -1,4 +1,6 @@
-//! `system_info` · `java_status` · `open_data_dir`
+//! `system_info` · `java_status` · `open_data_dir` · `open_path`
+
+use std::path::{Path, PathBuf};
 
 use void_core::java;
 
@@ -96,6 +98,57 @@ pub fn data_dir(state: &AppState) -> Result<String, Error> {
     Ok(state.paths.root().display().to_string())
 }
 
+/// What `open_path` may reveal. A closed set, so the webview can never ask the shell to
+/// open an arbitrary path.
+///
+/// - `launcher_log` — the newest launcher log file (else the logs folder)
+/// - `game_log` — the game's `logs/latest.log` (else the game directory)
+/// - `crash_reports` — the game's `crash-reports/` folder
+/// - `crash_report` — one crash report, named by `path`, which must be inside
+///   `crash-reports/` or be an `hs_err_pid*.log` in the game directory
+/// - `game_dir` — the game directory
+pub fn open_target(state: &AppState, which: &str, path: Option<&str>) -> Result<PathBuf, Error> {
+    let game = state.game_paths()?;
+    let found = match which {
+        "launcher_log" => crate::logging::latest_file(&state.paths.logs_dir())
+            .unwrap_or_else(|| state.paths.logs_dir()),
+        "game_log" => {
+            let latest = game.latest_log();
+            if latest.is_file() { latest } else { game.game_dir() }
+        }
+        "crash_reports" => {
+            let dir = game.crash_reports_dir();
+            if dir.is_dir() { dir } else { game.game_dir() }
+        }
+        "crash_report" => {
+            let wanted = PathBuf::from(path.ok_or_else(|| Error::Other("No crash report named.".into()))?);
+            let canon = wanted
+                .canonicalize()
+                .map_err(|e| Error::Other(format!("The crash report is gone: {e}")))?;
+            let in_reports = game
+                .crash_reports_dir()
+                .canonicalize()
+                .is_ok_and(|dir| canon.starts_with(dir));
+            let is_hs_err = canon.parent().map(Path::to_path_buf)
+                == game.game_dir().canonicalize().ok()
+                && canon
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.starts_with("hs_err_pid") && n.ends_with(".log"));
+            if !(in_reports || is_hs_err) {
+                return Err(Error::Other("That is not a crash report.".into()));
+            }
+            canon
+        }
+        "game_dir" => game.game_dir(),
+        other => return Err(Error::Other(format!("Nothing to open called `{other}`."))),
+    };
+    if !found.exists() {
+        std::fs::create_dir_all(&found).map_err(|e| Error::Storage(e.to_string()))?;
+    }
+    Ok(found)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,6 +188,29 @@ mod tests {
         assert!(!status.found);
         assert_eq!(status.source, "missing");
         assert_eq!(status.path.as_deref(), Some("/definitely/not/java"));
+    }
+
+    #[test]
+    fn open_path_reveals_only_the_named_places() {
+        let state = scratch_state();
+        let game = state.game_paths().unwrap();
+        std::fs::create_dir_all(game.game_dir()).unwrap();
+
+        // Fall back to the folder when the file is not there yet.
+        assert_eq!(open_target(&state, "game_log", None).unwrap(), game.game_dir());
+        assert!(open_target(&state, "launcher_log", None).unwrap().starts_with(state.paths.logs_dir()));
+        assert!(open_target(&state, "nonsense", None).is_err());
+
+        // A crash report must actually be one.
+        let reports = game.crash_reports_dir();
+        std::fs::create_dir_all(&reports).unwrap();
+        let report = reports.join("crash-1-client.txt");
+        std::fs::write(&report, "x").unwrap();
+        let opened = open_target(&state, "crash_report", Some(&report.display().to_string())).unwrap();
+        assert!(opened.ends_with("crash-1-client.txt"));
+        let elsewhere = state.paths.config_file();
+        std::fs::write(&elsewhere, "{}").unwrap();
+        assert!(open_target(&state, "crash_report", Some(&elsewhere.display().to_string())).is_err());
     }
 
     #[test]

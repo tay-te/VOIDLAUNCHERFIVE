@@ -69,6 +69,17 @@ export interface LoadoutPatch {
   hud?: Loadout['hud'];
 }
 
+/**
+ * What `loadouts_import` resolves with — `models::ImportedLoadout`. A refused code is a
+ * rejection carrying the reason as a sentence, like every other command error, rather
+ * than the in-game bridge's `{ ok: false, error }` code.
+ */
+export interface ImportedLoadout {
+  loadout: Loadout;
+  /** Settings, mods, HUD items and pins the code carried that this build could not use. */
+  dropped: number;
+}
+
 // -------------------------------------------------------- launcher only
 
 /**
@@ -83,15 +94,34 @@ export interface Settings {
   ui_scale: number;
   hud_editor_grid: number;
   hide_to_tray_on_launch: boolean;
+  /** `stable` or `beta` — the launcher updates and the VOID client release channel. */
   update_channel: string;
+  /** Discord Rich Presence. Default on. */
+  discord_rpc: boolean;
   java_auto: boolean;
   java_path: string | null;
   ram_mb: number;
+  /** Extra JVM arguments as one line; quotes keep a value with spaces together. */
+  jvm_args: string;
+  /** Game window size; both or neither. */
+  game_width: number | null;
+  game_height: number | null;
+  fullscreen: boolean;
+  /** The configured game directory, or `null` for the default. */
+  game_dir: string | null;
+  /** Where the game directory is right now. Read-only. */
+  game_dir_effective: string;
+  /**
+   * The developer override JAR (`$VOID_MOD_JAR` / `config.mod_jar`). Read-only here and
+   * `null` in a normal install, which runs the signed release-channel client.
+   */
   mod_jar: string | null;
   active_loadout: string;
 }
 
-export type SettingsPatch = Partial<Omit<Settings, 'active_loadout'>>;
+export type SettingsPatch = Partial<
+  Omit<Settings, 'active_loadout' | 'game_dir_effective' | 'mod_jar'>
+>;
 
 /** The account as the dock renders it. Never carries an access token. */
 export interface Account {
@@ -99,6 +129,12 @@ export interface Account {
   name: string;
   kind: 'microsoft' | 'offline';
   skin_url: string | null;
+}
+
+/** What `auth_accounts` / `auth_remove` return: every account and the active one. */
+export interface AccountList {
+  active: string | null;
+  accounts: Account[];
 }
 
 export interface DeviceCode {
@@ -156,6 +192,11 @@ export interface PrepareReport {
   duration_ms: number;
   java_path: string;
   java_version: string;
+  /** The `void-client` version that will run, or `dev` for a developer override. */
+  mod_version: string;
+  mod_source: 'fresh' | 'cached' | 'dev';
+  /** e.g. a newer client that needs a launcher update. */
+  notice?: string;
 }
 
 export interface LaunchReport {
@@ -173,6 +214,8 @@ export interface SessionStats {
   ping_avg?: number;
   server?: string;
   crash_tail?: string[];
+  /** The crash report or JVM `hs_err` file this session wrote, for *Open crash report*. */
+  crash_report?: string;
 }
 
 export interface LogLine {
@@ -191,6 +234,16 @@ export interface PingResult {
   motd: string;
   favicon?: string;
 }
+
+/** Payload of `update:progress`. */
+export interface UpdateProgress {
+  downloaded: number;
+  total: number | null;
+  phase: 'downloading' | 'installing';
+}
+
+/** What `open_path` can reveal. */
+export type OpenTarget = 'launcher_log' | 'game_log' | 'crash_reports' | 'crash_report' | 'game_dir';
 
 export interface UpdateInfo {
   available: boolean;
@@ -216,3 +269,62 @@ export interface UpdateInfo {
 export type BridgeState = Extract<JavaToRustMessage, { t: 'state' }>;
 export type BridgeSession = Extract<JavaToRustMessage, { t: 'session' }>;
 export type BridgeServer = Extract<JavaToRustMessage, { t: 'server' }>;
+
+// ------------------------------------------- online (docs/online-contract.md)
+
+/**
+ * Online features: Supabase through Rust's `void-online`. The webview never talks to the
+ * network itself — these are the shapes `src-tauri/src/models.rs` hands across `invoke`.
+ * `EquippedSet` and `CosmeticSlot` are schema types (`protocol.json`), shared with the mod.
+ */
+export type { EquippedSet, CosmeticSlot } from '@void/protocol';
+import type { EquippedSet } from '@void/protocol';
+
+/** `online_status` / `online:status`. `disabled`: this build has no backend configured. */
+export type OnlineStatus =
+  | { state: 'disabled' }
+  | { state: 'signed_out' }
+  | { state: 'connecting' }
+  | { state: 'online'; uuid: string; name: string }
+  | { state: 'error'; message: string };
+
+/** `cosmetics_state` / `online:cosmetics`. `equipped` is null when not online. */
+export interface CosmeticsState {
+  online: boolean;
+  owned: string[];
+  equipped: EquippedSet | null;
+}
+
+export interface FriendPresenceDto {
+  state: 'online' | 'offline';
+  /** Normalised server address, only while online on a server. */
+  server?: string;
+  /** Unix ms. */
+  last_seen?: number;
+}
+
+export interface FriendDto {
+  uuid: string;
+  name: string;
+  presence: FriendPresenceDto;
+}
+
+export interface FriendRequestDto {
+  uuid: string;
+  name: string;
+  /** Unix ms. */
+  at: number;
+}
+
+/** `friends_*` / `online:friends`: always the whole list. */
+export interface FriendsList {
+  friends: FriendDto[];
+  incoming: FriendRequestDto[];
+  outgoing: FriendRequestDto[];
+}
+
+/** `store_checkout`: Rust has already opened `url` in the system browser. */
+export interface CheckoutSession {
+  url: string;
+  session_id: string;
+}

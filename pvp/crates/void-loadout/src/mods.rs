@@ -396,7 +396,7 @@ mod tests {
     }
 
     #[test]
-    fn grey_mods_are_exactly_fullbright_hitboxes_overlay_and_old_input() {
+    fn grey_mods_are_exactly_fullbright_hitboxes_overlay_old_input_fog_and_reach() {
         // An exact set, not a count, and it is edited by hand on purpose: `grey` is the class
         // that decides whether the HYPIXEL-READY badge can be shown, so a mod joining it is a
         // product decision that should have to touch a test with a name in it. `overlay` is the
@@ -411,13 +411,25 @@ mod tests {
         // rate-limited, so outbound swing volume rises in proportion to CPS, which is the signal
         // a CPS-based anticheat measures. Bundling it with the animation revert would have cost
         // a player the badge for wanting a sword to swing through a block.
+        //
+        // `fog` is the fifth, for fullbright's reason: it lets you see farther than vanilla does.
+        //
+        // `reach` is the sixth. It sends nothing; it is grey for what the readout tells you —
+        // spacing feedback a few networks ban outright — and `schema/mods/reach.json` says so.
         let grey: Vec<ModId> = ModId::ALL
             .into_iter()
             .filter(|id| id.hypixel_safe() == HypixelSafe::Grey)
             .collect();
         assert_eq!(
             grey,
-            vec![ModId::Fullbright, ModId::Hitboxes, ModId::Overlay, ModId::OldInput]
+            vec![
+                ModId::Fullbright,
+                ModId::Hitboxes,
+                ModId::Overlay,
+                ModId::OldInput,
+                ModId::Fog,
+                ModId::Reach
+            ]
         );
     }
 

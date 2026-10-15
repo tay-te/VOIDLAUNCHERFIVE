@@ -1,0 +1,78 @@
+{
+  "$comment": "**The FPS boost, and the reason it is a mod at all.** Lunar's headline feature is that the same machine draws more frames; VOID had nothing on that axis until this file. The win is not a renderer rewrite — `docs/mod-roster.md` §6.2 rules that out — but the oldest trick there is: most of what 1.8.9 draws every frame is behind a wall. The game frustum-culls entities and tile entities and then draws every one inside the view cone, including the forty chests and two hundred armour-stand holograms on the other side of the lobby building. This mod asks, off the render thread, whether any straight line from the camera reaches each one through air, and skips the ones no line reaches.\n\n**Classified `safe`, and the direction of every setting is what earns it.** Hypixel's allowlist names performance improvements outright. Every switch here *removes* drawing; none adds a pixel the game would not have drawn, and the one place culling could remove information vanilla gives you — a player's nametag through a wall — is put back by `nametags_through_walls`, which is on by default. A culled player is one vanilla would have drawn *behind an opaque wall*, where the depth test was already hiding the body; only the work is gone.\n\nWhat would move this to `grey`: any setting that draws an entity the game would not (an outline through walls is ESP), or a cull rule that hides something vanilla shows in the open. The visibility test only treats full opaque cubes as walls for exactly this reason — glass, leaves, slabs and fences never hide anything.",
+  "id": "culling",
+  "kind": "gameplay",
+  "category": "utility",
+  "hypixel_safe": "safe",
+  "label": "Entity culling",
+  "icon": "eye",
+  "the": false,
+  "on_description": "entity and block-entity culling is enabled",
+  "description": "Skips drawing entities and chests, signs and banners that are hidden behind walls or too far away.",
+  "settings_title": "Entity culling settings",
+  "settings_description": "Settings for the Entity culling gameplay mod — the FPS boost. A background thread casts rays from the camera through the block grid to each entity and block entity in view, and the render pass skips anything no ray reaches through air. Results trail the camera by one pass (a few milliseconds), so everything within `always_draw_within` is drawn regardless — a player who steps round a corner beside you is never one pass late. The distance cut-offs are plain distance culling on top, for the cheap-but-numerous things a lobby is full of. Turns itself off for occlusion in third person, where the camera is not where the rays start; distance culling still applies.",
+  "source": "an async voxel ray test against `EntityRenderDispatcher#shouldRender` and `BlockEntityRenderDispatcher#renderEntity`",
+  "enabled": true,
+  "defaults": {
+    "occlude_entities": true,
+    "occlude_block_entities": true,
+    "always_draw_within": 4,
+    "nametags_through_walls": true,
+    "block_entity_distance": 64,
+    "armor_stand_distance": 64,
+    "item_frame_distance": 64,
+    "sign_text_distance": 32
+  },
+  "settings": {
+    "occlude_entities": {
+      "description": "Whether mobs, players, items and other entities that no ray from the camera can reach are skipped. The bulk of the win in a crowded lobby. Never culls the entity you are riding or your own player.",
+      "type": "boolean",
+      "default": true
+    },
+    "occlude_block_entities": {
+      "description": "Whether chests, signs, banners, skulls and the other tile entities that no ray reaches are skipped. Tile entities are the expensive half of a 1.8.9 frame in a built-up map — every chest is a model drawn every frame — so this is on by default.",
+      "type": "boolean",
+      "default": true
+    },
+    "always_draw_within": {
+      "description": "Radius in blocks inside which nothing is ever occlusion-culled. The ray test runs on its own thread and its answer is one pass old by the time a frame reads it; inside this radius that lag could show as a player appearing a moment after stepping into view, so the test is not consulted at all. 4 covers melee range with a margin.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16,
+      "default": 4
+    },
+    "nametags_through_walls": {
+      "description": "Whether a culled entity still draws its nametag. Vanilla draws a player's name through walls (unless they sneak), so culling the body must not take the name with it — on by default, which keeps exactly what vanilla shows. Off also skips the label of anything culled, which is a little faster and shows less than vanilla, never more.",
+      "type": "boolean",
+      "default": true
+    },
+    "block_entity_distance": {
+      "description": "Farthest a tile entity is drawn, in blocks. 64 is vanilla's own limit, so the default changes nothing; lower it on a weak machine in chest-heavy maps.",
+      "type": "integer",
+      "minimum": 16,
+      "maximum": 64,
+      "default": 64
+    },
+    "armor_stand_distance": {
+      "description": "Farthest an armour stand is drawn, in blocks. Lobby holograms are stacks of invisible armour stands with a name each, and hundreds of them is common. 64 is vanilla; lowering it hides far hologram text along with the stands.",
+      "type": "integer",
+      "minimum": 8,
+      "maximum": 64,
+      "default": 64
+    },
+    "item_frame_distance": {
+      "description": "Farthest the item inside an item frame is drawn, in blocks. The frame itself is unaffected. 64 is vanilla.",
+      "type": "integer",
+      "minimum": 8,
+      "maximum": 64,
+      "default": 64
+    },
+    "sign_text_distance": {
+      "description": "Farthest a sign's text is drawn, in blocks; the board is drawn to the tile-entity distance either way. Sign text is a font draw per line per sign per frame, and past about 32 blocks a line of it is two or three pixels tall at 1080p — unreadable, but still paid for. 32 by default for that reason; 64 is vanilla.",
+      "type": "integer",
+      "minimum": 4,
+      "maximum": 64,
+      "default": 32
+    }
+  }
+}

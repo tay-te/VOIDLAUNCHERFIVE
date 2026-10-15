@@ -1,9 +1,12 @@
 name: Build & Release
 
+# The original Electron launcher. The PvP client releases from pvp-release.yml on
+# `pvp-v*` tags; `v*` would not match those anyway, and the exclusion makes it explicit.
 on:
   push:
     tags:
       - "v*"
+      - "!pvp-v*"
 
 permissions:
   contents: write

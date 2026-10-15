@@ -1,8 +1,9 @@
 # `crates/` — the Rust side of void-pvp
 
-Three crates, owned by **core** (see [`../CONTRACTS.md`](../CONTRACTS.md)). They implement
-the launcher half of `docs/PVP_ARCHITECTURE.md`: §7 (the protocol), §8 (loadouts), §11
-(the HYPIXEL-READY rule) and §12 (auth and launch).
+Four crates, owned by **core** (see [`../CONTRACTS.md`](../CONTRACTS.md)). The first three
+implement the launcher half of `docs/PVP_ARCHITECTURE.md`: §7 (the protocol), §8 (loadouts),
+§11 (the HYPIXEL-READY rule) and §12 (auth and launch). `void-online` is the client for the
+online backend (`../docs/online-contract.md`, `../backend/`).
 
 ```
 void-loadout  ──▶  void-bridge  ──▶  void-core  ──▶  bin/void-pvp
@@ -129,6 +130,55 @@ Legacy Fabric id names the *file* inside it, so several loader versions cache si
   game/                          ← the game directory; mods/ lives here
 ```
 
+## `void-online`
+
+The launcher's online half: a Supabase client for sign-in, cosmetics, friends, presence and
+emotes. It implements the launcher side of [`../docs/online-contract.md`](../docs/online-contract.md)
+(Part 2 is the as-built API this crate is written against). Like `void-core` it has no Tauri
+dependency; the desktop app owns one `Online`, forwards its `OnlineEvent`s to the webview and
+the mod bridge, and calls it from IPC commands.
+
+| Module | What it does |
+|---|---|
+| `config` | `OnlineConfig` (`url`, `anon_key`, `auth_mode`). `from_env()` reads `VOID_SUPABASE_URL` / `VOID_SUPABASE_ANON_KEY` at **build** time with `option_env!`; the same pair in the runtime environment overrides it, but only when both are set, so a URL from one project never meets a key from another. Neither present → `None` → **disabled mode**: every call is `Error::Disabled` and nothing touches the network. `McIdentity` is the Minecraft account from `void-core`'s Microsoft sign-in; its `Debug` redacts the token. |
+| `online` | `Online`, a cheap `Arc` clone. `sign_in` runs the exchange and starts the session's background work: token refresh a minute before expiry (re-running the whole exchange with the stored identity, with backoff, if the refresh grant fails), a `presence_heartbeat` every 30 s, the Realtime socket on `user:<uuid>`, a friends poll every 60 s that emits only on change, the cosmetics batcher, and one `my_cosmetics` fetch. Each sign-in is a *generation*; tasks and late answers check it before writing, so a response in flight at sign-out is harmless. |
+| `auth` | The exchange's shapes. **Join mode** (the default) is the vanilla-server handshake: `auth-minecraft {"mode":"challenge"}` → Mojang `session/minecraft/join` with the undashed UUID → `auth-minecraft {"mode":"join"}`, so the Minecraft token goes to Mojang and nowhere else. **Token mode** sends it to `auth-minecraft` instead (operational fallback). Either way the grant is redeemed at `/auth/v1/verify` for an ordinary Supabase session that lives in memory only. Mojang's `403`s become sentences (multiplayer disabled, banned, expired token). |
+| `error` | `Error`, whose `Display` is always a sentence a player can read. Edge functions' `{"error","message"}` and PostgREST's `{"code":"PT4xx","message":<code>,"details":<sentence>}` both map to `Error::Api { status, code, message }`; PostgREST's own errors and GoTrue's shapes are recognised too. |
+| `cache` | The other-players LRU: 2048 entries, 5 min TTL, and **negative entries** — "asked, not a VOID player" — because `cosmetics-lookup` silently omits non-VOID players and a big server is mostly them. |
+| `batcher` | Behind `request_cosmetics`: normalise and drop invalid UUIDs, skip fresh ones, collect for 150 ms (a fixed window, so a steady trickle is still answered), fetch 100 per request, emit only sets that are new or changed. |
+| `realtime` | Phoenix v1 over one tokio-tungstenite socket: private channels joined with the current JWT, `access_token` pushed on every joined channel when it refreshes, a 25 s heartbeat (two unanswered → replace the socket), reconnect with exponential backoff and jitter from 1 s to 30 s that rejoins every channel with the token current *then* and re-tracks presence, per-channel rejoin on a refused join or `phx_error`/`phx_close`, and presence kept from `presence_state`/`presence_diff`. |
+| `types` | The contract's DTOs with its exact field names (`MyCosmetics`, `CheckoutSession`, `FriendsList`, ...), `OnlineStatus` (tagged on `state`) and `OnlineEvent`. `EquippedSet` and `Slot` are `void-bridge`'s, re-exported, so a lookup result goes to the mod untranslated. |
+
+Request policy, everywhere: `apikey` on every call, `Authorization: Bearer` on authenticated
+ones; a `429` with `Retry-After` ≤ 5 s is retried once, a longer one returned; a `401` forces
+one serialised token refresh and one retry. `checkout` refuses a non-`https` URL and then
+watches for the entitlement (`my_cosmetics` every 5 s for up to 10 minutes, woken early by the
+user channel's `entitlements` broadcast). `set_server` normalises with `normalize_server` (the
+twin of SQL `public.normalize_server`), leaves the old `server:*` channel, heartbeats, and joins
+the topic the heartbeat returns with presence `{uuid, name}`; presence there becomes
+`OnlineEvent::ServerPlayers` (excluding self) plus a cosmetics prefetch, and `emote`
+broadcasts become `OnlineEvent::Emote` (our own echo ignored).
+
+**TLS.** tokio-tungstenite is built without its TLS features. `wss://` goes through
+`tokio-rustls` with aws-lc-rs and `rustls-platform-verifier` — the stack reqwest already uses in
+this tree — so there is one crypto backend in the binary and the websocket trusts exactly what
+HTTP trusts. The lockfile gained no third-party package for it.
+
+**Tests** run without the network: an in-crate HTTP/1.1 mock (`testutil.rs`, hand-rolled rather
+than wiremock to keep the dev-dependency tree empty) stands in for Supabase and Mojang, and a
+fake Phoenix server on tokio-tungstenite's `accept_async` stands in for Realtime. Covered: the
+join-mode exchange end to end (order, bodies, headers, the Minecraft token never reaching
+Supabase), token mode, Mojang refusals, a session for the wrong player, 401 → one refresh →
+retry, a second 401 returned rather than looped, a failed refresh re-running the exchange,
+`Retry-After`, disabled and signed-out modes making no requests, equips/emotes/tints and input
+validation, the batcher's window, dedupe, chunking and negative caching (on a paused clock),
+checkout URL validation and the entitlement watch, every friends action, and Realtime: private
+joins, presence tracking and `presence_state`/`presence_diff`, broadcasts with extra fields,
+token pushes, unanswered heartbeats, refused joins, and a dropped socket reconnecting and
+rejoining with the *current* token. Not verified here: a real `wss://` handshake against
+Supabase, and the real backend (the contract and the mocks agree; the deployed functions have
+not been exercised from Rust).
+
 ---
 
 ## Running the CLI
@@ -200,13 +250,20 @@ Minecraft started (pid Some(2899))
   "java_path": null,
   "max_memory_mb": 2048,
   "jvm_args": [],
+  "game_width": null,
+  "game_height": null,
+  "fullscreen": false,
+  "game_dir": null,
   "mod_jar": null
 }
 ```
 
-`VOID_MS_CLIENT_ID` overrides `ms_client_id`; `VOID_PVP_HOME` overrides the root. **VOID
-ships no Azure client id**: register an application with the device-code flow enabled and
-put its id here. `--offline` needs none of this.
+The Azure client id: `$VOID_MS_CLIENT_ID` at run time, then `ms_client_id`, then the id a
+release build compiled in (`option_env!("VOID_MS_CLIENT_ID")`); see
+[`docs/RELEASING.md`](../docs/RELEASING.md). `VOID_PVP_HOME` overrides the root.
+`mod_jar` (or `$VOID_MOD_JAR`) is the **developer override**: without it the mod comes from
+the signed release channel (`void_core::release`, `void-pvp mod`). `--offline` needs none of
+this.
 
 ---
 

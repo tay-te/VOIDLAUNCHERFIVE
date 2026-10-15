@@ -38,8 +38,17 @@ pub enum Error {
     #[error("{0}")]
     Loadout(#[from] void_loadout::Error),
 
+    /// A share code was refused. `ShareError`'s own `Display` is the short phrase the
+    /// in-game toast uses; here it is made a sentence, like every other launcher error.
+    #[error("{}", share_sentence(*.0))]
+    Share(void_loadout::ShareError),
+
     #[error("The launcher could not talk to the game: {0}")]
     Bridge(#[from] void_bridge::Error),
+
+    /// `void-online`'s `Display` is the backend's own sentence for the player.
+    #[error("{0}")]
+    Online(#[from] void_online::Error),
 
     #[error("Could not read or write launcher data: {0}")]
     Storage(String),
@@ -51,6 +60,25 @@ pub enum Error {
 impl Error {
     pub fn other(e: impl fmt::Display) -> Self {
         Error::Other(e.to_string())
+    }
+
+    /// Lifts a refused share code out of `void_loadout::Error`, so the player reads the
+    /// reason as a sentence rather than the crate's lower-case phrase.
+    pub fn from_loadout(e: void_loadout::Error) -> Self {
+        match e {
+            void_loadout::Error::Share(share) => Error::Share(share),
+            other => Error::Loadout(other),
+        }
+    }
+}
+
+/// `that code is damaged — copy it again` → `That code is damaged — copy it again.`
+fn share_sentence(e: void_loadout::ShareError) -> String {
+    let phrase = e.to_string();
+    let mut chars = phrase.chars();
+    match chars.next() {
+        Some(first) => format!("{}{}.", first.to_uppercase(), chars.as_str()),
+        None => String::new(),
     }
 }
 

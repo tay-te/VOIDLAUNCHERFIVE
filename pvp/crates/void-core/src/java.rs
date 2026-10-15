@@ -254,18 +254,62 @@ pub fn adoptium_url(os: Os, arch: &str) -> String {
     )
 }
 
+/// The Adoptium assets API for the newest Temurin 8 JRE: unlike `/binary/`, it answers
+/// with the package's SHA-256 and size, so the download can be verified and its
+/// progress shown.
+pub fn adoptium_assets_url(os: Os, arch: &str) -> String {
+    let os_name = match os {
+        Os::Windows => "windows",
+        Os::Osx => "mac",
+        Os::Linux => "linux",
+    };
+    format!(
+        "https://api.adoptium.net/v3/assets/latest/8/hotspot?architecture={arch}&image_type=jre&os={os_name}&vendor=eclipse"
+    )
+}
+
 /// The architecture to ask Adoptium for.
 ///
 /// Apple Silicon gets the x64 build deliberately: 1.8.9 runs under Rosetta because
 /// LWJGL 2 has no arm64 natives (§13), and a JVM that does not match the natives cannot
-/// load them.
+/// load them. **Windows on ARM** gets x64 for the same reason (LWJGL 2's natives are
+/// x86/x64 only, and Temurin publishes no Windows arm64 Java 8 anyway); Windows 11 runs
+/// it under its x64 emulation.
 pub fn adoptium_arch(os: Os) -> &'static str {
-    match (os, std::env::consts::ARCH) {
+    adoptium_arch_for(os, std::env::consts::ARCH)
+}
+
+fn adoptium_arch_for(os: Os, host_arch: &str) -> &'static str {
+    match (os, host_arch) {
         (Os::Osx, _) => "x64",
+        (Os::Windows, "aarch64") => "x64",
         (_, "x86") => "x86",
         (_, "aarch64") => "aarch64",
         _ => "x64",
     }
+}
+
+/// One package in the Adoptium assets API answer.
+#[derive(Debug, Clone, serde::Deserialize)]
+struct AdoptiumRelease {
+    binary: AdoptiumBinary,
+    #[serde(default)]
+    release_name: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct AdoptiumBinary {
+    package: AdoptiumPackage,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct AdoptiumPackage {
+    link: String,
+    checksum: String,
+    #[serde(default)]
+    size: Option<u64>,
+    #[serde(default)]
+    name: String,
 }
 
 /// Returns a Java 8 runtime, downloading Temurin 8 if the host has none.
@@ -277,38 +321,56 @@ pub async fn ensure_java8(
     if let Some(found) = detect_java8(paths) {
         return Ok(found);
     }
+    fetch_temurin8(client, paths, progress).await
+}
+
+/// Downloads Temurin 8 for this host into `java/`, verified against Adoptium's SHA-256,
+/// regardless of what is already installed. [`ensure_java8`] calls it when detection
+/// finds nothing; the network test calls it directly.
+pub async fn fetch_temurin8(
+    client: &reqwest::Client,
+    paths: &Paths,
+    progress: Option<mpsc::Sender<Progress>>,
+) -> Result<JavaInstall> {
     let os = Os::host()?;
     let arch = adoptium_arch(os);
-    let url = adoptium_url(os, arch);
-    tracing::info!(%url, "no Java 8 on this machine; fetching Temurin 8");
+    let api = adoptium_assets_url(os, arch);
+    tracing::info!(%api, "no Java 8 on this machine; fetching Temurin 8");
+
+    let releases: Vec<AdoptiumRelease> = {
+        let resp = client.get(&api).send().await?;
+        let status = resp.status();
+        if !status.is_success() {
+            return Err(Error::HttpStatus { url: api, status: status.as_u16(), detail: None });
+        }
+        let text = resp.text().await?;
+        serde_json::from_str(&text).map_err(|e| Error::json("Adoptium assets", e))?
+    };
+    let release = releases
+        .into_iter()
+        .next()
+        .ok_or_else(|| Error::Java(format!("Adoptium lists no Temurin 8 JRE for {}/{arch}", os.key())))?;
+    let package = release.binary.package;
+    if package.checksum.len() != 64 {
+        return Err(Error::Java(format!("Adoptium published no SHA-256 for {}", package.name)));
+    }
+    tracing::info!(release = %release.release_name, package = %package.name, "Temurin 8");
 
     let dest_root = paths.java_dir().join(format!("temurin8-{}-{arch}", os.key()));
     std::fs::create_dir_all(&dest_root).map_err(|e| Error::io(&dest_root, e))?;
 
-    if let Some(tx) = &progress {
-        let _ = tx.send(Progress::Started { files: 1, bytes: 0 }).await;
-    }
-    let resp = client.get(&url).send().await?;
-    let status = resp.status();
-    if !status.is_success() {
-        return Err(Error::HttpStatus { url, status: status.as_u16(), detail: None });
-    }
-    let bytes = resp.bytes().await?;
-    if let Some(tx) = &progress {
-        let _ = tx
-            .send(Progress::Finished {
-                path: dest_root.clone(),
-                bytes: bytes.len() as u64,
-                cached: false,
-                done: 1,
-                total: 1,
-            })
-            .await;
-    }
-
-    // Windows ships a zip, macOS and Linux a tar.gz.
+    // Windows ships a zip, macOS and Linux a tar.gz. Streamed to disk and checked against
+    // Adoptium's SHA-256 before anything is unpacked.
     let archive = dest_root.join(if os == Os::Windows { "jre.zip" } else { "jre.tar.gz" });
-    std::fs::write(&archive, &bytes).map_err(|e| Error::io(&archive, e))?;
+    crate::download::fetch_sha256(
+        client,
+        &package.link,
+        &archive,
+        &package.checksum,
+        package.size,
+        progress.as_ref(),
+    )
+    .await?;
     if os == Os::Windows {
         crate::archive::extract_zip(&archive, &dest_root, &[])?;
     } else {
@@ -405,6 +467,22 @@ mod tests {
         assert!(at(Some("amd64")).runs_lwjgl2());
         // A JVM that would not say must not be rejected for it.
         assert!(at(None).runs_lwjgl2());
+    }
+
+    #[test]
+    fn windows_on_arm_falls_back_to_the_x64_jre() {
+        assert_eq!(adoptium_arch_for(Os::Windows, "aarch64"), "x64");
+        assert_eq!(adoptium_arch_for(Os::Windows, "x86_64"), "x64");
+        assert_eq!(adoptium_arch_for(Os::Linux, "aarch64"), "aarch64");
+        assert!(adoptium_assets_url(Os::Windows, "x64").contains("architecture=x64&image_type=jre&os=windows"));
+    }
+
+    #[test]
+    fn the_adoptium_answer_yields_a_link_and_a_checksum() {
+        let json = r#"[{"binary":{"package":{"link":"https://example.invalid/jre.zip","checksum":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":42,"name":"OpenJDK8U-jre.zip"}},"release_name":"jdk8u462-b08"}]"#;
+        let releases: Vec<AdoptiumRelease> = serde_json::from_str(json).unwrap();
+        assert_eq!(releases[0].binary.package.size, Some(42));
+        assert_eq!(releases[0].binary.package.checksum.len(), 64);
     }
 
     #[test]

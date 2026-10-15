@@ -3,7 +3,9 @@
 //!
 //! `protocol.json` mixes both directions in one `examples` array, so each entry is
 //! routed by its `t` to [`JavaToRust`] or [`RustToJava`] — which is itself a check that
-//! the two enums between them cover the whole message set and nothing twice.
+//! the two enums between them cover the whole message set. `emote` is the one `t` both
+//! directions use (the contract names it so); an `emote` carrying a `uuid` is the
+//! launcher's relay of someone else's, one without is the local player's.
 
 use serde_json::Value;
 use void_bridge::{JavaToRust, RustToJava};
@@ -52,14 +54,15 @@ fn tags(direction: &str) -> Vec<String> {
 #[test]
 fn protocol_examples_round_trip() {
     let examples = examples();
-    assert_eq!(examples.len(), 13, "protocol.json ships thirteen examples");
+    assert_eq!(examples.len(), 24, "protocol.json ships twenty-four examples");
 
     let inbound = tags("java_to_rust");
     let mut seen: Vec<String> = Vec::new();
 
     for (i, example) in examples.iter().enumerate() {
         let t = example["t"].as_str().expect("every example has a `t`").to_string();
-        let back = if inbound.contains(&t) {
+        let inbound_msg = if t == "emote" { example.get("uuid").is_none() } else { inbound.contains(&t) };
+        let back = if inbound_msg {
             let msg: JavaToRust = serde_json::from_value(example.clone())
                 .unwrap_or_else(|e| panic!("example {i} (`{t}`) does not deserialize: {e}"));
             assert_eq!(msg.tag(), t, "example {i} deserialized as the wrong variant");
@@ -84,12 +87,29 @@ fn protocol_examples_round_trip() {
 }
 
 #[test]
-fn the_two_directions_cover_all_ten_messages_exactly_once() {
+fn the_two_directions_cover_every_message_and_share_only_emote() {
     let inbound = tags("java_to_rust");
     let outbound = tags("rust_to_java");
-    assert_eq!(inbound, ["hello", "state", "hud", "globals", "session", "server", "hotkey"]);
-    assert_eq!(outbound, ["init", "loadout", "settings"]);
+    assert_eq!(
+        inbound,
+        [
+            "hello",
+            "state",
+            "hud",
+            "globals",
+            "session",
+            "server",
+            "hotkey",
+            "cosmetics_query",
+            "emote",
+            "equip",
+            "loadout_save",
+            "loadout_delete",
+            "loadout_select"
+        ]
+    );
+    assert_eq!(outbound, ["init", "loadout", "settings", "cosmetics", "emote", "library"]);
     for t in &inbound {
-        assert!(!outbound.contains(t), "`{t}` is claimed by both directions");
+        assert!(!outbound.contains(t) || t == "emote", "`{t}` is claimed by both directions");
     }
 }

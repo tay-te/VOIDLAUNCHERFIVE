@@ -7,8 +7,8 @@
 
 use std::sync::Arc;
 
-use void_bridge::{BridgeServer, HotkeyId, InitPayload, InitSource, JavaToRust};
-use void_loadout::{GlobalPatch, GlobalSettings, LoadoutId, Store};
+use void_bridge::{BridgeServer, HotkeyId, InitPayload, InitSource, JavaToRust, RustToJava};
+use void_loadout::{GlobalPatch, GlobalSettings, Loadout, LoadoutId, Store};
 
 /// Answers `init` from the on-disk library, freshly read on every connect.
 ///
@@ -118,8 +118,68 @@ pub async fn pump(server: BridgeServer, store: Store) {
                 HotkeyId::Overlay => tracing::debug!("the overlay was toggled in game"),
             },
 
+            // The in-game Loadouts screen. Java has already done each of these; if the store
+            // cannot follow, the game is sent the library as it is on disk so the two agree.
+            JavaToRust::LoadoutSave { loadout } => {
+                if let Err(e) = apply_loadout_save(&store, &loadout) {
+                    tracing::error!(error = %e, id = %loadout.id, "could not store a loadout from the game");
+                    resync_library(&server, &store);
+                }
+            }
+            JavaToRust::LoadoutDelete { id } => {
+                if let Err(e) = apply_loadout_delete(&store, &id) {
+                    tracing::error!(error = %e, %id, "could not delete a loadout the game deleted");
+                    resync_library(&server, &store);
+                }
+            }
+            JavaToRust::LoadoutSelect { id } => {
+                if let Err(e) = store.set_active(&id) {
+                    tracing::error!(error = %e, %id, "could not follow an in-game loadout switch");
+                }
+            }
+
+            // Cosmetics and emotes are online state, not loadout state: the launcher's
+            // online bridge (`void-online`) answers them, and nothing here persists them.
+            JavaToRust::CosmeticsQuery { .. } | JavaToRust::Emote { .. } | JavaToRust::Equip { .. } => {}
+
             JavaToRust::Unknown => {}
         }
+    }
+}
+
+/// Stores a loadout the game created or changed: a new id is appended to the library
+/// order, a known one overwritten. Stats are Rust's to keep — the game reports play time
+/// through `session` — so a stored loadout's stats survive the save.
+fn apply_loadout_save(store: &Store, loadout: &Loadout) -> Result<(), void_loadout::Error> {
+    let mut incoming = loadout.clone();
+    if let Ok(existing) = store.load(&incoming.id) {
+        incoming.stats = existing.stats;
+    }
+    store.upsert(&incoming)?;
+    tracing::info!(id = %incoming.id, "loadout stored from the game");
+    Ok(())
+}
+
+/// Deletes a loadout the game deleted, never the last one.
+fn apply_loadout_delete(store: &Store, id: &LoadoutId) -> Result<(), void_loadout::Error> {
+    if store.list_ids()?.len() <= 1 {
+        return Err(void_loadout::Error::Invalid("the last loadout cannot be deleted".into()));
+    }
+    store.delete(id)?;
+    tracing::info!(%id, "loadout deleted from the game");
+    Ok(())
+}
+
+/// Sends the game the library as it is on disk.
+fn resync_library(server: &BridgeServer, store: &Store) {
+    match store.list() {
+        Ok(loadouts) if !loadouts.is_empty() => {
+            if let Err(e) = server.send(&RustToJava::Library { loadouts }) {
+                tracing::warn!(error = %e, "could not resync the library to the game");
+            }
+        }
+        Ok(_) => {}
+        Err(e) => tracing::error!(error = %e, "cannot read the library to resync it"),
     }
 }
 
@@ -321,5 +381,30 @@ mod tests {
         );
         assert!(result.is_err());
         assert_eq!(store.load(&id).unwrap().hud, before);
+    }
+
+    #[test]
+    fn an_in_game_save_creates_then_overwrites_and_keeps_stats() {
+        let (_d, store) = store();
+        let mut fresh = Loadout::new(LoadoutId::new("bridge").unwrap(), "Bridge", "sword");
+        apply_loadout_save(&store, &fresh).unwrap();
+        assert_eq!(store.list().unwrap().last().unwrap().id.as_str(), "bridge");
+
+        store.record_session(&fresh.id, 60_000, 120.0).unwrap();
+        fresh.name = "Bridging".into();
+        apply_loadout_save(&store, &fresh).unwrap();
+        let stored = store.load(&fresh.id).unwrap();
+        assert_eq!(stored.name, "Bridging");
+        assert_eq!(stored.stats.and_then(|s| s.played_ms), Some(60_000), "Rust owns stats");
+    }
+
+    #[test]
+    fn an_in_game_delete_never_takes_the_last_loadout() {
+        let (_d, store) = store();
+        for id in ["sword-pvp", "bedwars"] {
+            apply_loadout_delete(&store, &LoadoutId::new(id).unwrap()).unwrap();
+        }
+        assert!(apply_loadout_delete(&store, &LoadoutId::new("uhc").unwrap()).is_err());
+        assert_eq!(store.list_ids().unwrap().len(), 1);
     }
 }

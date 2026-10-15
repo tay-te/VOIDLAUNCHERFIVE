@@ -9,14 +9,15 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { __resetMock, __setSpeed, __signIn, emit } from '../mocks/tauri';
+import { __resetMock, __seedOnline, __setSpeed, __signIn, __signInOnline, emit } from '../mocks/tauri';
 import { hypixelReady } from '../local/hypixelReady';
 import { effectiveState, enabledCount, isOn, matchesTab } from '../local/registry';
 import { useLaunch, wireLaunchEvents, formatBytes, stepLabel } from './launch';
 import { useLoadouts, wireLoadoutEvents } from './loadouts';
 import { useServers, nameForHost, normaliseHost, pingTone } from './servers';
-import { useFriends, USERNAME_ERROR, friendsOn, lastSeenText } from './friends';
-import { useCosmetics } from './cosmetics';
+import { useFriends, USERNAME_ERROR, OFFLINE_ERROR, friendsOn, lastSeenText, fromServer as friendsFromServer } from './friends';
+import { isWorn, slotFor, useCosmetics } from './cosmetics';
+import { useOnlineStatus, wireOnlineEvents } from './online';
 import { CATALOG, FREE_ITEMS } from '../local/catalog';
 import { countsFor, TOTAL_MODS } from '../local/categories';
 import { useSession, wireSessionEvents } from './session';
@@ -34,11 +35,14 @@ async function until(predicate: () => boolean, label: string, ms = 2000): Promis
 beforeEach(() => {
   __resetMock();
   __setSpeed(0); // no artificial delays; every scheduled callback runs inline
-  useSession.setState({ account: null, system: null, java: null, deviceCode: null, error: null });
+  useSession.setState({ account: null, accounts: [], system: null, java: null, deviceCode: null, error: null });
   useLoadouts.setState({ library: [], active: null, settings: null, error: null });
-  useLaunch.setState({ phase: 'idle', progress: null, log: [], error: null, lastSession: null, crash: null, server: null, launchedServer: null });
+  useLaunch.setState({ phase: 'idle', progress: null, log: [], error: null, notice: null, lastSession: null, crash: null, server: null, launchedServer: null });
   useUi.setState({ screen: 'home', paletteOpen: false, settingsOpen: false, logOpen: false, friendsOpen: false, storeItem: null });
   localStorage.clear();
+  useOnlineStatus.setState({ status: { state: 'signed_out' } });
+  useFriends.setState({ online: false, error: null });
+  useCosmetics.setState({ online: false, error: null, checkout: null });
   useFriends.getState().hydrate();
   useCosmetics.getState().hydrate();
 });
@@ -60,6 +64,28 @@ describe('session store', () => {
 
     await useSession.getState().logout();
     expect(useSession.getState().account).toBeNull();
+  });
+
+  it('keeps several accounts, switches between them and signs one out', async () => {
+    await useSession.getState().loginOffline('Alpha');
+    await useSession.getState().loginOffline('Bravo');
+    let s = useSession.getState();
+    expect(s.accounts.map((a) => a.name)).toEqual(['Alpha', 'Bravo']);
+    expect(s.account?.name).toBe('Bravo');
+
+    const alpha = s.accounts.find((a) => a.name === 'Alpha')!;
+    await useSession.getState().switchAccount(alpha.uuid);
+    expect(useSession.getState().account?.name).toBe('Alpha');
+
+    // Signing out the active account hands over to the one that is left.
+    await useSession.getState().logout();
+    s = useSession.getState();
+    expect(s.account?.name).toBe('Bravo');
+    expect(s.accounts).toHaveLength(1);
+
+    await useSession.getState().removeAccount(s.account!.uuid);
+    expect(useSession.getState().account).toBeNull();
+    expect(useSession.getState().accounts).toHaveLength(0);
   });
 
   it('surfaces the backend’s own sentence when a name is rejected', async () => {
@@ -145,6 +171,54 @@ describe('loadout store', () => {
     await useLoadouts.getState().switchTo('does-not-exist');
     expect(useLoadouts.getState().error).toMatch(/No loadout/);
   });
+
+  it('exports a share code and imports it as a new loadout without switching', async () => {
+    await useLoadouts.getState().hydrate();
+    const source = useLoadouts.getState().active!;
+    const before = useLoadouts.getState().library.length;
+
+    const code = await useLoadouts.getState().exportCode(source.id);
+    expect(code).toMatch(/^VOID1\./);
+
+    const result = await useLoadouts.getState().importCode(code!);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.loadout.id).not.toBe(source.id);
+    expect(result.loadout.id).toBe(`${source.id}-2`);
+    expect(result.loadout.name).toBe(source.name);
+    expect(result.dropped).toBe(0);
+
+    // The library was refreshed, the new loadout is last, and the active one did not move.
+    const s = useLoadouts.getState();
+    expect(s.library).toHaveLength(before + 1);
+    expect(s.library.at(-1)?.id).toBe(result.loadout.id);
+    expect(s.active?.id).toBe(source.id);
+    expect(s.error).toBeNull();
+  });
+
+  it('a refused code answers with the reason and leaves the library alone', async () => {
+    await useLoadouts.getState().hydrate();
+    const before = useLoadouts.getState().library.length;
+
+    const empty = await useLoadouts.getState().importCode('  ');
+    expect(empty).toEqual({ ok: false, error: 'Nothing to import.' });
+
+    const junk = await useLoadouts.getState().importCode('not a code');
+    expect(junk).toEqual({ ok: false, error: 'That is not a VOID loadout code.' });
+
+    const code = (await useLoadouts.getState().exportCode('sword-pvp'))!;
+    const newer = await useLoadouts.getState().importCode(code.replace(/^VOID1/, 'VOID9'));
+    expect(newer).toEqual({ ok: false, error: 'That code was made by a newer VOID.' });
+
+    expect(useLoadouts.getState().library).toHaveLength(before);
+    // A bad paste belongs to the field that took it, not to the store-wide error.
+    expect(useLoadouts.getState().error).toBeNull();
+  });
+
+  it('exporting an unknown loadout reports rather than throws', async () => {
+    await useLoadouts.getState().hydrate();
+    expect(await useLoadouts.getState().exportCode('nope')).toBeNull();
+    expect(useLoadouts.getState().error).toMatch(/no loadout/);
+  });
 });
 
 describe('launch store', () => {
@@ -211,6 +285,20 @@ describe('launch store', () => {
     useLaunch.getState().dismissCrash();
     emit('game:closed', { code: 143, loadout: 'sword-pvp', played_ms: 5_000, fps_avg: 0 });
     expect(useLaunch.getState().crash).toBeNull();
+    stop();
+  });
+
+  it('carries the crash report path to the crash card', async () => {
+    const stop = await wireLaunchEvents();
+    emit('game:closed', {
+      code: 1,
+      loadout: 'sword-pvp',
+      played_ms: 1_000,
+      fps_avg: 0,
+      crash_tail: [],
+      crash_report: '/x/game/crash-reports/crash-1-client.txt',
+    });
+    expect(useLaunch.getState().crash?.report).toBe('/x/game/crash-reports/crash-1-client.txt');
     stop();
   });
 
@@ -340,7 +428,8 @@ describe('registry helpers', () => {
     await useLoadouts.getState().hydrate();
     const active = useLoadouts.getState().active!;
     expect(enabledCount(active)).toBeGreaterThan(0);
-    expect(enabledCount(active)).toBeLessThanOrEqual(12);
+    // Ten HUD/gameplay defaults plus the three FPS-boost mods and `cosmetics`, which ship on.
+    expect(enabledCount(active)).toBeLessThanOrEqual(14);
   });
 
   it('a loadout that omits a mod still reports its registry default', async () => {
@@ -376,6 +465,16 @@ describe('ui store', () => {
     expect(useUi.getState().settingsOpen).toBe(true);
     expect(useUi.getState().paletteOpen).toBe(false);
   });
+
+  it('the palette’s import lands on Home with the loadout menu’s paste field open', () => {
+    useUi.setState({ loadoutMenu: null });
+    useUi.getState().go('mods');
+    useUi.getState().openPalette();
+    useUi.getState().openLoadoutImport();
+    expect(useUi.getState().screen).toBe('home');
+    expect(useUi.getState().loadoutMenu).toBe('import');
+    expect(useUi.getState().paletteOpen).toBe(false);
+  });
 });
 
 describe('friends store (rule 7)', () => {
@@ -386,25 +485,58 @@ describe('friends store (rule 7)', () => {
     expect(s.outgoing).toEqual([]);
   });
 
-  it('adds by Minecraft username only: 3–16 letters, digits and underscores', () => {
-    expect(useFriends.getState().request('x!')).toBe(USERNAME_ERROR);
-    expect(useFriends.getState().request('ab')).toBe(USERNAME_ERROR);
-    expect(useFriends.getState().request('a_very_long_name_x')).toBe(USERNAME_ERROR);
-    expect(useFriends.getState().request('nine')).toBeNull();
-    expect(useFriends.getState().outgoing).toEqual(['nine']);
-    expect(useFriends.getState().request('NINE')).toMatch(/already sent/);
+  it('offline, it checks the name and then says why it cannot send', async () => {
+    expect(await useFriends.getState().request('x!')).toBe(USERNAME_ERROR);
+    expect(await useFriends.getState().request('nine')).toBe(OFFLINE_ERROR);
+    expect(useFriends.getState().outgoing).toEqual([]);
   });
 
-  it('answering a request in either direction makes a friend', () => {
-    useFriends.setState({ incoming: ['marrow'], friends: [], outgoing: [] });
-    useFriends.getState().accept('marrow');
-    expect(useFriends.getState().incoming).toEqual([]);
-    expect(useFriends.getState().friends.map((f) => f.name)).toEqual(['marrow']);
-    expect(useFriends.getState().request('Marrow')).toMatch(/already friends/);
+  it('adds by Minecraft username only: 3–16 letters, digits and underscores', async () => {
+    __signInOnline();
+    await useFriends.getState().refresh();
+    expect(useFriends.getState().online).toBe(true);
+    expect(await useFriends.getState().request('ab')).toBe(USERNAME_ERROR);
+    expect(await useFriends.getState().request('a_very_long_name_x')).toBe(USERNAME_ERROR);
+    expect(await useFriends.getState().request('nine')).toBeNull();
+    expect(useFriends.getState().outgoing).toEqual(['nine']);
+    expect(await useFriends.getState().request('NINE')).toMatch(/already sent/);
+    expect(await useFriends.getState().request('Ghost')).toMatch(/Nobody called Ghost/);
+    // The list survives a restart as the offline copy.
+    useFriends.setState({ outgoing: [] });
+    useFriends.getState().hydrate();
+    expect(useFriends.getState().outgoing).toEqual(['nine']);
+  });
 
-    useFriends.setState({ incoming: ['tavi'] });
-    expect(useFriends.getState().request('tavi')).toBeNull();
+  it('answering a request in either direction makes a friend', async () => {
+    __signInOnline();
+    __seedOnline({ owned: [], equipped: {}, friends: [], incoming: ['marrow', 'tavi'] });
+    await useFriends.getState().refresh();
+    expect(useFriends.getState().incoming).toEqual(['marrow', 'tavi']);
+
+    await useFriends.getState().accept('marrow');
+    expect(useFriends.getState().incoming).toEqual(['tavi']);
+    expect(useFriends.getState().friends.map((f) => f.name)).toEqual(['marrow']);
+    expect(await useFriends.getState().request('Marrow')).toMatch(/already friends/);
+
+    // They asked first: sending one back is accepting theirs.
+    expect(await useFriends.getState().request('tavi')).toBeNull();
     expect(useFriends.getState().friends.map((f) => f.name)).toContain('tavi');
+    expect(useFriends.getState().incoming).toEqual([]);
+
+    await useFriends.getState().remove('tavi');
+    expect(useFriends.getState().friends.map((f) => f.name)).toEqual(['marrow']);
+  });
+
+  it('pushes from the backend land without a refetch', async () => {
+    await wireOnlineEvents();
+    emit('online:friends', {
+      friends: [{ uuid: 'u1', name: 'Moss', presence: { state: 'online', server: 'mc.hypixel.net', last_seen: 5 } }],
+      incoming: [],
+      outgoing: [],
+    });
+    const moss = useFriends.getState().friends[0];
+    expect(moss?.presence).toEqual({ state: 'online', server: 'mc.hypixel.net', lastSeen: 5 });
+    expect(useFriends.getState().ids.moss).toBe('u1');
   });
 
   it('knows who is on the server Launch joins', () => {
@@ -412,9 +544,24 @@ describe('friends store (rule 7)', () => {
       { name: 'Moss', presence: { state: 'online' as const, server: 'mc.hypixel.net', game: 'Duels' } },
       { name: 'Rin_', presence: { state: 'online' as const, lobby: true } },
       { name: 'Otto', presence: { state: 'offline' as const, server: 'mc.hypixel.net' } },
+      { name: 'Juno', presence: { state: 'online' as const, server: 'play.example.org:25566' } },
     ];
     expect(friendsOn(friends, 'MC.HYPIXEL.NET').map((f) => f.name)).toEqual(['Moss']);
+    expect(friendsOn(friends, 'mc.hypixel.net:25565').map((f) => f.name)).toEqual(['Moss']);
+    expect(friendsOn(friends, 'play.example.org:25566').map((f) => f.name)).toEqual(['Juno']);
     expect(friendsOn(friends, null)).toEqual([]);
+  });
+
+  it('maps the backend list into the drawer shape', () => {
+    const data = friendsFromServer({
+      friends: [{ uuid: 'a', name: 'Otto', presence: { state: 'offline', last_seen: 1000 } }],
+      incoming: [{ uuid: 'b', name: 'marrow', at: 1 }],
+      outgoing: [{ uuid: 'c', name: 'Tavi', at: 2 }],
+    });
+    expect(data.friends).toEqual([{ uuid: 'a', name: 'Otto', presence: { state: 'offline', lastSeen: 1000 } }]);
+    expect(data.incoming).toEqual(['marrow']);
+    expect(data.outgoing).toEqual(['Tavi']);
+    expect(data.ids).toEqual({ otto: 'a', marrow: 'b', tavi: 'c' });
   });
 
   it('says when an offline friend was last seen', () => {
@@ -428,15 +575,88 @@ describe('cosmetics store (rules 5, 8)', () => {
   it('owns the free items and nothing else to begin with', () => {
     expect(useCosmetics.getState().owned.sort()).toEqual([...FREE_ITEMS].sort());
     expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
+    expect(useCosmetics.getState().online).toBe(false);
   });
 
-  it('equips only what is owned, one per kind, and a second press takes it off', () => {
-    useCosmetics.getState().equip('void-cape');
+  it('offline, equips only what is owned, one per kind, and a second press takes it off', async () => {
+    await useCosmetics.getState().equip('void-cape');
     expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
-    useCosmetics.getState().equip('void-badge-player');
+    await useCosmetics.getState().equip('void-badge-player');
     expect(useCosmetics.getState().equipped.badge).toBe('void-badge-player');
-    useCosmetics.getState().equip('void-badge-player');
+    await useCosmetics.getState().equip('void-badge-player');
     expect(useCosmetics.getState().equipped.badge).toBeUndefined();
+  });
+
+  it('maps the catalog kinds onto the contract slots', () => {
+    expect(slotFor('cape')).toBe('cape');
+    expect(slotFor('trail')).toBe('trail');
+    expect(slotFor('badge')).toBe('badge');
+    // The launcher catalog's old kind name, kept as a synonym for stored state.
+    expect(slotFor('nameplate')).toBe('badge');
+    expect(slotFor('emote')).toBe('emotes');
+    expect(slotFor('halo')).toBe('halo');
+    expect(slotFor('aura')).toBeNull();
+  });
+
+  it('online, the server owns the truth and every equip goes through it', async () => {
+    __signInOnline();
+    await useCosmetics.getState().refresh();
+    const s = useCosmetics.getState();
+    expect(s.online).toBe(true);
+    expect(s.owned.sort()).toEqual([...FREE_ITEMS].sort());
+    expect(s.equipped).toEqual({}); // a new account wears nothing until it chooses
+
+    await useCosmetics.getState().equip('origin-cape');
+    expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
+    await useCosmetics.getState().equip('void-badge-player');
+    expect(useCosmetics.getState().equipped.badge).toBe('void-badge-player');
+    await useCosmetics.getState().equip('origin-cape');
+    expect(useCosmetics.getState().equipped.cape).toBeUndefined();
+    // Not owned: nothing happens, nothing is sent.
+    await useCosmetics.getState().equip('void-cape');
+    expect(useCosmetics.getState().equipped.cape).toBeUndefined();
+  });
+
+  it('online, emotes go on and off the wheel', async () => {
+    __signInOnline();
+    __seedOnline({ owned: ['emote-wave', 'emote-clap'], equipped: {}, friends: [], incoming: [] });
+    await useCosmetics.getState().refresh();
+    await useCosmetics.getState().equip('emote-wave');
+    await useCosmetics.getState().equip('emote-clap');
+    expect(useCosmetics.getState().emotes).toEqual(['emote-wave', 'emote-clap']);
+    const wave = CATALOG.find((i) => i.id === 'emote-wave')!;
+    expect(isWorn(useCosmetics.getState(), wave)).toBe(true);
+    await useCosmetics.getState().equip('emote-wave');
+    expect(useCosmetics.getState().emotes).toEqual(['emote-clap']);
+  });
+
+  it('buying opens checkout and the item arrives when the backend says it was paid for', async () => {
+    __signInOnline();
+    await wireOnlineEvents();
+    await useCosmetics.getState().refresh();
+    await useCosmetics.getState().buy('void-cape');
+    expect(useCosmetics.getState().owned).toContain('void-cape');
+    expect(useCosmetics.getState().checkout).toEqual({ item: 'void-cape', phase: 'done' });
+
+    await useCosmetics.getState().buy('void-cape');
+    expect(useCosmetics.getState().checkout).toMatchObject({ phase: 'failed', message: expect.stringMatching(/already own/) });
+  });
+
+  it('offline, buying says what is needed instead of pretending', async () => {
+    await useCosmetics.getState().buy('void-cape');
+    expect(useCosmetics.getState().checkout).toMatchObject({ phase: 'failed', message: expect.stringMatching(/Microsoft account/) });
+    expect(useCosmetics.getState().owned).not.toContain('void-cape');
+  });
+
+  it('signing out drops back to the offline copy', async () => {
+    __signInOnline();
+    await wireOnlineEvents();
+    emit('online:status', { state: 'online', uuid: 'u', name: 'Kestrel' });
+    await until(() => useCosmetics.getState().online, 'cosmetics online');
+    emit('online:status', { state: 'signed_out' });
+    expect(useCosmetics.getState().online).toBe(false);
+    expect(useFriends.getState().online).toBe(false);
+    expect(useOnlineStatus.getState().status.state).toBe('signed_out');
   });
 
   it('the catalog is the launch lineup from schema/cosmetics.json, granted items left out', () => {
@@ -448,9 +668,11 @@ describe('cosmetics store (rules 5, 8)', () => {
 });
 
 describe('category counts (Home strip)', () => {
-  it('splits the registry the way the frame does: 11 · 11 · 5 · 3', () => {
-    // `cosmetics` (visual) is the thirtieth.
-    expect(TOTAL_MODS).toBe(30);
-    expect(countsFor(null).map((c) => c.total)).toEqual([11, 11, 5, 3]);
+  // Wave 7 added the scoreboard (HUD), eight visual mods and the three FPS-boost utilities;
+  // the depth half added Potion counter and Reach display (PvP) and Chat (Utility); the
+  // cosmetics half added `cosmetics` (Visual).
+  it('splits the registry by its declared category: 12 · 13 · 13 · 7', () => {
+    expect(TOTAL_MODS).toBe(45);
+    expect(countsFor(null).map((c) => c.total)).toEqual([12, 13, 13, 7]);
   });
 });

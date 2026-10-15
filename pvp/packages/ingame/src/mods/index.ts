@@ -41,6 +41,9 @@ import memory from './memory';
 import momentum from './momentum';
 import old_animations from './old_animations';
 import old_input from './old_input';
+import potion_counter from './potion_counter';
+import reach from './reach';
+import chat from './chat';
 import overlay from './overlay';
 import crosshair from './crosshair';
 import damage_tint from './damage_tint';
@@ -60,6 +63,18 @@ import potion_effects from './potion_effects';
 import toggle_sprint from './toggle_sprint';
 import watermark from './watermark';
 import zoom from './zoom';
+import culling from './culling';
+import particles from './particles';
+import frame_limiter from './frame_limiter';
+import block_outline from './block_outline';
+import shiny_pots from './shiny_pots';
+import clear_glass from './clear_glass';
+import nametags from './nametags';
+import scoreboard from './scoreboard';
+import gui_scale from './gui_scale';
+import fog from './fog';
+import menu_blur from './menu_blur';
+import time_weather from './time_weather';
 
 /**
  * The art for every mod.
@@ -104,6 +119,26 @@ const ART = {
   // `safe` and animation only, `old_input` is `grey` and changes what leaves the client.
   old_animations,
   old_input,
+  // Wave 7 — FPS boost + visual table stakes. Three that make frames cheaper (culling, particles,
+  // the frame limiter), eight that change how the world looks, and the scoreboard, the one HUD
+  // chip of the wave. Eleven draw into the world, so their art is a diagram
+  // (`menu/visual-previews.tsx`); the scoreboard's preview is its widget.
+  culling,
+  particles,
+  frame_limiter,
+  block_outline,
+  shiny_pots,
+  clear_glass,
+  nametags,
+  scoreboard,
+  gui_scale,
+  fog,
+  menu_blur,
+  time_weather,
+  // Wave 7 — the depth pass: two readouts the inventory and reach sensors opened, and chat.
+  potion_counter,
+  reach,
+  chat,
   // The switches over the cosmetics renderer: what this client draws, never what anyone wears.
   cosmetics,
 } satisfies Record<ModId, ModArt>;

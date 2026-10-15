@@ -27,10 +27,10 @@ in a live match, a quick panel only — no dim, closed by the first hit taken.**
 | | Lobby (`context: 'lobby'`) | Match (`context: 'match'`) |
 |---|---|---|
 | top-left | VOID mark island | VOID mark island |
-| top-centre | tabs island: **Mods · Friends · Cosmetics**, `Tab` walks them | the quick panel: eight numbered toggles, `1`–`8` flip them |
+| top-centre | tabs island: **Mods · Friends · Cosmetics**, `Tab` walks them | the quick panel: the loadout's pins (eight at most), numbered, `1`–`8` flip them |
 | top-right | close island: ✕ + the menu key | same |
 | centre | **the Mods panel** (987 × 630): category tabs with counts, a search button (`/`), and the *original cards* — `ModsScreen`'s own `Tile`, live previews and all — five across at 175 × 223 | — |
-| bottom | lobby strip: where you are · **HUD layout** | — |
+| bottom | lobby strip: where you are · **HUD layout** · **Loadouts** (naming the active one) | — |
 | world | dimmed (`.menu-layer__dim`) | untouched |
 | ⌘K palette | yes | no |
 
@@ -39,8 +39,9 @@ positioning only; flat — no gradients or shadows, per the settled UI rules). I
 arrows walk the tiles, `Space` toggles, `Enter` (or the tile body) opens the mod's page, and the
 tile's switch toggles in place — the tile's own contract. **Friends and Cosmetics** have tabs but
 the bridge carries no friend, presence or cosmetic data, so they say "Not connected yet" rather
-than draw a roster the page cannot know. The quick panel's eight are the frame's own list
-(`QUICK_MODS`), because a loadout has no pins in the schema yet.
+than draw a roster the page cannot know. The quick panel shows the active loadout's pins
+(`loadout.quick`, set with a mod page's `Pin to quick panel` through `void.setQuickPins`); a
+loadout that never pinned anything shows the frame's own eight (`FACTORY_QUICK`).
 
 **How "in a match" is decided.** The bridge has no lobby/match signal, and a per-network
 scoreboard heuristic would be a guess. What it does carry is `tick.hits` (monotonic dealt/taken
@@ -62,7 +63,8 @@ In the harness: `?debug` opens the lobby menu, `?debug&ctx=match` the quick pane
 window.__void_native  ──void-shim.js──▶  window.void          ──┐
    (Java, in-process)      (from the JAR)                       │  on('keys'|'tick'|
                                                                 │      'server'|'loadout'|
-                                                                │      'loadouts'|'setting'|'menu')
+                                                                │      'loadouts'|'setting'|'menu'|
+                                                                │      'session'|'settings'|'toast')
                                                                 ▼
                                                         src/store/store.ts   (Zustand)
                                                                 │
@@ -70,7 +72,7 @@ window.__void_native  ──void-shim.js──▶  window.void          ──�
                                     ▼                                                 ▼
                           src/hud/HudLayer.tsx                            src/menu/MenuLayer.tsx
                        always mounted · no input                     mounted while `menu` is true
-                       7 widgets, placed by hud[]                     Mods · Loadouts · Party
+                 one widget per HUD mod, placed by hud[]              Mods · Loadouts · Party
                                                                      HUD editor · ⌘K palette
 ```
 
@@ -94,7 +96,8 @@ whether three columns are showing or six.
 ### The panel is fixed; the grid fills it
 
 `.overlay` used to be `min(1600px, 92%) x min(980px, 92%)` — a fraction of the window, drawn
-for the frames' twenty-four mods. The registry has twelve, and a grid declared as three rows
+for the frames' twenty-four mods. The registry had twelve when this was measured (it has 45
+now; the arithmetic below is unchanged), and a grid declared as three rows
 laid them out four across, filling 674 of 1277 with half the panel empty. Both numbers are now
 derived the other way round:
 
@@ -155,11 +158,12 @@ survive so the tile you clicked is never the one that disappears.
 | Path | What lives there |
 |---|---|
 | `src/bridge/protocol.ts` | The one import of `@void/protocol` — types, `installVoidShim`, `createFakeVoid`, `MOD_REGISTRY` |
-| `src/bridge/connect.ts` | Picks the real or the fake bridge, subscribes the seven channels, owns `__hasFocus` |
+| `src/bridge/connect.ts` | Picks the real or the fake bridge, subscribes every push channel, owns `__hasFocus` and `__keepsEscape` |
 | `src/store/store.ts` | The single Zustand store. `window.void.on(...)` is the only writer of live data |
 | `src/store/cps.ts` | Clicks-per-second from the rising edges of `keys.lmb` / `keys.rmb`. Pure |
 | `src/store/hud-geometry.ts` | `anchor + dx/dy + scale` ⇄ pixels, snap, clamp, anchor re-pick. Pure |
-| `src/hud/` | The seven HUD mods, bound to the store; `HudLayer` places them |
+| `src/hud/` | One widget per HUD mod, bound to the store; `HudLayer` places them |
+| `src/toasts/` | `ToastStack`: the `toast` channel and the page's own notices, over both layers |
 | `src/menu/` | The four overlay screens, plus the Mods screen's inspector and property model |
 | `src/palette/` | ⌘K: the command set, the fuzzy ranker, and the selection / key routing over `@void/ui`'s palette shell |
 | `src/registry.ts` | The overlay's view of the registry: category tags and filter tabs **derived from `mods.json`**, plus the one thing the schema does not carry — the tile grid order |
@@ -169,12 +173,13 @@ survive so the tile you clicked is never the one that disappears.
 
 ### The bridge is the only input
 
-`bridge.json` is a closed surface: **seven** push channels and six calls. Because
+`bridge.json` is a closed surface: **eleven** push channels and seventeen calls (the two enums
+in `bridge.json` are the list; `VOID_EVENTS` / `VOID_CALLS` and `void-shim.js` mirror them). Because
 Ultralight runs inside the JVM, the calls are **synchronous and authoritative** —
 `setModSetting` returns the value Java stored after clamping, and that returned value is
 what the control binds to. There is no optimistic UI and no `ack` anywhere in this package.
 
-Two of the seven channels exist because this package needed them:
+Two of the channels exist because this package needed them:
 
 * **`loadouts`** — the whole library, in full, in library order. `init.loadouts` carries
   complete loadouts, so the Loadouts frame lists and compares every card and the palette
@@ -231,7 +236,9 @@ A focused checkbox or button is **not** text focus, so Escape still closes.
 Screens other than Mods are reached from the palette (`Loadouts`, `Party`,
 `Edit HUD layout`), from a tile's settings pane (`Edit position` → HUD editor), or by
 double-clicking a tile (→ that mod's settings screen). The frames draw no screen
-switcher, so none was invented.
+switcher, so none was invented — but the lobby strip carries a `Loadouts` pill beside
+`HUD layout`, for the same reason the HUD editor earned one (below), and Escape on the
+Loadouts screen goes back to the islands.
 
 **The HUD editor is the exception, and it earned it.** It has a labelled `HUD layout` button on
 the mods bar, left of the centred filter tabs. It was reachable only from a row inside Settings
@@ -240,6 +247,20 @@ was "we need a HUD editor", for an editor that had been shipping for weeks. It i
 because that is where this bar already puts places (`‹ Mods` sits there on every inner page), and
 not in the right-hand `settings · search · close` cluster, which is things that act on this window
 and has been called crowded three times. The Settings row and the palette command both stay.
+
+### Loadouts, notices and keybinds
+
+* **Loadouts** (`menu/LoadoutsScreen.tsx`) manages the library through the bridge's library
+  calls: `New loadout` (registry defaults, then the name opens for editing), and per card
+  `Rename` (the title edits in place), `Duplicate`, `Copy code` and `Delete` (two presses; never
+  the last loadout). `Import code` opens the panel-header field: paste or type a `VOID1.` code,
+  or press `Paste`. The Ultralight binding has no clipboard, so copy and paste go through Java
+  (`void.setClipboard` / `void.getClipboard`).
+* **Notices** (`toasts/ToastStack.tsx`, `styles/toasts.css`): Java's `toast` channel plus the
+  page's own (`store.pushToast`), at most three, each gone after `TOAST_MS` on one `setTimeout`.
+* **Keybinds** (`menu/keybind-overview.ts`, on the Settings page): every bound key — the menu
+  key, the cycle key and every `keybind`-typed mod setting — with clashes marked on both rows.
+  The cycle key (`cycle_loadout_key`) is rebindable there, and can be switched off.
 
 ---
 
@@ -438,7 +459,7 @@ headroom.
 ## Tests
 
 ```bash
-pnpm --filter @void/ingame test     # 93 tests
+pnpm --filter @void/ingame test
 pnpm --filter @void/ingame check    # typecheck + Ultralight guard + tests
 ```
 
@@ -479,7 +500,8 @@ in `schema/` and the workarounds are gone. They are kept as a record of what mov
    `category` (`hud | pvp | visual | utility`), matching frame 244:538 tag for tag.
    `MOD_CATEGORY` and `FILTER_TABS` are derived from it; the hand-written map is gone.
 5. **Party is presentational.** No bridge event or call carries party, presence or queue
-   state, and §16.2 is still open. Nothing on that screen is wired, and no bridge call was
+   state, and §16.2 is still open. (The keybind overview has the same edge: vanilla's own
+   bindings are not on the bridge, so a clash with a vanilla key is not marked.) Nothing on that screen is wired, and no bridge call was
    invented for it.
 6. ~~**`Outfit` ships at 400/500/600** and the design sets keycap and CTA labels at 700,
    so those weights are synthesised.~~ **Resolved.** `@void/ui`'s `fonts.css` now declares

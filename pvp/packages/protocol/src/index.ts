@@ -46,3 +46,4 @@ export type { CosmeticSlot } from './generated/cosmetics.js';
 export * from './void-bridge.js';
 export * from './fake-void.js';
 export * from './mods.js';
+export * from './share-code.js';

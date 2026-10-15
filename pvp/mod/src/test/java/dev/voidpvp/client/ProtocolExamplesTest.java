@@ -94,6 +94,29 @@ class ProtocolExamplesTest {
                 JsonObject rebuilt = Protocol.hotkey(example.get("id").getAsString());
                 assertEquals(example, rebuilt, where);
                 javaToRust++;
+            } else if ("loadout_save".equals(t)) {
+                JsonObject rebuilt = Protocol.loadoutSave(
+                        Loadout.fromJson(example.getAsJsonObject("loadout")).toJson());
+                // The mod materialises every mod, so the rebuilt loadout is a superset of the
+                // example's; what must hold is that nothing the example says was lost.
+                Schemas.assertContains(example, rebuilt, where);
+                javaToRust++;
+            } else if ("loadout_delete".equals(t)) {
+                assertEquals(example, Protocol.loadoutDelete(example.get("id").getAsString()), where);
+                javaToRust++;
+            } else if ("loadout_select".equals(t)) {
+                assertEquals(example, Protocol.loadoutSelect(example.get("id").getAsString()), where);
+                javaToRust++;
+            } else if ("library".equals(t)) {
+                Protocol.Inbound in = Protocol.parse(example.toString());
+                assertEquals(Protocol.Inbound.Kind.LIBRARY, in.kind, where);
+                JsonArray library = example.getAsJsonArray("loadouts");
+                assertEquals(library.size(), in.loadouts.size(), where);
+                for (int j = 0; j < library.size(); j++) {
+                    Schemas.assertContains(library.get(j).getAsJsonObject(),
+                            in.loadouts.get(j).toJson(), where + " loadouts[" + j + "]");
+                }
+                rustToJava++;
             } else if ("cosmetics_query".equals(t)) {
                 // The schema accepts dashed or undashed; the mod always sends dashed lower case.
                 List<String> uuids = new ArrayList<String>();
@@ -178,8 +201,8 @@ class ProtocolExamplesTest {
                         + "; teach net/Protocol about it");
             }
         }
-        assertEquals(14, javaToRust, "expected fourteen Java to Rust examples");
-        assertEquals(6, rustToJava, "expected six Rust to Java examples");
+        assertEquals(17, javaToRust, "expected seventeen Java to Rust examples");
+        assertEquals(7, rustToJava, "expected seven Rust to Java examples");
     }
 
     /**
