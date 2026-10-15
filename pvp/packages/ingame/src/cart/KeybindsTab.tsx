@@ -314,7 +314,7 @@ export function KeybindsTab() {
         <FooterKeys
           keys={[
             ['Click', 'rebind'],
-            ['⌫', 'unbind'],
+            ['Bksp', 'unbind'],
             ['F', 'find key'],
           ]}
         />

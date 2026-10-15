@@ -12,7 +12,7 @@
 
 import { memo, type CSSProperties } from 'react';
 
-import { SHEET_COLS, SHEET_ROWS, SPRITE_INDEX, type SpriteName } from './sprite-map';
+import { SHEET_COLS, SHEET_ROWS, SPRITE_CELL, SPRITE_GUTTER, SPRITE_INDEX, SPRITE_STRIDE, type SpriteName } from './sprite-map';
 
 export type { SpriteName };
 
@@ -35,11 +35,14 @@ export function spriteStyle(name: SpriteName, size: number): CSSProperties {
   const index = SPRITE_INDEX[name] ?? 0;
   const col = index % SHEET_COLS;
   const row = Math.floor(index / SHEET_COLS);
+  // Cells sit on a `SPRITE_STRIDE` pitch with a transparent gutter round each (see the generator).
+  const k = size / SPRITE_CELL;
+  const pitch = SPRITE_STRIDE * k;
   return {
     width: size,
     height: size,
-    backgroundSize: `${SHEET_COLS * size}px ${SHEET_ROWS * size}px`,
-    backgroundPosition: `${-col * size}px ${-row * size}px`,
+    backgroundSize: `${SHEET_COLS * pitch}px ${SHEET_ROWS * pitch}px`,
+    backgroundPosition: `${-(col * pitch + SPRITE_GUTTER * k)}px ${-(row * pitch + SPRITE_GUTTER * k)}px`,
   };
 }
 

@@ -13,7 +13,6 @@ import { cx } from '@/ui';
 import { TOAST_MS, useVoidStore, type Toast } from '@/store/store';
 import { Sprite, hasSprite, type SpriteName } from '@/cart/Sprite';
 import { Kc, Seg } from '@/cart/prims';
-import { useCartScale } from '@/cart/scale';
 import { loadoutEmblem } from '@/cart/LoadoutsTab';
 import { keybindLabel } from '@/menu/settings-format';
 
@@ -60,11 +59,12 @@ function ToastRow({ toast }: { toast: Toast }): React.ReactElement {
 
 export function ToastStack(): React.ReactElement | null {
   const toasts = useVoidStore((s) => s.toasts);
-  const scale = useCartScale();
   if (toasts.length === 0) return null;
   return (
     <div className="vtoasts" aria-live="polite">
-      <div className="vtoasts__in" style={{ zoom: scale.u } as React.CSSProperties}>
+      {/* HUD scale, not menu scale: a toast sits beside the effects module and must line up
+          with it, and HUD modules are laid out in the view's own CSS px. */}
+      <div className="vtoasts__in">
         {toasts.map((t) => (
           <ToastRow key={t.id} toast={t} />
         ))}

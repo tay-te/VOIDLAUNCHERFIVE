@@ -7,55 +7,76 @@ One HTML entry, one JS chunk, one CSS file. It is built into
 `mod/src/main/resources/assets/void/ui/`, loaded off the JAR classpath as
 `assets/void/ui/index.html`, and it never touches the network.
 
-Owner: **ingame** (CONTRACTS.md). Design contract: `pvp/design/quiet-cell-system.md` —
-where it and the frames disagree, it wins, and §7 has since folded the Mod-settings frame
-`244:834` into the Mods screen's inspector. The frames behind the rest: `244:538` (Mods),
-`244:1130` (Loadouts), `244:1426` (Party), `244:1722` (HUD layout), `244:1900` (Quick
-palette). Renderer limits: `pvp/design/ultralight-notes.md`, enforced by
-`scripts/check-ultralight.mjs`.
+Owner: **ingame** (CONTRACTS.md). Design: **Cartridge** — Figma `3c0Wgc4ZKFSpm98fWJoARS`, page
+`559:25183` "★ v2 · Launch refresh", section B `623:20` (tokens `593:2`, menu `594:2`, search
+`595:2`, empty/pinned `596:2`, settings bench `597:2`, keybind capture `598:2`, keybinds `643:2`,
+loadouts `600:2`, HUD editor `629:2`, fight HUD `630:2`–`633:2`, 720p `606:2`, 1440p `607:2`).
+The v1 frames and `pvp/design/quiet-cell-system.md` describe the screens this replaced. Renderer
+limits: `pvp/design/ultralight-notes.md`, enforced by `scripts/check-ultralight.mjs`.
 
 ---
 
-## The Right-Shift menu — final shell (v1.1)
+## The Right-Shift menu — Cartridge
 
-Figma `3c0Wgc4ZKFSpm98fWJoARS`, page "★ v1.1 · Iterations": the lobby is `261:50520` "In game ·
-Mods · final header (tabs + search icon)" (section "★ In-game · Final shell + original centred mod
-cards"); a match is `229:47020` "Floating · D · In match (quick panel only)". Exports are in
-`design/screens/v1-1-ingame/`. Rule 9 of v1 Ship still holds: **the full menu only in the lobby;
-in a live match, a quick panel only — no dim, closed by the first hit taken.**
+Every mod is a collectible cartridge on a category shelf: Geist and Geist Mono, keycaps with a
+2px lip, LEDs, stepped pixel meters and stepped motion. Flat (no gradients, glass or blur in the
+chrome), every surface rounded, the category hues (HUD `#9F8BFF`, PvP `#FF9E7A`, Visual
+`#7ADFFF`, Utility `#7AE0B0`) only on live values, LEDs and meters.
 
-| | Lobby (`context: 'lobby'`) | Match (`context: 'match'`) |
-|---|---|---|
-| top-left | VOID mark island | VOID mark island |
-| top-centre | tabs island: **Mods · Friends · Cosmetics**, `Tab` walks them | the quick panel: the loadout's pins (eight at most), numbered, `1`–`8` flip them |
-| top-right | close island: ✕ + the menu key | same |
-| centre | **the Mods panel** (987 × 630): category tabs with counts, a search button (`/`), and the *original cards* — `ModsScreen`'s own `Tile`, live previews and all — five across at 175 × 223 | — |
-| bottom | lobby strip: where you are · **HUD layout** · **Loadouts** (naming the active one) | — |
-| world | dimmed (`.menu-layer__dim`) | untouched |
-| ⌘K palette | yes | no |
+| | |
+|---|---|
+| top | the tab island: VOID · `1` Mods · `2` Loadouts · `3` Keybinds · `4` Friends · `5` Cosmetics · the menu key (closes) |
+| centre | the active tab's panel, 1180 × 784; with a mod's settings open it moves to the left edge and the **bench** takes the right |
+| bottom | the status strip: mods on and the loadout over one stepped meter per shelf, where you are, `HUD layout` (`H`). Hidden in the 720p compact form |
+| world | dimmed (`.menu-layer__dim`) |
+| ⌘K palette | yes, over any tab |
 
-`src/menu/IslandMenu.tsx` is all of it, `src/styles/islands.css` the styles (flexbox and absolute
-positioning only; flat — no gradients or shadows, per the settled UI rules). In the panel the
-arrows walk the tiles, `Space` toggles, `Enter` (or the tile body) opens the mod's page, and the
-tile's switch toggles in place — the tile's own contract. **Friends and Cosmetics** have tabs but
-the bridge carries no friend, presence or cosmetic data, so they say "Not connected yet" rather
-than draw a roster the page cannot know. The quick panel shows the active loadout's pins
-(`loadout.quick`, set with a mod page's `Pin to quick panel` through `void.setQuickPins`); a
-loadout that never pinned anything shows the frame's own eight (`FACTORY_QUICK`).
+**Scale.** The menu is laid out once at 1920 × 1080 and the layer is `zoom`ed by `u` =
+min(view / 1920×1080), floored at 0.75 (the 720p frame) — `cart/scale.ts`. `zoom` is a layout
+scale, so text is set at its final size (rendering-invariants §10a). Below 1000 design px tall
+the strip yields its room (`compact`).
 
-**How "in a match" is decided.** The bridge has no lobby/match signal, and a per-network
-scoreboard heuristic would be a guess. What it does carry is `tick.hits` (monotonic dealt/taken
-counters), so a match is *being in a fight*: a hit either way within `COMBAT_WINDOW_MS` (12 s) of
-pressing Right Shift — on a server or in singleplayer (hit a mob, then Right Shift, to see it).
-Decided once, at open, so the layout never changes under the cursor. While the quick panel is up,
-the first hit taken calls `void.closeMenu()` — checked before the HUD hold in `applyTick`, which
-would otherwise swallow that tick.
+**Mods tab** (`cart/ModsTab.tsx`): chips `All · HUD · PvP · Visual · Utility · Pinned` with
+counts, the search field (`/`), and four shelves of six — five cartridges and `+N more` when a
+shelf is longer; a chip or `View shelf ›` shows one shelf. A cartridge (`cart/Cartridge.tsx`)
+carries the mod's key as a keycap, its LED, its pixel sprite, its name, a live value line
+(`cart/values.ts`) and the settings button and switch. The body opens the bench; the switch
+toggles in place. Grey mods (`hypixel_safe: grey`) read `▲ Grey on Hypixel` on Hypixel — Java
+does not block them, so the switch stays live. Search ranks name starts first and also lists
+matching **settings** inside mods. `Pinned` is the active loadout's quick pins (`P` pins).
 
-`store.back` remembers whether a page was opened from the panel or from the old full grid (route
-`{ name: 'grid' }`, still rendered by `ModsScreen` and covered by its tests), and Escape walks back
-to that.
+**The bench** (`cart/Bench.tsx`): the mod's own `ModArt.Preview` over a flat
+Day / Night / Nether / Water scene, then every property `modProperties` returns — switches,
+segment meters (`CellMeter` restyled), option tiles, swatches, flag chips — and a keybind
+capture block that warns before binding over a vanilla default (`cart/keys.ts`, the 1.8.9
+defaults: the bridge does not carry the player's own) or another VOID key. Foot: `Move in HUD
+layout` (HUD mods), `Reset`, `Pin`.
 
-In the harness: `?debug` opens the lobby menu, `?debug&ctx=match` the quick panel.
+**Keybinds tab** (`cart/KeybindsTab.tsx`): a keyboard map of `keybindOverview` (menu key, cycle
+key, every `keybind`-typed mod setting) over the vanilla defaults, conflicts counted, rebind and
+unbind on the selected key, `F` then any key to find it.
+
+**Loadouts tab** (`cart/LoadoutsTab.tsx`): the cartridge case and the focused loadout's rack;
+New, Rename, Duplicate, Copy code (through Java's clipboard), Delete in two presses (never the
+last), Import a `VOID1.` code; Enter / Insert switches, `L` / `Shift L` step. The frame's
+"Auto-insert by server" switch is not drawn: loadouts carry an advisory `server` slug and nothing
+switches by server.
+
+**Friends / Cosmetics**: the bridge carries no friend or presence data, so Friends says "Not
+connected yet" and who is signed in.
+
+**In a match** (v1 Ship rule 9, unchanged): a hit either way within `COMBAT_WINDOW_MS` of
+pressing Right Shift opens the quick panel only — the loadout's pins as numbered cartridges that
+`1`–`8` flip, no dim, no palette, closed by the first hit taken.
+
+**Pixel sprites** are one PNG sheet (`cart/sprites.css`, `cart/sprite-map.ts`) generated by
+`pnpm sprites` from `scripts/sprites/defs.mjs` at 8× with a transparent gutter — PNG because
+inline SVG is [risky] here, 8× because the GL driver samples LINEAR.
+
+In the harness: `?debug` opens the menu, `?debug&ctx=match` the quick panel, and
+`?debug&dev=<step>` shows one tour state (`cart/dev.ts`: `search:co`, `settings:keystrokes`,
+`capture:toggle_sprint`, `keybinds`, `loadouts`, `hud-editor`, …). The same steps drive the
+in-game screenshot tour (`./gradlew runBench -PvoidBench=ui`, mod/README.md).
 
 ## Architecture
 
@@ -72,88 +93,9 @@ window.__void_native  ──void-shim.js──▶  window.void          ──�
                                     ▼                                                 ▼
                           src/hud/HudLayer.tsx                            src/menu/MenuLayer.tsx
                        always mounted · no input                     mounted while `menu` is true
-                 one widget per HUD mod, placed by hud[]              Mods · Loadouts · Party
-                                                                     HUD editor · ⌘K palette
+                 one Cartridge module per HUD mod                    cart/CartMenu: five tabs, bench
+                 (src/hud/cart), placed by hud[]                     HUD editor · ⌘K palette
 ```
-
-### The Mods screen is two controls, not three modes
-
-`design/quiet-cell-system.md` §7 is the contract for this screen, and it is the one place
-this package deliberately disagrees with the Figma frames it was first built from. There
-is no Mod-settings *screen* any more:
-
-```
-layout     grid | list      how items lay out
-inspector  open | closed    whether properties show beside
-```
-
-Four states, in any combination. Selecting a mod opens the inspector beside the items; it
-never navigates, because the overlay interrupts a live match and every step back costs a
-round. The grid is a row of fixed-width columns filled **top to bottom**, so contracting it
-takes columns off the right rather than re-flowing every tile: column 1 holds the same mods
-whether three columns are showing or six.
-
-### The panel is fixed; the grid fills it
-
-`.overlay` used to be `min(1600px, 92%) x min(980px, 92%)` — a fraction of the window, drawn
-for the frames' twenty-four mods. The registry had twelve when this was measured (it has 45
-now; the arithmetic below is unchanged), and a grid declared as three rows
-laid them out four across, filling 674 of 1277 with half the panel empty. Both numbers are now
-derived the other way round:
-
-| | |
-|---|---|
-| panel | `min(1278px, 100% - 48px)` x `rows x (tile + gap) - gap + chrome`, centred |
-| rows | fewest that keep the registry inside eight columns — **2** at twelve mods, 3 at 24 |
-| columns | `ceil(mods / rows)` — **6** at twelve |
-| tile | `(content - (cols - 1) x gap) / cols` — **195 x 231**, a square preview plus the foot |
-
-So the grid fills the panel whatever the registry holds, and twenty-four mods come out as the
-three rows of eight the frames actually draw.
-
-**Seeing it at another count — `VOID_UI_FAKEMODS`.** The registry is generated and crosses into
-Java, so it is not something to edit for a look. `src/dev/fake-mods.ts` pads the *page's* view of
-it instead, with synthetic mods that carry a real category, a borrowed preview and a settings
-shape that varies across §8's three structures:
-
-```sh
-VOID_UI_FAKEMODS=24 pnpm --filter @void/ingame build   # in game: 12 real + 12 synthetic
-pnpm dev  # then http://localhost:5184/?debug&fake=24
-```
-
-The number is the **total**, not the number of fakes; anything ≤ 12 is a no-op. Every id is
-`fake_*`, and the page shows a `fake ×n` badge so no screenshot is ambiguous. It is off and
-tree-shaken out of any build that does not ask for it — no fixture string reaches `index.html`.
-
-Measured with it (in game, 1459 x 820 CSS):
-
-| mods | rows x cols | tile | panel | fits the 820 canvas? |
-|---|---|---|---|---|
-| 12 | 2 x 6 | 195 x 247 | 1278 x 635 | yes, exactly — no scrollbar |
-| 24 | 3 x 8 | 143 x 195 | 1278 x 739 | yes — no scrollbar |
-| 17 | 3 x 6 | 195 x 247 | 1278 x **796, clamped from 894** | **no** — the grid scrolls, and its scrollbar takes 6 px off the last column |
-
-**17–21 is the gap.** `--panel-h` is `rows x (tile + gap) - gap + chrome`, and the tile is sized
-from the *column* count, so a count that needs three rows but not eight columns gets three rows
-of a tall tile: 894 px at 17–18, 805 at 19–21, against a `max-height` of `100% - 24px` = 796.
-22–24 fit because eight columns make the tile short enough. Nothing is broken below that —
-13–16 stay on two rows — and nothing is wrong with the arithmetic; the panel simply has no rule
-that says "if three rows will not fit, use more columns".
-
-**Opening the properties contracts the grid.** `.mods-view` narrows from the full content width
-to three columns while `.inspector` translates in from outside the panel's right edge — same
-duration and curve (`--menu-move-in` / `--ease-out-menu`), so it reads as one movement rather
-than two. Contract §7's no-reflow rule is deliberately withdrawn; what it was protecting is
-kept by `useSelectedColumnInView`, which scrolls the selected mod's column into the three that
-survive so the tile you clicked is never the one that disappears.
-
-| File | What it owns |
-|---|---|
-| `src/menu/ModsScreen.tsx` | The two controls, the column-major grid, the contraction and the scroll that keeps the selected mod in it |
-| `src/menu/ModList.tsx` | The list layout — description, keybind, position, scale, em-dashes |
-| `src/menu/ModPane.tsx` | The inspector shell: which mod, whether it is on, the two actions |
-| `src/menu/ModSettingsScreen.tsx` | The property model and §8's count → structure rule |
-| `src/menu/CellMeter.tsx` | §4's meter: N cells, and only the current one takes the hue — as one marker that *travels* (§5), with the fill staggered behind it and the ±1/±2 bleed of §5.3 |
 
 | Path | What lives there |
 |---|---|
@@ -162,12 +104,13 @@ survive so the tile you clicked is never the one that disappears.
 | `src/store/store.ts` | The single Zustand store. `window.void.on(...)` is the only writer of live data |
 | `src/store/cps.ts` | Clicks-per-second from the rising edges of `keys.lmb` / `keys.rmb`. Pure |
 | `src/store/hud-geometry.ts` | `anchor + dx/dy + scale` ⇄ pixels, snap, clamp, anchor re-pick. Pure |
-| `src/hud/` | One widget per HUD mod, bound to the store; `HudLayer` places them |
+| `src/hud/` | One widget per HUD mod, bound to the store, drawn by the Cartridge modules in `src/hud/cart/`; `HudLayer` places them |
 | `src/toasts/` | `ToastStack`: the `toast` channel and the page's own notices, over both layers |
-| `src/menu/` | The four overlay screens, plus the Mods screen's inspector and property model |
+| `src/cart/` | Cartridge: tokens and primitives, the sprite sheet, the menu shell, the five tabs, the bench, the dev hook |
+| `src/menu/` | `MenuLayer` (Escape table), the HUD editor, the property model (`ModSettingsScreen.tsx`), `CellMeter`, previews, keybind overview |
 | `src/palette/` | ⌘K: the command set, the fuzzy ranker, and the selection / key routing over `@void/ui`'s palette shell |
 | `src/registry.ts` | The overlay's view of the registry: category tags and filter tabs **derived from `mods.json`**, plus the one thing the schema does not carry — the tile grid order |
-| `src/styles/overlay.css` | Layer composition and screen layout. Every *component* style is `@void/ui`'s |
+| `src/styles/overlay.css` | Layer composition (HUD slots, menu layer, editor). The Cartridge styles are `src/cart/*.css` |
 | `scripts/check-ultralight.mjs` | CI guard — fails the build on a banned CSS/JS feature |
 | `scripts/size.mjs` | CI guard — fails the build over the 400 KB gzip budget |
 
@@ -225,42 +168,29 @@ A focused checkbox or button is **not** text focus, so Escape still closes.
 | Key | Effect |
 |---|---|
 | **Right Shift** | Opens / closes the screen. Handled in Java as a `KeyBinding`; this package **never binds it** (the fake bridge does, because in the harness it plays Java) |
-| `Esc` | Leaves a focused text field, else exits the HUD editor, else closes the menu |
-| `⌘K` / `Ctrl-K` | Toggles the quick palette over whatever screen is up. **Unverified in game** — a mouse event here carries no modifier state at all, and whether a keyboard chord does could not be settled with synthesised input (rendering-invariants §13a) |
-| `← ↑ → ↓` | Walks the mod grid (3 columns); in the palette, moves the selection; in the HUD editor, nudges the selected widget by the grid, or a pixel with `Snap` off |
-| `Tab` | In the HUD editor, cycles the selection through the widgets that are on |
-| `Enter` | Toggles the highlighted mod; in the palette, runs the highlighted action |
-| `⌘↵` / `Ctrl-↵` | In the palette, opens the action's settings instead of running it |
-| `L` | Cycles loadouts. Java's key, not ours |
-
-Screens other than Mods are reached from the palette (`Loadouts`, `Party`,
-`Edit HUD layout`), from a tile's settings pane (`Edit position` → HUD editor), or by
-double-clicking a tile (→ that mod's settings screen). The frames draw no screen
-switcher, so none was invented — but the lobby strip carries a `Loadouts` pill beside
-`HUD layout`, for the same reason the HUD editor earned one (below), and Escape on the
-Loadouts screen goes back to the islands.
-
-**The HUD editor is the exception, and it earned it.** It has a labelled `HUD layout` button on
-the mods bar, left of the centred filter tabs. It was reachable only from a row inside Settings
-and from ⌘K, which is to say only by someone who already knew it existed — and the user's report
-was "we need a HUD editor", for an editor that had been shipping for weeks. It is on the left
-because that is where this bar already puts places (`‹ Mods` sits there on every inner page), and
-not in the right-hand `settings · search · close` cluster, which is things that act on this window
-and has been called crowded three times. The Settings row and the palette command both stay.
+| `Esc` | Up one level: leaves a focused field, closes the bench, leaves the HUD editor, clears a search, leaves a single shelf, goes from tabs 2–5 to Mods, then closes (MenuLayer; `keepsEscape()` is the same table for Java) |
+| `1`–`5` | Jump to a tab (in a match, `1`–`8` flip the quick pins) |
+| `← ↑ → ↓` | Walk the cartridges; in the palette, move the selection; in the HUD editor, nudge the selected widget by the grid, or a pixel with `Snap` off |
+| `Tab` / `Shift Tab` | Jump a shelf (Mods); cycle the selected widget (HUD editor) |
+| `Space` | Toggle the cartridge under the cursor |
+| `E` / `Enter` | Open the cursor's settings bench; in the HUD editor `Enter` saves |
+| `P` | Pin / unpin the cursor's cartridge (eight at most) |
+| `/` | Focus the search field |
+| `H` | Open the HUD layout (from the bench, with that mod selected) |
+| `L` / `Shift L` | Next / previous loadout on the Loadouts tab; with the menu closed, Java's cycle key |
+| `F` | Keybinds tab: the next key pressed is selected |
+| `⌘K` / `Ctrl-K` | Toggles the quick palette. **Unverified in game** — whether a keyboard chord carries modifiers could not be settled with synthesised input (rendering-invariants §13a) |
 
 ### Loadouts, notices and keybinds
 
-* **Loadouts** (`menu/LoadoutsScreen.tsx`) manages the library through the bridge's library
-  calls: `New loadout` (registry defaults, then the name opens for editing), and per card
-  `Rename` (the title edits in place), `Duplicate`, `Copy code` and `Delete` (two presses; never
-  the last loadout). `Import code` opens the panel-header field: paste or type a `VOID1.` code,
-  or press `Paste`. The Ultralight binding has no clipboard, so copy and paste go through Java
-  (`void.setClipboard` / `void.getClipboard`).
-* **Notices** (`toasts/ToastStack.tsx`, `styles/toasts.css`): Java's `toast` channel plus the
-  page's own (`store.pushToast`), at most three, each gone after `TOAST_MS` on one `setTimeout`.
-* **Keybinds** (`menu/keybind-overview.ts`, on the Settings page): every bound key — the menu
-  key, the cycle key and every `keybind`-typed mod setting — with clashes marked on both rows.
-  The cycle key (`cycle_loadout_key`) is rebindable there, and can be switched off.
+* **Loadouts**: see the Loadouts tab above — the library calls are unchanged (`createLoadout`,
+  `renameLoadout`, `duplicateLoadout`, `deleteLoadout`, `exportLoadout`, `importLoadout`,
+  clipboard through `void.setClipboard` / `void.getClipboard`).
+* **Notices** (`toasts/ToastStack.tsx`): Java's `toast` channel plus the page's own
+  (`store.pushToast`), at most three, top right beside the effects module at HUD scale, each with
+  a 30-step segment timer and gone after `TOAST_MS` on one `setTimeout`.
+* **Keybinds** (`menu/keybind-overview.ts`, drawn by the Keybinds tab): every bound key with
+  clashes marked; the cycle key can be rebound or unbound there.
 
 ---
 
@@ -281,13 +211,14 @@ The port is **5184**, not 5183: [`apps/desktop`](../../apps/desktop/README.md)'s
 harness side by side is normal. `visual-qa/capture.mjs` and `measure.mjs` default to the
 same 5184.
 
-The harness renders at the authored **1300 × 820** frame size and puts the matching Figma
-export behind the UI, so the result can be compared 1:1 with `design/screens/*.png`.
+The harness fills the window, like the game's view: at a 1920 × 1080 window the menu lays over
+the Cartridge frames 1:1. Behind it is a real in-game still (`design/perf-shots/00-scene.png`).
 
 | Query | Effect |
 |---|---|
 | `?debug` | Force the fake bridge and open the menu. Implied when `window.__void_native` is absent |
-| `?debug&screen=Overlay-Loadouts.png` | Which export to put behind the UI. Any file in `design/screens/` |
+| `?debug&screen=Overlay-Loadouts.png` | Which picture to put behind the UI. Any file in `design/screens/` or `design/perf-shots/` |
+| `?debug&dev=search:co` | Show one tour state after mount (`cart/dev.ts`); comma-separate several |
 | `?debug&glblur=off` | Drop `data-glblur`, so the panel paints at the denser no-GL-blur alpha |
 
 Once running: Right Shift opens and closes the menu, `⌘K` opens the palette, WASD /
@@ -303,25 +234,20 @@ build time — CONTRACTS.md keeps that directory read-only reference material.
 
 ## What this package draws, and what `@void/ui` draws
 
-Nothing presentational is duplicated here. Panels, tiles, cards, switches, sliders,
-keybind chips, filter tabs, HUD chips, the keystrokes widget, the editor toolbar and
-selection frame, the party rows and the palette shell are all `@void/ui`. This package
-supplies:
+The Cartridge look is this package's own: `src/cart/` (menu, bench, tabs, primitives) and
+`src/hud/cart/` (the HUD modules) draw it, scoped under `.cart` so the launcher — which shares
+`@void/ui` — never sees a Cartridge value. `@void/ui` still supplies the palette shell, the HUD
+editor's selection grips, a few previews' parts (crosshair, keycap colour tables the Cartridge
+keys map from) and the base tokens. This package also supplies:
 
 * the **two-layer composition** — where the HUD and menu layers sit, and how a `hud_item`
   becomes a positioned box (`src/styles/overlay.css`, `src/hud/HudLayer.tsx`);
 * the **bindings** — which bridge field feeds which prop, and which setting gates it;
-* the **behaviour** the frames imply but a component library cannot own: drag/snap/scale
-  in the HUD editor, palette selection and key routing, the keyboard contract, focus
-  reporting;
-* the **data** the schema does not carry: the tile grid order (`src/registry.ts`) and the
-  potion colour table (`src/hud/format.ts`). The filter taxonomy and the panel copy used
-  to be here too; `mods.json` now carries `category` and the frames' `label`, so both are
-  derived and `test/registry.test.ts` is what stops them being re-hard-coded.
-
-There are **no local component fallbacks left**. Earlier drafts carried a `src/local/`
-tree standing in for `@void/ui` and `@void/protocol` while those packages were being
-written; both are now consumed directly and that tree is gone.
+* the **behaviour**: drag/snap/scale/undo in the HUD editor, palette selection and key routing,
+  the keyboard contract, focus reporting;
+* the **data** the schema does not carry: the shelf order (`src/cart/shelves.ts`, derived from
+  `MOD_ORDER`), the sprite art (`scripts/sprites`) and the potion colour table
+  (`src/hud/format.ts`).
 
 ## Consuming `@void/ui` and `@void/protocol`
 
@@ -476,7 +402,9 @@ pnpm --filter @void/ingame check    # typecheck + Ultralight guard + tests
 | `test/meter.test.tsx` | the numbers `overlay.css` animates the meter by — the marker's `--live` index, the fill's `--d` stagger and the §5.3 `--bleed` strengths. A transition cannot be asserted in jsdom; getting one of these wrong is silent |
 | `test/fuzzy.test.ts` | Palette ranking, including the frame's own `fullb` ordering |
 | `test/store.test.ts` | Reducers against the real `createFakeVoid()`: CPS through the store, clamped writes, `setHud` round-trip, `__hasFocus` |
-| `test/screens.test.tsx` | A render smoke test per screen, asserting the frames' verbatim copy — footer hints included |
+| `test/cartridge.test.tsx` | The Cartridge shell, shelves, search, the bench and keybind capture, live values, the dev hook and rule 9's quick panel |
+| `test/screens.test.tsx` | HUD layer, the bench's property coverage for every mod, Loadouts/Friends tabs, the HUD editor, the palette, the watermark |
+| `test/library.test.tsx` | The loadout library, notices, quick pins and the keybind overview / Keybinds tab |
 | `test/registry.test.ts` | That category, label and filter tabs are *derived* from `mods.json` and not re-transcribed, and that `category` stays distinct from `kind` |
 
 The store and screen tests run against the **real fake bridge** from `@void/protocol`,
@@ -505,15 +433,15 @@ in `schema/` and the workarounds are gone. They are kept as a record of what mov
 4. ~~**No category taxonomy in the schema.**~~ **Resolved.** Every registry entry carries
    `category` (`hud | pvp | visual | utility`), matching frame 244:538 tag for tag.
    `MOD_CATEGORY` and `FILTER_TABS` are derived from it; the hand-written map is gone.
-5. **Party is presentational.** No bridge event or call carries party, presence or queue
-   state, and §16.2 is still open. (The keybind overview has the same edge: vanilla's own
-   bindings are not on the bridge, so a clash with a vanilla key is not marked.) Nothing on that screen is wired, and no bridge call was
-   invented for it.
+5. **Friends is not connected.** No bridge event or call carries party, presence or queue
+   state, and §16.2 is still open; the old presentational Party screen is gone and the Friends
+   tab says so. Vanilla's own bindings are not on the bridge either, so the keybind conflict
+   check compares against the 1.8.9 **defaults** and says "(vanilla default)".
 6. ~~**`Outfit` ships at 400/500/600** and the design sets keycap and CTA labels at 700,
    so those weights are synthesised.~~ **Resolved.** `@void/ui`'s `fonts.css` now declares
    an explicit `font-weight: 700` `@font-face` pointing at the 600 instance, so a 700 rule
    resolves to a real bundled face instead of a synthetic bold. Nothing here changes; the
    labels stay at 700 in the CSS.
-7. **Icons are inline SVG.** `ultralight-notes.md` §7 rates that **[risky]** and asks for
-   a 2×/3× PNG sprite. `@void/ui`'s `Icon` already resolves through `setIconRenderer`, so
-   the swap is one call at boot once the sprite exists — no call site changes.
+7. ~~**Icons are inline SVG.**~~ **Resolved.** The bar icons are a PNG sprite
+   (`styles/icons.css`) and every Cartridge mark is a pixel sprite from one PNG sheet or a few
+   boxes; nothing in the menu draws an SVG stroke.

@@ -991,7 +991,7 @@
 }
 /* World-mod diagrams are drawn for a dark ground; on the Day / Water scenes they get the HUD
    module's backing so they read like the widgets do. */
-.cart .c-prev__zoom--diagram {
+.cart .c-prev .c-prev__zoom.c-prev__zoom--diagram {
   background: var(--c-hud-strong);
   border-radius: 12px;
   box-shadow: inset 0 0 0 1px var(--c-edge-hud);
@@ -1523,7 +1523,7 @@
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  transition: margin-top var(--c-t-hover) steps(2, end), background var(--c-t-hover) steps(2, end);
+  transition: background var(--c-t-hover) steps(2, end);
 }
 .cart .c-lcart:hover {
   background: var(--c-hover);
@@ -1844,47 +1844,98 @@
 /* The selection: a faint fill and ink corner brackets — the grips are the brackets. */
 .cart .c-ed__sel.v-selection {
   border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.cart .c-ed__frame {
+  position: absolute;
+  pointer-events: none;
   border-radius: 10px;
   background: rgba(236, 238, 241, 0.06);
   box-shadow: inset 0 0 0 1px rgba(236, 238, 241, 0.35);
+}
+.cart .c-ed__br {
+  position: absolute;
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+.cart .c-ed__br::before,
+.cart .c-ed__br::after {
+  content: '';
+  position: absolute;
+  background: var(--c-ink);
+  border-radius: 1px;
+}
+.cart .c-ed__br::before {
+  width: 14px;
+  height: 2.5px;
+}
+.cart .c-ed__br::after {
+  width: 2.5px;
+  height: 14px;
+}
+.cart .c-ed__br--tl {
+  left: -2px;
+  top: -2px;
+}
+.cart .c-ed__br--tl::before,
+.cart .c-ed__br--tl::after {
+  left: 0;
+  top: 0;
+}
+.cart .c-ed__br--tr {
+  right: -2px;
+  top: -2px;
+}
+.cart .c-ed__br--tr::before,
+.cart .c-ed__br--tr::after {
+  right: 0;
+  top: 0;
+}
+.cart .c-ed__br--bl {
+  left: -2px;
+  bottom: -2px;
+}
+.cart .c-ed__br--bl::before,
+.cart .c-ed__br--bl::after {
+  left: 0;
+  bottom: 0;
+}
+.cart .c-ed__br--br {
+  right: -2px;
+  bottom: -2px;
+}
+.cart .c-ed__br--br::before,
+.cart .c-ed__br--br::after {
+  right: 0;
+  bottom: 0;
 }
 .cart .c-ed__sel .v-selection__label {
   display: none;
 }
 .cart .c-ed__sel .v-selection__handle {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   background: transparent;
-  border: 0 solid var(--c-ink);
+  border: 0;
   border-radius: 0;
 }
 .cart .c-ed__sel .v-selection__handle--nw {
-  left: -2px;
-  top: -2px;
-  border-left-width: 2.5px;
-  border-top-width: 2.5px;
-  border-top-left-radius: 5px;
+  left: -6px;
+  top: -6px;
 }
 .cart .c-ed__sel .v-selection__handle--ne {
-  right: -2px;
-  top: -2px;
-  border-right-width: 2.5px;
-  border-top-width: 2.5px;
-  border-top-right-radius: 5px;
+  right: -6px;
+  top: -6px;
 }
 .cart .c-ed__sel .v-selection__handle--sw {
-  left: -2px;
-  bottom: -2px;
-  border-left-width: 2.5px;
-  border-bottom-width: 2.5px;
-  border-bottom-left-radius: 5px;
+  left: -6px;
+  bottom: -6px;
 }
 .cart .c-ed__sel .v-selection__handle--se {
-  right: -2px;
-  bottom: -2px;
-  border-right-width: 2.5px;
-  border-bottom-width: 2.5px;
-  border-bottom-right-radius: 5px;
+  right: -6px;
+  bottom: -6px;
 }
 .cart .c-ed__size {
   position: absolute;

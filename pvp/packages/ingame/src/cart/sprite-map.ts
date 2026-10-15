@@ -2,6 +2,9 @@
 // Regenerate with `pnpm --filter @void/ingame sprites`. Indices are stable: new sprites are appended.
 
 export const SPRITE_CELL = 128;
+/** Cell pitch in the sheet: the cell plus a transparent gutter on every side. */
+export const SPRITE_STRIDE = 144;
+export const SPRITE_GUTTER = 8;
 export const SHEET_COLS = 12;
 export const SHEET_ROWS = 11;
 

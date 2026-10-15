@@ -634,6 +634,20 @@ export function HudEditorScreen() {
           }}
         />
       )}
+      {/* The frame as plain filled boxes: a faint fill, a hairline, and four corner brackets drawn
+          as two bars each — no border tricks, so the engine draws exactly this. */}
+      {selection ? (
+        <div
+          className="c-ed__frame"
+          aria-hidden="true"
+          style={{ left: selection.x - 6, top: selection.y - 6, width: selection.width + 12, height: selection.height + 12 }}
+        >
+          <i className="c-ed__br c-ed__br--tl" />
+          <i className="c-ed__br c-ed__br--tr" />
+          <i className="c-ed__br c-ed__br--bl" />
+          <i className="c-ed__br c-ed__br--br" />
+        </div>
+      ) : null}
       {selection ? (
         <span
           className="c-ed__size"
