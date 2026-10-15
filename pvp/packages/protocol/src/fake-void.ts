@@ -433,6 +433,8 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   const pendingCaptures: Array<(key: Keybind | null) => void> = [];
 
   let menuOpen = options.menuOpen ?? false;
+  /** The harness's clipboard; see `setClipboard`. */
+  let clipboard = '';
   let server: ServerPayload = options.server ?? { host: 'mc.hypixel.net', connected: true };
   const session: SessionInfo = options.session ?? {
     name: 'Player',
@@ -451,6 +453,16 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   let fps = 142;
   let ping = 42;
   let pos = { x: 118.0, y: 64.0, z: -212.0, yaw: -45.0 };
+
+  // The depth wave's sensors — `hits.swings`, `reach` and `counts`.
+  /** Left presses seen, and the swings `doAttack` would have run for them. */
+  let presses = 0;
+  let swings = 0;
+  let lastLmb: 0 | 1 = 0;
+  /** `reach.n`, and the `dealt` count it was last advanced at. */
+  let reachN = 0;
+  let reachDealt = 0;
+  let lastCountsSignature = '';
 
   const armor: ArmorSlot[] = [
     { slot: 'helmet', item: 'diamond_helmet', damage: 132, max_damage: 363, count: 1, enchanted: true },
@@ -546,6 +558,15 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     for (const effect of fx) {
       effect.duration_ms = Math.max(0, effect.duration_ms - stepMs);
     }
+
+    // A left press is a swing unless the game swallowed it. Every fifth press lands in 1.8's
+    // miss delay here — deterministic, so the seeded key stream is not disturbed — which is the
+    // gap between presses and swings that `cps.ignore_cancelled` exists to show.
+    if (keys.lmb === 1 && lastLmb === 0) {
+      presses += 1;
+      if (presses % 5 !== 0) swings += 1;
+    }
+    lastLmb = keys.lmb;
   }
 
   /** Build this tick's payload, omitting fields whose sensor has nothing to report. */
@@ -597,10 +618,51 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     // Monotonic, like the real thing. A hit roughly every 700 ms and a hit taken every ~5 s, so
     // a combo builds and then breaks — which is the whole behaviour the combo mod draws, and it
     // would be invisible in a fake that only ever incremented one counter.
+    const dealt = Math.floor(clockMs / 700);
     payload.hits = {
-      dealt: Math.floor(clockMs / 700),
+      dealt,
       taken: Math.floor(clockMs / 5000),
+      swings,
     };
+
+    // A reach reading on the tick each hit lands, and only then — like the sensor. Spread across
+    // a believable 2.5–3.0 so the average and the last figure differ.
+    if (dealt > reachDealt) {
+      reachDealt = dealt;
+      reachN += 1;
+      payload.reach = {
+        blocks: Math.round((2.5 + 0.5 * Math.abs(Math.sin(reachN * 1.7))) * 1000) / 1000,
+        n: reachN,
+      };
+    }
+
+    // Inventory counts, sent whole when any figure moves — like `armor`, this one IS coalesced,
+    // because "absent means unchanged" is the contract a consumer is tested against. Heals run
+    // down to zero and refill so the warn treatment and the zero reading both get exercised;
+    // `held_total` follows the hand and is absent with it.
+    const counts: NonNullable<TickPayload['counts']> = {
+      ender_pearl: 16 - (Math.floor(clockMs / 5000) % 17),
+      golden_apple: 12 - (Math.floor(clockMs / 11000) % 13),
+      arrow: 64,
+      snowball: 32,
+      egg: 16,
+      cobweb: 8,
+      wool: 128,
+      tnt: 4,
+      fire_charge: 6,
+      iron_ingot: 23,
+      gold_ingot: 9,
+      diamond: 5,
+      emerald: 2,
+      health_potion: 8 - (Math.floor(clockMs / 6000) % 9),
+      soup: 6 - (Math.floor(clockMs / 9000) % 7),
+    };
+    if (payload.held_count !== undefined) counts.held_total = payload.held_count + 64;
+    const countsSignature = signature(counts);
+    if (countsSignature !== lastCountsSignature) {
+      lastCountsSignature = countsSignature;
+      payload.counts = counts;
+    }
     return payload;
   }
 
@@ -816,6 +878,22 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       library.push(imported);
       emitLibrary();
       return { ok: true, loadout: structuredCloneish(imported), dropped: decoded.dropped };
+    },
+
+    setClipboard(text) {
+      record({ c: 'setClipboard', params: [text] });
+      // The harness keeps its own clipboard (`getClipboard` must answer synchronously, which
+      // the browser's async Clipboard API cannot) and mirrors to the real one when it may.
+      clipboard = text;
+      void (globalThis as { navigator?: { clipboard?: { writeText(t: string): Promise<void> } } })
+        .navigator?.clipboard?.writeText(text)
+        .catch(() => undefined);
+      return true;
+    },
+
+    getClipboard() {
+      record({ c: 'getClipboard', params: [] });
+      return clipboard;
     },
 
     setQuickPins(ids) {

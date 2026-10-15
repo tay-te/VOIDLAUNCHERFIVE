@@ -1080,7 +1080,9 @@ export type Call =
   | DeleteLoadoutCall
   | ExportLoadoutCall
   | ImportLoadoutCall
-  | SetQuickPinsCall;
+  | SetQuickPinsCall
+  | SetClipboardCall
+  | GetClipboardCall;
 /**
  * [id, on].
  *
@@ -1221,6 +1223,19 @@ export type ImportLoadoutParams = [string];
  */
 export type SetQuickPinsParams = [ModId[]];
 /**
+ * [text].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type SetClipboardParams = [string];
+/**
+ * No arguments.
+ *
+ * @maxItems 0
+ */
+export type GetClipboardParams = any[];
+/**
  * The value one JS to Java call returned, enveloped as {c, returns}. Every call except `openKeybindCapture` returns synchronously, because the bridge is in-process (§6.5).
  */
 export type CallResult =
@@ -1238,7 +1253,9 @@ export type CallResult =
   | DeleteLoadoutResult
   | ExportLoadoutResult
   | ImportLoadoutResult
-  | SetQuickPinsResult;
+  | SetQuickPinsResult
+  | SetClipboardResult
+  | GetClipboardResult;
 /**
  * The state actually applied. Normally equals the requested value; differs only if the mod refused the change.
  */
@@ -1312,6 +1329,14 @@ export type ImportResult =
  * @maxItems 8
  */
 export type SetQuickPinsReturns = ModId[];
+/**
+ * True when the host put it on the clipboard.
+ */
+export type SetClipboardReturns = boolean;
+/**
+ * The clipboard's text, cut to 16384 characters; empty when there is none.
+ */
+export type GetClipboardReturns = string;
 
 /**
  * The closed registry of every mod VOID ships — the 12 defined in PVP_ARCHITECTURE.md §3, the VOID watermark, and the readouts added since — together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
@@ -3267,6 +3292,26 @@ export interface SetQuickPinsCall {
   params: SetQuickPinsParams;
 }
 /**
+ * `void.setClipboard(text)`. Puts plain text on the system clipboard — what the Loadouts screen's `Copy code` does with a share code. Why the bridge carries a clipboard at all: the Ultralight binding implements no platform clipboard, so Ctrl+C / Ctrl+V do nothing inside the in-game page and `navigator.clipboard` does not exist there. A share code is a line of text a player has to get out of the game and into Discord, and back. Java owns the system clipboard (`Screen.setClipboard` / `getClipboard`), so the page asks it.
+ */
+export interface SetClipboardCall {
+  /**
+   * Call discriminator; always `setClipboard`.
+   */
+  c: 'setClipboard';
+  params: SetClipboardParams;
+}
+/**
+ * `void.getClipboard()`. The system clipboard's plain text, for the Loadouts screen's `Paste code`. Empty when the clipboard holds no text or cannot be read. Only ever called on a click, never polled.
+ */
+export interface GetClipboardCall {
+  /**
+   * Call discriminator; always `getClipboard`.
+   */
+  c: 'getClipboard';
+  params: GetClipboardParams;
+}
+/**
  * Envelope for a setGameplay return value.
  */
 export interface SetGameplayResult {
@@ -3415,4 +3460,24 @@ export interface SetQuickPinsResult {
    */
   c: 'setQuickPins';
   returns: SetQuickPinsReturns;
+}
+/**
+ * Envelope for a setClipboard return value.
+ */
+export interface SetClipboardResult {
+  /**
+   * Call discriminator; always `setClipboard`.
+   */
+  c: 'setClipboard';
+  returns: SetClipboardReturns;
+}
+/**
+ * Envelope for a getClipboard return value.
+ */
+export interface GetClipboardResult {
+  /**
+   * Call discriminator; always `getClipboard`.
+   */
+  c: 'getClipboard';
+  returns: GetClipboardReturns;
 }

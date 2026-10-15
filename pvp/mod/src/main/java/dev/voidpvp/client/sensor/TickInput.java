@@ -1,6 +1,7 @@
 package dev.voidpvp.client.sensor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * One tick's readings, as an object rather than an argument list.
@@ -74,6 +75,21 @@ public final class TickInput {
     public Integer hitsTaken;
 
     /**
+     * Runs of {@code doAttack} this session, monotonic. Optional inside {@code hits} — null
+     * sends the object without it, as a sensor that predates it would.
+     */
+    public Integer hitsSwings;
+
+    /** {@link InventoryCounts#result}: the {@code counts} object. Null to omit. */
+    public Map<String, Integer> counts;
+
+    /** {@link ReachMeter#last}, already rounded. Null until the first measured attack. */
+    public Double reachBlocks;
+
+    /** {@link ReachMeter#n}: measured attacks, monotonic. Null with {@link #reachBlocks}. */
+    public Integer reachN;
+
+    /**
      * Clears every optional reading.
      *
      * <p>Called before each refill so that a reading which became unavailable — the player let go
@@ -91,5 +107,9 @@ public final class TickInput {
         memoryMaxMb = null;
         hitsDealt = null;
         hitsTaken = null;
+        hitsSwings = null;
+        counts = null;
+        reachBlocks = null;
+        reachN = null;
     }
 }

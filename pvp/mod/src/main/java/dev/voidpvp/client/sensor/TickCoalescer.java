@@ -5,7 +5,9 @@ import com.google.gson.JsonObject;
 import dev.voidpvp.client.state.Json;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The {@code tick} sensor (§6.6): FPS, ping, position, armor and potion
@@ -74,6 +76,9 @@ public final class TickCoalescer {
     private long lastMemAt = Long.MIN_VALUE;
     private int lastHitsDealt = Integer.MIN_VALUE;
     private int lastHitsTaken = Integer.MIN_VALUE;
+    private int lastHitsSwings = Integer.MIN_VALUE;
+    private Map<String, Integer> lastCounts;
+    private int lastReachN = Integer.MIN_VALUE;
     private double lastX;
     private double lastY;
     private double lastZ;
@@ -217,15 +222,46 @@ public final class TickCoalescer {
         // Hit counters move only on a hit, so a value check is exact and no limit is wanted: a
         // rate limit here would merge two hits into one and the combo would under-count. This is
         // the one new field where dropping an update is a *wrong answer* rather than a stale one.
+        // `swings` rides in the same object and on the same rule: it is a counter like the other
+        // two, and splitting it out would send half a reading on the tick a swing also landed.
+        int swings = in.hitsSwings == null ? Integer.MIN_VALUE : in.hitsSwings.intValue();
         if (in.hitsDealt != null && in.hitsTaken != null
                 && (in.hitsDealt.intValue() != lastHitsDealt
-                    || in.hitsTaken.intValue() != lastHitsTaken)) {
+                    || in.hitsTaken.intValue() != lastHitsTaken
+                    || swings != lastHitsSwings)) {
             lastHitsDealt = in.hitsDealt.intValue();
             lastHitsTaken = in.hitsTaken.intValue();
+            lastHitsSwings = swings;
             JsonObject hits = new JsonObject();
             hits.addProperty("dealt", in.hitsDealt);
             hits.addProperty("taken", in.hitsTaken);
+            if (in.hitsSwings != null) {
+                hits.addProperty("swings", in.hitsSwings);
+            }
             o.add("hits", hits);
+        }
+
+        // Counts change on use and on pickup, never on a clock, so the value check is the whole
+        // rule — the same as `armor`, and sent whole for the same reason: the object is one
+        // field on the wire, and `held_total` going absent (an emptied hand) is itself a change
+        // the page has to see, which a per-key diff could not express.
+        if (in.counts != null && !in.counts.equals(lastCounts)) {
+            lastCounts = new LinkedHashMap<String, Integer>(in.counts);
+            JsonObject counts = new JsonObject();
+            for (Map.Entry<String, Integer> e : in.counts.entrySet()) {
+                counts.addProperty(e.getKey(), e.getValue());
+            }
+            o.add("counts", counts);
+        }
+
+        // Reach is an event carried as a counter, like `hits`: keyed on `n`, never on the
+        // distance, because two hits at the same reach are two readings for the average.
+        if (in.reachN != null && in.reachBlocks != null && in.reachN.intValue() != lastReachN) {
+            lastReachN = in.reachN.intValue();
+            JsonObject reach = new JsonObject();
+            reach.add("blocks", Json.number(in.reachBlocks.doubleValue()));
+            reach.addProperty("n", in.reachN);
+            o.add("reach", reach);
         }
         return o;
     }
@@ -240,6 +276,9 @@ public final class TickCoalescer {
         lastMemAt = Long.MIN_VALUE;
         lastHitsDealt = Integer.MIN_VALUE;
         lastHitsTaken = Integer.MIN_VALUE;
+        lastHitsSwings = Integer.MIN_VALUE;
+        lastCounts = null;
+        lastReachN = Integer.MIN_VALUE;
         lastArmor = null;
         lastFx = null;
         lastFps = Integer.MIN_VALUE;

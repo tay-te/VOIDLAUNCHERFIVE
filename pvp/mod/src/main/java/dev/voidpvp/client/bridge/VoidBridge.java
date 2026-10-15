@@ -81,6 +81,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *  exportLoadout,      emit("loadouts"), and emit("loadout") when the     SHARED  queued push
  *  importLoadout,       active loadout changed
  *  setQuickPins
+ * setClipboard,       BridgeHost.setClipboard / clipboard -> AWT        PAGE    inline; AWT is
+ *  getClipboard                                                                 thread-safe
  * setSurfaces         readSurface (parse) -&gt; EffectSurface               PAGE    inline; immutable values
  *                       BridgeHost.setSurfaces -> VoidClient.surfaces    SHARED  inline; volatile publish
  * closeMenu           BridgeHost.closeMenu -> mc.setScreen(null)         GAME    QUEUED via post()
@@ -473,6 +475,18 @@ public final class VoidBridge {
                 emit(EVENT_LOADOUTS, state.libraryJson());
             }
             return result;
+        }
+        if ("setClipboard".equals(call)) {
+            // The Ultralight binding has no platform clipboard, so the page cannot copy a share
+            // code itself; Java owns the system clipboard. Inline: AWT's clipboard is safe off
+            // the game thread, and the page is waiting on the answer.
+            boolean copied = host != null && p.size() > 0 && p.get(0).isJsonPrimitive()
+                    && host.setClipboard(cut(p.get(0).getAsString(), 16384));
+            return new JsonPrimitive(Boolean.valueOf(copied));
+        }
+        if ("getClipboard".equals(call)) {
+            String text = host == null ? null : host.clipboard();
+            return new JsonPrimitive(text == null ? "" : cut(text, 16384));
         }
         if ("setQuickPins".equals(call)) {
             java.util.List<String> ids = new java.util.ArrayList<String>();

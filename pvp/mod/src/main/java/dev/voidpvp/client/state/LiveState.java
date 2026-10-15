@@ -159,12 +159,32 @@ public final class LiveState {
     public volatile int hitboxEyeLineColor = 0xFF7ADFFF;
     /** `hitboxes.max_distance`, in blocks, squared — the mixin compares against a squared length. */
     public volatile double hitboxMaxDistanceSq = 64d * 64d;
+    /** {@code state_colors}: per-entity box colour; see {@code HitboxGeometry.boxColor}. */
+    public volatile boolean hitboxStateColors;
+    public volatile int hitboxHittableColor = 0xFF2FB8A6;
+    public volatile int hitboxDamagedColor = 0xFFFF5A5A;
 
     public volatile boolean zoomOn;
     public volatile int zoomKeyCode;
     public volatile double zoomFovDivisor = 4;
     public volatile boolean zoomSmooth = true;
     public volatile boolean zoomCinematic;
+    public volatile boolean zoomScrollAdjust = true;
+    public volatile boolean zoomScaleSensitivity = true;
+
+    /**
+     * The Chat mod. Read on chat's own paths — once per message added and once per chat line
+     * drawn — which is why they are mirrors and not loadout lookups. With {@link #chatOn} false
+     * every chat mixin returns what vanilla would have, so the other five do not matter then.
+     */
+    public volatile boolean chatOn;
+    public volatile boolean chatTimestamps = true;
+    public volatile boolean chatStackRepeats = true;
+    public volatile boolean chatClickToCopy = true;
+    /** 0..1; 0.5 is vanilla's own {@code alpha / 2}. */
+    public volatile float chatBackgroundOpacity = 0.5f;
+    /** Messages kept; vanilla's {@code 100} is what the mixin answers with the mod off. */
+    public volatile int chatHistoryLength = 1000;
 
     public volatile boolean crosshairOn;
     public volatile String crosshairStyle = "cross";
@@ -494,6 +514,11 @@ public final class LiveState {
         // entity the dispatcher draws, and the comparison it wants is against a squared length.
         double maxDistance = l.numberSetting("hitboxes", "max_distance", 64);
         hitboxMaxDistanceSq = maxDistance * maxDistance;
+        hitboxStateColors = l.boolSetting("hitboxes", "state_colors", false);
+        hitboxHittableColor = parseColor(
+                l.stringSetting("hitboxes", "hittable_color", "#2FB8A6FF"), 0xFF2FB8A6);
+        hitboxDamagedColor = parseColor(
+                l.stringSetting("hitboxes", "damaged_color", "#FF5A5AFF"), 0xFFFF5A5A);
 
         zoomOn = l.isOn("zoom");
         zoomKeyCode = dev.voidpvp.client.input.KeyNames.codeOf(
@@ -501,6 +526,15 @@ public final class LiveState {
         zoomFovDivisor = l.numberSetting("zoom", "fov_divisor", 4);
         zoomSmooth = l.boolSetting("zoom", "smooth", true);
         zoomCinematic = l.boolSetting("zoom", "cinematic", false);
+        zoomScrollAdjust = l.boolSetting("zoom", "scroll_adjust", true);
+        zoomScaleSensitivity = l.boolSetting("zoom", "scale_sensitivity", true);
+
+        chatOn = l.isOn("chat");
+        chatTimestamps = l.boolSetting("chat", "timestamps", true);
+        chatStackRepeats = l.boolSetting("chat", "stack_repeats", true);
+        chatClickToCopy = l.boolSetting("chat", "click_to_copy", true);
+        chatBackgroundOpacity = (float) l.numberSetting("chat", "background_opacity", 0.5);
+        chatHistoryLength = (int) Math.round(l.numberSetting("chat", "history_length", 1000));
 
         crosshairOn = l.isOn("crosshair");
         crosshairStyle = l.stringSetting("crosshair", "style", "cross");

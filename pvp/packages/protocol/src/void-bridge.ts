@@ -186,7 +186,7 @@ export type VoidEventEnvelope = {
 /* Calls                                                                      */
 /* -------------------------------------------------------------------------- */
 
-/** The fifteen methods JS may call on `window.void`. Closed set. */
+/** The seventeen methods JS may call on `window.void`. Closed set. */
 export const VOID_CALLS = [
   'setGameplay',
   'setHud',
@@ -203,9 +203,11 @@ export const VOID_CALLS = [
   'exportLoadout',
   'importLoadout',
   'setQuickPins',
+  'setClipboard',
+  'getClipboard',
 ] as const;
 
-/** Name of one of the fifteen calls. */
+/** Name of one of the seventeen calls. */
 export type VoidCallName = (typeof VOID_CALLS)[number];
 
 /** Value a mod setting may take. Scalars only; no mod has an object- or array-valued setting. */
@@ -262,6 +264,8 @@ export interface VoidCallParamsMap {
   exportLoadout: [id: LoadoutId];
   importLoadout: [code: string];
   setQuickPins: [ids: ModId[]];
+  setClipboard: [text: string];
+  getClipboard: [];
 }
 
 /** Return value of each call. `openKeybindCapture` resolves this through a Promise. */
@@ -281,6 +285,8 @@ export interface VoidCallReturnsMap {
   exportLoadout: string | null;
   importLoadout: ImportResult;
   setQuickPins: ModId[];
+  setClipboard: boolean;
+  getClipboard: string;
 }
 
 /** One JS → Java call envelope. */
@@ -393,6 +399,16 @@ export interface VoidBridge {
 
   /** Replace the active loadout's quick-panel pins. Returns the stored pins (≤ 8, known, unique). */
   setQuickPins(ids: ModId[]): ModId[];
+
+  /**
+   * Put plain text on the system clipboard. The in-game page has no clipboard of its own — the
+   * Ultralight binding implements none, so Ctrl+C does nothing and `navigator.clipboard` is
+   * absent — and a share code has to get out of the game somehow. Returns whether it was copied.
+   */
+  setClipboard(text: string): boolean;
+
+  /** The system clipboard's plain text, or `''`. Call on a click, never poll it. */
+  getClipboard(): string;
 
   /**
    * Take over key input until the next key press. Resolves with the captured key, or
@@ -671,6 +687,14 @@ export function installVoidShim(options: InstallVoidShimOptions = {}): VoidBridg
 
     setQuickPins(ids) {
       return call('setQuickPins', [ids]) ?? [];
+    },
+
+    setClipboard(text) {
+      return call('setClipboard', [text]) ?? false;
+    },
+
+    getClipboard() {
+      return call('getClipboard', []) ?? '';
     },
 
     setSurfaces(surfaces) {

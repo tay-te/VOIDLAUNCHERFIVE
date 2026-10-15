@@ -38,7 +38,7 @@
     },
     "call_name": {
       "title": "Call name",
-      "description": "The fifteen methods JS may call on `window.void`. Closed set.",
+      "description": "The seventeen methods JS may call on `window.void`. Closed set.",
       "type": "string",
       "enum": [
         "setGameplay",
@@ -55,7 +55,9 @@
         "deleteLoadout",
         "exportLoadout",
         "importLoadout",
-        "setQuickPins"
+        "setQuickPins",
+        "setClipboard",
+        "getClipboard"
       ]
     },
     "event": {
@@ -912,6 +914,14 @@
         {
           "description": "Pin mods to the quick panel.",
           "$ref": "#/definitions/call_setQuickPins"
+        },
+        {
+          "description": "Put text on the system clipboard.",
+          "$ref": "#/definitions/call_setClipboard"
+        },
+        {
+          "description": "Read text from the system clipboard.",
+          "$ref": "#/definitions/call_getClipboard"
         }
       ]
     },
@@ -977,6 +987,14 @@
         {
           "description": "Result of setQuickPins.",
           "$ref": "#/definitions/result_setQuickPins"
+        },
+        {
+          "description": "Result of setClipboard.",
+          "$ref": "#/definitions/result_setClipboard"
+        },
+        {
+          "description": "Result of getClipboard.",
+          "$ref": "#/definitions/result_getClipboard"
         }
       ]
     },
@@ -2213,6 +2231,123 @@
           "$ref": "#/definitions/setQuickPins_returns"
         }
       }
+    },
+    "call_setClipboard": {
+      "title": "setClipboard call",
+      "description": "`void.setClipboard(text)`. Puts plain text on the system clipboard \u2014 what the Loadouts screen's `Copy code` does with a share code. Why the bridge carries a clipboard at all: the Ultralight binding implements no platform clipboard, so Ctrl+C / Ctrl+V do nothing inside the in-game page and `navigator.clipboard` does not exist there. A share code is a line of text a player has to get out of the game and into Discord, and back. Java owns the system clipboard (`Screen.setClipboard` / `getClipboard`), so the page asks it.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setClipboard`.",
+          "type": "string",
+          "const": "setClipboard"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/setClipboard_params"
+        }
+      },
+      "$comment": "Why the bridge carries a clipboard at all: the Ultralight binding implements no platform clipboard, so Ctrl+C / Ctrl+V do nothing inside the in-game page and `navigator.clipboard` does not exist there. A share code is a line of text a player has to get out of the game and into Discord, and back. Java owns the system clipboard (`Screen.setClipboard` / `getClipboard`), so the page asks it."
+    },
+    "setClipboard_params": {
+      "title": "setClipboard params",
+      "description": "[text].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The text to copy.",
+          "type": "string",
+          "maxLength": 16384
+        }
+      ]
+    },
+    "setClipboard_returns": {
+      "title": "setClipboard returns",
+      "description": "True when the host put it on the clipboard.",
+      "type": "boolean"
+    },
+    "result_setClipboard": {
+      "title": "setClipboard result",
+      "description": "Envelope for a setClipboard return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setClipboard`.",
+          "type": "string",
+          "const": "setClipboard"
+        },
+        "returns": {
+          "description": "Whether it was copied.",
+          "$ref": "#/definitions/setClipboard_returns"
+        }
+      }
+    },
+    "call_getClipboard": {
+      "title": "getClipboard call",
+      "description": "`void.getClipboard()`. The system clipboard's plain text, for the Loadouts screen's `Paste code`. Empty when the clipboard holds no text or cannot be read. Only ever called on a click, never polled.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `getClipboard`.",
+          "type": "string",
+          "const": "getClipboard"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/getClipboard_params"
+        }
+      }
+    },
+    "getClipboard_params": {
+      "title": "getClipboard params",
+      "description": "No arguments.",
+      "type": "array",
+      "maxItems": 0
+    },
+    "getClipboard_returns": {
+      "title": "getClipboard returns",
+      "description": "The clipboard's text, cut to 16384 characters; empty when there is none.",
+      "type": "string",
+      "maxLength": 16384
+    },
+    "result_getClipboard": {
+      "title": "getClipboard result",
+      "description": "Envelope for a getClipboard return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `getClipboard`.",
+          "type": "string",
+          "const": "getClipboard"
+        },
+        "returns": {
+          "description": "The text.",
+          "$ref": "#/definitions/getClipboard_returns"
+        }
+      }
     }
   },
   "examples": [
@@ -2690,6 +2825,24 @@
         "hitboxes",
         "fullbright"
       ]
+    },
+    {
+      "c": "setClipboard",
+      "params": [
+        "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+      ]
+    },
+    {
+      "c": "setClipboard",
+      "returns": true
+    },
+    {
+      "c": "getClipboard",
+      "params": []
+    },
+    {
+      "c": "getClipboard",
+      "returns": ""
     }
   ]
 }

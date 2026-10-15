@@ -3,8 +3,10 @@ package dev.voidpvp.client.mixin;
 import dev.voidpvp.client.render.HitboxGeometry;
 import dev.voidpvp.client.render.HitboxRenderer;
 import dev.voidpvp.client.state.LiveState;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
@@ -13,8 +15,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * The Hitboxes actuator's appearance (§6.7): {@code line_width}, {@code color} and
- * {@code show_eye_line}.
+ * The Hitboxes actuator's appearance (§6.7): {@code line_width}, {@code color},
+ * {@code show_eye_line} and {@code state_colors}.
  *
  * <p>{@code EntityRenderDispatcher.renderHitbox} is the single funnel every debug box goes
  * through, and vanilla's version hard-codes its own white box, its own eye-level box and a blue
@@ -71,6 +73,19 @@ public abstract class EntityRenderDispatcherMixin {
                         look.x, look.y, look.z);
             }
         }
-        HitboxRenderer.draw(state, rebased, eye);
+        // `state_colors`. Both reads are fields the client already maintains for its own
+        // drawing: `hurtTime` drives the red hurt flash, `targetedEntity` is the crosshair pick
+        // (`GameRenderer.updateTargetedEntity` writes it, LivingEntity/ItemFrame within reach
+        // only, null otherwise — verified in the disassembly). Read only when the setting is on,
+        // so a frame with it off does exactly what it did before.
+        int argb = state.hitboxColor;
+        if (state.hitboxStateColors) {
+            boolean hurt = entity instanceof LivingEntity && ((LivingEntity) entity).hurtTime > 0;
+            MinecraftClient mc = MinecraftClient.getInstance();
+            boolean targeted = mc != null && mc.targetedEntity == entity;
+            argb = HitboxGeometry.boxColor(true, state.hitboxColor, state.hitboxHittableColor,
+                    state.hitboxDamagedColor, hurt, targeted);
+        }
+        HitboxRenderer.draw(state, argb, rebased, eye);
     }
 }

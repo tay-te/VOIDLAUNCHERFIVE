@@ -1712,6 +1712,24 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
       "hitboxes",
       "fullbright"
     ]
+  },
+  {
+    "c": "setClipboard",
+    "params": [
+      "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+    ]
+  },
+  {
+    "c": "setClipboard",
+    "returns": true
+  },
+  {
+    "c": "getClipboard",
+    "params": []
+  },
+  {
+    "c": "getClipboard",
+    "returns": ""
   }
 ];
 

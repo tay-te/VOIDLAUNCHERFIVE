@@ -47,7 +47,7 @@
   var CALLS = ['setGameplay', 'setHud', 'setModSetting', 'switchLoadout', 'closeMenu',
     'openKeybindCapture', 'setSurfaces', 'setGlobal',
     'createLoadout', 'renameLoadout', 'duplicateLoadout', 'deleteLoadout', 'exportLoadout',
-    'importLoadout', 'setQuickPins'];
+    'importLoadout', 'setQuickPins', 'setClipboard', 'getClipboard'];
   var handlers = {};
   // FIFO, so a second capture opened before the first resolved still lines up with
   // the envelopes Java sends back in the order it armed them.
@@ -287,6 +287,16 @@
     /** Replace the active loadout's quick-panel pins; returns the pins stored. */
     setQuickPins: function (ids) {
       return call('setQuickPins', [ids]) || [];
+    },
+
+    /** Put plain text on the system clipboard (Ultralight has no clipboard of its own). */
+    setClipboard: function (text) {
+      return !!call('setClipboard', [text]);
+    },
+
+    /** The system clipboard's plain text, or ''. */
+    getClipboard: function () {
+      return call('getClipboard', []) || '';
     },
 
     /** Close the menu screen and give the mouse back to the game. */
