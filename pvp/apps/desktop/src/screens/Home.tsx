@@ -359,11 +359,11 @@ function SessionColumn({ session }: { session: LastSession | null }) {
 
 export const WHATS_NEW = {
   title: 'VOID 1.0 is here',
-  body: 'Capes, trails and nameplates are in the Store, and your friends are one click away, top right.',
+  body: 'Capes, wings, halos and trails are in the Store, and your friends are one click away, top right.',
   notes: [
     'Home leads with the server you will join, who of your friends is on it, and your character in its cape.',
     'One play bar on every screen: pick a server and Launch joins it — or launch to the title screen.',
-    'The Store: capes, trails, emotes and nameplates. Cosmetic only, visible to other VOID players.',
+    'The Store: capes, wings, hats, halos, trails, emotes and badges. Cosmetic only, visible to other VOID players.',
     'Friends: see who is online and in a match, and add anyone by their Minecraft username.',
     'In game, Right Shift opens the full menu in the lobby and a quick loadout panel in a match.',
   ],

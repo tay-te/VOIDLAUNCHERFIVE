@@ -5,91 +5,131 @@
  * cosmetic only, no gameplay advantage (Mojang's commercial guidelines). Rule 8: cosmetics
  * are visible to other VOID players only, and the Store says so.
  *
- * The eight items the frame draws are its own, verbatim — name, kind, price and art. The
- * frame's tab counts (Capes 6 · Trails 4 · Emotes 8 · Nameplates 5 = 23) promise fifteen
- * more, and those are written here in the same voice so every tab has something in it.
+ * The data is no longer written here. `pvp/schema/cosmetics.json` is the single source of the
+ * catalog — the mod's Java catalog, `@void/protocol`'s `COSMETIC_CATALOG` and the backend's
+ * Supabase seed are all generated from it (`node scripts/gen-cosmetics.mjs`). This module maps
+ * that table onto the shape the Store has always used (`CosmeticItem`, `ArtStyle`, the tab
+ * list), so `Store.tsx`, `Home.tsx` and `art.tsx` read the same exports they always did.
  *
- * TODO(integrate): the catalog is static content until a store backend serves it; prices
- * are display prices and nothing here can take a payment (see `Store.tsx`, Buy).
+ * Kinds are the contract's slots plus `emote`; the old `nameplate` kind is the `badge` slot.
+ * Granted items (the founder badge) are in `findItem` but not in the gallery: they are not for
+ * sale.
  */
 
-export type CosmeticKind = 'cape' | 'trail' | 'emote' | 'nameplate';
+import {
+  COSMETIC_CATALOG,
+  type CosmeticCatalogItem,
+  type CosmeticKind as CatalogKind,
+} from '@void/protocol';
 
-/** How an item's art is drawn — see `CosmeticArt.tsx`. */
+export type CosmeticKind = CatalogKind;
+
+/** How an item's art is drawn — see `CosmeticArt` in `features/art.tsx`. */
 export type ArtStyle =
   | { kind: 'cape'; pattern: 'cell' | 'void' | 'ring' | 'origin' | 'dusk' | 'static' | 'split' | 'band' }
   | { kind: 'trail'; pattern: 'spark' | 'drift' | 'ring' | 'stair'; hue: string }
   | { kind: 'emote'; pattern: string[] }
-  | { kind: 'nameplate'; pattern: 'cell' | 'ring' | 'bar' | 'dots' | 'plain'; hue: string };
+  | { kind: 'badge'; pattern: 'cell' | 'ring' | 'bar' | 'dots' | 'plain' | 'founder'; hue: string }
+  /** Back, head, face and halo items: a pixel glyph of the item in its accent colour. */
+  | { kind: 'glyph'; pattern: string[]; hue: string };
 
 export interface CosmeticItem {
   id: string;
   name: string;
   kind: CosmeticKind;
-  /** Price in US cents. `0` is free — granted to every account. */
+  /** Price in US cents. `0` is free — granted to every account, or not for sale at all. */
   price_cents: number;
   /** One line for the item sheet: `Cape · three soft bands, graded from dusk to dark.` */
   blurb: string;
   isNew?: boolean;
   art: ArtStyle;
+  /** `paid`, `free` (every account owns it) or `grant` (never sold). */
+  availability: CosmeticCatalogItem['availability'];
+  rarity: CosmeticCatalogItem['rarity'];
+  tintable: boolean;
 }
 
 export const KIND_LABEL: Record<CosmeticKind, string> = {
   cape: 'Cape',
+  back: 'Back',
+  head: 'Hat',
+  face: 'Mask',
+  halo: 'Halo',
   trail: 'Trail',
+  badge: 'Badge',
   emote: 'Emote',
-  nameplate: 'Nameplate',
 };
 
-const HUD = '#9f8bff';
-const PVP = '#ff9e7a';
-const VISUAL = '#7adfff';
-const UTILITY = '#7ae0b0';
+/** Pixel glyphs for the 3D items, by preview pattern. `#` is the accent, `+` a lit texel. */
+const GLYPHS: Record<string, string[]> = {
+  feather: ['#.......#', '##.....##', '###...###', '####.####', '.###.###.', '..#+.+#..'],
+  membrane: ['#.......#', '##.....##', '#+#...#+#', '##+#.#+##', '.#.#.#.#.', '..#...#..'],
+  orbit: ['..###..', '.#...#.', '#..+..#', '#.+++.#', '#..+..#', '.#...#.', '..###..'],
+  crown: ['#..#..#', '#.###.#', '#######', '###+###'],
+  beanie: ['..###..', '.#####.', '#######', '#.#.#.#', '#######'],
+  tophat: ['.#####.', '.#####.', '.#####.', '.+++++.', '#######'],
+  visor: ['#########', '#+++++++#', '#########'],
+  rift: ['#########', '##..#..##', '####+####', '#####+###', '.#######.'],
+  ring: ['..#####..', '.+.....+.', '..#####..'],
+  motes: ['+.......+', '..#####..', '.#.....#.', '..#####..'],
+};
 
-export const CATALOG: readonly CosmeticItem[] = [
-  // ---- the frame's eight, in its order -------------------------------------------
-  { id: 'cell-cape', name: 'Cell cape', kind: 'cape', price_cents: 399, blurb: 'a grid of violet cells that dims toward the hem.', art: { kind: 'cape', pattern: 'cell' } },
-  { id: 'void-cape', name: 'Void cape', kind: 'cape', price_cents: 499, blurb: 'the VOID ring, white on black.', art: { kind: 'cape', pattern: 'void' } },
-  { id: 'ring-cape', name: 'Ring cape', kind: 'cape', price_cents: 299, blurb: 'the VOID ring on slate.', art: { kind: 'cape', pattern: 'ring' } },
-  { id: 'origin-cape', name: 'Origin cape', kind: 'cape', price_cents: 0, blurb: 'two halves of grey. Every account has one.', art: { kind: 'cape', pattern: 'origin' } },
-  { id: 'dusk-cape', name: 'Dusk cape', kind: 'cape', price_cents: 299, blurb: 'three soft bands, graded from dusk to dark.', art: { kind: 'cape', pattern: 'dusk' } },
-  { id: 'static-cape', name: 'Static cape', kind: 'cape', price_cents: 399, blurb: 'a scatter of pale cells, like a dead channel.', art: { kind: 'cape', pattern: 'static' } },
-  { id: 'spark-trail', name: 'Spark trail', kind: 'trail', price_cents: 399, blurb: 'cells that shrink and fade behind you.', isNew: true, art: { kind: 'trail', pattern: 'spark', hue: HUD } },
-  { id: 'cell-nameplate', name: 'Cell nameplate', kind: 'nameplate', price_cents: 199, blurb: 'a three-by-three mark before your name.', art: { kind: 'nameplate', pattern: 'cell', hue: HUD } },
+function artFor(i: CosmeticCatalogItem): ArtStyle {
+  const p = i.preview;
+  const hue = p.hue ?? '#edeeef';
+  switch (i.kind) {
+    case 'cape':
+      return { kind: 'cape', pattern: (p.pattern ?? 'origin') as Extract<ArtStyle, { kind: 'cape' }>['pattern'] };
+    case 'trail':
+      return { kind: 'trail', pattern: (p.pattern ?? 'spark') as Extract<ArtStyle, { kind: 'trail' }>['pattern'], hue };
+    case 'emote':
+      return { kind: 'emote', pattern: p.rows ?? [] };
+    case 'badge':
+      return { kind: 'badge', pattern: (p.pattern ?? 'plain') as Extract<ArtStyle, { kind: 'badge' }>['pattern'], hue };
+    default:
+      return { kind: 'glyph', pattern: GLYPHS[p.pattern ?? ''] ?? ['#'], hue };
+  }
+}
 
-  // ---- the rest of the counts ---------------------------------------------------
-  { id: 'ember-trail', name: 'Ember trail', kind: 'trail', price_cents: 399, blurb: 'warm cells drifting up and out.', art: { kind: 'trail', pattern: 'drift', hue: PVP } },
-  { id: 'frost-trail', name: 'Frost trail', kind: 'trail', price_cents: 399, blurb: 'a cold ring of cells at every step.', art: { kind: 'trail', pattern: 'ring', hue: VISUAL } },
-  { id: 'stair-trail', name: 'Stair trail', kind: 'trail', price_cents: 299, blurb: 'cells that climb in even steps.', art: { kind: 'trail', pattern: 'stair', hue: UTILITY } },
+const ALL: readonly CosmeticItem[] = COSMETIC_CATALOG.map((i) => ({
+  id: i.id,
+  name: i.name,
+  kind: i.kind,
+  price_cents: i.price_cents,
+  blurb: i.blurb,
+  ...(i.is_new ? { isNew: true } : {}),
+  art: artFor(i),
+  availability: i.availability,
+  rarity: i.rarity,
+  tintable: i.tintable,
+}));
 
-  { id: 'wave-emote', name: 'Wave', kind: 'emote', price_cents: 199, blurb: 'a hand, raised and shaken.', art: { kind: 'emote', pattern: ['#...#', '#.#.#', '#####', '.###.', '..#..'] } },
-  { id: 'gg-emote', name: 'GG', kind: 'emote', price_cents: 199, blurb: 'good game, said with your whole body.', art: { kind: 'emote', pattern: ['####.####', '#....#...', '#.##.#.##', '#..#.#..#', '####.####'] } },
-  { id: 'bow-emote', name: 'Bow', kind: 'emote', price_cents: 199, blurb: 'a slow, formal bow.', art: { kind: 'emote', pattern: ['..##.', '.##..', '####.', '.#.#.', '.#..#'] } },
-  { id: 'clap-emote', name: 'Clap', kind: 'emote', price_cents: 199, blurb: 'three claps, unhurried.', art: { kind: 'emote', pattern: ['#...#', '.#.#.', '..#..', '.#.#.', '#...#'] } },
-  { id: 'shrug-emote', name: 'Shrug', kind: 'emote', price_cents: 199, blurb: 'both shoulders, no comment.', art: { kind: 'emote', pattern: ['#...#', '.#.#.', '..#..', '..#..', '.#.#.'] } },
-  { id: 'salute-emote', name: 'Salute', kind: 'emote', price_cents: 199, blurb: 'a crisp salute to the other side.', art: { kind: 'emote', pattern: ['###..', '#.#..', '####.', '..#..', '.#.#.'] } },
-  { id: 'sit-emote', name: 'Sit', kind: 'emote', price_cents: 149, blurb: 'sit down wherever you stand.', art: { kind: 'emote', pattern: ['.#...', '.#...', '.###.', '...#.', '...##'] } },
-  { id: 'point-emote', name: 'Point', kind: 'emote', price_cents: 149, blurb: 'that one. Over there.', art: { kind: 'emote', pattern: ['.....', '#####', '..#..', '.#...', '#....'] } },
+/** What the gallery shows: everything that can be bought or is free. */
+export const CATALOG: readonly CosmeticItem[] = ALL.filter((i) => i.availability !== 'grant');
 
-  { id: 'ring-nameplate', name: 'Ring nameplate', kind: 'nameplate', price_cents: 199, blurb: 'the VOID ring before your name.', art: { kind: 'nameplate', pattern: 'ring', hue: '#edeeef' } },
-  { id: 'ember-nameplate', name: 'Ember nameplate', kind: 'nameplate', price_cents: 199, blurb: 'a warm bar under your name.', art: { kind: 'nameplate', pattern: 'bar', hue: PVP } },
-  { id: 'frost-nameplate', name: 'Frost nameplate', kind: 'nameplate', price_cents: 199, blurb: 'three cold cells beside your name.', art: { kind: 'nameplate', pattern: 'dots', hue: VISUAL } },
-  { id: 'plain-nameplate', name: 'Plain nameplate', kind: 'nameplate', price_cents: 0, blurb: 'just your name. Every account has one.', art: { kind: 'nameplate', pattern: 'plain', hue: UTILITY } },
-];
+const TAB_ORDER: readonly CosmeticKind[] = ['cape', 'back', 'head', 'face', 'halo', 'trail', 'emote', 'badge'];
+const TAB_LABEL: Record<CosmeticKind, string> = {
+  cape: 'Capes',
+  back: 'Back',
+  head: 'Hats',
+  face: 'Masks',
+  halo: 'Halos',
+  trail: 'Trails',
+  badge: 'Badges',
+  emote: 'Emotes',
+};
 
 export const CATEGORIES: readonly { id: 'all' | CosmeticKind; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'cape', label: 'Capes' },
-  { id: 'trail', label: 'Trails' },
-  { id: 'emote', label: 'Emotes' },
-  { id: 'nameplate', label: 'Nameplates' },
+  ...TAB_ORDER.filter((k) => CATALOG.some((i) => i.kind === k)).map((k) => ({ id: k, label: TAB_LABEL[k] })),
 ];
 
 /** Items every account owns without buying them. */
-export const FREE_ITEMS: readonly string[] = CATALOG.filter((i) => i.price_cents === 0).map((i) => i.id);
+export const FREE_ITEMS: readonly string[] = ALL.filter((i) => i.availability === 'free').map((i) => i.id);
 
+/** Any item by id, granted ones included (a founder still sees their badge on Home). */
 export const findItem = (id: string | null | undefined): CosmeticItem | undefined =>
-  id ? CATALOG.find((i) => i.id === id) : undefined;
+  id ? ALL.find((i) => i.id === id) : undefined;
 
 /** `$2.99` — USD, because the checkout the frame describes is priced in it. */
 export const formatPrice = (cents: number): string =>

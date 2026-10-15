@@ -1,0 +1,43 @@
+{
+  "$schema": "./cosmetics.schema.json",
+  "version": 1,
+  "items": [
+    { "id": "cell-cape", "kind": "cape", "name": "Cell cape", "blurb": "a grid of violet cells that breathes light toward the hem.", "rarity": "epic", "availability": "paid", "price_cents": 399, "preview": { "style": "cape", "pattern": "cell" } },
+    { "id": "void-cape", "kind": "cape", "name": "Void cape", "blurb": "the VOID ring, white on black, with one cell in orbit.", "rarity": "legendary", "availability": "paid", "price_cents": 499, "preview": { "style": "cape", "pattern": "void" } },
+    { "id": "ring-cape", "kind": "cape", "name": "Ring cape", "blurb": "the VOID ring on slate.", "rarity": "rare", "availability": "paid", "price_cents": 299, "tintable": true, "default_tint": "#474a4f", "preview": { "style": "cape", "pattern": "ring" } },
+    { "id": "origin-cape", "kind": "cape", "name": "Origin cape", "blurb": "two halves of grey. Every account has one.", "rarity": "common", "availability": "free", "price_cents": 0, "preview": { "style": "cape", "pattern": "origin" } },
+    { "id": "dusk-cape", "kind": "cape", "name": "Dusk cape", "blurb": "three soft bands, graded from dusk to dark, with a few early stars.", "rarity": "rare", "availability": "paid", "price_cents": 299, "preview": { "style": "cape", "pattern": "dusk" } },
+    { "id": "static-cape", "kind": "cape", "name": "Static cape", "blurb": "a scatter of pale cells, like a dead channel.", "rarity": "epic", "availability": "paid", "price_cents": 399, "preview": { "style": "cape", "pattern": "static" } },
+
+    { "id": "ember-wings", "kind": "back", "name": "Ember wings", "blurb": "long dark feathers, warm at the tips. They glide when you fall.", "rarity": "legendary", "availability": "paid", "price_cents": 899, "is_new": true, "preview": { "style": "back", "pattern": "feather", "hue": "#ff9e7a" } },
+    { "id": "void-wings", "kind": "back", "name": "Void wings", "blurb": "black glass membranes with violet veins of light.", "rarity": "legendary", "availability": "paid", "price_cents": 899, "preview": { "style": "back", "pattern": "membrane", "hue": "#9f8bff" } },
+    { "id": "orbit-ring", "kind": "back", "name": "Orbit", "blurb": "a cold ring of cells turning slowly behind you.", "rarity": "epic", "availability": "paid", "price_cents": 599, "preview": { "style": "back", "pattern": "orbit", "hue": "#7adfff" } },
+
+    { "id": "monarch-crown", "kind": "head", "name": "Monarch crown", "blurb": "a thin dark crown with one warm stone.", "rarity": "epic", "availability": "paid", "price_cents": 499, "preview": { "style": "head", "pattern": "crown", "hue": "#ff9e7a" } },
+    { "id": "wool-beanie", "kind": "head", "name": "Wool beanie", "blurb": "ribbed, folded once, in any colour you like.", "rarity": "common", "availability": "paid", "price_cents": 299, "tintable": true, "default_tint": "#6e5bd6", "preview": { "style": "head", "pattern": "beanie", "hue": "#9f8bff" } },
+    { "id": "dapper-top-hat", "kind": "head", "name": "Top hat", "blurb": "black felt with a violet band.", "rarity": "rare", "availability": "paid", "price_cents": 399, "tintable": true, "default_tint": "#9f8bff", "preview": { "style": "head", "pattern": "tophat", "hue": "#9f8bff" } },
+
+    { "id": "seraph-halo", "kind": "halo", "name": "Seraph halo", "blurb": "a ring of warm light that rises and settles as you breathe.", "rarity": "legendary", "availability": "paid", "price_cents": 599, "is_new": true, "preview": { "style": "halo", "pattern": "ring", "hue": "#ff9e7a" } },
+    { "id": "void-halo", "kind": "halo", "name": "Void halo", "blurb": "a violet ring with two motes in orbit.", "rarity": "epic", "availability": "paid", "price_cents": 499, "preview": { "style": "halo", "pattern": "motes", "hue": "#9f8bff" } },
+
+    { "id": "ice-visor", "kind": "face", "name": "Ice visor", "blurb": "a slim band of cold light across the eyes.", "rarity": "epic", "availability": "paid", "price_cents": 399, "preview": { "style": "face", "pattern": "visor", "hue": "#7adfff" } },
+    { "id": "rift-mask", "kind": "face", "name": "Rift mask", "blurb": "a dark faceplate split by a violet seam.", "rarity": "rare", "availability": "paid", "price_cents": 349, "preview": { "style": "face", "pattern": "rift", "hue": "#9f8bff" } },
+
+    { "id": "emote-wave", "kind": "emote", "name": "Wave", "blurb": "a hand, raised and shaken.", "rarity": "common", "availability": "paid", "price_cents": 199, "preview": { "style": "emote", "rows": ["#...#", "#.#.#", "#####", ".###.", "..#.."] } },
+    { "id": "emote-clap", "kind": "emote", "name": "Clap", "blurb": "three claps, unhurried.", "rarity": "common", "availability": "paid", "price_cents": 199, "preview": { "style": "emote", "rows": ["#...#", ".#.#.", "..#..", ".#.#.", "#...#"] } },
+    { "id": "emote-bow", "kind": "emote", "name": "Bow", "blurb": "a slow, formal bow.", "rarity": "rare", "availability": "paid", "price_cents": 199, "preview": { "style": "emote", "rows": ["..##.", ".##..", "####.", ".#.#.", ".#..#"] } },
+    { "id": "emote-salute", "kind": "emote", "name": "Salute", "blurb": "a crisp salute to the other side.", "rarity": "common", "availability": "paid", "price_cents": 199, "preview": { "style": "emote", "rows": ["###..", "#.#..", "####.", "..#..", ".#.#."] } },
+    { "id": "emote-shrug", "kind": "emote", "name": "Shrug", "blurb": "both shoulders, no comment.", "rarity": "common", "availability": "paid", "price_cents": 199, "preview": { "style": "emote", "rows": ["#...#", ".#.#.", "..#..", "..#..", ".#.#."] } },
+    { "id": "emote-sit", "kind": "emote", "name": "Sit", "blurb": "sit down wherever you stand, until you move.", "rarity": "rare", "availability": "paid", "price_cents": 149, "loop": true, "preview": { "style": "emote", "rows": [".#...", ".#...", ".###.", "...#.", "...##"] } },
+
+    { "id": "spark-trail", "kind": "trail", "name": "Spark trail", "blurb": "violet cells that shrink and fade behind you.", "rarity": "rare", "availability": "paid", "price_cents": 399, "is_new": true, "preview": { "style": "trail", "pattern": "spark", "hue": "#9f8bff" } },
+    { "id": "ember-trail", "kind": "trail", "name": "Ember trail", "blurb": "warm motes drifting up and out.", "rarity": "rare", "availability": "paid", "price_cents": 399, "preview": { "style": "trail", "pattern": "drift", "hue": "#ff9e7a" } },
+    { "id": "frost-trail", "kind": "trail", "name": "Frost trail", "blurb": "cold flakes that settle where you step.", "rarity": "rare", "availability": "paid", "price_cents": 399, "preview": { "style": "trail", "pattern": "ring", "hue": "#7adfff" } },
+    { "id": "stair-trail", "kind": "trail", "name": "Stair trail", "blurb": "jade cells that climb in even steps.", "rarity": "common", "availability": "paid", "price_cents": 299, "preview": { "style": "trail", "pattern": "stair", "hue": "#7ae0b0" } },
+
+    { "id": "void-badge-founder", "kind": "badge", "name": "Founder", "blurb": "for the players who were here first. Not for sale.", "rarity": "exclusive", "availability": "grant", "price_cents": 0, "preview": { "style": "badge", "pattern": "founder", "hue": "#ff9e7a" } },
+    { "id": "void-badge-player", "kind": "badge", "name": "VOID player", "blurb": "the VOID ring before your name. Every account has one.", "rarity": "common", "availability": "free", "price_cents": 0, "preview": { "style": "badge", "pattern": "ring", "hue": "#edeeef" } },
+    { "id": "cell-badge", "kind": "badge", "name": "Cell badge", "blurb": "a three-by-three mark before your name.", "rarity": "rare", "availability": "paid", "price_cents": 199, "preview": { "style": "badge", "pattern": "cell", "hue": "#9f8bff" } },
+    { "id": "frost-badge", "kind": "badge", "name": "Frost badge", "blurb": "three cold cells beside your name.", "rarity": "rare", "availability": "paid", "price_cents": 199, "preview": { "style": "badge", "pattern": "dots", "hue": "#7adfff" } }
+  ]
+}
