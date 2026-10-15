@@ -20,7 +20,7 @@
   "definitions": {
     "event_name": {
       "title": "Event name",
-      "description": "The fifteen channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
+      "description": "The sixteen channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
       "type": "string",
       "enum": [
         "keys",
@@ -37,7 +37,8 @@
         "toast",
         "cosmetics",
         "emote",
-        "wheel"
+        "wheel",
+        "binds"
       ]
     },
     "call_name": {
@@ -132,6 +133,10 @@
         {
           "description": "The held emote wheel moved, opened, closed or fired.",
           "$ref": "#/definitions/event_wheel"
+        },
+        {
+          "description": "The player's vanilla key bindings.",
+          "$ref": "#/definitions/event_binds"
         }
       ]
     },
@@ -3002,6 +3007,64 @@
           "maximum": 7
         }
       }
+    },
+    "event_binds": {
+      "title": "binds event",
+      "description": "Envelope for the `binds` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `binds`.",
+          "type": "string",
+          "const": "binds"
+        },
+        "payload": {
+          "description": "Every vanilla key binding with the key it is on now.",
+          "$ref": "#/definitions/binds_payload"
+        }
+      }
+    },
+    "binds_payload": {
+      "title": "binds payload",
+      "description": "Minecraft's own key bindings (`GameOptions.allKeys`) as the player has them set, so the Keybinds tab and the rebind conflict check warn against the player's real binds rather than the 1.8.9 defaults. Pushed on `pushWholeState()` and again when the menu opens with a table that changed since the last push (the player rebound something in vanilla Controls). Whole table, never a delta. A page that has not had it falls back to the 1.8.9 defaults. Keys vanilla hard-codes (F1 hide HUD, F3 debug) are not bindings and are not listed.",
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/definitions/vanilla_bind"
+      }
+    },
+    "vanilla_bind": {
+      "title": "Vanilla bind",
+      "description": "One vanilla key binding.",
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "key"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "The binding's translation key, which is stable across languages, e.g. `key.drop` or `key.hotbar.1`.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "label": {
+          "description": "The binding's name in the game's language, as vanilla Controls prints it.",
+          "type": "string",
+          "maxLength": 64
+        },
+        "key": {
+          "description": "The key it is on now; `NONE` when unbound.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/keybind"
+        }
+      }
     }
   },
   "examples": [
@@ -3621,6 +3684,36 @@
       "payload": {
         "phase": "release"
       }
+    },
+    {
+      "e": "binds",
+      "payload": [
+        {
+          "id": "key.forward",
+          "label": "Walk Forwards",
+          "key": "W"
+        },
+        {
+          "id": "key.drop",
+          "label": "Drop Item",
+          "key": "G"
+        },
+        {
+          "id": "key.attack",
+          "label": "Attack/Destroy",
+          "key": "MOUSE0"
+        },
+        {
+          "id": "key.hotbar.1",
+          "label": "Hotbar Slot 1",
+          "key": "1"
+        },
+        {
+          "id": "key.streamCommercial",
+          "label": "Show Stream Commercials",
+          "key": "NONE"
+        }
+      ]
     },
     {
       "c": "equipCosmetic",

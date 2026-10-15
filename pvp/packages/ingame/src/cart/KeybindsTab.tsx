@@ -3,9 +3,9 @@
  *
  * The bindings are `keybindOverview` — the menu key, the loadout-cycle key and every
  * `keybind`-typed mod setting, read off the active loadout — so a mod that gains a key appears
- * here with no edit. Vanilla's keys are the 1.8.9 defaults (cart/keys.ts says why it cannot be
- * the player's own). A VOID key that is also a vanilla default, or that two VOID bindings
- * share, is a conflict and is counted.
+ * here with no edit. Vanilla's keys are the player's own once Java has pushed `binds`, else the
+ * 1.8.9 defaults (cart/keys.ts). A VOID key that is also on a vanilla key, or that two VOID
+ * bindings share, is a conflict and is counted.
  *
  * Click a key to select it; the panel on the right rebinds or unbinds it through the same
  * capture block the settings bench uses. `F` arms "find": the next key pressed is selected,
@@ -23,7 +23,7 @@ import { keybindLabel } from '@/menu/settings-format';
 import { cx } from '@/ui';
 import { Sprite, hasSprite } from './Sprite';
 import { CATEGORIES, CATEGORY_LABEL, Kc, Led, SearchGlyph, catClass, categoryOf, type CartCategory } from './prims';
-import { KEYBOARD, VANILLA_BINDS, lwjglName } from './keys';
+import { KEYBOARD, lwjglName, useVanillaBinds } from './keys';
 import { KeyCapture } from './Bench';
 import { FooterKeys } from './ModsTab';
 
@@ -46,6 +46,7 @@ export function KeybindsTab() {
   const captureGlobalKey = useVoidStore((s) => s.captureGlobalKey);
   const openMod = useVoidStore((s) => s.openMod);
   const rows = useMemo(() => keybindOverview(loadout, globals), [loadout, globals]);
+  const { table: vanillaBinds, real: realVanilla } = useVanillaBinds();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
   const [finding, setFinding] = useState(false);
@@ -61,9 +62,9 @@ export function KeybindsTab() {
 
   const conflicts = useMemo(() => {
     let n = 0;
-    for (const [key, list] of byKey) if (list.length > 1 || VANILLA_BINDS[key]) n += 1;
+    for (const [key, list] of byKey) if (list.length > 1 || vanillaBinds[key]) n += 1;
     return n;
-  }, [byKey]);
+  }, [byKey, vanillaBinds]);
 
   const counts: Record<Filter, number> = {
     all: rows.length,
@@ -116,7 +117,7 @@ export function KeybindsTab() {
     for (const [name, label, w] of line) {
       const width = w * UNIT + (w - 1) * GAP;
       const binds = byKey.get(name) ?? [];
-      const vanilla = VANILLA_BINDS[name];
+      const vanilla = vanillaBinds[name];
       const bind = binds[0];
       const visible = binds.filter(matches);
       const dimmed = binds.length > 0 && visible.length === 0;
@@ -158,7 +159,7 @@ export function KeybindsTab() {
   /* ---- the selected key ---- */
 
   const selRows = byKey.get(selected) ?? [];
-  const selVanilla = VANILLA_BINDS[selected];
+  const selVanilla = vanillaBinds[selected];
   const selRow = selRows[0];
   const selLabel = keybindLabel(selected);
 
@@ -177,7 +178,9 @@ export function KeybindsTab() {
                 ? `${CATEGORY_LABEL[categoryOf(selRow.mod)]} · ${selRow.live ? 'on' : 'mod is off'}`
                 : 'VOID · client key'
               : selVanilla
-                ? 'Vanilla default'
+                ? realVanilla
+                  ? 'Vanilla'
+                  : 'Vanilla default'
                 : 'Nothing on this key'}
           </span>
         </span>
@@ -194,7 +197,10 @@ export function KeybindsTab() {
       {selRows.length > 1 ? (
         <p className="c-kdetail__warn">Also on this key: {selRows.slice(1).map((r) => r.label).join(', ')}</p>
       ) : selRow && selVanilla ? (
-        <p className="c-kdetail__warn">Vanilla also {selVanilla.does} on {selLabel} (default).</p>
+        <p className="c-kdetail__warn">
+          Vanilla also {selVanilla.does} on {selLabel}
+          {realVanilla ? '.' : ' (default).'}
+        </p>
       ) : null}
       {selRow ? (
         <KeyCapture
@@ -247,7 +253,7 @@ export function KeybindsTab() {
         <div className="c-head__title">
           <span className="c-h1">Keybinds</span>
           <span className="c-mono">
-            {rows.length} VOID · {Object.keys(VANILLA_BINDS).length} vanilla
+            {rows.length} VOID · {Object.keys(vanillaBinds).length} vanilla
           </span>
         </div>
         <div className="c-chips" role="tablist" aria-label="Category">
@@ -304,7 +310,7 @@ export function KeybindsTab() {
               {row.mod && hasSprite(row.mod) ? <Sprite name={row.mod} size={24} /> : <Sprite name="logo" size={20} />}
               {row.label}
             </span>
-            <Kc tone={row.clashes.length > 0 || VANILLA_BINDS[row.key] ? 'warn' : 'idle'}>{row.keyLabel}</Kc>
+            <Kc tone={row.clashes.length > 0 || vanillaBinds[row.key] ? 'warn' : 'idle'}>{row.keyLabel}</Kc>
           </button>
         ))}
         {bound.length === 0 ? <p className="c-none">No binding matches.</p> : null}

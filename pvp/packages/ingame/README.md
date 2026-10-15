@@ -48,12 +48,12 @@ matching **settings** inside mods. `Pinned` is the active loadout's quick pins (
 **The bench** (`cart/Bench.tsx`): the mod's own `ModArt.Preview` over a flat
 Day / Night / Nether / Water scene, then every property `modProperties` returns — switches,
 segment meters (`CellMeter` restyled), option tiles, swatches, flag chips — and a keybind
-capture block that warns before binding over a vanilla default (`cart/keys.ts`, the 1.8.9
-defaults: the bridge does not carry the player's own) or another VOID key. Foot: `Move in HUD
+capture block that warns before binding over a vanilla key (`cart/keys.ts`: the player's own
+binds from the `binds` channel, the 1.8.9 defaults until it arrives) or another VOID key. Foot: `Move in HUD
 layout` (HUD mods), `Reset`, `Pin`.
 
 **Keybinds tab** (`cart/KeybindsTab.tsx`): a keyboard map of `keybindOverview` (menu key, cycle
-key, every `keybind`-typed mod setting) over the vanilla defaults, conflicts counted, rebind and
+key, every `keybind`-typed mod setting) over the player's vanilla binds, conflicts counted, rebind and
 unbind on the selected key, `F` then any key to find it.
 
 **Loadouts tab** (`cart/LoadoutsTab.tsx`): the cartridge case and the focused loadout's rack;
@@ -464,8 +464,9 @@ in `schema/` and the workarounds are gone. They are kept as a record of what mov
    `MOD_CATEGORY` and `FILTER_TABS` are derived from it; the hand-written map is gone.
 5. **Friends is not connected.** No bridge event or call carries party, presence or queue
    state, and §16.2 is still open; the old presentational Party screen is gone and the Friends
-   tab says so. Vanilla's own bindings are not on the bridge either, so the keybind conflict
-   check compares against the 1.8.9 **defaults** and says "(vanilla default)".
+   tab says so. (Vanilla's own bindings now are: Java pushes `binds`, `GameOptions.allKeys`
+   with the keys they are on, and the conflict check uses them; "(vanilla default)" only shows
+   before the first push.)
 6. ~~**`Outfit` ships at 400/500/600** and the design sets keycap and CTA labels at 700,
    so those weights are synthesised.~~ **Resolved.** `@void/ui`'s `fonts.css` now declares
    an explicit `font-weight: 700` `@font-face` pointing at the 600 instance, so a 700 rule

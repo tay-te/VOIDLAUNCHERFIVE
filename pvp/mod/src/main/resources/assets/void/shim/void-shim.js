@@ -43,7 +43,7 @@
   // side and not added here fails completely silently — no error, no warning, the page simply
   // never hears it. That is exactly how `session` was lost the first time it was sent.
   var EVENTS = ['keys', 'tick', 'server', 'loadout', 'loadouts', 'setting', 'menu', 'session',
-    'settings', 'modaction', 'scoreboard', 'toast', 'cosmetics', 'emote', 'wheel'];
+    'settings', 'modaction', 'scoreboard', 'toast', 'cosmetics', 'emote', 'wheel', 'binds'];
   var CALLS = ['setGameplay', 'setHud', 'setModSetting', 'switchLoadout', 'closeMenu',
     'openKeybindCapture', 'setSurfaces', 'setGlobal',
     'createLoadout', 'renameLoadout', 'duplicateLoadout', 'deleteLoadout', 'exportLoadout',

@@ -160,6 +160,8 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
     // days without arriving, because it was missing from that list. Five files or none —
     // `bridge.json`, `VoidBridge`, the shim, `VOID_EVENTS`, `createFakeVoid`.
     bridge.on('session', store.applySession),
+    // The sixteenth: vanilla's key bindings as the player has them set, for the conflict check.
+    bridge.on('binds', store.applyBinds),
     // The ninth: the client's own settings, which until now lived only in `LiveState` and could
     // be neither read nor written by the page. The Settings page is what asked for it.
     bridge.on('settings', store.applyGlobals),

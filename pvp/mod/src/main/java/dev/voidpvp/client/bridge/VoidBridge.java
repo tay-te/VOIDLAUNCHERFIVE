@@ -255,6 +255,18 @@ public final class VoidBridge {
      */
     public static final String EVENT_WHEEL = "wheel";
 
+    /**
+     * Vanilla's key bindings as the player has them set ({@code GameOptions.allKeys}):
+     * {@code [{id, label, key}]}, whole table.
+     *
+     * <p>The sixteenth channel, so the Keybinds tab and the rebind conflict check warn against the
+     * player's real binds rather than the 1.8.9 defaults. Pushed on {@link #pushWholeState()} and
+     * by {@code VoidClient.onMenuOpened} when the table changed since the last push (the player
+     * rebound something in vanilla Controls). Whole state, so an older queued envelope is
+     * dropped.</p>
+     */
+    public static final String EVENT_BINDS = "binds";
+
     public static final String EVENT_EMOTE = "emote";
 
     /**
@@ -784,7 +796,7 @@ public final class VoidBridge {
             if (EVENT_KEYS.equals(event) || EVENT_MENU.equals(event)
                     || EVENT_LOADOUTS.equals(event) || EVENT_SETTINGS.equals(event)
                     || EVENT_SCOREBOARD.equals(event)
-                    || EVENT_COSMETICS.equals(event)) {
+                    || EVENT_COSMETICS.equals(event) || EVENT_BINDS.equals(event)) {
                 dropChannel(event);
             }
             // `tick` is the exception, and it used to be in the list above.
@@ -990,6 +1002,14 @@ public final class VoidBridge {
         // The wardrobe. Read live from CosmeticState for the same reason the loadout is: the
         // page's own equips are not echoed, so a remembered envelope would be missing them.
         emitCosmetics();
+        // Vanilla's bindings, read live: the player may have rebound one in vanilla Controls since
+        // the last push, and a reloaded page has nothing else to warn against.
+        if (host != null) {
+            JsonArray binds = host.vanillaBindsJson();
+            if (binds != null) {
+                emit(EVENT_BINDS, binds);
+            }
+        }
         // Last, so the screen the menu opens onto is drawn against data that is already there.
         emitMenu(menuOpen);
     }

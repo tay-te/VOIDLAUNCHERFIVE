@@ -12,7 +12,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { connectBridge, getVoid, keepsEscape } from '@/bridge/connect';
 import { COMBAT_WINDOW_MS, FACTORY_QUICK, isModOn, modSettings, quickPins, resetDerivedState, useVoidStore } from '@/store/store';
 import { App } from '@/App';
-import { MOD_REGISTRY, type ModId } from '@/bridge/protocol';
+import { FAKE_VANILLA_BINDS, MOD_REGISTRY, type FakeVoid, type ModId } from '@/bridge/protocol';
 import { SHELF_MODS, SHELVES, shelfPreview } from '@/cart/shelves';
 import { searchMods, searchSettings, layoutRows } from '@/cart/ModsTab';
 import { conflictFor, VANILLA_BINDS } from '@/cart/keys';
@@ -373,6 +373,31 @@ describe('the settings bench', () => {
     fireEvent.click(screen.getByRole('button', { name: /Move in HUD layout/ }));
     expect(useVoidStore.getState().route).toEqual({ name: 'hud-editor' });
     expect(useVoidStore.getState().editorTarget).toBe('cps');
+  });
+});
+
+describe('vanilla binds — the player’s own', () => {
+  it('warns against where the player put Drop, not where 1.8.9 put it', () => {
+    const fake = getVoid() as FakeVoid;
+    set(() => fake.emitBinds(FAKE_VANILLA_BINDS.map((b) => (b.id === 'key.drop' ? { ...b, key: 'G' } : b))));
+    const binds = useVoidStore.getState().vanillaBinds;
+    expect(binds?.find((b) => b.id === 'key.drop')?.key).toBe('G');
+    expect(conflictFor('Q', [], 'x', binds)).toBeNull();
+    expect(conflictFor('G', [], 'x', binds)).toMatchObject({ kind: 'vanilla', label: 'Drop', real: true });
+    // 1.8.9 binds the stream keys by default, and F3 is hard-coded rather than a binding.
+    expect(conflictFor('F6', [], 'x', binds)).toMatchObject({ kind: 'vanilla', label: 'Stream' });
+    expect(conflictFor('F3', [], 'x', binds)).toMatchObject({ kind: 'vanilla', label: 'Debug' });
+    // Before any push the defaults stand, and say so.
+    expect(conflictFor('Q', [], 'x')).toMatchObject({ label: 'Drop', real: false });
+
+    set(() => useVoidStore.getState().setRoute({ name: 'keybinds' }));
+    const { container } = render(<App />);
+    expect(container.querySelector('[data-key="G"]')?.classList.contains('is-vanilla')).toBe(true);
+    expect(container.querySelector('[data-key="G"]')?.textContent).toContain('Drop');
+    expect(container.querySelector('[data-key="Q"]')?.classList.contains('is-free')).toBe(true);
+    fireEvent.click(container.querySelector('[data-key="G"]')!);
+    expect(container.querySelector('.c-kdetail')?.textContent).toContain('Vanilla');
+    expect(container.querySelector('.c-kdetail')?.textContent).not.toContain('Vanilla default');
   });
 });
 

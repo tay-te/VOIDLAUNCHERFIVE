@@ -44,6 +44,8 @@ import type {
   EffectSurface,
   EmotePayload,
   WheelPayload,
+  BindsPayload,
+  VanillaBind,
   GameplayModId,
   GlobalSettings,
   HUDAnchor,
@@ -82,14 +84,14 @@ export type SessionInfo = SessionPayload;
 export type { GlobalSettings };
 
 /** Re-exported so a consumer of the `cosmetics` and `emote` channels does not reach into `generated/`. */
-export type { CosmeticsPayload, EmotePayload, WheelPayload };
+export type { CosmeticsPayload, EmotePayload, WheelPayload, BindsPayload, VanillaBind };
 
 /* -------------------------------------------------------------------------- */
 /* Events                                                                     */
 /* -------------------------------------------------------------------------- */
 
 /**
- * The fifteen channels Java pushes on.
+ * The sixteen channels Java pushes on.
  *
  * **Closed, and that is load-bearing.** Both shims look the name up in a map: `on` returns
  * a no-op subscription for a name it does not know, and `__emit` drops an envelope whose
@@ -114,9 +116,10 @@ export const VOID_EVENTS = [
   'cosmetics',
   'emote',
   'wheel',
+  'binds',
 ] as const;
 
-/** Name of one of the fifteen push channels. */
+/** Name of one of the sixteen push channels. */
 export type VoidEventName = (typeof VOID_EVENTS)[number];
 
 /** Payload handed to the handler of each channel. */
@@ -212,6 +215,12 @@ export interface VoidEventPayloadMap {
    * only reports input; the page draws the wheel over the HUD layer and owns the geometry.
    */
   wheel: WheelPayload;
+  /**
+   * Minecraft's own key bindings as the player has them set (`GameOptions.allKeys`): id, label in
+   * the game's language, current key. Whole table, on `pushWholeState()` and when the menu opens
+   * with a table that changed. Until it arrives the page assumes the 1.8.9 defaults.
+   */
+  binds: BindsPayload;
 }
 
 /** Handler signature for a given channel. */

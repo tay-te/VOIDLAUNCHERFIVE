@@ -2152,6 +2152,36 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
     }
   },
   {
+    "e": "binds",
+    "payload": [
+      {
+        "id": "key.forward",
+        "label": "Walk Forwards",
+        "key": "W"
+      },
+      {
+        "id": "key.drop",
+        "label": "Drop Item",
+        "key": "G"
+      },
+      {
+        "id": "key.attack",
+        "label": "Attack/Destroy",
+        "key": "MOUSE0"
+      },
+      {
+        "id": "key.hotbar.1",
+        "label": "Hotbar Slot 1",
+        "key": "1"
+      },
+      {
+        "id": "key.streamCommercial",
+        "label": "Show Stream Commercials",
+        "key": "NONE"
+      }
+    ]
+  },
+  {
     "c": "equipCosmetic",
     "params": [
       "cape",

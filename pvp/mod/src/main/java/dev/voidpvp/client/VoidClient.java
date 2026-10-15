@@ -376,6 +376,40 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     }
 
     /**
+     * The {@code binds} table last pushed by {@link #onMenuOpened}, serialised, so an unchanged
+     * table is not re-sent on every menu open. Game thread only.
+     */
+    private String lastBinds;
+
+    /**
+     * Vanilla's key bindings as the player has them set ({@code GameOptions.allKeys}): translation
+     * key, the label vanilla Controls prints, and the key it is on now. Read from the UI thread by
+     * {@code pushWholeState} as well as the game thread; the codes are plain ints only vanilla
+     * Controls writes, so the worst a race can do is report the previous key for one push.
+     */
+    @Override
+    public com.google.gson.JsonArray vanillaBindsJson() {
+        MinecraftClient mc = minecraft();
+        KeyBinding[] all = mc == null || mc.options == null ? null : mc.options.allKeys;
+        if (all == null) {
+            return null;
+        }
+        String[] ids = new String[all.length];
+        String[] labels = new String[all.length];
+        int[] codes = new int[all.length];
+        for (int i = 0; i < all.length; i++) {
+            KeyBinding kb = all[i];
+            if (kb == null) {
+                continue;
+            }
+            ids[i] = kb.getTranslationKey();
+            labels[i] = net.minecraft.client.resource.language.I18n.translate(kb.getTranslationKey());
+            codes[i] = kb.getCode();
+        }
+        return dev.voidpvp.client.input.VanillaBinds.table(ids, labels, codes);
+    }
+
+    /**
      * True unless this is a real signed-in account.
      *
      * <p>Two ways to be offline, and the dev client found the second one. The documented case is
@@ -1923,6 +1957,16 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // one piece of the page's state that cannot be re-read from anywhere when a reloaded page
         // has to be told the session over again. See VoidBridge.pushWholeState.
         bridge.emitMenu(true);
+        // The player may have rebound something in vanilla Controls since the menu last opened;
+        // the Keybinds tab warns against the keys they really have, so re-send a changed table.
+        com.google.gson.JsonArray binds = vanillaBindsJson();
+        if (binds != null) {
+            String now = binds.toString();
+            if (!now.equals(lastBinds)) {
+                lastBinds = now;
+                bridge.emit(VoidBridge.EVENT_BINDS, binds);
+            }
+        }
         ui.requestRender();
     }
 

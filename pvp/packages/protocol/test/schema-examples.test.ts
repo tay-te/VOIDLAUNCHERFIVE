@@ -78,6 +78,8 @@ describe('schema examples', () => {
       ),
     );
     expect([...events].sort()).toEqual([
+      // The sixteenth: vanilla's key bindings as the player has them set.
+      'binds',
       // The wardrobe's two: what the local player wears and owns, and their emote starting or
       // ending.
       'cosmetics',

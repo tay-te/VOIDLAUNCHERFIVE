@@ -538,7 +538,7 @@ class BridgeExamplesTest {
                 VoidBridge.EVENT_MENU, VoidBridge.EVENT_SESSION, VoidBridge.EVENT_SETTINGS,
                 VoidBridge.EVENT_MODACTION, VoidBridge.EVENT_SCOREBOARD,
                 VoidBridge.EVENT_TOAST, VoidBridge.EVENT_COSMETICS, VoidBridge.EVENT_EMOTE,
-                VoidBridge.EVENT_WHEEL));
+                VoidBridge.EVENT_WHEEL, VoidBridge.EVENT_BINDS));
         java.util.List<String> events = new ArrayList<String>();
         for (JsonElement e : defs.getAsJsonObject("event_name").getAsJsonArray("enum")) {
             events.add(e.getAsString());

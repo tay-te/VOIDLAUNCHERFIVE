@@ -39,6 +39,7 @@ import {
   type TickPayload,
   type ImportResult,
   type ToastPayload,
+  type VanillaBind,
 } from '@/bridge/protocol';
 import { getVoid } from '@/bridge/connect';
 // DEV ONLY. `isFakeMod` is a constant `false` in every build that did not ask for the padding
@@ -537,6 +538,11 @@ export interface VoidState {
   cpsPeak: number;
   /** Who is playing. Null until the first `session` push, and after that never changes. */
   session: SessionInfo | null;
+  /**
+   * Vanilla's key bindings as the player has them set — the `binds` push. Null until it arrives,
+   * and the Keybinds tab and the conflict check then assume the 1.8.9 defaults (`cart/keys.ts`).
+   */
+  vanillaBinds: VanillaBind[] | null;
   /** The client's globals. Factory values until the first `settings` push replaces them. */
   globals: GlobalsView;
   /** Notices on screen, oldest first. Drawn by `ToastStack` over both layers. */
@@ -582,6 +588,8 @@ export interface VoidState {
   applyServer(server: ServerPayload): void;
   applyScoreboard(board: ScoreboardPayload): void;
   applySession(session: SessionInfo): void;
+  /** The `binds` channel: vanilla's key bindings, whole. */
+  applyBinds(binds: VanillaBind[]): void;
   applyGlobals(payload: unknown): void;
   applyMenu(open: boolean): void;
   /** The `toast` channel: a notice Java raised for something that happened with the menu closed. */
@@ -671,6 +679,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   cpsRight: 0,
   cpsPeak: 0,
   session: null,
+  vanillaBinds: null,
   globals: FACTORY_GLOBALS,
   toasts: [],
 
@@ -943,6 +952,14 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     const current = get().session;
     if (current && sameJson(current, session)) return;
     set({ session });
+  },
+
+  applyBinds(binds) {
+    // Value, not identity, for the same reason: every pushWholeState re-sends the same table.
+    if (!Array.isArray(binds)) return;
+    const current = get().vanillaBinds;
+    if (current && sameJson(current, binds)) return;
+    set({ vanillaBinds: binds });
   },
 
   applyGlobals(payload) {

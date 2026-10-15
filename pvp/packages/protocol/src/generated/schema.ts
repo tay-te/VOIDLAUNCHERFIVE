@@ -1425,7 +1425,8 @@ export type Event =
   | ToastEvent
   | CosmeticsEvent
   | EmoteEvent
-  | WheelEvent;
+  | WheelEvent
+  | BindsEvent;
 /**
  * 0 released, 1 pressed.
  */
@@ -1440,6 +1441,12 @@ export type LoadoutsPayload = Loadout[];
  * True when VoidMenuScreen opened, false when it closed. The React app draws the HUD layer and the menu layer into the same Ultralight view (§6.2); this flag is how it decides which is visible.
  */
 export type MenuPayload = boolean;
+/**
+ * Minecraft's own key bindings (`GameOptions.allKeys`) as the player has them set, so the Keybinds tab and the rebind conflict check warn against the player's real binds rather than the 1.8.9 defaults. Pushed on `pushWholeState()` and again when the menu opens with a table that changed since the last push (the player rebound something in vanilla Controls). Whole table, never a delta. A page that has not had it falls back to the 1.8.9 defaults. Keys vanilla hard-codes (F1 hide HUD, F3 debug) are not bindings and are not listed.
+ *
+ * @maxItems 64
+ */
+export type BindsPayload = VanillaBind[];
 /**
  * One JS to Java call, enveloped as {c, params}. In the real bridge `params` is the positional argument list of the method.
  */
@@ -4099,6 +4106,30 @@ export interface WheelPayload {
    * `key`: the wheel slot whose number was pressed, 0-7.
    */
   slot?: number;
+}
+/**
+ * Envelope for the `binds` event.
+ */
+export interface BindsEvent {
+  /**
+   * Event discriminator; always `binds`.
+   */
+  e: 'binds';
+  payload: BindsPayload;
+}
+/**
+ * One vanilla key binding.
+ */
+export interface VanillaBind {
+  /**
+   * The binding's translation key, which is stable across languages, e.g. `key.drop` or `key.hotbar.1`.
+   */
+  id: string;
+  /**
+   * The binding's name in the game's language, as vanilla Controls prints it.
+   */
+  label: string;
+  key: Keybind;
 }
 /**
  * `void.setGameplay(id, on)`. Writes the boolean field the mod's actuator Mixin reads every frame (§6.7). Synchronous and authoritative: the toggle in the UI shows the returned value, never an optimistic one.

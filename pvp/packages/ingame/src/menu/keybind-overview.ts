@@ -11,8 +11,8 @@
  * table independently (`VoidClient.pollHotkeys`), so two mods on one key both fire on one press —
  * a toggle and a hold, or two toggles, flipping together. Mods that are switched off are still
  * listed and still compared: a toggle key flips its mod *on*, so an "off" mod's key is live.
- * Vanilla's own binds are not known to the page and are not compared; that would need Java to
- * send `GameOptions.keyBindings` over, and nothing on the bridge carries them yet.
+ * Vanilla's own binds are not rows here: Java pushes them on the `binds` channel, and the
+ * Keybinds tab and the conflict check compare against them through `cart/keys.ts`.
  */
 
 import { KEYBIND_SETTINGS, type ModId } from '@/bridge/protocol';

@@ -193,7 +193,8 @@ export function KeyCapture({ label, value, selfId, capture, write, allowNone = t
           setState({ phase: 'idle' });
           return;
         }
-        const conflict = conflictFor(key, keybindOverview(useVoidStore.getState().loadout, useVoidStore.getState().globals), selfId);
+        const { loadout, globals, vanillaBinds } = useVoidStore.getState();
+        const conflict = conflictFor(key, keybindOverview(loadout, globals), selfId, vanillaBinds);
         if (conflict) setState({ phase: 'conflict', key, conflict });
         else {
           write(key);
@@ -243,7 +244,7 @@ export function KeyCapture({ label, value, selfId, capture, write, allowNone = t
               <span className="c-warnblk__led" />
               <span className="c-label">
                 {state.conflict.kind === 'vanilla'
-                  ? `${keybindLabel(state.key)} ${state.conflict.does} (vanilla default)`
+                  ? `${keybindLabel(state.key)} ${state.conflict.does}${state.conflict.real ? ' in vanilla' : ' (vanilla default)'}`
                   : `${keybindLabel(state.key)} is already ${state.conflict.label}`}
               </span>
             </div>
