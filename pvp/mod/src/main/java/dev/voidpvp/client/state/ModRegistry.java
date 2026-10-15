@@ -387,7 +387,7 @@ public final class ModRegistry {
                 "border", bool(false),
                 "padding", enumOf("normal", "tight", "normal", "roomy"),
                 // Whether armor pieces are laid out left to right or top to bottom.
-                "orientation", enumOf("horizontal", "horizontal", "vertical"),
+                "orientation", enumOf("vertical", "horizontal", "vertical"),
                 // Whether to print remaining durability as a number under each piece.
                 "show_durability", bool(true),
                 // Whether to include the currently held item as a sixth slot.
@@ -1596,82 +1596,60 @@ public final class ModRegistry {
         // default.
         // Anchors: top-left | top | top-right | left | center | right | bottom-left | bottom | bottom-right.
         // Read by Loadout.defaults(), which seeds a new loadout's hud[] from it.
-        place("fps", "top-left", 23, 23);
-        place("keystrokes", "bottom-left", 31, -109);
-        place("cps", "bottom-left", 175, -108);
-        place("ping", "top-left", 23, 65);
-        place("coordinates", "top-left", 23, 103);
-        place("armor_status", "top-right", -25, 299);
-        place("potion_effects", "top-right", -25, 23);
+        place("fps", "top-left", 20, 20);
+        place("keystrokes", "bottom-left", 20, -20);
+        // CPS counter: Beside FPS in the top row, as the Cartridge fight HUD (Figma 630:2) draws it:
+        // FPS 96 wide at 20, CPS 128 wide at 122, Ping at 256, a 6 px gap between 56 px modules.
+        place("cps", "top-left", 122, 20);
+        place("ping", "top-left", 256, 20);
+        place("coordinates", "top-left", 20, 128);
+        place("armor_status", "bottom-right", -20, -20);
+        place("potion_effects", "top-right", -20, 20);
 
-        // Watermark: The next row of the left column, under Coordinates at 103. **This number is
-        // deliberately not `loadout.json`'s.** The Sword PvP example there places the mark at
-        // `top-left 20,58`, under an fps at `dy 20` and a ping at `dy 38` — an 18-20 px rhythm,
-        // which is a hand-authored product loadout rather than the factory layout. This table's
-        // rhythm is 38-42 px, and 58 here would land the mark on top of the ping chip at 65
-        // rather than under it. Same intent — third in the top-left stack, which is where every
-        // PvP client puts its mark — expressed in the space the page actually lays out in.
-        place("watermark", "top-left", 23, 141);
+        // Watermark: Under the top row of modules (56 px tall at 20, so 84 is the next row with the 8
+        // px rhythm the Cartridge HUD uses). Third thing in the top-left reading order, where every
+        // PvP client puts its mark.
+        place("watermark", "top-left", 20, 84);
 
-        // Direction: The next row of the same column, on this table's 38 px rhythm. Under
-        // Coordinates on purpose: it is the mod a player confuses with Coordinates, and stacking
-        // them makes the difference — a position, versus a facing — visible at a glance rather
-        // than argued about.
-        place("direction", "top-left", 23, 179);
+        // Direction: Under Coordinates, one 64 px Cartridge row down: the mod a player confuses with
+        // Coordinates, stacked so the difference — a position versus a facing — is visible at a
+        // glance.
+        place("direction", "top-left", 20, 192);
 
-        // Combo counter: The sixth and last row of the left column, 38 px under Direction on this
-        // table's rhythm. NOT "under Coordinates, the mod players confuse it with" — that
-        // argument belongs to Direction and Direction has held `dy 179` since it was added. What
-        // this row actually is, is the *bottom* of the column the eye already sweeps: the five
-        // above it are ambient readouts checked between fights, and the combo is the one that
-        // means nothing except during one. Last in the stack puts a fight-time number somewhere
-        // already looked at without dropping it into the middle of that sweep.
-        place("combo", "top-left", 23, 217);
-        place("saturation", "top-left", 23, 255);
-        place("momentum", "top-left", 23, 293);
+        // Combo counter: Just below and right of the crosshair, as the Cartridge fight HUD (Figma
+        // 630:2) places it: the one number that means something only mid-fight belongs where the eyes
+        // already are during one.
+        place("combo", "center", 40, 24);
+        place("saturation", "top-left", 20, 256);
+        place("momentum", "top-left", 20, 320);
 
-        // Memory: Opens the bottom-right corner, which the factory layout does not otherwise use.
-        // Both mods that live there — this and Server address, 38 px above it — are
-        // *diagnostics*: you read them when something is wrong, not while it is going wrong.
-        // Keeping them opposite the top-left reference stack means the glance for "is the client
-        // healthy" never crosses the column holding the glance for "where am I". The insets match
-        // the corners already in use: 25 px in from the right edge as the top-right stack is, 23
-        // px up from the bottom as the top-left stack is down from the top.
-        place("memory", "bottom-right", -25, -23);
-        place("server_address", "bottom-right", -25, -61);
+        // Memory: Above Armor status (160 tall at -20) in the bottom-right column, the corner furthest
+        // from the crosshair: diagnostics are read when something is wrong, not while it is going
+        // wrong.
+        place("memory", "bottom-right", -20, -188);
+        // Server address: The next 64 px row of the bottom-right column, over Memory: the other
+        // diagnostic.
+        place("server_address", "bottom-right", -20, -252);
 
-        // Item counter: Above the CPS chip, in the hand-and-clicks corner, and in the **175
-        // column rather than the 31 one**. The bottom-left corner has two columns because
-        // Keystrokes at `dx 31` is a *tall* widget: a WASD block with a mouse row and a space bar
-        // under it is over a hundred design-canvas pixels of column, so 31 is spoken for far
-        // above its own `dy -109`, and anything stacked there lands on the caps. 175 is the
-        // column that already answers the same question this mod does — CPS at `dy -108` is how
-        // fast the hand is going, and the held stack directly above it at -146 is what the hand
-        // is going *through*. The 38 px gap is this table's rhythm.
-        place("item_counter", "bottom-left", 175, -146);
+        // Item counter: The second bottom-left column, right of Keystrokes (156 wide at 20, so 184
+        // with the 8 px gap): the hand-and-clicks corner, what the hand is going through.
+        place("item_counter", "bottom-left", 184, -20);
 
-        // Stopwatch: Third row of the bottom-right corner, 38 px above Server address (`-61`) and
-        // 76 above Memory (`-23`), continuing upward the rhythm those two opened. It is not a
-        // diagnostic like its two neighbours, and that is the argument for putting it there
-        // rather than against: Memory and Server address are read when something is wrong, and a
-        // stopwatch is read when a fight is over. Neither is a glance you take mid-swing, so both
-        // belong in the corner furthest from the crosshair, and the top-left column stays what it
-        // is — the things you sweep while playing.
-        place("stopwatch", "bottom-right", -25, -99);
+        // Stopwatch: Top of the bottom-right column: read when a fight is over, never mid-swing, so it
+        // shares the corner furthest from the crosshair.
+        place("stopwatch", "bottom-right", -20, -316);
 
-        // Scoreboard: Right edge, vertically centred — where vanilla draws the sidebar, so
-        // turning the mod on restyles it in place before anyone moves it.
-        place("scoreboard", "right", -25, 0);
+        // Scoreboard: Right edge, vertically centred — where vanilla draws the sidebar, so turning the
+        // mod on restyles it in place before anyone moves it.
+        place("scoreboard", "right", -20, 0);
 
-        // Potion counter: Directly above the Item counter (`-146`) in the 175 column, on the same
-        // 38 px rhythm: the hand-and-clicks corner reads, bottom to top, how fast the hand is
-        // going (CPS), what it is going through (Item counter) and how many heals are left.
-        place("potion_counter", "bottom-left", 175, -184);
+        // Potion counter: Above the Item counter in the 184 column, one 64 px Cartridge row up: bottom
+        // to top, what the hand holds and how many heals are left.
+        place("potion_counter", "bottom-left", 184, -84);
 
-        // Reach display: Below Momentum (`293`) in the top-left column, 38 px down: the column
-        // already holds the two other numbers a fight produces, Combo and Momentum, and reach is
-        // read at the same moment as both.
-        place("reach", "top-left", 23, 331);
+        // Reach display: The left column's last row on the 64 px Cartridge rhythm, beside Momentum:
+        // the numbers a fight produces read together. Combo, the other one, sits beside the crosshair.
+        place("reach", "top-left", 20, 384);
     }
 
     // =================================================================

@@ -40,8 +40,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "top-left",
-        "dx": 23,
-        "dy": 23
+        "dx": 20,
+        "dy": 20
       }
     },
     "keystrokes": {
@@ -73,8 +73,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "bottom-left",
-        "dx": 31,
-        "dy": -109
+        "dx": 20,
+        "dy": -20
       }
     },
     "cps": {
@@ -100,9 +100,9 @@ export const MOD_REGISTRY_DOCUMENT = {
         "ignore_cancelled": false
       },
       "default_placement": {
-        "anchor": "bottom-left",
-        "dx": 175,
-        "dy": -108
+        "anchor": "top-left",
+        "dx": 122,
+        "dy": 20
       }
     },
     "ping": {
@@ -133,8 +133,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "top-left",
-        "dx": 23,
-        "dy": 65
+        "dx": 256,
+        "dy": 20
       }
     },
     "coordinates": {
@@ -160,8 +160,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "top-left",
-        "dx": 23,
-        "dy": 103
+        "dx": 20,
+        "dy": 128
       }
     },
     "armor_status": {
@@ -180,15 +180,15 @@ export const MOD_REGISTRY_DOCUMENT = {
         "background": "none",
         "border": false,
         "padding": "normal",
-        "orientation": "horizontal",
+        "orientation": "vertical",
         "show_durability": true,
         "show_held_item": true,
         "warn_below": 0.5
       },
       "default_placement": {
-        "anchor": "top-right",
-        "dx": -25,
-        "dy": 299
+        "anchor": "bottom-right",
+        "dx": -20,
+        "dy": -20
       }
     },
     "potion_effects": {
@@ -215,8 +215,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "top-right",
-        "dx": -25,
-        "dy": 23
+        "dx": -20,
+        "dy": 20
       }
     },
     "watermark": {
@@ -239,8 +239,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "top-left",
-        "dx": 23,
-        "dy": 141
+        "dx": 20,
+        "dy": 84
       }
     },
     "toggle_sprint": {
@@ -356,8 +356,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "top-left",
-        "dx": 23,
-        "dy": 179
+        "dx": 20,
+        "dy": 192
       }
     },
     "combo": {
@@ -380,9 +380,9 @@ export const MOD_REGISTRY_DOCUMENT = {
         "show_label": true
       },
       "default_placement": {
-        "anchor": "top-left",
-        "dx": 23,
-        "dy": 217
+        "anchor": "center",
+        "dx": 40,
+        "dy": 24
       }
     },
     "saturation": {
@@ -407,8 +407,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "top-left",
-        "dx": 23,
-        "dy": 255
+        "dx": 20,
+        "dy": 256
       }
     },
     "momentum": {
@@ -433,8 +433,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "top-left",
-        "dx": 23,
-        "dy": 293
+        "dx": 20,
+        "dy": 320
       }
     },
     "memory": {
@@ -459,8 +459,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "bottom-right",
-        "dx": -25,
-        "dy": -23
+        "dx": -20,
+        "dy": -188
       }
     },
     "server_address": {
@@ -483,8 +483,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "bottom-right",
-        "dx": -25,
-        "dy": -61
+        "dx": -20,
+        "dy": -252
       }
     },
     "item_counter": {
@@ -509,8 +509,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "bottom-left",
-        "dx": 175,
-        "dy": -146
+        "dx": 184,
+        "dy": -20
       }
     },
     "stopwatch": {
@@ -536,8 +536,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "bottom-right",
-        "dx": -25,
-        "dy": -99
+        "dx": -20,
+        "dy": -316
       }
     },
     "fov": {
@@ -812,7 +812,7 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "right",
-        "dx": -25,
+        "dx": -20,
         "dy": 0
       }
     },
@@ -901,8 +901,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "bottom-left",
-        "dx": 175,
-        "dy": -184
+        "dx": 184,
+        "dy": -84
       }
     },
     "reach": {
@@ -928,8 +928,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       },
       "default_placement": {
         "anchor": "top-left",
-        "dx": 23,
-        "dy": 331
+        "dx": 20,
+        "dy": 384
       }
     },
     "chat": {

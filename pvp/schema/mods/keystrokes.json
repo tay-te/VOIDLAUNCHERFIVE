@@ -15,8 +15,8 @@
   "enabled": true,
   "default_placement": {
     "anchor": "bottom-left",
-    "dx": 31,
-    "dy": -109
+    "dx": 20,
+    "dy": -20
   },
   "shared_overrides": {
     "opacity": {

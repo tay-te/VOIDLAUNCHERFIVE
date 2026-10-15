@@ -15,8 +15,8 @@
   "enabled": true,
   "default_placement": {
     "anchor": "top-right",
-    "dx": -25,
-    "dy": 23
+    "dx": -20,
+    "dy": 20
   },
   "defaults": {
     "show_duration": true,

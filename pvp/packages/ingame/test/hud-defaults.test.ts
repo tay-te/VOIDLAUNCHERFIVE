@@ -107,20 +107,19 @@ describe('the factory HUD layout, from the schema to both tables', () => {
     ).toEqual([...HUD_MOD_IDS].sort());
   });
 
-  it('keeps the watermark under the ping chip rather than on top of it', () => {
-    // The one number in this table with an argument behind it, and the argument is about the
-    // *column*: `loadout.json`'s example library puts the mark at dy 58 on its own 18-20 px
-    // rhythm, which here would collide with ping at 65. The schema carries that reasoning as
-    // the `$comment` on the watermark entry's `default_placement`; this is the part of it a
-    // test can hold. Written as an ordering rather than as 141 so that moving the whole column
-    // stays legal and moving the mark into the ping chip does not.
-    const { watermark, ping, coordinates, direction } = DEFAULT_HUD;
-    expect(watermark.anchor).toBe('top-left');
-    expect(watermark.dy, 'the mark goes under ping, not over it').toBeGreaterThan(ping.dy);
-    expect(watermark.dy, 'and under coordinates, which is placed whether or not it is on')
-      .toBeGreaterThan(coordinates.dy);
-    expect(direction.dy, 'direction takes the next row after the mark').toBeGreaterThan(
-      watermark.dy,
-    );
+  it('lays the top row out side by side and the column under it, never overlapping', () => {
+    // Cartridge (Figma 630:2): FPS, CPS and Ping are 56 px modules in one row at the top left,
+    // and the column starts under that row — the mark first, then coordinates and direction.
+    // Written as orderings and gaps rather than numbers, so moving the whole layout stays legal
+    // and stacking two modules on each other does not.
+    const { fps, cps, ping, watermark, coordinates, direction } = DEFAULT_HUD;
+    for (const p of [fps, cps, ping, watermark, coordinates, direction]) expect(p.anchor).toBe('top-left');
+    expect(cps.dy).toBe(fps.dy);
+    expect(ping.dy).toBe(fps.dy);
+    expect(cps.dx - fps.dx, 'CPS clears the 96 px FPS module').toBeGreaterThanOrEqual(96);
+    expect(ping.dx - cps.dx, 'Ping clears the 128 px CPS module').toBeGreaterThanOrEqual(128);
+    expect(watermark.dy - fps.dy, 'the mark goes under the 56 px row, not over it').toBeGreaterThanOrEqual(56);
+    expect(coordinates.dy, 'coordinates take the row after the mark').toBeGreaterThan(watermark.dy);
+    expect(direction.dy - coordinates.dy, 'direction takes the next 56 px row').toBeGreaterThanOrEqual(56);
   });
 });

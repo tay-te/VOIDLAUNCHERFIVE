@@ -14,9 +14,10 @@
   "source": "derived from clicks in JS",
   "enabled": true,
   "default_placement": {
-    "anchor": "bottom-left",
-    "dx": 175,
-    "dy": -108
+    "note": "Beside FPS in the top row, as the Cartridge fight HUD (Figma 630:2) draws it: FPS 96 wide at 20, CPS 128 wide at 122, Ping at 256, a 6 px gap between 56 px modules.",
+    "anchor": "top-left",
+    "dx": 122,
+    "dy": 20
   },
   "defaults": {
     "mode": "left",

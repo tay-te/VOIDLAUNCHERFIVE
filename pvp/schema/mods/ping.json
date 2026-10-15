@@ -15,8 +15,8 @@
   "enabled": true,
   "default_placement": {
     "anchor": "top-left",
-    "dx": 23,
-    "dy": 65
+    "dx": 256,
+    "dy": 20
   },
   "defaults": {
     "show_label": true,
@@ -60,7 +60,7 @@
       "default": false
     },
     "show_jitter": {
-      "description": "Whether jitter is drawn as a trailing aside, `±7`: the mean change between consecutive readings over the last `window`. A steady 90 ms plays better than a 40 ms that swings by 30, and only this figure tells the two apart.",
+      "description": "Whether jitter is drawn as a trailing aside, `\u00b17`: the mean change between consecutive readings over the last `window`. A steady 90 ms plays better than a 40 ms that swings by 30, and only this figure tells the two apart.",
       "type": "boolean",
       "default": false
     },
