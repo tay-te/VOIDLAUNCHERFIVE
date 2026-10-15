@@ -57,7 +57,7 @@ public final class Heights {
 
 	/** Takes a built tile's grid. */
 	void put(long key, Grid grid) {
-		if (this.grids.putIfAbsent(key, grid) == null && TileKey.level(key) < COARSE) {
+		if (this.grids.putIfAbsent(it.unimi.dsi.fastutil.HashCommon.mix(key), grid) == null && TileKey.level(key) < COARSE) {
 			this.fine.add(key);
 			this.trim();
 		}
@@ -91,7 +91,7 @@ public final class Heights {
 			int tx = Math.floorDiv(bx, span), tz = Math.floorDiv(bz, span);
 			long key = TileKey.of(l, tx, tz);
 			// grids are never replaced (only let go, and one let go still holds the land as it was)
-			Grid g = key == m.key ? m.grid : this.grids.get(key);
+			Grid g = key == m.key ? m.grid : this.grids.get(it.unimi.dsi.fastutil.HashCommon.mix(key));
 			if (g != null) {
 				m.key = key;
 				m.grid = g;
@@ -131,7 +131,7 @@ public final class Heights {
 			if (oldest == null) {
 				return;
 			}
-			this.grids.remove(oldest);
+			this.grids.remove(it.unimi.dsi.fastutil.HashCommon.mix(oldest));
 		}
 	}
 }

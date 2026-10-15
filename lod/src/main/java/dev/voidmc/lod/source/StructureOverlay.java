@@ -23,7 +23,69 @@ public final class StructureOverlay implements TerrainSource {
 		final List<StructureSites.Box> boxes = new ArrayList<>();
 		boolean active;
 		int minX, minZ, maxX, maxZ;
+		/**
+		 * The boxes binned on a {@value #BINS} x {@value #BINS} grid over the tile, so a sample tests only the few near it:
+		 * a far tile spans many regions, thousands of pieces. Bin {@code b}'s boxes are {@code binned[first[b]..first[b + 1])}.
+		 */
+		int binSize = 1;
+		final int[] first = new int[BINS * BINS + 1];
+		int[] binned = new int[64];
+		/** Per box, the last sample that looked at it: a box in several bins a sample spans counts once. */
+		int[] seen = new int[64];
+		int sample;
+
+		void bin() {
+			int n = this.boxes.size();
+			this.binSize = Math.max(1, Math.ceilDiv(Math.max(this.maxX - this.minX, this.maxZ - this.minZ), BINS));
+			java.util.Arrays.fill(this.first, 0);
+			if (this.seen.length < n) {
+				this.seen = new int[Math.max(n, this.seen.length * 2)];
+			}
+			java.util.Arrays.fill(this.seen, 0, n, 0);
+			this.sample = 0;
+			// count per bin, then lay them out
+			for (int pass = 0; pass < 2; pass++) {
+				int total = 0;
+				if (pass == 1) {
+					for (int b = 0; b <= BINS * BINS; b++) {
+						int c = this.first[b];
+						this.first[b] = total;
+						total += c;
+					}
+					if (this.binned.length < total) {
+						this.binned = new int[Math.max(total, this.binned.length * 2)];
+					}
+				}
+				int[] fill = pass == 1 ? this.first.clone() : null;
+				for (int i = 0; i < n; i++) {
+					StructureSites.Box b = this.boxes.get(i);
+					int bx0 = this.bin(b.minX() - this.minX), bx1 = this.bin(b.maxX() - this.minX);
+					int bz0 = this.bin(b.minZ() - this.minZ), bz1 = this.bin(b.maxZ() - this.minZ);
+					for (int bz = bz0; bz <= bz1; bz++) {
+						for (int bx = bx0; bx <= bx1; bx++) {
+							int at = bx + bz * BINS;
+							if (pass == 0) {
+								this.first[at]++;
+							} else {
+								this.binned[fill[at]++] = i;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		int bin(int offset) {
+			return Math.max(0, Math.min(BINS - 1, Math.floorDiv(offset, this.binSize)));
+		}
 	}
+
+	private static final int BINS = 16;
+	/**
+	 * Pieces whose top is this far under the sea are never seen from the surface (mineshafts, strongholds, ancient cities):
+	 * left out of a tile's boxes.
+	 */
+	private static final int BURIED = 32;
 
 	public StructureOverlay(TerrainSource generator, StructureSites sites) {
 		this.generator = generator;
@@ -65,6 +127,9 @@ public final class StructureOverlay implements TerrainSource {
 		t.maxZ = z0 + (size - border) * c + c;
 		t.boxes.clear();
 		this.gather(t.minX, t.minZ, t.maxX, t.maxZ, t.boxes);
+		int buried = this.sites.seaLevel() - BURIED;
+		t.boxes.removeIf(b -> b.maxY() < buried);
+		t.bin();
 		t.active = true;
 	}
 
@@ -118,9 +183,22 @@ public final class StructureOverlay implements TerrainSource {
 			if (t.boxes.isEmpty()) {
 				return;
 			}
-			for (StructureSites.Box b : t.boxes) {
-				if (b.maxX() >= x0 && b.minX() < x1 && b.maxZ() >= z0 && b.minZ() < z1) {
-					boxes.add(b);
+			int stamp = ++t.sample;
+			int bx0 = t.bin(x0 - t.minX), bx1 = t.bin(x1 - 1 - t.minX), bz0 = t.bin(z0 - t.minZ), bz1 = t.bin(z1 - 1 - t.minZ);
+			for (int bz = bz0; bz <= bz1; bz++) {
+				for (int bx = bx0; bx <= bx1; bx++) {
+					int at = bx + bz * BINS;
+					for (int k = t.first[at], end = t.first[at + 1]; k < end; k++) {
+						int i = t.binned[k];
+						if (t.seen[i] == stamp) {
+							continue;
+						}
+						t.seen[i] = stamp;
+						StructureSites.Box b = t.boxes.get(i);
+						if (b.maxX() >= x0 && b.minX() < x1 && b.maxZ() >= z0 && b.minZ() < z1) {
+							boxes.add(b);
+						}
+					}
 				}
 			}
 		} else {

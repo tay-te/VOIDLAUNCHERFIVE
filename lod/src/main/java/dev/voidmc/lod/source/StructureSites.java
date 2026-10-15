@@ -78,6 +78,11 @@ public final class StructureSites {
 		this.seed = level.getSeed();
 	}
 
+	/** The world's sea level: pieces far under it are never seen from above. */
+	public int seaLevel() {
+		return this.generator.getSeaLevel();
+	}
+
 	/** Where the player is, about: small structures are worked out only near it. */
 	public void centre(double x, double z) {
 		this.centreX = x;

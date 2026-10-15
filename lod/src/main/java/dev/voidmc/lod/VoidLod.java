@@ -839,7 +839,26 @@ public final class VoidLod implements ClientModInitializer {
 
 	// ---- called from the mixins, on the render thread -------------------------------------------------------
 
+	/** The last {@value #FRAME_LOG} frames: how long each took from the one before, and how much of it the LOD's preparation. */
+	public static final int FRAME_LOG = 1 << 14;
+	public final long[] frameNanos = new long[FRAME_LOG];
+	public final long[] lodNanos = new long[FRAME_LOG];
+	/** Frames logged so far: frame {@code i} is at {@code i % FRAME_LOG}. */
+	public volatile int framesLogged;
+	private long lastFrameNanos;
+
 	public void prepare(CameraRenderState camera, float sunAngle) {
+		long now = System.nanoTime();
+		int slot = this.framesLogged & FRAME_LOG - 1;
+		this.frameNanos[slot] = this.lastFrameNanos == 0 ? 0 : now - this.lastFrameNanos;
+		this.lodNanos[slot] = 0;
+		this.lastFrameNanos = now;
+		this.framesLogged++;
+		this.prepareFrame(camera, sunAngle);
+		this.lodNanos[slot] = System.nanoTime() - now;
+	}
+
+	private void prepareFrame(CameraRenderState camera, float sunAngle) {
 		ChunkIngest ingest = this.ingest;
 		if (ingest != null) {
 			// with the LOD toggled off too: what changes meanwhile should be there when it comes back

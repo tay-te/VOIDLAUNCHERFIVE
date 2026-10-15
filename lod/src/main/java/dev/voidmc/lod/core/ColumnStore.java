@@ -66,6 +66,11 @@ public final class ColumnStore {
 		this.listener = listener;
 	}
 
+	/** A region's key in {@link #regions}: {@link #key} mixed, since x and z packed side by side collide along diagonals in a hash map. */
+	private static long slot(int rx, int rz) {
+		return it.unimi.dsi.fastutil.HashCommon.mix(key(rx, rz));
+	}
+
 	public static long key(int rx, int rz) {
 		return (long) rx << 32 | rz & 0xFFFFFFFFL;
 	}
@@ -77,7 +82,7 @@ public final class ColumnStore {
 	}
 
 	public Region region(int rx, int rz) {
-		return this.regions.get(key(rx, rz));
+		return this.regions.get(slot(rx, rz));
 	}
 
 	public Collection<Region> regions() {
@@ -100,7 +105,7 @@ public final class ColumnStore {
 	public boolean put(int cx, int cz, ChunkColumns data) {
 		int rx = cx >> REGION_SHIFT;
 		int rz = cz >> REGION_SHIFT;
-		Region r = this.regions.computeIfAbsent(key(rx, rz), k -> new Region(rx, rz));
+		Region r = this.regions.computeIfAbsent(slot(rx, rz), k -> new Region(rx, rz));
 		long change;
 		synchronized (r) {
 			int i = index(cx, cz);
@@ -132,7 +137,7 @@ public final class ColumnStore {
 	 * known: a chunk ingested since the world was joined wins over its saved copy. One change for the whole region.
 	 */
 	public void load(int rx, int rz, ChunkColumns[] chunks) {
-		Region r = this.regions.computeIfAbsent(key(rx, rz), k -> new Region(rx, rz));
+		Region r = this.regions.computeIfAbsent(slot(rx, rz), k -> new Region(rx, rz));
 		int added = 0;
 		synchronized (r) {
 			for (int i = 0; i < chunks.length; i++) {
@@ -165,7 +170,7 @@ public final class ColumnStore {
 			return true;
 		}
 		synchronized (r) {
-			return r.changes == changes && this.regions.remove(key(rx, rz), r);
+			return r.changes == changes && this.regions.remove(slot(rx, rz), r);
 		}
 	}
 

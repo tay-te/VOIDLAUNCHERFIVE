@@ -155,7 +155,7 @@ final class TreeFiles {
 	/** The region's index, read from its file the first time (a file of another identity is started again); null if unreadable. */
 	private long[] index(int rx, int rz) {
 		long key = (long) rx << 32 ^ rz & 0xFFFFFFFFL;
-		long[] index = this.indices.get(key);
+		long[] index = this.indices.get(it.unimi.dsi.fastutil.HashCommon.mix(key));
 		if (index != null) {
 			return index;
 		}
@@ -186,7 +186,7 @@ final class TreeFiles {
 				return null;
 			}
 		}
-		this.indices.put(key, index);
+		this.indices.put(it.unimi.dsi.fastutil.HashCommon.mix(key), index);
 		return index;
 	}
 

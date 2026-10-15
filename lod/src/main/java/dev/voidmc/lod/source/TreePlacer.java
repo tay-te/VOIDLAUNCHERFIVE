@@ -166,7 +166,7 @@ public final class TreePlacer {
 	public Placed known(int cx, int cz) {
 		long key = chunkKey(cx, cz);
 		synchronized (this.chunks) {
-			Placed p = this.chunks.get(key);
+			Placed p = this.chunks.get(it.unimi.dsi.fastutil.HashCommon.mix(key));
 			if (p != null) {
 				return p;
 			}
@@ -176,7 +176,7 @@ public final class TreePlacer {
 		if (p != null) {
 			this.chunksRead.incrementAndGet();
 			synchronized (this.chunks) {
-				this.chunks.put(key, p);
+				this.chunks.put(it.unimi.dsi.fastutil.HashCommon.mix(key), p);
 			}
 		}
 		return p;
@@ -211,11 +211,11 @@ public final class TreePlacer {
 
 	private long[] groundChunk(long key, boolean create) {
 		synchronized (this.ground) {
-			long[] g = this.ground.get(key);
+			long[] g = this.ground.get(it.unimi.dsi.fastutil.HashCommon.mix(key));
 			if (g == null && create) {
 				g = new long[256];
 				Arrays.fill(g, UNKNOWN);
-				this.ground.put(key, g);
+				this.ground.put(it.unimi.dsi.fastutil.HashCommon.mix(key), g);
 			}
 			return g;
 		}
@@ -286,7 +286,7 @@ public final class TreePlacer {
 	public Placed placed(int cx, int cz, Ground ground) {
 		long key = chunkKey(cx, cz);
 		synchronized (this.chunks) {
-			Placed known = this.chunks.get(key);
+			Placed known = this.chunks.get(it.unimi.dsi.fastutil.HashCommon.mix(key));
 			if (known != null) {
 				return known;
 			}
@@ -303,7 +303,7 @@ public final class TreePlacer {
 			}
 		}
 		synchronized (this.chunks) {
-			this.chunks.put(key, chunk);
+			this.chunks.put(it.unimi.dsi.fastutil.HashCommon.mix(key), chunk);
 		}
 		return chunk;
 	}

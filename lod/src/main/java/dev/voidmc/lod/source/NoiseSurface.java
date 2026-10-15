@@ -42,29 +42,97 @@ public final class NoiseSurface {
 
 	/**
 	 * The first air above the ground in column (x, z) of a world with no model height to start from (vanilla's): looked
-	 * for near the last ground found (the column beside it, usually), then further out, then through the whole world
-	 * height; {@link Integer#MIN_VALUE} if there is none (the void).
+	 * for from the ground this thread found last; the window moves up while its top is solid and down while it is all
+	 * air, growing as it goes, until the crossing is in it. (Tried as starts and measured no faster: vanilla's own surface
+	 * estimate, its router's {@code chunkSurfaceLevel}, which on 26.3 costs more than the search it saves, and the surface
+	 * of the coarser tile already built there.)
+	 * {@link Integer#MIN_VALUE} if there is none (the void).
 	 */
 	int firstAir(int x, int z, int minY, int maxY) {
 		int[] last = this.last.get();
 		long t0 = System.nanoTime();
-		int air = Integer.MIN_VALUE;
-		for (int reach : new int[]{REACH + 3, 48, 160}) {
-			air = this.firstAir(x, z, (float) last[0], reach);
-			if (air != Integer.MIN_VALUE) {
-				break;
-			}
-		}
+		Corners c = this.corners.get();
+		float start = last[0];
+		int air = this.search(c, x, z, start, minY, maxY);
 		if (air == Integer.MIN_VALUE) {
+			// solid to the top of the world, or a pocket: the whole height, from above
 			float middle = (minY + maxY) / 2.0F;
-			air = this.firstAir(x, z, middle, (int) Math.ceil((maxY - minY) / 2.0F) + this.cellY);
+			int reach = (int) Math.ceil((maxY - minY) / 2.0F) + this.cellY;
+			air = this.scan(x, z, (int) Math.floor(middle) - reach, (int) Math.ceil(middle) + reach);
 		}
+		this.check(x, z, minY, maxY, air);
 		if (air != Integer.MIN_VALUE) {
 			last[0] = air;
 		}
 		NANOS.addAndGet(System.nanoTime() - t0);
 		COLUMNS.incrementAndGet();
 		return air;
+	}
+
+	/** -Dvoid.lod.groundCheck=true: every search checked against the whole height read from above. */
+	public static volatile boolean check = Boolean.getBoolean("void.lod.groundCheck");
+	/** With {@link #check}: compares {@code air} with the whole height read from above, as the chunk would have it. */
+	private void check(int x, int z, int minY, int maxY, int air) {
+		if (!check) {
+			return;
+		}
+		float middle = (minY + maxY) / 2.0F;
+		int reach = (int) Math.ceil((maxY - minY) / 2.0F) + this.cellY;
+		int truth = this.scan(x, z, (int) Math.floor(middle) - reach, (int) Math.ceil(middle) + reach);
+		CHECKED.incrementAndGet();
+		if (truth != air) {
+			MISSED.incrementAndGet();
+			MISSED_BLOCKS.addAndGet(truth == Integer.MIN_VALUE || air == Integer.MIN_VALUE ? 1000 : Math.abs(truth - air));
+		}
+	}
+
+	/** Resets the statistics, for the benchmark. */
+	public static void resetStats() {
+		NANOS.set(0);
+		COLUMNS.set(0);
+		CHECKED.set(0);
+		MISSED.set(0);
+		MISSED_BLOCKS.set(0);
+	}
+
+	public static String benchStats() {
+		long n = COLUMNS.get();
+		return String.format(java.util.Locale.ROOT, "%d columns, %.2f us each; checked %d: %d differ, %d blocks off", n,
+			n == 0 ? 0 : NANOS.get() / 1e3 / n, CHECKED.get(), MISSED.get(), MISSED_BLOCKS.get());
+	}
+	static final java.util.concurrent.atomic.AtomicLong CHECKED = new java.util.concurrent.atomic.AtomicLong();
+	static final java.util.concurrent.atomic.AtomicLong MISSED = new java.util.concurrent.atomic.AtomicLong();
+	static final java.util.concurrent.atomic.AtomicLong MISSED_BLOCKS = new java.util.concurrent.atomic.AtomicLong();
+
+
+	/**
+	 * The crossing found from {@code start}: a window of {@value #REACH} + 3 blocks either side, then moved toward the
+	 * ground (up past a solid top, down through all air), each window overlapping the last and twice its height.
+	 */
+	private int search(Corners c, int x, int z, float start, int minY, int maxY) {
+		int reach = REACH + 3;
+		int lo = (int) Math.floor(start) - reach, hi = (int) Math.ceil(start) + reach;
+		for (int step = 0; step < 12; step++) {
+			int air = this.scan(x, z, lo, hi);
+			if (air != Integer.MIN_VALUE) {
+				return air;
+			}
+			int height = hi - lo;
+			if (c.solidTop) {
+				if (hi >= maxY) {
+					return Integer.MIN_VALUE;
+				}
+				lo = hi - this.cellY;
+				hi = Math.min(maxY + this.cellY, lo + 2 * height);
+			} else {
+				if (lo <= minY) {
+					return Integer.MIN_VALUE;
+				}
+				hi = lo + this.cellY;
+				lo = Math.max(minY - this.cellY, hi - 2 * height);
+			}
+		}
+		return Integer.MIN_VALUE;
 	}
 
 	private NoiseSurface(DensitySampler sampler, int cellXz, int cellY) {
@@ -104,7 +172,9 @@ public final class NoiseSurface {
 
 	String stats() {
 		long n = COLUMNS.get();
-		return String.format(java.util.Locale.ROOT, ", ground block by block: %d columns (%.1f us each)", n, n == 0 ? 0 : NANOS.get() / 1e3 / n);
+		return String.format(java.util.Locale.ROOT, ", ground block by block: %d columns (%.1f us each)", n,
+			n == 0 ? 0 : NANOS.get() / 1e3 / n) + (check ? String.format(java.util.Locale.ROOT,
+			" (checked %d: %d differ, %d blocks off in all)", CHECKED.get(), MISSED.get(), MISSED_BLOCKS.get()) : "");
 	}
 
 	/** One column of cell corners: the density at layers {@code lo}, {@code lo + 1}... (in cells). */
@@ -117,6 +187,8 @@ public final class NoiseSurface {
 	private static final class Corners {
 		final SamplerContext context = SamplerContext.builder().enableCaches().build();
 		final Map<Long, Column> columns = new HashMap<>();
+		/** Whether the last window looked in was solid at its top (the ground above it) rather than all air. */
+		boolean solidTop;
 	}
 
 	/**
@@ -135,14 +207,22 @@ public final class NoiseSurface {
 	}
 
 	private int firstAir(int x, int z, float height, int reach) {
+		return this.scan(x, z, (int) Math.floor(height) - reach, (int) Math.ceil(height) + reach);
+	}
+
+	/**
+	 * The first air in blocks {@code from..to} of column (x, z), from above; {@link Integer#MIN_VALUE} if the window's top
+	 * is solid or it is all air ({@link Corners#solidTop} says which).
+	 */
+	private int scan(int x, int z, int from, int to) {
 		Corners c = this.corners.get();
 		if (c.columns.size() > CACHED) {
 			c.columns.clear();
 		}
 		int xc = Math.floorDiv(x, this.cellXz) * this.cellXz;
 		int zc = Math.floorDiv(z, this.cellXz) * this.cellXz;
-		int lo = Math.floorDiv((int) Math.floor(height) - reach, this.cellY);
-		int hi = Math.floorDiv((int) Math.ceil(height) + reach, this.cellY) + 1;
+		int lo = Math.floorDiv(from, this.cellY);
+		int hi = Math.floorDiv(to, this.cellY) + 1;
 		Column c00 = this.column(c, xc, zc, lo, hi);
 		// on a corner itself (far tiles sample on the lattice) the other three corners weigh nothing
 		boolean onCorner = x == xc && z == zc;
@@ -151,7 +231,8 @@ public final class NoiseSurface {
 		Column c11 = onCorner ? c00 : this.column(c, xc + this.cellXz, zc + this.cellXz, lo, hi);
 		float fx = (x - xc) / (float) this.cellXz;
 		float fz = (z - zc) / (float) this.cellXz;
-		if (layer(c00, c10, c01, c11, hi, fx, fz) > 0) {
+		c.solidTop = layer(c00, c10, c01, c11, hi, fx, fz) > 0;
+		if (c.solidTop) {
 			// solid at the top of the reach: the ground is higher than the model says, beyond it
 			return Integer.MIN_VALUE;
 		}
@@ -185,12 +266,12 @@ public final class NoiseSurface {
 	/** The corner column at (x, z), sampled at least over layers lo..hi. */
 	private Column column(Corners c, int x, int z, int lo, int hi) {
 		long key = (long) x << 32 ^ z & 0xFFFFFFFFL;
-		Column column = c.columns.get(key);
+		Column column = c.columns.get(it.unimi.dsi.fastutil.HashCommon.mix(key));
 		if (column == null) {
 			column = new Column();
 			column.lo = lo;
 			column.values = this.sample(c, x, z, lo, hi - lo + 1);
-			c.columns.put(key, column);
+			c.columns.put(it.unimi.dsi.fastutil.HashCommon.mix(key), column);
 			return column;
 		}
 		int have = column.lo + column.values.length - 1;

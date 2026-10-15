@@ -371,6 +371,19 @@ public class LodShowcase implements FabricClientGameTest {
 					Float.parseFloat(v[3].trim()), Float.parseFloat(v[4].trim()), v.length > 5 ? Integer.parseInt(v[5].trim()) : 70));
 			}
 			Spot valley = spots.stream().filter(spot -> spot.name().equals("low0")).findFirst().orElse(spots.get(0));
+			if (Boolean.getBoolean("lod.show.genBench")) {
+				// -Plod.show.genBench: tiles built straight from the generator on one thread, each way of finding the ground
+				ServerLevel level = world.getServer().computeOnServer(server -> server.overworld());
+				genBench(context, level, valley.x(), valley.z());
+				spots.clear();
+			}
+			if (Boolean.getBoolean("lod.show.flight")) {
+				// -Plod.show.flight: flies over the land fast, logging every frame, instead of the views
+				for (String speed : System.getProperty("lod.show.flightSpeeds", "33,100").split(",")) {
+					this.flight(context, world.getServer(), valley, Double.parseDouble(speed.trim()), 30);
+				}
+				spots.clear();
+			}
 			if (!ONLY.isEmpty()) {
 				List<String> names = List.of(ONLY.split(","));
 				spots.removeIf(spot -> !names.contains(spot.name()));
@@ -522,6 +535,154 @@ public class LodShowcase implements FabricClientGameTest {
 	private void place(TestServerContext server, Spot spot) {
 		server.runCommand(String.format(Locale.ROOT, "execute in %s run tp @a %d %d %d %.1f %.1f", spot.dimension(), spot.x(), spot.y(), spot.z(),
 			spot.yaw(), spot.pitch()));
+	}
+
+	/**
+	 * Flies straight on at {@code speed} blocks a second for {@code seconds}, 120 blocks over the land at {@code from}, the
+	 * way {@code from} faces and looking a little down, and logs how even the frames were: their lengths' median, 99th
+	 * percentile and longest, how many took over twice the median (a visible hitch), how long the LOD's own preparation
+	 * took per frame, and the garbage collector's pauses meanwhile. Screenshots at the end, still flying.
+	 */
+	private void flight(ClientGameTestContext context, TestServerContext server, Spot from, double speed, int seconds) {
+		String name = String.format(Locale.ROOT, "flight%d", (int) speed);
+		int y = from.y() + 120;
+		double yaw = Math.toRadians(from.yaw());
+		// Minecraft's yaw: 0 faces +z, 90 faces -x
+		double vx = -Math.sin(yaw) * speed / 20, vz = Math.cos(yaw) * speed / 20;
+		server.runCommand(String.format(Locale.ROOT, "execute in minecraft:overworld run tp @a %d %d %d %.1f 12", from.x(), y, from.z(), from.yaw()));
+		context.runOnClient(mc -> VoidLod.get().setEnabled(true));
+		this.settle(context, SETTLE_MS);
+		// up to speed before measuring
+		long end = System.currentTimeMillis() + 3000;
+		while (System.currentTimeMillis() < end) {
+			context.runOnClient(mc -> mc.player.setDeltaMovement(vx, 0, vz));
+			context.waitTick();
+		}
+		long gc0 = gcMillis(), gcCount0 = gcCount();
+		double[] start = context.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getZ()});
+		int first = context.computeOnClient(mc -> VoidLod.get().framesLogged);
+		long t0 = System.nanoTime();
+		end = System.currentTimeMillis() + seconds * 1000L;
+		while (System.currentTimeMillis() < end) {
+			context.runOnClient(mc -> mc.player.setDeltaMovement(vx, 0, vz));
+			context.waitTick();
+		}
+		double elapsed = (System.nanoTime() - t0) / 1e9;
+		int last = context.computeOnClient(mc -> VoidLod.get().framesLogged);
+		double[] stop = context.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getZ()});
+		long gc = gcMillis() - gc0, gcs = gcCount() - gcCount0;
+		int n = Math.min(last - first, VoidLod.FRAME_LOG);
+		long[] frames = new long[n], lod = new long[n];
+		context.runOnClient(mc -> {
+			for (int i = 0; i < n; i++) {
+				int slot = last - n + i & VoidLod.FRAME_LOG - 1;
+				frames[i] = VoidLod.get().frameNanos[slot];
+				lod[i] = VoidLod.get().lodNanos[slot];
+			}
+		});
+		long[] sorted = frames.clone();
+		java.util.Arrays.sort(sorted);
+		long[] lodSorted = lod.clone();
+		java.util.Arrays.sort(lodSorted);
+		long median = sorted[n / 2];
+		int hitches = 0, lodHitches = 0;
+		for (int i = 0; i < n; i++) {
+			if (frames[i] > 2 * median) {
+				hitches++;
+				// the LOD's preparation was over half the hitch frame's excess
+				if (lod[i] > (frames[i] - median) / 2) {
+					lodHitches++;
+				}
+			}
+		}
+		double moved = Math.hypot(stop[0] - start[0], stop[1] - start[1]);
+		System.out.printf(Locale.ROOT, "[lod] %s: %.0f blocks/s over %.0f s, %d frames (%.0f fps) | frame ms median %.2f, p99 %.2f, p99.9 %.2f, max %.1f |"
+				+ " hitches (>2x median) %d, of them the LOD's %d | LOD prepare ms median %.2f, p99 %.2f, max %.1f | GC %d pauses, %d ms%n",
+			name, moved / elapsed, elapsed, n, n / elapsed, median / 1e6, sorted[(int) (n * 0.99)] / 1e6, sorted[(int) (n * 0.999)] / 1e6, sorted[n - 1] / 1e6,
+			hitches, lodHitches, lodSorted[n / 2] / 1e6, lodSorted[(int) (n * 0.99)] / 1e6, lodSorted[n - 1] / 1e6, gcs, gc);
+		// the 20 longest frames, with the LOD's share
+		Integer[] order = new Integer[n];
+		for (int i = 0; i < n; i++) {
+			order[i] = i;
+		}
+		java.util.Arrays.sort(order, (a, b) -> Long.compare(frames[b], frames[a]));
+		StringBuilder worst = new StringBuilder();
+		for (int i = 0; i < Math.min(20, n); i++) {
+			worst.append(String.format(Locale.ROOT, " %.1f/%.1f", frames[order[i]] / 1e6, lod[order[i]] / 1e6));
+		}
+		System.out.println("[lod] " + name + " longest frames (ms, frame/LOD):" + worst);
+		// when the long ones came: seconds into the measurement
+		StringBuilder when = new StringBuilder();
+		long at = 0;
+		for (int i = 0; i < n; i++) {
+			at += frames[i];
+			if (frames[i] > 30_000_000L) {
+				when.append(String.format(Locale.ROOT, " %.1f ms at %.2f s;", frames[i] / 1e6, at / 1e9));
+			}
+		}
+		System.out.println("[lod] " + name + " frames over 30 ms:" + when);
+		String stats = context.computeOnClient(mc -> VoidLod.get().stats());
+		System.out.println("[lod] " + name + " after: " + stats);
+		for (int shot = 0; shot < 6; shot++) {
+			for (int t = 0; t < 2; t++) {
+				context.runOnClient(mc -> mc.player.setDeltaMovement(vx, 0, vz));
+				context.waitTick();
+			}
+			this.shoot(context, name + "_" + shot);
+		}
+	}
+
+	/**
+	 * Builds the same tiles three times straight from the world's generator (no caches, no structures), coarse to fine as
+	 * the engine does, on this one thread, and logs each run's time; a fourth run checks every column's ground against the
+	 * whole column read from above.
+	 */
+	private static void genBench(ClientGameTestContext context, ServerLevel level, int cx, int cz) {
+		java.util.List<Long> keys = new java.util.ArrayList<>();
+		for (int l = 8; l >= 0; l--) {
+			int span = dev.voidmc.lod.core.TileKey.span(l);
+			int tx = Math.floorDiv(cx, span), tz = Math.floorDiv(cz, span);
+			for (int dz = -2; dz <= 1; dz++) {
+				for (int dx = -2; dx <= 1; dx++) {
+					keys.add(dev.voidmc.lod.core.TileKey.of(l, tx + dx, tz + dz));
+				}
+			}
+		}
+		for (int run = 0; run < 4; run++) {
+			{
+				boolean checking = run == 3;
+				dev.voidmc.lod.source.NoiseSurface.check = checking;
+				dev.voidmc.lod.source.NoiseSurface.resetStats();
+				// made on the client's thread: its looks read the loaded textures
+				dev.voidmc.lod.source.WorldgenSource source = context.computeOnClient(mc -> new dev.voidmc.lod.source.WorldgenSource(level, 1));
+				dev.voidmc.lod.core.Heights heights = new dev.voidmc.lod.core.Heights();
+				dev.voidmc.lod.core.TileBuilder builder = new dev.voidmc.lod.core.TileBuilder();
+				long t0 = System.nanoTime();
+				for (long key : keys) {
+					builder.build(source, key, heights);
+				}
+				double ms = (System.nanoTime() - t0) / 1e6;
+				System.out.printf(Locale.ROOT, "[lod] gen bench run %d%s: %d tiles in %.0f ms (%.1f a tile) | %s%n", run, checking ? " (checked)" : "",
+					keys.size(), ms, ms / keys.size(), dev.voidmc.lod.source.NoiseSurface.benchStats());
+			}
+		}
+		dev.voidmc.lod.source.NoiseSurface.check = false;
+	}
+
+	private static long gcMillis() {
+		long ms = 0;
+		for (var bean : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+			ms += Math.max(0, bean.getCollectionTime());
+		}
+		return ms;
+	}
+
+	private static long gcCount() {
+		long count = 0;
+		for (var bean : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+			count += Math.max(0, bean.getCollectionCount());
+		}
+		return count;
 	}
 
 	/** The frame rate over ten seconds standing still: its average and its worst second. */
