@@ -150,6 +150,28 @@ tasks.register('platformJars') {
 // and 60 MB of zip on a `classes` refresh is exactly the tax this must not levy.
 tasks.named('build') { dependsOn 'platformJars' }
 
+// ---------------------------------------------------------------------------
+// The cosmetics showcase (docs/cosmetics.md): `./gradlew runShowcase` opens a flat world, dresses
+// mannequins in every cosmetic, captures stills and frame sequences, and quits. Dev only — it is a
+// run configuration, nothing of it ships. Output: -Pvoid.showcase.out=<dir> (default
+// build/showcase); -Pvoid.showcase.only=scene,scene runs a subset.
+// ---------------------------------------------------------------------------
+loom {
+    runs {
+        showcase {
+            client()
+            configName = 'VOID cosmetics showcase'
+            runDir = 'run/showcase'
+            programArgs '--width', '1280', '--height', '720'
+            def out = project.findProperty('void.showcase.out') ?: file('build/showcase').absolutePath
+            vmArg "-Dvoid.dev.showcase=${out}"
+            if (project.hasProperty('void.showcase.only')) {
+                vmArg "-Dvoid.dev.showcase.only=${project.property('void.showcase.only')}"
+            }
+        }
+    }
+}
+
 repositories {
     maven {
         name = 'Legacy Fabric'

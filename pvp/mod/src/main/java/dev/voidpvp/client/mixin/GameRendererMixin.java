@@ -156,7 +156,8 @@ public abstract class GameRendererMixin {
             require = 5)
     private float void$cameraYaw(Entity entity) {
         VoidClient client = VoidClient.get();
-        return client == null ? entity.yaw : client.cameraYaw(entity, entity.yaw);
+        return dev.voidpvp.client.cosmetic.EmoteCamera.yaw(entity,
+                client == null ? entity.yaw : client.cameraYaw(entity, entity.yaw));
     }
 
     @Redirect(method = "transformCamera", at = @At(value = "FIELD",
@@ -164,7 +165,8 @@ public abstract class GameRendererMixin {
             require = 4)
     private float void$cameraPrevYaw(Entity entity) {
         VoidClient client = VoidClient.get();
-        return client == null ? entity.prevYaw : client.cameraYaw(entity, entity.prevYaw);
+        return dev.voidpvp.client.cosmetic.EmoteCamera.yaw(entity,
+                client == null ? entity.prevYaw : client.cameraYaw(entity, entity.prevYaw));
     }
 
     @Redirect(method = "transformCamera", at = @At(value = "FIELD",
@@ -172,7 +174,8 @@ public abstract class GameRendererMixin {
             require = 5)
     private float void$cameraPitch(Entity entity) {
         VoidClient client = VoidClient.get();
-        return client == null ? entity.pitch : client.cameraPitch(entity, entity.pitch);
+        return dev.voidpvp.client.cosmetic.EmoteCamera.pitch(entity,
+                client == null ? entity.pitch : client.cameraPitch(entity, entity.pitch));
     }
 
     @Redirect(method = "transformCamera", at = @At(value = "FIELD",
@@ -180,7 +183,8 @@ public abstract class GameRendererMixin {
             require = 4)
     private float void$cameraPrevPitch(Entity entity) {
         VoidClient client = VoidClient.get();
-        return client == null ? entity.prevPitch : client.cameraPitch(entity, entity.prevPitch);
+        return dev.voidpvp.client.cosmetic.EmoteCamera.pitch(entity,
+                client == null ? entity.prevPitch : client.cameraPitch(entity, entity.prevPitch));
     }
 
     /**

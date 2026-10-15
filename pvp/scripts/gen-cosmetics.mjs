@@ -512,8 +512,11 @@ if (problems.length) {
 const same = (path, content) => {
   if (!existsSync(path)) return false;
   const have = readFileSync(path);
-  const want = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8');
-  return have.equals(want);
+  if (Buffer.isBuffer(content)) return have.equals(content);
+  // Text compares line-ending blind: a Windows checkout with autocrlf holds CRLF copies of
+  // files this script writes with LF, and that is not staleness.
+  const lf = (t) => t.split('\r\n').join('\n');
+  return lf(have.toString('utf8')) === lf(content);
 };
 
 // Stale assets: anything under ASSET_DIR this run would not produce.

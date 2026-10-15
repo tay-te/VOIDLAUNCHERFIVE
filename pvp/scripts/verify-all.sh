@@ -128,6 +128,8 @@ if node --input-type=module -e "await import.meta.resolve('ajv')" >/dev/null 2>&
 else
   skip "schema examples + cross-checks" "ajv not resolvable — run 'cd schema && npm i --no-save ajv'"
 fi
+# The cosmetics catalog outputs and bundled assets are generated and committed.
+run "cosmetics generated (gen-cosmetics --check)" node scripts/gen-cosmetics.mjs --check
 
 # ---------------------------------------------------------------------------
 section "rust — crates/ (void-core, void-bridge, void-loadout)"

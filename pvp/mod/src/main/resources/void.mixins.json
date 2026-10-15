@@ -23,7 +23,16 @@
     "MinecraftClientInvoker",
     "MinecraftClientMixin",
     "ScreenMixin",
-    "StuckArrowsFeatureRendererMixin"
+    "StuckArrowsFeatureRendererMixin",
+    "CapeFeatureRendererMixin",
+    "CosmeticsGameRendererMixin",
+    "CosmeticsHooksMixin",
+    "EntityRendererMixin",
+    "GameRendererAccessor",
+    "LivingEntityRendererAccessor",
+    "PlayerEntityModelMixin",
+    "PlayerEntityRendererMixin",
+    "SurvivalInventoryScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

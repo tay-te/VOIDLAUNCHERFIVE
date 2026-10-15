@@ -1,0 +1,13 @@
+{
+ "motion": "spark",
+ "colors": [
+  "#c9beff",
+  "#9f8bff",
+  "#6e5bd6"
+ ],
+ "life": 0.9,
+ "rate": 16,
+ "size": 0.16,
+ "cap": 28,
+ "glow": 0.35
+}
