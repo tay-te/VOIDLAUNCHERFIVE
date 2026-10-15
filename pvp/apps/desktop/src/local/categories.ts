@@ -4,7 +4,8 @@
  *
  * The category is the registry's own (`mods.json` `category`), not `local/registry`'s older
  * `categoryOf`, whose override table predates the field and disagrees with it for every mod
- * added since. 11 HUD · 11 PvP · 4 Visual · 3 Utility = 29, which is what the frames draw.
+ * added since. The frames draw 11 HUD · 11 PvP · 4 Visual · 3 Utility = 29; the registry has
+ * since grown to 11 · 13 · 4 · 4 = 32 (Potion counter, Reach display, Chat).
  */
 
 import { MOD_CATEGORIES, MOD_REGISTRY } from '@void/protocol';

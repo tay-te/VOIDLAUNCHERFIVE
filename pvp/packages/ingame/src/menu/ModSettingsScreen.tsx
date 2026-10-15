@@ -62,6 +62,7 @@ import {
 } from '@/hud/widgets';
 import { MOD_ART, modArt } from '@/mods';
 import { hudChrome } from '@/hud/chrome';
+import { potionMeta } from '@/hud/format';
 import { CellMeter } from './CellMeter';
 import { SETTING_SUBTITLES, formatSetting, keybindLabel, settingLabel } from './settings-format';
 
@@ -119,7 +120,19 @@ function hexId(value: SettingValue): string {
 export const SPATIAL_KEYS: ReadonlySet<string> = new Set(['scale', 'size']);
 
 /** How a property is drawn. */
-export type PropertyKind = 'number' | 'boolean' | 'enum' | 'keybind' | 'swatch' | 'hex';
+export type PropertyKind =
+  | 'number'
+  | 'boolean'
+  | 'enum'
+  | 'keybind'
+  | 'swatch'
+  | 'hex'
+  /**
+   * A bit mask drawn as a multi-select chip row — the enum row's own chips, any number lit.
+   * Chosen by key ({@link FLAG_SETTINGS}), because a mask is an `integer` in the schema and by type
+   * alone it would be a 16-million-cell meter.
+   */
+  | 'flags';
 
 /** One row of the properties panel. */
 export interface Property {
@@ -137,7 +150,9 @@ export interface Property {
  */
 const ORDER = [
   'opacity',
+  'background_opacity',
   'corner_radius',
+  'fade_ms',
   'gamma',
   'thickness',
   'gap',
@@ -148,35 +163,56 @@ const ORDER = [
   'layout',
   'orientation',
   'color',
+  'hittable_color',
+  'damaged_color',
   'eye_line_color',
   'key_color',
   'pressed_color',
   'keybind',
   'key',
+  'track',
   'mode',
   'window_ms',
   'good_ms',
   'bad_ms',
+  'jitter_warn_ms',
+  'spike_ms',
+  'window',
   'warn_below',
+  'low_threshold',
+  'hide_after_ms',
+  'blink_below_s',
+  'history_length',
   'show_mouse',
   'show_cps',
   'show_spacebar',
   'show_sneak',
+  'animate',
   'show_label',
+  'show_average',
+  'show_jitter',
   'show_duration',
   'show_amplifier',
   'hide_ambient',
+  'hidden_effects',
   'show_durability',
   'show_held_item',
   'show_direction',
   'show_eye_line',
+  'state_colors',
   'max_distance',
   'show_peak',
+  'ignore_cancelled',
   'center_dot',
   'outline',
   'dynamic',
   'smooth',
   'cinematic',
+  'scroll_adjust',
+  'scale_sensitivity',
+  'timestamps',
+  'stack_repeats',
+  'click_to_copy',
 ];
 
 /**
@@ -203,7 +239,44 @@ const BEHAVIOUR_KEYS = new Set([
   'warn_below',
   // Same argument one mod over: it decides which entities get a box, not what a box looks like.
   'max_distance',
+  // What is counted, and the thresholds and windows on live values the depth wave added: each
+  // decides *when* or *whether* the mod says something, not what it looks like.
+  'track',
+  'low_threshold',
+  'jitter_warn_ms',
+  'spike_ms',
+  'window',
+  'hide_after_ms',
+  'blink_below_s',
+  'history_length',
+  // Which effects are listed at all — the same "which, not how" as `max_distance`.
+  'hidden_effects',
 ]);
+
+/**
+ * Settings that are a **bit mask**, and the flags each one offers, in the order the chips read.
+ *
+ * `potion_effects.hidden_effects` is the only one: bit n is vanilla status effect id n, so the
+ * chips are the 23 effects with the names and order the HUD itself prints (`hud/format.ts`).
+ * Keyed by `<mod>.<key>` like `SETTING_ENUMS`, because a mask's meaning is the mod's own.
+ */
+export const FLAG_SETTINGS: Readonly<Record<string, ReadonlyArray<{ bit: number; label: string }>>> = {
+  'potion_effects.hidden_effects': Array.from({ length: 23 }, (_, i) => ({
+    bit: i + 1,
+    label: potionMeta({ id: i + 1, amplifier: 0, duration_ms: 0 }).label,
+  })),
+};
+
+/** Whether bit `bit` is set in `mask` — safe past 2^31, which `&` is not. */
+export function hasFlag(mask: number, bit: number): boolean {
+  return Math.floor(Math.max(0, mask) / 2 ** bit) % 2 === 1;
+}
+
+/** `mask` with bit `bit` flipped. */
+export function toggleFlag(mask: number, bit: number): number {
+  const base = Math.max(0, Math.floor(mask));
+  return hasFlag(base, bit) ? base - 2 ** bit : base + 2 ** bit;
+}
 
 function kindOf(id: ModId, key: string, value: SettingValue): PropertyKind {
   // By the schema type, never by the name. This used to read `key === 'keybind' || key === 'key'`
@@ -214,6 +287,7 @@ function kindOf(id: ModId, key: string, value: SettingValue): PropertyKind {
   // `KEYBIND_SETTINGS` is that same `$ref` read off the schema, so a sixth spelling costs
   // nothing here.
   if (KEYBIND_SETTINGS.includes(`${id}.${key}`)) return 'keybind';
+  if (FLAG_SETTINGS[`${id}.${key}`]) return 'flags';
   if (key === 'key_color' || key === 'pressed_color') return 'swatch';
   // Any other `*_color` is a free colour, like `color` itself. Written as a suffix rather than
   // as a third name in the line above because of what the fall-through costs: a colour key this
@@ -324,6 +398,31 @@ function PropertyControl({
           onChange={(next) => write(property.key, next)}
         />
       );
+    case 'flags': {
+      // The enum row's own chips, as checkboxes: any number lit. Lit means the flag is set —
+      // for `hidden_effects`, that the effect is hidden — and the row's subtitle says so.
+      const mask = Number(value ?? 0);
+      const flags = FLAG_SETTINGS[`${id}.${property.key}`] ?? [];
+      return (
+        <div role="group" aria-label={property.label} className="v-chips mprop__flags">
+          {flags.map((flag) => {
+            const on = hasFlag(mask, flag.bit);
+            return (
+              <button
+                key={flag.bit}
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                className={on ? 'v-chip v-chip--selected' : 'v-chip'}
+                onClick={() => write(property.key, toggleFlag(mask, flag.bit))}
+              >
+                {flag.label}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
     case 'number': {
       const range = SETTING_RANGES[property.key]!;
       const numeric = Number(value ?? range.min);
@@ -375,7 +474,7 @@ function PropertyRow(props: {
   write: (key: string, value: SettingValue) => void;
 }): React.ReactElement {
   return (
-    <div className="mprop">
+    <div className={props.property.kind === 'flags' ? 'mprop mprop--flags' : 'mprop'}>
       <span className="mprop__labels">
         <span className="mprop__label">{props.property.label}</span>
         {props.property.sub ? <span className="mprop__sub">{props.property.sub}</span> : null}

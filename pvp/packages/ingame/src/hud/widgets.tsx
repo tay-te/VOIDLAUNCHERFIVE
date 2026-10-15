@@ -35,6 +35,7 @@ import { cardinalFromYaw, type ArmorSlot } from '@/bridge/protocol';
 import { modSettings, useModSettings, useVoidStore } from '@/store/store';
 import { clicksPerSecond, createClickRing, pushClick } from '@/store/cps';
 import { armorRow, potionMeta, shortHost } from './format';
+import { pingStats } from './ping-stats';
 
 export interface HudWidgetProps {
   /** `compact` in game, `editor` on the HUD-layout frame. */
@@ -99,6 +100,37 @@ export const HudFps = memo(function HudFps({ variant, sample }: HudWidgetProps) 
 
 /* ------------------------------------------------------------------- ping */
 
+/**
+ * Readings for the ping preview's stats, as offsets from the band's middle chip.
+ *
+ * The stats asides need a history and a settings page has none — the server sends a latency every
+ * few seconds and the page may have been open for less. So the fixture *is* a history, run
+ * through the same `pingStats` the live chip uses, and shaped so each of the four new settings
+ * has something to bite on:
+ *
+ *   · `window` — the last ten readings sit ~4 ms above the sixty, so the average moves between
+ *     the two ends of the slider (3 and 60) rather than only its label;
+ *   · `jitter_warn_ms` — consecutive readings swing by ~25 ms, above the factory 20 and far below
+ *     the 500 ceiling, so the warn ink is on at the default and off at the far end;
+ *   · `spike_ms` — the band's third chip (just past `bad_ms`) is judged as the newest reading
+ *     against this history, ~85 ms over the last ten's mean: a spike at the factory 80, not at 1000.
+ */
+const SAMPLE_PING_OFFSETS: readonly number[] = Array.from({ length: 60 }, (_, i) => {
+  const swing = i % 2 === 0 ? -12 : 13;
+  const drift = i >= 50 ? 5 : 0;
+  return swing + drift + ((i * 7) % 5) - 2;
+});
+
+/** Settings of the ping mod the stats asides read, as primitives. */
+function usePingStatsSettings() {
+  const showAverage = useVoidStore((s) => modSettings(s.loadout, 'ping').show_average === true);
+  const showJitter = useVoidStore((s) => modSettings(s.loadout, 'ping').show_jitter === true);
+  const jitterWarn = useVoidStore((s) => Number(modSettings(s.loadout, 'ping').jitter_warn_ms ?? 20));
+  const spikeMs = useVoidStore((s) => Number(modSettings(s.loadout, 'ping').spike_ms ?? 80));
+  const window = useVoidStore((s) => Number(modSettings(s.loadout, 'ping').window ?? 10));
+  return { showAverage, showJitter, jitterWarn, spikeMs, window };
+}
+
 export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps) {
   const live = useVoidStore((s) => s.ping);
   const liveHost = useVoidStore((s) => s.server.host);
@@ -106,8 +138,14 @@ export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps
   const good = useVoidStore((s) => Number(modSettings(s.loadout, 'ping').good_ms ?? 60));
   const bad = useVoidStore((s) => Number(modSettings(s.loadout, 'ping').bad_ms ?? 150));
   const showLabel = useVoidStore((s) => modSettings(s.loadout, 'ping').show_label !== false);
+  const history = useVoidStore((s) => s.pingHistory);
+  const { showAverage, showJitter, jitterWarn, spikeMs, window } = usePingStatsSettings();
   const host = liveHost ?? (sample ? 'mc.hypixel.net' : null);
-  const chip = (value: number, key?: number) => (
+  const chip = (
+    value: number,
+    extra: Partial<React.ComponentProps<typeof PingChip>> = {},
+    key?: number,
+  ) => (
     <PingChip
       key={key}
       variant={variant}
@@ -116,6 +154,8 @@ export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps
       badMs={bad}
       showLabel={showLabel}
       host={showHost && host ? shortHost(host) : undefined}
+      jitterWarnMs={jitterWarn}
+      {...extra}
     />
   );
 
@@ -129,16 +169,44 @@ export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps
   // The same argument as `SAMPLE_ARMOR`'s four different durabilities, and the same shape: the
   // fixture is chosen so the setting has something to bite on. In game exactly one chip is ever
   // drawn, and it is this component.
+  //
+  // The stats asides go on the **middle** chip, the typical reading, computed from a fixture
+  // history around it (`SAMPLE_PING_OFFSETS`); the spike mark goes on the **third**, judged as
+  // the newest reading against that same history — a jump past `bad_ms` is what a spike looks
+  // like. Held rather than faded, because a mark that disappeared while you looked at it would be
+  // a setting with no visible effect.
   if (sample) {
-    const band = [
-      Math.max(1, good - 12),
-      Math.max(good + 1, Math.round((good + bad) / 2)),
-      Math.min(9999, bad + 45),
-    ];
-    return <div className="v-pingband">{band.map((value, i) => chip(value, i))}</div>;
+    const middle = Math.max(good + 1, Math.round((good + bad) / 2));
+    const band = [Math.max(1, good - 12), middle, Math.min(9999, bad + 45)];
+    const past = SAMPLE_PING_OFFSETS.map((offset) => Math.max(0, middle + offset));
+    const stats = pingStats(past, window, spikeMs);
+    const spiked = pingStats([...past, band[2]!], window, spikeMs);
+    return (
+      <div className="v-pingband">
+        {chip(band[0]!, {}, 0)}
+        {chip(
+          band[1]!,
+          {
+            average: showAverage && stats ? stats.average : undefined,
+            jitter: showJitter && stats ? stats.jitter : undefined,
+          },
+          1,
+        )}
+        {chip(band[2]!, { spike: spiked?.spike ? 'held' : undefined }, 2)}
+      </div>
+    );
   }
-  // The bridge sends -1 for "no server", which is not a ping and draws as an em-dash.
-  return chip(live);
+  // The bridge sends -1 for "no server", which is not a ping and draws as an em-dash. The
+  // asides need a reading to describe, so they wait for one too.
+  const stats = live >= 0 ? pingStats(history, window, spikeMs) : null;
+  return chip(live, {
+    average: showAverage && stats ? stats.average : undefined,
+    jitter: showJitter && stats && stats.count > 1 ? stats.jitter : undefined,
+    // `brief`: the mark fades itself out (CSS), and is keyed by the history's length and newest
+    // reading so the next spike remounts it and replays the fade. No timer.
+    spike: stats?.spike ? 'brief' : undefined,
+    spikeKey: `${history.length}:${history[history.length - 1] ?? ''}`,
+  });
 });
 
 /* ----------------------------------------------------------------- coords */
@@ -198,22 +266,50 @@ function asDirectionStyle(value: unknown): DirectionStyle {
 /* ---------------------------------------------------------------- potions */
 
 /**
- * Two effects, for a preview opened with none applied.
+ * Three effects, for a preview opened with none applied.
  *
  * One of them is `ambient`, which is the only way `hide_ambient` can be seen to do anything:
- * a fixture of two non-ambient rows would leave that switch inert on the page for exactly the
- * reason the real data does.
+ * a fixture of non-ambient rows would leave that switch inert on the page for exactly the
+ * reason the real data does. The third, Haste II (short enough for the 150px list), has
+ * **13 seconds** left, which is what makes
+ * `blink_below_s` visible: above the factory 5, so it rests, and inside the 30 ceiling, so the far
+ * end of the slider puts it on its dim beat — 13 is odd, and odd seconds are the dim half.
  */
 const SAMPLE_FX = [
   { id: 1, amplifier: 1, duration_ms: 84_000, ambient: false, name: 'potion.moveSpeed' },
   { id: 5, amplifier: 0, duration_ms: 42_000, ambient: true, name: 'potion.damageBoost' },
+  { id: 3, amplifier: 1, duration_ms: 13_000, ambient: false, name: 'potion.digSpeed' },
 ];
+
+/** Whether vanilla effect `id` is in a `hidden_effects` mask (bit n = status effect id n). */
+export function effectHidden(mask: number, id: number): boolean {
+  if (!Number.isFinite(mask) || mask <= 0 || id < 0 || id > 30) return false;
+  return Math.floor(mask / 2 ** id) % 2 === 1;
+}
+
+/**
+ * Whether an effect is on its dim beat — `blink_below_s`.
+ *
+ * Driven by the tick data and nothing else: the parity of the remaining **whole** seconds, at the
+ * same rounding `formatPotionTime` prints and the store's `sameEffects` re-publishes on. So the row
+ * flips exactly when its timer redraws — once a second — and there is no timer of its own. Odd
+ * seconds are dim; 0 left is not a blink, it is an effect about to vanish.
+ */
+export function effectBlinks(durationMs: number, belowS: number): boolean {
+  if (belowS <= 0) return false;
+  const seconds = Math.max(0, Math.round(durationMs / 1000));
+  return seconds > 0 && seconds <= belowS && seconds % 2 === 1;
+}
 
 export const HudPotionEffects = memo(function HudPotionEffects({ sample }: HudWidgetProps) {
   const live = useVoidStore((s) => s.fx);
   const settings = useModSettings('potion_effects');
   const fx = live.length > 0 || !sample ? live : (SAMPLE_FX as unknown as typeof live);
-  const visible = settings.hide_ambient ? fx.filter((f) => !f.ambient) : fx;
+  const hidden = Number(settings.hidden_effects ?? 0);
+  const blinkBelow = Number(settings.blink_below_s ?? 5);
+  const visible = fx.filter(
+    (f) => !(settings.hide_ambient && f.ambient) && !effectHidden(hidden, f.id),
+  );
   if (visible.length === 0) return null;
   return (
     <PotionList
@@ -225,6 +321,7 @@ export const HudPotionEffects = memo(function HudPotionEffects({ sample }: HudWi
           name: level ? `${meta.label} ${level}` : meta.label,
           time:
             settings.show_duration === false ? undefined : formatPotionTime(effect.duration_ms),
+          dim: effectBlinks(effect.duration_ms, blinkBelow),
         };
       })}
     />
@@ -287,6 +384,12 @@ export const HudKeystrokes = memo(function HudKeystrokes({ className }: HudWidge
     ...(typeof radius === 'number'
       ? ({ ['--radius-control' as string]: `${radius}px` } as React.CSSProperties)
       : null),
+    // `animate` + `fade_ms`: how long a released cap takes to return to rest. The keycap rule
+    // reads this for its transition and the pressed rule overrides it to 0, so a press is always
+    // on the frame and only the release is shaped (`06-hud.css`). Off is a snap both ways.
+    ...({
+      ['--key-fade' as string]: `${settings.animate === false ? 0 : Math.max(0, Number(settings.fade_ms ?? 120))}ms`,
+    } as React.CSSProperties),
   };
   return (
     <KeystrokesWidget
@@ -325,6 +428,16 @@ export const HudKeystrokes = memo(function HudKeystrokes({ className }: HudWidge
  * trade the player is actually making, and it is visible the moment the meter moves.
  */
 const SAMPLE_CLICKS_LEFT = [30, 90, 150, 210, 280, 350, 620, 900, 1400, 2100, 3000, 4200];
+
+/**
+ * Which of the left clicks above the game swallowed — `cps.ignore_cancelled`'s fixture.
+ *
+ * A burst is exactly where 1.8 cancels clicks: a whiff starts the 10-tick miss delay, and every
+ * press inside it reaches the button but never reaches `doAttack`. Two of the burst's six land in
+ * one, so with the setting on the figure drops by what a real burst loses, through the same
+ * `clicksPerSecond` — counting swings rather than presses, as the store does from `hits.swings`.
+ */
+const SAMPLE_CANCELLED_LEFT: ReadonlySet<number> = new Set([90, 210]);
 const SAMPLE_CLICKS_RIGHT = [120, 400, 1300, 2600, 4100];
 
 /** A fixed instant, so the fixture never depends on the clock and never repaints on a timer. */
@@ -346,8 +459,14 @@ export const HudCps = memo(function HudCps({ variant, sample }: HudWidgetProps) 
   // switch between three zeroes and `window_ms` would have nothing to measure. The fixture is
   // run through the real `clicksPerSecond`, so what the preview shows is what that click
   // pattern would actually produce at this window — not an illustration of it.
+  const ignoreCancelled = useVoidStore(
+    (s) => modSettings(s.loadout, 'cps').ignore_cancelled === true,
+  );
   const idle = liveLeft === 0 && liveRight === 0;
-  const left = idle && sample ? sampleRate(SAMPLE_CLICKS_LEFT, window) : liveLeft;
+  const sampleLeft = ignoreCancelled
+    ? SAMPLE_CLICKS_LEFT.filter((age) => !SAMPLE_CANCELLED_LEFT.has(age))
+    : SAMPLE_CLICKS_LEFT;
+  const left = idle && sample ? sampleRate(sampleLeft, window) : liveLeft;
   const right = idle && sample ? sampleRate(SAMPLE_CLICKS_RIGHT, window) : liveRight;
   const showPeak = useVoidStore((s) => modSettings(s.loadout, 'cps').show_peak === true);
   const livePeak = useVoidStore((s) => s.cpsPeak);

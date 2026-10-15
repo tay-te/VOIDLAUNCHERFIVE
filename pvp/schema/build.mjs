@@ -87,6 +87,10 @@ const ORDER = [
   'culling', 'particles', 'frame_limiter',
   'block_outline', 'shiny_pots', 'clear_glass', 'nametags', 'scoreboard', 'gui_scale', 'fog',
   'menu_blur', 'time_weather',
+  // Wave 7, second half — the depth pass for launch, merged after the FPS boost above: two
+  // readouts the inventory and reach sensors opened (`potion_counter`, `reach`) and the chat
+  // mod. Appended, never inserted. registry_version 12 counts both halves.
+  'potion_counter', 'reach', 'chat',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

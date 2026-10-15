@@ -22,7 +22,8 @@
     "mode": "left",
     "show_label": true,
     "window_ms": 1000,
-    "show_peak": false
+    "show_peak": false,
+    "ignore_cancelled": false
   },
   "settings": {
     "mode": {
@@ -49,6 +50,11 @@
     },
     "show_peak": {
       "description": "Whether the highest rate seen this session is drawn as a trailing aside. `window_ms` already averages, so the live figure answers \"how fast am I clicking\"; this answers \"how fast can I\", which is the number worth comparing against and the one the live figure never sits still long enough to show.",
+      "type": "boolean",
+      "default": false
+    },
+    "ignore_cancelled": {
+      "description": "Whether only clicks the game acted on are counted. A left click swallowed by 1.8's miss delay, or made while a screen was open, is a press of the button but not a swing, and with this on it does not count. Left button only; right clicks are always counted as pressed. Fed by `hits.swings` on the tick payload rather than by the mouse edge, so a counted click is one `doAttack` ran for.",
       "type": "boolean",
       "default": false
     }

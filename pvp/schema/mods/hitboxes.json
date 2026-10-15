@@ -18,7 +18,10 @@
     "show_eye_line": false,
     "eye_line_color": "#7ADFFFFF",
     "max_distance": 64,
-    "keybind": "NONE"
+    "keybind": "NONE",
+    "state_colors": false,
+    "hittable_color": "#2FB8A6FF",
+    "damaged_color": "#FF5A5AFF"
   },
   "settings": {
     "line_width": {
@@ -52,6 +55,21 @@
       "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('hitboxes')`. Boxes are worth having for one fight and not the next, which is a decision made mid-match rather than in a menu.",
       "$ref": "#/definitions/keybind",
       "default": "NONE"
+    },
+    "state_colors": {
+      "description": "Whether a box changes colour with what you can do to its entity: `damaged_color` while it is in its hurt animation, `hittable_color` while your crosshair is on it within attack range, and `color` otherwise.",
+      "type": "boolean",
+      "default": false
+    },
+    "hittable_color": {
+      "description": "Box colour for the entity your crosshair is on, when `state_colors` is on.",
+      "$ref": "#/definitions/hex_color",
+      "default": "#2FB8A6FF"
+    },
+    "damaged_color": {
+      "description": "Box colour for an entity in its hurt animation, when `state_colors` is on. Takes precedence over `hittable_color`.",
+      "$ref": "#/definitions/hex_color",
+      "default": "#FF5A5AFF"
     }
   }
 }

@@ -54,6 +54,9 @@ export const MOD_IDS = [
   'fog',
   'menu_blur',
   'time_weather',
+  'potion_counter',
+  'reach',
+  'chat',
 ] as const satisfies readonly ModId[];
 
 /** The mods that own a draggable HUD item, in registry order. */
@@ -75,6 +78,8 @@ export const HUD_MOD_IDS = [
   'item_counter',
   'stopwatch',
   'scoreboard',
+  'potion_counter',
+  'reach',
 ] as const satisfies readonly HUDModId[];
 
 /** The mods an actuator Mixin reads every frame, in registry order. */
@@ -103,4 +108,5 @@ export const GAMEPLAY_MOD_IDS = [
   'fog',
   'menu_blur',
   'time_weather',
+  'chat',
 ] as const satisfies readonly GameplayModId[];

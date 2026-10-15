@@ -9,10 +9,10 @@
   "the": true,
   "noun": "the count chip",
   "on_description": "the item counter is enabled",
-  "description": "How many of the item in your hand you have left.",
+  "description": "How many of the item in your hand, or a chosen item, you have left.",
   "settings_title": "Item counter settings",
-  "settings_description": "Settings for the Item counter HUD mod. Reads `held_count` off the tick payload, which is the stack size of the **held** item and nothing else.\n\nBe clear about the scope, because the name is borrowed from mods that do more: Lunar's and Badlion's item counters track a *chosen* item across the whole inventory — tell it pearls, and it counts your pearls whether or not they are in your hand. This one counts the hand, because `held_count` is the sensor that exists. It answers \"how many blocks are left\" while you are bridging with them and \"how many gapples\" while you are holding one; it does not answer \"how many pearls do I have\" while you are holding a sword. An inventory-wide counter needs a slot-scanning sensor and a way to pick the item it watches, and neither exists yet; when they do, that is a superset of this mod rather than a rewrite of it.\n\nThe stack size is value-checked at the sensor rather than rate-limited: it changes on use, not on a clock, so every push is news.",
-  "source": "`held_count` on the tick payload — the stack size of the held item",
+  "settings_description": "Settings for the Item counter HUD mod. `track` picks what is counted. `held_stack` is the stack in the hand (`held_count` on the tick payload) and is the default, because it is what the chip has always shown. Every other value reads `counts`, the inventory-wide sensor: `held_total` adds up every stack in the inventory that matches the held item (same item, same variant, so white wool is not red wool), and the named items count that item wherever it is, whether or not it is in your hand. That last group is the Lunar and Badlion meaning of an item counter: tell it pearls and it counts your pearls while you hold a sword.\n\nThe counts are value-checked at the sensor rather than rate-limited: they change on use and pickup, not on a clock, so every push is news.",
+  "source": "`held_count` and `counts` on the tick payload: the held stack, or an inventory-wide count",
   "enabled": false,
   "default_placement": {
     "note": "Above the CPS chip, in the hand-and-clicks corner, and in the **175 column rather than the 31 one**. The bottom-left corner has two columns because Keystrokes at `dx 31` is a *tall* widget: a WASD block with a mouse row and a space bar under it is over a hundred design-canvas pixels of column, so 31 is spoken for far above its own `dy -109`, and anything stacked there lands on the caps. 175 is the column that already answers the same question this mod does — CPS at `dy -108` is how fast the hand is going, and the held stack directly above it at -146 is what the hand is going *through*. The 38 px gap is this table's rhythm.",
@@ -22,7 +22,8 @@
   },
   "defaults": {
     "show_label": true,
-    "low_threshold": 0
+    "low_threshold": 0,
+    "track": "held_stack"
   },
   "settings": {
     "show_label": {
@@ -36,6 +37,28 @@
       "minimum": 0,
       "maximum": 64,
       "default": 0
+    },
+    "track": {
+      "description": "What the chip counts. `held_stack` is the stack in your hand; `held_total` is every stack in the inventory matching the held item; the rest count that item across the whole inventory whatever you are holding. `wool` is every colour together. Healing potions and soup are the Potion counter's.",
+      "type": "string",
+      "enum": [
+        "held_stack",
+        "held_total",
+        "ender_pearl",
+        "golden_apple",
+        "arrow",
+        "snowball",
+        "egg",
+        "cobweb",
+        "wool",
+        "tnt",
+        "fire_charge",
+        "iron_ingot",
+        "gold_ingot",
+        "diamond",
+        "emerald"
+      ],
+      "default": "held_stack"
     }
   }
 }

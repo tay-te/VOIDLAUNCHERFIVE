@@ -269,6 +269,14 @@ gitignored; the full-resolution captures and per-pixel diffs land in `visual-qa/
 2. **Pick a loadout.** The library is seeded on first run — `~/.void-pvp/loadouts/*.json`.
    Version is 1.8.9 and the picker's other entries are disabled: it is the only version
    this client targets (§15).
+   **Sharing.** Home's loadout menu (the loadout name in the strip) ends in *Copy share
+   code*, which puts the active loadout's `VOID1.…` code on the clipboard
+   (`loadouts_export`), and *Import loadout code*, a paste field that adds the code's
+   loadout to the end of the library under a fresh id without switching to it
+   (`loadouts_import`). A refused code says why under the field (empty, not a code, made
+   by a newer VOID, damaged, no loadout in it, library full at 128). The ⌘K palette has
+   both as *Copy share code* / *Import loadout code*. Codes are the same format the
+   in-game Loadouts panel reads and writes (`void_loadout::share`).
 3. **Launch** (or `⌘↵` / `Ctrl+↵`). `prepare` resolves the 1.8.9 manifests and the
    Legacy Fabric loader **pinned** to the one the mod builds against
    (`void_core::manifest::LEGACY_FABRIC_LOADER` = `mod/gradle.properties`), downloads
@@ -293,6 +301,9 @@ gitignored; the full-resolution captures and per-pixel diffs land in `visual-qa/
 6. **Hide to tray.** After a successful spawn the window hides (configurable in
    Settings). The tray offers *Show launcher · Switch loadout ▸ · Quit*; switching there
    hot-swaps the loadout in the running game rather than only affecting the next launch.
+   Any other library change made in the launcher while the game runs — create, edit or
+   rename, delete, import — is pushed as the whole library (`library` over the bridge);
+   the mod replaces its library with it and keeps its live active loadout.
 7. **Back with stats.** `game:closed` brings the window back and shows played time and
    average fps, folded into the loadout's own totals from the mod's `session` reports. A
    non-zero exit shows the crash card with *View log* and *Crash report* (the newest

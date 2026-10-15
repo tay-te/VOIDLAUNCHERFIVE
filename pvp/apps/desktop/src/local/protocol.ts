@@ -69,6 +69,17 @@ export interface LoadoutPatch {
   hud?: Loadout['hud'];
 }
 
+/**
+ * What `loadouts_import` resolves with — `models::ImportedLoadout`. A refused code is a
+ * rejection carrying the reason as a sentence, like every other command error, rather
+ * than the in-game bridge's `{ ok: false, error }` code.
+ */
+export interface ImportedLoadout {
+  loadout: Loadout;
+  /** Settings, mods, HUD items and pins the code carried that this build could not use. */
+  dropped: number;
+}
+
 // -------------------------------------------------------- launcher only
 
 /**

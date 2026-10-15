@@ -58,10 +58,24 @@
           "description": "Layout of the HUD items this loadout draws.",
           "$ref": "#/definitions/hud_layout"
         },
+        "quick": {
+          "description": "The mods pinned to the in-match quick panel, in the order its numbered toggles show them (1 to 8). Omitted means the client's factory pins. Written in game by `void.setQuickPins`.",
+          "$ref": "#/definitions/quick_pins"
+        },
         "stats": {
           "description": "Accumulated play statistics for this loadout, shown on the Loadouts frame.",
           "$ref": "#/definitions/loadout_stats"
         }
+      }
+    },
+    "quick_pins": {
+      "title": "Quick pins",
+      "description": "Up to eight distinct mod ids, in quick-panel order. An id this build does not know is dropped on read rather than refused, so a loadout pinned on a newer client still loads.",
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id"
       }
     },
     "loadout_id": {
@@ -115,7 +129,7 @@
     },
     "mod_states": {
       "title": "Mod states",
-      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 41 is permitted.",
+      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 44 is permitted.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -282,6 +296,18 @@
         "time_weather": {
           "description": "Time & weather state and settings.",
           "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/time_weather_settings"
+        },
+        "potion_counter": {
+          "description": "Potion counter state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/potion_counter_settings"
+        },
+        "reach": {
+          "description": "Reach display state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/reach_settings"
+        },
+        "chat": {
+          "description": "Chat state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/chat_settings"
         }
       }
     },
@@ -344,9 +370,9 @@
     },
     "hud_layout": {
       "title": "HUD layout",
-      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 17, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
+      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 19, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
       "type": "array",
-      "maxItems": 17,
+      "maxItems": 19,
       "items": {
         "description": "One HUD item placement.",
         "$ref": "#/definitions/hud_item"

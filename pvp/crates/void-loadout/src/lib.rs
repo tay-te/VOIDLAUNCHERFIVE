@@ -21,6 +21,7 @@
 //! - [`store`] is `~/.void-pvp/`: one JSON file per loadout plus `active.json` and
 //!   `settings.json`, written atomically.
 //! - [`defaults`] is the three loadouts created on first run.
+//! - [`share`] is the loadout share code: one pasteable line, versioned and checksummed.
 //!
 //! Note the ownership split of §2: while the game is running, **Java** is authoritative
 //! for live state and tells Rust afterwards. This crate is the store of record between
@@ -50,18 +51,20 @@ pub mod keybind;
 pub mod loadout;
 pub mod mods;
 pub mod settings;
+pub mod share;
 pub mod store;
 
 pub use error::Error;
 pub use diff::{apply_patch, diff, diff_split, Change, Diff, StatePatch};
 pub use keybind::{HexColor, HexColorRgb, Keybind};
 pub use loadout::{
-    hypixel_ready, Anchor, HudItem, HudLayout, Loadout, LoadoutId, LoadoutStats, LoadoutSummary,
-    ModStates, DEFAULT_MC,
+    hypixel_ready, normalise_quick, Anchor, HudItem, HudLayout, Loadout, LoadoutId, LoadoutStats,
+    LoadoutSummary, ModStates, DEFAULT_MC, MAX_QUICK_PINS,
 };
 pub use mods::{
     defaults_json, registry, Category, GameplayModId, HudModId, HypixelSafe, Kind, ModId, ModInfo,
     Registry,
 };
 pub use settings::{GlobalPatch, GlobalSettings};
+pub use share::{ShareError, SharedLoadout};
 pub use store::Store;

@@ -23,6 +23,7 @@ import type {
   DeviceCode,
   EquippedSet,
   FriendsList,
+  ImportedLoadout,
   JavaStatus,
   LaunchReport,
   Loadout,
@@ -63,6 +64,10 @@ export interface Cmd {
   loadouts_update: [{ id: string; patch: LoadoutPatch }, Loadout];
   loadouts_delete: [{ id: string }, LoadoutSummary[]];
   loadouts_switch: [{ id: string }, Loadout];
+  /** The loadout's share code, `VOID1.…`. */
+  loadouts_export: [{ id: string }, string];
+  /** Appends the code's loadout under a fresh id; does not switch. Rejects with the reason. */
+  loadouts_import: [{ code: string }, ImportedLoadout];
 
   settings_get: [Record<string, never>, Settings];
   settings_set: [{ patch: SettingsPatch }, Settings];

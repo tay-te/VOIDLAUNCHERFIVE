@@ -5401,7 +5401,10 @@ dependencies = [
 name = "void-loadout"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "crc32fast",
  "dirs",
+ "flate2",
  "serde",
  "serde_json",
  "thiserror 2.0.20",

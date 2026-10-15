@@ -14,6 +14,7 @@
  *     a mod's page           back to the grid
  *     the settings page      back to the grid
  *     the HUD editor         back to the grid
+ *     the Loadouts screen    back to the islands
  *     the grid               closes the menu
  *     ```
  *
@@ -112,8 +113,8 @@ export function MenuLayer({
         setRoute({ name: useVoidStore.getState().back });
         return;
       }
-      // The All-mods grid is a level below the islands, not the top.
-      if (route.name === 'grid') {
+      // The All-mods grid and the Loadouts screen are a level below the islands, not the top.
+      if (route.name === 'grid' || route.name === 'loadouts') {
         setRoute({ name: 'mods' });
         return;
       }

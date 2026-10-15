@@ -68,5 +68,8 @@ export const MOD_ICON_NAMES = {
   "gui_scale": "move",
   "fog": "droplet",
   "menu_blur": "layers",
-  "time_weather": "clock"
+  "time_weather": "clock",
+  "potion_counter": "heart",
+  "reach": "sword",
+  "chat": "users"
 } as const satisfies Record<ModId, string>;

@@ -130,6 +130,30 @@ public final class Protocol {
         return o;
     }
 
+    /** {@code loadout_save}: a whole loadout the in-game Loadouts screen created or changed. */
+    public static JsonObject loadoutSave(JsonObject loadout) {
+        JsonObject o = new JsonObject();
+        o.addProperty("t", "loadout_save");
+        o.add("loadout", loadout);
+        return o;
+    }
+
+    /** {@code loadout_delete}: a loadout deleted in game. */
+    public static JsonObject loadoutDelete(String id) {
+        JsonObject o = new JsonObject();
+        o.addProperty("t", "loadout_delete");
+        o.addProperty("id", id);
+        return o;
+    }
+
+    /** {@code loadout_select}: a loadout picked in game other than by the cycle key. */
+    public static JsonObject loadoutSelect(String id) {
+        JsonObject o = new JsonObject();
+        o.addProperty("t", "loadout_select");
+        o.addProperty("id", id);
+        return o;
+    }
+
     /** {@code hotkey.id} values, {@code protocol.json#/definitions/hotkey_id}. */
     public static final String HOTKEY_LOADOUT_NEXT = "loadout.next";
     public static final String HOTKEY_OVERLAY = "overlay";
@@ -150,7 +174,7 @@ public final class Protocol {
     /** One decoded inbound frame; {@link Kind#UNKNOWN} for anything we ignore. */
     public static final class Inbound {
 
-        public enum Kind { INIT, LOADOUT, SETTINGS, UNKNOWN }
+        public enum Kind { INIT, LOADOUT, SETTINGS, LIBRARY, UNKNOWN }
 
         public final Kind kind;
         public final int version;
@@ -173,6 +197,20 @@ public final class Protocol {
         }
     }
 
+    /** {@code loadouts}, whole, from {@code init} or {@code library}; malformed entries skipped. */
+    private static List<Loadout> loadouts(JsonObject o) {
+        List<Loadout> loadouts = new ArrayList<Loadout>();
+        if (o.has("loadouts") && o.get("loadouts").isJsonArray()) {
+            JsonArray arr = o.getAsJsonArray("loadouts");
+            for (int i = 0; i < arr.size(); i++) {
+                if (arr.get(i).isJsonObject()) {
+                    loadouts.add(Loadout.fromJson(arr.get(i).getAsJsonObject()));
+                }
+            }
+        }
+        return loadouts;
+    }
+
     /** Decodes one inbound frame. Never throws on shape; unknown means ignore. */
     public static Inbound parse(String text) {
         JsonObject o;
@@ -186,18 +224,17 @@ public final class Protocol {
         }
         String t = o.get("t").getAsString();
         try {
+            if ("library".equals(t)) {
+                List<Loadout> loadouts = loadouts(o);
+                if (loadouts.isEmpty()) {
+                    return Inbound.unknown();
+                }
+                return new Inbound(Inbound.Kind.LIBRARY, 0, null, loadouts, null);
+            }
             if ("init".equals(t)) {
                 // Whole loadouts: every entry is applyable on its own, which is what
                 // makes switchLoadout and the L cycle sub-frame with no round trip.
-                List<Loadout> loadouts = new ArrayList<Loadout>();
-                if (o.has("loadouts") && o.get("loadouts").isJsonArray()) {
-                    JsonArray arr = o.getAsJsonArray("loadouts");
-                    for (int i = 0; i < arr.size(); i++) {
-                        if (arr.get(i).isJsonObject()) {
-                            loadouts.add(Loadout.fromJson(arr.get(i).getAsJsonObject()));
-                        }
-                    }
-                }
+                List<Loadout> loadouts = loadouts(o);
                 Loadout loadout = o.has("loadout") && o.get("loadout").isJsonObject()
                         ? Loadout.fromJson(o.getAsJsonObject("loadout")) : null;
                 GlobalSettings settings = GlobalSettings.fromJson(

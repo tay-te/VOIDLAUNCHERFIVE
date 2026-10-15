@@ -71,7 +71,7 @@ describe('schema examples', () => {
     expect(BRIDGE_EXAMPLES.length).toBeGreaterThanOrEqual(28);
   });
 
-  it('covers all eleven events and all eight calls in the bridge examples', () => {
+  it('covers every event and every call in the bridge examples', () => {
     const events = new Set(
       BRIDGE_EXAMPLES.filter((e): e is Extract<typeof e, { e: string }> => 'e' in e).map(
         (e) => e.e,
@@ -94,6 +94,8 @@ describe('schema examples', () => {
       'setting',
       'settings',
       'tick',
+      // The twelfth: a short notice for something that happened with the menu closed.
+      'toast',
     ]);
 
     const calls = new Set(
@@ -103,11 +105,21 @@ describe('schema examples', () => {
     );
     expect([...calls].sort()).toEqual([
       'closeMenu',
+      // The library calls of the in-game Loadouts screen.
+      'createLoadout',
+      'deleteLoadout',
+      'duplicateLoadout',
+      'exportLoadout',
+      'getClipboard',
+      'importLoadout',
       'openKeybindCapture',
+      'renameLoadout',
+      'setClipboard',
       'setGameplay',
       'setGlobal',
       'setHud',
       'setModSetting',
+      'setQuickPins',
       'setSurfaces',
       'switchLoadout',
     ]);
@@ -139,7 +151,7 @@ describe('mod registry', () => {
     }
   });
 
-  it('classifies exactly fullbright, hitboxes, overlay, old_input and fog as grey', () => {
+  it('classifies exactly fullbright, hitboxes, overlay, old_input, fog and reach as grey', () => {
     // An exact set rather than a count, and edited by hand when it moves: `grey` is what gates
     // the HYPIXEL-READY badge, so a mod joining the class should have to touch a test that
     // names it. `overlay` is the third — `schema/mods/overlay.json`'s `$comment` carries the
@@ -154,8 +166,11 @@ describe('mod registry', () => {
     // `fog` is the fifth, for fullbright's reason: it lets you see farther than vanilla does
     // (`docs/mod-roster.md` §3.3 #7 called it before it existed). The FPS-boost mods beside it
     // are `safe` because every one of their switches only removes drawing.
+    //
+    // `reach` is the sixth: it sends nothing, and is grey for what the readout tells you —
+    // spacing feedback a few networks ban outright (`schema/mods/reach.json`).
     const grey = MOD_IDS.filter((id) => MOD_REGISTRY[id].hypixel_safe === 'grey');
-    expect(grey).toEqual<ModId[]>(['fullbright', 'hitboxes', 'overlay', 'old_input', 'fog']);
+    expect(grey).toEqual<ModId[]>(['fullbright', 'hitboxes', 'overlay', 'old_input', 'fog', 'reach']);
   });
 });
 

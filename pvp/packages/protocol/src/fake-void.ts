@@ -26,8 +26,10 @@ import type {
   ScoreboardPayload,
   ServerPayload,
   TickPayload,
+  ToastPayload,
 } from './generated/schema.js';
 import { getModDefaults, isModId } from './mods.js';
+import { decodeShareCode, encodeShareCode } from './share-code.js';
 import type {
   GlobalSettingValue,
   HudPlacement,
@@ -195,6 +197,15 @@ function clampSetting(key: string, value: ModSettingValue): ModSettingValue {
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
 
+/** `LiveState.MAX_LIBRARY`. */
+const MAX_LIBRARY = 128;
+
+/** `LiveState.cleanName`: trimmed, at most 48 code points, null when nothing is left. */
+function cleanName(name: string): string | null {
+  const trimmed = [...(name ?? '').trim()].slice(0, 48).join('').trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 /** The factory globals: every default `protocol.json#/definitions/global_settings` states. */
 export const FAKE_GLOBAL_SETTINGS: GlobalSettings = Object.freeze({
   menu_key: 'RSHIFT',
@@ -350,6 +361,8 @@ export interface FakeVoid extends VoidBridge {
    * this returns nothing where {@link FakeVoid.applyModSetting} returns the stored value.
    */
   emitModAction(id: ModId, action: string): void;
+  /** Push a `toast` the way Java does for something that happened with the menu closed. */
+  emitToast(toast: ToastPayload): void;
   /** The active loadout (a live reference; do not mutate). */
   getLoadout(): Loadout;
   /** The whole library. */
@@ -480,6 +493,8 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   const pendingCaptures: Array<(key: Keybind | null) => void> = [];
 
   let menuOpen = options.menuOpen ?? false;
+  /** The harness's clipboard; see `setClipboard`. */
+  let clipboard = '';
   let server: ServerPayload = options.server ?? { host: 'mc.hypixel.net', connected: true };
   const session: SessionInfo = options.session ?? {
     name: 'Player',
@@ -499,6 +514,16 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   let fps = 142;
   let ping = 42;
   let pos = { x: 118.0, y: 64.0, z: -212.0, yaw: -45.0 };
+
+  // The depth wave's sensors — `hits.swings`, `reach` and `counts`.
+  /** Left presses seen, and the swings `doAttack` would have run for them. */
+  let presses = 0;
+  let swings = 0;
+  let lastLmb: 0 | 1 = 0;
+  /** `reach.n`, and the `dealt` count it was last advanced at. */
+  let reachN = 0;
+  let reachDealt = 0;
+  let lastCountsSignature = '';
 
   const armor: ArmorSlot[] = [
     { slot: 'helmet', item: 'diamond_helmet', damage: 132, max_damage: 363, count: 1, enchanted: true },
@@ -594,6 +619,15 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     for (const effect of fx) {
       effect.duration_ms = Math.max(0, effect.duration_ms - stepMs);
     }
+
+    // A left press is a swing unless the game swallowed it. Every fifth press lands in 1.8's
+    // miss delay here — deterministic, so the seeded key stream is not disturbed — which is the
+    // gap between presses and swings that `cps.ignore_cancelled` exists to show.
+    if (keys.lmb === 1 && lastLmb === 0) {
+      presses += 1;
+      if (presses % 5 !== 0) swings += 1;
+    }
+    lastLmb = keys.lmb;
   }
 
   /** Build this tick's payload, omitting fields whose sensor has nothing to report. */
@@ -645,10 +679,51 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     // Monotonic, like the real thing. A hit roughly every 700 ms and a hit taken every ~5 s, so
     // a combo builds and then breaks — which is the whole behaviour the combo mod draws, and it
     // would be invisible in a fake that only ever incremented one counter.
+    const dealt = Math.floor(clockMs / 700);
     payload.hits = {
-      dealt: Math.floor(clockMs / 700),
+      dealt,
       taken: Math.floor(clockMs / 5000),
+      swings,
     };
+
+    // A reach reading on the tick each hit lands, and only then — like the sensor. Spread across
+    // a believable 2.5–3.0 so the average and the last figure differ.
+    if (dealt > reachDealt) {
+      reachDealt = dealt;
+      reachN += 1;
+      payload.reach = {
+        blocks: Math.round((2.5 + 0.5 * Math.abs(Math.sin(reachN * 1.7))) * 1000) / 1000,
+        n: reachN,
+      };
+    }
+
+    // Inventory counts, sent whole when any figure moves — like `armor`, this one IS coalesced,
+    // because "absent means unchanged" is the contract a consumer is tested against. Heals run
+    // down to zero and refill so the warn treatment and the zero reading both get exercised;
+    // `held_total` follows the hand and is absent with it.
+    const counts: NonNullable<TickPayload['counts']> = {
+      ender_pearl: 16 - (Math.floor(clockMs / 5000) % 17),
+      golden_apple: 12 - (Math.floor(clockMs / 11000) % 13),
+      arrow: 64,
+      snowball: 32,
+      egg: 16,
+      cobweb: 8,
+      wool: 128,
+      tnt: 4,
+      fire_charge: 6,
+      iron_ingot: 23,
+      gold_ingot: 9,
+      diamond: 5,
+      emerald: 2,
+      health_potion: 8 - (Math.floor(clockMs / 6000) % 9),
+      soup: 6 - (Math.floor(clockMs / 9000) % 7),
+    };
+    if (payload.held_count !== undefined) counts.held_total = payload.held_count + 64;
+    const countsSignature = signature(counts);
+    if (countsSignature !== lastCountsSignature) {
+      lastCountsSignature = countsSignature;
+      payload.counts = counts;
+    }
     return payload;
   }
 
@@ -664,6 +739,30 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
 
   function record<C extends VoidCallEnvelope>(envelope: C): void {
     calls.push(envelope);
+  }
+
+  function emitLibrary(): void {
+    emit({ e: 'loadouts', payload: library.map(structuredCloneish) });
+  }
+
+  /** `LiveState.uniqueId`: the name slugified as Rust's `LoadoutId::slugify`, then `-2`, `-3`… */
+  function uniqueId(name: string): LoadoutId {
+    let base = name
+      .split('')
+      .map((ch) => (/[A-Za-z0-9]/.test(ch) ? ch.toLowerCase() : '-'))
+      .join('')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 48)
+      .replace(/-$/, '');
+    if (base === '') base = 'loadout';
+    const taken = new Set(library.map((l) => l.id));
+    if (!taken.has(base)) return base;
+    for (let n = 2; ; n++) {
+      const suffix = `-${n}`;
+      const stem = base.length + suffix.length > 48 ? base.slice(0, 48 - suffix.length).replace(/-+$/, '') : base;
+      if (!taken.has(stem + suffix)) return stem + suffix;
+    }
   }
 
   function settingsFor(id: Parameters<typeof getModDefaults>[0]): Record<string, unknown> {
@@ -768,6 +867,104 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       record({ c: 'closeMenu', params: [] });
       if (menuOpen) emit({ e: 'menu', payload: false });
       return null;
+    },
+
+    // ---- the library: the same rules as `LiveState`, so the harness teaches the real thing.
+
+    createLoadout(name) {
+      record({ c: 'createLoadout', params: [name] });
+      const clean = cleanName(name);
+      if (clean === null || library.length >= MAX_LIBRARY) return null;
+      const created: Loadout = {
+        id: uniqueId(clean),
+        name: clean,
+        icon: 'sword',
+        server: null,
+        mc: '1.8.9',
+        mods: {},
+        hud: structuredCloneish(active.hud),
+      };
+      library.push(created);
+      emitLibrary();
+      return structuredCloneish(created);
+    },
+
+    renameLoadout(id, name) {
+      record({ c: 'renameLoadout', params: [id, name] });
+      const clean = cleanName(name);
+      const target = library.find((l) => l.id === id);
+      if (clean === null || !target) return null;
+      target.name = clean;
+      emitLibrary();
+      if (target === active) emit({ e: 'loadout', payload: structuredCloneish(active) });
+      return clean;
+    },
+
+    duplicateLoadout(id) {
+      record({ c: 'duplicateLoadout', params: [id] });
+      const source = library.find((l) => l.id === id);
+      if (!source || library.length >= MAX_LIBRARY) return null;
+      const name = `${[...source.name].slice(0, 43).join('').trim()} copy`;
+      const copy: Loadout = { ...structuredCloneish(source), id: uniqueId(name), name };
+      delete copy.stats;
+      library.push(copy);
+      emitLibrary();
+      return structuredCloneish(copy);
+    },
+
+    deleteLoadout(id) {
+      record({ c: 'deleteLoadout', params: [id] });
+      const at = library.findIndex((l) => l.id === id);
+      if (at < 0 || library.length <= 1) return false;
+      const wasActive = library[at] === active;
+      library.splice(at, 1);
+      if (wasActive) active = library[0] as Loadout;
+      emitLibrary();
+      if (wasActive) emit({ e: 'loadout', payload: structuredCloneish(active) });
+      return true;
+    },
+
+    exportLoadout(id) {
+      record({ c: 'exportLoadout', params: [id] });
+      const found = library.find((l) => l.id === id);
+      return found ? encodeShareCode(found) : null;
+    },
+
+    importLoadout(code) {
+      record({ c: 'importLoadout', params: [code] });
+      const decoded = decodeShareCode(code);
+      if (!decoded.ok) return { ok: false, error: decoded.error };
+      if (library.length >= MAX_LIBRARY) return { ok: false, error: 'full' };
+      const imported: Loadout = { ...decoded.loadout, id: uniqueId(decoded.loadout.name) };
+      library.push(imported);
+      emitLibrary();
+      return { ok: true, loadout: structuredCloneish(imported), dropped: decoded.dropped };
+    },
+
+    setClipboard(text) {
+      record({ c: 'setClipboard', params: [text] });
+      // The harness keeps its own clipboard (`getClipboard` must answer synchronously, which
+      // the browser's async Clipboard API cannot) and mirrors to the real one when it may.
+      clipboard = text;
+      void (globalThis as { navigator?: { clipboard?: { writeText(t: string): Promise<void> } } })
+        .navigator?.clipboard?.writeText(text)
+        .catch(() => undefined);
+      return true;
+    },
+
+    getClipboard() {
+      record({ c: 'getClipboard', params: [] });
+      return clipboard;
+    },
+
+    setQuickPins(ids) {
+      record({ c: 'setQuickPins', params: [ids] });
+      const stored: ModId[] = [];
+      for (const id of ids) {
+        if (isModId(id) && !stored.includes(id) && stored.length < 8) stored.push(id);
+      }
+      active.quick = stored;
+      return [...stored];
     },
 
     setSurfaces(surfaces) {
@@ -887,6 +1084,10 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       return applied;
     },
 
+    emitToast(toast) {
+      emit({ e: 'toast', payload: { ...toast } });
+    },
+
     emitModAction(id, action) {
       // Java's half of this is one more row in `VoidClient.toggleMod`'s table: sample the
       // code, edge it, and push a named action instead of writing a setting. Nothing is
@@ -941,6 +1142,17 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
           if (event.repeat) return;
           event.preventDefault?.();
           bridge.setMenuOpen(!menuOpen);
+          return;
+        }
+        // The cycle key, with the menu closed — Java's `VoidClient.cycleLoadout`, toast and all.
+        if (event.code === 'KeyL' && !menuOpen && !event.repeat) {
+          const at = library.indexOf(active);
+          const next = library[(at + 1) % library.length] as Loadout;
+          if (next !== active) {
+            active = next;
+            emit({ e: 'loadout', payload: structuredCloneish(active) });
+            bridge.emitToast({ kind: 'loadout', title: active.name, detail: 'Loadout switched' });
+          }
         }
       };
 

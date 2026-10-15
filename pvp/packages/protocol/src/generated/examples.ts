@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 11,
+    "version": 12,
     "mods": {
       "fps": {
         "id": "fps",
@@ -65,7 +65,9 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "show_cps": false,
           "corner_radius": 8,
           "key_color": "shell",
-          "pressed_color": "accent"
+          "pressed_color": "accent",
+          "animate": true,
+          "fade_ms": 120
         },
         "default_placement": {
           "anchor": "bottom-left",
@@ -92,7 +94,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "mode": "left",
           "show_label": true,
           "window_ms": 1000,
-          "show_peak": false
+          "show_peak": false,
+          "ignore_cancelled": false
         },
         "default_placement": {
           "anchor": "bottom-left",
@@ -119,7 +122,12 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "show_label": true,
           "good_ms": 60,
           "bad_ms": 150,
-          "show_host": true
+          "show_host": true,
+          "show_average": false,
+          "show_jitter": false,
+          "jitter_warn_ms": 20,
+          "spike_ms": 80,
+          "window": 10
         },
         "default_placement": {
           "anchor": "top-left",
@@ -199,7 +207,9 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "padding": "normal",
           "show_duration": true,
           "show_amplifier": true,
-          "hide_ambient": false
+          "hide_ambient": false,
+          "hidden_effects": 0,
+          "blink_below_s": 5
         },
         "default_placement": {
           "anchor": "top-right",
@@ -276,7 +286,10 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "show_eye_line": false,
           "eye_line_color": "#7ADFFFFF",
           "max_distance": 64,
-          "keybind": "NONE"
+          "keybind": "NONE",
+          "state_colors": false,
+          "hittable_color": "#2FB8A6FF",
+          "damaged_color": "#FF5A5AFF"
         }
       },
       "zoom": {
@@ -286,14 +299,16 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         "hypixel_safe": "safe",
         "label": "Zoom",
         "icon": "zoom",
-        "description": "Narrows FOV while the zoom key is held.",
+        "description": "Narrows FOV while the zoom key is held; the mouse wheel adjusts it.",
         "source": "FOV override while key held",
         "defaults": {
           "on": true,
           "key": "C",
           "fov_divisor": 4,
           "smooth": true,
-          "cinematic": false
+          "cinematic": false,
+          "scroll_adjust": true,
+          "scale_sensitivity": true
         }
       },
       "crosshair": {
@@ -477,8 +492,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         "hypixel_safe": "safe",
         "label": "Item counter",
         "icon": "box",
-        "description": "How many of the item in your hand you have left.",
-        "source": "`held_count` on the tick payload — the stack size of the held item",
+        "description": "How many of the item in your hand, or a chosen item, you have left.",
+        "source": "`held_count` and `counts` on the tick payload: the held stack, or an inventory-wide count",
         "defaults": {
           "on": false,
           "scale": 1,
@@ -487,7 +502,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "border": false,
           "padding": "normal",
           "show_label": true,
-          "low_threshold": 0
+          "low_threshold": 0,
+          "track": "held_stack"
         },
         "default_placement": {
           "anchor": "bottom-left",
@@ -859,6 +875,77 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "lock_time": true,
           "time_ticks": 6000,
           "clear_weather": true
+        }
+      },
+      "potion_counter": {
+        "id": "potion_counter",
+        "kind": "hud",
+        "category": "pvp",
+        "hypixel_safe": "safe",
+        "label": "Potion counter",
+        "icon": "heart",
+        "description": "Healing potions or soup left in your inventory.",
+        "source": "`counts.health_potion` and `counts.soup` on the tick payload",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "track": "health_potion",
+          "show_label": true,
+          "low_threshold": 3
+        },
+        "default_placement": {
+          "anchor": "bottom-left",
+          "dx": 175,
+          "dy": -184
+        }
+      },
+      "reach": {
+        "id": "reach",
+        "kind": "hud",
+        "category": "pvp",
+        "hypixel_safe": "grey",
+        "label": "Reach display",
+        "icon": "sword",
+        "description": "How far away your last hit landed, in blocks.",
+        "source": "`reach` on the tick payload: eye-to-hit-point distance at the moment of each landed attack",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "decimals": 2,
+          "mode": "last",
+          "show_label": true,
+          "hide_after_ms": 0
+        },
+        "default_placement": {
+          "anchor": "top-left",
+          "dx": 23,
+          "dy": 331
+        }
+      },
+      "chat": {
+        "id": "chat",
+        "kind": "gameplay",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Chat",
+        "icon": "users",
+        "description": "Timestamps, stacked repeats, click to copy and a longer history.",
+        "source": "ChatHud: message add, line render and history cap; ChatScreen: mouse click",
+        "defaults": {
+          "on": false,
+          "timestamps": true,
+          "stack_repeats": true,
+          "click_to_copy": true,
+          "background_opacity": 0.5,
+          "history_length": 1000
         }
       }
     }
@@ -1358,6 +1445,68 @@ export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
     "uuid": "853c80ef-3c37-49fd-aa49-938b674adae6",
     "id": "emote-wave",
     "at": 1760527200000
+  },
+  {
+    "t": "loadout_save",
+    "loadout": {
+      "id": "bridge-practice",
+      "name": "Bridge practice",
+      "icon": "sword",
+      "server": null,
+      "mc": "1.8.9",
+      "mods": {
+        "cps": {
+          "on": true,
+          "mode": "both"
+        }
+      },
+      "hud": [
+        {
+          "id": "cps",
+          "anchor": "bottom-left",
+          "dx": 175,
+          "dy": -108
+        }
+      ],
+      "quick": [
+        "toggle_sprint",
+        "zoom",
+        "cps"
+      ]
+    }
+  },
+  {
+    "t": "loadout_delete",
+    "id": "uhc"
+  },
+  {
+    "t": "loadout_select",
+    "id": "bedwars"
+  },
+  {
+    "t": "library",
+    "loadouts": [
+      {
+        "id": "bedwars",
+        "name": "Bedwars",
+        "icon": "bed",
+        "server": null,
+        "mc": "1.8.9",
+        "mods": {
+          "keystrokes": {
+            "on": true
+          }
+        },
+        "hud": [
+          {
+            "id": "keystrokes",
+            "anchor": "bottom-left",
+            "dx": 24,
+            "dy": -24
+          }
+        ]
+      }
+    ]
   }
 ];
 
@@ -1768,6 +1917,146 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
       "title": "",
       "lines": []
     }
+  },
+  {
+    "e": "tick",
+    "payload": {
+      "hits": {
+        "dealt": 12,
+        "taken": 4,
+        "swings": 19
+      },
+      "counts": {
+        "held_total": 64,
+        "ender_pearl": 3,
+        "golden_apple": 2,
+        "health_potion": 7,
+        "soup": 0,
+        "wool": 128
+      },
+      "reach": {
+        "blocks": 2.874,
+        "n": 12
+      }
+    }
+  },
+  {
+    "e": "toast",
+    "payload": {
+      "kind": "loadout",
+      "title": "Bedwars",
+      "detail": "Loadout switched"
+    }
+  },
+  {
+    "e": "toast",
+    "payload": {
+      "kind": "mod",
+      "title": "Fullbright on",
+      "mod": "fullbright"
+    }
+  },
+  {
+    "c": "createLoadout",
+    "params": [
+      "Bridge practice"
+    ]
+  },
+  {
+    "c": "createLoadout",
+    "returns": null
+  },
+  {
+    "c": "renameLoadout",
+    "params": [
+      "uhc",
+      "UHC Champions"
+    ]
+  },
+  {
+    "c": "renameLoadout",
+    "returns": "UHC Champions"
+  },
+  {
+    "c": "duplicateLoadout",
+    "params": [
+      "sword-pvp"
+    ]
+  },
+  {
+    "c": "duplicateLoadout",
+    "returns": null
+  },
+  {
+    "c": "deleteLoadout",
+    "params": [
+      "uhc"
+    ]
+  },
+  {
+    "c": "deleteLoadout",
+    "returns": true
+  },
+  {
+    "c": "exportLoadout",
+    "params": [
+      "sword-pvp"
+    ]
+  },
+  {
+    "c": "exportLoadout",
+    "returns": "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+  },
+  {
+    "c": "importLoadout",
+    "params": [
+      "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+    ]
+  },
+  {
+    "c": "importLoadout",
+    "returns": {
+      "ok": false,
+      "error": "checksum"
+    }
+  },
+  {
+    "c": "setQuickPins",
+    "params": [
+      [
+        "toggle_sprint",
+        "zoom",
+        "hitboxes",
+        "fullbright"
+      ]
+    ]
+  },
+  {
+    "c": "setQuickPins",
+    "returns": [
+      "toggle_sprint",
+      "zoom",
+      "hitboxes",
+      "fullbright"
+    ]
+  },
+  {
+    "c": "setClipboard",
+    "params": [
+      "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+    ]
+  },
+  {
+    "c": "setClipboard",
+    "returns": true
+  },
+  {
+    "c": "getClipboard",
+    "params": []
+  },
+  {
+    "c": "getClipboard",
+    "returns": ""
   }
 ];
 

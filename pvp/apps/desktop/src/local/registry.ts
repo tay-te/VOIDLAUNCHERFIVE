@@ -49,6 +49,9 @@ const CATEGORY_OVERRIDES: Partial<Record<ModId, ModCategory>> = {
   fullbright: 'VISUAL',
   crosshair: 'VISUAL',
   zoom: 'UTILITY',
+  // A gameplay mod that changes vanilla's chat, not a HUD chip — the schema files it under
+  // utility too.
+  chat: 'UTILITY',
 };
 
 export function categoryOf(id: ModId): ModCategory {
@@ -132,12 +135,16 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'show_mouse', label: 'Show mouse', control: 'switch' },
     { key: 'show_spacebar', label: 'Show spacebar', control: 'switch' },
     { key: 'show_cps', label: 'Show CPS', control: 'switch' },
+    { key: 'animate', label: 'Ease releases', control: 'switch' },
+    // Only read while `animate` is on; the row stays because the form has no dependent rows.
+    { key: 'fade_ms', label: 'Release fade', control: 'slider', min: 0, max: 500, step: 10, format: 'ms' },
   ],
   cps: [
     SCALE,
     OPACITY,
     { key: 'mode', label: 'Buttons', control: 'select', options: ['left', 'right', 'both'] },
     { key: 'window_ms', label: 'Window', control: 'slider', min: 200, max: 5000, step: 50, format: 'ms' },
+    { key: 'ignore_cancelled', label: 'Count only real swings', control: 'switch' },
   ],
   // Added when the watermark landed as the thirteenth mod. This table is
   // `Record<ModId, …>`, so a missing entry is a type error rather than a property
@@ -153,6 +160,12 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'show_label', label: 'Show label', control: 'switch' },
     { key: 'good_ms', label: 'Good under', control: 'slider', min: 0, max: 1000, step: 5, format: 'ms' },
     { key: 'bad_ms', label: 'Bad over', control: 'slider', min: 0, max: 2000, step: 5, format: 'ms' },
+    { key: 'show_average', label: 'Show average', control: 'switch' },
+    { key: 'show_jitter', label: 'Show jitter', control: 'switch' },
+    // 0 disables the warning / spike mark, which is why both floors are 0.
+    { key: 'jitter_warn_ms', label: 'Warn at jitter', control: 'slider', min: 0, max: 500, step: 5, format: 'ms' },
+    { key: 'spike_ms', label: 'Spike above average', control: 'slider', min: 0, max: 1000, step: 10, format: 'ms' },
+    { key: 'window', label: 'Readings averaged', control: 'slider', min: 3, max: 60, step: 1, format: 'plain' },
   ],
   coordinates: [
     SCALE,
@@ -208,6 +221,46 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'show_label', label: 'Show label', control: 'switch' },
     // 0 disables the warn treatment, which is why the floor is 0 rather than 1.
     { key: 'low_threshold', label: 'Warn at or below', control: 'slider', min: 0, max: 64, step: 1, format: 'plain' },
+    {
+      key: 'track',
+      label: 'Counts',
+      control: 'select',
+      options: [
+        'held_stack',
+        'held_total',
+        'ender_pearl',
+        'golden_apple',
+        'arrow',
+        'snowball',
+        'egg',
+        'cobweb',
+        'wool',
+        'tnt',
+        'fire_charge',
+        'iron_ingot',
+        'gold_ingot',
+        'diamond',
+        'emerald',
+      ],
+    },
+  ],
+  // Heals left, which the item counter deliberately does not track — see
+  // schema/mods/potion_counter.json for why it is a mod of its own.
+  potion_counter: [
+    SCALE,
+    OPACITY,
+    { key: 'track', label: 'Counts', control: 'select', options: ['health_potion', 'soup', 'both'] },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+    { key: 'low_threshold', label: 'Warn at or below', control: 'slider', min: 0, max: 64, step: 1, format: 'plain' },
+  ],
+  reach: [
+    SCALE,
+    OPACITY,
+    { key: 'mode', label: 'Shows', control: 'select', options: ['last', 'average'] },
+    { key: 'decimals', label: 'Decimals', control: 'slider', min: 0, max: 2, step: 1, format: 'plain' },
+    { key: 'show_label', label: 'Show label', control: 'switch' },
+    // 0 keeps the chip on screen.
+    { key: 'hide_after_ms', label: 'Hide after', control: 'slider', min: 0, max: 30000, step: 500, format: 'ms' },
   ],
   armor_status: [
     SCALE,
@@ -222,6 +275,12 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'show_duration', label: 'Show duration', control: 'switch' },
     { key: 'show_amplifier', label: 'Show amplifier', control: 'switch' },
     { key: 'hide_ambient', label: 'Hide ambient', control: 'switch' },
+    // 0 disables blinking.
+    { key: 'blink_below_s', label: 'Blink under', control: 'slider', min: 0, max: 30, step: 1, format: 'plain' },
+    // `hidden_effects` has no row: it is a bit mask over vanilla's effect ids, and this form
+    // has no multi-select control to draw it with. The overlay's settings page sets it from
+    // its effect chips; whatever it holds is kept, because the launcher patches only the
+    // keys it touches.
   ],
   toggle_sprint: [
     { key: 'mode', label: 'Mode', control: 'select', options: ['toggle', 'hold'] },
@@ -294,12 +353,27 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'line_width', label: 'Line width', control: 'slider', min: 0.5, max: 5, step: 0.5, format: 'plain' },
     { key: 'color', label: 'Colour', control: 'color' },
     { key: 'show_eye_line', label: 'Show eye line', control: 'switch' },
+    { key: 'state_colors', label: 'Colour by state', control: 'switch' },
+    // Both only read while `state_colors` is on.
+    { key: 'hittable_color', label: 'In reach', control: 'color' },
+    { key: 'damaged_color', label: 'Hurt', control: 'color' },
   ],
   zoom: [
     { key: 'key', label: 'Keybind', control: 'keybind' },
     { key: 'fov_divisor', label: 'Amount', control: 'slider', min: 1.1, max: 10, step: 0.1, format: 'multiplier' },
     { key: 'smooth', label: 'Smooth', control: 'switch' },
     { key: 'cinematic', label: 'Cinematic', control: 'switch' },
+    { key: 'scroll_adjust', label: 'Scroll to adjust', control: 'switch' },
+    { key: 'scale_sensitivity', label: 'Scale sensitivity', control: 'switch' },
+  ],
+  // Changes vanilla's own chat on this client only; nothing is sent. No SCALE/OPACITY: it
+  // draws no chip of its own — `background_opacity` is the chat band's, not a HUD fade.
+  chat: [
+    { key: 'timestamps', label: 'Timestamps', control: 'switch' },
+    { key: 'stack_repeats', label: 'Stack repeats', control: 'switch' },
+    { key: 'click_to_copy', label: 'Right-click to copy', control: 'switch' },
+    { key: 'background_opacity', label: 'Background', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+    { key: 'history_length', label: 'History', control: 'slider', min: 100, max: 5000, step: 100, format: 'plain' },
   ],
   crosshair: [
     {
@@ -448,6 +522,9 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'fog',
   'menu_blur',
   'time_weather',
+  'potion_counter',
+  'reach',
+  'chat',
 ];
 
 /**

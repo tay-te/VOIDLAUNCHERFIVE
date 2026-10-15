@@ -1,5 +1,5 @@
 /**
- * Boot: pick a bridge, subscribe the nine channels, report focus.
+ * Boot: pick a bridge, subscribe the push channels, report focus.
  *
  * §6.5 / bridge.json — Java → JS is push through `void.on(...)`; JS → Java is a
  * synchronous call. There is no fetch, no XHR and no socket in this bundle: the
@@ -56,6 +56,7 @@ export function hasTextFocus(): boolean {
  * a mod's page           back to the grid          (MenuLayer)
  * the settings page      back to the grid          (MenuLayer)
  * the HUD editor         back to the grid          (MenuLayer)
+ * the Loadouts screen    back to the islands       (MenuLayer)
  * the grid               closes the menu           (Java)
  * ```
  *
@@ -71,7 +72,13 @@ export function keepsEscape(): boolean {
   const state = useVoidStore.getState();
   if (state.paletteOpen) return true;
   const route = state.route.name;
-  return route === 'mod' || route === 'settings' || route === 'hud-editor' || route === 'grid';
+  return (
+    route === 'mod' ||
+    route === 'settings' ||
+    route === 'hud-editor' ||
+    route === 'grid' ||
+    route === 'loadouts'
+  );
 }
 
 export interface ConnectResult {
@@ -161,6 +168,9 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
     // codes; `hud/mc-format.ts` is the one place they are read.
     bridge.on('scoreboard', store.applyScoreboard),
     bridge.on('menu', store.applyMenu),
+    // The eleventh: a short notice Java raises for something that happened with the menu
+    // closed — the cycle key, a mod's own key, the launcher switching the loadout.
+    bridge.on('toast', store.applyToast),
   ];
 
   if (fake) {

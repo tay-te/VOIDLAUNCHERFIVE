@@ -38,7 +38,16 @@ public final class Loadout {
     private String mc;
     private final Map<String, JsonObject> mods = new LinkedHashMap<String, JsonObject>();
     private final List<HudItem> hud = new ArrayList<HudItem>();
+    /**
+     * The quick-panel pins, {@code loadout.json#/definitions/quick_pins}, or {@code null} for the
+     * client's factory pins. Normalised on every write: known mod ids only, no repeats, at most
+     * {@link #MAX_QUICK_PINS}.
+     */
+    private List<String> quick;
     private JsonObject stats;
+
+    /** Most mods the quick panel holds. */
+    public static final int MAX_QUICK_PINS = 8;
 
     private Loadout(String id) {
         this.id = id;
@@ -81,9 +90,29 @@ public final class Loadout {
                 }
             }
         }
+        l.quick = o.has("quick") && o.get("quick").isJsonArray()
+                ? normaliseQuick(o.getAsJsonArray("quick")) : null;
         l.stats = o.has("stats") && o.get("stats").isJsonObject()
                 ? Json.deepCopy(o.getAsJsonObject("stats")) : null;
         return l;
+    }
+
+    /**
+     * Known mod ids only, in order, without repeats, cut to eight — the lenient read
+     * {@code quick_pins} asks for, so a loadout pinned on a newer client still loads.
+     */
+    public static List<String> normaliseQuick(JsonArray ids) {
+        List<String> out = new ArrayList<String>();
+        for (int i = 0; i < ids.size() && out.size() < MAX_QUICK_PINS; i++) {
+            JsonElement e = ids.get(i);
+            if (e != null && e.isJsonPrimitive() && e.getAsJsonPrimitive().isString()) {
+                String id = e.getAsString();
+                if (ModRegistry.isMod(id) && !out.contains(id)) {
+                    out.add(id);
+                }
+            }
+        }
+        return out;
     }
 
     /**
@@ -152,6 +181,29 @@ public final class Loadout {
 
     public String name() {
         return name;
+    }
+
+    /** Renames in place. The caller validates; {@link LiveState#renameLoadout} trims and caps. */
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    /** The quick pins, or {@code null} for the factory pins. A copy. */
+    public List<String> quick() {
+        return quick == null ? null : new ArrayList<String>(quick);
+    }
+
+    /** Replaces the quick pins; normalised. {@code null} restores the factory pins. */
+    public void setQuick(List<String> ids) {
+        if (ids == null) {
+            quick = null;
+            return;
+        }
+        JsonArray arr = new JsonArray();
+        for (String id : ids) {
+            arr.add(new com.google.gson.JsonPrimitive(id));
+        }
+        quick = normaliseQuick(arr);
     }
 
     public String icon() {
@@ -284,10 +336,30 @@ public final class Loadout {
             h.add(item.toJson());
         }
         o.add("hud", h);
+        if (quick != null) {
+            JsonArray q = new JsonArray();
+            for (String id : quick) {
+                q.add(new com.google.gson.JsonPrimitive(id));
+            }
+            o.add("quick", q);
+        }
         if (stats != null) {
             o.add("stats", Json.deepCopy(stats));
         }
         return o;
+    }
+
+    /**
+     * A copy under another id and name, without stats — what {@code duplicateLoadout} and
+     * {@code createLoadout} store. Stats are play time on <em>this</em> loadout, and a copy
+     * has not been played.
+     */
+    public Loadout copyAs(String newId, String newName) {
+        JsonObject o = toJson();
+        o.addProperty("id", newId);
+        o.addProperty("name", newName);
+        o.remove("stats");
+        return fromJson(o);
     }
 
     public Loadout copy() {

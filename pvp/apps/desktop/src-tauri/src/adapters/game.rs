@@ -104,6 +104,19 @@ impl GameState {
         }
     }
 
+    /// Push the whole library to a running game after the launcher changed it — a
+    /// create, a delete, an import, an edit. The mod replaces its library with this and
+    /// keeps its live active loadout, so a switch still travels as `push_loadout`. A
+    /// no-op when nothing is connected: the next `init` carries the library anyway.
+    pub fn push_library(&self, loadouts: &[Loadout]) {
+        if let Some(bridge) = &self.bridge {
+            let msg = RustToJava::Library { loadouts: loadouts.to_vec() };
+            if let Err(e) = bridge.send(&msg) {
+                tracing::warn!(error = %e, "could not push the library to the game");
+            }
+        }
+    }
+
     /// Push changed global settings to a running game.
     pub fn push_settings(&self, settings: &void_loadout::GlobalSettings) {
         if let Some(bridge) = &self.bridge {

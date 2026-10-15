@@ -1,0 +1,83 @@
+/* ==========================================================================
+   Notices (`src/toasts/ToastStack.tsx`) — the `toast` channel.
+
+   A small island at the top centre, in the islands' own vocabulary (`islands.css`): flat card,
+   1px white .10 hairline, rounded, no gradient, no shadow. Monochrome — a notice is not a live
+   value, so it takes no category hue (§1); the mark is the only thing that says what it is
+   about. Flexbox and absolute positioning only; the entry is opacity + a 2D translate.
+   ========================================================================== */
+
+.vtoasts {
+  position: absolute;
+  left: 50%;
+  top: 88px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.vtoast {
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+  min-height: 40px;
+  max-width: 420px;
+  padding: 7px 14px 7px 8px;
+  border-radius: 12px;
+  background: #191a1c;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #edeeef;
+  font-family: var(--font-ui);
+  animation: vtoast-in 160ms ease-out both;
+}
+
+@keyframes vtoast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vtoast__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  margin-right: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #edeeef;
+}
+
+.vtoast__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.vtoast__title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vtoast__detail {
+  font-size: 12px;
+  line-height: 16px;
+  color: #9a9da1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

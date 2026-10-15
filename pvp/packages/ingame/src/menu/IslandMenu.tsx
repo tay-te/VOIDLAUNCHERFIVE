@@ -34,7 +34,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import { MOD_REGISTRY, type ModId } from '@/bridge/protocol';
 import { MOD_ORDER, modLabel } from '@/registry';
-import { isModOn, modsOnCount, useVoidStore } from '@/store/store';
+import { FACTORY_QUICK, isModOn, modsOnCount, quickPins, useVoidStore } from '@/store/store';
 import { Toggle, cx } from '@/ui';
 import { Tile, gridRows } from './ModsScreen';
 import { keybindLabel } from './settings-format';
@@ -71,12 +71,11 @@ const categoryOf = (id: ModId): Category => (MOD_REGISTRY[id]?.category ?? 'hud'
 const REAL_MODS: readonly ModId[] = MOD_ORDER.filter((id) => Boolean(MOD_REGISTRY[id]));
 
 /**
- * The quick panel's eight (`229:47020`): the mods a fight reaches for. A loadout has no pins in
- * the schema yet, so this is the frame's own list; any the registry lacks are skipped.
+ * The quick panel's factory eight (`229:47020`): the mods a fight reaches for. A loadout's own
+ * pins (`loadout.quick`, set from a mod page's `Pin to quick panel`) replace them; this is what a
+ * loadout that has never pinned anything shows. See `quickPins` in the store.
  */
-export const QUICK_MODS: readonly ModId[] = (
-  ['toggle_sprint', 'zoom', 'keystrokes', 'crosshair', 'hit_color', 'fov', 'hitboxes', 'fullbright'] as ModId[]
-).filter((id) => Boolean(MOD_REGISTRY[id]));
+export const QUICK_MODS: readonly ModId[] = FACTORY_QUICK;
 
 /** Mods matching a category and a search query, in grid order. */
 export function filterMods(filter: Filter, query: string): ModId[] {
@@ -166,6 +165,7 @@ function serverName(host: string): string {
 function LobbyStrip() {
   const server = useVoidStore((s) => s.server);
   const setRoute = useVoidStore((s) => s.setRoute);
+  const loadoutName = useVoidStore((s) => s.loadout?.name ?? null);
   return (
     <div className="island island--strip">
       <div className="isl-where">
@@ -182,6 +182,23 @@ function LobbyStrip() {
           <i />
         </span>
         HUD layout
+      </button>
+      {/* The Loadouts screen's door. It was reachable only from the ⌘K palette — the same "only
+          by someone who already knew" problem the HUD editor's pill above solved — so it gets
+          the same pill, beside it, naming the loadout you are on. */}
+      <button
+        type="button"
+        className="isl-pill isl-pill--loadout"
+        onClick={() => setRoute({ name: 'loadouts' })}
+        aria-label={loadoutName ? `Loadouts — ${loadoutName} is active` : 'Loadouts'}
+      >
+        <span className="isl-stack" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+        Loadouts
+        {loadoutName ? <span className="isl-pill__aside">{loadoutName}</span> : null}
       </button>
     </div>
   );
@@ -364,19 +381,23 @@ function QuickPanel() {
   const toggleMod = useVoidStore((s) => s.toggleMod);
   const closeMenu = useVoidStore((s) => s.closeMenu);
   const menuKey = useVoidStore((s) => s.globals.menuKey);
+  // The loadout's own pins, or the factory eight. Selected as the list reference so the panel
+  // re-renders when the pins change, not on every toggle.
+  const own = useVoidStore((s) => s.loadout?.quick);
+  const pins = useMemo(() => quickPins(own ? { quick: own } : null), [own]);
 
   // 1–8 flip the pins without the mouse — the reason they are numbered.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const n = Number(e.key);
-      if (!Number.isInteger(n) || n < 1 || n > QUICK_MODS.length) return;
+      if (!Number.isInteger(n) || n < 1 || n > pins.length) return;
       e.preventDefault();
-      const id = QUICK_MODS[n - 1]!;
+      const id = pins[n - 1]!;
       toggleMod(id, !isModOn(useVoidStore.getState().loadout, id));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [toggleMod]);
+  }, [toggleMod, pins]);
 
   return (
     <div className="isl-quickwrap">
@@ -391,7 +412,10 @@ function QuickPanel() {
           </button>
         </header>
         <div className="isl-quick__pins">
-          {QUICK_MODS.map((id, i) => {
+          {pins.length === 0 ? (
+            <p className="isl-quick__empty">Nothing pinned — pin mods from their page in the lobby.</p>
+          ) : null}
+          {pins.map((id, i) => {
             const on = isModOn(loadout, id);
             return (
               <div
@@ -408,7 +432,7 @@ function QuickPanel() {
         </div>
       </section>
       <p className="isl-quick__hint">
-        <span className="isl-key isl-key--sm">1–{QUICK_MODS.length}</span> toggle
+        <span className="isl-key isl-key--sm">1–{Math.max(1, pins.length)}</span> toggle
         <span className="isl-key isl-key--sm">{keybindLabel(menuKey)}</span> close
       </p>
     </div>

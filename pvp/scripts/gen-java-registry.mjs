@@ -618,6 +618,13 @@ public final class ModRegistry {
     // UI get it too, and re-generate.
     // =================================================================
 
+    /**
+     * {@code examples[0].version} of {@code schema/mods.json}: bumped whenever a mod is added,
+     * removed or reclassified. Carried in a loadout share code ({@code ShareCode}) so a code
+     * made against a newer registry can be recognised as such.
+     */
+    public static final int REGISTRY_VERSION = ${schema.examples[0].version};
+
     static {
 ${data}
     }

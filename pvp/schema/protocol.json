@@ -19,7 +19,7 @@
 
     "java_to_rust": {
       "title": "Java to Rust",
-      "description": "The ten messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
+      "description": "The thirteen messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
       "oneOf": [
         { "description": "Handshake sent immediately on connect.", "$ref": "#/definitions/msg_hello" },
         { "description": "Live loadout state delta.", "$ref": "#/definitions/msg_state" },
@@ -30,19 +30,23 @@
         { "description": "A global hotkey the player pressed in game.", "$ref": "#/definitions/msg_hotkey" },
         { "description": "UUIDs of players the mod sees, whose cosmetics it wants.", "$ref": "#/definitions/msg_cosmetics_query" },
         { "description": "The local player played an emote.", "$ref": "#/definitions/msg_emote_local" },
-        { "description": "The player equipped or took off an item in game.", "$ref": "#/definitions/msg_equip" }
+        { "description": "The player equipped or took off an item in game.", "$ref": "#/definitions/msg_equip" },
+        { "description": "A loadout created, renamed, duplicated, imported or re-pinned in game.", "$ref": "#/definitions/msg_loadout_save" },
+        { "description": "A loadout deleted in game.", "$ref": "#/definitions/msg_loadout_delete" },
+        { "description": "A loadout picked from the in-game Loadouts screen.", "$ref": "#/definitions/msg_loadout_select" }
       ]
     },
 
     "rust_to_java": {
       "title": "Rust to Java",
-      "description": "The five messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.",
+      "description": "The six messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.",
       "oneOf": [
         { "description": "Handshake reply carrying the initial world of state.", "$ref": "#/definitions/msg_init" },
         { "description": "Loadout switched from the launcher or the tray.", "$ref": "#/definitions/msg_loadout" },
         { "description": "Global settings changed in the launcher.", "$ref": "#/definitions/msg_settings" },
         { "description": "Equipped cosmetics: the local player's own set and other VOID players' sets.", "$ref": "#/definitions/msg_cosmetics" },
-        { "description": "Another VOID player on the same server played an emote.", "$ref": "#/definitions/msg_emote_remote" }
+        { "description": "Another VOID player on the same server played an emote.", "$ref": "#/definitions/msg_emote_remote" },
+        { "description": "The loadout library changed in the launcher, or Rust refused an in-game change to it.", "$ref": "#/definitions/msg_library" }
       ]
     },
 
@@ -168,6 +172,60 @@
       "properties": {
         "t": { "description": "Message discriminator; always `hotkey`.", "type": "string", "const": "hotkey" },
         "id": { "description": "Which hotkey fired.", "$ref": "#/definitions/hotkey_id" }
+      }
+    },
+
+    "msg_loadout_save": {
+      "title": "loadout_save (Java to Rust)",
+      "description": "Sent when the in-game Loadouts screen created, renamed, duplicated or imported a loadout, or changed its quick pins (`window.void` calls of the same names). Carries the whole loadout: Rust creates it at the end of the library order when the id is new and overwrites it otherwise, validating it first. Like `state`, a notification of what Java already did, not a request; if Rust cannot store it, it answers with `library` so the game shows what is actually on disk.",
+      "type": "object",
+      "required": ["t", "loadout"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `loadout_save`.", "type": "string", "const": "loadout_save" },
+        "loadout": { "description": "The loadout as Java now holds it.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout" }
+      }
+    },
+
+    "msg_loadout_delete": {
+      "title": "loadout_delete (Java to Rust)",
+      "description": "Sent when the in-game Loadouts screen deleted a loadout. Java has already removed it, and switched away from it first when it was active (that switch travels as its own `loadout_select`). Rust never deletes the last loadout on disk.",
+      "type": "object",
+      "required": ["t", "id"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `loadout_delete`.", "type": "string", "const": "loadout_delete" },
+        "id": { "description": "The deleted loadout.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id" }
+      }
+    },
+
+    "msg_loadout_select": {
+      "title": "loadout_select (Java to Rust)",
+      "description": "Sent when the player picked a loadout in game other than with the cycle key, which reports itself as `hotkey` `loadout.next`. Moves Rust's active pointer so the tray and the next launch agree with the running game.",
+      "type": "object",
+      "required": ["t", "id"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `loadout_select`.", "type": "string", "const": "loadout_select" },
+        "id": { "description": "The loadout now active.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id" }
+      }
+    },
+
+    "msg_library": {
+      "title": "library (Rust to Java)",
+      "description": "The whole loadout library, in full and in library order, exactly as `init.loadouts`. Sent when the launcher created, deleted, imported or edited a loadout while the game is running, and as the answer to an in-game `loadout_save` or `loadout_delete` Rust could not apply. Java replaces its library with it, keeping its own live copy of the active loadout, and pushes the `loadouts` bridge event.",
+      "type": "object",
+      "required": ["t", "loadouts"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `library`.", "type": "string", "const": "library" },
+        "loadouts": {
+          "description": "Every loadout, in full and in library order.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": { "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout" }
+        }
       }
     },
 
@@ -444,7 +502,36 @@
       ]
     },
     { "t": "cosmetics", "self": null, "players": [] },
-    { "t": "emote", "uuid": "853c80ef-3c37-49fd-aa49-938b674adae6", "id": "emote-wave", "at": 1760527200000 }
+    { "t": "emote", "uuid": "853c80ef-3c37-49fd-aa49-938b674adae6", "id": "emote-wave", "at": 1760527200000 },
+    {
+      "t": "loadout_save",
+      "loadout": {
+        "id": "bridge-practice",
+        "name": "Bridge practice",
+        "icon": "sword",
+        "server": null,
+        "mc": "1.8.9",
+        "mods": { "cps": { "on": true, "mode": "both" } },
+        "hud": [{ "id": "cps", "anchor": "bottom-left", "dx": 175, "dy": -108 }],
+        "quick": ["toggle_sprint", "zoom", "cps"]
+      }
+    },
+    { "t": "loadout_delete", "id": "uhc" },
+    { "t": "loadout_select", "id": "bedwars" },
+    {
+      "t": "library",
+      "loadouts": [
+        {
+          "id": "bedwars",
+          "name": "Bedwars",
+          "icon": "bed",
+          "server": null,
+          "mc": "1.8.9",
+          "mods": { "keystrokes": { "on": true } },
+          "hud": [{ "id": "keystrokes", "anchor": "bottom-left", "dx": 24, "dy": -24 }]
+        }
+      ]
+    }
   ]
 }
 

@@ -31,6 +31,10 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
     "min": 0,
     "max": 20
   },
+  "fade_ms": {
+    "min": 0,
+    "max": 500
+  },
   "window_ms": {
     "min": 200,
     "max": 5000
@@ -43,6 +47,18 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
     "min": 0,
     "max": 2000
   },
+  "jitter_warn_ms": {
+    "min": 0,
+    "max": 500
+  },
+  "spike_ms": {
+    "min": 0,
+    "max": 1000
+  },
+  "window": {
+    "min": 3,
+    "max": 60
+  },
   "decimals": {
     "min": 0,
     "max": 2
@@ -50,6 +66,14 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "warn_below": {
     "min": 0,
     "max": 1
+  },
+  "hidden_effects": {
+    "min": 0,
+    "max": 16777215
+  },
+  "blink_below_s": {
+    "min": 0,
+    "max": 30
   },
   "gamma": {
     "min": 1,
@@ -178,6 +202,18 @@ export const SETTING_BOUNDS: Readonly<Record<string, { readonly min: number; rea
   "time_ticks": {
     "min": 0,
     "max": 23999
+  },
+  "hide_after_ms": {
+    "min": 0,
+    "max": 30000
+  },
+  "background_opacity": {
+    "min": 0,
+    "max": 1
+  },
+  "history_length": {
+    "min": 100,
+    "max": 5000
   }
 } as const;
 
@@ -403,6 +439,23 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "normal",
     "roomy"
   ],
+  "item_counter.track": [
+    "held_stack",
+    "held_total",
+    "ender_pearl",
+    "golden_apple",
+    "arrow",
+    "snowball",
+    "egg",
+    "cobweb",
+    "wool",
+    "tnt",
+    "fire_charge",
+    "iron_ingot",
+    "gold_ingot",
+    "diamond",
+    "emerald"
+  ],
   "stopwatch.background": [
     "none",
     "subtle",
@@ -475,6 +528,35 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "vanilla",
     "reduced",
     "off"
+  ],
+  "potion_counter.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "potion_counter.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "potion_counter.track": [
+    "health_potion",
+    "soup",
+    "both"
+  ],
+  "reach.background": [
+    "none",
+    "subtle",
+    "solid"
+  ],
+  "reach.padding": [
+    "tight",
+    "normal",
+    "roomy"
+  ],
+  "reach.mode": [
+    "last",
+    "average"
   ]
 } as const;
 

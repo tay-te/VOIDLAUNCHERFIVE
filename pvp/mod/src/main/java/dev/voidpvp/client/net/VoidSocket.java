@@ -58,6 +58,13 @@ public final class VoidSocket implements LiveState.Sink {
 
         void onSettings(GlobalSettings settings);
 
+        /**
+         * Rust's {@code library}: the whole library after a launcher-side change, or after an
+         * in-game one Rust could not store. Default no-op for listeners that predate it.
+         */
+        default void onLibrary(List<Loadout> loadouts) {
+        }
+
         void onLinkChanged(boolean up);
 
         /**
@@ -218,6 +225,34 @@ public final class VoidSocket implements LiveState.Sink {
         }
     }
 
+    @Override
+    public void loadoutSave(JsonObject loadout) {
+        String id = loadout.has("id") ? loadout.get("id").getAsString() : "";
+        if (isUp()) {
+            send(Protocol.loadoutSave(loadout));
+        } else {
+            queue.addLoadoutSave(id, loadout);
+        }
+    }
+
+    @Override
+    public void loadoutDelete(String loadoutId) {
+        if (isUp()) {
+            send(Protocol.loadoutDelete(loadoutId));
+        } else {
+            queue.addLoadoutDelete(loadoutId);
+        }
+    }
+
+    @Override
+    public void loadoutSelect(String loadoutId) {
+        if (isUp()) {
+            send(Protocol.loadoutSelect(loadoutId));
+        } else {
+            queue.setSelected(loadoutId);
+        }
+    }
+
     public void sendServer(String host, boolean connected, int serverPort) {
         JsonObject message = Protocol.server(host, connected, serverPort);
         if (isUp()) {
@@ -283,6 +318,9 @@ public final class VoidSocket implements LiveState.Sink {
                 break;
             case SETTINGS:
                 listener.onSettings(in.settings);
+                break;
+            case LIBRARY:
+                listener.onLibrary(in.loadouts);
                 break;
             default:
                 // Unknown `t`: ignored, never an error (§7).

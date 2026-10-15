@@ -35,6 +35,7 @@ import { openPath } from '../features/LogDrawer';
 import { CategoryCube, Character, Initial } from '../features/art';
 import { CATEGORY_HUE_VAR, CATEGORY_LABEL, TOTAL_MODS, countsFor, totalOn } from '../local/categories';
 import { findItem } from '../local/catalog';
+import { copyText } from '../local/clipboard';
 import { hypixelReady } from '../local/hypixelReady';
 import { useOnline } from '../local/online';
 import { useCosmetics } from '../stores/cosmetics';
@@ -224,17 +225,95 @@ function Wearing() {
 
 // ----------------------------------------------------------- the strip
 
+/**
+ * The loadout menu's paste field — the play bar's "Add server" row (`popadd`), with the
+ * reason a code was refused printed under it rather than only a red edge, because "that
+ * code is damaged — copy it again" is something the player can act on.
+ */
+function ImportCodeRow({ onDone }: { onDone: (name: string, dropped: number) => void }) {
+  const importCode = useLoadouts((s) => s.importCode);
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <>
+      <form
+        className="popadd"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (busy) return;
+          setBusy(true);
+          void importCode(value).then((result) => {
+            setBusy(false);
+            if (result.ok) onDone(result.loadout.name, result.dropped);
+            else setError(result.error);
+          });
+        }}
+      >
+        <input
+          // Opened on purpose, to paste into; it should take the keyboard.
+          autoFocus
+          className={`popadd__input${error ? ' is-error' : ''}`}
+          value={value}
+          placeholder="Paste a VOID1 code"
+          aria-label="Loadout code"
+          aria-invalid={error !== null}
+          aria-describedby={error ? 'loadout-import-error' : undefined}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => {
+            setValue(e.target.value);
+            setError(null);
+          }}
+        />
+        <button type="submit" className="btn2 btn2--secondary btn2--sm" disabled={busy}>
+          Import
+        </button>
+      </form>
+      {error ? (
+        <p id="loadout-import-error" className="popadd__error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 function LoadoutColumn() {
-  const { active, library, switchTo } = useLoadouts();
+  const { active, library, switchTo, exportCode } = useLoadouts();
   const go = useUi((s) => s.go);
-  const [open, setOpen] = useState(false);
+  // In the UI store rather than local state so the palette can open it on the import field.
+  const menu = useUi((s) => s.loadoutMenu);
+  const setMenu = useUi((s) => s.setLoadoutMenu);
+  const open = menu !== null;
+  // The two actions answer in place, on their own row: there is no toast in the launcher,
+  // and the menu stays open so the answer is seen.
+  const [copyNote, setCopyNote] = useState<string | null>(null);
+  const [importNote, setImportNote] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return undefined;
-    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setMenu(null);
     window.addEventListener('mousedown', onDown);
     return () => window.removeEventListener('mousedown', onDown);
+  }, [open, setMenu]);
+  useEffect(() => {
+    if (open) return;
+    setCopyNote(null);
+    setImportNote(null);
   }, [open]);
+  // Leaving Home closes the menu, so coming back does not find it open.
+  useEffect(() => () => setMenu(null), [setMenu]);
+
+  const copy = async () => {
+    if (!active) return;
+    const code = await exportCode(active.id);
+    if (code === null) {
+      setCopyNote('Could not make the code');
+      return;
+    }
+    setCopyNote((await copyText(code)) ? 'Copied to the clipboard' : 'The clipboard refused it');
+  };
 
   const counts = countsFor(active);
   const on = totalOn(active);
@@ -257,31 +336,81 @@ function LoadoutColumn() {
           className="strip__title strip__title--button"
           aria-haspopup="menu"
           aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => setMenu(open ? null : 'list')}
         >
           {active?.name ?? '—'}
           <img src={chevronDown} width={9} height={5} alt="" />
         </button>
         {open ? (
           <div className="popmenu popmenu--loadout" role="menu" aria-label="Loadout">
-            {library.map((l) => (
+            {/* Imports grow the library, and the menu opens downward from the bottom
+                strip, so the rows scroll past five instead of running off the window. */}
+            <div className="popmenu__scroll">
+              {library.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={l.id === active?.id}
+                  className={`popitem${l.id === active?.id ? ' is-selected' : ''}`}
+                  onClick={() => {
+                    setMenu(null);
+                    void switchTo(l.id);
+                  }}
+                >
+                  <span className="popitem__text">
+                    <span className="popitem__title">{l.name}</span>
+                  </span>
+                  {l.id === active?.id ? <span className="popitem__dot" aria-hidden="true" /> : null}
+                </button>
+              ))}
+            </div>
+            <span className="popmenu__divider" />
+            <button
+              type="button"
+              role="menuitem"
+              className="popitem popitem--action"
+              disabled={!active}
+              onClick={() => void copy()}
+            >
+              <span className="popitem__text">
+                <span className="popitem__title">Copy share code</span>
+                <span className="popitem__sub" aria-live="polite">
+                  {copyNote ?? active?.name}
+                </span>
+              </span>
+            </button>
+            {menu === 'import' ? (
+              <ImportCodeRow
+                onDone={(name, dropped) => {
+                  setMenu('list');
+                  setImportNote(
+                    dropped > 0
+                      ? `Added ${name} · ${dropped} unknown ${dropped === 1 ? 'setting' : 'settings'} skipped`
+                      : `Added ${name}`,
+                  );
+                }}
+              />
+            ) : (
               <button
-                key={l.id}
                 type="button"
-                role="menuitemradio"
-                aria-checked={l.id === active?.id}
-                className={`popitem${l.id === active?.id ? ' is-selected' : ''}`}
+                role="menuitem"
+                className="popitem popitem--action"
                 onClick={() => {
-                  setOpen(false);
-                  void switchTo(l.id);
+                  setImportNote(null);
+                  setMenu('import');
                 }}
               >
                 <span className="popitem__text">
-                  <span className="popitem__title">{l.name}</span>
+                  <span className="popitem__title">+&nbsp;&nbsp;Import loadout code</span>
+                  {importNote ? (
+                    <span className="popitem__sub" aria-live="polite">
+                      {importNote}
+                    </span>
+                  ) : null}
                 </span>
-                {l.id === active?.id ? <span className="popitem__dot" aria-hidden="true" /> : null}
               </button>
-            ))}
+            )}
           </div>
         ) : null}
       </div>

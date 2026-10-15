@@ -112,6 +112,14 @@ pub struct LoadoutPatch {
     pub hud: Option<Vec<HudItem>>,
 }
 
+/// What `loadouts_import` returns: the loadout as stored, under its fresh id, and how
+/// many settings, mods, HUD items and pins the code carried that this build could not use.
+#[derive(Debug, Clone, Serialize)]
+pub struct ImportedLoadout {
+    pub loadout: Loadout,
+    pub dropped: usize,
+}
+
 // ---------------------------------------------------------------- account
 
 /// The account as the dock and the settings screen render it.

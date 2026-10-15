@@ -155,4 +155,29 @@ public final class HitboxGeometry {
                 oy + lookY * EYE_LINE_LENGTH,
                 oz + lookZ * EYE_LINE_LENGTH);
     }
+
+    /**
+     * {@code hitboxes.state_colors}: which colour one entity's box is drawn in.
+     *
+     * <p>Damaged beats hittable, as the schema orders them: an entity in its hurt animation is
+     * inside its invulnerability frames, so "you can hit this" would be the wrong thing to tell
+     * a player about it at exactly the moment the colour is most visible. Both readings are the
+     * client's own — {@code LivingEntity.hurtTime} is the hurt animation every client already
+     * draws, and {@code MinecraftClient.targetedEntity} is what vanilla's own crosshair pick
+     * chose (living entities and item frames only, within the 3-block survival limit) — so the
+     * box says nothing the crosshair and the red flash were not already saying.</p>
+     *
+     * @param hurt     the entity is a {@code LivingEntity} with {@code hurtTime > 0}
+     * @param targeted the entity is {@code MinecraftClient.targetedEntity}
+     */
+    public static int boxColor(boolean stateColors, int color, int hittableColor,
+                               int damagedColor, boolean hurt, boolean targeted) {
+        if (!stateColors) {
+            return color;
+        }
+        if (hurt) {
+            return damagedColor;
+        }
+        return targeted ? hittableColor : color;
+    }
 }

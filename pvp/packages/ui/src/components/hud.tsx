@@ -138,6 +138,35 @@ export interface PingChipProps extends HudChipProps {
   badMs?: number;
   /** Whether to draw the trailing `ms` unit. */
   showLabel?: boolean;
+  /**
+   * The rolling average, drawn as a trailing ` · avg 54` — the mod's `show_average`.
+   * Undefined draws nothing. Muted, like every aside: the live figure stays the live value.
+   */
+  average?: number;
+  /**
+   * Jitter in ms, drawn as a trailing ` · ±7` — the mod's `show_jitter`. Undefined draws
+   * nothing.
+   */
+  jitter?: number;
+  /**
+   * At or above this the jitter aside takes the warn ink — `jitter_warn_ms`. 0 disables it.
+   * A state, like the dot's bands: a steady connection and a swinging one are different
+   * situations, and only this figure tells them apart.
+   */
+  jitterWarnMs?: number;
+  /**
+   * Mark the chip with the spike tick — the latest reading jumped past the average by more
+   * than `spike_ms`.
+   *
+   * - `brief` — the in-game form. The mark fades out by itself over ~1.6 s with a CSS
+   *   animation, so "briefly" costs no timer and no store write; re-key it per reading
+   *   ({@link PingChipProps.spikeKey}) and a new spike replays the fade.
+   * - `held` — the settings preview, where a mark that faded would be a setting whose effect
+   *   disappears while you look at it.
+   */
+  spike?: 'brief' | 'held';
+  /** Key for the spike mark, so a new spike remounts it and the fade starts over. */
+  spikeKey?: string | number;
 }
 
 /** `● 42 ms  Hypixel`, with the dot coloured by the mod's good/bad thresholds. */
@@ -147,6 +176,11 @@ export function PingChip({
   goodMs = 60,
   badMs = 150,
   showLabel = true,
+  average,
+  jitter,
+  jitterWarnMs = 0,
+  spike,
+  spikeKey,
   variant = 'compact',
   dimmed = false,
   className,
@@ -167,7 +201,27 @@ export function PingChip({
         {unknown ? '—' : ping}
         {showLabel && !unknown ? <span className="v-hudchip__unit">&nbsp;ms</span> : null}
       </span>
+      {spike ? (
+        <span
+          key={spikeKey}
+          className={cx('v-hudchip__spike', spike === 'held' && 'v-hudchip__spike--held')}
+          aria-label="spike"
+        />
+      ) : null}
       {host ? <span className="v-hudchip__unit">{host}</span> : null}
+      {average === undefined ? null : (
+        <span className="v-hudchip__aside">·&nbsp;&nbsp;avg {Math.round(average)}</span>
+      )}
+      {jitter === undefined ? null : (
+        <span
+          className={cx(
+            'v-hudchip__aside',
+            jitterWarnMs > 0 && jitter >= jitterWarnMs && 'v-hudchip__aside--warn',
+          )}
+        >
+          ·&nbsp;&nbsp;±{Math.round(jitter)}
+        </span>
+      )}
     </div>
   );
 }
@@ -803,6 +857,123 @@ export function ItemCounterChip({
 }
 
 /* -------------------------------------------------------------------------- */
+/* PotionCounterChip                                                          */
+/* -------------------------------------------------------------------------- */
+
+/** One figure on a {@link PotionCounterChip}: a count and the noun it counts. */
+export interface PotionCount {
+  /** How many are left. 0 is a real reading — the last heal is gone — and draws as `0`. */
+  count: number;
+  /** `pots`, `soup`. Omitted when the mod's `show_label` is off and the figure is alone. */
+  unit?: string;
+}
+
+/** Props for {@link PotionCounterChip}. */
+export interface PotionCounterChipProps extends HudChipProps {
+  /** One figure, or two side by side — the mod's `track: both`. */
+  figures: readonly PotionCount[];
+  /**
+   * At or below this a figure takes the warn treatment. `0` disables it. Applied per figure:
+   * eight pots and two soups is one comfortable reserve and one nearly gone.
+   */
+  lowThreshold?: number;
+}
+
+/**
+ * `7 pots`, or `7 pots | 3 soup` — heals left, with the figure amber when it is running out.
+ *
+ * {@link ItemCounterChip}'s sibling, and deliberately not that chip with a flag: a held stack
+ * has no noun, so that chip leads with an `x`; a heal count always knows what it is counting,
+ * so this one trails the noun the way every other chip trails its unit. The separator is the
+ * CPS chip's bar, for the same reason — two readings of one kind, side by side.
+ */
+export function PotionCounterChip({
+  figures,
+  lowThreshold = 0,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: PotionCounterChipProps): React.ReactElement {
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      {figures.map((figure, index) => [
+        index > 0 ? (
+          <span key={`sep${index}`} className="v-cpschip__sep">
+            |
+          </span>
+        ) : null,
+        <span key={index} className="v-hudchip__figure">
+          <span
+            className={cx(
+              'v-hudchip__value',
+              lowThreshold > 0 && figure.count <= lowThreshold && 'v-hudchip__value--warn',
+            )}
+          >
+            {figure.count}
+          </span>
+          {figure.unit ? <span className="v-hudchip__unit">{figure.unit}</span> : null}
+        </span>,
+      ])}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* ReachChip                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/** Props for {@link ReachChip}. */
+export interface ReachChipProps extends HudChipProps {
+  /** Eye-to-hit-point distance in blocks. */
+  blocks: number;
+  /** Digits after the point, 0-2 — the mod's `decimals`. */
+  decimals?: number;
+  /** Trailing `blocks` unit — the mod's `show_label`. */
+  showLabel?: boolean;
+  /**
+   * The figure is the mean of recent hits rather than the last one — the mod's
+   * `mode: average`. Drawn as a muted ` · avg` aside, because two readings that look
+   * identical and mean different things is a chip lying by omission.
+   */
+  average?: boolean;
+  /**
+   * Fraction of `hide_after_ms` still to run, 0..1. Undefined draws no rule. The same
+   * depletion hairline {@link ComboChip} draws under its figure, for the same reason: a
+   * timeout is invisible in a still frame unless something shows it running.
+   */
+  remaining?: number;
+}
+
+/** `2.87 blocks` — the reach of the last landed hit, or of the last ten. */
+export function ReachChip({
+  blocks,
+  decimals = 2,
+  showLabel = true,
+  average = false,
+  remaining,
+  variant = 'compact',
+  dimmed = false,
+  className,
+  ...rest
+}: ReachChipProps): React.ReactElement {
+  const digits = Math.min(2, Math.max(0, Math.round(decimals)));
+  const ruled = remaining !== undefined;
+  return (
+    <div className={chipClass(variant, dimmed, className)} {...rest}>
+      <span className={cx('v-hudchip__value', ruled && 'v-hudchip__value--ruled')}>
+        {Math.max(0, blocks).toFixed(digits)}
+        {remaining === undefined ? null : (
+          <HudBar fraction={clampFraction(remaining)} className="v-hudchip__bar--rule" />
+        )}
+      </span>
+      {showLabel ? <span className="v-hudchip__unit">blocks</span> : null}
+      {average ? <span className="v-hudchip__aside">·&nbsp;&nbsp;avg</span> : null}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* StopwatchChip                                                              */
 /* -------------------------------------------------------------------------- */
 
@@ -990,6 +1161,12 @@ export interface PotionRow {
   time?: ReactNode;
   /** The 10px swatch colour. */
   color: string;
+  /**
+   * Draw the row dimmed — `potion_effects.blink_below_s`. The widget flips this on the parity
+   * of the effect's remaining whole seconds, so an effect about to run out blinks once a
+   * second on the tick data alone, with no timer anywhere.
+   */
+  dim?: boolean;
 }
 
 /** Props for {@link PotionList}. */
@@ -1007,7 +1184,10 @@ export function PotionList({
   return (
     <div className={cx('v-potionlist', className)} {...rest}>
       {effects.map((effect, index) => (
-        <div key={index} className="v-potionlist__row">
+        <div
+          key={index}
+          className={cx('v-potionlist__row', effect.dim && 'v-potionlist__row--dim')}
+        >
           <span className="v-potionlist__swatch" style={{ background: effect.color }} />
           <span className="v-potionlist__name">{effect.name}</span>
           {effect.time === undefined ? null : (

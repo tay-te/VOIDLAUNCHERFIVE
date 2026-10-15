@@ -108,6 +108,29 @@ class ProtocolExamplesTest {
                 JsonObject rebuilt = Protocol.hotkey(example.get("id").getAsString());
                 assertEquals(example, rebuilt, where);
                 javaToRust++;
+            } else if ("loadout_save".equals(t)) {
+                JsonObject rebuilt = Protocol.loadoutSave(
+                        Loadout.fromJson(example.getAsJsonObject("loadout")).toJson());
+                // The mod materialises every mod, so the rebuilt loadout is a superset of the
+                // example's; what must hold is that nothing the example says was lost.
+                Schemas.assertContains(example, rebuilt, where);
+                javaToRust++;
+            } else if ("loadout_delete".equals(t)) {
+                assertEquals(example, Protocol.loadoutDelete(example.get("id").getAsString()), where);
+                javaToRust++;
+            } else if ("loadout_select".equals(t)) {
+                assertEquals(example, Protocol.loadoutSelect(example.get("id").getAsString()), where);
+                javaToRust++;
+            } else if ("library".equals(t)) {
+                Protocol.Inbound in = Protocol.parse(example.toString());
+                assertEquals(Protocol.Inbound.Kind.LIBRARY, in.kind, where);
+                JsonArray library = example.getAsJsonArray("loadouts");
+                assertEquals(library.size(), in.loadouts.size(), where);
+                for (int j = 0; j < library.size(); j++) {
+                    Schemas.assertContains(library.get(j).getAsJsonObject(),
+                            in.loadouts.get(j).toJson(), where + " loadouts[" + j + "]");
+                }
+                rustToJava++;
             } else if ("init".equals(t)) {
                 Protocol.Inbound in = Protocol.parse(example.toString());
                 assertEquals(Protocol.Inbound.Kind.INIT, in.kind, where);
@@ -146,8 +169,8 @@ class ProtocolExamplesTest {
                         + "; teach net/Protocol about it");
             }
         }
-        assertEquals(10, javaToRust, "expected ten Java to Rust examples");
-        assertEquals(3, rustToJava, "expected three Rust to Java examples");
+        assertEquals(13, javaToRust, "expected thirteen Java to Rust examples");
+        assertEquals(4, rustToJava, "expected four Rust to Java examples");
     }
 
     @Test

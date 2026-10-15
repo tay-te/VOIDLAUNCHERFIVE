@@ -92,4 +92,22 @@ public interface BridgeHost {
      * the game thread reads — the sensor state it is asking to clear belongs to that thread.</p>
      */
     void resendSensors();
+
+    /**
+     * Puts plain text on the system clipboard, for {@code void.setClipboard}. Called on the UI
+     * thread; the Ultralight binding implements no clipboard of its own. Default: unsupported.
+     *
+     * @return true when it was copied
+     */
+    default boolean setClipboard(String text) {
+        return false;
+    }
+
+    /**
+     * The system clipboard's plain text, for {@code void.getClipboard}, or null when there is
+     * none or it cannot be read. Called on the UI thread. Default: none.
+     */
+    default String clipboard() {
+        return null;
+    }
 }

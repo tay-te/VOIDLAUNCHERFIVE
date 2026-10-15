@@ -37,6 +37,8 @@ export const MOD_ORDER: ModId[] = [
   // Beside CPS: one counts the hand, the other counts what the hand landed, and a player
   // reading one is reading the other in the same glance.
   'combo',
+  // Beside Combo: the other number a landed hit produces — how far away it landed.
+  'reach',
   'toggle_sprint',
   // Its own mod as of Wave 4, and it reads next to the one it was a boolean on until then.
   'toggle_sneak',
@@ -77,6 +79,8 @@ export const MOD_ORDER: ModId[] = [
   // Beside Potion effects: the pots themselves, in the hotbar.
   'shiny_pots',
   'item_counter',
+  // Beside the Item counter: the other count of what is left in the inventory, the heals.
+  'potion_counter',
   'ping',
   // Beside Ping, the other half of "what am I connected to". They share the `wifi` glyph for
   // the same reason Coordinates and Direction share `compass`.
@@ -85,6 +89,8 @@ export const MOD_ORDER: ModId[] = [
   'scoreboard',
   // Closes the session block — the readouts about this sitting rather than about the fight.
   'stopwatch',
+  // The one mod about the chat window rather than the world; it reads with the session block.
+  'chat',
   'coordinates',
   // Beside Coordinates, which is the mod a player confuses it with — the two are next to each
   // other so the difference (a position, versus a facing) is visible rather than argued.

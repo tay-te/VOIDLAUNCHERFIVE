@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 11,
+  "version": 12,
   "mods": {
     "fps": {
       "id": "fps",
@@ -67,7 +67,9 @@ export const MOD_REGISTRY_DOCUMENT = {
         "show_cps": false,
         "corner_radius": 8,
         "key_color": "shell",
-        "pressed_color": "accent"
+        "pressed_color": "accent",
+        "animate": true,
+        "fade_ms": 120
       },
       "default_placement": {
         "anchor": "bottom-left",
@@ -94,7 +96,8 @@ export const MOD_REGISTRY_DOCUMENT = {
         "mode": "left",
         "show_label": true,
         "window_ms": 1000,
-        "show_peak": false
+        "show_peak": false,
+        "ignore_cancelled": false
       },
       "default_placement": {
         "anchor": "bottom-left",
@@ -121,7 +124,12 @@ export const MOD_REGISTRY_DOCUMENT = {
         "show_label": true,
         "good_ms": 60,
         "bad_ms": 150,
-        "show_host": true
+        "show_host": true,
+        "show_average": false,
+        "show_jitter": false,
+        "jitter_warn_ms": 20,
+        "spike_ms": 80,
+        "window": 10
       },
       "default_placement": {
         "anchor": "top-left",
@@ -201,7 +209,9 @@ export const MOD_REGISTRY_DOCUMENT = {
         "padding": "normal",
         "show_duration": true,
         "show_amplifier": true,
-        "hide_ambient": false
+        "hide_ambient": false,
+        "hidden_effects": 0,
+        "blink_below_s": 5
       },
       "default_placement": {
         "anchor": "top-right",
@@ -278,7 +288,10 @@ export const MOD_REGISTRY_DOCUMENT = {
         "show_eye_line": false,
         "eye_line_color": "#7ADFFFFF",
         "max_distance": 64,
-        "keybind": "NONE"
+        "keybind": "NONE",
+        "state_colors": false,
+        "hittable_color": "#2FB8A6FF",
+        "damaged_color": "#FF5A5AFF"
       }
     },
     "zoom": {
@@ -288,14 +301,16 @@ export const MOD_REGISTRY_DOCUMENT = {
       "hypixel_safe": "safe",
       "label": "Zoom",
       "icon": "zoom",
-      "description": "Narrows FOV while the zoom key is held.",
+      "description": "Narrows FOV while the zoom key is held; the mouse wheel adjusts it.",
       "source": "FOV override while key held",
       "defaults": {
         "on": true,
         "key": "C",
         "fov_divisor": 4,
         "smooth": true,
-        "cinematic": false
+        "cinematic": false,
+        "scroll_adjust": true,
+        "scale_sensitivity": true
       }
     },
     "crosshair": {
@@ -479,8 +494,8 @@ export const MOD_REGISTRY_DOCUMENT = {
       "hypixel_safe": "safe",
       "label": "Item counter",
       "icon": "box",
-      "description": "How many of the item in your hand you have left.",
-      "source": "`held_count` on the tick payload — the stack size of the held item",
+      "description": "How many of the item in your hand, or a chosen item, you have left.",
+      "source": "`held_count` and `counts` on the tick payload: the held stack, or an inventory-wide count",
       "defaults": {
         "on": false,
         "scale": 1,
@@ -489,7 +504,8 @@ export const MOD_REGISTRY_DOCUMENT = {
         "border": false,
         "padding": "normal",
         "show_label": true,
-        "low_threshold": 0
+        "low_threshold": 0,
+        "track": "held_stack"
       },
       "default_placement": {
         "anchor": "bottom-left",
@@ -861,6 +877,77 @@ export const MOD_REGISTRY_DOCUMENT = {
         "lock_time": true,
         "time_ticks": 6000,
         "clear_weather": true
+      }
+    },
+    "potion_counter": {
+      "id": "potion_counter",
+      "kind": "hud",
+      "category": "pvp",
+      "hypixel_safe": "safe",
+      "label": "Potion counter",
+      "icon": "heart",
+      "description": "Healing potions or soup left in your inventory.",
+      "source": "`counts.health_potion` and `counts.soup` on the tick payload",
+      "defaults": {
+        "on": false,
+        "scale": 1,
+        "opacity": 1,
+        "background": "none",
+        "border": false,
+        "padding": "normal",
+        "track": "health_potion",
+        "show_label": true,
+        "low_threshold": 3
+      },
+      "default_placement": {
+        "anchor": "bottom-left",
+        "dx": 175,
+        "dy": -184
+      }
+    },
+    "reach": {
+      "id": "reach",
+      "kind": "hud",
+      "category": "pvp",
+      "hypixel_safe": "grey",
+      "label": "Reach display",
+      "icon": "sword",
+      "description": "How far away your last hit landed, in blocks.",
+      "source": "`reach` on the tick payload: eye-to-hit-point distance at the moment of each landed attack",
+      "defaults": {
+        "on": false,
+        "scale": 1,
+        "opacity": 1,
+        "background": "none",
+        "border": false,
+        "padding": "normal",
+        "decimals": 2,
+        "mode": "last",
+        "show_label": true,
+        "hide_after_ms": 0
+      },
+      "default_placement": {
+        "anchor": "top-left",
+        "dx": 23,
+        "dy": 331
+      }
+    },
+    "chat": {
+      "id": "chat",
+      "kind": "gameplay",
+      "category": "utility",
+      "hypixel_safe": "safe",
+      "label": "Chat",
+      "icon": "users",
+      "description": "Timestamps, stacked repeats, click to copy and a longer history.",
+      "source": "ChatHud: message add, line render and history cap; ChatScreen: mouse click",
+      "defaults": {
+        "on": false,
+        "timestamps": true,
+        "stack_repeats": true,
+        "click_to_copy": true,
+        "background_opacity": 0.5,
+        "history_length": 1000
       }
     }
   }

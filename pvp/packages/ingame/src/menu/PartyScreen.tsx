@@ -1,8 +1,8 @@
 /**
  * Overlay — Party · frame `244:1426`.
  *
- * Presentational only, deliberately. `bridge.json` is a closed surface of five
- * events and six calls, and none of them carries party, presence or queue state;
+ * Presentational only, deliberately. `bridge.json` is a closed surface of push
+ * channels and calls, and none of them carries party, presence or queue state;
  * "Friends / Party" is still open question §16.2 (reuse VOID's Supabase, or start
  * clean). So nothing here is wired, and nothing here invents a bridge call. The
  * copy, the geometry and the interaction affordances are the frame's, so the

@@ -84,7 +84,7 @@ describe('the lobby menu — the final shell', () => {
     open();
     const { container } = render(<App />);
     const counts = [...container.querySelectorAll('.isl-cats__tab')].map((t) => t.textContent);
-    expect(counts).toEqual(['All41', 'HUD12', 'PvP11', 'Visual12', 'Utility6']);
+    expect(counts).toEqual(['All44', 'HUD12', 'PvP13', 'Visual12', 'Utility7']);
     fireEvent.click(screen.getByRole('tab', { name: /Visual/ }));
     expect(container.querySelectorAll('.isl-mods__grid .modcell')).toHaveLength(12);
   });

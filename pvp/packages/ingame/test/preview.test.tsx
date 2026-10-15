@@ -93,6 +93,9 @@ const LIVE: readonly ModId[] = [
   'fog',
   'menu_blur',
   'time_weather',
+  'potion_counter',
+  'reach',
+  'chat',
 ];
 
 /**
@@ -213,6 +216,18 @@ const REQUIRES: Record<string, Record<string, SettingValue>> = {
   // The face shading only exists while the style draws a fill; at the factory `outline` the
   // colour belongs to nothing on screen, which is true of the fixture and not of the setting.
   'block_outline.fill_color': { outline_style: 'both' },
+  // The two state inks colour boxes only once `state_colors` is on; off, every box is `color`.
+  'hitboxes.hittable_color': { state_colors: true },
+  'hitboxes.damaged_color': { state_colors: true },
+  // The jitter warn inks the jitter aside, which ships off.
+  'ping.jitter_warn_ms': { show_jitter: true },
+  // `window` reshapes the average (and the jitter, and the spike baseline). At the factory
+  // settings neither aside is drawn and the fixture's third chip is a spike at both ends of the
+  // slider, so it is asked with the average on — the figure it most plainly moves.
+  'ping.window': { show_average: true },
+  // `fade_ms` shapes the release only while `animate` is on, which is its factory state; listed
+  // anyway so the dependency is written down where the next reader will look for it.
+  'keystrokes.fade_ms': { animate: true },
 };
 
 describe('the live preview', () => {
