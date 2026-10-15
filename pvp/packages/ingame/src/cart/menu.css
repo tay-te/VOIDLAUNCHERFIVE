@@ -2179,3 +2179,45 @@
     width: 0%;
   }
 }
+
+/* ==========================================================================
+   Selection rings as an overlay border, not an inset box-shadow. Measured in game: when part
+   of a ringed box repaints on its own (a sprite decoding, a keycap's state), the engine redrew
+   the inset shadow for that sub-rectangle only and left the ring missing there. A border on
+   an ::after box is its own paint, so a partial repaint draws its piece of the ring correctly.
+   ========================================================================== */
+
+.cart .c-cart.is-sel,
+.cart .c-lcart.is-active,
+.cart .c-lcart.is-focus,
+.cart .c-cos__wornrow.is-sel,
+.cart .c-cos__card.is-wearing,
+.cart .c-cos__wslot.is-sel,
+.cart .c-opt.is-on {
+  position: relative;
+  box-shadow: inset 0 0 0 1px var(--c-edge-soft);
+}
+.cart .c-slot.is-sel .c-slot__bed {
+  box-shadow: inset 0 0 0 1px var(--c-edge-soft);
+}
+.cart .c-cart.is-sel::after,
+.cart .c-lcart.is-active::after,
+.cart .c-lcart.is-focus:not(.is-active)::after,
+.cart .c-cos__wornrow.is-sel::after,
+.cart .c-cos__card.is-wearing::after,
+.cart .c-cos__wslot.is-sel::after,
+.cart .c-opt.is-on::after,
+.cart .c-slot.is-sel .c-slot__bed::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  border: 1.5px solid var(--c-ink);
+  pointer-events: none;
+}
+.cart .c-lcart.is-focus:not(.is-active)::after {
+  border: 1px solid rgba(236, 238, 241, 0.35);
+}

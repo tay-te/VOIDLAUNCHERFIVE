@@ -969,8 +969,32 @@ public final class PerfBench {
                     // The menu itself opens MENU_AT ticks later: it pauses the integrated server,
                     // and the time/gear/effects queued here have to land first.
                     hud(mc, 6000, 60, new int[][] {{FX_SPEED, LONG, 1}, {STRENGTH, LONG, 0}});
+                    if (m[0].startsWith("cosmetics") || m[0].equals("emotes")) {
+                        wardrobe();
+                    }
                 }
             }.menu().go(m[1]));
+        }
+    }
+
+    /**
+     * A dressed wardrobe for the cosmetics stills: a launcher-less dev client owns only the free
+     * items, so the tour turns on {@code ownsEverything} (the showcase switch CosmeticState
+     * already has), wears one item per visible slot, fills the emote wheel, and pushes the
+     * {@code cosmetics} payload the page would get on a real launcher {@code init}. Dev only.
+     */
+    private static void wardrobe() {
+        dev.voidpvp.client.cosmetic.CosmeticState cs = dev.voidpvp.client.cosmetic.CosmeticState.get();
+        cs.setOwnsEverything(true);
+        cs.equip("cape", "dusk-cape");
+        cs.equip("back", "void-wings");
+        cs.equip("halo", "seraph-halo");
+        cs.equip("badge", "void-badge-founder");
+        cs.equip("trail", "spark-trail");
+        cs.setEmotes(java.util.Arrays.asList(
+                "emote-wave", "emote-clap", "emote-bow", "emote-salute", "emote-shrug", "emote-sit"));
+        if (bridge != null) {
+            bridge.emit(dev.voidpvp.client.bridge.VoidBridge.EVENT_COSMETICS, cs.uiPayload());
         }
     }
 
