@@ -114,22 +114,30 @@ final class ModelDraw {
     private static void drawBone(CosmeticModel m, int[] l, CosmeticModel.Pose pose, int i) {
         CosmeticModel.Bone b = m.bones[i];
         int k = i * 3;
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(b.px + pose.pos[k], b.py + pose.pos[k + 1], b.pz + pose.pos[k + 2]);
         float rz = b.rz + pose.rot[k + 2], ry = b.ry + pose.rot[k + 1], rx = b.rx + pose.rot[k];
-        if (rz != 0) {
-            GlStateManager.rotate(rz * RAD, 0, 0, 1);
+        boolean scaled = pose.scale[k] != 1 || pose.scale[k + 1] != 1 || pose.scale[k + 2] != 1;
+        GlStateManager.pushMatrix();
+        if (rz == 0 && ry == 0 && rx == 0 && !scaled) {
+            // Translate-only bone: the pivot round-trip cancels, one call instead of two.
+            if (pose.pos[k] != 0 || pose.pos[k + 1] != 0 || pose.pos[k + 2] != 0) {
+                GlStateManager.translate(pose.pos[k], pose.pos[k + 1], pose.pos[k + 2]);
+            }
+        } else {
+            GlStateManager.translate(b.px + pose.pos[k], b.py + pose.pos[k + 1], b.pz + pose.pos[k + 2]);
+            if (rz != 0) {
+                GlStateManager.rotate(rz * RAD, 0, 0, 1);
+            }
+            if (ry != 0) {
+                GlStateManager.rotate(ry * RAD, 0, 1, 0);
+            }
+            if (rx != 0) {
+                GlStateManager.rotate(rx * RAD, 1, 0, 0);
+            }
+            if (scaled) {
+                GlStateManager.scale(pose.scale[k], pose.scale[k + 1], pose.scale[k + 2]);
+            }
+            GlStateManager.translate(-b.px, -b.py, -b.pz);
         }
-        if (ry != 0) {
-            GlStateManager.rotate(ry * RAD, 0, 1, 0);
-        }
-        if (rx != 0) {
-            GlStateManager.rotate(rx * RAD, 1, 0, 0);
-        }
-        if (pose.scale[k] != 1 || pose.scale[k + 1] != 1 || pose.scale[k + 2] != 1) {
-            GlStateManager.scale(pose.scale[k], pose.scale[k + 1], pose.scale[k + 2]);
-        }
-        GlStateManager.translate(-b.px, -b.py, -b.pz);
         if (b.cubes.length > 0) {
             GlStateManager.callList(l[i]);
         }

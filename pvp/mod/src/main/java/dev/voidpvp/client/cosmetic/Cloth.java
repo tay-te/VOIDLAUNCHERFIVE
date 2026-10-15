@@ -54,6 +54,8 @@ public final class Cloth {
     private final int[] ca, cb;
     private final double[] rest;
     private final double[] stiff;
+    private final boolean[] bend;
+    private final boolean[] structural;
     private final double spacing;
     private boolean placed;
     /** The renderer's packed mesh for this sheet (see CapeRenderer.mesh); sized once. */
@@ -82,6 +84,16 @@ public final class Cloth {
      * @param spacing rest distance between neighbours, blocks
      */
     public Cloth(int cols, int rows, double spacing, double stiffness) {
+        this(cols, rows, spacing, stiffness, 0);
+    }
+
+    /**
+     * @param flare how much wider the hem's rest width is than the collar's (0.25 = a quarter):
+     *              the horizontal springs lengthen down the sheet, so with the top row pinned
+     *              the cloth hangs as a gentle bell and the excess falls into soft folds instead
+     *              of a flat plank.
+     */
+    public Cloth(int cols, int rows, double spacing, double stiffness, double flare) {
         this.cols = cols;
         this.rows = rows;
         this.spacing = spacing;
@@ -105,24 +117,30 @@ public final class Cloth {
         int[] tmpB = new int[n * 8];
         double[] tmpR = new double[n * 8];
         double[] tmpS = new double[n * 8];
-        double diag = Math.sqrt(2) * spacing;
+        boolean[] tmpK = new boolean[n * 8];
+        boolean[] tmpT = new boolean[n * 8];
         for (int r = 0; r <= rows; r++) {
+            double h = spacing * (1 + flare * Math.pow((double) r / rows, 1.6));
+            double h1 = spacing * (1 + flare * Math.pow((double) Math.min(rows, r + 1) / rows, 1.6));
+            double diag = Math.sqrt(((h + h1) / 2) * ((h + h1) / 2) + spacing * spacing);
             for (int c = 0; c <= cols; c++) {
                 int i = idx(c, r);
-                if (c < cols) { tmpA[count] = i; tmpB[count] = idx(c + 1, r); tmpR[count] = spacing; tmpS[count++] = 1.0; }
-                if (r < rows) { tmpA[count] = i; tmpB[count] = idx(c, r + 1); tmpR[count] = spacing; tmpS[count++] = 1.0; }
+                if (c < cols) { tmpA[count] = i; tmpB[count] = idx(c + 1, r); tmpR[count] = h; tmpT[count] = true; tmpS[count++] = 1.0; }
+                if (r < rows) { tmpA[count] = i; tmpB[count] = idx(c, r + 1); tmpR[count] = spacing; tmpT[count] = true; tmpS[count++] = 1.0; }
                 if (c < cols && r < rows) {
                     tmpA[count] = i; tmpB[count] = idx(c + 1, r + 1); tmpR[count] = diag; tmpS[count++] = 0.6;
                     tmpA[count] = idx(c + 1, r); tmpB[count] = idx(c, r + 1); tmpR[count] = diag; tmpS[count++] = 0.6;
                 }
-                if (c + 2 <= cols) { tmpA[count] = i; tmpB[count] = idx(c + 2, r); tmpR[count] = 2 * spacing; tmpS[count++] = 0.35 * stiffness; }
-                if (r + 2 <= rows) { tmpA[count] = i; tmpB[count] = idx(c, r + 2); tmpR[count] = 2 * spacing; tmpS[count++] = 0.25 * stiffness; }
+                if (c + 2 <= cols) { tmpA[count] = i; tmpB[count] = idx(c + 2, r); tmpR[count] = 2 * h; tmpK[count] = true; tmpS[count++] = 0.35 * stiffness; }
+                if (r + 2 <= rows) { tmpA[count] = i; tmpB[count] = idx(c, r + 2); tmpR[count] = 2 * spacing; tmpK[count] = true; tmpS[count++] = 0.25 * stiffness; }
             }
         }
         ca = java.util.Arrays.copyOf(tmpA, count);
         cb = java.util.Arrays.copyOf(tmpB, count);
         rest = java.util.Arrays.copyOf(tmpR, count);
         stiff = java.util.Arrays.copyOf(tmpS, count);
+        bend = java.util.Arrays.copyOf(tmpK, count);
+        structural = java.util.Arrays.copyOf(tmpT, count);
     }
 
     public int idx(int c, int r) {
@@ -305,7 +323,7 @@ public final class Cloth {
                 }
                 double diff = (d - rest[k]) / d * stiff[k];
                 // Bend springs only resist compression weakly, so the hem can fold.
-                if (diff < 0 && rest[k] > spacing * 1.5) {
+                if (diff < 0 && bend[k]) {
                     diff *= 0.4;
                 }
                 boolean pa = a < w, pb = b < w;
@@ -335,7 +353,7 @@ public final class Cloth {
     double maxStretch() {
         double worst = 0;
         for (int k = 0; k < ca.length; k++) {
-            if (rest[k] != spacing) {
+            if (!structural[k]) {
                 continue;
             }
             int a = ca[k], b = cb[k];

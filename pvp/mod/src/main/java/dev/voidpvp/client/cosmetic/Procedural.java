@@ -87,12 +87,62 @@ final class Procedural {
         float rootZ = (-55f + 70f * s + flap) * DEG;
         float rootX = (-6f * s) * DEG;
         float tipY = 85f * t * DEG;
-        float tipZ = (18f * s + tipFlap) * DEG;
+        float tipZ = (8f * s + tipFlap) * DEG;
         set(m, pose, "wing_r", rootX, rootY, rootZ);
         set(m, pose, "wing_l", rootX, -rootY, -rootZ);
         set(m, pose, "wing_r_tip", 0, tipY, tipZ);
         set(m, pose, "wing_l_tip", 0, -tipY, -tipZ);
+        // Feather layers follow the beat a little late, each further out a little later, and
+        // the long primaries trail and twist the most: the flap rolls through the wing instead
+        // of moving it as one board.
+        int[] idx = layerBones(m);
+        for (int k = 0; k < LAYERS.length; k++) {
+            float lagged = a * (float) Math.sin(fx.flapPhase - LAG[k]) * GAIN[k];
+            float twist = LAYER_TWIST[k] * (s - 0.5f) * DEG;
+            add(pose, idx[k * 2], twist, 0, lagged * DEG);
+            add(pose, idx[k * 2 + 1], twist, 0, -lagged * DEG);
+        }
+        // Void fingers fan open as the wing spreads and close as it folds.
+        for (int k = 1; k <= 3; k++) {
+            float fan = (1 - s) * (k - 2) * -9f * DEG + a * (float) Math.sin(fx.flapPhase - 0.6f - k * 0.2f) * 6f * DEG;
+            add(pose, idx[8 + (k - 1) * 2], 0, 0, fan);
+            add(pose, idx[8 + (k - 1) * 2 + 1], 0, 0, -fan);
+        }
     }
+
+    private static final String[] LAYERS = {"cov", "sec", "pcov", "pri"};
+    private static final java.util.Map<CosmeticModel, int[]> LAYER_BONES =
+            new java.util.IdentityHashMap<CosmeticModel, int[]>();
+
+    /** Bone indices of the feather layers and fingers (r, l pairs), -1 where a model has none. */
+    private static int[] layerBones(CosmeticModel m) {
+        int[] idx = LAYER_BONES.get(m);
+        if (idx == null) {
+            idx = new int[14];
+            for (int k = 0; k < LAYERS.length; k++) {
+                idx[k * 2] = m.boneIndex("wing_r_" + LAYERS[k]);
+                idx[k * 2 + 1] = m.boneIndex("wing_l_" + LAYERS[k]);
+            }
+            for (int k = 1; k <= 3; k++) {
+                idx[8 + (k - 1) * 2] = m.boneIndex("wing_r_f" + k);
+                idx[8 + (k - 1) * 2 + 1] = m.boneIndex("wing_l_f" + k);
+            }
+            LAYER_BONES.put(m, idx);
+        }
+        return idx;
+    }
+
+    private static void add(CosmeticModel.Pose pose, int b, float x, float y, float z) {
+        if (b < 0) {
+            return;
+        }
+        pose.rot[b * 3] += x;
+        pose.rot[b * 3 + 1] += y;
+        pose.rot[b * 3 + 2] += z;
+    }
+    private static final float[] LAG = {0.35f, 0.7f, 0.9f, 1.25f};
+    private static final float[] GAIN = {8f, 14f, 10f, 20f};
+    private static final float[] LAYER_TWIST = {0f, 4f, 0f, 9f};
 
     private static void set(CosmeticModel m, CosmeticModel.Pose pose, String bone, float x, float y, float z) {
         int b = m.boneIndex(bone);

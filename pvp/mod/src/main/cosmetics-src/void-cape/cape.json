@@ -1,6 +1,6 @@
 {
  "frames": {
-  "count": 24,
+  "count": 16,
   "fps": 6
  },
  "stiffness": 0.9,
@@ -9,11 +9,11 @@
   {
    "at": [
     5,
-    6.5
+    6.75
    ],
    "color": "#c9beff",
-   "size": 8,
-   "strength": 0.12
+   "size": 9,
+   "strength": 0.18
   }
  ]
 }

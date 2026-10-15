@@ -290,16 +290,16 @@ public final class Trails {
                     }
                     TrailStyle s = style[i];
                     float f = age[i] / life[i];
-                    float alpha = Math.min(1, f * 8) * (1 - f * f);
-                    float sz = size[i];
+                    float alpha = Math.min(1, f * 10) * (1 - f * f * f);
+                    float sz = size[i] * 1.3f;
                     if (s.motion == TrailStyle.SPARK) {
                         sz *= 1 - f * 0.75f;
                     } else if (s.motion == TrailStyle.DRIFT) {
                         sz *= 1 - f * 0.5f;
                     }
                     if (pass == 1) {
-                        sz *= 3.2f;
-                        alpha *= s.glow * 0.5f;
+                        sz *= 3.6f;
+                        alpha *= Math.min(1f, s.glow * 0.9f);
                     }
                     float x = (float) (ox[i] + px[i] - camX), y = (float) (oy[i] + py[i] - camY), z = (float) (oz[i] + pz[i] - camZ);
                     if (s.motion == TrailStyle.STAIR) {
