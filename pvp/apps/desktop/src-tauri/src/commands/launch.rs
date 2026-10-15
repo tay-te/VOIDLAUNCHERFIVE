@@ -127,6 +127,7 @@ pub async fn launch(
                 mod_jar: config.mod_jar.clone(),
                 join_server: server.map(str::trim).filter(|s| !s.is_empty()).map(str::to_string),
             },
+            online: state.online.clone(),
         },
     )
     .await

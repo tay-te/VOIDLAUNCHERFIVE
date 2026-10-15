@@ -31,7 +31,7 @@ begin
   if a = '' then
     return null;
   end if;
-  a := regexp_replace(a, '\.(:[0-9]+)?$', '\1');
+  a := regexp_replace(a, '\.+(:[0-9]+)?$', '\1');
   a := regexp_replace(a, ':25565$', '');
   if length(a) > 261
      or a !~ '^([a-z0-9_-]+(\.[a-z0-9_-]+)*|\[[0-9a-f:.]+\])(:[0-9]{1,5})?$' then

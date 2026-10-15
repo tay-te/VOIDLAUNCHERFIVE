@@ -5193,6 +5193,7 @@ name = "void-desktop"
 version = "0.1.0"
 dependencies = [
  "dirs",
+ "futures-util",
  "reqwest",
  "serde",
  "serde_json",
@@ -5203,11 +5204,13 @@ dependencies = [
  "tauri-plugin-updater",
  "thiserror 2.0.20",
  "tokio",
+ "tokio-tungstenite",
  "tracing",
  "tracing-subscriber",
  "void-bridge",
  "void-core",
  "void-loadout",
+ "void-online",
 ]
 
 [[package]]
@@ -5218,6 +5221,24 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
+]
+
+[[package]]
+name = "void-online"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "rand 0.9.5",
+ "reqwest",
+ "rustls-platform-verifier",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+ "tokio-rustls",
+ "tokio-tungstenite",
+ "tracing",
+ "void-bridge",
 ]
 
 [[package]]

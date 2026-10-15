@@ -35,10 +35,16 @@ none. The CLI has the same thing as `void-pvp launch --server HOST[:PORT]`.
 
 **Only data we have** (rule 6): pings and player counts are live SLP; *Last session* is the mod's
 `session` summary (played time, fps, and `ping_avg` — added to the protocol for this), persisted
-on `game:closed`. **Friends, cosmetics and checkout have no backend yet.** Friends and ownership
-live in `localStorage` and a real install starts empty (plus the free Origin cape); Buy always
-confirms and then says checkout is not connected — nothing is charged. The browser preview seeds
-the frames' data instead, and `?preview=first|title|offline|unreachable|crash|empty|signedout`
+on `game:closed`. **Friends, cosmetics and checkout are online** (`docs/online-contract.md`):
+Rust's `void-online` signs in to the Supabase backend with the Microsoft account
+(`commands/online.rs`), the Store and the Friends drawer read and write through the
+`cosmetics_*` / `store_checkout` / `friends_*` commands and follow `online:*` events, and
+`adapters/online_bridge.rs` relays cosmetics, emotes and server presence to the mod while the
+game runs. Buy opens Stripe Checkout in the system browser; the item turns *Owned* when the
+webhook lands. A build without `VOID_SUPABASE_URL` / `VOID_SUPABASE_ANON_KEY`, or an offline
+account, shows the last state from `localStorage` and says why buying or adding friends needs a
+Microsoft account. The browser preview's mock (`src/mocks/online.ts`) plays the backend and
+seeds the frames' data, and `?preview=first|title|offline|unreachable|crash|empty|signedout`
 shows each Home and drawer state.
 
 On Windows, `pvp/scripts/setup-windows.ps1` installs the toolchains into `.tools\` and

@@ -14,6 +14,8 @@
 //!    `bridge:state` / `bridge:session` / `bridge:server`. Two independent broadcast
 //!    receivers, so the UI falling behind cannot stall persistence.
 //! 4. `void_core::launch::launch` — spawns the JVM.
+//! 5. `adapters::online_bridge` — relays cosmetics, emotes and server presence between
+//!    the mod and `void-online` for as long as the game runs.
 //!
 //! The bridge server is kept alive in `GameState` for the whole session: dropping the
 //! last clone stops the listener, and the mod reconnects with backoff (§6.9), so an
@@ -123,6 +125,8 @@ pub struct LaunchRequest {
     pub store: Store,
     pub loadout: Loadout,
     pub options: LaunchOptionsSeed,
+    /// The online client; disabled in a build without a backend, which the relay handles.
+    pub online: void_online::Online,
 }
 
 /// The half of `LaunchOptions` the launcher decides; the port and token come from the
@@ -203,6 +207,11 @@ pub async fn launch(
         *g.last_session.lock().unwrap() = None;
         (g.running.clone(), g.kill_requested.clone(), g.log.clone(), g.last_session.clone())
     };
+
+    // Cosmetics and emotes: mod ⇄ void-online, until the game exits.
+    if let Some(bridge) = game.lock().unwrap().bridge.clone() {
+        crate::adapters::online_bridge::spawn(bridge, req.online.clone(), running.clone());
+    }
 
     push(&log, emitter.as_ref(), "stdout", format!("[void] bridge on ws://127.0.0.1:{port}"));
     for line in mod_jar_report(&req.paths, configured_jar.as_deref()) {

@@ -44,6 +44,7 @@ desktop = ["dep:tauri", "dep:tauri-plugin-updater", "dep:tauri-plugin-opener"]
 void-core = { path = "../../../crates/void-core" }
 void-bridge = { path = "../../../crates/void-bridge" }
 void-loadout = { path = "../../../crates/void-loadout" }
+void-online = { path = "../../../crates/void-online" }
 
 tauri = { version = "2", features = ["tray-icon", "image-png"], optional = true }
 tauri-plugin-updater = { version = "2", optional = true }
@@ -58,6 +59,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dirs = "6"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "fs", "process"] }
 sysinfo = "0.33"
+
+[dev-dependencies]
+tokio-tungstenite = "0.29"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

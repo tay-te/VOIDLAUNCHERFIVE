@@ -41,6 +41,10 @@ pub enum Error {
     #[error("The launcher could not talk to the game: {0}")]
     Bridge(#[from] void_bridge::Error),
 
+    /// `void-online`'s `Display` is the backend's own sentence for the player.
+    #[error("{0}")]
+    Online(#[from] void_online::Error),
+
     #[error("Could not read or write launcher data: {0}")]
     Storage(String),
 

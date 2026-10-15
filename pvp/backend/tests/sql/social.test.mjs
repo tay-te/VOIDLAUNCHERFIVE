@@ -33,6 +33,7 @@ describe('server addresses', () => {
     ['mc.hypixel.net.', 'mc.hypixel.net'],
     ['mc.hypixel.net:25565', 'mc.hypixel.net'],
     ['mc.hypixel.net.:25565', 'mc.hypixel.net'],
+    ['mc.hypixel.net..', 'mc.hypixel.net'],
     ['play.example.org:25566', 'play.example.org:25566'],
     ['127.0.0.1:25565', '127.0.0.1'],
     ['', null],

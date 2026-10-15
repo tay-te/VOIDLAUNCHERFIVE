@@ -145,7 +145,9 @@ PostgREST RPCs, `POST {SUPABASE_URL}/rest/v1/rpc/<fn>` with the user's bearer to
 `auth.uid()` apply). Errors are PostgREST's `{"code","message","details","hint"}`: the SQL
 raises `errcode 'PT<status>'` (PostgREST turns that into the HTTP status), `message` is the
 same machine code the functions use (`not_owned`, ...) and `details` the player-readable
-sentence. Clients map that to the functions' `{error, message}`.
+sentence. Clients map that to the functions' `{error, message}`. PostgREST's own errors keep
+their codes — notably an expired token is `401 PGRST301`, which the client answers with one
+token refresh and a retry.
 
 | RPC | Body | Returns |
 |---|---|---|
@@ -165,7 +167,8 @@ sentence. Clients map that to the functions' `{error, message}`.
 
 `presence.state` is `online` while the friend's launcher has heartbeated in the last 90 s;
 `server` is present only while online and on a server; `last_seen` (Unix ms) is always present
-once they have ever been seen.
+once they have ever been seen. A launcher that dies without signing out goes stale after 90 s
+without a push; friends see it on their next 60 s poll.
 
 Server addresses are normalised one way everywhere (SQL `public.normalize_server`, Rust
 `void_online::normalize_server`): trimmed, lowercased, trailing dot dropped, `:25565` dropped.
@@ -210,7 +213,9 @@ hints: the launcher uses them only to prefetch cosmetics, and the "VOID player" 
 `cosmetics-lookup` (a UUID is a VOID player iff it has a `players` row). Friend presence comes
 from the `presence` table, which only the player can write.
 
-Wire details (Phoenix v1 JSON): join `{"topic":"realtime:<topic>","event":"phx_join","payload":{"config":{"broadcast":{"ack":false,"self":false},"presence":{"key":"<uuid>","enabled":true},"postgres_changes":[],"private":true},"access_token":"<jwt>"},"ref":"<n>","join_ref":"<n>"}`;
+Wire details (Phoenix v1 JSON): join `{"topic":"realtime:<topic>","event":"phx_join","payload":{"config":{"broadcast":{"ack":false,"self":false},"presence":{"key":"<uuid>","enabled":true},"postgres_changes":[],"private":true},"access_token":"<jwt>"},"ref":"<n>","join_ref":"<n>"}`
+(`presence.enabled` is `true` on server topics, where presence is tracked, and `false` on the
+user topic);
 heartbeat `{"topic":"phoenix","event":"heartbeat","payload":{},"ref":"<n>"}` every 25 s;
 presence track `{"event":"presence","payload":{"type":"presence","event":"track","payload":{..}}}`;
 token refresh `{"event":"access_token","payload":{"access_token":".."}}` on every joined topic;
@@ -227,8 +232,9 @@ down `cosmetics {self,players}`, `emote {uuid,id,at}`. The launcher:
   players on the current server;
 - on `server {host,connected}`, heartbeats the new server, joins its channel, and on leaving
   leaves it;
-- on `cosmetics_query`, asks `void-online`'s batcher (150 ms debounce, 100 per request, LRU of
-  2048 sets with a 5 min TTL) and forwards results as `cosmetics` deltas;
+- on `cosmetics_query`, answers at once with whatever is cached, then asks `void-online`'s
+  batcher (150 ms debounce, 100 per request, LRU of 2048 sets with a 5 min TTL, "not a VOID
+  player" cached too) and forwards new or changed sets as `cosmetics` deltas;
 - on `emote`, calls the `emote` RPC; remote emotes from the server channel go down as `emote`;
 - on `equip`, calls `equip`; on refusal it sends `cosmetics` with the stored `self`, which
   reverts the mod's optimistic change.

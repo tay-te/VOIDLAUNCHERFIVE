@@ -1,8 +1,9 @@
 # `crates/` — the Rust side of void-pvp
 
-Three crates, owned by **core** (see [`../CONTRACTS.md`](../CONTRACTS.md)). They implement
-the launcher half of `docs/PVP_ARCHITECTURE.md`: §7 (the protocol), §8 (loadouts), §11
-(the HYPIXEL-READY rule) and §12 (auth and launch).
+Four crates, owned by **core** (see [`../CONTRACTS.md`](../CONTRACTS.md)). The first three
+implement the launcher half of `docs/PVP_ARCHITECTURE.md`: §7 (the protocol), §8 (loadouts),
+§11 (the HYPIXEL-READY rule) and §12 (auth and launch). `void-online` is the client for the
+online backend (`../docs/online-contract.md`, `../backend/`).
 
 ```
 void-loadout  ──▶  void-bridge  ──▶  void-core  ──▶  bin/void-pvp

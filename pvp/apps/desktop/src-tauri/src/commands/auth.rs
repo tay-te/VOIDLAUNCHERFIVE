@@ -45,6 +45,8 @@ pub async fn login_poll(state: &AppState, emitter: &dyn Emitter, code: auth::Dev
             let account = Account::from(&session);
             *state.session.lock().unwrap() = Some(session);
             emit(emitter, AUTH_STATUS, &AuthStatus::Complete { account });
+            // Online features follow the Microsoft account; failure leaves them off.
+            super::online::sign_in(state).await;
         }
         Err(e) => {
             emit(emitter, AUTH_STATUS, &AuthStatus::Failed { message: e.to_string() });
@@ -125,6 +127,8 @@ pub async fn restore(state: &AppState) -> Result<Option<Account>, Error> {
 
 pub fn logout(state: &AppState) -> Result<(), Error> {
     *state.session.lock().unwrap() = None;
+    // Signing out of the backend (presence offline, channels closed) is async; the command
+    // wrapper awaits `online::sign_out` after this returns.
     if let Err(e) = TokenStore::new(&state.paths).clear() {
         tracing::warn!(error = %e, "could not clear the stored refresh token");
     }
