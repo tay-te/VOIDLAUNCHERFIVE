@@ -145,7 +145,12 @@ Write-Section 'rust — crates/ (void-core, void-bridge, void-loadout)'
 # ---------------------------------------------------------------------------
 Invoke-Check -Label 'cargo build --workspace'  -Command 'cargo build --workspace'
 Invoke-Check -Label 'cargo test --workspace'   -Command 'cargo test --workspace'
-Invoke-Check -Label 'cargo clippy -D warnings' -Command 'cargo clippy --workspace --all-targets -- -D warnings'
+$null = cmd /c "cargo clippy --version 2>nul"
+if ($LASTEXITCODE -eq 0) {
+  Invoke-Check -Label 'cargo clippy -D warnings' -Command 'cargo clippy --workspace --all-targets -- -D warnings'
+} else {
+  Add-Skip 'cargo clippy -D warnings' 'clippy is not installed - rustup component add clippy'
+}
 
 # ---------------------------------------------------------------------------
 Write-Section 'rust — apps/desktop/src-tauri (its own workspace)'

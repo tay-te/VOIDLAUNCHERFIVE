@@ -140,7 +140,11 @@ section "rust — crates/ (void-core, void-bridge, void-loadout)"
 # ---------------------------------------------------------------------------
 run "cargo build --workspace"  cargo build --workspace
 run "cargo test --workspace"   cargo test --workspace
-run "cargo clippy -D warnings" cargo clippy --workspace --all-targets -- -D warnings
+if cargo clippy --version >/dev/null 2>&1; then
+  run "cargo clippy -D warnings" cargo clippy --workspace --all-targets -- -D warnings
+else
+  skip "cargo clippy -D warnings" "clippy is not installed — rustup component add clippy"
+fi
 
 # ---------------------------------------------------------------------------
 section "rust — apps/desktop/src-tauri (its own workspace)"
