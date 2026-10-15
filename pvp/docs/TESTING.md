@@ -500,8 +500,9 @@ Work through:
 | Blank white window on Windows | WebView2 runtime missing — install the Evergreen Runtime |
 | `pnpm tauri dev` fails at `cargo build` on Linux | Missing `libwebkit2gtk-4.1-dev` and friends (Linux is dev-only) |
 | Tray icon missing on macOS | Report it — tray behaviour has never been exercised |
-| The updater tries to reach `updates.void.invalid` | Expected. `.invalid` is reserved by RFC 2606 and can never resolve; a dev build cannot be talked into installing anything |
-| `pnpm tauri build` complains about icons | `src-tauri/icons/` holds PNGs only. Run `pnpm tauri icon <source.png>` on a real machine |
+| "update check failed" in the launcher log | Expected until a `pvp-v*` release has published `pvp-stable/latest.json` (docs/RELEASING.md) |
+| `pnpm tauri build` fails: public key found but no private key | Set `TAURI_SIGNING_PRIVATE_KEY`/`_PASSWORD`, or add `--config '{"bundle":{"createUpdaterArtifacts":false}}'` |
+| "the VOID client could not be installed" on first launch | No release published yet, or offline with nothing cached — set `VOID_MOD_JAR` to a local build |
 
 ---
 
