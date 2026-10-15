@@ -184,17 +184,20 @@ public class WorldgenSource implements TerrainSource {
 		final Holder<Biome>[] biomes = new Holder[512];
 	}
 
+	/** The widest cells whose samples share a biome lookup with their neighbours ({@link #biome(int, int, int, int)}). */
+	private static final int SHARED_BIOME_CELL = 32;
 	private final ThreadLocal<BiomeCache> biomeCache = ThreadLocal.withInitial(BiomeCache::new);
 
 	/**
-	 * The biome for a sample of a cell this wide. Far out, where a cell is 8 blocks or more, the samples of each
-	 * square two cells across share one lookup: biomes change over hundreds of blocks, their borders are
-	 * softened at this scale anyway, and the lookup is a third of what a far sample costs. The lookup is the
-	 * square's first sample's own (its corner, at its height), whose column the terrain model has just worked
-	 * out, so the climate behind the biome comes from its cache.
+	 * The biome for a sample of a cell this wide. Where a cell is 8 to 32 blocks, the samples of each square two
+	 * cells across share one lookup: biomes change over hundreds of blocks, their borders are softened at this
+	 * scale anyway, and the lookup is a third of what a far sample costs. The lookup is the square's first sample's
+	 * own (its corner, at its height), whose column the terrain model has just worked out, so the climate behind
+	 * the biome comes from its cache. Wider cells look their own biome up: a square of them is hundreds of blocks
+	 * across, and measured against vanilla's chunks, sharing put an eighth of the samples in the wrong biome.
 	 */
 	protected Holder<Biome> biome(int x, int y, int z, int cell) {
-		if (cell < 8) {
+		if (cell < 8 || cell > SHARED_BIOME_CELL) {
 			return this.biome(x, y, z);
 		}
 		int grid = 2 * cell;

@@ -371,6 +371,12 @@ public class LodShowcase implements FabricClientGameTest {
 					Float.parseFloat(v[3].trim()), Float.parseFloat(v[4].trim()), v.length > 5 ? Integer.parseInt(v[5].trim()) : 70));
 			}
 			Spot valley = spots.stream().filter(spot -> spot.name().equals("low0")).findFirst().orElse(spots.get(0));
+			if (Boolean.getBoolean("lod.show.vanillaCheck")) {
+				// -Plod.show.vanillaCheck: the generator's own chunks against what the LOD makes of the same columns
+				ServerLevel level = world.getServer().computeOnServer(server -> server.overworld());
+				vanillaCheck(context, world.getServer(), level, valley.x(), valley.z());
+				spots.clear();
+			}
 			if (Boolean.getBoolean("lod.show.genBench")) {
 				// -Plod.show.genBench: tiles built straight from the generator on one thread, each way of finding the ground
 				ServerLevel level = world.getServer().computeOnServer(server -> server.overworld());
@@ -667,6 +673,65 @@ public class LodShowcase implements FabricClientGameTest {
 			}
 		}
 		dev.voidmc.lod.source.NoiseSurface.check = false;
+	}
+
+	/**
+	 * Generates real chunks at a few hundred columns 200 to 3000 blocks from (cx, cz) and compares each with what the LOD
+	 * samples there at a few cell sizes: the biome, and the ground (the first air over the solid ground, under trees).
+	 */
+	private static void vanillaCheck(ClientGameTestContext context, TestServerContext server, ServerLevel level, int cx, int cz) {
+		dev.voidmc.lod.source.WorldgenSource source = context.computeOnClient(mc -> new dev.voidmc.lod.source.WorldgenSource(level, 1));
+		java.util.Random random = new java.util.Random(42);
+		int[] cells = {1, 8, 32, 128};
+		int points = 300;
+		int[] biomeOff = new int[cells.length];
+		long[] groundOff = new long[cells.length];
+		int[] groundExact = new int[cells.length];
+		java.util.Map<String, Integer> confusions = new java.util.TreeMap<>();
+		for (int p = 0; p < points; p++) {
+			double a = random.nextDouble() * 2 * Math.PI, d = 200 + random.nextDouble() * 2800;
+			int x = cx + (int) (Math.cos(a) * d), z = cz + (int) (Math.sin(a) * d);
+			String[] real = server.computeOnServer(s -> {
+				var chunk = level.getChunk(x >> 4, z >> 4);
+				int y = chunk.getHeight(Heightmap.Types.OCEAN_FLOOR, x & 15, z & 15);
+				var pos = new net.minecraft.core.BlockPos.MutableBlockPos(x, y, z);
+				// down past the trees to the ground
+				while (y > level.getMinY()) {
+					var state = chunk.getBlockState(pos.setY(y));
+					if (!state.is(net.minecraft.tags.BlockTags.LEAVES) && !state.is(net.minecraft.tags.BlockTags.LOGS) && !state.isAir()
+						&& state.getFluidState().isEmpty() && !state.getCollisionShape(level, pos).isEmpty()) {
+						break;
+					}
+					y--;
+				}
+				String biome = level.getBiome(pos.setY(y + 1)).unwrapKey().map(k -> k.identifier().toString()).orElse("?");
+				return new String[]{biome, Integer.toString(y + 1)};
+			});
+			int realGround = Integer.parseInt(real[1]);
+			for (int c = 0; c < cells.length; c++) {
+				dev.voidmc.lod.core.ColumnSample s = new dev.voidmc.lod.core.ColumnSample();
+				s.clear();
+				source.sample(x, z, cells[c], s);
+				String lodBiome = dev.voidmc.lod.core.BiomeIds.name(s.biome);
+				if (!real[0].equals(lodBiome)) {
+					biomeOff[c]++;
+					if (cells[c] == 1 || cells[c] == 32) {
+						confusions.merge("cell " + cells[c] + ": " + real[0].replace("minecraft:", "") + " drawn as " + lodBiome.replace("minecraft:", ""), 1,
+							Integer::sum);
+					}
+				}
+				int off = Math.abs(Math.round(s.ground) - realGround);
+				groundOff[c] += off;
+				if (off == 0) {
+					groundExact[c]++;
+				}
+			}
+		}
+		for (int c = 0; c < cells.length; c++) {
+			System.out.printf(Locale.ROOT, "[lod] vanilla check, cell %d: biome differs at %d of %d columns, ground exact at %d, %.2f blocks off on average%n",
+				cells[c], biomeOff[c], points, groundExact[c], groundOff[c] / (double) points);
+		}
+		confusions.forEach((k, v) -> System.out.println("[lod] vanilla check: " + k + " x" + v));
 	}
 
 	private static long gcMillis() {
