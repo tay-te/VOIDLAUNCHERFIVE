@@ -951,6 +951,10 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
                 new JsonPrimitive(Boolean.valueOf(!on)));
         if (stored != null) {
             bridge.emitSetting(modId, "on", stored);
+            boolean nowOn = stored.isJsonPrimitive() && stored.getAsBoolean();
+            bridge.emitToast(VoidBridge.TOAST_MOD,
+                    dev.voidpvp.client.state.ModRegistry.label(modId) + (nowOn ? " on" : " off"),
+                    null, modId);
             // These hotkeys can take the last thing off the overlay — hiding a HUD widget with
             // no menu open — and a page with nothing left to draw submits no draw commands, so
             // the accelerated renderer would go on showing what was just hidden. Same reason as
@@ -987,6 +991,10 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         if (next != null && !next.equals(state.loadoutId())) {
             if (state.switchLoadout(next)) {
                 emitLoadout();
+                // The menu is closed when the cycle key works, so nothing else on screen would
+                // say which loadout the key landed on.
+                bridge.emitToast(VoidBridge.TOAST_LOADOUT, state.loadout().name(),
+                        "Loadout switched", null);
                 // The launcher's own pointer has to follow, or the tray and the next
                 // launch disagree with the running game (protocol.json, `msg_hotkey`).
                 reportHotkey(dev.voidpvp.client.net.Protocol.HOTKEY_LOADOUT_NEXT);
@@ -1728,6 +1736,22 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         state.applyRemoteLoadout(loadout);
         emitLoadouts();
         emitLoadout();
+        bridge.emitToast(VoidBridge.TOAST_LOADOUT, loadout.name(),
+                "Loadout switched from the launcher", null);
+    }
+
+    @Override
+    public void onLibrary(List<Loadout> loadouts) {
+        // The launcher changed the library under the game (or refused an in-game change). The
+        // live active loadout survives it unless the launcher deleted it.
+        boolean switched = state.applyLibrary(loadouts);
+        emitLoadouts();
+        if (switched) {
+            emitLoadout();
+            bridge.emitToast(VoidBridge.TOAST_LOADOUT, state.loadout().name(),
+                    "Loadout switched from the launcher", null);
+        }
+        ui.requestRender();
     }
 
     @Override

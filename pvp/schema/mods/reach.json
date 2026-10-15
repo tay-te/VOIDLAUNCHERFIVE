@@ -1,0 +1,59 @@
+{
+  "$comment": "`grey`, not `safe`, and not because the number is wrong. Reach displays are tolerated on most networks and banned outright on a few, because a player can use the readout to tune spacing in a way the server's own anti-cheat would rather they could not see. Nothing here changes what leaves the client; the classification is about what the readout tells you, which is exactly the question `hypixel_safe` asks.",
+  "id": "reach",
+  "kind": "hud",
+  "category": "pvp",
+  "hypixel_safe": "grey",
+  "label": "Reach display",
+  "icon": "sword",
+  "the": true,
+  "noun": "the reach chip",
+  "on_description": "the reach display is enabled",
+  "description": "How far away your last hit landed, in blocks.",
+  "settings_title": "Reach display settings",
+  "settings_description": "Settings for the Reach display HUD mod. Reads `reach` on the tick payload. The figure is measured on the client at the moment the attack is sent: from your eye position, interpolated to the frame the crosshair ray was cast on, to the exact point where that ray met the target's hitbox. That is the distance the game itself used to decide the hit, not an entity-centre distance (which reads about 0.3 blocks long) and not the server's view (which it never tells the client). Only attacks the hit counter counts as landed are measured, so a swing at air never moves the number.",
+  "source": "`reach` on the tick payload: eye-to-hit-point distance at the moment of each landed attack",
+  "enabled": false,
+  "default_placement": {
+    "note": "Below Momentum (`293`) in the top-left column, 38 px down: the column already holds the two other numbers a fight produces, Combo and Momentum, and reach is read at the same moment as both.",
+    "anchor": "top-left",
+    "dx": 23,
+    "dy": 331
+  },
+  "defaults": {
+    "decimals": 2,
+    "mode": "last",
+    "show_label": true,
+    "hide_after_ms": 0
+  },
+  "settings": {
+    "decimals": {
+      "description": "Digits after the decimal point. Two is the precision the measurement actually has; one reads faster, and none is the whole-block figure.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "default": 2
+    },
+    "mode": {
+      "description": "Which figure is drawn: the last landed hit, or the mean of the last ten.",
+      "type": "string",
+      "enum": [
+        "last",
+        "average"
+      ],
+      "default": "last"
+    },
+    "show_label": {
+      "description": "Whether the figure is followed by its unit, `blocks`.",
+      "type": "boolean",
+      "default": true
+    },
+    "hide_after_ms": {
+      "description": "Hide the chip this long after the last landed hit; 0 keeps it on screen. A reach figure is only interesting while you are trading hits.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 30000,
+      "default": 0
+    }
+  }
+}

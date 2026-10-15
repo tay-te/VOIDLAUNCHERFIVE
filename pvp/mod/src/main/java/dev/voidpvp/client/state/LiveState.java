@@ -59,6 +59,22 @@ public final class LiveState {
          * carry one — a whole-object echo would erase it.</p>
          */
         void globals(Map<String, JsonElement> patch);
+
+        /**
+         * A whole loadout the in-game Loadouts screen created or changed, {@code protocol.json}
+         * {@code loadout_save}. Default no-op so a sink that predates the library calls (tests,
+         * {@link #NO_SINK}) still compiles.
+         */
+        default void loadoutSave(JsonObject loadout) {
+        }
+
+        /** A loadout deleted in game, {@code protocol.json} {@code loadout_delete}. */
+        default void loadoutDelete(String loadoutId) {
+        }
+
+        /** A loadout picked in game other than by the cycle key, {@code loadout_select}. */
+        default void loadoutSelect(String loadoutId) {
+        }
     }
 
     /** A do-nothing sink, used before the socket exists and in tests. */
@@ -793,6 +809,259 @@ public final class LiveState {
 
     public synchronized boolean isInLibrary(String id) {
         return active.id().equals(id) || library.containsKey(id);
+    }
+
+    // -----------------------------------------------------------------
+    // The library (the in-game Loadouts screen; bridge.json's library calls)
+    // -----------------------------------------------------------------
+    //
+    // Every one of these is a local, synchronous change — the page binds to the return value,
+    // like every other call — followed by a notification to Rust, which owns persistence
+    // (`loadout_save` / `loadout_delete`). If Rust cannot follow it answers with `library` and
+    // `applyLibrary` puts the game back in step with the disk.
+
+    /** Most loadouts a library holds; {@code init.loadouts} is sent whole, so it is capped. */
+    public static final int MAX_LIBRARY = 128;
+
+    /**
+     * {@code void.switchLoadout} from the Loadouts screen: {@link #switchLoadout} plus telling
+     * Rust, so the tray and the next launch follow a pick made in game. Not used by the cycle
+     * key, which reports itself as a {@code hotkey}.
+     */
+    public synchronized boolean selectLoadout(String id) {
+        boolean switching = id != null && !id.equals(active.id());
+        boolean ok = switchLoadout(id);
+        if (ok && switching) {
+            sink.loadoutSelect(id);
+        }
+        return ok;
+    }
+
+    /**
+     * {@code void.createLoadout(name)}: a new loadout at the registry defaults and the factory
+     * HUD layout, appended to the library and not switched to.
+     *
+     * @return the new loadout as JSON, or null for an empty name or a full library
+     */
+    public synchronized JsonObject createLoadout(String name) {
+        String clean = cleanName(name);
+        if (clean == null || library.size() >= MAX_LIBRARY) {
+            return null;
+        }
+        Loadout created = Loadout.defaults(uniqueId(clean), clean);
+        library.put(created.id(), created);
+        JsonObject json = created.toJson();
+        sink.loadoutSave(json);
+        return json;
+    }
+
+    /**
+     * {@code void.renameLoadout(id, name)}: the id does not follow the name.
+     *
+     * @return the stored name, or null for an unknown id or an empty name
+     */
+    public synchronized String renameLoadout(String id, String name) {
+        String clean = cleanName(name);
+        Loadout target = id == null ? null : library.get(id);
+        if (clean == null || target == null) {
+            return null;
+        }
+        target.setName(clean);
+        sink.loadoutSave(target.toJson());
+        return clean;
+    }
+
+    /**
+     * {@code void.duplicateLoadout(id)}: a copy named {@code <name> copy}, without stats.
+     *
+     * @return the copy as JSON, or null for an unknown id or a full library
+     */
+    public synchronized JsonObject duplicateLoadout(String id) {
+        Loadout source = id == null ? null : library.get(id);
+        if (source == null || library.size() >= MAX_LIBRARY) {
+            return null;
+        }
+        String base = source.name();
+        if (base.codePointCount(0, base.length()) > 43) {
+            base = base.substring(0, base.offsetByCodePoints(0, 43)).trim();
+        }
+        String name = base + " copy";
+        Loadout copy = source.copyAs(uniqueId(name), name);
+        library.put(copy.id(), copy);
+        JsonObject json = copy.toJson();
+        sink.loadoutSave(json);
+        return json;
+    }
+
+    /**
+     * {@code void.deleteLoadout(id)}. Never the last one. Deleting the active loadout applies
+     * the first remaining one exactly as a switch does — actuators and all — and tells Rust.
+     *
+     * @return true when it was deleted
+     */
+    public synchronized boolean deleteLoadout(String id) {
+        if (id == null || !library.containsKey(id) || library.size() <= 1) {
+            return false;
+        }
+        if (id.equals(active.id())) {
+            String next = null;
+            for (String other : library.keySet()) {
+                if (!other.equals(id)) {
+                    next = other;
+                    break;
+                }
+            }
+            applyLoadoutInternal(library.get(next), true);
+            sink.loadoutSelect(next);
+        }
+        library.remove(id);
+        sink.loadoutDelete(id);
+        return true;
+    }
+
+    /** {@code void.exportLoadout(id)}: the share code, or null for an unknown id. */
+    public synchronized String exportLoadout(String id) {
+        Loadout l = id == null ? null : library.get(id);
+        return l == null ? null : ShareCode.encode(l);
+    }
+
+    /**
+     * {@code void.importLoadout(code)}: decode, append under a fresh id, do not switch.
+     *
+     * @return {@code bridge.json#/definitions/import_result}
+     */
+    public synchronized JsonObject importLoadout(String code) {
+        ShareCode.Decoded decoded = ShareCode.decode(code);
+        JsonObject result = new JsonObject();
+        if (!decoded.ok() || library.size() >= MAX_LIBRARY) {
+            result.addProperty("ok", Boolean.FALSE);
+            result.addProperty("error", decoded.ok() ? ShareCode.Error.FULL.wire : decoded.error.wire);
+            return result;
+        }
+        JsonObject body = decoded.loadout;
+        body.addProperty("id", uniqueId(decoded.name()));
+        Loadout imported = Loadout.fromJson(body);
+        library.put(imported.id(), imported);
+        JsonObject json = imported.toJson();
+        sink.loadoutSave(json);
+        result.addProperty("ok", Boolean.TRUE);
+        result.add("loadout", json);
+        result.addProperty("dropped", Integer.valueOf(decoded.dropped));
+        return result;
+    }
+
+    /**
+     * {@code void.setQuickPins(ids)} on the active loadout.
+     *
+     * @return the pins stored: known ids, no repeats, at most eight
+     */
+    public synchronized List<String> setQuickPins(List<String> ids) {
+        active.setQuick(ids == null ? new ArrayList<String>() : ids);
+        List<String> stored = active.quick();
+        sink.loadoutSave(active.toJson());
+        return stored;
+    }
+
+    /**
+     * Rust's {@code library}: the library as the launcher holds it, after a launcher-side
+     * change or a refused in-game one. Replaces every entry but keeps this process's live copy
+     * of the active loadout — Java is authoritative for live state (§6.1) — unless the launcher
+     * deleted it, in which case the first loadout of the new library is applied.
+     *
+     * @return true when the active loadout changed, so the caller pushes {@code loadout} too
+     */
+    public synchronized boolean applyLibrary(List<Loadout> loadouts) {
+        if (loadouts == null || loadouts.isEmpty()) {
+            return false;
+        }
+        Map<String, Loadout> next = new LinkedHashMap<String, Loadout>();
+        for (Loadout l : loadouts) {
+            if (l != null) {
+                next.put(l.id(), l);
+            }
+        }
+        if (next.isEmpty()) {
+            return false;
+        }
+        boolean activeKept = next.containsKey(active.id());
+        if (activeKept) {
+            // The launcher may have renamed it; the live settings stay this process's.
+            active.setName(next.get(active.id()).name());
+            next.put(active.id(), active);
+        }
+        library.clear();
+        library.putAll(next);
+        if (!activeKept) {
+            applyLoadoutInternal(library.values().iterator().next(), false);
+            return true;
+        }
+        return false;
+    }
+
+    /** A name trimmed and capped at 48 code points, or null when nothing is left. */
+    static String cleanName(String name) {
+        if (name == null) {
+            return null;
+        }
+        String t = name.trim();
+        if (t.codePointCount(0, t.length()) > 48) {
+            t = t.substring(0, t.offsetByCodePoints(0, 48)).trim();
+        }
+        return t.isEmpty() ? null : t;
+    }
+
+    /**
+     * A fresh id for {@code name}: slugified exactly as {@code LoadoutId::slugify} does in Rust,
+     * then {@code -2}, {@code -3}, ... until it is not in the library.
+     */
+    synchronized String uniqueId(String name) {
+        String base = slugify(name);
+        if (!library.containsKey(base)) {
+            return base;
+        }
+        for (int n = 2; ; n++) {
+            String suffix = "-" + n;
+            String stem = base.length() + suffix.length() > 48
+                    ? trimHyphens(base.substring(0, 48 - suffix.length())) : base;
+            String candidate = stem + suffix;
+            if (!library.containsKey(candidate)) {
+                return candidate;
+            }
+        }
+    }
+
+    /**
+     * {@code LoadoutId::slugify}: ASCII letters and digits lower-cased, every run of anything
+     * else one hyphen, no hyphen at either end, at most 48 characters; {@code loadout} when
+     * nothing is left.
+     */
+    static String slugify(String name) {
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (c < 128 && Character.isLetterOrDigit(c)) {
+                out.append(Character.toLowerCase(c));
+            } else if (out.length() > 0 && out.charAt(out.length() - 1) != '-') {
+                out.append('-');
+            }
+        }
+        String slug = trimHyphens(out.toString());
+        if (slug.length() > 48) {
+            slug = trimHyphens(slug.substring(0, 48));
+        }
+        return slug.isEmpty() ? "loadout" : slug;
+    }
+
+    private static String trimHyphens(String s) {
+        int a = 0;
+        int b = s.length();
+        while (a < b && s.charAt(a) == '-') {
+            a++;
+        }
+        while (b > a && s.charAt(b - 1) == '-') {
+            b--;
+        }
+        return s.substring(a, b);
     }
 
     /** The id after {@code current} in library order, wrapping — the L key (§6.3). */

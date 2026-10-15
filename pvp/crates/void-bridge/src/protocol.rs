@@ -109,6 +109,25 @@ pub enum JavaToRust {
         id: HotkeyId,
     },
 
+    /// A loadout created, renamed, duplicated, imported or re-pinned in game; the whole
+    /// loadout. Rust creates it when the id is new and overwrites it otherwise.
+    LoadoutSave {
+        /// The loadout as Java now holds it.
+        loadout: Box<Loadout>,
+    },
+
+    /// A loadout deleted in game.
+    LoadoutDelete {
+        /// The deleted loadout.
+        id: LoadoutId,
+    },
+
+    /// A loadout picked in game other than with the cycle key; moves the active pointer.
+    LoadoutSelect {
+        /// The loadout now active.
+        id: LoadoutId,
+    },
+
     /// A `t` this build does not know. Kept rather than rejected, per §7.
     ///
     /// Never construct this to *send*: it would serialize as `{"t":"unknown"}`.
@@ -148,6 +167,9 @@ impl JavaToRust {
             JavaToRust::Session { .. } => "session",
             JavaToRust::Server { .. } => "server",
             JavaToRust::Hotkey { .. } => "hotkey",
+            JavaToRust::LoadoutSave { .. } => "loadout_save",
+            JavaToRust::LoadoutDelete { .. } => "loadout_delete",
+            JavaToRust::LoadoutSelect { .. } => "loadout_select",
             JavaToRust::Unknown => "unknown",
         }
     }
@@ -185,6 +207,13 @@ pub enum RustToJava {
         /// The complete new global settings.
         settings: GlobalSettings,
     },
+
+    /// The whole library, in full and in order: sent when the launcher changed it while the
+    /// game runs, and as the answer to an in-game library change Rust could not store.
+    Library {
+        /// Every loadout, in library order.
+        loadouts: Vec<Loadout>,
+    },
 }
 
 impl RustToJava {
@@ -194,6 +223,7 @@ impl RustToJava {
             RustToJava::Init { .. } => "init",
             RustToJava::Loadout { .. } => "loadout",
             RustToJava::Settings { .. } => "settings",
+            RustToJava::Library { .. } => "library",
         }
     }
 }

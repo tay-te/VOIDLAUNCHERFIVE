@@ -40,6 +40,9 @@ import memory from './memory';
 import momentum from './momentum';
 import old_animations from './old_animations';
 import old_input from './old_input';
+import potion_counter from './potion_counter';
+import reach from './reach';
+import chat from './chat';
 import overlay from './overlay';
 import crosshair from './crosshair';
 import damage_tint from './damage_tint';
@@ -103,6 +106,10 @@ const ART = {
   // `safe` and animation only, `old_input` is `grey` and changes what leaves the client.
   old_animations,
   old_input,
+  // Wave 7 — the depth pass: two readouts the inventory and reach sensors opened, and chat.
+  potion_counter,
+  reach,
+  chat,
 } satisfies Record<ModId, ModArt>;
 
 /** Every mod's art, keyed by id. */

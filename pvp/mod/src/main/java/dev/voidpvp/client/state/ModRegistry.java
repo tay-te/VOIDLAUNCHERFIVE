@@ -15,7 +15,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The closed registry of the 29 mods.
+ * The closed registry of the 32 mods.
  *
  * <p><b>GENERATED — do not edit.</b> The table in the static initialiser below is written by
  * {@code scripts/gen-java-registry.mjs} from {@code schema/mods.json} (registry document
@@ -177,8 +177,15 @@ public final class ModRegistry {
     // UI get it too, and re-generate.
     // =================================================================
 
+    /**
+     * {@code examples[0].version} of {@code schema/mods.json}: bumped whenever a mod is added,
+     * removed or reclassified. Carried in a loadout share code ({@code ShareCode}) so a code
+     * made against a newer registry can be recognised as such.
+     */
+    public static final int REGISTRY_VERSION = 11;
+
     static {
-        // --- HUD mods (16) — they read game state and draw -------------------------------------
+        // --- HUD mods (18) — they read game state and draw -------------------------------------
 
         // FPS display — kind hud, hud tab, §11 safe.
         // Frames per second, updated once per tick.
@@ -246,7 +253,15 @@ public final class ModRegistry {
                 // frame offers. `accent` follows the loadout accent, which is the frame's
                 // default.
                 // Type: mods.json#/definitions/pressed_swatch.
-                "pressed_color", enumOf("accent", "accent", "sky", "warn", "fear", "teal"));
+                "pressed_color", enumOf("accent", "accent", "sky", "warn", "fear", "teal"),
+                // Whether keys ease between the resting and pressed treatment instead of
+                // switching on the frame. The press itself is always immediate; this only shapes
+                // the release.
+                "animate", bool(true),
+                // How long a released key takes to fade back to rest, in milliseconds, when
+                // `animate` is on. Long fades read as a trail of recent presses; short ones as a
+                // crisp tap.
+                "fade_ms", integer(0, 500, 120));
 
         // CPS counter — kind hud, hud tab, §11 safe.
         // Clicks per second over a sliding window.
@@ -275,7 +290,13 @@ public final class ModRegistry {
                 // `window_ms` already averages, so the live figure answers "how fast am I
                 // clicking"; this answers "how fast can I", which is the number worth comparing
                 // against and the one the live figure never sits still long enough to show.
-                "show_peak", bool(false));
+                "show_peak", bool(false),
+                // Whether only clicks the game acted on are counted. A left click swallowed by
+                // 1.8's miss delay, or made while a screen was open, is a press of the button but
+                // not a swing, and with this on it does not count. Left button only; right clicks
+                // are always counted as pressed. Fed by `hits.swings` on the tick payload rather
+                // than by the mouse edge, so a counted click is one `doAttack` ran for.
+                "ignore_cancelled", bool(false));
 
         // Ping display — kind hud, hud tab, §11 safe.
         // Round-trip time to the current server.
@@ -300,7 +321,24 @@ public final class ModRegistry {
                 // Whether the shortened server name is drawn after the figure. A player who only
                 // ever plays one server is being told something they already know, on the chip
                 // they look at most often.
-                "show_host", bool(true));
+                "show_host", bool(true),
+                // Whether the rolling average of the last `window` readings is drawn as a
+                // trailing aside, `avg 54`.
+                "show_average", bool(false),
+                // Whether jitter is drawn as a trailing aside, `±7`: the mean change between
+                // consecutive readings over the last `window`. A steady 90 ms plays better than a
+                // 40 ms that swings by 30, and only this figure tells the two apart.
+                "show_jitter", bool(false),
+                // Jitter at or above this many milliseconds draws in the warn treatment. 0
+                // disables the warning.
+                "jitter_warn_ms", integer(0, 500, 20),
+                // A reading this many milliseconds above the rolling average counts as a spike
+                // and briefly marks the chip. 0 disables spike detection.
+                "spike_ms", integer(0, 1000, 80),
+                // How many readings the average, the jitter and the spike baseline are taken
+                // over. The server sends a new latency every few seconds, so 10 readings is
+                // roughly the last half minute.
+                "window", integer(3, 60, 10));
 
         // Coordinates — kind hud, hud tab, §11 safe.
         // Player position and facing direction.
@@ -378,7 +416,14 @@ public final class ModRegistry {
                 // Whether to print the roman-numeral amplifier next to each effect name.
                 "show_amplifier", bool(true),
                 // Whether to omit ambient effects such as a beacon aura from the list.
-                "hide_ambient", bool(false));
+                "hide_ambient", bool(false),
+                // Effects never listed, as a bit mask over vanilla's status effect ids: bit 1 is
+                // Speed, bit 16 Night Vision, up to bit 23 Saturation. Set from the settings
+                // page's effect chips rather than by hand. 0 lists everything.
+                "hidden_effects", integer(0, 16777215, 0),
+                // An effect with this many seconds or fewer left blinks, once a second, on the
+                // tick that redraws its timer. 0 disables blinking.
+                "blink_below_s", integer(0, 30, 5));
 
         // Watermark — kind hud, visual tab, §11 safe.
         // The VOID mark, drawn over the game.
@@ -404,7 +449,7 @@ public final class ModRegistry {
                 // `mark` is the ring alone, `word` is the wordmark alone.
                 "style", enumOf("full", "full", "mark", "word"));
 
-        // --- Gameplay mods (13) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
 
         // Toggle sprint — kind gameplay, pvp tab, §11 safe.
         // Latches sprint instead of holding the key.
@@ -479,10 +524,21 @@ public final class ModRegistry {
                 // `void.openKeybindCapture('hitboxes')`. Boxes are worth having for one fight and
                 // not the next, which is a decision made mid-match rather than in a menu.
                 // Type: mods.json#/definitions/keybind.
-                "keybind", keybind("NONE"));
+                "keybind", keybind("NONE"),
+                // Whether a box changes colour with what you can do to its entity:
+                // `damaged_color` while it is in its hurt animation, `hittable_color` while your
+                // crosshair is on it within attack range, and `color` otherwise.
+                "state_colors", bool(false),
+                // Box colour for the entity your crosshair is on, when `state_colors` is on.
+                // Type: mods.json#/definitions/hex_color.
+                "hittable_color", color("#2FB8A6FF"),
+                // Box colour for an entity in its hurt animation, when `state_colors` is on.
+                // Takes precedence over `hittable_color`.
+                // Type: mods.json#/definitions/hex_color.
+                "damaged_color", color("#FF5A5AFF"));
 
         // Zoom — kind gameplay, utility tab, §11 safe.
-        // Narrows FOV while the zoom key is held.
+        // Narrows FOV while the zoom key is held; the mouse wheel adjusts it.
         // Source: FOV override while key held.
         mod("zoom", Kind.GAMEPLAY, Category.UTILITY, "Zoom",
                 // Whether zoom is enabled.
@@ -496,7 +552,17 @@ public final class ModRegistry {
                 // Whether the FOV change is eased over a few frames rather than snapping.
                 "smooth", bool(true),
                 // Whether smooth-camera mouse damping is applied while zoomed.
-                "cinematic", bool(false));
+                "cinematic", bool(false),
+                // Whether the mouse wheel changes the zoom while the key is held, between 1.1x
+                // and 10x in multiplicative steps. The hotbar does not scroll while this is in
+                // use, and the level goes back to `fov_divisor` on release. Eased when `smooth`
+                // is on.
+                "scroll_adjust", bool(true),
+                // Whether mouse sensitivity is scaled down with the zoom, so a flick moves the
+                // crosshair across the same share of the screen zoomed as unzoomed. Off is
+                // vanilla: at 4x every mouse movement turns the view four times as far across
+                // what you can see.
+                "scale_sensitivity", bool(true));
 
         // Crosshair — kind gameplay, visual tab, §11 safe.
         // Replaces the vanilla crosshair with a configurable one at the exact screen centre.
@@ -527,7 +593,7 @@ public final class ModRegistry {
                 // `default`, which is the vanilla pass.
                 "center_dot", bool(false));
 
-        // --- HUD mods (16) — they read game state and draw -------------------------------------
+        // --- HUD mods (18) — they read game state and draw -------------------------------------
 
         // Direction — kind hud, hud tab, §11 safe.
         // Which way you are facing, as its own placeable readout.
@@ -722,8 +788,9 @@ public final class ModRegistry {
                 "style", enumOf("short", "short", "full"));
 
         // Item counter — kind hud, pvp tab, §11 safe.
-        // How many of the item in your hand you have left.
-        // Source: `held_count` on the tick payload — the stack size of the held item.
+        // How many of the item in your hand, or a chosen item, you have left.
+        // Source: `held_count` and `counts` on the tick payload: the held stack, or an
+        // inventory-wide count.
         mod("item_counter", Kind.HUD, Category.PVP, "Item counter",
                 // Whether the item counter is enabled.
                 "on", bool(false),
@@ -748,7 +815,12 @@ public final class ModRegistry {
                 // does not guess — a player who knows what they are counting sets it, and
                 // everybody else gets a chip that never cries wolf. The ceiling is 64: a full
                 // stack, above which the warning would be permanently on.
-                "low_threshold", integer(0, 64, 0));
+                "low_threshold", integer(0, 64, 0),
+                // What the chip counts. `held_stack` is the stack in your hand; `held_total` is
+                // every stack in the inventory matching the held item; the rest count that item
+                // across the whole inventory whatever you are holding. `wool` is every colour
+                // together. Healing potions and soup are the Potion counter's.
+                "track", enumOf("held_stack", "held_stack", "held_total", "ender_pearl", "golden_apple", "arrow", "snowball", "egg", "cobweb", "wool", "tnt", "fire_charge", "iron_ingot", "gold_ingot", "diamond", "emerald"));
 
         // Stopwatch — kind hud, utility tab, §11 safe.
         // A manual timer, started and zeroed from the keyboard.
@@ -802,7 +874,7 @@ public final class ModRegistry {
                 // Type: mods.json#/definitions/keybind.
                 "reset_key", keybind("NONE"));
 
-        // --- Gameplay mods (13) — they mutate a client-side option -----------------------------
+        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
 
         // FOV changer — kind gameplay, pvp tab, §11 safe.
         // Holds your field of view still, so sprint and speed stop punching the camera.
@@ -1137,7 +1209,81 @@ public final class ModRegistry {
                 // suppressing the field outright goes past 1.7 rather than back to it.
                 "no_miss_delay", bool(false));
 
-        // --- The factory HUD layout (16) — where each widget starts ----------------------------
+        // --- HUD mods (18) — they read game state and draw -------------------------------------
+
+        // Potion counter — kind hud, pvp tab, §11 safe.
+        // Healing potions or soup left in your inventory.
+        // Source: `counts.health_potion` and `counts.soup` on the tick payload.
+        mod("potion_counter", Kind.HUD, Category.PVP, "Potion counter",
+                // Whether the potion counter is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // What is counted: splash potions of Healing, bowls of mushroom stew, or both
+                // side by side.
+                "track", enumOf("health_potion", "health_potion", "soup", "both"),
+                // Whether the count is followed by its unit, `pots` or `soup`. With `both` the
+                // units are what tell the two figures apart, so they are always drawn there.
+                "show_label", bool(true),
+                // A count at or below this many draws in the warn treatment. Unlike the Item
+                // counter this has a non-zero default, because what is in the slot is known:
+                // three heals is low in every pot and soup mode. 0 disables the warning.
+                "low_threshold", integer(0, 64, 3));
+
+        // Reach display — kind hud, pvp tab, §11 grey.
+        // How far away your last hit landed, in blocks.
+        // Source: `reach` on the tick payload: eye-to-hit-point distance at the moment of each
+        // landed attack.
+        mod("reach", Kind.HUD, Category.PVP, "Reach display",
+                // Whether the reach display is enabled.
+                "on", bool(false),
+                // The shared hud block, schema/mods/_shared.json#/hud — the same keys, with the
+                // same meaning, on every hud mod.
+                "scale", number(0.25, 4, 1),
+                "opacity", number(0, 1, 1),
+                "background", enumOf("none", "none", "subtle", "solid"),
+                "border", bool(false),
+                "padding", enumOf("normal", "tight", "normal", "roomy"),
+                // Digits after the decimal point. Two is the precision the measurement actually
+                // has; one reads faster, and none is the whole-block figure.
+                "decimals", integer(0, 2, 2),
+                // Which figure is drawn: the last landed hit, or the mean of the last ten.
+                "mode", enumOf("last", "last", "average"),
+                // Whether the figure is followed by its unit, `blocks`.
+                "show_label", bool(true),
+                // Hide the chip this long after the last landed hit; 0 keeps it on screen. A
+                // reach figure is only interesting while you are trading hits.
+                "hide_after_ms", integer(0, 30000, 0));
+
+        // --- Gameplay mods (14) — they mutate a client-side option -----------------------------
+
+        // Chat — kind gameplay, utility tab, §11 safe.
+        // Timestamps, stacked repeats, click to copy and a longer history.
+        // Source: ChatHud: message add, line render and history cap; ChatScreen: mouse click.
+        mod("chat", Kind.GAMEPLAY, Category.UTILITY, "Chat",
+                // Whether the chat changes are enabled.
+                "on", bool(false),
+                // Whether each message is prefixed with the time it arrived, `[14:03]`, in grey.
+                "timestamps", bool(true),
+                // Whether a message identical to the one before it replaces it with a count,
+                // `(x3)`, instead of adding another line. Lobby spam and repeated server notices
+                // collapse to one line.
+                "stack_repeats", bool(true),
+                // Whether right-clicking a message in the open chat copies the whole message,
+                // without colour codes, to the clipboard.
+                "click_to_copy", bool(true),
+                // Opacity of the dark band behind chat lines, as a fraction of the line's own
+                // fade. 0.5 is vanilla; 0 draws text only.
+                "background_opacity", number(0, 1, 0.5),
+                // How many messages the chat keeps for scrolling back. Vanilla keeps 100.
+                "history_length", integer(100, 5000, 1000));
+
+        // --- The factory HUD layout (18) — where each widget starts ----------------------------
 
         // Where this mod's widget sits on a HUD nobody has touched — the layout of Figma frame
         // 244:1722, which is what a new loadout is seeded with and what the HUD editor's `Reset
@@ -1220,13 +1366,23 @@ public final class ModRegistry {
         // belong in the corner furthest from the crosshair, and the top-left column stays what it
         // is — the things you sweep while playing.
         place("stopwatch", "bottom-right", -25, -99);
+
+        // Potion counter: Directly above the Item counter (`-146`) in the 175 column, on the same
+        // 38 px rhythm: the hand-and-clicks corner reads, bottom to top, how fast the hand is
+        // going (CPS), what it is going through (Item counter) and how many heals are left.
+        place("potion_counter", "bottom-left", 175, -184);
+
+        // Reach display: Below Momentum (`293`) in the top-left column, 38 px down: the column
+        // already holds the two other numbers a fight produces, Combo and Momentum, and reach is
+        // read at the same moment as both.
+        place("reach", "top-left", 23, 331);
     }
 
     // =================================================================
     // END GENERATED DATA
     // =================================================================
 
-    /** The 29 mod ids, in registry order. */
+    /** The 32 mod ids, in registry order. */
     public static List<String> modIds() {
         return Collections.unmodifiableList(new java.util.ArrayList<String>(KINDS.keySet()));
     }

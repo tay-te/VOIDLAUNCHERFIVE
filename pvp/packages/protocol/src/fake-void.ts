@@ -25,8 +25,10 @@ import type {
   PotionEffect,
   ServerPayload,
   TickPayload,
+  ToastPayload,
 } from './generated/schema.js';
 import { getModDefaults, isModId } from './mods.js';
+import { decodeShareCode, encodeShareCode } from './share-code.js';
 import type {
   GlobalSettingValue,
   HudPlacement,
@@ -161,6 +163,15 @@ function clampSetting(key: string, value: ModSettingValue): ModSettingValue {
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
 
+/** `LiveState.MAX_LIBRARY`. */
+const MAX_LIBRARY = 128;
+
+/** `LiveState.cleanName`: trimmed, at most 48 code points, null when nothing is left. */
+function cleanName(name: string): string | null {
+  const trimmed = [...(name ?? '').trim()].slice(0, 48).join('').trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 /** The factory globals: every default `protocol.json#/definitions/global_settings` states. */
 export const FAKE_GLOBAL_SETTINGS: GlobalSettings = Object.freeze({
   menu_key: 'RSHIFT',
@@ -290,6 +301,8 @@ export interface FakeVoid extends VoidBridge {
    * this returns nothing where {@link FakeVoid.applyModSetting} returns the stored value.
    */
   emitModAction(id: ModId, action: string): void;
+  /** Push a `toast` the way Java does for something that happened with the menu closed. */
+  emitToast(toast: ToastPayload): void;
   /** The active loadout (a live reference; do not mutate). */
   getLoadout(): Loadout;
   /** The whole library. */
@@ -605,6 +618,30 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
     calls.push(envelope);
   }
 
+  function emitLibrary(): void {
+    emit({ e: 'loadouts', payload: library.map(structuredCloneish) });
+  }
+
+  /** `LiveState.uniqueId`: the name slugified as Rust's `LoadoutId::slugify`, then `-2`, `-3`… */
+  function uniqueId(name: string): LoadoutId {
+    let base = name
+      .split('')
+      .map((ch) => (/[A-Za-z0-9]/.test(ch) ? ch.toLowerCase() : '-'))
+      .join('')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 48)
+      .replace(/-$/, '');
+    if (base === '') base = 'loadout';
+    const taken = new Set(library.map((l) => l.id));
+    if (!taken.has(base)) return base;
+    for (let n = 2; ; n++) {
+      const suffix = `-${n}`;
+      const stem = base.length + suffix.length > 48 ? base.slice(0, 48 - suffix.length).replace(/-+$/, '') : base;
+      if (!taken.has(stem + suffix)) return stem + suffix;
+    }
+  }
+
   function settingsFor(id: Parameters<typeof getModDefaults>[0]): Record<string, unknown> {
     const mods = active.mods as Record<string, Record<string, unknown> | undefined>;
     let state = mods[id];
@@ -707,6 +744,88 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       record({ c: 'closeMenu', params: [] });
       if (menuOpen) emit({ e: 'menu', payload: false });
       return null;
+    },
+
+    // ---- the library: the same rules as `LiveState`, so the harness teaches the real thing.
+
+    createLoadout(name) {
+      record({ c: 'createLoadout', params: [name] });
+      const clean = cleanName(name);
+      if (clean === null || library.length >= MAX_LIBRARY) return null;
+      const created: Loadout = {
+        id: uniqueId(clean),
+        name: clean,
+        icon: 'sword',
+        server: null,
+        mc: '1.8.9',
+        mods: {},
+        hud: structuredCloneish(active.hud),
+      };
+      library.push(created);
+      emitLibrary();
+      return structuredCloneish(created);
+    },
+
+    renameLoadout(id, name) {
+      record({ c: 'renameLoadout', params: [id, name] });
+      const clean = cleanName(name);
+      const target = library.find((l) => l.id === id);
+      if (clean === null || !target) return null;
+      target.name = clean;
+      emitLibrary();
+      if (target === active) emit({ e: 'loadout', payload: structuredCloneish(active) });
+      return clean;
+    },
+
+    duplicateLoadout(id) {
+      record({ c: 'duplicateLoadout', params: [id] });
+      const source = library.find((l) => l.id === id);
+      if (!source || library.length >= MAX_LIBRARY) return null;
+      const name = `${[...source.name].slice(0, 43).join('').trim()} copy`;
+      const copy: Loadout = { ...structuredCloneish(source), id: uniqueId(name), name };
+      delete copy.stats;
+      library.push(copy);
+      emitLibrary();
+      return structuredCloneish(copy);
+    },
+
+    deleteLoadout(id) {
+      record({ c: 'deleteLoadout', params: [id] });
+      const at = library.findIndex((l) => l.id === id);
+      if (at < 0 || library.length <= 1) return false;
+      const wasActive = library[at] === active;
+      library.splice(at, 1);
+      if (wasActive) active = library[0] as Loadout;
+      emitLibrary();
+      if (wasActive) emit({ e: 'loadout', payload: structuredCloneish(active) });
+      return true;
+    },
+
+    exportLoadout(id) {
+      record({ c: 'exportLoadout', params: [id] });
+      const found = library.find((l) => l.id === id);
+      return found ? encodeShareCode(found) : null;
+    },
+
+    importLoadout(code) {
+      record({ c: 'importLoadout', params: [code] });
+      const decoded = decodeShareCode(code);
+      if (!decoded.ok) return { ok: false, error: decoded.error };
+      if (library.length >= MAX_LIBRARY) return { ok: false, error: 'full' };
+      const imported: Loadout = { ...decoded.loadout, id: uniqueId(decoded.loadout.name) };
+      library.push(imported);
+      emitLibrary();
+      return { ok: true, loadout: structuredCloneish(imported), dropped: decoded.dropped };
+    },
+
+    setQuickPins(ids) {
+      record({ c: 'setQuickPins', params: [ids] });
+      const stored: ModId[] = [];
+      for (const id of ids) {
+        if (isModId(id) && !stored.includes(id) && stored.length < 8) stored.push(id);
+      }
+      active.quick = stored;
+      return [...stored];
     },
 
     setSurfaces(surfaces) {
@@ -819,6 +938,10 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       return applied;
     },
 
+    emitToast(toast) {
+      emit({ e: 'toast', payload: { ...toast } });
+    },
+
     emitModAction(id, action) {
       // Java's half of this is one more row in `VoidClient.toggleMod`'s table: sample the
       // code, edge it, and push a named action instead of writing a setting. Nothing is
@@ -873,6 +996,17 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
           if (event.repeat) return;
           event.preventDefault?.();
           bridge.setMenuOpen(!menuOpen);
+          return;
+        }
+        // The cycle key, with the menu closed — Java's `VoidClient.cycleLoadout`, toast and all.
+        if (event.code === 'KeyL' && !menuOpen && !event.repeat) {
+          const at = library.indexOf(active);
+          const next = library[(at + 1) % library.length] as Loadout;
+          if (next !== active) {
+            active = next;
+            emit({ e: 'loadout', payload: structuredCloneish(active) });
+            bridge.emitToast({ kind: 'loadout', title: active.name, detail: 'Loadout switched' });
+          }
         }
       };
 

@@ -32,7 +32,9 @@
     "show_cps": false,
     "corner_radius": 8,
     "key_color": "shell",
-    "pressed_color": "accent"
+    "pressed_color": "accent",
+    "animate": true,
+    "fade_ms": 120
   },
   "settings": {
     "keybind": {
@@ -76,6 +78,18 @@
       "description": "Fill of a pressed key tile, as one of the five named swatches the Mod settings frame offers. `accent` follows the loadout accent, which is the frame's default.",
       "$ref": "#/definitions/pressed_swatch",
       "default": "accent"
+    },
+    "animate": {
+      "description": "Whether keys ease between the resting and pressed treatment instead of switching on the frame. The press itself is always immediate; this only shapes the release.",
+      "type": "boolean",
+      "default": true
+    },
+    "fade_ms": {
+      "description": "How long a released key takes to fade back to rest, in milliseconds, when `animate` is on. Long fades read as a trail of recent presses; short ones as a crisp tap.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 500,
+      "default": 120
     }
   }
 }

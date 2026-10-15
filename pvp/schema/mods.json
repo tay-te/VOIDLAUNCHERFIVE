@@ -19,7 +19,7 @@
     },
     "mods": {
       "title": "Mods",
-      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 29 keys are required and no others are permitted.",
+      "description": "Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 32 keys are required and no others are permitted.",
       "type": "object",
       "required": [
         "fps",
@@ -50,7 +50,10 @@
         "hit_color",
         "damage_tint",
         "old_animations",
-        "old_input"
+        "old_input",
+        "potion_counter",
+        "reach",
+        "chat"
       ],
       "additionalProperties": false,
       "properties": {
@@ -169,6 +172,18 @@
         "old_input": {
           "description": "Old input registry entry.",
           "$ref": "#/definitions/old_input_entry"
+        },
+        "potion_counter": {
+          "description": "Potion counter registry entry.",
+          "$ref": "#/definitions/potion_counter_entry"
+        },
+        "reach": {
+          "description": "Reach display registry entry.",
+          "$ref": "#/definitions/reach_entry"
+        },
+        "chat": {
+          "description": "Chat registry entry.",
+          "$ref": "#/definitions/chat_entry"
         }
       }
     }
@@ -176,7 +191,7 @@
   "definitions": {
     "mod_id": {
       "title": "Mod id",
-      "description": "Closed enum of the 29 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
+      "description": "Closed enum of the 32 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.",
       "type": "string",
       "enum": [
         "fps",
@@ -207,12 +222,15 @@
         "hit_color",
         "damage_tint",
         "old_animations",
-        "old_input"
+        "old_input",
+        "potion_counter",
+        "reach",
+        "chat"
       ]
     },
     "hud_mod_id": {
       "title": "HUD mod id",
-      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the 16 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
+      "description": "The subset of mod ids whose `kind` is `hud`, i.e. the 18 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.",
       "type": "string",
       "enum": [
         "fps",
@@ -230,7 +248,9 @@
         "memory",
         "server_address",
         "item_counter",
-        "stopwatch"
+        "stopwatch",
+        "potion_counter",
+        "reach"
       ]
     },
     "gameplay_mod_id": {
@@ -250,7 +270,8 @@
         "hit_color",
         "damage_tint",
         "old_animations",
-        "old_input"
+        "old_input",
+        "chat"
       ]
     },
     "kind": {
@@ -599,6 +620,18 @@
           "description": "Fill of a pressed key tile, as one of the five named swatches the Mod settings frame offers. `accent` follows the loadout accent, which is the frame's default.",
           "$ref": "#/definitions/pressed_swatch",
           "default": "accent"
+        },
+        "animate": {
+          "description": "Whether keys ease between the resting and pressed treatment instead of switching on the frame. The press itself is always immediate; this only shapes the release.",
+          "type": "boolean",
+          "default": true
+        },
+        "fade_ms": {
+          "description": "How long a released key takes to fade back to rest, in milliseconds, when `animate` is on. Long fades read as a trail of recent presses; short ones as a crisp tap.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500,
+          "default": 120
         }
       }
     },
@@ -674,6 +707,11 @@
           "description": "Whether the highest rate seen this session is drawn as a trailing aside. `window_ms` already averages, so the live figure answers \"how fast am I clicking\"; this answers \"how fast can I\", which is the number worth comparing against and the one the live figure never sits still long enough to show.",
           "type": "boolean",
           "default": false
+        },
+        "ignore_cancelled": {
+          "description": "Whether only clicks the game acted on are counted. A left click swallowed by 1.8's miss delay, or made while a screen was open, is a press of the button but not a swing, and with this on it does not count. Left button only; right clicks are always counted as pressed. Fed by `hits.swings` on the tick payload rather than by the mouse edge, so a counted click is one `doAttack` ran for.",
+          "type": "boolean",
+          "default": false
         }
       }
     },
@@ -746,6 +784,37 @@
           "description": "Whether the shortened server name is drawn after the figure. A player who only ever plays one server is being told something they already know, on the chip they look at most often.",
           "type": "boolean",
           "default": true
+        },
+        "show_average": {
+          "description": "Whether the rolling average of the last `window` readings is drawn as a trailing aside, `avg 54`.",
+          "type": "boolean",
+          "default": false
+        },
+        "show_jitter": {
+          "description": "Whether jitter is drawn as a trailing aside, `±7`: the mean change between consecutive readings over the last `window`. A steady 90 ms plays better than a 40 ms that swings by 30, and only this figure tells the two apart.",
+          "type": "boolean",
+          "default": false
+        },
+        "jitter_warn_ms": {
+          "description": "Jitter at or above this many milliseconds draws in the warn treatment. 0 disables the warning.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500,
+          "default": 20
+        },
+        "spike_ms": {
+          "description": "A reading this many milliseconds above the rolling average counts as a spike and briefly marks the chip. 0 disables spike detection.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 80
+        },
+        "window": {
+          "description": "How many readings the average, the jitter and the spike baseline are taken over. The server sends a new latency every few seconds, so 10 readings is roughly the last half minute.",
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 60,
+          "default": 10
         }
       }
     },
@@ -956,6 +1025,20 @@
           "description": "Whether to omit ambient effects such as a beacon aura from the list.",
           "type": "boolean",
           "default": false
+        },
+        "hidden_effects": {
+          "description": "Effects never listed, as a bit mask over vanilla's status effect ids: bit 1 is Speed, bit 16 Night Vision, up to bit 23 Saturation. Set from the settings page's effect chips rather than by hand. 0 lists everything.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16777215,
+          "default": 0
+        },
+        "blink_below_s": {
+          "description": "An effect with this many seconds or fewer left blinks, once a second, on the tick that redraws its timer. 0 disables blinking.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30,
+          "default": 5
         }
       }
     },
@@ -1109,6 +1192,21 @@
           "description": "Key that toggles the mod in game, captured through `void.openKeybindCapture('hitboxes')`. Boxes are worth having for one fight and not the next, which is a decision made mid-match rather than in a menu.",
           "$ref": "#/definitions/keybind",
           "default": "NONE"
+        },
+        "state_colors": {
+          "description": "Whether a box changes colour with what you can do to its entity: `damaged_color` while it is in its hurt animation, `hittable_color` while your crosshair is on it within attack range, and `color` otherwise.",
+          "type": "boolean",
+          "default": false
+        },
+        "hittable_color": {
+          "description": "Box colour for the entity your crosshair is on, when `state_colors` is on.",
+          "$ref": "#/definitions/hex_color",
+          "default": "#2FB8A6FF"
+        },
+        "damaged_color": {
+          "description": "Box colour for an entity in its hurt animation, when `state_colors` is on. Takes precedence over `hittable_color`.",
+          "$ref": "#/definitions/hex_color",
+          "default": "#FF5A5AFF"
         }
       }
     },
@@ -1146,6 +1244,16 @@
           "description": "Whether smooth-camera mouse damping is applied while zoomed.",
           "type": "boolean",
           "default": false
+        },
+        "scroll_adjust": {
+          "description": "Whether the mouse wheel changes the zoom while the key is held, between 1.1x and 10x in multiplicative steps. The hotbar does not scroll while this is in use, and the level goes back to `fov_divisor` on release. Eased when `smooth` is on.",
+          "type": "boolean",
+          "default": true
+        },
+        "scale_sensitivity": {
+          "description": "Whether mouse sensitivity is scaled down with the zoom, so a flick moves the crosshair across the same share of the screen zoomed as unzoomed. Off is vanilla: at 4x every mouse movement turns the view four times as far across what you can see.",
+          "type": "boolean",
+          "default": true
         }
       }
     },
@@ -1610,7 +1718,7 @@
     },
     "item_counter_settings": {
       "title": "Item counter settings",
-      "description": "Settings for the Item counter HUD mod. Reads `held_count` off the tick payload, which is the stack size of the **held** item and nothing else.\n\nBe clear about the scope, because the name is borrowed from mods that do more: Lunar's and Badlion's item counters track a *chosen* item across the whole inventory — tell it pearls, and it counts your pearls whether or not they are in your hand. This one counts the hand, because `held_count` is the sensor that exists. It answers \"how many blocks are left\" while you are bridging with them and \"how many gapples\" while you are holding one; it does not answer \"how many pearls do I have\" while you are holding a sword. An inventory-wide counter needs a slot-scanning sensor and a way to pick the item it watches, and neither exists yet; when they do, that is a superset of this mod rather than a rewrite of it.\n\nThe stack size is value-checked at the sensor rather than rate-limited: it changes on use, not on a clock, so every push is news.",
+      "description": "Settings for the Item counter HUD mod. `track` picks what is counted. `held_stack` is the stack in the hand (`held_count` on the tick payload) and is the default, because it is what the chip has always shown. Every other value reads `counts`, the inventory-wide sensor: `held_total` adds up every stack in the inventory that matches the held item (same item, same variant, so white wool is not red wool), and the named items count that item wherever it is, whether or not it is in your hand. That last group is the Lunar and Badlion meaning of an item counter: tell it pearls and it counts your pearls while you hold a sword.\n\nThe counts are value-checked at the sensor rather than rate-limited: they change on use and pickup, not on a clock, so every push is news.",
       "type": "object",
       "required": [
         "on"
@@ -1665,6 +1773,28 @@
           "minimum": 0,
           "maximum": 64,
           "default": 0
+        },
+        "track": {
+          "description": "What the chip counts. `held_stack` is the stack in your hand; `held_total` is every stack in the inventory matching the held item; the rest count that item across the whole inventory whatever you are holding. `wool` is every colour together. Healing potions and soup are the Potion counter's.",
+          "type": "string",
+          "enum": [
+            "held_stack",
+            "held_total",
+            "ender_pearl",
+            "golden_apple",
+            "arrow",
+            "snowball",
+            "egg",
+            "cobweb",
+            "wool",
+            "tnt",
+            "fire_charge",
+            "iron_ingot",
+            "gold_ingot",
+            "diamond",
+            "emerald"
+          ],
+          "default": "held_stack"
         }
       }
     },
@@ -2019,6 +2149,196 @@
           "description": "Whether the half-second dead time after a whiffed click is removed. On a click that hits nothing, 1.8.9's `doAttack` reaches `hasLimitedAttackSpeed()` and sets `attackCooldown = 10`, and for those ten ticks every click returns at the top of the method — a whiff costs you the next half second of clicking, and in survival only. 1.7.10's switch has no MISS entry and falls through to `return`, so a whiff cost nothing. **This is the setting the withdrawn draft got wrong**, and the correction is worth keeping: that draft called it `always_swing` and said 1.8 only swings when a click connects. It does not. Both versions call `swingHand()` unconditionally at offset 12, before the hit result is even read, so the arm swings on a miss in 1.8 exactly as it does in 1.7. The only difference was ever this cooldown. Turning this on restores 1.7's click cadence and, because a click that is not swallowed is a click that sends `HandSwingC2SPacket`, raises outbound swing volume on whiffs in proportion to CPS — which is what classes this mod `grey`, and is the reason the purely local, packetless version of this lives in `old_animations.swing_during_delay` instead. Off by default. Scope it to the MISS branch: 1.7 still set the same cooldown on a null hit result and on a BLOCK hit that resolved to air, so suppressing the field outright goes past 1.7 rather than back to it.",
           "type": "boolean",
           "default": false
+        }
+      }
+    },
+    "potion_counter_settings": {
+      "title": "Potion counter settings",
+      "description": "Settings for the Potion counter HUD mod. Reads `counts` on the tick payload, the same inventory-wide sensor the Item counter's named items use: `health_potion` is every splash potion of Healing (I and II) in the inventory and `soup` is every bowl of mushroom stew. A separate mod rather than two more `item_counter.track` values because the two are read at different moments: the item counter answers what you are building or throwing with, and this answers how many heals are left, which is the one number a pot or soup fight is decided by and the one worth a chip of its own.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the potion counter is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "scale": {
+          "description": "Size multiplier of the potion chip.",
+          "$ref": "#/definitions/scale"
+        },
+        "opacity": {
+          "description": "Alpha of the potion chip.",
+          "$ref": "#/definitions/opacity"
+        },
+        "background": {
+          "description": "Ground drawn behind the potion chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.",
+          "type": "string",
+          "enum": [
+            "none",
+            "subtle",
+            "solid"
+          ],
+          "default": "none"
+        },
+        "border": {
+          "description": "Whether a hairline is drawn around the potion chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+          "type": "boolean",
+          "default": false
+        },
+        "padding": {
+          "description": "Density of the potion chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "type": "string",
+          "enum": [
+            "tight",
+            "normal",
+            "roomy"
+          ],
+          "default": "normal"
+        },
+        "track": {
+          "description": "What is counted: splash potions of Healing, bowls of mushroom stew, or both side by side.",
+          "type": "string",
+          "enum": [
+            "health_potion",
+            "soup",
+            "both"
+          ],
+          "default": "health_potion"
+        },
+        "show_label": {
+          "description": "Whether the count is followed by its unit, `pots` or `soup`. With `both` the units are what tell the two figures apart, so they are always drawn there.",
+          "type": "boolean",
+          "default": true
+        },
+        "low_threshold": {
+          "description": "A count at or below this many draws in the warn treatment. Unlike the Item counter this has a non-zero default, because what is in the slot is known: three heals is low in every pot and soup mode. 0 disables the warning.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64,
+          "default": 3
+        }
+      }
+    },
+    "reach_settings": {
+      "title": "Reach display settings",
+      "description": "Settings for the Reach display HUD mod. Reads `reach` on the tick payload. The figure is measured on the client at the moment the attack is sent: from your eye position, interpolated to the frame the crosshair ray was cast on, to the exact point where that ray met the target's hitbox. That is the distance the game itself used to decide the hit, not an entity-centre distance (which reads about 0.3 blocks long) and not the server's view (which it never tells the client). Only attacks the hit counter counts as landed are measured, so a swing at air never moves the number.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the reach display is enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "scale": {
+          "description": "Size multiplier of the reach chip.",
+          "$ref": "#/definitions/scale"
+        },
+        "opacity": {
+          "description": "Alpha of the reach chip.",
+          "$ref": "#/definitions/opacity"
+        },
+        "background": {
+          "description": "Ground drawn behind the reach chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.",
+          "type": "string",
+          "enum": [
+            "none",
+            "subtle",
+            "solid"
+          ],
+          "default": "none"
+        },
+        "border": {
+          "description": "Whether a hairline is drawn around the reach chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.",
+          "type": "boolean",
+          "default": false
+        },
+        "padding": {
+          "description": "Density of the reach chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.",
+          "type": "string",
+          "enum": [
+            "tight",
+            "normal",
+            "roomy"
+          ],
+          "default": "normal"
+        },
+        "decimals": {
+          "description": "Digits after the decimal point. Two is the precision the measurement actually has; one reads faster, and none is the whole-block figure.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "default": 2
+        },
+        "mode": {
+          "description": "Which figure is drawn: the last landed hit, or the mean of the last ten.",
+          "type": "string",
+          "enum": [
+            "last",
+            "average"
+          ],
+          "default": "last"
+        },
+        "show_label": {
+          "description": "Whether the figure is followed by its unit, `blocks`.",
+          "type": "boolean",
+          "default": true
+        },
+        "hide_after_ms": {
+          "description": "Hide the chip this long after the last landed hit; 0 keeps it on screen. A reach figure is only interesting while you are trading hits.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000,
+          "default": 0
+        }
+      }
+    },
+    "chat_settings": {
+      "title": "Chat settings",
+      "description": "Settings for the Chat gameplay mod. Every setting changes how vanilla's own chat (`ChatHud`) stores and draws messages on this client; nothing is sent, and no message anyone else sees is altered. With the mod off the chat is vanilla, byte for byte.",
+      "type": "object",
+      "required": [
+        "on"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "on": {
+          "description": "Whether the chat changes are enabled.",
+          "$ref": "#/definitions/on"
+        },
+        "timestamps": {
+          "description": "Whether each message is prefixed with the time it arrived, `[14:03]`, in grey.",
+          "type": "boolean",
+          "default": true
+        },
+        "stack_repeats": {
+          "description": "Whether a message identical to the one before it replaces it with a count, `(x3)`, instead of adding another line. Lobby spam and repeated server notices collapse to one line.",
+          "type": "boolean",
+          "default": true
+        },
+        "click_to_copy": {
+          "description": "Whether right-clicking a message in the open chat copies the whole message, without colour codes, to the clipboard.",
+          "type": "boolean",
+          "default": true
+        },
+        "background_opacity": {
+          "description": "Opacity of the dark band behind chat lines, as a fraction of the line's own fade. 0.5 is vanilla; 0 draws text only.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5
+        },
+        "history_length": {
+          "description": "How many messages the chat keeps for scrolling back. Vanilla keeps 100.",
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000,
+          "default": 1000
         }
       }
     },
@@ -3290,11 +3610,144 @@
           }
         }
       ]
+    },
+    "potion_counter_entry": {
+      "title": "Potion counter entry",
+      "description": "Registry entry for the Potion counter, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `potion_counter`.",
+              "const": "potion_counter"
+            },
+            "icon": {
+              "description": "Always `heart`.",
+              "const": "heart"
+            },
+            "kind": {
+              "description": "Always `hud`.",
+              "const": "hud"
+            },
+            "category": {
+              "description": "Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).",
+              "const": "pvp"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Potion counter settings.",
+              "$ref": "#/definitions/potion_counter_settings"
+            },
+            "default_placement": {
+              "$comment": "Directly above the Item counter (`-146`) in the 175 column, on the same 38 px rhythm: the hand-and-clicks corner reads, bottom to top, how fast the hand is going (CPS), what it is going through (Item counter) and how many heals are left.",
+              "description": "Where the Potion counter starts on an untouched HUD. Required, because the Potion counter is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
+            }
+          },
+          "required": [
+            "default_placement"
+          ]
+        }
+      ]
+    },
+    "reach_entry": {
+      "title": "Reach display entry",
+      "description": "Registry entry for the Reach display, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `reach`.",
+              "const": "reach"
+            },
+            "icon": {
+              "description": "Always `sword`.",
+              "const": "sword"
+            },
+            "kind": {
+              "description": "Always `hud`.",
+              "const": "hud"
+            },
+            "category": {
+              "description": "Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).",
+              "const": "pvp"
+            },
+            "hypixel_safe": {
+              "description": "Always `grey` (§11).",
+              "const": "grey"
+            },
+            "defaults": {
+              "description": "Factory Reach display settings.",
+              "$ref": "#/definitions/reach_settings"
+            },
+            "default_placement": {
+              "$comment": "Below Momentum (`293`) in the top-left column, 38 px down: the column already holds the two other numbers a fight produces, Combo and Momentum, and reach is read at the same moment as both.",
+              "description": "Where the Reach display starts on an untouched HUD. Required, because the Reach display is `kind: hud`.",
+              "$ref": "#/definitions/hud_placement"
+            }
+          },
+          "required": [
+            "default_placement"
+          ]
+        }
+      ]
+    },
+    "chat_entry": {
+      "title": "Chat entry",
+      "description": "Registry entry for Chat, narrowed to its constant classification.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/mod_entry"
+        },
+        {
+          "properties": {
+            "id": {
+              "description": "Always `chat`.",
+              "const": "chat"
+            },
+            "icon": {
+              "description": "Always `users`.",
+              "const": "users"
+            },
+            "kind": {
+              "description": "Always `gameplay`.",
+              "const": "gameplay"
+            },
+            "category": {
+              "description": "Always `utility`; the Mods panel tabs it under Utility (frame 244:538).",
+              "const": "utility"
+            },
+            "hypixel_safe": {
+              "description": "Always `safe` (§11).",
+              "const": "safe"
+            },
+            "defaults": {
+              "description": "Factory Chat settings.",
+              "$ref": "#/definitions/chat_settings"
+            }
+          },
+          "not": {
+            "$comment": "Chat is `kind: gameplay`: it draws nothing, so it has nowhere to be placed.",
+            "required": [
+              "default_placement"
+            ]
+          }
+        }
+      ]
     }
   },
   "examples": [
     {
-      "version": 10,
+      "version": 11,
       "mods": {
         "fps": {
           "id": "fps",
@@ -3345,7 +3798,9 @@
             "show_cps": false,
             "corner_radius": 8,
             "key_color": "shell",
-            "pressed_color": "accent"
+            "pressed_color": "accent",
+            "animate": true,
+            "fade_ms": 120
           },
           "default_placement": {
             "anchor": "bottom-left",
@@ -3372,7 +3827,8 @@
             "mode": "left",
             "show_label": true,
             "window_ms": 1000,
-            "show_peak": false
+            "show_peak": false,
+            "ignore_cancelled": false
           },
           "default_placement": {
             "anchor": "bottom-left",
@@ -3399,7 +3855,12 @@
             "show_label": true,
             "good_ms": 60,
             "bad_ms": 150,
-            "show_host": true
+            "show_host": true,
+            "show_average": false,
+            "show_jitter": false,
+            "jitter_warn_ms": 20,
+            "spike_ms": 80,
+            "window": 10
           },
           "default_placement": {
             "anchor": "top-left",
@@ -3479,7 +3940,9 @@
             "padding": "normal",
             "show_duration": true,
             "show_amplifier": true,
-            "hide_ambient": false
+            "hide_ambient": false,
+            "hidden_effects": 0,
+            "blink_below_s": 5
           },
           "default_placement": {
             "anchor": "top-right",
@@ -3556,7 +4019,10 @@
             "show_eye_line": false,
             "eye_line_color": "#7ADFFFFF",
             "max_distance": 64,
-            "keybind": "NONE"
+            "keybind": "NONE",
+            "state_colors": false,
+            "hittable_color": "#2FB8A6FF",
+            "damaged_color": "#FF5A5AFF"
           }
         },
         "zoom": {
@@ -3566,14 +4032,16 @@
           "hypixel_safe": "safe",
           "label": "Zoom",
           "icon": "zoom",
-          "description": "Narrows FOV while the zoom key is held.",
+          "description": "Narrows FOV while the zoom key is held; the mouse wheel adjusts it.",
           "source": "FOV override while key held",
           "defaults": {
             "on": true,
             "key": "C",
             "fov_divisor": 4,
             "smooth": true,
-            "cinematic": false
+            "cinematic": false,
+            "scroll_adjust": true,
+            "scale_sensitivity": true
           }
         },
         "crosshair": {
@@ -3757,8 +4225,8 @@
           "hypixel_safe": "safe",
           "label": "Item counter",
           "icon": "box",
-          "description": "How many of the item in your hand you have left.",
-          "source": "`held_count` on the tick payload — the stack size of the held item",
+          "description": "How many of the item in your hand, or a chosen item, you have left.",
+          "source": "`held_count` and `counts` on the tick payload: the held stack, or an inventory-wide count",
           "defaults": {
             "on": false,
             "scale": 1,
@@ -3767,7 +4235,8 @@
             "border": false,
             "padding": "normal",
             "show_label": true,
-            "low_threshold": 0
+            "low_threshold": 0,
+            "track": "held_stack"
           },
           "default_placement": {
             "anchor": "bottom-left",
@@ -3929,6 +4398,77 @@
             "use_while_digging": false,
             "dig_while_using": false,
             "no_miss_delay": false
+          }
+        },
+        "potion_counter": {
+          "id": "potion_counter",
+          "kind": "hud",
+          "category": "pvp",
+          "hypixel_safe": "safe",
+          "label": "Potion counter",
+          "icon": "heart",
+          "description": "Healing potions or soup left in your inventory.",
+          "source": "`counts.health_potion` and `counts.soup` on the tick payload",
+          "defaults": {
+            "on": false,
+            "scale": 1,
+            "opacity": 1,
+            "background": "none",
+            "border": false,
+            "padding": "normal",
+            "track": "health_potion",
+            "show_label": true,
+            "low_threshold": 3
+          },
+          "default_placement": {
+            "anchor": "bottom-left",
+            "dx": 175,
+            "dy": -184
+          }
+        },
+        "reach": {
+          "id": "reach",
+          "kind": "hud",
+          "category": "pvp",
+          "hypixel_safe": "grey",
+          "label": "Reach display",
+          "icon": "sword",
+          "description": "How far away your last hit landed, in blocks.",
+          "source": "`reach` on the tick payload: eye-to-hit-point distance at the moment of each landed attack",
+          "defaults": {
+            "on": false,
+            "scale": 1,
+            "opacity": 1,
+            "background": "none",
+            "border": false,
+            "padding": "normal",
+            "decimals": 2,
+            "mode": "last",
+            "show_label": true,
+            "hide_after_ms": 0
+          },
+          "default_placement": {
+            "anchor": "top-left",
+            "dx": 23,
+            "dy": 331
+          }
+        },
+        "chat": {
+          "id": "chat",
+          "kind": "gameplay",
+          "category": "utility",
+          "hypixel_safe": "safe",
+          "label": "Chat",
+          "icon": "users",
+          "description": "Timestamps, stacked repeats, click to copy and a longer history.",
+          "source": "ChatHud: message add, line render and history cap; ChatScreen: mouse click",
+          "defaults": {
+            "on": false,
+            "timestamps": true,
+            "stack_repeats": true,
+            "click_to_copy": true,
+            "background_opacity": 0.5,
+            "history_length": 1000
           }
         }
       }

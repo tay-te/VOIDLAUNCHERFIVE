@@ -22,7 +22,12 @@
     "show_label": true,
     "good_ms": 60,
     "bad_ms": 150,
-    "show_host": true
+    "show_host": true,
+    "show_average": false,
+    "show_jitter": false,
+    "jitter_warn_ms": 20,
+    "spike_ms": 80,
+    "window": 10
   },
   "settings": {
     "show_label": {
@@ -48,6 +53,37 @@
       "description": "Whether the shortened server name is drawn after the figure. A player who only ever plays one server is being told something they already know, on the chip they look at most often.",
       "type": "boolean",
       "default": true
+    },
+    "show_average": {
+      "description": "Whether the rolling average of the last `window` readings is drawn as a trailing aside, `avg 54`.",
+      "type": "boolean",
+      "default": false
+    },
+    "show_jitter": {
+      "description": "Whether jitter is drawn as a trailing aside, `±7`: the mean change between consecutive readings over the last `window`. A steady 90 ms plays better than a 40 ms that swings by 30, and only this figure tells the two apart.",
+      "type": "boolean",
+      "default": false
+    },
+    "jitter_warn_ms": {
+      "description": "Jitter at or above this many milliseconds draws in the warn treatment. 0 disables the warning.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 500,
+      "default": 20
+    },
+    "spike_ms": {
+      "description": "A reading this many milliseconds above the rolling average counts as a spike and briefly marks the chip. 0 disables spike detection.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000,
+      "default": 80
+    },
+    "window": {
+      "description": "How many readings the average, the jitter and the spike baseline are taken over. The server sends a new latency every few seconds, so 10 readings is roughly the last half minute.",
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 60,
+      "default": 10
     }
   }
 }

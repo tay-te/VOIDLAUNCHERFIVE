@@ -18,6 +18,8 @@ import { HudWatermark } from './watermark';
 // `mods/art.tsx` states the principle: what one mod draws lives in that mod's own file.
 import { HudCombo } from './combo';
 import { HudItemCounter } from './item_counter';
+import { HudPotionCounter } from './potion_counter';
+import { HudReach } from './reach';
 import { HudMemory } from './memory';
 import { HudMomentum } from './momentum';
 import { HudSaturation } from './saturation';
@@ -53,6 +55,8 @@ const WIDGETS: Record<HUDModId, ComponentType<HudWidgetProps>> = {
   memory: HudMemory,
   server_address: HudServerAddress,
   item_counter: HudItemCounter,
+  potion_counter: HudPotionCounter,
+  reach: HudReach,
   stopwatch: HudStopwatch,
   // The thirteenth mod, and it goes in this table like any other because that is the whole
   // argument for making the watermark a mod rather than a flag (`watermark.tsx`).

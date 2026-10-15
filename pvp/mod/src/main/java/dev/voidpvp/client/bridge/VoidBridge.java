@@ -74,6 +74,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * switchLoadout       LiveState.switchLoadout                            SHARED  inline, synchronized
  *                       library lookup, applyLoadoutInternal, LoadoutDiff SHARED  under the LiveState monitor
  *                       LiveState.loadoutJson -&gt; emit("loadout")         SHARED  synchronized read, queued push
+ * createLoadout,      LiveState.createLoadout / renameLoadout /          SHARED  inline, synchronized
+ *  renameLoadout,       duplicateLoadout / deleteLoadout / importLoadout
+ *  duplicateLoadout,    / setQuickPins; ShareCode (pure)
+ *  deleteLoadout,      Sink.loadoutSave / loadoutDelete -> VoidSocket   PAGE    both thread-safe
+ *  exportLoadout,      emit("loadouts"), and emit("loadout") when the     SHARED  queued push
+ *  importLoadout,       active loadout changed
+ *  setQuickPins
  * setSurfaces         readSurface (parse) -&gt; EffectSurface               PAGE    inline; immutable values
  *                       BridgeHost.setSurfaces -> VoidClient.surfaces    SHARED  inline; volatile publish
  * closeMenu           BridgeHost.closeMenu -> mc.setScreen(null)         GAME    QUEUED via post()
@@ -171,6 +178,17 @@ public final class VoidBridge {
      * frame.</p>
      */
     public static final String EVENT_MODACTION = "modaction";
+
+    /**
+     * A short notice for the player — the eleventh channel, {@code bridge.json}'s {@code toast}.
+     *
+     * <p>For things that happen with the menu closed, where nothing on screen would otherwise
+     * say so: the cycle key switched the loadout, the launcher switched it or changed the
+     * library, a mod's own key flipped it. Never for a change the page made itself — the page
+     * raises its own notice for those. <b>Not coalesced</b>, like {@link #EVENT_MODACTION}: two
+     * presses are two notices.</p>
+     */
+    public static final String EVENT_TOAST = "toast";
 
     /**
      * Most game-thread work to run in one drain.
@@ -305,7 +323,9 @@ public final class VoidBridge {
             if (p.size() < 1) {
                 return new JsonPrimitive(Boolean.FALSE);
             }
-            boolean switched = state.switchLoadout(p.get(0).getAsString());
+            // selectLoadout, not switchLoadout: a pick on the Loadouts screen also moves Rust's
+            // active pointer (`loadout_select`), which the cycle key does with its own `hotkey`.
+            boolean switched = state.selectLoadout(p.get(0).getAsString());
             if (switched) {
                 // bridge.json, `call_switchLoadout`: "A `loadout` event follows with the new
                 // loadout, so the caller does not need the returned object" — and
@@ -329,6 +349,10 @@ public final class VoidBridge {
                 emit(EVENT_LOADOUT, state.loadoutJson());
             }
             return new JsonPrimitive(Boolean.valueOf(switched));
+        }
+        JsonElement library = invokeLibrary(call, p);
+        if (library != null) {
+            return library;
         }
         if ("closeMenu".equals(call)) {
             // GAME. mc.setScreen(null) runs Screen.removed(), which frees the backdrop and shadow
@@ -381,6 +405,91 @@ public final class VoidBridge {
             return JsonNull.INSTANCE;
         }
         return JsonNull.INSTANCE;
+    }
+
+    /**
+     * The seven library calls of {@code bridge.json}. SHARED, inline: each is a synchronous write
+     * to {@link LiveState} under its monitor, answered with what was stored, then the library is
+     * re-pushed so every screen that lists it — the Loadouts cards, the palette — is current.
+     *
+     * @return the answer, or {@code null} when {@code call} is not a library call
+     */
+    private JsonElement invokeLibrary(String call, JsonArray p) {
+        if ("createLoadout".equals(call)) {
+            JsonObject created = p.size() < 1 || !p.get(0).isJsonPrimitive() ? null
+                    : state.createLoadout(p.get(0).getAsString());
+            if (created != null) {
+                emit(EVENT_LOADOUTS, state.libraryJson());
+            }
+            return created == null ? JsonNull.INSTANCE : created;
+        }
+        if ("renameLoadout".equals(call)) {
+            if (p.size() < 2 || !p.get(0).isJsonPrimitive() || !p.get(1).isJsonPrimitive()) {
+                return JsonNull.INSTANCE;
+            }
+            String id = p.get(0).getAsString();
+            String stored = state.renameLoadout(id, p.get(1).getAsString());
+            if (stored == null) {
+                return JsonNull.INSTANCE;
+            }
+            emit(EVENT_LOADOUTS, state.libraryJson());
+            if (id.equals(state.loadoutId())) {
+                emit(EVENT_LOADOUT, state.loadoutJson());
+            }
+            return new JsonPrimitive(stored);
+        }
+        if ("duplicateLoadout".equals(call)) {
+            JsonObject copy = p.size() < 1 || !p.get(0).isJsonPrimitive() ? null
+                    : state.duplicateLoadout(p.get(0).getAsString());
+            if (copy != null) {
+                emit(EVENT_LOADOUTS, state.libraryJson());
+            }
+            return copy == null ? JsonNull.INSTANCE : copy;
+        }
+        if ("deleteLoadout".equals(call)) {
+            if (p.size() < 1 || !p.get(0).isJsonPrimitive()) {
+                return new JsonPrimitive(Boolean.FALSE);
+            }
+            String before = state.loadoutId();
+            boolean deleted = state.deleteLoadout(p.get(0).getAsString());
+            if (deleted) {
+                emit(EVENT_LOADOUTS, state.libraryJson());
+                if (!before.equals(state.loadoutId())) {
+                    emit(EVENT_LOADOUT, state.loadoutJson());
+                }
+            }
+            return new JsonPrimitive(Boolean.valueOf(deleted));
+        }
+        if ("exportLoadout".equals(call)) {
+            String code = p.size() < 1 || !p.get(0).isJsonPrimitive() ? null
+                    : state.exportLoadout(p.get(0).getAsString());
+            return code == null ? JsonNull.INSTANCE : new JsonPrimitive(code);
+        }
+        if ("importLoadout".equals(call)) {
+            String code = p.size() < 1 || !p.get(0).isJsonPrimitive() ? ""
+                    : p.get(0).getAsString();
+            JsonObject result = state.importLoadout(code);
+            if (result.get("ok").getAsBoolean()) {
+                emit(EVENT_LOADOUTS, state.libraryJson());
+            }
+            return result;
+        }
+        if ("setQuickPins".equals(call)) {
+            java.util.List<String> ids = new java.util.ArrayList<String>();
+            if (p.size() > 0 && p.get(0).isJsonArray()) {
+                for (JsonElement e : p.get(0).getAsJsonArray()) {
+                    if (e.isJsonPrimitive()) {
+                        ids.add(e.getAsString());
+                    }
+                }
+            }
+            JsonArray stored = new JsonArray();
+            for (String id : state.setQuickPins(ids)) {
+                stored.add(new JsonPrimitive(id));
+            }
+            return stored;
+        }
+        return null;
     }
 
     // -----------------------------------------------------------------
@@ -739,5 +848,39 @@ public final class VoidBridge {
         payload.addProperty("mod", modId);
         payload.addProperty("action", action);
         emit(EVENT_MODACTION, payload);
+    }
+
+    /** The {@code toast_payload} kinds. */
+    public static final String TOAST_LOADOUT = "loadout";
+    public static final String TOAST_MOD = "mod";
+    public static final String TOAST_INFO = "info";
+
+    /**
+     * Queues one {@code toast}. {@code title} is cut to the schema's 64 characters and
+     * {@code detail} to 96; a blank title sends nothing.
+     *
+     * @param kind   {@link #TOAST_LOADOUT}, {@link #TOAST_MOD} or {@link #TOAST_INFO}
+     * @param detail optional second line, or null
+     * @param modId  for {@link #TOAST_MOD}, the mod; otherwise null
+     * @see #EVENT_TOAST
+     */
+    public void emitToast(String kind, String title, String detail, String modId) {
+        if (title == null || title.trim().isEmpty()) {
+            return;
+        }
+        JsonObject payload = new JsonObject();
+        payload.addProperty("kind", kind);
+        payload.addProperty("title", cut(title.trim(), 64));
+        if (detail != null && !detail.isEmpty()) {
+            payload.addProperty("detail", cut(detail, 96));
+        }
+        if (modId != null) {
+            payload.addProperty("mod", modId);
+        }
+        emit(EVENT_TOAST, payload);
+    }
+
+    private static String cut(String s, int max) {
+        return s.length() <= max ? s : s.substring(0, max);
     }
 }

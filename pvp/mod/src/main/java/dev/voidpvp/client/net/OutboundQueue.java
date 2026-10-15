@@ -33,6 +33,15 @@ public final class OutboundQueue {
             new LinkedHashMap<String, Map<String, JsonElement>>();
     private final Map<String, List<HudItem>> huds = new LinkedHashMap<String, List<HudItem>>();
     private final Map<String, JsonElement> globals = new LinkedHashMap<String, JsonElement>();
+    /**
+     * In-game library changes, one per loadout id, last write wins: a save then a delete of the
+     * same loadout is just the delete, a delete then a save (impossible today) just the save.
+     * Drained <em>first</em>, because a {@code state} patch for a loadout created while the link
+     * was down names an id Rust only learns from its {@code loadout_save}.
+     */
+    private final Map<String, JsonObject> library = new LinkedHashMap<String, JsonObject>();
+    /** The last in-game pick, if any; only the newest matters. */
+    private String selected;
     private JsonObject serverMessage;
 
     public synchronized void addState(String loadoutId, Map<String, JsonElement> patch) {
@@ -52,18 +61,36 @@ public final class OutboundQueue {
         globals.putAll(patch);
     }
 
+    public synchronized void addLoadoutSave(String id, JsonObject loadout) {
+        library.remove(id);
+        library.put(id, Protocol.loadoutSave(loadout));
+    }
+
+    public synchronized void addLoadoutDelete(String id) {
+        library.remove(id);
+        library.put(id, Protocol.loadoutDelete(id));
+    }
+
+    public synchronized void setSelected(String id) {
+        selected = id;
+    }
+
     /** Only the latest presence matters; the launcher wants current state. */
     public synchronized void setServer(JsonObject message) {
         serverMessage = message;
     }
 
     public synchronized boolean isEmpty() {
-        return patches.isEmpty() && huds.isEmpty() && globals.isEmpty() && serverMessage == null;
+        return patches.isEmpty() && huds.isEmpty() && globals.isEmpty() && serverMessage == null
+                && library.isEmpty() && selected == null;
     }
 
     /** Drains everything into the frames to send, in a stable order. */
     public synchronized List<JsonObject> drain() {
-        List<JsonObject> out = new ArrayList<JsonObject>();
+        List<JsonObject> out = new ArrayList<JsonObject>(library.values());
+        if (selected != null) {
+            out.add(Protocol.loadoutSelect(selected));
+        }
         for (Map.Entry<String, Map<String, JsonElement>> e : patches.entrySet()) {
             if (!e.getValue().isEmpty()) {
                 out.add(Protocol.state(e.getKey(), e.getValue()));
@@ -78,6 +105,8 @@ public final class OutboundQueue {
         if (serverMessage != null) {
             out.add(serverMessage);
         }
+        library.clear();
+        selected = null;
         patches.clear();
         huds.clear();
         globals.clear();

@@ -45,7 +45,7 @@ export type FPSDisplayEntry = RegistryEntry & {
   default_placement: FactoryHUDPlacement;
 };
 /**
- * Closed enum of the 29 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
+ * Closed enum of the 32 mods of §3, snake_case. Used as the key of `loadout.mods`, as the `id` argument of `void.setModSetting`, and as the id of a HUD item.
  */
 export type ModId =
   | 'fps'
@@ -76,7 +76,10 @@ export type ModId =
   | 'hit_color'
   | 'damage_tint'
   | 'old_animations'
-  | 'old_input';
+  | 'old_input'
+  | 'potion_counter'
+  | 'reach'
+  | 'chat';
 /**
  * Data direction of the mod, per §3. `hud` mods only read game state and draw; `gameplay` mods mutate a documented client-side option through an actuator Mixin.
  */
@@ -865,11 +868,91 @@ export type OldInputEntry = RegistryEntry & {
   defaults?: OldInputSettings;
 };
 /**
+ * Registry entry for the Potion counter, narrowed to its constant classification.
+ */
+export type PotionCounterEntry = RegistryEntry & {
+  /**
+   * Always `potion_counter`.
+   */
+  id?: 'potion_counter';
+  /**
+   * Always `heart`.
+   */
+  icon?: 'heart';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: PotionCounterSettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for the Reach display, narrowed to its constant classification.
+ */
+export type ReachDisplayEntry = RegistryEntry & {
+  /**
+   * Always `reach`.
+   */
+  id?: 'reach';
+  /**
+   * Always `sword`.
+   */
+  icon?: 'sword';
+  /**
+   * Always `hud`.
+   */
+  kind?: 'hud';
+  /**
+   * Always `pvp`; the Mods panel tabs it under PvP (frame 244:538).
+   */
+  category?: 'pvp';
+  /**
+   * Always `grey` (§11).
+   */
+  hypixel_safe?: 'grey';
+  defaults?: ReachDisplaySettings;
+  default_placement: FactoryHUDPlacement;
+};
+/**
+ * Registry entry for Chat, narrowed to its constant classification.
+ */
+export type ChatEntry = RegistryEntry & {
+  /**
+   * Always `chat`.
+   */
+  id?: 'chat';
+  /**
+   * Always `users`.
+   */
+  icon?: 'users';
+  /**
+   * Always `gameplay`.
+   */
+  kind?: 'gameplay';
+  /**
+   * Always `utility`; the Mods panel tabs it under Utility (frame 244:538).
+   */
+  category?: 'utility';
+  /**
+   * Always `safe` (§11).
+   */
+  hypixel_safe?: 'safe';
+  defaults?: ChatSettings;
+};
+/**
  * Lower-case slug: letters, digits and single hyphens, e.g. `sword-pvp`. Unique within a user's library.
  */
 export type LoadoutId = string;
 /**
- * The subset of mod ids whose `kind` is `hud`, i.e. the 16 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
+ * The subset of mod ids whose `kind` is `hud`, i.e. the 18 mods that own a draggable HUD item. A mod may only appear in `loadout.hud` if it is listed here.
  */
 export type HUDModId =
   | 'fps'
@@ -887,7 +970,9 @@ export type HUDModId =
   | 'memory'
   | 'server_address'
   | 'item_counter'
-  | 'stopwatch';
+  | 'stopwatch'
+  | 'potion_counter'
+  | 'reach';
 /**
  * The screen edge or corner a HUD item is pinned to. `dx`/`dy` are measured from that anchor, so the layout survives GUI-scale, resolution and fullscreen changes (§8.1).
  */
@@ -902,17 +987,23 @@ export type HUDAnchor =
   | 'bottom'
   | 'bottom-right';
 /**
- * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 16, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
+ * Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 18, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.
  *
- * @maxItems 16
+ * @maxItems 18
  */
 export type HUDLayout = HUDItem[];
+/**
+ * Up to eight distinct mod ids, in quick-panel order. An id this build does not know is dropped on read rather than refused, so a loadout pinned on a newer client still loads.
+ *
+ * @maxItems 8
+ */
+export type QuickPins = ModId[];
 /**
  * Every message on the localhost WebSocket between the Rust launcher (server, `void-bridge`) and the Java mod (client, `net/`), as specified in PVP_ARCHITECTURE.md §7. One JSON object per WS text frame, discriminated on `t`. The link carries state and telemetry summaries only, never per-frame data (§2): telemetry that is drawn never leaves the JVM. Forward compatibility rule of §7: a receiver ignores an unknown `t` and ignores unknown fields, which is why every message here sets additionalProperties true. `v` is the protocol version and is carried only on the two handshake messages, `hello` and `init`; a mismatch makes the launcher refuse to launch and prompt for an update, since mod and launcher ship together. Connection parameters reach the JVM as -Dvoid.port and -Dvoid.token (§6.9).
  */
 export type ProtocolMessage = JavaToRust | RustToJava;
 /**
- * The seven messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
+ * The ten messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
  */
 export type JavaToRust =
   | HelloJavaToRust
@@ -921,7 +1012,10 @@ export type JavaToRust =
   | GlobalsJavaToRust
   | SessionJavaToRust
   | ServerJavaToRust
-  | HotkeyJavaToRust;
+  | HotkeyJavaToRust
+  | LoadoutSaveJavaToRust
+  | LoadoutDeleteJavaToRust
+  | LoadoutSelectJavaToRust;
 /**
  * Version of this message set. Bumped on any breaking change. Carried on `hello` and `init` only; both sides compare and refuse to proceed on a mismatch (§7). **2** since `init.loadouts` changed from `loadout_summary` to whole loadouts: a v1 mod would read a v2 `init` without complaint, but a v2 mod against a v1 launcher would receive summaries, materialise every mod at its factory default, and silently apply the wrong loadout on a switch. That is exactly the mixed-halves case `v` exists to refuse.
  */
@@ -931,9 +1025,10 @@ export type ProtocolVersion = 2;
  */
 export type HotkeyId = 'loadout.next' | 'overlay';
 /**
- * The three messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.
+ * The four messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.
  */
-export type RustToJava = InitRustToJava | LoadoutRustToJava | SettingsRustToJava;
+export type RustToJava =
+  InitRustToJava | LoadoutRustToJava | SettingsRustToJava | LibraryRustToJava;
 /**
  * The single `window.void` object that joins the Java mod and the in-game React app, as specified in PVP_ARCHITECTURE.md §6.5. Java to JS is push, delivered through `void.on(event, handler)` and batched once per frame; JS to Java is a direct call. The bridge is in-process (Ultralight lives inside the JVM, §6.2), so calls are synchronous and return real applied state -- there is no ack, no optimistic UI and no request id. This file therefore does not describe a transport; it describes, per event, the shape of the payload handed to the handler, and per call, the positional `params` and the `returns` value. An instance of this schema is one enveloped event, call or call result, which is exactly the form the browser `?debug` harness of §9 records and replays against a fake window.void. Payloads are additionalProperties:false: unlike protocol.json this surface is not forward-compatible across versions, because the mod JAR embeds the UI bundle and the two always ship as one binary. The channel list below is the whole contract and both shims close over it: `on` returns a no-op subscription for a name it does not know and `__emit` drops an envelope whose channel has no list, so a channel Java pushes and this file does not declare is lost in total silence. That is how `session` went missing between Java and the page the first time, and why it is written down here now.
  */
@@ -951,7 +1046,8 @@ export type Event =
   | MenuEvent
   | SessionEvent
   | SettingsEvent
-  | ModactionEvent;
+  | ModactionEvent
+  | ToastEvent;
 /**
  * 0 released, 1 pressed.
  */
@@ -977,7 +1073,14 @@ export type Call =
   | CloseMenuCall
   | OpenKeybindCaptureCall
   | SetSurfacesCall
-  | SetGlobalCall;
+  | SetGlobalCall
+  | CreateLoadoutCall
+  | RenameLoadoutCall
+  | DuplicateLoadoutCall
+  | DeleteLoadoutCall
+  | ExportLoadoutCall
+  | ImportLoadoutCall
+  | SetQuickPinsCall;
 /**
  * [id, on].
  *
@@ -1001,7 +1104,8 @@ export type GameplayModId =
   | 'hit_color'
   | 'damage_tint'
   | 'old_animations'
-  | 'old_input';
+  | 'old_input'
+  | 'chat';
 /**
  * [id, { anchor, dx, dy, scale }].
  *
@@ -1068,6 +1172,55 @@ export type SetSurfacesParams = [EffectSurface[]];
  */
 export type SetGlobalParams = [string, boolean | number | string | null];
 /**
+ * [name].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type CreateLoadoutParams = [string];
+/**
+ * [id, name].
+ *
+ * @minItems 2
+ * @maxItems 2
+ */
+export type RenameLoadoutParams = [LoadoutId, string];
+/**
+ * [id].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type DuplicateLoadoutParams = [LoadoutId];
+/**
+ * [id].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type DeleteLoadoutParams = [LoadoutId];
+/**
+ * [id].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type ExportLoadoutParams = [LoadoutId];
+/**
+ * [code].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type ImportLoadoutParams = [string];
+/**
+ * [ids].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type SetQuickPinsParams = [ModId[]];
+/**
  * The value one JS to Java call returned, enveloped as {c, returns}. Every call except `openKeybindCapture` returns synchronously, because the bridge is in-process (§6.5).
  */
 export type CallResult =
@@ -1078,7 +1231,14 @@ export type CallResult =
   | CloseMenuResult
   | OpenKeybindCaptureResult
   | SetSurfacesResult
-  | SetGlobalResult;
+  | SetGlobalResult
+  | CreateLoadoutResult
+  | RenameLoadoutResult
+  | DuplicateLoadoutResult
+  | DeleteLoadoutResult
+  | ExportLoadoutResult
+  | ImportLoadoutResult
+  | SetQuickPinsResult;
 /**
  * The state actually applied. Normally equals the requested value; differs only if the mod refused the change.
  */
@@ -1107,6 +1267,51 @@ export type SetSurfacesReturns = number;
  * The value actually stored, after validation and clamping — `null` when the key is not one Java knows, or when the value cannot be made usable (a `menu_key` that is not a legal key name, say). Null therefore means *nothing was stored*, so a control that gets it should keep showing the value it had. Exactly `setModSetting_returns`, one level up.
  */
 export type SetGlobalReturns = boolean | number | string | null;
+/**
+ * The new loadout, or null when the name was empty or the library is full (128).
+ */
+export type CreateLoadoutReturns = Loadout | null;
+/**
+ * The name actually stored, after trimming, or null when the id is unknown or the name empty.
+ */
+export type RenameLoadoutReturns = string | null;
+/**
+ * The copy, or null when the id is unknown or the library is full.
+ */
+export type DuplicateLoadoutReturns = Loadout | null;
+/**
+ * True when the loadout was deleted; false when the id was unknown or it was the last one.
+ */
+export type DeleteLoadoutReturns = boolean;
+/**
+ * The share code, or null when the id is unknown.
+ */
+export type ExportLoadoutReturns = string | null;
+/**
+ * The answer of `importLoadout`.
+ */
+export type ImportResult =
+  | {
+      ok: true;
+      loadout: Loadout;
+      /**
+       * Settings, mods, HUD items and pins the code carried that this build could not use.
+       */
+      dropped: number;
+    }
+  | {
+      ok: false;
+      /**
+       * Why the code was refused: `empty` nothing was pasted; `format` it is not a share code or its data does not decode; `version` it was made by a newer format; `checksum` it was damaged in transit; `invalid` it decoded but carries no usable loadout; `full` the library already holds 128.
+       */
+      error: 'empty' | 'format' | 'version' | 'checksum' | 'invalid' | 'full';
+    };
+/**
+ * The pins actually stored.
+ *
+ * @maxItems 8
+ */
+export type SetQuickPinsReturns = ModId[];
 
 /**
  * The closed registry of every mod VOID ships — the 12 defined in PVP_ARCHITECTURE.md §3, the VOID watermark, and the readouts added since — together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
@@ -1116,7 +1321,7 @@ export interface ModRegistryDocument {
   mods: Mods;
 }
 /**
- * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 29 keys are required and no others are permitted.
+ * Every mod VOID ships, keyed by its snake_case mod id. Closed set: all 32 keys are required and no others are permitted.
  */
 export interface Mods {
   fps: FPSDisplayEntry;
@@ -1148,6 +1353,9 @@ export interface Mods {
   damage_tint: DamageTintEntry;
   old_animations: OldAnimationsEntry;
   old_input: OldInputEntry;
+  potion_counter: PotionCounterEntry;
+  reach: ReachDisplayEntry;
+  chat: ChatEntry;
 }
 /**
  * One row of the §3 table plus its §11 classification and factory defaults. Every key is listed here; the per-mod entry definitions narrow `id`, `kind`, `hypixel_safe` and `defaults` to constants, and require or forbid `default_placement` according to the mod's `kind`.
@@ -1276,6 +1484,14 @@ export interface KeystrokesSettings {
   corner_radius?: number;
   key_color?: KeyColourSwatch;
   pressed_color?: PressedColourSwatch;
+  /**
+   * Whether keys ease between the resting and pressed treatment instead of switching on the frame. The press itself is always immediate; this only shapes the release.
+   */
+  animate?: boolean;
+  /**
+   * How long a released key takes to fade back to rest, in milliseconds, when `animate` is on. Long fades read as a trail of recent presses; short ones as a crisp tap.
+   */
+  fade_ms?: number;
 }
 /**
  * Settings for the CPS counter HUD mod. Derived entirely in JS from mouse edges on the `keys` event (§3), so no Java sensor exists for it.
@@ -1312,6 +1528,10 @@ export interface CPSCounterSettings {
    * Whether the highest rate seen this session is drawn as a trailing aside. `window_ms` already averages, so the live figure answers "how fast am I clicking"; this answers "how fast can I", which is the number worth comparing against and the one the live figure never sits still long enough to show.
    */
   show_peak?: boolean;
+  /**
+   * Whether only clicks the game acted on are counted. A left click swallowed by 1.8's miss delay, or made while a screen was open, is a press of the button but not a swing, and with this on it does not count. Left button only; right clicks are always counted as pressed. Fed by `hits.swings` on the tick payload rather than by the mouse edge, so a counted click is one `doAttack` ran for.
+   */
+  ignore_cancelled?: boolean;
 }
 /**
  * Settings for the Ping display HUD mod. Reads the player's own `NetworkPlayerInfo.responseTime`.
@@ -1348,6 +1568,26 @@ export interface PingDisplaySettings {
    * Whether the shortened server name is drawn after the figure. A player who only ever plays one server is being told something they already know, on the chip they look at most often.
    */
   show_host?: boolean;
+  /**
+   * Whether the rolling average of the last `window` readings is drawn as a trailing aside, `avg 54`.
+   */
+  show_average?: boolean;
+  /**
+   * Whether jitter is drawn as a trailing aside, `±7`: the mean change between consecutive readings over the last `window`. A steady 90 ms plays better than a 40 ms that swings by 30, and only this figure tells the two apart.
+   */
+  show_jitter?: boolean;
+  /**
+   * Jitter at or above this many milliseconds draws in the warn treatment. 0 disables the warning.
+   */
+  jitter_warn_ms?: number;
+  /**
+   * A reading this many milliseconds above the rolling average counts as a spike and briefly marks the chip. 0 disables spike detection.
+   */
+  spike_ms?: number;
+  /**
+   * How many readings the average, the jitter and the spike baseline are taken over. The server sends a new latency every few seconds, so 10 readings is roughly the last half minute.
+   */
+  window?: number;
 }
 /**
  * Settings for the Coordinates HUD mod. Reads `EntityPlayerSP` position and yaw once per tick.
@@ -1449,6 +1689,14 @@ export interface PotionEffectsSettings {
    * Whether to omit ambient effects such as a beacon aura from the list.
    */
   hide_ambient?: boolean;
+  /**
+   * Effects never listed, as a bit mask over vanilla's status effect ids: bit 1 is Speed, bit 16 Night Vision, up to bit 23 Saturation. Set from the settings page's effect chips rather than by hand. 0 lists everything.
+   */
+  hidden_effects?: number;
+  /**
+   * An effect with this many seconds or fewer left blinks, once a second, on the tick that redraws its timer. 0 disables blinking.
+   */
+  blink_below_s?: number;
 }
 /**
  * Settings for the VOID watermark HUD mod. It reads nothing from the game: the overlay draws the mark itself, which is why its `source` says so rather than naming a 1.8.9 field. Modelled on `fps_settings` and `crosshair_settings`, and deliberately without a `color`: `design/quiet-cell-system.md` §1 reserves colour for a live value or a selected item, and a watermark is neither.
@@ -1512,6 +1760,12 @@ export interface HitboxesSettings {
    */
   max_distance?: number;
   keybind?: Keybind;
+  /**
+   * Whether a box changes colour with what you can do to its entity: `damaged_color` while it is in its hurt animation, `hittable_color` while your crosshair is on it within attack range, and `color` otherwise.
+   */
+  state_colors?: boolean;
+  hittable_color?: Colour;
+  damaged_color?: Colour;
 }
 /**
  * Settings for the Zoom gameplay mod. Overrides FOV while `key` is held.
@@ -1531,6 +1785,14 @@ export interface ZoomSettings {
    * Whether smooth-camera mouse damping is applied while zoomed.
    */
   cinematic?: boolean;
+  /**
+   * Whether the mouse wheel changes the zoom while the key is held, between 1.1x and 10x in multiplicative steps. The hotbar does not scroll while this is in use, and the level goes back to `fov_divisor` on release. Eased when `smooth` is on.
+   */
+  scroll_adjust?: boolean;
+  /**
+   * Whether mouse sensitivity is scaled down with the zoom, so a flick moves the crosshair across the same share of the screen zoomed as unzoomed. Off is vanilla: at 4x every mouse movement turns the view four times as far across what you can see.
+   */
+  scale_sensitivity?: boolean;
 }
 /**
  * Settings for the Crosshair mod. Uniquely among the 13 it is drawn in GL rather than HTML (§3 footnote) because it must sit at the exact pixel centre, but it is configured through the same loadout model as everything else.
@@ -1745,11 +2007,9 @@ export interface ServerAddressSettings {
   style?: 'short' | 'full';
 }
 /**
- * Settings for the Item counter HUD mod. Reads `held_count` off the tick payload, which is the stack size of the **held** item and nothing else.
+ * Settings for the Item counter HUD mod. `track` picks what is counted. `held_stack` is the stack in the hand (`held_count` on the tick payload) and is the default, because it is what the chip has always shown. Every other value reads `counts`, the inventory-wide sensor: `held_total` adds up every stack in the inventory that matches the held item (same item, same variant, so white wool is not red wool), and the named items count that item wherever it is, whether or not it is in your hand. That last group is the Lunar and Badlion meaning of an item counter: tell it pearls and it counts your pearls while you hold a sword.
  *
- * Be clear about the scope, because the name is borrowed from mods that do more: Lunar's and Badlion's item counters track a *chosen* item across the whole inventory — tell it pearls, and it counts your pearls whether or not they are in your hand. This one counts the hand, because `held_count` is the sensor that exists. It answers "how many blocks are left" while you are bridging with them and "how many gapples" while you are holding one; it does not answer "how many pearls do I have" while you are holding a sword. An inventory-wide counter needs a slot-scanning sensor and a way to pick the item it watches, and neither exists yet; when they do, that is a superset of this mod rather than a rewrite of it.
- *
- * The stack size is value-checked at the sensor rather than rate-limited: it changes on use, not on a clock, so every push is news.
+ * The counts are value-checked at the sensor rather than rate-limited: they change on use and pickup, not on a clock, so every push is news.
  */
 export interface ItemCounterSettings {
   on: Enabled;
@@ -1775,6 +2035,25 @@ export interface ItemCounterSettings {
    * A count at or below this many draws in the warn treatment instead of the normal ink. **0 disables the warning entirely, and 0 is the default**, because what counts as low depends completely on what is in the hand: eight is nearly out of blocks and a generous stash of pearls, and a client that guessed one number would be wrong for every player who does not build the way it assumed. So VOID does not guess — a player who knows what they are counting sets it, and everybody else gets a chip that never cries wolf. The ceiling is 64: a full stack, above which the warning would be permanently on.
    */
   low_threshold?: number;
+  /**
+   * What the chip counts. `held_stack` is the stack in your hand; `held_total` is every stack in the inventory matching the held item; the rest count that item across the whole inventory whatever you are holding. `wool` is every colour together. Healing potions and soup are the Potion counter's.
+   */
+  track?:
+    | 'held_stack'
+    | 'held_total'
+    | 'ender_pearl'
+    | 'golden_apple'
+    | 'arrow'
+    | 'snowball'
+    | 'egg'
+    | 'cobweb'
+    | 'wool'
+    | 'tnt'
+    | 'fire_charge'
+    | 'iron_ingot'
+    | 'gold_ingot'
+    | 'diamond'
+    | 'emerald';
 }
 /**
  * Settings for the Stopwatch HUD mod. Along with the watermark it is one of two mods with no game field behind it: the elapsed time is the overlay's own, counted from `Date.now()` exactly as the combo chip already counts its own timeout, and no sensor field, no tick payload and no wire message carries it. What does cross the bridge is the *input*. `start_key` and `reset_key` are dispatched by Java and arrive as `modaction` — `{mod: 'stopwatch', action: 'start_stop' | 'reset'}` — because a timer's keys ask the page to do something rather than flipping a boolean, which is all the existing per-mod `keybind` hotkeys can say. Java therefore owns the key and the page owns the clock, and the two never disagree about elapsed time because only one of them counts it.
@@ -1966,6 +2245,100 @@ export interface OldInputSettings {
   no_miss_delay?: boolean;
 }
 /**
+ * Settings for the Potion counter HUD mod. Reads `counts` on the tick payload, the same inventory-wide sensor the Item counter's named items use: `health_potion` is every splash potion of Healing (I and II) in the inventory and `soup` is every bowl of mushroom stew. A separate mod rather than two more `item_counter.track` values because the two are read at different moments: the item counter answers what you are building or throwing with, and this answers how many heals are left, which is the one number a pot or soup fight is decided by and the one worth a chip of its own.
+ */
+export interface PotionCounterSettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the potion chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the potion chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the potion chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * What is counted: splash potions of Healing, bowls of mushroom stew, or both side by side.
+   */
+  track?: 'health_potion' | 'soup' | 'both';
+  /**
+   * Whether the count is followed by its unit, `pots` or `soup`. With `both` the units are what tell the two figures apart, so they are always drawn there.
+   */
+  show_label?: boolean;
+  /**
+   * A count at or below this many draws in the warn treatment. Unlike the Item counter this has a non-zero default, because what is in the slot is known: three heals is low in every pot and soup mode. 0 disables the warning.
+   */
+  low_threshold?: number;
+}
+/**
+ * Settings for the Reach display HUD mod. Reads `reach` on the tick payload. The figure is measured on the client at the moment the attack is sent: from your eye position, interpolated to the frame the crosshair ray was cast on, to the exact point where that ray met the target's hitbox. That is the distance the game itself used to decide the hit, not an entity-centre distance (which reads about 0.3 blocks long) and not the server's view (which it never tells the client). Only attacks the hit counter counts as landed are measured, so a swing at air never moves the number.
+ */
+export interface ReachDisplaySettings {
+  on: Enabled;
+  scale?: Scale;
+  opacity?: Opacity;
+  /**
+   * Ground drawn behind the reach chip, as a step on the system's own scale rather than a colour. `none` is the vanilla treatment and the default — the readout sits on the game. `subtle` is the card ground at low alpha, which is enough to hold a chip together over a busy texture; `solid` is the opaque card ground, for a player who wants the HUD to read as a panel. A step rather than a hex value because a per-mod background colour is what §1 names as the far side of the line.
+   */
+  background?: 'none' | 'subtle' | 'solid';
+  /**
+   * Whether a hairline is drawn around the reach chip, at the system's own `--border-panel` alpha. Boolean rather than a colour or a width for the same reason as `background`: the edge either separates the chip from the game or it does not, and the one useful answer is already a token.
+   */
+  border?: boolean;
+  /**
+   * Density of the reach chip — the inset between its content and its edge, as one of three steps. `density` is named in §1 as legitimate customisation, and it is what a player actually means by 'make the HUD smaller' when `scale` has already made the text too small to read.
+   */
+  padding?: 'tight' | 'normal' | 'roomy';
+  /**
+   * Digits after the decimal point. Two is the precision the measurement actually has; one reads faster, and none is the whole-block figure.
+   */
+  decimals?: number;
+  /**
+   * Which figure is drawn: the last landed hit, or the mean of the last ten.
+   */
+  mode?: 'last' | 'average';
+  /**
+   * Whether the figure is followed by its unit, `blocks`.
+   */
+  show_label?: boolean;
+  /**
+   * Hide the chip this long after the last landed hit; 0 keeps it on screen. A reach figure is only interesting while you are trading hits.
+   */
+  hide_after_ms?: number;
+}
+/**
+ * Settings for the Chat gameplay mod. Every setting changes how vanilla's own chat (`ChatHud`) stores and draws messages on this client; nothing is sent, and no message anyone else sees is altered. With the mod off the chat is vanilla, byte for byte.
+ */
+export interface ChatSettings {
+  on: Enabled;
+  /**
+   * Whether each message is prefixed with the time it arrived, `[14:03]`, in grey.
+   */
+  timestamps?: boolean;
+  /**
+   * Whether a message identical to the one before it replaces it with a count, `(x3)`, instead of adding another line. Lobby spam and repeated server notices collapse to one line.
+   */
+  stack_repeats?: boolean;
+  /**
+   * Whether right-clicking a message in the open chat copies the whole message, without colour codes, to the clipboard.
+   */
+  click_to_copy?: boolean;
+  /**
+   * Opacity of the dark band behind chat lines, as a fraction of the line's own fade. 0.5 is vanilla; 0 draws text only.
+   */
+  background_opacity?: number;
+  /**
+   * How many messages the chat keeps for scrolling back. Vanilla keeps 100.
+   */
+  history_length?: number;
+}
+/**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
  */
 export interface Loadout {
@@ -1988,10 +2361,11 @@ export interface Loadout {
   mc: string;
   mods: ModStates;
   hud: HUDLayout;
+  quick?: QuickPins;
   stats?: LoadoutStats;
 }
 /**
- * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 29 is permitted.
+ * Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 32 is permitted.
  */
 export interface ModStates {
   fps?: FPSDisplaySettings;
@@ -2023,6 +2397,9 @@ export interface ModStates {
   damage_tint?: DamageTintSettings;
   old_animations?: OldAnimationsSettings;
   old_input?: OldInputSettings;
+  potion_counter?: PotionCounterSettings;
+  reach?: ReachDisplaySettings;
+  chat?: ChatSettings;
 }
 /**
  * The placement of one HUD mod. Written by the HUD editor (Figma 244:1722) on drop via `void.setHud`, and mirrored to Rust in the `hud` protocol message.
@@ -2195,6 +2572,39 @@ export interface HotkeyJavaToRust {
   [k: string]: any | undefined;
 }
 /**
+ * Sent when the in-game Loadouts screen created, renamed, duplicated or imported a loadout, or changed its quick pins (`window.void` calls of the same names). Carries the whole loadout: Rust creates it at the end of the library order when the id is new and overwrites it otherwise, validating it first. Like `state`, a notification of what Java already did, not a request; if Rust cannot store it, it answers with `library` so the game shows what is actually on disk.
+ */
+export interface LoadoutSaveJavaToRust {
+  /**
+   * Message discriminator; always `loadout_save`.
+   */
+  t: 'loadout_save';
+  loadout: Loadout;
+  [k: string]: any | undefined;
+}
+/**
+ * Sent when the in-game Loadouts screen deleted a loadout. Java has already removed it, and switched away from it first when it was active (that switch travels as its own `loadout_select`). Rust never deletes the last loadout on disk.
+ */
+export interface LoadoutDeleteJavaToRust {
+  /**
+   * Message discriminator; always `loadout_delete`.
+   */
+  t: 'loadout_delete';
+  id: LoadoutId;
+  [k: string]: any | undefined;
+}
+/**
+ * Sent when the player picked a loadout in game other than with the cycle key, which reports itself as `hotkey` `loadout.next`. Moves Rust's active pointer so the tray and the next launch agree with the running game.
+ */
+export interface LoadoutSelectJavaToRust {
+  /**
+   * Message discriminator; always `loadout_select`.
+   */
+  t: 'loadout_select';
+  id: LoadoutId;
+  [k: string]: any | undefined;
+}
+/**
  * The launcher's answer to `hello` (§6.9). Delivers the entire world of persisted state in one frame: the active loadout, **every other loadout in full**, and global settings. The mod keeps no config files of its own (§6.1); everything it knows arrives here. `loadouts` carries whole loadouts rather than summaries on purpose: a loadout is roughly 1 KB and a library is capped at 128, so the whole library is a few hundred kilobytes at worst, sent once per launch — and in exchange `void.switchLoadout` and the L-key cycle can apply any loadout in under a frame (§8.2) with no round trip, and the in-game Loadouts screen can list the library without a bridge accessor of its own. There is deliberately no `request_loadout` message: nothing the mod does needs one.
  */
 export interface InitRustToJava {
@@ -2253,6 +2663,23 @@ export interface SettingsRustToJava {
    */
   t: 'settings';
   settings: GlobalSettings;
+  [k: string]: any | undefined;
+}
+/**
+ * The whole loadout library, in full and in library order, exactly as `init.loadouts`. Sent when the launcher created, deleted, imported or edited a loadout while the game is running, and as the answer to an in-game `loadout_save` or `loadout_delete` Rust could not apply. Java replaces its library with it, keeping its own live copy of the active loadout, and pushes the `loadouts` bridge event.
+ */
+export interface LibraryRustToJava {
+  /**
+   * Message discriminator; always `library`.
+   */
+  t: 'library';
+  /**
+   * Every loadout, in full and in library order.
+   *
+   * @minItems 1
+   * @maxItems 128
+   */
+  loadouts: Loadout[];
   [k: string]: any | undefined;
 }
 /**
@@ -2350,6 +2777,44 @@ export interface TickPayload {
      * Times the player has been hit since the session began. Monotonic. A combo breaks when this moves, which is why it is sent rather than derived from health.
      */
     taken: number;
+    /**
+     * Times `MinecraftClient.doAttack` has run since the session began, whatever it hit. Monotonic. A left click the game swallowed (1.8's miss delay, a screen open) never reaches `doAttack`, so the difference between this and the mouse edges on `keys` is exactly the cancelled clicks; `cps.ignore_cancelled` counts these instead of the edges. Optional so a sensor that predates it still validates.
+     */
+    swings?: number;
+  };
+  /**
+   * Inventory-wide item counts, for the Item counter's named `track` values and the Potion counter. Every key is the total across the 36 main inventory slots (hotbar included, armour and the cursor stack excluded). `held_total` is every stack matching the held item, same item and same variant, and is absent with an empty hand; `wool` is every colour together; `health_potion` is splash potions of Healing I and II; `soup` is mushroom stew. Sent whole whenever any key changes and omitted otherwise, like `armor`: an absent field means unchanged. Value-checked, never rate-limited, because a count changes on use and pickup rather than on a clock.
+   */
+  counts?: {
+    held_total?: number;
+    ender_pearl?: number;
+    golden_apple?: number;
+    arrow?: number;
+    snowball?: number;
+    egg?: number;
+    cobweb?: number;
+    wool?: number;
+    tnt?: number;
+    fire_charge?: number;
+    iron_ingot?: number;
+    gold_ingot?: number;
+    diamond?: number;
+    emerald?: number;
+    health_potion?: number;
+    soup?: number;
+  };
+  /**
+   * The reach of the most recent landed attack, for the Reach display. Measured on the client when the attack is sent: from the eye position interpolated to the frame the crosshair ray was cast on, to the point where that ray met the target's hitbox. `n` counts measured attacks and is monotonic, so two hits at the same distance are still two readings; the page keeps the history it averages over. Absent until the first measured attack, and after that sent only on the tick a new one lands.
+   */
+  reach?: {
+    /**
+     * Eye-to-hit-point distance in blocks, rounded to 3 decimals.
+     */
+    blocks: number;
+    /**
+     * Measured attacks since the session began. Monotonic.
+     */
+    n: number;
   };
 }
 /**
@@ -2566,6 +3031,34 @@ export interface ModactionPayload {
   action: string;
 }
 /**
+ * Envelope for the `toast` event.
+ */
+export interface ToastEvent {
+  /**
+   * Event discriminator; always `toast`.
+   */
+  e: 'toast';
+  payload: ToastPayload;
+}
+/**
+ * One short notice, drawn over the game for a moment and then gone. Purely informational: nothing waits on it and nothing is lost if the page misses it.
+ */
+export interface ToastPayload {
+  /**
+   * What the notice is about, so the page can pick its mark: `loadout` for a switch or a library change, `mod` for a mod a key flipped, `info` for anything else.
+   */
+  kind: 'loadout' | 'mod' | 'info';
+  /**
+   * The main line, e.g. the loadout's name or `Fullbright on`.
+   */
+  title: string;
+  /**
+   * An optional second line, e.g. `Loadout switched`.
+   */
+  detail?: string;
+  mod?: ModId;
+}
+/**
  * `void.setGameplay(id, on)`. Writes the boolean field the mod's actuator Mixin reads every frame (§6.7). Synchronous and authoritative: the toggle in the UI shows the returned value, never an optimistic one.
  */
 export interface SetGameplayCall {
@@ -2704,6 +3197,76 @@ export interface SetGlobalCall {
   params: SetGlobalParams;
 }
 /**
+ * `void.createLoadout(name)`. Adds a loadout to the end of the library with every mod at its registry defaults and the factory HUD layout, and does not switch to it. Java picks the id (the name slugified, with a numeric suffix when taken) and tells Rust with `loadout_save`, which is what persists it. A `loadouts` event follows with the new library.
+ */
+export interface CreateLoadoutCall {
+  /**
+   * Call discriminator; always `createLoadout`.
+   */
+  c: 'createLoadout';
+  params: CreateLoadoutParams;
+}
+/**
+ * `void.renameLoadout(id, name)`. Changes a loadout's display name; the id is stable and does not follow it. Persisted with `loadout_save`; a `loadouts` event follows, and a `loadout` event too when the renamed loadout is the active one.
+ */
+export interface RenameLoadoutCall {
+  /**
+   * Call discriminator; always `renameLoadout`.
+   */
+  c: 'renameLoadout';
+  params: RenameLoadoutParams;
+}
+/**
+ * `void.duplicateLoadout(id)`. Appends a copy of a loadout, mods, settings, HUD layout and quick pins, named `<name> copy`, with no stats. Does not switch to it. Persisted with `loadout_save`; a `loadouts` event follows.
+ */
+export interface DuplicateLoadoutCall {
+  /**
+   * Call discriminator; always `duplicateLoadout`.
+   */
+  c: 'duplicateLoadout';
+  params: DuplicateLoadoutParams;
+}
+/**
+ * `void.deleteLoadout(id)`. Removes a loadout from the library. Refused for the last one. When it was the active loadout, the first remaining one is applied exactly as a switch is, and a `loadout` event follows. Persisted with `loadout_delete`; a `loadouts` event follows.
+ */
+export interface DeleteLoadoutCall {
+  /**
+   * Call discriminator; always `deleteLoadout`.
+   */
+  c: 'deleteLoadout';
+  params: DeleteLoadoutParams;
+}
+/**
+ * `void.exportLoadout(id)`. Encodes a loadout as a share code: `VOID1.` + base64url (no padding) of the raw-DEFLATE-compressed UTF-8 JSON of the loadout's name, icon, server, mc, registry version, HUD layout, quick pins and *only the settings that differ from the registry defaults*, then `.` + the CRC-32 of that JSON as 8 lowercase hex digits. Ids and stats are never in a code. The same format is produced and read by `void_loadout::share` in Rust and `ShareCode` in Java; `schema/share-code.fixtures.json` holds codes each side made, and both test suites decode all of them.
+ */
+export interface ExportLoadoutCall {
+  /**
+   * Call discriminator; always `exportLoadout`.
+   */
+  c: 'exportLoadout';
+  params: ExportLoadoutParams;
+}
+/**
+ * `void.importLoadout(code)`. Decodes a share code and appends the loadout it carries to the library under a fresh id, without switching to it. Structure is strict: an unknown version, a bad checksum, undecodable data or a missing name refuses the whole code. Content is lenient: a mod or setting this build does not know, or a value outside its schema range, is dropped (the mod falls back to its default) and counted in `dropped`, so a code made on a newer client still imports. The result is a valid `loadout.json` loadout. Persisted with `loadout_save`; a `loadouts` event follows.
+ */
+export interface ImportLoadoutCall {
+  /**
+   * Call discriminator; always `importLoadout`.
+   */
+  c: 'importLoadout';
+  params: ImportLoadoutParams;
+}
+/**
+ * `void.setQuickPins(ids)`. Replaces the active loadout's quick-panel pins (`loadout.json#/definitions/quick_pins`). Unknown and repeated ids are dropped and the list is cut to eight. Persisted with `loadout_save`; nothing is pushed back, the return is the stored list.
+ */
+export interface SetQuickPinsCall {
+  /**
+   * Call discriminator; always `setQuickPins`.
+   */
+  c: 'setQuickPins';
+  params: SetQuickPinsParams;
+}
+/**
  * Envelope for a setGameplay return value.
  */
 export interface SetGameplayResult {
@@ -2782,4 +3345,74 @@ export interface SetGlobalResult {
    */
   c: 'setGlobal';
   returns: SetGlobalReturns;
+}
+/**
+ * Envelope for a createLoadout return value.
+ */
+export interface CreateLoadoutResult {
+  /**
+   * Call discriminator; always `createLoadout`.
+   */
+  c: 'createLoadout';
+  returns: CreateLoadoutReturns;
+}
+/**
+ * Envelope for a renameLoadout return value.
+ */
+export interface RenameLoadoutResult {
+  /**
+   * Call discriminator; always `renameLoadout`.
+   */
+  c: 'renameLoadout';
+  returns: RenameLoadoutReturns;
+}
+/**
+ * Envelope for a duplicateLoadout return value.
+ */
+export interface DuplicateLoadoutResult {
+  /**
+   * Call discriminator; always `duplicateLoadout`.
+   */
+  c: 'duplicateLoadout';
+  returns: DuplicateLoadoutReturns;
+}
+/**
+ * Envelope for a deleteLoadout return value.
+ */
+export interface DeleteLoadoutResult {
+  /**
+   * Call discriminator; always `deleteLoadout`.
+   */
+  c: 'deleteLoadout';
+  returns: DeleteLoadoutReturns;
+}
+/**
+ * Envelope for a exportLoadout return value.
+ */
+export interface ExportLoadoutResult {
+  /**
+   * Call discriminator; always `exportLoadout`.
+   */
+  c: 'exportLoadout';
+  returns: ExportLoadoutReturns;
+}
+/**
+ * Envelope for a importLoadout return value.
+ */
+export interface ImportLoadoutResult {
+  /**
+   * Call discriminator; always `importLoadout`.
+   */
+  c: 'importLoadout';
+  returns: ImportResult;
+}
+/**
+ * Envelope for a setQuickPins return value.
+ */
+export interface SetQuickPinsResult {
+  /**
+   * Call discriminator; always `setQuickPins`.
+   */
+  c: 'setQuickPins';
+  returns: SetQuickPinsReturns;
 }

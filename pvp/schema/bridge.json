@@ -20,7 +20,7 @@
   "definitions": {
     "event_name": {
       "title": "Event name",
-      "description": "The ten channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
+      "description": "The eleven channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
       "type": "string",
       "enum": [
         "keys",
@@ -32,12 +32,13 @@
         "menu",
         "session",
         "settings",
-        "modaction"
+        "modaction",
+        "toast"
       ]
     },
     "call_name": {
       "title": "Call name",
-      "description": "The eight methods JS may call on `window.void`. Closed set.",
+      "description": "The fifteen methods JS may call on `window.void`. Closed set.",
       "type": "string",
       "enum": [
         "setGameplay",
@@ -47,7 +48,14 @@
         "closeMenu",
         "openKeybindCapture",
         "setSurfaces",
-        "setGlobal"
+        "setGlobal",
+        "createLoadout",
+        "renameLoadout",
+        "duplicateLoadout",
+        "deleteLoadout",
+        "exportLoadout",
+        "importLoadout",
+        "setQuickPins"
       ]
     },
     "event": {
@@ -93,6 +101,10 @@
         {
           "description": "A key bound to one mod asked that mod to do something.",
           "$ref": "#/definitions/event_modaction"
+        },
+        {
+          "description": "A short notice for the player.",
+          "$ref": "#/definitions/event_toast"
         }
       ]
     },
@@ -462,6 +474,120 @@
               "description": "Times the player has been hit since the session began. Monotonic. A combo breaks when this moves, which is why it is sent rather than derived from health.",
               "type": "integer",
               "minimum": 0
+            },
+            "swings": {
+              "description": "Times `MinecraftClient.doAttack` has run since the session began, whatever it hit. Monotonic. A left click the game swallowed (1.8's miss delay, a screen open) never reaches `doAttack`, so the difference between this and the mouse edges on `keys` is exactly the cancelled clicks; `cps.ignore_cancelled` counts these instead of the edges. Optional so a sensor that predates it still validates.",
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "counts": {
+          "description": "Inventory-wide item counts, for the Item counter's named `track` values and the Potion counter. Every key is the total across the 36 main inventory slots (hotbar included, armour and the cursor stack excluded). `held_total` is every stack matching the held item, same item and same variant, and is absent with an empty hand; `wool` is every colour together; `health_potion` is splash potions of Healing I and II; `soup` is mushroom stew. Sent whole whenever any key changes and omitted otherwise, like `armor`: an absent field means unchanged. Value-checked, never rate-limited, because a count changes on use and pickup rather than on a clock.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "held_total": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "ender_pearl": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "golden_apple": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "arrow": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "snowball": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "egg": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "cobweb": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "wool": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "tnt": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "fire_charge": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "iron_ingot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "gold_ingot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "diamond": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "emerald": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "health_potion": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            },
+            "soup": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2304
+            }
+          }
+        },
+        "reach": {
+          "description": "The reach of the most recent landed attack, for the Reach display. Measured on the client when the attack is sent: from the eye position interpolated to the frame the crosshair ray was cast on, to the point where that ray met the target's hitbox. `n` counts measured attacks and is monotonic, so two hits at the same distance are still two readings; the page keeps the history it averages over. Absent until the first measured attack, and after that sent only on the tick a new one lands.",
+          "type": "object",
+          "required": [
+            "blocks",
+            "n"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "blocks": {
+              "description": "Eye-to-hit-point distance in blocks, rounded to 3 decimals.",
+              "type": "number",
+              "minimum": 0,
+              "maximum": 16
+            },
+            "n": {
+              "description": "Measured attacks since the session began. Monotonic.",
+              "type": "integer",
+              "minimum": 1
             }
           }
         }
@@ -758,6 +884,34 @@
         {
           "description": "Change one global setting.",
           "$ref": "#/definitions/call_setGlobal"
+        },
+        {
+          "description": "Create a loadout.",
+          "$ref": "#/definitions/call_createLoadout"
+        },
+        {
+          "description": "Rename a loadout.",
+          "$ref": "#/definitions/call_renameLoadout"
+        },
+        {
+          "description": "Copy a loadout.",
+          "$ref": "#/definitions/call_duplicateLoadout"
+        },
+        {
+          "description": "Delete a loadout.",
+          "$ref": "#/definitions/call_deleteLoadout"
+        },
+        {
+          "description": "Make a share code.",
+          "$ref": "#/definitions/call_exportLoadout"
+        },
+        {
+          "description": "Import a share code.",
+          "$ref": "#/definitions/call_importLoadout"
+        },
+        {
+          "description": "Pin mods to the quick panel.",
+          "$ref": "#/definitions/call_setQuickPins"
         }
       ]
     },
@@ -795,6 +949,34 @@
         {
           "description": "Result of setGlobal.",
           "$ref": "#/definitions/result_setGlobal"
+        },
+        {
+          "description": "Result of createLoadout.",
+          "$ref": "#/definitions/result_createLoadout"
+        },
+        {
+          "description": "Result of renameLoadout.",
+          "$ref": "#/definitions/result_renameLoadout"
+        },
+        {
+          "description": "Result of duplicateLoadout.",
+          "$ref": "#/definitions/result_duplicateLoadout"
+        },
+        {
+          "description": "Result of deleteLoadout.",
+          "$ref": "#/definitions/result_deleteLoadout"
+        },
+        {
+          "description": "Result of exportLoadout.",
+          "$ref": "#/definitions/result_exportLoadout"
+        },
+        {
+          "description": "Result of importLoadout.",
+          "$ref": "#/definitions/result_importLoadout"
+        },
+        {
+          "description": "Result of setQuickPins.",
+          "$ref": "#/definitions/result_setQuickPins"
         }
       ]
     },
@@ -1453,6 +1635,584 @@
           "$ref": "#/definitions/setSurfaces_returns"
         }
       }
+    },
+    "event_toast": {
+      "title": "toast event",
+      "description": "Envelope for the `toast` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `toast`.",
+          "type": "string",
+          "const": "toast"
+        },
+        "payload": {
+          "description": "The notice.",
+          "$ref": "#/definitions/toast_payload"
+        }
+      }
+    },
+    "toast_payload": {
+      "$comment": "Pushed by Java for things that happen with the menu closed, where nothing else on screen would say so: the loadout key cycled the loadout, the launcher switched or changed the library under the game, a mod's own key flipped it. Never pushed for a change the page made itself; the page raises its own notice for those (an import, a delete) without a round trip. Not coalesced, and not forwarded to Rust.",
+      "title": "toast payload",
+      "description": "One short notice, drawn over the game for a moment and then gone. Purely informational: nothing waits on it and nothing is lost if the page misses it.",
+      "type": "object",
+      "required": [
+        "kind",
+        "title"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "description": "What the notice is about, so the page can pick its mark: `loadout` for a switch or a library change, `mod` for a mod a key flipped, `info` for anything else.",
+          "type": "string",
+          "enum": [
+            "loadout",
+            "mod",
+            "info"
+          ]
+        },
+        "title": {
+          "description": "The main line, e.g. the loadout's name or `Fullbright on`.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "detail": {
+          "description": "An optional second line, e.g. `Loadout switched`.",
+          "type": "string",
+          "maxLength": 96
+        },
+        "mod": {
+          "description": "For `kind: mod`, which mod. Lets the page draw the mod's own glyph.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id"
+        }
+      }
+    },
+    "call_createLoadout": {
+      "title": "createLoadout call",
+      "description": "`void.createLoadout(name)`. Adds a loadout to the end of the library with every mod at its registry defaults and the factory HUD layout, and does not switch to it. Java picks the id (the name slugified, with a numeric suffix when taken) and tells Rust with `loadout_save`, which is what persists it. A `loadouts` event follows with the new library.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `createLoadout`.",
+          "type": "string",
+          "const": "createLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/createLoadout_params"
+        }
+      }
+    },
+    "createLoadout_params": {
+      "title": "createLoadout params",
+      "description": "[name].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Display name. Trimmed; 1 to 48 characters after trimming.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        }
+      ]
+    },
+    "createLoadout_returns": {
+      "title": "createLoadout returns",
+      "description": "The new loadout, or null when the name was empty or the library is full (128).",
+      "oneOf": [
+        {
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "result_createLoadout": {
+      "title": "createLoadout result",
+      "description": "Envelope for a createLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `createLoadout`.",
+          "type": "string",
+          "const": "createLoadout"
+        },
+        "returns": {
+          "description": "The new loadout, or null.",
+          "$ref": "#/definitions/createLoadout_returns"
+        }
+      }
+    },
+    "call_renameLoadout": {
+      "title": "renameLoadout call",
+      "description": "`void.renameLoadout(id, name)`. Changes a loadout's display name; the id is stable and does not follow it. Persisted with `loadout_save`; a `loadouts` event follows, and a `loadout` event too when the renamed loadout is the active one.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `renameLoadout`.",
+          "type": "string",
+          "const": "renameLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/renameLoadout_params"
+        }
+      }
+    },
+    "renameLoadout_params": {
+      "title": "renameLoadout params",
+      "description": "[id, name].",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The loadout to rename.",
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id"
+        },
+        {
+          "description": "The new name. Trimmed; 1 to 48 characters after trimming.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48
+        }
+      ]
+    },
+    "renameLoadout_returns": {
+      "title": "renameLoadout returns",
+      "description": "The name actually stored, after trimming, or null when the id is unknown or the name empty.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "result_renameLoadout": {
+      "title": "renameLoadout result",
+      "description": "Envelope for a renameLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `renameLoadout`.",
+          "type": "string",
+          "const": "renameLoadout"
+        },
+        "returns": {
+          "description": "The stored name, or null.",
+          "$ref": "#/definitions/renameLoadout_returns"
+        }
+      }
+    },
+    "call_duplicateLoadout": {
+      "title": "duplicateLoadout call",
+      "description": "`void.duplicateLoadout(id)`. Appends a copy of a loadout, mods, settings, HUD layout and quick pins, named `<name> copy`, with no stats. Does not switch to it. Persisted with `loadout_save`; a `loadouts` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `duplicateLoadout`.",
+          "type": "string",
+          "const": "duplicateLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/duplicateLoadout_params"
+        }
+      }
+    },
+    "duplicateLoadout_params": {
+      "title": "duplicateLoadout params",
+      "description": "[id].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The loadout to copy.",
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id"
+        }
+      ]
+    },
+    "duplicateLoadout_returns": {
+      "title": "duplicateLoadout returns",
+      "description": "The copy, or null when the id is unknown or the library is full.",
+      "oneOf": [
+        {
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "result_duplicateLoadout": {
+      "title": "duplicateLoadout result",
+      "description": "Envelope for a duplicateLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `duplicateLoadout`.",
+          "type": "string",
+          "const": "duplicateLoadout"
+        },
+        "returns": {
+          "description": "The copy, or null.",
+          "$ref": "#/definitions/duplicateLoadout_returns"
+        }
+      }
+    },
+    "call_deleteLoadout": {
+      "title": "deleteLoadout call",
+      "description": "`void.deleteLoadout(id)`. Removes a loadout from the library. Refused for the last one. When it was the active loadout, the first remaining one is applied exactly as a switch is, and a `loadout` event follows. Persisted with `loadout_delete`; a `loadouts` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `deleteLoadout`.",
+          "type": "string",
+          "const": "deleteLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/deleteLoadout_params"
+        }
+      }
+    },
+    "deleteLoadout_params": {
+      "title": "deleteLoadout params",
+      "description": "[id].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The loadout to delete.",
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id"
+        }
+      ]
+    },
+    "deleteLoadout_returns": {
+      "title": "deleteLoadout returns",
+      "description": "True when the loadout was deleted; false when the id was unknown or it was the last one.",
+      "type": "boolean"
+    },
+    "result_deleteLoadout": {
+      "title": "deleteLoadout result",
+      "description": "Envelope for a deleteLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `deleteLoadout`.",
+          "type": "string",
+          "const": "deleteLoadout"
+        },
+        "returns": {
+          "description": "Whether it was deleted.",
+          "$ref": "#/definitions/deleteLoadout_returns"
+        }
+      }
+    },
+    "call_exportLoadout": {
+      "title": "exportLoadout call",
+      "description": "`void.exportLoadout(id)`. Encodes a loadout as a share code: `VOID1.` + base64url (no padding) of the raw-DEFLATE-compressed UTF-8 JSON of the loadout's name, icon, server, mc, registry version, HUD layout, quick pins and *only the settings that differ from the registry defaults*, then `.` + the CRC-32 of that JSON as 8 lowercase hex digits. Ids and stats are never in a code. The same format is produced and read by `void_loadout::share` in Rust and `ShareCode` in Java; `schema/share-code.fixtures.json` holds codes each side made, and both test suites decode all of them.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `exportLoadout`.",
+          "type": "string",
+          "const": "exportLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/exportLoadout_params"
+        }
+      }
+    },
+    "exportLoadout_params": {
+      "title": "exportLoadout params",
+      "description": "[id].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The loadout to export.",
+          "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id"
+        }
+      ]
+    },
+    "exportLoadout_returns": {
+      "title": "exportLoadout returns",
+      "description": "The share code, or null when the id is unknown.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^VOID[0-9]+\\.[A-Za-z0-9_-]+\\.[0-9a-f]{8}$",
+      "maxLength": 16384
+    },
+    "result_exportLoadout": {
+      "title": "exportLoadout result",
+      "description": "Envelope for a exportLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `exportLoadout`.",
+          "type": "string",
+          "const": "exportLoadout"
+        },
+        "returns": {
+          "description": "The code, or null.",
+          "$ref": "#/definitions/exportLoadout_returns"
+        }
+      }
+    },
+    "call_importLoadout": {
+      "title": "importLoadout call",
+      "description": "`void.importLoadout(code)`. Decodes a share code and appends the loadout it carries to the library under a fresh id, without switching to it. Structure is strict: an unknown version, a bad checksum, undecodable data or a missing name refuses the whole code. Content is lenient: a mod or setting this build does not know, or a value outside its schema range, is dropped (the mod falls back to its default) and counted in `dropped`, so a code made on a newer client still imports. The result is a valid `loadout.json` loadout. Persisted with `loadout_save`; a `loadouts` event follows.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `importLoadout`.",
+          "type": "string",
+          "const": "importLoadout"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/importLoadout_params"
+        }
+      }
+    },
+    "importLoadout_params": {
+      "title": "importLoadout params",
+      "description": "[code].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "The share code as pasted. Surrounding whitespace is ignored.",
+          "type": "string",
+          "maxLength": 16384
+        }
+      ]
+    },
+    "importLoadout_returns": {
+      "title": "importLoadout returns",
+      "description": "What happened.",
+      "$ref": "#/definitions/import_result"
+    },
+    "result_importLoadout": {
+      "title": "importLoadout result",
+      "description": "Envelope for a importLoadout return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `importLoadout`.",
+          "type": "string",
+          "const": "importLoadout"
+        },
+        "returns": {
+          "description": "What happened.",
+          "$ref": "#/definitions/importLoadout_returns"
+        }
+      }
+    },
+    "import_result": {
+      "title": "Import result",
+      "description": "The answer of `importLoadout`.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "ok",
+            "loadout",
+            "dropped"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "const": true
+            },
+            "loadout": {
+              "description": "The imported loadout, as now stored in the library.",
+              "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout"
+            },
+            "dropped": {
+              "description": "Settings, mods, HUD items and pins the code carried that this build could not use.",
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "ok",
+            "error"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "const": false
+            },
+            "error": {
+              "description": "Why the code was refused: `empty` nothing was pasted; `format` it is not a share code or its data does not decode; `version` it was made by a newer format; `checksum` it was damaged in transit; `invalid` it decoded but carries no usable loadout; `full` the library already holds 128.",
+              "type": "string",
+              "enum": [
+                "empty",
+                "format",
+                "version",
+                "checksum",
+                "invalid",
+                "full"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "call_setQuickPins": {
+      "title": "setQuickPins call",
+      "description": "`void.setQuickPins(ids)`. Replaces the active loadout's quick-panel pins (`loadout.json#/definitions/quick_pins`). Unknown and repeated ids are dropped and the list is cut to eight. Persisted with `loadout_save`; nothing is pushed back, the return is the stored list.",
+      "type": "object",
+      "required": [
+        "c",
+        "params"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setQuickPins`.",
+          "type": "string",
+          "const": "setQuickPins"
+        },
+        "params": {
+          "description": "Positional arguments.",
+          "$ref": "#/definitions/setQuickPins_params"
+        }
+      }
+    },
+    "setQuickPins_params": {
+      "title": "setQuickPins params",
+      "description": "[ids].",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "additionalItems": false,
+      "items": [
+        {
+          "description": "Mod ids in quick-panel order.",
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id"
+          }
+        }
+      ]
+    },
+    "setQuickPins_returns": {
+      "title": "setQuickPins returns",
+      "description": "The pins actually stored.",
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/mod_id"
+      }
+    },
+    "result_setQuickPins": {
+      "title": "setQuickPins result",
+      "description": "Envelope for a setQuickPins return value.",
+      "type": "object",
+      "required": [
+        "c",
+        "returns"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "c": {
+          "description": "Call discriminator; always `setQuickPins`.",
+          "type": "string",
+          "const": "setQuickPins"
+        },
+        "returns": {
+          "description": "The stored pins.",
+          "$ref": "#/definitions/setQuickPins_returns"
+        }
+      }
     }
   },
   "examples": [
@@ -1808,6 +2568,128 @@
         "mod": "stopwatch",
         "action": "reset"
       }
+    },
+    {
+      "e": "tick",
+      "payload": {
+        "hits": {
+          "dealt": 12,
+          "taken": 4,
+          "swings": 19
+        },
+        "counts": {
+          "held_total": 64,
+          "ender_pearl": 3,
+          "golden_apple": 2,
+          "health_potion": 7,
+          "soup": 0,
+          "wool": 128
+        },
+        "reach": {
+          "blocks": 2.874,
+          "n": 12
+        }
+      }
+    },
+    {
+      "e": "toast",
+      "payload": {
+        "kind": "loadout",
+        "title": "Bedwars",
+        "detail": "Loadout switched"
+      }
+    },
+    {
+      "e": "toast",
+      "payload": {
+        "kind": "mod",
+        "title": "Fullbright on",
+        "mod": "fullbright"
+      }
+    },
+    {
+      "c": "createLoadout",
+      "params": [
+        "Bridge practice"
+      ]
+    },
+    {
+      "c": "createLoadout",
+      "returns": null
+    },
+    {
+      "c": "renameLoadout",
+      "params": [
+        "uhc",
+        "UHC Champions"
+      ]
+    },
+    {
+      "c": "renameLoadout",
+      "returns": "UHC Champions"
+    },
+    {
+      "c": "duplicateLoadout",
+      "params": [
+        "sword-pvp"
+      ]
+    },
+    {
+      "c": "duplicateLoadout",
+      "returns": null
+    },
+    {
+      "c": "deleteLoadout",
+      "params": [
+        "uhc"
+      ]
+    },
+    {
+      "c": "deleteLoadout",
+      "returns": true
+    },
+    {
+      "c": "exportLoadout",
+      "params": [
+        "sword-pvp"
+      ]
+    },
+    {
+      "c": "exportLoadout",
+      "returns": "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+    },
+    {
+      "c": "importLoadout",
+      "params": [
+        "VOID1.q1YqzshMLclMzlCyMtRRSkxPzszPA0rkFqXmZacW5xYVKVkplRZVpBblJpbkFwEAAAD__w.1a2b3c4d"
+      ]
+    },
+    {
+      "c": "importLoadout",
+      "returns": {
+        "ok": false,
+        "error": "checksum"
+      }
+    },
+    {
+      "c": "setQuickPins",
+      "params": [
+        [
+          "toggle_sprint",
+          "zoom",
+          "hitboxes",
+          "fullbright"
+        ]
+      ]
+    },
+    {
+      "c": "setQuickPins",
+      "returns": [
+        "toggle_sprint",
+        "zoom",
+        "hitboxes",
+        "fullbright"
+      ]
     }
   ]
 }

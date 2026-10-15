@@ -32,6 +32,9 @@ pub const HOME_ENV: &str = "VOID_PVP_HOME";
 /// Name of the store directory under `$HOME`.
 pub const HOME_DIR_NAME: &str = ".void-pvp";
 
+/// Most loadouts a library holds — `init.loadouts` is sent whole, so it is capped.
+pub const MAX_LIBRARY: usize = 128;
+
 /// `active.json`: the active loadout plus the library order.
 ///
 /// Order is not part of `schema/loadout.json` — it is a launcher concern — but it has to
@@ -197,6 +200,40 @@ impl Store {
             state.order.push(loadout.id.clone());
         }
         self.write_active(&state)
+    }
+
+    /// Writes a loadout whether or not it exists yet: a new id is appended to the library
+    /// order, a known one is overwritten. What an in-game `loadout_save` does.
+    pub fn upsert(&self, loadout: &Loadout) -> Result<(), Error> {
+        if self.loadout_path(&loadout.id).exists() {
+            self.save(loadout)
+        } else {
+            if self.list_ids()?.len() >= MAX_LIBRARY {
+                return Err(Error::Share(crate::share::ShareError::Full));
+            }
+            self.create(loadout)
+        }
+    }
+
+    /// Decodes a share code and adds what it carries to the end of the library under a
+    /// fresh id ([`crate::share::unique_id`]); does not switch to it. Returns the stored
+    /// loadout and how many unusable entries the code carried.
+    pub fn import_share(&self, code: &str) -> Result<(Loadout, usize), Error> {
+        let shared = crate::share::decode(code)?;
+        let taken = self.list_ids()?;
+        if taken.len() >= MAX_LIBRARY {
+            return Err(Error::Share(crate::share::ShareError::Full));
+        }
+        let dropped = shared.dropped;
+        let id = crate::share::unique_id(&shared.name, &taken);
+        let loadout = shared.into_loadout(id);
+        self.create(&loadout)?;
+        Ok((loadout, dropped))
+    }
+
+    /// The share code of a stored loadout.
+    pub fn export_share(&self, id: &LoadoutId) -> Result<String, Error> {
+        Ok(crate::share::encode(&self.load(id)?))
     }
 
     /// Removes a loadout. If it was active, the first remaining loadout takes over.
@@ -534,5 +571,28 @@ mod tests {
         let stats = s.load(&id).unwrap().stats.unwrap();
         assert_eq!(stats.played_ms, Some(120_000));
         assert_eq!(stats.fps_avg, Some(150.0));
+    }
+
+    #[test]
+    fn a_share_code_imports_under_a_fresh_id_and_upsert_appends_once() {
+        let (_d, store) = store();
+        store.init().unwrap();
+        let code = store.export_share(&LoadoutId::new("sword-pvp").unwrap()).unwrap();
+        let (imported, dropped) = store.import_share(&code).unwrap();
+        assert_eq!(dropped, 0);
+        assert_eq!(imported.id.as_str(), "sword-pvp-2", "the original keeps its id");
+        assert_eq!(store.list().unwrap().last().unwrap().id, imported.id);
+        assert!(matches!(
+            store.import_share("VOID1.nope.00000000"),
+            Err(Error::Share(crate::share::ShareError::Format))
+        ));
+
+        let mut renamed = imported.clone();
+        renamed.name = "Mine now".into();
+        store.upsert(&renamed).unwrap();
+        let count = store.list_ids().unwrap().len();
+        store.upsert(&renamed).unwrap();
+        assert_eq!(store.list_ids().unwrap().len(), count, "a known id is overwritten, not added");
+        assert_eq!(store.load(&renamed.id).unwrap().name, "Mine now");
     }
 }

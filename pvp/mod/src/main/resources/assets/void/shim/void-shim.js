@@ -43,9 +43,11 @@
   // side and not added here fails completely silently — no error, no warning, the page simply
   // never hears it. That is exactly how `session` was lost the first time it was sent.
   var EVENTS = ['keys', 'tick', 'server', 'loadout', 'loadouts', 'setting', 'menu', 'session',
-    'settings', 'modaction'];
+    'settings', 'modaction', 'toast'];
   var CALLS = ['setGameplay', 'setHud', 'setModSetting', 'switchLoadout', 'closeMenu',
-    'openKeybindCapture', 'setSurfaces', 'setGlobal'];
+    'openKeybindCapture', 'setSurfaces', 'setGlobal',
+    'createLoadout', 'renameLoadout', 'duplicateLoadout', 'deleteLoadout', 'exportLoadout',
+    'importLoadout', 'setQuickPins'];
   var handlers = {};
   // FIFO, so a second capture opened before the first resolved still lines up with
   // the envelopes Java sends back in the order it armed them.
@@ -85,12 +87,12 @@
     __isVoidBridge: true,
 
     /**
-     * The calls this host answers: bridge.json's seven, plus `setGlobal`. For a host that wants
-     * to enumerate them.
+     * The calls this host answers: bridge.json's `call_name` enum. For a host that wants to
+     * enumerate them.
      */
     __calls: CALLS,
 
-    /** The push channels: bridge.json's seven, plus `session` and `settings`. */
+    /** The push channels: bridge.json's `event_name` enum. */
     __events: EVENTS,
 
     /**
@@ -212,7 +214,7 @@
       resolveCapture(key);
     },
 
-    // -- the calls: bridge.json's seven, plus setGlobal ---------------------
+    // -- the calls ------------------------------------------------------------
 
     /** Toggle a gameplay mod; returns the state actually applied. */
     setGameplay: function (id, on) {
@@ -246,6 +248,45 @@
     /** Switch the active loadout; returns whether the switch happened. */
     switchLoadout: function (id) {
       return call('switchLoadout', [id]);
+    },
+
+    // -- the library: the in-game Loadouts screen ------------------------------
+    // Each is synchronous and authoritative like every call above, and each that changes the
+    // library is followed by a `loadouts` push (and `loadout` when the active one changed).
+
+    /** Add a loadout at the registry defaults; returns it, or null. Does not switch. */
+    createLoadout: function (name) {
+      return call('createLoadout', [name]);
+    },
+
+    /** Rename a loadout; returns the name stored, or null. */
+    renameLoadout: function (id, name) {
+      return call('renameLoadout', [id, name]);
+    },
+
+    /** Append a copy of a loadout; returns the copy, or null. */
+    duplicateLoadout: function (id) {
+      return call('duplicateLoadout', [id]);
+    },
+
+    /** Delete a loadout (never the last); returns whether it was deleted. */
+    deleteLoadout: function (id) {
+      return !!call('deleteLoadout', [id]);
+    },
+
+    /** A loadout's share code, or null. */
+    exportLoadout: function (id) {
+      return call('exportLoadout', [id]);
+    },
+
+    /** Import a share code; returns {ok, loadout, dropped} or {ok: false, error}. */
+    importLoadout: function (code) {
+      return call('importLoadout', [code]) || { ok: false, error: 'format' };
+    },
+
+    /** Replace the active loadout's quick-panel pins; returns the pins stored. */
+    setQuickPins: function (ids) {
+      return call('setQuickPins', [ids]) || [];
     },
 
     /** Close the menu screen and give the mouse back to the game. */

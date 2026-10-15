@@ -81,6 +81,9 @@ const ORDER = [
   // `hypixel_safe` is per mod: `old_animations` is `safe`, `old_input` is `grey`. Each file argues
   // its own half. Appended, never inserted.
   'old_animations', 'old_input',
+  // Wave 7 — the depth pass for launch: two readouts the inventory and reach sensors opened
+  // (`potion_counter`, `reach`) and the chat mod. Appended, never inserted.
+  'potion_counter', 'reach', 'chat',
 ];
 
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));

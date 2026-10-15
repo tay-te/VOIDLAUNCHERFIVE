@@ -42,6 +42,9 @@ export const MOD_IDS = [
   'damage_tint',
   'old_animations',
   'old_input',
+  'potion_counter',
+  'reach',
+  'chat',
 ] as const satisfies readonly ModId[];
 
 /** The mods that own a draggable HUD item, in registry order. */
@@ -62,6 +65,8 @@ export const HUD_MOD_IDS = [
   'server_address',
   'item_counter',
   'stopwatch',
+  'potion_counter',
+  'reach',
 ] as const satisfies readonly HUDModId[];
 
 /** The mods an actuator Mixin reads every frame, in registry order. */
@@ -79,4 +84,5 @@ export const GAMEPLAY_MOD_IDS = [
   'damage_tint',
   'old_animations',
   'old_input',
+  'chat',
 ] as const satisfies readonly GameplayModId[];

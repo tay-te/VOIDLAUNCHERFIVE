@@ -1,0 +1,51 @@
+{
+  "id": "potion_counter",
+  "kind": "hud",
+  "category": "pvp",
+  "hypixel_safe": "safe",
+  "label": "Potion counter",
+  "icon": "heart",
+  "the": true,
+  "noun": "the potion chip",
+  "on_description": "the potion counter is enabled",
+  "description": "Healing potions or soup left in your inventory.",
+  "settings_title": "Potion counter settings",
+  "settings_description": "Settings for the Potion counter HUD mod. Reads `counts` on the tick payload, the same inventory-wide sensor the Item counter's named items use: `health_potion` is every splash potion of Healing (I and II) in the inventory and `soup` is every bowl of mushroom stew. A separate mod rather than two more `item_counter.track` values because the two are read at different moments: the item counter answers what you are building or throwing with, and this answers how many heals are left, which is the one number a pot or soup fight is decided by and the one worth a chip of its own.",
+  "source": "`counts.health_potion` and `counts.soup` on the tick payload",
+  "enabled": false,
+  "default_placement": {
+    "note": "Directly above the Item counter (`-146`) in the 175 column, on the same 38 px rhythm: the hand-and-clicks corner reads, bottom to top, how fast the hand is going (CPS), what it is going through (Item counter) and how many heals are left.",
+    "anchor": "bottom-left",
+    "dx": 175,
+    "dy": -184
+  },
+  "defaults": {
+    "track": "health_potion",
+    "show_label": true,
+    "low_threshold": 3
+  },
+  "settings": {
+    "track": {
+      "description": "What is counted: splash potions of Healing, bowls of mushroom stew, or both side by side.",
+      "type": "string",
+      "enum": [
+        "health_potion",
+        "soup",
+        "both"
+      ],
+      "default": "health_potion"
+    },
+    "show_label": {
+      "description": "Whether the count is followed by its unit, `pots` or `soup`. With `both` the units are what tell the two figures apart, so they are always drawn there.",
+      "type": "boolean",
+      "default": true
+    },
+    "low_threshold": {
+      "description": "A count at or below this many draws in the warn treatment. Unlike the Item counter this has a non-zero default, because what is in the slot is known: three heals is low in every pot and soup mode. 0 disables the warning.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 64,
+      "default": 3
+    }
+  }
+}
