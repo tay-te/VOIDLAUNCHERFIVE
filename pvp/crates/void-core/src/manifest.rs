@@ -911,6 +911,12 @@ pub async fn fill_maven_sha1(client: &reqwest::Client, profile: &mut LaunchProfi
     Ok(())
 }
 
+/// Fetches and parses an asset index that has already been downloaded to disk.
+pub fn read_asset_index(path: &std::path::Path) -> Result<AssetIndex> {
+    let text = std::fs::read_to_string(path).map_err(|e| Error::io(path, e))?;
+    serde_json::from_str(&text).map_err(|e| Error::json(path.display().to_string(), e))
+}
+
 #[cfg(test)]
 mod pin_tests {
     /// The launcher must start the loader the mod was compiled against. Both numbers
@@ -926,10 +932,4 @@ mod pin_tests {
             .expect("mod/gradle.properties declares loader_version");
         assert_eq!(super::LEGACY_FABRIC_LOADER, built);
     }
-}
-
-/// Fetches and parses an asset index that has already been downloaded to disk.
-pub fn read_asset_index(path: &std::path::Path) -> Result<AssetIndex> {
-    let text = std::fs::read_to_string(path).map_err(|e| Error::io(path, e))?;
-    serde_json::from_str(&text).map_err(|e| Error::json(path.display().to_string(), e))
 }

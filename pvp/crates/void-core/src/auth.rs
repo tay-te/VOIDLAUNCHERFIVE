@@ -641,10 +641,7 @@ impl TokenStore {
     /// Moves the single-account token (keychain `microsoft-refresh-token`, or the old
     /// file format) onto `uuid`. Returns whether there was one.
     pub fn migrate_legacy(&self, uuid: &str) -> Result<bool> {
-        let mut token = match self.keyring_get(LEGACY_KEYRING_ACCOUNT) {
-            Ok(t) => t,
-            Err(_) => None,
-        };
+        let mut token = self.keyring_get(LEGACY_KEYRING_ACCOUNT).unwrap_or_default();
         if token.is_none() {
             token = self.read_file().unwrap_or_default().refresh_token;
         }
