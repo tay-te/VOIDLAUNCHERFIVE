@@ -43,6 +43,7 @@ import { useDirectWheel } from '@/menu/wheel';
 import { useVoidStore } from '@/store/store';
 import { hasTextFocus } from '@/bridge/connect';
 import { CartMenu } from '@/cart/CartMenu';
+import { useCosmetics } from '@/cart/cosmetics-store';
 import { HudEditorScreen } from './HudEditorScreen';
 import { QuickPalette } from '@/palette/QuickPalette';
 
@@ -103,6 +104,10 @@ export function MenuLayer({
         return;
       }
       e.preventDefault();
+      if (useCosmetics.getState().wheelOpen) {
+        useCosmetics.getState().setWheelOpen(false);
+        return;
+      }
       const state = useVoidStore.getState();
       const route = state.route;
       if (route.name === 'mod') {

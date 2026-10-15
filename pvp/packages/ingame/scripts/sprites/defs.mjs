@@ -1017,4 +1017,579 @@ S.cosmetics = () => {
   return over(g, halo);
 };
 
+// ---- H. the cosmetics catalog (pvp/schema/cosmetics.json). Sprite name = item id.
+// Each is drawn AS WORN, front view, centred: the same cell is the store-card icon and the
+// overlay laid on the paper doll (cape/wings behind the body, hat on the head, mask on the
+// face, halo above, trail by the feet, badge beside a nameplate). Tintable items are drawn
+// in neutral greys so a runtime multiply tint reads. Then the paper doll itself.
+
+const VIO = { h: '#f4f0ff', a: '#e4ddff', b: '#9f8bff', c: '#6a55d6', d: '#3e2f8f', e: '#261c5c', k: '#120c2e' };
+const CORAL = { h: '#fff0c8', y: '#ffc46b', a: '#ffd0b8', b: '#ff9e7a', c: '#e0623e', d: '#9c3a22', e: '#5c1f12', k: '#2e0e06' };
+const ICE = { h: '#f2fcff', a: '#c4f0ff', b: '#7adfff', c: '#3aa6d6', d: '#1f6a96', e: '#13405e', k: '#081e30' };
+const MINT = { a: '#d4f8e6', b: '#7ae0b0', c: '#3fae7e', d: '#22704f', k: '#0c3324' };
+const NEU = { w: '#f4f5f6', a: '#dfe1e5', b: '#b8bbc1', c: '#8a8d94', d: '#5c5f66', e: '#3a3c42', f: '#26272c', k: '#141518' };
+
+/** Tiny deterministic PRNG so noise patterns are identical every build. */
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** A Minecraft-cape banner, 10 x 14 inside x 3..12, y 1..14; fill(i, j) colours each cell. */
+function cape(fill, k) {
+  const g = new G();
+  for (let j = 0; j < 14; j++) for (let i = 0; i < 10; i++) {
+    const c = fill(i, j);
+    if (c) g.p(3 + i, 1 + j, c);
+  }
+  return g.ol(k);
+}
+
+/** The VOID ring as the logo draws it: a one-cell pixel circle (corners touch diagonally).
+ *  size 6 / 8 are one pixel thick; 12 is the logo at double scale. Lit top-left, shaded bottom-right. */
+const RINGS = {
+  6: ['.####.', '#....#', '#....#', '#....#', '#....#', '.####.'],
+  8: ['..####..', '.#....#.', '#......#', '#......#', '#......#', '#......#', '.#....#.', '..####..'],
+  12: ['....####....', '....####....', '..##....##..', '..##....##..', '##........##', '##........##',
+    '##........##', '##........##', '..##....##..', '..##....##..', '....####....', '....####....'],
+};
+function voidRing(g, ox, oy, size, light, shade) {
+  RINGS[size].forEach((row, j) => [...row].forEach((ch, i) => {
+    if (ch === '#') g.p(ox + i, oy + j, i + j >= size ? shade : light);
+  }));
+  return g;
+}
+
+// ---- capes
+
+S['cell-cape'] = () => {
+  const rowCol = [VIO.d, VIO.c, VIO.b, VIO.a];
+  const rowHi = [VIO.c, VIO.b, VIO.a, VIO.h];
+  const rowLo = [VIO.e, VIO.d, VIO.c, VIO.b];
+  return cape((i, j) => {
+    const ci = i % 3, cj = (j - 1) % 3;
+    const r = Math.floor((j - 1) / 3);
+    if (i >= 1 && i <= 8 && ci !== 0 && j >= 1 && j <= 11 && cj !== 2) {
+      return ci === 1 && cj === 0 ? rowHi[r] : ci === 2 && cj === 1 ? rowLo[r] : rowCol[r];
+    }
+    if (j === 13) return i === 9 ? VIO.d : VIO.c;
+    return j >= 9 ? '#30246e' : j >= 5 ? VIO.e : '#1c1448';
+  }, VIO.k);
+};
+
+S['void-cape'] = () => {
+  const g = cape((i, j) => (i === 9 ? '#0a0a0c' : i === 0 || j === 0 ? '#1c1c22' : '#101014'), '#4a4a56');
+  voidRing(g, 4, 4, 8, NEU.w, NEU.b);
+  g.r(10, 1, 2, 2, VIO.b).p(10, 1, VIO.a).p(11, 2, VIO.c);
+  [5, 7, 8, 10].forEach((x) => g.p(x, 13, '#4a4a56'));
+  return g;
+};
+
+S['ring-cape'] = () => {
+  const g = cape((i, j) => (i === 0 ? '#a2a5aa' : i === 9 ? '#75787d' : j === 0 ? '#7f828a' : '#8f9299'), NEU.f);
+  voidRing(g, 4, 3, 8, NEU.w, NEU.a);
+  return g;
+};
+
+S['origin-cape'] = () => cape((i, j) => {
+  const left = i < 5;
+  let c = left ? NEU.b : NEU.c;
+  if (j === 0) c = darken(c, 0.12);
+  if (i === 0) c = NEU.a;
+  if (i === 9) c = NEU.d;
+  return c;
+}, '#22242a');
+
+S['dusk-cape'] = () => {
+  const bands = ['#231c50', '#6a3d92', '#ef8458'];
+  const band = (i, j) => {
+    if (j <= 3) return 0;
+    if (j === 4) return (i % 2 === 0) ? 1 : 0;
+    if (j <= 8) return 1;
+    if (j === 9) return (i % 2 === 1) ? 2 : 1;
+    return 2;
+  };
+  const g = cape((i, j) => {
+    const b = band(i, j);
+    if (b === 2 && j === 13) return '#ffb27a';
+    return bands[b];
+  }, '#100a26');
+  [[5, 2], [10, 4], [7, 5], [11, 1]].forEach(([x, y]) => g.p(x, y, '#fff3d0'));
+  g.p(9, 7, '#c9b8ff');
+  return g;
+};
+
+S['static-cape'] = () => {
+  const rnd = rng(1337);
+  const greys = [NEU.e, NEU.d, NEU.c, NEU.b, NEU.a, NEU.w];
+  const g = cape((i, j) => {
+    const v = rnd();
+    const lift = j === 6 || j === 7 ? 0.25 : 0;
+    if (v < 0.42 - lift) return NEU.f;
+    return greys[Math.min(greys.length - 1, Math.floor(rnd() * greys.length + lift * 4))];
+  }, '#0a0a0c');
+  g.p(5, 4, VIO.b).p(10, 10, ICE.b).p(7, 12, CORAL.b);
+  return g;
+};
+
+// ---- back
+
+S['ember-wings'] = () => {
+  // raised wings: long dark feathers hang from a warm leading edge and glow at the tips
+  const half = new G();
+  const top = [3, 2, 2, 3, 3, 4, 4, 5];
+  const bot = [10, 12, 11, 12, 10, 10, 8, 7];
+  for (let x = 0; x < 8; x++) for (let y = top[x]; y <= bot[x]; y++) {
+    const k = y - top[x], n = bot[x] - y, t = k / (bot[x] - top[x]);
+    const odd = x % 2 === 1;
+    let c;
+    if (n === 0) c = x >= 6 ? CORAL.c : CORAL.y;
+    else if (k === 0) c = x <= 2 ? CORAL.b : CORAL.c;
+    else if (x >= 6) c = t < 0.6 ? CORAL.e : CORAL.d;
+    else if (t < 0.4) c = odd ? CORAL.e : CORAL.d;
+    else if (n === 1) c = odd ? CORAL.b : CORAL.a;
+    else c = odd ? CORAL.d : CORAL.c;
+    half.p(x, y, c);
+  }
+  for (let y = 0; y < 16; y++) half.clear(7, y);
+  return over(copy(half), flipX(half)).ol(CORAL.k);
+};
+
+S['void-wings'] = () => {
+  // a bat wing: bright arm to the wrist, three finger veins, dark glass membrane scalloped between
+  const half = new G();
+  half.poly([[7.6, 4.2], [1, 0.4], [0, 1.4], [0, 11.6], [1.3, 8.6], [3.5, 13.6], [4.4, 9.4], [6.5, 12.6], [7.6, 8.8]], '#221a56');
+  half.map((x, y) => (y >= 8 ? '#2a2068' : undefined));
+  half.l(1, 2, 3, 13, VIO.c).l(2, 2, 6, 12, VIO.c).l(0, 3, 0, 10, VIO.d);
+  half.l(7, 4, 1, 1, VIO.b).p(6, 4, VIO.a).p(5, 3, VIO.a);
+  half.p(1, 1, VIO.h).p(0, 1, VIO.a).p(0, 11, VIO.b).p(3, 13, VIO.b).p(6, 12, VIO.b);
+  for (let y = 0; y < 16; y++) half.clear(7, y);
+  return over(copy(half), flipX(half)).ol(VIO.k);
+};
+
+S['orbit-ring'] = () => {
+  const g = new G();
+  g.ring(8, 8, 6.4, ICE.e);
+  const n = 8;
+  for (let k = 0; k < n; k++) {
+    const a = -Math.PI / 2 + (k / n) * Math.PI * 2;
+    const x = Math.round(8 + Math.cos(a) * 5.9 - 1), y = Math.round(8 + Math.sin(a) * 5.9 - 1);
+    const lit = k / n; // brightest at the top, fading round the circle
+    const P = lit < 0.3 ? [ICE.h, ICE.b, ICE.c] : lit < 0.65 ? [ICE.a, ICE.c, ICE.d] : [ICE.b, ICE.d, ICE.e];
+    g.r(x, y, 2, 2, P[1]).p(x, y, P[0]).p(x + 1, y + 1, P[2]);
+  }
+  return g.ol(ICE.k);
+};
+
+// ---- head
+
+S['monarch-crown'] = () => {
+  const g = new G();
+  g.rows([
+    'b...b....b...b',
+    'bb.bbb..bbb.bb',
+    'bbbbbbbbbbbbbb',
+    'aaaaaaaaaaaaaa',
+    'bbbbbbbbbbbbbb',
+    'cccccccccccccc',
+  ], { a: GOLD.a, b: GOLD.b, c: GOLD.c }, 1, 6);
+  g.map((x, y, c) => (x >= 12 && c === GOLD.b ? '#d9a822' : undefined));
+  g.r(7, 9, 2, 2, CORAL.b).p(7, 9, CORAL.h).p(8, 10, CORAL.c);
+  g.p(3, 10, CORAL.c).p(12, 10, CORAL.c);
+  g.ol(GOLD.k);
+  g.p(1, 6, GOLD.a).p(14, 6, GOLD.a);
+  return g;
+};
+
+S['wool-beanie'] = () => {
+  const g = new G();
+  g.rows([
+    '....bbbbbb....',
+    '..baaaabbbbb..',
+    '.baaabbbbbbbc.',
+    '.babbbbbbbbbc.',
+    'bbbbbbbbbbbbcc',
+    'wwwwwwwwwwwwww',
+    'ararararararar',
+    'ararararararar',
+  ], { a: NEU.a, b: NEU.b, c: NEU.c, w: NEU.w, r: NEU.c }, 1, 4);
+  return g.ol(NEU.e);
+};
+
+S['dapper-top-hat'] = () => {
+  const g = new G();
+  g.rows([
+    '..aaaaaaaa..',
+    '..bccccccd..',
+    '...bccccd...',
+    '...bccccd...',
+    '...bccccd...',
+    '...bccccd...',
+    '...wwwwwv...',
+    '...wwwwwv...',
+    '..bccccccd..',
+    'bbcccccccddd',
+  ], { a: '#5a5a6a', b: '#4a4a58', c: '#33333e', d: '#22222a', w: NEU.w, v: NEU.b }, 2, 2);
+  return g.ol('#0a0a0e');
+};
+
+// ---- halo
+
+S['seraph-halo'] = () => {
+  const g = new G();
+  g.rows([
+    '....cccccc....',
+    '..cc......cc..',
+    '.b..........b.',
+    'b............b',
+    'y............y',
+    '.yy........yy.',
+    '...hhhhhhhh...',
+    '.....yyyy.....',
+  ], { c: CORAL.c, b: CORAL.b, y: CORAL.y, h: CORAL.h }, 1, 4);
+  g.ol(CORAL.e);
+  spark(g, 3, 3, '#ffffff', CORAL.h);
+  spark(g, 13, 12, '#ffffff', CORAL.h);
+  g.p(12, 2, CORAL.y);
+  return g;
+};
+
+S['void-halo'] = () => {
+  const g = new G();
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const e = ((x + 0.5 - 8) / 6.6) ** 2 + ((y + 0.5 - 8) / 3) ** 2;
+    if (e > 1 || e < 0.5) continue;
+    const front = y + 0.5 > 8;
+    if (((x + (front ? 0 : 1)) % 3) === 0) continue;
+    g.p(x, y, front ? VIO.b : VIO.c);
+  }
+  g.ol(VIO.k);
+  g.r(1, 7, 2, 2, VIO.a).p(1, 7, VIO.h);
+  g.r(12, 4, 2, 2, VIO.a).p(12, 4, VIO.h);
+  return g;
+};
+
+// ---- face
+
+S['ice-visor'] = () => {
+  const g = new G();
+  g.rows([
+    '..dddddddddddd..',
+    'ddhaaaaaabbbbbdd',
+    'd.abbbbbbbbbbc.d',
+    '..cccccccccccc..',
+  ], { h: ICE.h, a: ICE.a, b: ICE.b, c: ICE.c, d: ICE.d }, 0, 6);
+  g.p(5, 7, ICE.h).p(4, 8, ICE.h).p(6, 7, ICE.h);
+  return g.ol(ICE.k);
+};
+
+S['rift-mask'] = () => {
+  const g = new G();
+  g.rows([
+    '.aaaaaaaaaa.',
+    'abbbbbbbbbbc',
+    'abbbbbbbbbbc',
+    'akkkbbbbkkkc',
+    'abkkbbbbkkbc',
+    'abbbbbbbbbbc',
+    'abbbbbbbbbbc',
+    '.bbbbbbbbbc.',
+    '..cccccccc..',
+  ], { a: '#4a4a58', b: '#30303a', c: '#1e1e26', k: '#0a0a10' }, 2, 3);
+  // the seam: a jagged split down the middle, glowing violet
+  [[8, 3], [8, 4], [7, 5], [7, 6], [8, 7], [8, 8], [9, 9], [8, 10], [8, 11]].forEach(([x, y]) => g.p(x, y, VIO.a));
+  [[9, 4], [8, 6], [7, 7], [9, 8], [9, 10], [7, 4]].forEach(([x, y]) => g.p(x, y, VIO.d));
+  g.p(4, 7, VIO.c).p(11, 7, VIO.c);
+  return g.ol('#06060a');
+};
+
+// ---- emotes: a small light figure in the pose, no outline (as the emote wheel's figures)
+
+const FIG = { w: '#f4f5f6', s: '#d3d6db', d: '#8a8d94', m: VIO.b, g: NEU.d, G: NEU.e };
+/** Stamp a pose and centre its bounding box in the cell. */
+function figure(rows) {
+  const t = new G();
+  t.rows(rows, FIG);
+  let x0 = 16, x1 = -1, y0 = 16, y1 = -1;
+  t.map((x, y) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); });
+  const dx = Math.floor((16 - (x1 - x0 + 1)) / 2) - x0, dy = Math.floor((16 - (y1 - y0 + 1)) / 2) - y0;
+  const g = new G();
+  t.map((x, y, c) => { g.p(x + dx, y + dy, c); });
+  return g;
+}
+
+S['emote-wave'] = () => figure([
+  '.......wws.s.m..',
+  '.......wws.s....',
+  '.......wws.s.m..',
+  '.....wwwwsss....',
+  '.....w.wws......',
+  '.....w.wws......',
+  '.....w.wws......',
+  '.......wws......',
+  '.......wws......',
+  '.......w.s......',
+  '.......w.s......',
+  '.......w.s......',
+  '.......w.s......',
+  '......ww.ss.....',
+]);
+S['emote-clap'] = () => figure([
+  '...m...w...m....',
+  '......w.s.......',
+  '..m..w...s..m...',
+  '....w.wws.s.....',
+  '....w.wws.s.....',
+  '....wwwwssss....',
+  '......wws.......',
+  '......wws.......',
+  '......wws.......',
+  '......wws.......',
+  '......w.s.......',
+  '......w.s.......',
+  '......w.s.......',
+  '......w.s.......',
+  '.....ww.ss......',
+]);
+S['emote-bow'] = () => figure([
+  '...wwwwwwww.....',
+  '...wwwwwwwwww...',
+  '...wwssssswww...',
+  '...ws.....www...',
+  '...ws.....ss....',
+  '...ws...........',
+  '...ws...........',
+  '...ws...........',
+  '...wsss.........',
+]);
+S['emote-salute'] = () => figure([
+  '.......wwwwwm...',
+  '.......wws.s....',
+  '.......wws.s....',
+  '.....wwwwsss....',
+  '.....w.wws......',
+  '.....w.wws......',
+  '.....w.wws......',
+  '.......wws......',
+  '.......wws......',
+  '.......w.s......',
+  '.......w.s......',
+  '.......w.s......',
+  '.......w.s......',
+  '......ww.ss.....',
+]);
+S['emote-shrug'] = () => figure([
+  '...w.........s..',
+  '...ww..wws..ss..',
+  '....w..wws..s...',
+  '....wwwwwssss...',
+  '.......wws......',
+  '.......wws......',
+  '.......wws......',
+  '.......wws......',
+  '.......w.s......',
+  '.......w.s......',
+  '.......w.s......',
+  '.......w.s......',
+  '......ww.ss.....',
+]);
+S['emote-sit'] = () => figure([
+  '...www.......',
+  '...www.......',
+  '...www.......',
+  '...wwws......',
+  '...www.s.....',
+  '...www..s....',
+  '...wwwwwwwwww',
+  '...wwssssssss',
+  '.GGGGGGGGGGGGG',
+]);
+
+// ---- trails: a short particle trail rising from the bottom-left, newest at the top-right
+
+S['spark-trail'] = () => {
+  const g = new G();
+  g.r(11, 2, 3, 3, VIO.b).p(11, 2, VIO.h).p(12, 2, VIO.a).p(11, 3, VIO.a).p(13, 4, VIO.c);
+  g.p(12, 0, VIO.a).p(12, 6, VIO.c).p(15, 3, VIO.c).p(9, 3, VIO.a);
+  g.r(8, 7, 2, 2, VIO.c).p(8, 7, VIO.b);
+  g.r(5, 10, 2, 2, VIO.d).p(5, 10, VIO.c);
+  g.p(3, 13, VIO.d).p(1, 15, VIO.e);
+  return g;
+};
+S['ember-trail'] = () => {
+  const g = new G();
+  g.r(10, 2, 2, 2, CORAL.y).p(10, 2, CORAL.h).p(11, 3, CORAL.b);
+  g.p(13, 1, CORAL.b).p(13, 5, CORAL.c);
+  g.r(7, 6, 2, 2, CORAL.b).p(7, 6, CORAL.y).p(8, 7, CORAL.c);
+  g.p(10, 8, CORAL.c);
+  g.r(4, 9, 2, 2, CORAL.c).p(4, 9, CORAL.b);
+  g.p(6, 12, CORAL.d).p(2, 12, CORAL.d).p(3, 14, CORAL.e);
+  return g;
+};
+S['frost-trail'] = () => {
+  const g = new G();
+  g.rows([
+    'h..a..h',
+    '.a.b.a.',
+    '..bhb..',
+    'abhwhba',
+    '..bhb..',
+    '.a.b.a.',
+    'h..a..h',
+  ], { w: '#ffffff', h: ICE.h, a: ICE.c, b: ICE.b }, 8, 1);
+  g.rows(['..b..', '.b.b.', 'b...b', '.b.b.', '..b..'], { b: ICE.c }, 4, 8);
+  g.p(6, 10, ICE.a);
+  g.rows(['.d.', 'd.d', '.d.'], { d: ICE.d }, 1, 12);
+  g.p(0, 15, ICE.e);
+  return g;
+};
+S['stair-trail'] = () => {
+  const g = new G();
+  const step = (x, y, P) => g.r(x, y, 3, 3, P[1]).r(x, y, 3, 1, P[0]).r(x + 2, y + 1, 1, 2, P[2]);
+  step(11, 1, [MINT.a, MINT.b, MINT.c]);
+  step(8, 4, [MINT.b, MINT.c, MINT.d]);
+  step(5, 7, [MINT.c, MINT.d, MINT.k]);
+  g.r(2, 11, 2, 2, MINT.d);
+  g.p(0, 14, MINT.d);
+  return g;
+};
+
+// ---- badges: a 10-12 px mark, centred
+
+S['void-badge-founder'] = () => {
+  const g = new G();
+  g.c(8, 8, 5.6, GOLD.b);
+  g.c(8, 8, 5.6, GOLD.a, (x, y) => x + y < 12);
+  g.c(8, 8, 5.6, GOLD.c, (x, y) => x + y > 19);
+  g.c(8, 8, 4.4, CORAL.d);
+  g.c(8, 8, 4.4, CORAL.e, (x, y) => x + y > 17);
+  g.rows([
+    '..h..',
+    '.hhy.',
+    'hhhyy',
+    '.hyy.',
+    '.h.y.',
+  ], { h: CORAL.h, y: CORAL.y }, 6, 5);
+  return g.ol(GOLD.k);
+};
+S['void-badge-player'] = () => {
+  const g = new G();
+  voidRing(g, 2, 2, 12, NEU.w, NEU.b);
+  return g.ol('#1c1d22');
+};
+S['cell-badge'] = () => {
+  const g = new G();
+  for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
+    const x = 3 + i * 4, y = 3 + j * 4;
+    const P = i === 1 && j === 1 ? [VIO.h, VIO.a, VIO.b] : [VIO.a, VIO.b, VIO.c];
+    g.r(x, y, 3, 3, P[1]).p(x, y, P[0]).p(x + 2, y + 2, P[2]).p(x + 1, y + 2, P[2]).p(x + 2, y + 1, P[2]);
+  }
+  return g.ol(VIO.k);
+};
+S['frost-badge'] = () => {
+  const g = new G();
+  const dot = (cx, cy) => {
+    g.c(cx, cy, 2.1, ICE.b);
+    g.c(cx, cy, 2.1, ICE.c, (x, y) => x + 0.5 > cx && y + 0.5 > cy);
+    g.p(Math.floor(cx) - 1, Math.floor(cy) - 1, ICE.h);
+  };
+  dot(8, 5);
+  dot(5, 11);
+  dot(11, 11);
+  return g.ol(ICE.k);
+};
+
+// ---- the paper doll: Minecraft proportions at half scale (head 4x4, body 4x6, arms and legs
+// 2x6), 8 wide x 16 tall, centred. No outline: it is drawn large as the wardrobe's centre.
+
+const DOLL = {
+  H: '#5a3c22', h: '#4a311b', i: '#6b4a2c', // hair
+  S: '#c8956a', s: '#a87a54', t: '#dcaa7e', // skin
+  E: '#3f4fa8', M: '#7a4a32', // eyes, mouth
+  T: '#2ab3b0', u: '#1f8d8b', v: '#4cc8c4', // shirt
+  B: '#3b3fa6', b: '#2c2f85', n: '#4a4fc0', // trousers
+  G: '#7a7a80', g: '#5e5e64', // shoes
+};
+S.doll_front = () => {
+  const g = new G();
+  g.rows([
+    'iHHh',
+    'HttS',
+    'EtSE',
+    'tMMs',
+  ], DOLL, 6, 0);
+  g.rows([
+    'vvvTTTuu',
+    'vTvTTTuu',
+    'tSvTTTsS',
+    'tSvTTusS',
+    'tSvTTusS',
+    'tSvTTusS',
+  ], DOLL, 4, 4);
+  g.rows([
+    'nBBb',
+    'nBBb',
+    'nBBb',
+    'nBBb',
+    'nBBb',
+    'GGgg',
+  ], DOLL, 6, 10);
+  return g;
+};
+S.doll_back = () => {
+  const g = new G();
+  g.rows([
+    'iHHh',
+    'iHHh',
+    'HHHh',
+    'HHhh',
+  ], DOLL, 6, 0);
+  g.rows([
+    'vvvTTTuu',
+    'vTvTTTuu',
+    'tSvTTusS',
+    'tSvTTusS',
+    'tSvTTusS',
+    'tSvTTusS',
+  ], DOLL, 4, 4);
+  g.rows([
+    'nBBb',
+    'nBBb',
+    'nBBb',
+    'nBBb',
+    'nBBb',
+    'GGgg',
+  ], DOLL, 6, 10);
+  return g;
+};
+
+// Keep the sheet inside one 256-colour palette without loosening everyone's snap: any catalog
+// colour within a few RGB steps of a colour the earlier sprites already use is snapped onto it.
+{
+  const names = Object.keys(S);
+  const cut = names.indexOf('cosmetics') + 1;
+  const base = new Map();
+  // opaque '#rrggbb' colours only: translucent ones must never be snapped onto
+  names.slice(0, cut).forEach((n) => S[n]().map((x, y, c) => { if (/^#[0-9a-f]{6}$/i.test(c)) base.set(c.toLowerCase(), rgb(c)); }));
+  const near = (c) => {
+    const v = rgb(c);
+    let best = c, bd = 16;
+    for (const [k, w] of base) {
+      const d = Math.hypot(v[0] - w[0], v[1] - w[1], v[2] - w[2]);
+      if (d < bd) { bd = d; best = k; }
+    }
+    return best;
+  };
+  names.slice(cut).forEach((n) => {
+    const draw = S[n];
+    S[n] = () => draw().map((x, y, c) => (/^#[0-9a-f]{6}$/i.test(c) ? near(c.toLowerCase()) : undefined));
+  });
+}
+
 export const SPRITES = S;

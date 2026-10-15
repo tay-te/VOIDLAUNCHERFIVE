@@ -87,7 +87,7 @@ describe('the shell', () => {
     key('4');
     expect(container.querySelector('.c-panel--friends')?.textContent).toContain('Not connected yet');
     key('5');
-    expect(container.querySelector('.c-panel--cosmetics')?.textContent).toContain('Not connected yet');
+    expect(container.querySelector('.c-panel--cosmetics')?.textContent).toContain('Wardrobe');
     expect(keepsEscape()).toBe(true);
     escape();
     expect(useVoidStore.getState().route.name).toBe('mods');

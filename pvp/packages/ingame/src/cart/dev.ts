@@ -9,7 +9,7 @@
  *
  * Steps (string in, `ok:<step>` or `error:<why>` out):
  *   mods · mods:hover=<id> · search:<query> · pinned · settings:<id> · capture:<id>
- *   loadouts · keybinds · friends · cosmetics · emotes · hud-editor · toast · close
+ *   loadouts · keybinds · friends · cosmetics[:emotes] · emotes · hud-editor · toast · close
  */
 
 import { create } from 'zustand';
@@ -17,12 +17,13 @@ import { create } from 'zustand';
 import { MOD_REGISTRY, type HUDModId, type ModId } from '@/bridge/protocol';
 import { useVoidStore } from '@/store/store';
 import type { CaptureState } from './Bench';
+import { useCosmetics } from './cosmetics-store';
 
 interface DevState {
   /** The bench's first keybind block opens in this state (the conflict screenshot). */
   captureInitial?: CaptureState;
-  /** The Cosmetics tab opens with the emote wheel up. */
-  emoteWheel?: boolean;
+  /** The Cosmetics tab opens on this view. */
+  cosmeticsView?: 'wardrobe' | 'emotes';
 }
 
 export const useDev = create<DevState>(() => ({}));
@@ -38,7 +39,8 @@ function isMod(id: string): id is ModId {
 export function devGo(step: string): string {
   const s = useVoidStore.getState();
   const [name, arg = ''] = step.split(/:(.*)/s);
-  useDev.setState({ captureInitial: undefined, emoteWheel: false });
+  useDev.setState({ captureInitial: undefined, cosmeticsView: undefined });
+  useCosmetics.getState().setWheelOpen(false);
   const tab = (route: 'mods' | 'loadouts' | 'keybinds' | 'friends' | 'cosmetics') => {
     s.setModSearch('');
     s.setModFilter('all');
@@ -75,12 +77,17 @@ export function devGo(step: string): string {
     case 'loadouts':
     case 'keybinds':
     case 'friends':
-    case 'cosmetics':
       tab(name);
       return `ok:${step}`;
-    case 'emotes':
+    case 'cosmetics':
+      // `cosmetics:emotes` opens the emote wheel editor; `cosmetics:<slot>` is not a step.
+      useDev.setState({ cosmeticsView: arg === 'emotes' ? 'emotes' : 'wardrobe' });
       tab('cosmetics');
-      useDev.setState({ emoteWheel: true });
+      return `ok:${step}`;
+    case 'emotes':
+      // The crescent wheel itself, as holding B shows it.
+      tab('cosmetics');
+      useCosmetics.getState().setWheelOpen(true);
       return `ok:${step}`;
     case 'hud-editor':
       s.setEditorTarget((isMod(arg) ? arg : 'keystrokes') as HUDModId);

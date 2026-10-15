@@ -62,8 +62,27 @@ last), Import a `VOID1.` code; Enter / Insert switches, `L` / `Shift L` step. Th
 "Auto-insert by server" switch is not drawn: loadouts carry an advisory `server` slug and nothing
 switches by server.
 
-**Friends / Cosmetics**: the bridge carries no friend or presence data, so Friends says "Not
-connected yet" and who is signed in.
+**Friends**: the bridge carries no friend or presence data, so Friends says "Not connected yet"
+and who is signed in.
+
+**Cosmetics** (`cart/CosmeticsTab.tsx`, `cart/cosmetics-store.ts`, `cart/CrescentWheel.tsx`) —
+Wardrobe direction B "Paper doll" (Figma 295:2 section 562:24911) and the Crescent emote wheel
+EW-B (588:35340), in Cartridge. The `cosmetics` and `emote` channels feed their own small store;
+`equipCosmetic`, `setCosmeticTint`, `setEmoteWheel` and `playEmote` write through it and bind to
+what Java returned. The doll is pixel sprites (`doll_front` / `doll_back` plus each worn item's
+own sprite where it is worn) — the bridge exposes no GL-rendered preview. Prices are USD from
+`price_cents`; a locked item says "Get in launcher Store" and raises a notice — nothing is bought
+in game. The Emote wheel view edits the wheel (pick a slot, then an emote) and writes the
+`cosmetics` mod's switches; `B` (or "Try it") opens the Crescent wheel over the world from the
+menu: point or press 1–8, click to play.
+
+Wiring left for later, because the bridge has no surface for it yet:
+* **Hold B with the menu shut.** The wheel is a page overlay; showing it over the HUD layer while
+  the player keeps moving needs Java to surface it (a key binding plus a `wheel` open/close event
+  and pointer input without a screen). Today it opens from the menu.
+* **Outfits** (the frame's "Save look as outfit") — no stored-outfit call exists; not drawn.
+* **Get in launcher Store** — no call asks the launcher to open its Store at an item; the button
+  raises a notice naming the item and its price instead.
 
 **In a match** (v1 Ship rule 9, unchanged): a hit either way within `COMBAT_WINDOW_MS` of
 pressing Right Shift opens the quick panel only — the loadout's pins as numbered cartridges that
@@ -404,6 +423,7 @@ pnpm --filter @void/ingame check    # typecheck + Ultralight guard + tests
 | `test/store.test.ts` | Reducers against the real `createFakeVoid()`: CPS through the store, clamped writes, `setHud` round-trip, `__hasFocus` |
 | `test/cartridge.test.tsx` | The Cartridge shell, shelves, search, the bench and keybind capture, live values, the dev hook and rule 9's quick panel |
 | `test/screens.test.tsx` | HUD layer, the bench's property coverage for every mod, Loadouts/Friends tabs, the HUD editor, the palette, the watermark |
+| `test/cosmetics.test.tsx` | The wardrobe against the fake bridge's cosmetics rules: wear/take off, locked → launcher Store in USD, tints, loading, the emote wheel editor and the Crescent wheel |
 | `test/library.test.tsx` | The loadout library, notices, quick pins and the keybind overview / Keybinds tab |
 | `test/registry.test.ts` | That category, label and filter tabs are *derived* from `mods.json` and not re-transcribed, and that `category` stays distinct from `kind` |
 

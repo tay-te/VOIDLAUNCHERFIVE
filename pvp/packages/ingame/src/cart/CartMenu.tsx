@@ -35,6 +35,8 @@ import { LoadoutsTab } from './LoadoutsTab';
 import { KeybindsTab } from './KeybindsTab';
 import { CosmeticsTab } from './CosmeticsTab';
 import { useDevState } from './dev';
+import { CrescentWheel } from './CrescentWheel';
+import { useCosmetics } from './cosmetics-store';
 
 const TAB_LABEL: Record<MenuTab, string> = {
   mods: 'Mods',
@@ -246,9 +248,13 @@ export function CartMenu() {
   const setEditorTarget = useVoidStore((s) => s.setEditorTarget);
   const scale = useCartScale();
   const dev = useDevState();
+  const wheelOpen = useCosmetics((s) => s.wheelOpen);
   const tab = tabOf(route) ?? 'mods';
   const benchId = route.name === 'mod' ? route.id : null;
   const geo = panelGeometry(scale, benchId !== null && context === 'lobby');
+
+  // The wheel belongs to this open of the menu; closing the menu puts it away.
+  useEffect(() => () => useCosmetics.getState().setWheelOpen(false), []);
 
   // 1–5 sections, H the HUD layout. Not while typing, and not in a match (1–8 are the pins).
   useEffect(() => {
@@ -260,6 +266,12 @@ export function CartMenu() {
       if (Number.isInteger(n) && n >= 1 && n <= MENU_TABS.length && e.key.length === 1) {
         e.preventDefault();
         setRoute({ name: MENU_TABS[n - 1]! });
+        return;
+      }
+      if (e.key === 'b' || e.key === 'B') {
+        // The emote wheel, over the world. (Holding B with the menu shut is Java's to surface.)
+        e.preventDefault();
+        useCosmetics.getState().setWheelOpen(!useCosmetics.getState().wheelOpen);
         return;
       }
       if (e.key === 'h' || e.key === 'H') {
@@ -282,6 +294,14 @@ export function CartMenu() {
   }
 
   const box = (b: { left: number; top: number; width: number; height: number }): CSSProperties => b;
+
+  if (wheelOpen) {
+    return (
+      <div className="c-layer c-layer--wheel" style={layerStyle(scale)}>
+        <CrescentWheel width={scale.width} height={scale.height} />
+      </div>
+    );
+  }
 
   return (
     <div className={cx('c-layer', scale.compact && 'is-compact')} style={layerStyle(scale)} data-tab={tab}>

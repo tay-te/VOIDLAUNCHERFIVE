@@ -960,6 +960,7 @@ public final class PerfBench {
             {"loadouts", "loadouts"},
             {"hud-editor", "hud-editor"},
             {"cosmetics", "cosmetics"},
+            {"cosmetics-emotes", "cosmetics:emotes"},
             {"emotes", "emotes"},
         };
         for (String[] m : menu) {

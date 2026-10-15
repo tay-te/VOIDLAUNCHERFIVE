@@ -8,6 +8,7 @@
 
 import { createFakeVoid, installVoidShim, type FakeVoid, type VoidBridge } from './protocol';
 import { useVoidStore } from '@/store/store';
+import { useCosmetics } from '@/cart/cosmetics-store';
 
 let bridge: VoidBridge | null = null;
 let fake: FakeVoid | null = null;
@@ -72,6 +73,7 @@ export function keepsEscape(): boolean {
   if (hasTextFocus()) return true;
   const state = useVoidStore.getState();
   if (state.paletteOpen) return true;
+  if (useCosmetics.getState().wheelOpen) return true;
   const route = state.route.name;
   if (route !== 'mods') return true;
   // On the Mods tab Escape first clears a search or a single-shelf view, then closes.
@@ -168,6 +170,10 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
     // The eleventh: a short notice Java raises for something that happened with the menu
     // closed — the cycle key, a mod's own key, the launcher switching the loadout.
     bridge.on('toast', store.applyToast),
+    // The wardrobe's two: whole-state `cosmetics` and the `emote` start/end. Their own store
+    // (cart/cosmetics-store.ts) — the HUD reads neither.
+    bridge.on('cosmetics', (payload) => useCosmetics.getState().apply(payload)),
+    bridge.on('emote', (payload) => useCosmetics.getState().applyEmote(payload)),
   ];
 
   if (fake) {

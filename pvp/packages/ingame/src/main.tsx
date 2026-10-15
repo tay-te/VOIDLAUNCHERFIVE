@@ -27,6 +27,7 @@ import './cart/tokens.css';
 import './cart/sprites.css';
 import './cart/hud.css';
 import './cart/menu.css';
+import './cart/cosmetics.css';
 
 import { App } from './App';
 import { connectBridge } from './bridge/connect';

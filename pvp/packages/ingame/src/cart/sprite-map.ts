@@ -6,7 +6,7 @@ export const SPRITE_CELL = 128;
 export const SPRITE_STRIDE = 144;
 export const SPRITE_GUTTER = 8;
 export const SHEET_COLS = 12;
-export const SHEET_ROWS = 11;
+export const SHEET_ROWS = 13;
 
 export const SPRITE_INDEX = {
   fps: 0,
@@ -131,6 +131,38 @@ export const SPRITE_INDEX = {
   cos_emote: 119,
   lock: 120,
   cosmetics: 121,
+  "cell-cape": 122,
+  "void-cape": 123,
+  "ring-cape": 124,
+  "origin-cape": 125,
+  "dusk-cape": 126,
+  "static-cape": 127,
+  "ember-wings": 128,
+  "void-wings": 129,
+  "orbit-ring": 130,
+  "monarch-crown": 131,
+  "wool-beanie": 132,
+  "dapper-top-hat": 133,
+  "seraph-halo": 134,
+  "void-halo": 135,
+  "ice-visor": 136,
+  "rift-mask": 137,
+  "emote-wave": 138,
+  "emote-clap": 139,
+  "emote-bow": 140,
+  "emote-salute": 141,
+  "emote-shrug": 142,
+  "emote-sit": 143,
+  "spark-trail": 144,
+  "ember-trail": 145,
+  "frost-trail": 146,
+  "stair-trail": 147,
+  "void-badge-founder": 148,
+  "void-badge-player": 149,
+  "cell-badge": 150,
+  "frost-badge": 151,
+  doll_front: 152,
+  doll_back: 153,
 } as const satisfies Record<string, number>;
 
 export type SpriteName = keyof typeof SPRITE_INDEX;
