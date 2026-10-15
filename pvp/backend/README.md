@@ -177,7 +177,7 @@ VOID_SUPABASE_ANON_KEY=<local anon key>`.
 ## Tests
 
 ```sh
-pnpm --filter @void/backend test        # 98 tests, no Docker, ~5 s
+pnpm --filter @void/backend test        # 99 tests, no Docker, ~5 s
 pnpm --filter @void/backend typecheck
 ```
 
