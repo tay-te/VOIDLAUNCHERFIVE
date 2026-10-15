@@ -32,6 +32,7 @@ import {
   type ModId,
   type PotionEffect,
   type Position,
+  type ScoreboardPayload,
   type ServerPayload,
   type SessionInfo,
   type SettingPayload,
@@ -306,6 +307,9 @@ function onePercentLow(): number {
 }
 
 /** Reset the derived rings. Tests call this between cases. */
+/** No sidebar objective — the state before the first `scoreboard` push. */
+const EMPTY_SCOREBOARD: ScoreboardPayload = { visible: false, title: '', lines: [] };
+
 export function resetDerivedState(): void {
   rings.left = createClickRing();
   rings.right = createClickRing();
@@ -361,6 +365,12 @@ export interface VoidState {
   /** When the combo last advanced, ms. The widget compares this against its own `reset_ms`. */
   comboAt: number;
   server: ServerPayload;
+  /**
+   * The server's sidebar, whole state, raw `§` codes included (`bridge.json`,
+   * `scoreboard_payload`). `visible: false` until a sidebar objective is set, and whenever the
+   * server clears it — the `scoreboard` widget draws nothing in game then.
+   */
+  scoreboard: ScoreboardPayload;
   cpsLeft: number;
   cpsRight: number;
   /**
@@ -419,6 +429,7 @@ export interface VoidState {
   applyKeys(keys: KeysPayload): void;
   applyTick(tick: TickPayload): void;
   applyServer(server: ServerPayload): void;
+  applyScoreboard(board: ScoreboardPayload): void;
   applySession(session: SessionInfo): void;
   applyGlobals(payload: unknown): void;
   applyMenu(open: boolean): void;
@@ -468,6 +479,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   combo: 0,
   comboAt: 0,
   server: { host: '', connected: false },
+  scoreboard: EMPTY_SCOREBOARD,
   cpsLeft: 0,
   cpsRight: 0,
   cpsPeak: 0,
@@ -689,6 +701,14 @@ export const useVoidStore = create<VoidState>((set, get) => ({
 
   applyServer(server) {
     set({ server });
+  },
+
+  applyScoreboard(board) {
+    // Value, not identity, as `applySession` does: Java only pushes on change, but a reloaded
+    // page is re-sent the same board, and a fresh object for identical lines would repaint the
+    // chip for nothing.
+    if (sameJson(get().scoreboard, board)) return;
+    set({ scoreboard: board });
   },
 
   applySession(session) {

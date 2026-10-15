@@ -126,6 +126,27 @@ const SETTING_STEPS: Record<string, { step: number; unit?: string }> = {
   thickness: { step: 1, unit: 'px' },
   gap: { step: 1, unit: 'px' },
   corner_radius: { step: 1, unit: 'px' },
+  // Wave 7. Distances are whole blocks because the game compares whole blocks; the 0-1
+  // fractions take `warn_below`'s 5%, which is the resolution a player thinks in.
+  always_draw_within: { step: 1, unit: 'blocks' },
+  block_entity_distance: { step: 1, unit: 'blocks' },
+  armor_stand_distance: { step: 1, unit: 'blocks' },
+  item_frame_distance: { step: 1, unit: 'blocks' },
+  sign_text_distance: { step: 1, unit: 'blocks' },
+  particle_cap: { step: 100 },
+  block_break_particles: { step: 0.05, unit: '%' },
+  explosion_particles: { step: 0.05, unit: '%' },
+  unfocused_fps: { step: 5, unit: 'fps' },
+  menu_fps: { step: 5, unit: 'fps' },
+  outline_width: { step: 0.5, unit: 'px' },
+  glint_passes: { step: 1, unit: '×' },
+  tag_background: { step: 0.05, unit: '%' },
+  tag_scale: { step: 0.05, unit: '×' },
+  hotbar_scale: { step: 1 },
+  inventory_scale: { step: 1 },
+  blur_radius: { step: 1 },
+  menu_dim: { step: 0.05, unit: '%' },
+  time_ticks: { step: 500 },
 };
 
 /**

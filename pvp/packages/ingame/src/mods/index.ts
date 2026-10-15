@@ -59,9 +59,21 @@ import potion_effects from './potion_effects';
 import toggle_sprint from './toggle_sprint';
 import watermark from './watermark';
 import zoom from './zoom';
+import culling from './culling';
+import particles from './particles';
+import frame_limiter from './frame_limiter';
+import block_outline from './block_outline';
+import shiny_pots from './shiny_pots';
+import clear_glass from './clear_glass';
+import nametags from './nametags';
+import scoreboard from './scoreboard';
+import gui_scale from './gui_scale';
+import fog from './fog';
+import menu_blur from './menu_blur';
+import time_weather from './time_weather';
 
 /**
- * The art for all twenty-five mods.
+ * The art for every mod.
  *
  * `satisfies` rather than a type annotation, so each value keeps its narrow `ModArt<'fps'>`
  * type while the whole object is still proved exhaustive over `ModId`.
@@ -103,6 +115,22 @@ const ART = {
   // `safe` and animation only, `old_input` is `grey` and changes what leaves the client.
   old_animations,
   old_input,
+  // Wave 7 — FPS boost + visual table stakes. Three that make frames cheaper (culling, particles,
+  // the frame limiter), eight that change how the world looks, and the scoreboard, the one HUD
+  // chip of the wave. Eleven draw into the world, so their art is a diagram
+  // (`menu/visual-previews.tsx`); the scoreboard's preview is its widget.
+  culling,
+  particles,
+  frame_limiter,
+  block_outline,
+  shiny_pots,
+  clear_glass,
+  nametags,
+  scoreboard,
+  gui_scale,
+  fog,
+  menu_blur,
+  time_weather,
 } satisfies Record<ModId, ModArt>;
 
 /** Every mod's art, keyed by id. */

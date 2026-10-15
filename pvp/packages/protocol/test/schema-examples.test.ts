@@ -71,7 +71,7 @@ describe('schema examples', () => {
     expect(BRIDGE_EXAMPLES.length).toBeGreaterThanOrEqual(28);
   });
 
-  it('covers all ten events and all eight calls in the bridge examples', () => {
+  it('covers all eleven events and all eight calls in the bridge examples', () => {
     const events = new Set(
       BRIDGE_EXAMPLES.filter((e): e is Extract<typeof e, { e: string }> => 'e' in e).map(
         (e) => e.e,
@@ -86,6 +86,9 @@ describe('schema examples', () => {
       // verb rather than a switch, which is why it is an event of its own and not another
       // `setting`. Two examples, one per stopwatch action, because the pair *is* the contract.
       'modaction',
+      // The eleventh: the sidebar, whole state, for the `scoreboard` HUD mod. Two examples — a
+      // live board and `visible: false` — because "no sidebar" is a state the page must draw too.
+      'scoreboard',
       'server',
       'session',
       'setting',
@@ -136,7 +139,7 @@ describe('mod registry', () => {
     }
   });
 
-  it('classifies exactly fullbright, hitboxes, overlay and old_input as grey', () => {
+  it('classifies exactly fullbright, hitboxes, overlay, old_input and fog as grey', () => {
     // An exact set rather than a count, and edited by hand when it moves: `grey` is what gates
     // the HYPIXEL-READY badge, so a mod joining the class should have to touch a test that
     // names it. `overlay` is the third — `schema/mods/overlay.json`'s `$comment` carries the
@@ -147,8 +150,12 @@ describe('mod registry', () => {
     // therefore what the server receives, which fits none of §6.1's three permitted categories.
     // Bundled, a player wanting the sword to swing through a block would have paid the badge for
     // switches they never turned on.
+    //
+    // `fog` is the fifth, for fullbright's reason: it lets you see farther than vanilla does
+    // (`docs/mod-roster.md` §3.3 #7 called it before it existed). The FPS-boost mods beside it
+    // are `safe` because every one of their switches only removes drawing.
     const grey = MOD_IDS.filter((id) => MOD_REGISTRY[id].hypixel_safe === 'grey');
-    expect(grey).toEqual<ModId[]>(['fullbright', 'hitboxes', 'overlay', 'old_input']);
+    expect(grey).toEqual<ModId[]>(['fullbright', 'hitboxes', 'overlay', 'old_input', 'fog']);
   });
 });
 

@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 10,
+    "version": 11,
     "mods": {
       "fps": {
         "id": "fps",
@@ -649,6 +649,216 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "use_while_digging": false,
           "dig_while_using": false,
           "no_miss_delay": false
+        }
+      },
+      "culling": {
+        "id": "culling",
+        "kind": "gameplay",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Entity culling",
+        "icon": "eye",
+        "description": "Skips drawing entities and chests, signs and banners that are hidden behind walls or too far away.",
+        "source": "an async voxel ray test against `EntityRenderDispatcher#shouldRender` and `BlockEntityRenderDispatcher#renderEntity`",
+        "defaults": {
+          "on": true,
+          "occlude_entities": true,
+          "occlude_block_entities": true,
+          "always_draw_within": 4,
+          "nametags_through_walls": true,
+          "block_entity_distance": 64,
+          "armor_stand_distance": 64,
+          "item_frame_distance": 64,
+          "sign_text_distance": 32
+        }
+      },
+      "particles": {
+        "id": "particles",
+        "kind": "gameplay",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Particle limiter",
+        "icon": "sparkle",
+        "description": "Caps live particles, skips the ones outside your view, and thins out block-break and explosion bursts.",
+        "source": "`ParticleManager#addParticle`, `#addBlockBreakParticles` and `#renderParticles`",
+        "defaults": {
+          "on": true,
+          "frustum_cull": true,
+          "particle_cap": 4000,
+          "block_break_particles": 1,
+          "explosion_particles": 1
+        }
+      },
+      "frame_limiter": {
+        "id": "frame_limiter",
+        "kind": "gameplay",
+        "category": "utility",
+        "hypixel_safe": "safe",
+        "label": "Frame limiter",
+        "icon": "gauge",
+        "description": "Lowers the frame rate while the game is in the background, in a menu, or minimised.",
+        "source": "`MinecraftClient#getMaxFramerate`, which feeds vanilla's own `Display.sync`",
+        "defaults": {
+          "on": true,
+          "unfocused_fps": 30,
+          "menu_fps": 60,
+          "idle_minimized": true
+        }
+      },
+      "block_outline": {
+        "id": "block_outline",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Block outline",
+        "icon": "cube",
+        "description": "Recolours, thickens, fills or removes the outline on the block you are looking at.",
+        "source": "`WorldRenderer#drawBlockOutline`",
+        "defaults": {
+          "on": false,
+          "outline_style": "outline",
+          "outline_color": "#EDEEEFCC",
+          "outline_width": 2.5,
+          "fill_color": "#EDEEEF26"
+        }
+      },
+      "shiny_pots": {
+        "id": "shiny_pots",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Shiny pots",
+        "icon": "flask",
+        "description": "Gives every potion a strong enchantment glint so pots read at a glance in the hotbar.",
+        "source": "`ItemRenderer#renderItem` and its private glint pass",
+        "defaults": {
+          "on": false,
+          "all_potions": true,
+          "glint_passes": 2,
+          "tint_glint": false
+        }
+      },
+      "clear_glass": {
+        "id": "clear_glass",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Clear glass",
+        "icon": "box",
+        "description": "Draws glass as clear air, without a resource pack.",
+        "source": "`BlockRenderManager#renderBlock` during chunk builds",
+        "defaults": {
+          "on": false,
+          "clear_panes": true,
+          "clear_stained": false
+        }
+      },
+      "nametags": {
+        "id": "nametags",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Nametags",
+        "icon": "users",
+        "description": "Shows your own nametag in third person and restyles every nametag's background, size and shadow.",
+        "source": "`EntityRenderer#renderLabelIfPresent` and `LivingEntityRenderer#hasLabel`",
+        "defaults": {
+          "on": false,
+          "show_own": true,
+          "hide_others": false,
+          "tag_background": 0.25,
+          "tag_scale": 1,
+          "tag_shadow": true
+        }
+      },
+      "scoreboard": {
+        "id": "scoreboard",
+        "kind": "hud",
+        "category": "hud",
+        "hypixel_safe": "safe",
+        "label": "Scoreboard",
+        "icon": "star",
+        "description": "The server's sidebar scoreboard, redrawn as a HUD chip you can move, scale or hide.",
+        "source": "the sidebar `ScoreboardObjective`, via the `scoreboard` bridge channel",
+        "defaults": {
+          "on": false,
+          "scale": 1,
+          "opacity": 1,
+          "background": "none",
+          "border": false,
+          "padding": "normal",
+          "hidden": false,
+          "show_numbers": false,
+          "show_title": true,
+          "server_colors": true
+        },
+        "default_placement": {
+          "anchor": "right",
+          "dx": -25,
+          "dy": 0
+        }
+      },
+      "gui_scale": {
+        "id": "gui_scale",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "GUI scale",
+        "icon": "move",
+        "description": "Sizes the hotbar and inventories independently of Minecraft's GUI scale.",
+        "source": "`InGameHud#render` (hotbar, bars, experience, held-item name) and `Screen#init` for container screens",
+        "defaults": {
+          "on": false,
+          "hotbar_scale": 2,
+          "inventory_scale": 3
+        }
+      },
+      "fog": {
+        "id": "fog",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "grey",
+        "label": "Fog",
+        "icon": "droplet",
+        "description": "Reduces or removes distance, water and lava fog. Blindness is never touched.",
+        "source": "`GameRenderer#renderFog`",
+        "defaults": {
+          "on": false,
+          "distance_fog": "reduced",
+          "water_fog": "reduced",
+          "lava_fog": "vanilla"
+        }
+      },
+      "menu_blur": {
+        "id": "menu_blur",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Menu blur",
+        "icon": "layers",
+        "description": "Blurs the world behind inventories, chests and the pause menu.",
+        "source": "`Screen#renderBackground`, through `screen/BlurBackdrop.java`",
+        "defaults": {
+          "on": false,
+          "blur_radius": 4,
+          "blur_fade": true,
+          "menu_dim": 0.5
+        }
+      },
+      "time_weather": {
+        "id": "time_weather",
+        "kind": "gameplay",
+        "category": "visual",
+        "hypixel_safe": "safe",
+        "label": "Time & weather",
+        "icon": "clock",
+        "description": "Fixes the time of day and clears the rain, on your screen only.",
+        "source": "`World#getSkyAngle`, `#getRainGradient` and `#getThunderGradient` on the client world",
+        "defaults": {
+          "on": false,
+          "lock_time": true,
+          "time_ticks": 6000,
+          "clear_weather": true
         }
       }
     }
@@ -1440,6 +1650,59 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
     "payload": {
       "mod": "stopwatch",
       "action": "reset"
+    }
+  },
+  {
+    "e": "scoreboard",
+    "payload": {
+      "visible": true,
+      "title": "§e§lBED WARS",
+      "lines": [
+        {
+          "text": "§710/15/26 §8m512A",
+          "score": 9
+        },
+        {
+          "text": "",
+          "score": 8
+        },
+        {
+          "text": "§fDiamond II in §a0:42",
+          "score": 7
+        },
+        {
+          "text": "§c§lR §fRed: §a✔",
+          "score": 6
+        },
+        {
+          "text": "§9§lB §fBlue: §a✔ §7YOU",
+          "score": 5
+        },
+        {
+          "text": "§a§lG §fGreen: §c✘",
+          "score": 4
+        },
+        {
+          "text": "§e§lY §fYellow: §e2",
+          "score": 3
+        },
+        {
+          "text": "",
+          "score": 2
+        },
+        {
+          "text": "§ewww.hypixel.net",
+          "score": 1
+        }
+      ]
+    }
+  },
+  {
+    "e": "scoreboard",
+    "payload": {
+      "visible": false,
+      "title": "",
+      "lines": []
     }
   }
 ];

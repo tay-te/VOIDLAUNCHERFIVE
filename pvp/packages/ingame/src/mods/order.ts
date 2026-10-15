@@ -27,6 +27,11 @@ export const MOD_ORDER: ModId[] = [
   // Beside FPS because they are the same question asked twice — is this machine keeping up.
   // `docs/mod-roster.md` §3.1 lists Memory as "trivial and expected next to an FPS chip".
   'memory',
+  // The rest of the performance block, beside the two readouts that tell you whether it worked:
+  // what is drawn, how many particles, and how hard the game runs when nobody is looking.
+  'culling',
+  'particles',
+  'frame_limiter',
   'keystrokes',
   'cps',
   // Beside CPS: one counts the hand, the other counts what the hand landed, and a player
@@ -41,6 +46,8 @@ export const MOD_ORDER: ModId[] = [
   'old_animations',
   'old_input',
   'crosshair',
+  // Beside Crosshair: the other mark on the thing you are aiming at.
+  'block_outline',
   'zoom',
   // Beside Zoom: both are the camera's own angle, one held and one fixed.
   'fov',
@@ -48,23 +55,34 @@ export const MOD_ORDER: ModId[] = [
   // being aimed by their body.
   'freelook',
   'fullbright',
-  // Beside Fullbright, the other mod whose subject is what the game stops you seeing.
+  // Beside Fullbright, the other two whose subject is how far and how clearly you can see.
+  'fog',
+  'time_weather',
+  // And the glass you are seeing through — the last of the see-the-world block.
+  'clear_glass',
+  // Beside those, the other mod whose subject is what the game stops you seeing.
   'overlay',
   'hitboxes',
   // Beside Hitboxes, the other mod whose subject is reading a fight off the entity in front of
   // you rather than off the HUD.
   'hit_color',
   'damage_tint',
+  // Closes the reading-a-player block: the name over their head.
+  'nametags',
   'armor_status',
   // The survival block: what you are wearing, what is keeping you alive, what is in your hand.
   // Saturation sits inside it because in 1.8 saturation *is* regen, and vanilla never draws it.
   'saturation',
   'potion_effects',
+  // Beside Potion effects: the pots themselves, in the hotbar.
+  'shiny_pots',
   'item_counter',
   'ping',
   // Beside Ping, the other half of "what am I connected to". They share the `wifi` glyph for
   // the same reason Coordinates and Direction share `compass`.
   'server_address',
+  // The server's own sidebar, beside the other readouts about where you are playing.
+  'scoreboard',
   // Closes the session block — the readouts about this sitting rather than about the fight.
   'stopwatch',
   'coordinates',
@@ -78,6 +96,10 @@ export const MOD_ORDER: ModId[] = [
   // the order; putting it after them is also the honest reading of a mod added after the grid
   // was designed.
   'watermark',
+  // The two that resize and soften the menus themselves, after the mark — they are about the
+  // screens around the game rather than anything in it.
+  'gui_scale',
+  'menu_blur',
   ...FAKE_MOD_ORDER,
 ];
 

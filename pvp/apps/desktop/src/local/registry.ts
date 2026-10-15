@@ -52,7 +52,11 @@ const CATEGORY_OVERRIDES: Partial<Record<ModId, ModCategory>> = {
 };
 
 export function categoryOf(id: ModId): ModCategory {
-  return CATEGORY_OVERRIDES[id] ?? 'HUD';
+  // The registry carries `category` (schema `mods/<id>.json`), so read it rather than defaulting
+  // every mod the override table has not heard of to HUD — which is what every gameplay mod since
+  // Wave 4 (`overlay`, `fov`, `culling`, …) silently became in the launcher's filter tabs.
+  const declared = (MOD_REGISTRY[id] as { category?: string } | undefined)?.category;
+  return CATEGORY_OVERRIDES[id] ?? (declared ? (declared.toUpperCase() as ModCategory) : 'HUD');
 }
 
 /**
@@ -311,6 +315,77 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'outline', label: 'Outline', control: 'switch' },
     { key: 'dynamic', label: 'Dynamic', control: 'switch' },
   ],
+  // Wave 7 — the FPS boost and the §3.3 visual table stakes.
+  culling: [
+    { key: 'occlude_entities', label: 'Cull hidden entities', control: 'switch' },
+    { key: 'occlude_block_entities', label: 'Cull hidden chests and signs', control: 'switch' },
+    { key: 'always_draw_within', label: 'Always draw within', control: 'slider', min: 1, max: 16, step: 1, format: 'plain' },
+    { key: 'nametags_through_walls', label: 'Nametags through walls', control: 'switch' },
+    { key: 'block_entity_distance', label: 'Block entity distance', control: 'slider', min: 16, max: 64, step: 1, format: 'plain' },
+    { key: 'armor_stand_distance', label: 'Armour stand distance', control: 'slider', min: 8, max: 64, step: 1, format: 'plain' },
+    { key: 'item_frame_distance', label: 'Item frame distance', control: 'slider', min: 8, max: 64, step: 1, format: 'plain' },
+    { key: 'sign_text_distance', label: 'Sign text distance', control: 'slider', min: 4, max: 64, step: 1, format: 'plain' },
+  ],
+  particles: [
+    { key: 'frustum_cull', label: 'Skip particles out of view', control: 'switch' },
+    { key: 'particle_cap', label: 'Particle cap', control: 'slider', min: 100, max: 4000, step: 100, format: 'plain' },
+    { key: 'block_break_particles', label: 'Block break particles', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+    { key: 'explosion_particles', label: 'Explosion particles', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+  ],
+  frame_limiter: [
+    { key: 'unfocused_fps', label: 'Unfocused FPS', control: 'slider', min: 5, max: 120, step: 5, format: 'plain' },
+    { key: 'menu_fps', label: 'Menu FPS', control: 'slider', min: 15, max: 240, step: 5, format: 'plain' },
+    { key: 'idle_minimized', label: 'Idle when minimised', control: 'switch' },
+  ],
+  block_outline: [
+    { key: 'outline_style', label: 'Style', control: 'select', options: ['outline', 'fill', 'both', 'none'] },
+    { key: 'outline_color', label: 'Outline colour', control: 'color' },
+    { key: 'outline_width', label: 'Line width', control: 'slider', min: 0.5, max: 6, step: 0.5, format: 'plain' },
+    { key: 'fill_color', label: 'Fill colour', control: 'color' },
+  ],
+  shiny_pots: [
+    { key: 'all_potions', label: 'Every potion', control: 'switch' },
+    { key: 'glint_passes', label: 'Glint strength', control: 'slider', min: 1, max: 3, step: 1, format: 'plain' },
+    { key: 'tint_glint', label: 'Tint with potion colour', control: 'switch' },
+  ],
+  clear_glass: [
+    { key: 'clear_panes', label: 'Clear panes', control: 'switch' },
+    { key: 'clear_stained', label: 'Clear stained glass', control: 'switch' },
+  ],
+  nametags: [
+    { key: 'show_own', label: 'Show own nametag', control: 'switch' },
+    { key: 'hide_others', label: 'Hide other nametags', control: 'switch' },
+    { key: 'tag_background', label: 'Background', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+    { key: 'tag_scale', label: 'Scale', control: 'slider', min: 0.5, max: 1.5, step: 0.05, format: 'multiplier' },
+    { key: 'tag_shadow', label: 'Text shadow', control: 'switch' },
+  ],
+  scoreboard: [
+    SCALE,
+    OPACITY,
+    { key: 'hidden', label: 'Hide scoreboard', control: 'switch' },
+    { key: 'show_numbers', label: 'Show numbers', control: 'switch' },
+    { key: 'show_title', label: 'Show title', control: 'switch' },
+    { key: 'server_colors', label: 'Server colours', control: 'switch' },
+  ],
+  gui_scale: [
+    { key: 'hotbar_scale', label: 'Hotbar scale', control: 'slider', min: 0, max: 6, step: 1, format: 'plain' },
+    { key: 'inventory_scale', label: 'Inventory scale', control: 'slider', min: 0, max: 6, step: 1, format: 'plain' },
+  ],
+  fog: [
+    { key: 'distance_fog', label: 'Distance fog', control: 'select', options: ['vanilla', 'reduced', 'off'] },
+    { key: 'water_fog', label: 'Water fog', control: 'select', options: ['vanilla', 'reduced', 'off'] },
+    { key: 'lava_fog', label: 'Lava fog', control: 'select', options: ['vanilla', 'reduced', 'off'] },
+  ],
+  menu_blur: [
+    { key: 'blur_radius', label: 'Blur', control: 'slider', min: 1, max: 10, step: 1, format: 'plain' },
+    { key: 'blur_fade', label: 'Fade in', control: 'switch' },
+    { key: 'menu_dim', label: 'Dim', control: 'slider', min: 0, max: 1, step: 0.05, format: 'percent' },
+  ],
+  time_weather: [
+    { key: 'lock_time', label: 'Lock time', control: 'switch' },
+    { key: 'time_ticks', label: 'Time of day', control: 'slider', min: 0, max: 23999, step: 500, format: 'plain' },
+    { key: 'clear_weather', label: 'Clear weather', control: 'switch' },
+  ],
 };
 
 /**
@@ -360,6 +435,19 @@ export const MOD_GRID_ORDER: readonly ModId[] = [
   'damage_tint',
   'old_animations',
   'old_input',
+  // Wave 7: the FPS boost, then the visual table stakes.
+  'culling',
+  'particles',
+  'frame_limiter',
+  'block_outline',
+  'shiny_pots',
+  'clear_glass',
+  'nametags',
+  'scoreboard',
+  'gui_scale',
+  'fog',
+  'menu_blur',
+  'time_weather',
 ];
 
 /**

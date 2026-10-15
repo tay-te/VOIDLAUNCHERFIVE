@@ -20,7 +20,7 @@
   "definitions": {
     "event_name": {
       "title": "Event name",
-      "description": "The ten channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
+      "description": "The eleven channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
       "type": "string",
       "enum": [
         "keys",
@@ -32,7 +32,8 @@
         "menu",
         "session",
         "settings",
-        "modaction"
+        "modaction",
+        "scoreboard"
       ]
     },
     "call_name": {
@@ -93,6 +94,10 @@
         {
           "description": "A key bound to one mod asked that mod to do something.",
           "$ref": "#/definitions/event_modaction"
+        },
+        {
+          "description": "The sidebar scoreboard changed.",
+          "$ref": "#/definitions/event_scoreboard"
         }
       ]
     },
@@ -303,6 +308,27 @@
         "payload": {
           "description": "Which mod, and what its key asked for.",
           "$ref": "#/definitions/modaction_payload"
+        }
+      }
+    },
+    "event_scoreboard": {
+      "title": "scoreboard event",
+      "description": "Envelope for the `scoreboard` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `scoreboard`.",
+          "type": "string",
+          "const": "scoreboard"
+        },
+        "payload": {
+          "description": "The sidebar as vanilla would draw it.",
+          "$ref": "#/definitions/scoreboard_payload"
         }
       }
     },
@@ -721,6 +747,53 @@
           "pattern": "^[a-z][a-z0-9_]*$",
           "minLength": 1,
           "maxLength": 32
+        }
+      }
+    },
+    "scoreboard_payload": {
+      "$comment": "**Whole state, pushed only on change.** Java reads the sidebar objective once a tick and compares it with the last push; a server that rewrites its board every second costs one envelope a second, and one that never changes costs nothing after the first. Older envelopes on the channel are dropped from the queue, as `keys` and `menu` are, because each one is the whole board. A reloaded page asks the sensor to forget what it sent, so the next tick resends it. Text is sent raw, `\u00a7` codes included: the page owns how a colour code is drawn, and the `scoreboard` mod's `server_colors` decides whether it is drawn at all.",
+      "title": "scoreboard payload",
+      "description": "The sidebar scoreboard, read the way `InGameHud#renderScoreboardObjective` reads it: the objective in the sidebar display slot, its scores sorted as vanilla sorts them, names starting with `#` dropped, the last fifteen kept, and each name decorated with its team prefix and suffix. `visible: false` when there is no sidebar objective \u2014 the page draws nothing then.",
+      "type": "object",
+      "required": [
+        "visible",
+        "title",
+        "lines"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "visible": {
+          "description": "Whether a sidebar objective is set.",
+          "type": "boolean"
+        },
+        "title": {
+          "description": "The objective's display name, raw, `\u00a7` formatting codes included. Empty when `visible` is false.",
+          "type": "string",
+          "maxLength": 256
+        },
+        "lines": {
+          "description": "The lines top to bottom \u2014 highest score first, exactly the order vanilla draws them. At most fifteen.",
+          "type": "array",
+          "maxItems": 15,
+          "items": {
+            "type": "object",
+            "required": [
+              "text",
+              "score"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "description": "The line as vanilla prints it: team prefix + player name + team suffix, raw, `\u00a7` codes included.",
+                "type": "string",
+                "maxLength": 256
+              },
+              "score": {
+                "description": "The line's score \u2014 the red number vanilla draws at the right edge.",
+                "type": "integer"
+              }
+            }
+          }
         }
       }
     },
@@ -1807,6 +1880,59 @@
       "payload": {
         "mod": "stopwatch",
         "action": "reset"
+      }
+    },
+    {
+      "e": "scoreboard",
+      "payload": {
+        "visible": true,
+        "title": "\u00a7e\u00a7lBED WARS",
+        "lines": [
+          {
+            "text": "\u00a7710/15/26 \u00a78m512A",
+            "score": 9
+          },
+          {
+            "text": "",
+            "score": 8
+          },
+          {
+            "text": "\u00a7fDiamond II in \u00a7a0:42",
+            "score": 7
+          },
+          {
+            "text": "\u00a7c\u00a7lR \u00a7fRed: \u00a7a\u2714",
+            "score": 6
+          },
+          {
+            "text": "\u00a79\u00a7lB \u00a7fBlue: \u00a7a\u2714 \u00a77YOU",
+            "score": 5
+          },
+          {
+            "text": "\u00a7a\u00a7lG \u00a7fGreen: \u00a7c\u2718",
+            "score": 4
+          },
+          {
+            "text": "\u00a7e\u00a7lY \u00a7fYellow: \u00a7e2",
+            "score": 3
+          },
+          {
+            "text": "",
+            "score": 2
+          },
+          {
+            "text": "\u00a7ewww.hypixel.net",
+            "score": 1
+          }
+        ]
+      }
+    },
+    {
+      "e": "scoreboard",
+      "payload": {
+        "visible": false,
+        "title": "",
+        "lines": []
       }
     }
   ]

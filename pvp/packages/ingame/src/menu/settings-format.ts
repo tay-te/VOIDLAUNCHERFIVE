@@ -98,10 +98,27 @@ export function formatSetting(key: string, value: SettingValue): string {
       return `${Math.round(value * 100)}%`;
     case 'fov_divisor':
       return `${value.toFixed(1)}×`;
+    case 'tag_scale':
+      return `${value.toFixed(2)}×`;
+    // A GUI scale step, where 0 is not a size: it hands the choice back to Minecraft.
+    case 'hotbar_scale':
+    case 'inventory_scale':
+      return value <= 0 ? 'Auto' : `${value}`;
+    // Ticks are what the game stores and nobody reads; the clock is what a player means. Tick 0
+    // is sunrise, which Minecraft's own clock calls 06:00.
+    case 'time_ticks': {
+      const minutes = Math.round(((value / 1000 + 6) % 24) * 60) % (24 * 60);
+      const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
+      const mm = String(minutes % 60).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
     default: {
       const unit = SETTING_RANGES[key]?.unit;
-      if (unit === 'px') return `${value} px`;
-      if (unit === 'ms') return `${value} ms`;
+      // Every `%` setting is a 0-1 fraction, like `opacity` above; printing the raw value with a
+      // percent sign would read `0.25%` for a quarter.
+      if (unit === '%') return `${Math.round(value * 100)}%`;
+      // A word unit takes a space — `30 fps`, `64 blocks` — and a glyph does not (`2×`).
+      if (unit && /^[a-z]/i.test(unit)) return `${value} ${unit}`;
       if (unit) return `${value}${unit}`;
       return String(value);
     }

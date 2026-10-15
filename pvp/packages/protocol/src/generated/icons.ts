@@ -56,5 +56,17 @@ export const MOD_ICON_NAMES = {
   "hit_color": "droplet",
   "damage_tint": "heart-pulse",
   "old_animations": "reset",
-  "old_input": "tap"
+  "old_input": "tap",
+  "culling": "eye",
+  "particles": "sparkle",
+  "frame_limiter": "gauge",
+  "block_outline": "cube",
+  "shiny_pots": "flask",
+  "clear_glass": "box",
+  "nametags": "users",
+  "scoreboard": "star",
+  "gui_scale": "move",
+  "fog": "droplet",
+  "menu_blur": "layers",
+  "time_weather": "clock"
 } as const satisfies Record<ModId, string>;

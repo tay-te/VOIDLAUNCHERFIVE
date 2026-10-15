@@ -115,7 +115,7 @@
     },
     "mod_states": {
       "title": "Mod states",
-      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 29 is permitted.",
+      "description": "Enabled state plus settings for each mod, keyed by the mod ids of mods.json. Every key is optional: a mod omitted here falls back to its `defaults` in the registry, which is what keeps old loadouts valid when a mod is added. No key outside the closed 41 is permitted.",
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -234,6 +234,54 @@
         "old_input": {
           "description": "Old input state and settings.",
           "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/old_input_settings"
+        },
+        "culling": {
+          "description": "Entity culling state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/culling_settings"
+        },
+        "particles": {
+          "description": "Particle limiter state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/particles_settings"
+        },
+        "frame_limiter": {
+          "description": "Frame limiter state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/frame_limiter_settings"
+        },
+        "block_outline": {
+          "description": "Block outline state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/block_outline_settings"
+        },
+        "shiny_pots": {
+          "description": "Shiny pots state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/shiny_pots_settings"
+        },
+        "clear_glass": {
+          "description": "Clear glass state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/clear_glass_settings"
+        },
+        "nametags": {
+          "description": "Nametags state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/nametags_settings"
+        },
+        "scoreboard": {
+          "description": "Scoreboard state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/scoreboard_settings"
+        },
+        "gui_scale": {
+          "description": "GUI scale state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/gui_scale_settings"
+        },
+        "fog": {
+          "description": "Fog state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/fog_settings"
+        },
+        "menu_blur": {
+          "description": "Menu blur state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/menu_blur_settings"
+        },
+        "time_weather": {
+          "description": "Time & weather state and settings.",
+          "$ref": "https://schema.void.dev/pvp/mods.json#/definitions/time_weather_settings"
         }
       }
     },
@@ -296,9 +344,9 @@
     },
     "hud_layout": {
       "title": "HUD layout",
-      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 16, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
+      "description": "Ordered list of HUD item placements. Order is paint order, back to front. At most one entry per mod id — so at most 17, one per `hud_mod_id`; that uniqueness is a `void-loadout` invariant rather than a schema constraint, since JSON Schema cannot express uniqueness by key.",
       "type": "array",
-      "maxItems": 16,
+      "maxItems": 17,
       "items": {
         "description": "One HUD item placement.",
         "$ref": "#/definitions/hud_item"

@@ -21,6 +21,7 @@ import { HudItemCounter } from './item_counter';
 import { HudMemory } from './memory';
 import { HudMomentum } from './momentum';
 import { HudSaturation } from './saturation';
+import { HudScoreboard } from './scoreboard';
 import { HudServerAddress } from './server_address';
 import { HudStopwatch } from './stopwatch';
 import {
@@ -57,6 +58,7 @@ const WIDGETS: Record<HUDModId, ComponentType<HudWidgetProps>> = {
   // The thirteenth mod, and it goes in this table like any other because that is the whole
   // argument for making the watermark a mod rather than a flag (`watermark.tsx`).
   watermark: HudWatermark,
+  scoreboard: HudScoreboard,
 };
 
 /** A live placement, as the HUD editor supplies it mid-drag. */

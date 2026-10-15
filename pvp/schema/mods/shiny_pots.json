@@ -1,0 +1,39 @@
+{
+  "id": "shiny_pots",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "Shiny pots",
+  "icon": "flask",
+  "the": false,
+  "on_description": "potions are drawn with a stronger glint",
+  "description": "Gives every potion a strong enchantment glint so pots read at a glance in the hotbar.",
+  "settings_title": "Shiny pots settings",
+  "settings_description": "Settings for the Shiny pots gameplay mod. 1.8.9 gives a potion the glint only when its effect list resolves, at vanilla strength, so on a busy hotbar a pot reads no differently from a water bottle. This draws the same glint pass vanilla uses, more times and on every potion, and can tint it with the potion's own colour. Purely the item's look: it changes nothing about which potion is which or what is in your inventory.",
+  "source": "`ItemRenderer#renderItem` and its private glint pass",
+  "enabled": false,
+  "defaults": {
+    "all_potions": true,
+    "glint_passes": 2,
+    "tint_glint": false
+  },
+  "settings": {
+    "all_potions": {
+      "description": "Whether potions with no listed effect — water bottles, and server pots whose effects live only in their lore — glint too. On by default: on most servers that is exactly the pot you were trying to find.",
+      "type": "boolean",
+      "default": true
+    },
+    "glint_passes": {
+      "description": "How many times the glint is laid over a potion. 1 is vanilla's strength; 2 is the classic 1.7 look; 3 is as shiny as it gets before the item's own colour washes out.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3,
+      "default": 2
+    },
+    "tint_glint": {
+      "description": "Whether the glint takes the potion's own liquid colour instead of vanilla's purple, so a healing pot shimmers red and a speed pot blue.",
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

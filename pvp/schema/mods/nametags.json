@@ -1,0 +1,53 @@
+{
+  "id": "nametags",
+  "kind": "gameplay",
+  "category": "visual",
+  "hypixel_safe": "safe",
+  "label": "Nametags",
+  "icon": "users",
+  "the": false,
+  "on_description": "nametags are restyled",
+  "description": "Shows your own nametag in third person and restyles every nametag's background, size and shadow.",
+  "settings_title": "Nametags settings",
+  "settings_description": "Settings for the Nametags gameplay mod. Restyles the label vanilla already draws over a player or named mob — the same labels, at the same moments, through the same walls — so it never shows a name the game would not. `tag_scale` tops out at 1.5 for that reason: a bigger label is legible farther, but it cannot appear anywhere vanilla's would not.",
+  "source": "`EntityRenderer#renderLabelIfPresent` and `LivingEntityRenderer#hasLabel`",
+  "enabled": false,
+  "defaults": {
+    "show_own": true,
+    "hide_others": false,
+    "tag_background": 0.25,
+    "tag_scale": 1,
+    "tag_shadow": true
+  },
+  "settings": {
+    "show_own": {
+      "description": "Whether your own nametag is drawn over your head in third person. Vanilla never draws it; on by default because that is the one thing players switch this mod on for.",
+      "type": "boolean",
+      "default": true
+    },
+    "hide_others": {
+      "description": "Whether other players' and mobs' nametags are hidden. Off by default — a name is how you tell a teammate from an enemy — and on for recording and for crowded lobbies.",
+      "type": "boolean",
+      "default": false
+    },
+    "tag_background": {
+      "description": "Alpha of the dark plate behind each name. 0.25 is vanilla's; 0 draws the text alone.",
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.25
+    },
+    "tag_scale": {
+      "description": "Size of every nametag as a multiple of vanilla's.",
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 1.5,
+      "default": 1
+    },
+    "tag_shadow": {
+      "description": "Whether the name is drawn with Minecraft's text shadow, which keeps it legible against sky and snow. Vanilla draws it without one.",
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

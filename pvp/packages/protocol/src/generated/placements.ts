@@ -96,4 +96,9 @@ export const DEFAULT_HUD_PLACEMENTS = {
    * sweep while playing.
    */
   stopwatch: { anchor: 'bottom-right', dx: -25, dy: -99 },
+  /**
+   * Right edge, vertically centred — where vanilla draws the sidebar, so turning the mod on
+   * restyles it in place before anyone moves it.
+   */
+  scoreboard: { anchor: 'right', dx: -25, dy: 0 },
 } as const satisfies Record<HUDModId, { anchor: HUDAnchor; dx: number; dy: number }>;
