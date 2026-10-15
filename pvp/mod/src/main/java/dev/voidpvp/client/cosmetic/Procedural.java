@@ -87,7 +87,8 @@ final class Procedural {
         float rootZ = (-55f + 70f * s + flap) * DEG;
         float rootX = (-6f * s) * DEG;
         float tipY = 85f * t * DEG;
-        float tipZ = (8f * s + tipFlap) * DEG;
+        // Folding brings the hand down along the arm rather than leaving it raised.
+        float tipZ = (8f * s - 46f * (1 - s) * t + tipFlap) * DEG;
         set(m, pose, "wing_r", rootX, rootY, rootZ);
         set(m, pose, "wing_l", rootX, -rootY, -rootZ);
         set(m, pose, "wing_r_tip", 0, tipY, tipZ);

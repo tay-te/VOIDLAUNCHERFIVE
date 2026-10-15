@@ -168,6 +168,9 @@ loom {
             if (project.hasProperty('void.showcase.only')) {
                 vmArg "-Dvoid.dev.showcase.only=${project.property('void.showcase.only')}"
             }
+            if (project.hasProperty('void.showcase.quality')) {
+                vmArg "-Dvoid.dev.cosmetics.quality=${project.property('void.showcase.quality')}"
+            }
         }
     }
 }

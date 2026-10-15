@@ -63,9 +63,17 @@ public final class Cloth {
     /** Its vertex buffer and upload staging, or -1 before the first draw. */
     int vbo = -1;
     java.nio.ByteBuffer upload;
+    /** Glow anchors in model pixels, stored with the mesh. */
+    float[] glowAt;
     /** Time not yet simulated, seconds; and that as a fraction of a step. */
     private double acc;
     private double alpha;
+
+    /**
+     * This sheet's integration step, seconds: {@link #STEP} by default; distant low-resolution
+     * capes run at half that rate, which halves their cost and cannot be seen at their distance.
+     */
+    public double step = STEP;
 
     /** Gravity, blocks/s^2 (Minecraft's own feels close to 20 for a falling player). */
     public double gravity = 16.0;
@@ -223,18 +231,19 @@ public final class Cloth {
         // relaxation passes per second at every frame rate. What is left over in the
         // accumulator is bridged at draw time by extrapolating along each particle's velocity
         // (see #rx), so the sheet is drawn where it is now, not up to a step ago.
-        acc = Math.min(acc + dt, MAX_STEPS * STEP);
-        int steps = (int) (acc / STEP);
+        acc = Math.min(acc + dt, MAX_STEPS * step);
+        int steps = (int) (acc / step);
+        double keep = Math.pow(damping, step / STEP);
         double accStart = acc;
         for (int s = 1; s <= steps; s++) {
             // Where the anchors were at this step's time: interpolated across this call's frame.
-            double t = Math.max(0, Math.min(1, (dt - (accStart - s * STEP)) / dt));
+            double t = Math.max(0, Math.min(1, (dt - (accStart - s * step)) / dt));
             for (int c = 0; c <= cols; c++) {
                 nax[c] = ax[c] + (axs[c] - ax[c]) * t;
                 nay[c] = ay[c] + (ays[c] - ay[c]) * t;
                 naz[c] = az[c] + (azs[c] - az[c]) * t;
             }
-            integrate(STEP, damping);
+            integrate(step, keep);
             for (int c = 0; c <= cols; c++) {
                 int i = idx(c, 0);
                 x[i] = nax[c];
@@ -242,9 +251,9 @@ public final class Cloth {
                 z[i] = naz[c];
             }
             relax(collider);
-            acc -= STEP;
+            acc -= step;
         }
-        alpha = acc / STEP;
+        alpha = acc / step;
         for (int c = 0; c <= cols; c++) {
             ax[c] = axs[c];
             ay[c] = ays[c];

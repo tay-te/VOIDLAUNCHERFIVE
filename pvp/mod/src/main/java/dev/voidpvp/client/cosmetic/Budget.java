@@ -19,6 +19,17 @@ public final class Budget {
     private static double clothAverage;
     private static double averageNanos;
     private static float quality = 1f;
+    /** Dev: -Dvoid.dev.cosmetics.quality pins the LOD factor, for measuring at a fixed level. */
+    private static final float PINNED = pinned();
+
+    private static float pinned() {
+        try {
+            String v = System.getProperty("void.dev.cosmetics.quality");
+            return v == null ? -1 : Float.parseFloat(v);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
     private static long lastReport;
 
     private Budget() {
@@ -56,7 +67,7 @@ public final class Budget {
     }
 
     public static float quality() {
-        return quality;
+        return PINNED > 0 ? PINNED : quality;
     }
 
     /** Smoothed per-frame cost of the cosmetics layer, microseconds. */

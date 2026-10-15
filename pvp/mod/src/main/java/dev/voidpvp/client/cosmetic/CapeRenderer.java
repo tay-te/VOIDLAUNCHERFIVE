@@ -34,7 +34,8 @@ final class CapeRenderer {
         double spacingBlocks = 16.0 / rows / 16.0 * 0.9375;
         // A quarter wider at the hem than at the collar: the sheet hangs as a gentle bell.
         Cloth c = new Cloth(cols, rows, spacingBlocks, style == null ? 0.9 : style.stiffness, 0.24);
-        c.iterations = hi ? 4 : 3;
+        c.iterations = hi ? 4 : 2;
+        c.step = hi ? Cloth.STEP : Cloth.STEP * 2;
         if (style != null) {
             c.gravity = 16.0 * style.weight;
             c.drag = 7.0 / Math.max(0.5, style.weight);
@@ -210,6 +211,19 @@ final class CapeRenderer {
 
     private int innerShade(int i) {
         return rgba((1.0 - Math.max(0, -ao[i]) * 1.6) * 0.72);
+    }
+
+    /** Stores the model-space glow anchor positions with the cloth's mesh, for frames that reuse it. */
+    void storeGlow(Cloth cloth, float[][] glow) {
+        if (cloth.glowAt == null || cloth.glowAt.length != glow.length * 3) {
+            cloth.glowAt = new float[glow.length * 3];
+        }
+        for (int k = 0; k < glow.length; k++) {
+            pointOnOuter(cloth, glow[k][0], glow[k][1], tmp);
+            cloth.glowAt[k * 3] = (float) tmp[0];
+            cloth.glowAt[k * 3 + 1] = (float) tmp[1];
+            cloth.glowAt[k * 3 + 2] = (float) tmp[2];
+        }
     }
 
     /** Model-pixel position of a point on the outer face at cape pixel (u, v), into out. */

@@ -350,33 +350,45 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             if (!cloth.placed()) {
                 return;
             }
-        } else if (dist < FAR * q || !cloth.placed()) {
+        }
+        boolean stepped = false;
+        if (!gui && (dist < FAR * q || !cloth.placed())) {
             cape.anchors(cloth, fx.ax, fx.ay, fx.az);
             cape.back(d3);
             boolean simulate = dist < MID * q || !cloth.placed();
             if (simulate) {
-                cloth.iterations = fx.clothHi ? 4 : (dist < MID * q * 0.5 ? 3 : 2);
+                cloth.iterations = fx.clothHi ? 4 : 2;
                 // A breath of wind, so a cape at rest is never perfectly dead.
                 // An idle breeze with slow gusts, so a cape at rest sways and never hangs dead.
                 double gust = Math.max(0, Math.sin(time * 0.31)) * Math.max(0, Math.sin(time * 1.13));
                 cloth.windX = Math.sin(time * 0.7) * 0.9 + Math.sin(time * 1.9) * 0.35 + gust * 1.2;
                 cloth.windZ = Math.cos(time * 0.5) * 0.8 + gust * 1.6;
                 cloth.windY = 0;
-                // Low-resolution capes step every other frame (the time carries over), which
-                // halves their cost and is invisible at the distance they are used.
+                // Low-resolution capes step at 60 Hz (Cloth.step) and only on alternate frames;
+                // the time carries over, and the mesh is reused between steps.
                 fx.clothCarry += dt;
                 if (fx.clothHi || ((++fx.clothFrame) & 1) == 0) {
                     long c0 = System.nanoTime();
                     cloth.advance(fx.clothCarry, fx.ax, fx.ay, fx.az, cape.collider, d3[0], d3[2]);
                     Budget.cloth(System.nanoTime() - c0);
                     fx.clothCarry = 0;
+                    stepped = true;
                 }
             }
         }
         long q1 = System.nanoTime();
-        cape.prepare(cloth);
-        cape.mesh(cloth);
-        cape.upload(cloth);
+        // Re-mesh only when the sheet moved. On a frame a low-resolution cape skips its step, or
+        // while a distant one is frozen, the last mesh is drawn again: it is in the body's own
+        // space, so it rides along rigidly instead of lagging behind for a frame.
+        boolean glowWanted = glowK > 0 && style != null && style.glow.length > 0;
+        if (stepped || cloth.vbo < 0 || gui || fx.clothHi) {
+            cape.prepare(cloth);
+            cape.mesh(cloth);
+            cape.upload(cloth);
+            if (glowWanted) {
+                cape.storeGlow(cloth, style.glow);
+            }
+        }
         long q2 = System.nanoTime();
         Budget.split(3, q1 - q0);
         Budget.split(4, q2 - q1);
@@ -418,12 +430,12 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             }
         }
         // Glow anchors on the outer face.
-        if (glowK > 0 && style != null && style.glow.length > 0) {
+        if (glowWanted && cloth.glowAt != null && cloth.glowAt.length == style.glow.length * 3) {
             Mat4.copy(modelview, scratch);
             Mat4.scale(scratch, 0.0625f, 0.0625f, 0.0625f);
-            for (float[] g : style.glow) {
-                cape.pointOnOuter(cloth, g[0], g[1], d3);
-                Mat4.transform(scratch, (float) d3[0], (float) d3[1], (float) d3[2], eye);
+            for (int k = 0; k < style.glow.length; k++) {
+                float[] g = style.glow[k];
+                Mat4.transform(scratch, cloth.glowAt[k * 3], cloth.glowAt[k * 3 + 1], cloth.glowAt[k * 3 + 2], eye);
                 glow.add(eye[0], eye[1], eye[2], g[3] * Mat4.scaleOf(scratch), (int) g[2], g[4] * glowK);
             }
         }
