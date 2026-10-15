@@ -105,6 +105,10 @@ const Face kFaces[] = {
     {"geist mono", 400, "fonts/geist-mono-400.ttf"},
     {"geist mono", 500, "fonts/geist-mono-500.ttf"},
     {"geist mono", 600, "fonts/geist-mono-600.ttf"},
+    // Symbols servers send — ✔ ✖ ❤ ★ ⚔ ✪ ➤, arrows, box drawing, block elements — that neither
+    // Geist nor the Inter last resort carries. One merged OFL face, built by
+    // packages/ingame/scripts/fetch-symbols.mjs; see fallback_font_for_characters below.
+    {"void symbols", 400, "fonts/void-symbols.ttf"},
     {"outfit", 300, "fonts/outfit-300.ttf"},
     {"outfit", 400, "fonts/outfit-400.ttf"},
     {"outfit", 500, "fonts/outfit-500.ttf"},
@@ -146,6 +150,18 @@ class BundledFontLoader : public ultralight::FontLoader {
 
   ultralight::String fallback_font_for_characters(const ultralight::String& characters, int weight,
                                                   bool italic) const override {
+    // A run the page's own stack could not draw. Symbol ranges go to VOID Symbols (the page
+    // names it after Geist too, but a run can arrive here first — a scoreboard line in a face
+    // that lacks the glyph); everything else keeps the Inter last resort.
+    ultralight::String16 utf16 = characters.utf16();
+    const ultralight::Char16* data = utf16.data();
+    for (size_t i = 0; data && i < utf16.length(); ++i) {
+      unsigned c = static_cast<unsigned>(data[i]);
+      if ((c >= 0x2190 && c <= 0x23FF) || (c >= 0x2460 && c <= 0x27BF) || (c >= 0x27F0 && c <= 0x27FF) ||
+          (c >= 0x2900 && c <= 0x297F) || (c >= 0x2B00 && c <= 0x2BFF)) {
+        return ultralight::String("VOID Symbols");
+      }
+    }
     return ultralight::String(kFallbackFamily);
   }
 

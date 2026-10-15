@@ -63,3 +63,11 @@
   font-display: block;
   src: url('./fonts/geist-mono-600.woff2') format('woff2');
 }
+
+@font-face {
+  font-family: 'VOID Symbols';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./fonts/void-symbols.woff2') format('woff2');
+}

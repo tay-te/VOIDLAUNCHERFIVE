@@ -71,10 +71,14 @@
   /* ---- type ------------------------------------------------------------------------------ */
   /* Geist + Geist Mono (OFL). In game the native font loader serves the static TTFs by family
      name (mod/native/src/font_loader.cpp); in the browser harness fonts-dev.css supplies the
-     woff2. Outfit stays as the fallback so a missing face degrades to the old voice, not to
-     Inter. */
-  --c-sans: 'Geist', 'Outfit', system-ui, sans-serif;
-  --c-mono: 'Geist Mono', 'Geist', 'Outfit', monospace;
+     woff2. VOID Symbols (fetch-symbols.mjs) carries the ✔ ✖ ❤ ★ ⚔ ✪ ➤, arrows and box drawing
+     servers send, which Geist lacks. Outfit stays as the fallback so a missing face degrades
+     to the old voice, not to Inter. */
+  --c-sans: 'Geist', 'VOID Symbols', 'Outfit', system-ui, sans-serif;
+  --c-mono: 'Geist Mono', 'Geist', 'VOID Symbols', 'Outfit', monospace;
+  /* @void/ui's components inside the in-game root (the ⌘K palette) speak the same voice and
+     get the same symbol fallback. Scoped to .cart, so the launcher keeps Outfit. */
+  --font-ui: var(--c-sans);
 
   /* ---- radii: squarer, still rounded ---------------------------------------------------- */
   --c-r-panel: 24px;
