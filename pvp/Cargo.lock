@@ -2085,6 +2085,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "void-online"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "rand 0.9.5",
+ "reqwest",
+ "rustls-platform-verifier",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "tokio-tungstenite",
+ "tracing",
+ "void-bridge",
+]
+
+[[package]]
 name = "walkdir"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
