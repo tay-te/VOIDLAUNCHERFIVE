@@ -273,6 +273,10 @@ loom {
             if (project.hasProperty('voidUltralightDir')) {
                 vmArg "-Dvoid.ultralight.nativeDir=${project.property('voidUltralightDir')}"
             }
+            // -PvoidGlDebug: log every GL error with the Java stack that raised it (render/GlDebug).
+            if (project.hasProperty('voidGlDebug')) {
+                vmArg '-Dvoid.dev.gldebug=true'
+            }
         }
     }
 }

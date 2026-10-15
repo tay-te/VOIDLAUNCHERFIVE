@@ -1476,6 +1476,26 @@ public final class UiHost {
         startUiThread();
     }
 
+    /**
+     * Dev harness only (the screenshot tour): run {@code js} in the page on the UI thread at its
+     * next frame and log what it returned. Ignored until the bridge is up.
+     */
+    public void devScript(final String js) {
+        post(new Runnable() {
+            @Override
+            public void run() {
+                if (!bridgeReady || !view.isAvailable()) {
+                    VoidLog.error("devScript: page not ready, skipped");
+                    return;
+                }
+                String r = view.evaluateScript(js);
+                // Error level only so a dev run, whose log config drops info, shows it.
+                VoidLog.error("devScript (dev harness): " + (r == null ? "null" : r.trim()));
+                wake();
+            }
+        });
+    }
+
     public void mouseDown(final int x, final int y, final int button) {
         if (PROFILE) {
             clickNanos = System.nanoTime();

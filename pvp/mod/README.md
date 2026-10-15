@@ -111,6 +111,7 @@ too.
 ./gradlew runBench                                   # boost off/on/off/on -> run/void-bench.json
 ./gradlew runBench -PvoidBench=shots                 # run/screenshots/void-*.png
 ./gradlew runBench -PvoidUltralightDir=<natives dir> # with the in-game UI (needed for HUD shots)
+./gradlew runBench -PvoidBench=shots -PvoidGlDebug   # log every GL error with the Java stack that raised it
 ```
 
 It creates a fresh superflat world, builds a 9×9 town (162 chests, 81 signs, 81 torches,
