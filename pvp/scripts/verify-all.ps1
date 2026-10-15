@@ -135,6 +135,10 @@ if ($LASTEXITCODE -eq 0) {
 }
 # The cosmetics catalog's Java/TS outputs and the bundled assets are generated and committed.
 Invoke-Check -Label 'cosmetics generated (gen-cosmetics --check)' -Command 'node scripts/gen-cosmetics.mjs --check'
+# So are mods.json + loadout.json, the mod's ModRegistry.java and void-loadout's generated.rs.
+Invoke-Check -Label 'mods.json generated (build.mjs --check)' -Command 'node build.mjs --check' -WorkDir 'schema'
+Invoke-Check -Label 'ModRegistry.java generated (--check)'    -Command 'node scripts/gen-java-registry.mjs --check'
+Invoke-Check -Label 'void-loadout generated.rs (--check)'     -Command 'node scripts/gen-rust-mods.mjs --check'
 
 # ---------------------------------------------------------------------------
 Write-Section 'rust — crates/ (void-core, void-bridge, void-loadout)'
@@ -153,9 +157,10 @@ Invoke-Check -Label 'desktop cargo test'            -Command 'cargo test'       
 # ---------------------------------------------------------------------------
 Write-Section 'web — protocol, ui, ingame, desktop'
 # ---------------------------------------------------------------------------
+# build first: packages typecheck against @void/protocol's dist, which a fresh clone lacks.
+Invoke-Check -Label 'pnpm -r build'           -Command 'pnpm -r build'
 Invoke-Check -Label 'pnpm -r typecheck'       -Command 'pnpm -r typecheck'
 Invoke-Check -Label 'pnpm -r test'            -Command 'pnpm -r test'
-Invoke-Check -Label 'pnpm -r build'           -Command 'pnpm -r build'
 Invoke-Check -Label 'ingame Ultralight guard' -Command 'pnpm --filter @void/ingame lint:ultralight'
 Invoke-Check -Label 'ingame size budget'      -Command 'pnpm --filter @void/ingame size'
 

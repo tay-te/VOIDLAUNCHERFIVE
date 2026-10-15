@@ -130,6 +130,10 @@ else
 fi
 # The cosmetics catalog outputs and bundled assets are generated and committed.
 run "cosmetics generated (gen-cosmetics --check)" node scripts/gen-cosmetics.mjs --check
+# So are mods.json + loadout.json, the mod's ModRegistry.java and void-loadout's generated.rs.
+run "mods.json generated (build.mjs --check)"          bash -c 'cd schema && node build.mjs --check'
+run "ModRegistry.java generated (--check)"             node scripts/gen-java-registry.mjs --check
+run "void-loadout generated.rs (--check)"              node scripts/gen-rust-mods.mjs --check
 
 # ---------------------------------------------------------------------------
 section "rust — crates/ (void-core, void-bridge, void-loadout)"
@@ -148,9 +152,10 @@ run "desktop cargo test"            bash -c 'cd apps/desktop/src-tauri && cargo 
 # ---------------------------------------------------------------------------
 section "web — protocol, ui, ingame, desktop"
 # ---------------------------------------------------------------------------
+# build first: packages typecheck against @void/protocol's dist, which a fresh clone lacks.
+run "pnpm -r build"     pnpm -r build
 run "pnpm -r typecheck" pnpm -r typecheck
 run "pnpm -r test"      pnpm -r test
-run "pnpm -r build"     pnpm -r build
 run "ingame Ultralight guard" pnpm --filter @void/ingame lint:ultralight
 run "ingame size budget"      pnpm --filter @void/ingame size
 
