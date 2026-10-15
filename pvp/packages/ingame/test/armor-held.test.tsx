@@ -30,18 +30,18 @@ describe('HudArmorStatus with a held item', () => {
   it('draws the worn pieces when nothing is held', () => {
     useVoidStore.setState({ armor: WORN as never });
     const { container } = render(<HudArmorStatus />);
-    expect(container.querySelectorAll('.v-armorlist__row')).toHaveLength(4);
+    expect(container.querySelectorAll('.ch-armor__row')).toHaveLength(4);
   });
 
   it('draws the worn pieces AND the held block', () => {
     useVoidStore.setState({ armor: [...WORN, HELD_BLOCK] as never });
     const { container } = render(<HudArmorStatus />);
-    expect(container.querySelectorAll('.v-armorlist__row')).toHaveLength(5);
+    expect(container.querySelectorAll('.ch-armor__row')).toHaveLength(5);
   });
 
   it('draws the worn pieces when the held slot is empty', () => {
     useVoidStore.setState({ armor: [...WORN, HELD_EMPTY] as never });
     const { container } = render(<HudArmorStatus />);
-    expect(container.querySelectorAll('.v-armorlist__row')).toHaveLength(4);
+    expect(container.querySelectorAll('.ch-armor__row')).toHaveLength(4);
   });
 });

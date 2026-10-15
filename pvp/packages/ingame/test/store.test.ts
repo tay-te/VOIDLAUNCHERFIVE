@@ -226,7 +226,7 @@ describe('bridge ingestion', () => {
   });
 
   it('resets to Mods and closes the palette when the menu opens', () => {
-    useVoidStore.setState({ route: { name: 'party' }, paletteOpen: true });
+    useVoidStore.setState({ route: { name: 'friends' }, paletteOpen: true });
     useVoidStore.getState().applyMenu(true);
     expect(useVoidStore.getState().route).toEqual({ name: 'mods' });
     expect(useVoidStore.getState().paletteOpen).toBe(false);

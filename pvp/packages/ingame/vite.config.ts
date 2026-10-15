@@ -29,7 +29,10 @@ function designScreensDevServer(): Plugin {
         if (!url.startsWith('/__design/')) return next();
         const name = url.slice('/__design/'.length).split('?')[0];
         if (!/^[A-Za-z0-9._-]+\.png$/.test(name)) return next();
-        const file = join(screens, name);
+        // The Cartridge harness uses a real in-game still (the bench's `00-scene`) as its default
+        // backdrop, so the perf shots are a second place to look.
+        const shot = join(screens, '..', 'perf-shots', name);
+        const file = existsSync(join(screens, name)) ? join(screens, name) : shot;
         if (!existsSync(file)) {
           res.statusCode = 404;
           return res.end('no such design screen');

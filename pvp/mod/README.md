@@ -111,8 +111,15 @@ too.
 ./gradlew runBench                                   # boost off/on/off/on -> run/void-bench.json
 ./gradlew runBench -PvoidBench=shots                 # run/screenshots/void-*.png
 ./gradlew runBench -PvoidUltralightDir=<natives dir> # with the in-game UI (needed for HUD shots)
+./gradlew runBench -x generateLog4jConfig -PvoidBench=ui -PvoidUltralightDir=<natives dir> \
+    [-PvoidBenchOnly=hud-day,menu-mods] [-PvoidWidth=2560 -PvoidHeight=1440]
+                                                     # in-game UI tour -> run/screenshots/void-ui-*.png
 ./gradlew runBench -PvoidBench=shots -PvoidGlDebug   # log every GL error with the Java stack that raised it
 ```
+
+The `ui` tour (HUD by day/night/"nether"/under water, a toast, and the menu screens) steers the
+page through its dev hook `window.__voidDev.go(step)` via `UiHost.devEval`; each answer is logged
+as `ui dev-eval <shot>: …`. Shot names are listed in `PerfBench.UI_TOUR`.
 
 It creates a fresh superflat world, builds a 9×9 town (162 chests, 81 signs, 81 torches,
 243 villagers with no AI, 324 armour stands including three-line holograms), and flies a fixed

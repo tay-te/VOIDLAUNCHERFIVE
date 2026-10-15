@@ -143,6 +143,11 @@ class ProtocolExamplesTest {
                 assertEquals(example.get("id").getAsString(), in.emoteId, where);
                 assertEquals(example.get("at").getAsLong(), in.atMs, where);
                 rustToJava++;
+            } else if ("open_store".equals(t)) {
+                assertEquals(example, Protocol.openStore(example.get("item").getAsString()), where);
+                assertEquals(Protocol.Inbound.Kind.UNKNOWN, Protocol.parse(example.toString()).kind,
+                        where + " is outbound only");
+                javaToRust++;
             } else if ("equip".equals(t)) {
                 JsonObject rebuilt = Protocol.equip(example.get("slot").getAsString(),
                         example.get("id").isJsonNull() ? null : example.get("id").getAsString());
@@ -201,7 +206,7 @@ class ProtocolExamplesTest {
                         + "; teach net/Protocol about it");
             }
         }
-        assertEquals(17, javaToRust, "expected seventeen Java to Rust examples");
+        assertEquals(18, javaToRust, "expected eighteen Java to Rust examples");
         assertEquals(7, rustToJava, "expected seven Rust to Java examples");
     }
 

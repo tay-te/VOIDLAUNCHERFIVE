@@ -1,0 +1,710 @@
+/* ==========================================================================
+   Cartridge — Cosmetics: the wardrobe (paper doll), the emote wheel editor and the Crescent
+   wheel (Figma 295:2 section 562:24911, EW-B 588:35340). A cosmetic surface: richer colour and
+   a glow on the picked wheel card are allowed (CONTRACTS); the chrome stays flat and rounded.
+   ========================================================================== */
+
+.cart .c-cos__store {
+  width: 240px;
+  text-align: right;
+}
+.cart .c-cos__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.cart .c-cos {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 14px;
+}
+.cart .c-cos__left {
+  width: 290px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+.cart .c-cos__worn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cart .c-cos__wornrow {
+  height: 46px;
+  padding: 0 12px 0 6px;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.cart .c-cos__wornrow:hover {
+  background: var(--c-hover);
+}
+.cart .c-cos__wornrow.is-sel {
+  box-shadow: inset 0 0 0 1.5px var(--c-ink);
+}
+.cart .c-cos__wornname {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.cart .c-cos__wornbed {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--c-bed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.cart .c-cos__wornbed--lg {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+}
+.cart .c-cos__worntext {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font: 500 13px/1.2 var(--c-sans);
+}
+.cart .c-cos__worntext .c-mono {
+  font-size: 9.5px;
+}
+.cart .c-cos__wheelmini {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+}
+.cart .c-cos__ring {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  flex: none;
+  border-radius: 74px;
+  background: var(--c-bed);
+}
+.cart .c-cos__ringslot {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  margin: -1px 0 0 -1px;
+  border-radius: 7px;
+  background: var(--c-cart);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cart .c-cos__ringslot.is-empty {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--c-edge);
+}
+.cart .c-cos__ringkey {
+  position: absolute;
+  left: 63px;
+  top: 63px;
+}
+.cart .c-cos__wheeltext {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* the stage */
+.cart .c-cos__stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  border-radius: var(--c-r-cart);
+  background: var(--c-bed);
+  overflow: hidden;
+}
+.cart .c-cos__others {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--c-cart);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  z-index: 2;
+}
+.cart .c-cos__others .c-led {
+  background: var(--c-hue-utility);
+}
+.cart .c-cos__slots {
+  position: absolute;
+  top: 60px;
+  bottom: 70px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  z-index: 2;
+}
+.cart .c-cos__slots--l {
+  left: 16px;
+}
+.cart .c-cos__slots--r {
+  right: 16px;
+}
+.cart .c-slot {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+}
+.cart .c-slot__bed {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
+  background: var(--c-cart);
+  box-shadow: inset 0 0 0 1px var(--c-edge-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--c-t-hover) steps(2, end);
+}
+.cart .c-slot:hover .c-slot__bed {
+  background: var(--c-hover);
+}
+.cart .c-slot.is-empty .c-slot__bed {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--c-rule-strong);
+}
+.cart .c-slot.is-sel .c-slot__bed {
+  box-shadow: inset 0 0 0 1.5px var(--c-ink);
+}
+.cart .c-slot__plus {
+  font: 400 22px/1 var(--c-sans);
+  color: var(--c-ink-3);
+}
+.cart .c-slot__led {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+}
+.cart .c-slot__label {
+  font-size: 9.5px;
+}
+.cart .c-cos__dollwrap {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translate(-50%, -50%);
+}
+.cart .c-cos__turn {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--c-cart);
+  z-index: 2;
+}
+.cart .c-cos__arrow {
+  width: 26px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--c-ink-2);
+  font: 500 15px/1 var(--c-sans);
+  cursor: pointer;
+}
+.cart .c-cos__arrow:hover {
+  color: var(--c-ink);
+  background: var(--c-hover);
+}
+
+/* the paper doll */
+.cart .c-doll {
+  position: relative;
+}
+.cart .c-doll__body,
+.cart .c-doll__item {
+  position: absolute;
+}
+.cart .c-doll__body {
+  left: 0;
+  top: 0;
+}
+.cart .c-doll__item {
+  display: block;
+}
+.cart .c-doll__tint {
+  display: none;
+}
+.cart .c-doll__shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  width: 220px;
+  height: 34px;
+  margin-left: -110px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.cart .c-doll__tag {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 6px;
+  background: rgba(12, 13, 15, 0.7);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 13px/1 var(--c-sans);
+  color: var(--c-ink);
+  white-space: nowrap;
+}
+.cart .c-doll__emote {
+  position: absolute;
+  left: 50%;
+  bottom: -52px;
+  transform: translateX(-50%);
+  height: 30px;
+  padding: 0 12px 0 8px;
+  border-radius: 15px;
+  background: var(--c-panel);
+  box-shadow: 0 0 0 1px var(--c-edge-hi);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 12px/1 var(--c-sans);
+  white-space: nowrap;
+}
+
+/* the picker */
+.cart .c-cos__picker {
+  width: 330px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.cart .c-cos__phead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cart .c-cos__seg {
+  display: flex;
+  gap: 6px;
+}
+.cart .c-cos__grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 8px;
+  margin-right: -8px;
+  padding-right: 8px;
+}
+.cart .c-cos__card {
+  position: relative;
+  width: calc((100% - 8px) / 2);
+  border-radius: 14px;
+  background: var(--c-cart);
+  box-shadow: inset 0 0 0 1px var(--c-edge-soft);
+  padding: 8px 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background var(--c-t-hover) steps(2, end);
+}
+.cart .c-cos__card:hover {
+  background: var(--c-hover);
+}
+.cart .c-cos__card.is-wearing {
+  box-shadow: inset 0 0 0 1.5px var(--c-ink);
+}
+.cart .c-cos__hit {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: inherit;
+}
+.cart .c-cos__bed {
+  position: relative;
+  height: 96px;
+  border-radius: 10px;
+  background: var(--c-bed);
+  box-shadow: inset 0 0 0 2px var(--c-bed-edge);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.cart .c-cos__new {
+  position: absolute;
+  left: 8px;
+  top: 7px;
+  color: var(--c-hue-utility);
+}
+.cart .c-cos__lock {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+}
+.cart .c-cos__name {
+  font: 500 13px/1.2 var(--c-sans);
+  color: var(--c-ink);
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.cart .c-cos__card.is-locked .c-cos__name {
+  color: var(--c-ink-2);
+}
+.cart .c-cos__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  pointer-events: none;
+}
+.cart .c-cos__rarity {
+  font: 500 9.5px/1 var(--c-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cart .c-cos__price,
+.cart .c-cos__note {
+  font: 600 10px/1 var(--c-mono);
+  color: var(--c-ink-2);
+}
+.cart .c-cos__act {
+  margin-top: 4px;
+  pointer-events: none;
+}
+.cart .c-cos__pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font: 500 11px/1 var(--c-sans);
+  color: var(--c-ink-2);
+  box-shadow: inset 0 0 0 1px var(--c-edge-hi);
+}
+.cart .c-cos__pill.is-on,
+.cart .c-cos__pill--store {
+  background: var(--c-light);
+  color: var(--c-on-light);
+  box-shadow: none;
+}
+.cart .c-cos__tints {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: none;
+}
+.cart .c-cos__tints .c-swatches {
+  justify-content: flex-start;
+}
+.cart .c-cos__tintnote {
+  font-size: 9.5px;
+}
+.cart .c-cos__empty,
+.cart .c-cos__loading {
+  flex: 1;
+  border-radius: var(--c-r-cart);
+  background: var(--c-bed);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  padding: 16px;
+}
+.cart .c-cos__emptybed {
+  width: 96px;
+  height: 96px;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--c-rule-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cart .c-cos__emptyline {
+  font: 400 12px/1.45 var(--c-sans);
+  color: var(--c-ink-2);
+}
+.cart .c-cos__skel {
+  display: flex;
+  gap: 10px;
+}
+.cart .c-cos__skelcard {
+  width: 120px;
+  height: 150px;
+  border-radius: 14px;
+  background: var(--c-cart);
+}
+
+/* emote editor */
+.cart .c-cos__hold {
+  height: 54px;
+}
+.cart .c-cos__selslot {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.cart .c-cos__selacts {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.cart .c-cos__bigring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 460px;
+  height: 460px;
+  margin: -236px 0 0 -230px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.cart .c-cos__ringdoll {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -124px 0 0 -100px;
+  zoom: 0.62;
+}
+.cart .c-cos__wslot {
+  position: absolute;
+  width: 68px;
+  height: 68px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--c-cart);
+  box-shadow: inset 0 0 0 1px var(--c-edge-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+.cart .c-cos__wslot:hover {
+  background: var(--c-hover);
+}
+.cart .c-cos__wslot.is-empty {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--c-rule-strong);
+}
+.cart .c-cos__wslot.is-sel {
+  box-shadow: inset 0 0 0 1.5px var(--c-ink);
+}
+.cart .c-cos__wslot.is-playing {
+  box-shadow: inset 0 0 0 1.5px var(--c-hue-utility);
+}
+.cart .c-cos__wnum {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--c-key);
+  font: 600 10px/18px var(--c-mono);
+  color: var(--c-ink-2);
+  text-align: center;
+}
+.cart .c-cos__ringfoot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14px;
+  text-align: center;
+  font-size: 9.5px;
+}
+
+/* ==========================================================================
+   The Crescent wheel
+   ========================================================================== */
+
+.cart .c-layer--wheel {
+  background: rgba(8, 9, 11, 0.35);
+}
+.cart .c-wheel {
+  position: absolute;
+  inset: 0;
+}
+.cart .c-wheel__in {
+  position: absolute;
+  width: 1920px;
+  height: 1080px;
+}
+.cart .c-wheel__hint {
+  position: absolute;
+  left: 50%;
+  top: 96px;
+  transform: translateX(-50%);
+  height: 40px;
+  padding: 0 14px 0 8px;
+  border-radius: 12px;
+  background: var(--c-panel);
+  box-shadow: var(--c-shadow-island);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 400 13px/1 var(--c-sans);
+  color: var(--c-ink-2);
+  white-space: nowrap;
+}
+.cart .c-wheel__cross {
+  position: absolute;
+  left: 952px;
+  top: 532px;
+  width: 16px;
+  height: 16px;
+}
+.cart .c-wheel__cross::before,
+.cart .c-wheel__cross::after {
+  content: '';
+  position: absolute;
+  background: rgba(236, 238, 241, 0.85);
+}
+.cart .c-wheel__cross::before {
+  left: 7px;
+  top: 0;
+  width: 2px;
+  height: 16px;
+}
+.cart .c-wheel__cross::after {
+  left: 0;
+  top: 7px;
+  width: 16px;
+  height: 2px;
+}
+.cart .c-wheel__label {
+  position: absolute;
+  left: 50%;
+  top: 404px;
+  transform: translateX(-50%);
+  min-width: 220px;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: var(--c-panel);
+  box-shadow: var(--c-shadow-island);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.cart .c-wheel__name {
+  font: 500 17px/1.1 var(--c-sans);
+  color: var(--c-ink);
+}
+.cart .c-wheel__card {
+  position: absolute;
+  width: 84px;
+  height: 96px;
+  border: 0;
+  margin: 0;
+  padding: 0 0 18px;
+  border-radius: 18px;
+  background: var(--c-panel);
+  box-shadow: inset 0 0 0 1px var(--c-edge-hi), 0 10px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.cart .c-wheel__card.is-empty {
+  background: rgba(19, 21, 24, 0.6);
+}
+.cart .c-wheel__card.is-pick {
+  width: 100px;
+  height: 116px;
+  margin: -10px 0 0 -8px;
+  background: var(--c-hover);
+  box-shadow: inset 0 0 0 2px var(--c-ink), 0 0 26px rgba(159, 200, 255, 0.35), 0 12px 28px rgba(0, 0, 0, 0.4);
+}
+.cart .c-wheel__led {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+}
+.cart .c-wheel__num {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  min-width: 20px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--c-lip);
+  font: 600 10px/18px var(--c-mono);
+  color: var(--c-ink-2);
+  text-align: center;
+}
+.cart .c-wheel__playing {
+  position: absolute;
+  left: 50%;
+  top: 566px;
+  transform: translateX(-50%);
+  height: 44px;
+  padding: 0 16px 0 10px;
+  border-radius: 22px;
+  background: var(--c-panel);
+  box-shadow: var(--c-shadow-island);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 500 14px/1 var(--c-sans);
+  color: var(--c-ink);
+  white-space: nowrap;
+  animation: c-toast-in var(--c-t-toast) steps(4, end) backwards;
+}
+.cart .c-wheel__bar {
+  display: flex;
+}
+
+/* Held in the world: over the HUD, lighter than the menu's scrim — the player is still moving. */
+.cart .c-layer--world {
+  background: rgba(8, 9, 11, 0.18);
+  pointer-events: none;
+}

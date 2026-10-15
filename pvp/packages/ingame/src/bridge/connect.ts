@@ -8,6 +8,7 @@
 
 import { createFakeVoid, installVoidShim, type FakeVoid, type VoidBridge } from './protocol';
 import { useVoidStore } from '@/store/store';
+import { useCosmetics } from '@/cart/cosmetics-store';
 
 let bridge: VoidBridge | null = null;
 let fake: FakeVoid | null = null;
@@ -53,11 +54,12 @@ export function hasTextFocus(): boolean {
  * ```
  * a focused text field   gives up focus            (MenuLayer)
  * the quick palette      closes, menu stays        (QuickPalette)
- * a mod's page           back to the grid          (MenuLayer)
- * the settings page      back to the grid          (MenuLayer)
- * the HUD editor         back to the grid          (MenuLayer)
- * the Loadouts screen    back to the islands       (MenuLayer)
- * the grid               closes the menu           (Java)
+ * a keybind conflict     dismissed, menu stays     (the settings bench)
+ * a mod's settings bench closes, back to shelves   (MenuLayer)
+ * a search / shelf view  back to all shelves       (MenuLayer)
+ * the HUD editor         back to its tab           (MenuLayer)
+ * tabs 2–5               back to the Mods tab      (MenuLayer)
+ * the Mods tab           closes the menu           (Java)
  * ```
  *
  * A keybind capture is not in the table and must not be: `VoidMenuScreen` consumes Escape for the
@@ -71,14 +73,11 @@ export function keepsEscape(): boolean {
   if (hasTextFocus()) return true;
   const state = useVoidStore.getState();
   if (state.paletteOpen) return true;
+  if (useCosmetics.getState().wheelOpen && useCosmetics.getState().wheelSource === 'menu') return true;
   const route = state.route.name;
-  return (
-    route === 'mod' ||
-    route === 'settings' ||
-    route === 'hud-editor' ||
-    route === 'grid' ||
-    route === 'loadouts'
-  );
+  if (route !== 'mods') return true;
+  // On the Mods tab Escape first clears a search or a single-shelf view, then closes.
+  return state.modSearch !== '' || state.modFilter !== 'all';
 }
 
 export interface ConnectResult {
@@ -161,6 +160,8 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
     // days without arriving, because it was missing from that list. Five files or none —
     // `bridge.json`, `VoidBridge`, the shim, `VOID_EVENTS`, `createFakeVoid`.
     bridge.on('session', store.applySession),
+    // The sixteenth: vanilla's key bindings as the player has them set, for the conflict check.
+    bridge.on('binds', store.applyBinds),
     // The ninth: the client's own settings, which until now lived only in `LiveState` and could
     // be neither read nor written by the page. The Settings page is what asked for it.
     bridge.on('settings', store.applyGlobals),
@@ -171,6 +172,12 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
     // The eleventh: a short notice Java raises for something that happened with the menu
     // closed — the cycle key, a mod's own key, the launcher switching the loadout.
     bridge.on('toast', store.applyToast),
+    // The wardrobe's two: whole-state `cosmetics` and the `emote` start/end. Their own store
+    // (cart/cosmetics-store.ts) — the HUD reads neither.
+    bridge.on('cosmetics', (payload) => useCosmetics.getState().apply(payload)),
+    bridge.on('emote', (payload) => useCosmetics.getState().applyEmote(payload)),
+    // The fifteenth: the emote key held in the world — the Crescent wheel over the HUD.
+    bridge.on('wheel', (payload) => useCosmetics.getState().applyWheel(payload)),
   ];
 
   if (fake) {

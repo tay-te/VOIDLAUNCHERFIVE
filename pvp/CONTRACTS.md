@@ -122,7 +122,11 @@ by **ingame**.
 - JS → Java is a call, and there are now twelve: `setGameplay`, `setHud`, `setModSetting`,
   `switchLoadout`, `closeMenu`, `openKeybindCapture`, `setSurfaces`, `setGlobal`,
   `equipCosmetic`, `setCosmeticTint`, `setEmoteWheel`, `playEmote`. The shim's `CALLS` list is
-  closed the same way `EVENTS` is.
+  closed the same way `EVENTS` is (`bridge.json` `call_name` is the full, current list).
+  - `openStore(id)` is *Get in launcher Store*: Java sends the launcher `open_store`
+    (`protocol.json`), the launcher shows and focuses its window and emits `store:open`, and
+    the web side opens that item's Store sheet. It answers whether the launcher was told —
+    false with the link down — and nothing is ever bought in game.
   - `setGlobal(key, value)` mirrors `setModSetting` exactly: synchronous, Java clamps and
     returns **what it stored**, `null` for a key it does not know or a value it cannot use,
     and the page binds to the return rather than to what it sent.

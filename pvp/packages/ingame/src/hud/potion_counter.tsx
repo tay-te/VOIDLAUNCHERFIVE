@@ -22,7 +22,13 @@
 
 import { memo } from 'react';
 
-import { PotionCounterChip, type PotionCount } from '@/ui';
+import { HudModule } from './cart';
+
+/** One figure: a count and, when labelled, the noun it counts. */
+interface PotionCount {
+  count: number;
+  unit?: string;
+}
 import { modSettings, useVoidStore } from '@/store/store';
 import type { HudWidgetProps } from './widgets';
 
@@ -44,6 +50,12 @@ const UNIT: Record<'health_potion' | 'soup', string> = { health_potion: 'pots', 
  * resting ink is what the factory setting shows, at or below 64 so the far end of the range turns
  * it amber. Seven pots and five soup is also a believable half-spent hotbar.
  */
+const TAB: Record<'health_potion' | 'soup' | 'both', string> = {
+  health_potion: 'POTS',
+  soup: 'SOUP',
+  both: 'HEALS',
+};
+
 const SAMPLE: Record<'health_potion' | 'soup', number> = { health_potion: 7, soup: 5 };
 
 function asTrack(value: unknown): keyof typeof TRACKED {
@@ -51,7 +63,6 @@ function asTrack(value: unknown): keyof typeof TRACKED {
 }
 
 export const HudPotionCounter = memo(function HudPotionCounter({
-  variant,
   sample,
   className,
 }: HudWidgetProps) {
@@ -77,12 +88,27 @@ export const HudPotionCounter = memo(function HudPotionCounter({
     figures.push(units ? { count, unit: UNIT[key] } : { count });
   }
   if (figures.length === 0) return null;
+  // Two figures side by side for `both`, each with its noun; a figure at or under the threshold
+  // takes the warn amber on its own — eight pots and two soups is one reserve and one nearly gone.
   return (
-    <PotionCounterChip
-      variant={variant}
-      className={className}
-      figures={figures}
-      lowThreshold={lowThreshold}
-    />
+    <HudModule
+      label={showLabel ? TAB[track] : undefined}
+      className={className ? `ch-pots ${className}` : 'ch-pots'}
+    >
+      <div className="ch-row">
+        {figures.map((figure, index) => (
+          <span key={index} className="ch-figure">
+            <span
+              className={
+                lowThreshold > 0 && figure.count <= lowThreshold ? 'ch-num ch-warn' : 'ch-num'
+              }
+            >
+              {figure.count}
+            </span>
+            {figure.unit ? <span className="ch-unit">{figure.unit}</span> : null}
+          </span>
+        ))}
+      </div>
+    </HudModule>
   );
 });

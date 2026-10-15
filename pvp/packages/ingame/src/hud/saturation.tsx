@@ -17,7 +17,8 @@
 
 import { memo } from 'react';
 
-import { SaturationChip, type SaturationStyle } from '@/ui';
+import { type SaturationStyle } from '@/ui';
+import { HudModule, Meter, litFor } from './cart';
 import { useModSettings, useVoidStore } from '@/store/store';
 import type { HudWidgetProps } from './widgets';
 
@@ -46,7 +47,6 @@ function asSaturationStyle(value: unknown): SaturationStyle {
 }
 
 export const HudSaturation = memo(function HudSaturation({
-  variant,
   sample,
   className,
 }: HudWidgetProps) {
@@ -56,14 +56,23 @@ export const HudSaturation = memo(function HudSaturation({
   // mod against their own saturation; the fixture is only ever the fallback.
   const value = live ?? (sample ? SAMPLE_SATURATION : null);
   if (value === null) return null;
+  // Held to the 0-20 the food system produces; the meter is ten steps of two points each.
+  const clamped = Math.min(20, Math.max(0, value));
+  const style = asSaturationStyle(settings.style);
+  const decimals = Math.min(2, Math.max(0, Math.round(Number(settings.decimals ?? 1)))) || 0;
   return (
-    <SaturationChip
-      variant={variant}
-      className={className}
-      saturation={value}
-      style={asSaturationStyle(settings.style)}
-      decimals={Number(settings.decimals ?? 1)}
-      showLabel={settings.show_label !== false}
-    />
+    <HudModule
+      label={settings.show_label !== false ? 'SAT' : undefined}
+      className={className ? `ch-sat ${className}` : 'ch-sat'}
+    >
+      {style === 'bar' ? null : (
+        <div className="ch-row">
+          <span className="ch-num">{clamped.toFixed(decimals)}</span>
+        </div>
+      )}
+      {style === 'number' ? null : (
+        <Meter n={10} on={litFor(clamped / 20, 10)} w={7} h={style === 'bar' ? 12 : 4} gap={2} className="ch-mod__meter" />
+      )}
+    </HudModule>
   );
 });

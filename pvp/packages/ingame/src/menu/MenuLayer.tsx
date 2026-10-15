@@ -9,24 +9,24 @@
  *   · **Escape means "up one level"**, and this handler owns every level but the last:
  *
  *     ```
- *     a focused text field   gives up focus, menu stays
- *     the quick palette      closes, menu stays          (QuickPalette's own handler)
- *     a mod's page           back to the grid
- *     the settings page      back to the grid
- *     the HUD editor         back to the grid
- *     the Loadouts screen    back to the islands
- *     the grid               closes the menu
+ *     a focused text field     gives up focus, menu stays
+ *     the quick palette        closes, menu stays          (QuickPalette's own handler)
+ *     a mod's settings bench   closes, back to the shelves
+ *     the HUD editor           back to the tab it came from
+ *     a search                 cleared
+ *     a single shelf / Pinned  back to all shelves
+ *     tabs 2–5                 back to the Mods tab
+ *     the Mods tab             closes the menu
  *     ```
  *
  *     The order of the branches below **is** that table, and it is not free to change: a field
- *     focused inside a mod page must give up focus before the page gives up the route.
+ *     focused inside the bench must give up focus before the bench gives up the route.
  *
  *     Java has to agree with it a frame ahead. `VoidMenuScreen.keyPressed` swallows Escape and
  *     closes the menu unless `UiHost.keepsEscape()` says the page will handle it, and that is
  *     `keepsEscape()` in `bridge/connect.ts` — the same table, expressed as one predicate. If
  *     the two ever disagree the symptom is loud and one-directional: Escape closes the whole
- *     menu from a page. The `esc` key cap the bar draws on the control Escape actually drives
- *     (`ModsScreen`) is the third copy, and the only one the player sees.
+ *     menu from a page.
  *
  *     A **keybind capture beats all of it**: `VoidMenuScreen` consumes Escape for the capture
  *     before it asks anything, so Escape while binding a key cancels the capture and changes no
@@ -42,10 +42,8 @@ import { isEscape } from '@/menu/keys';
 import { useDirectWheel } from '@/menu/wheel';
 import { useVoidStore } from '@/store/store';
 import { hasTextFocus } from '@/bridge/connect';
-import { ModsScreen } from './ModsScreen';
-import { IslandMenu } from './IslandMenu';
-import { LoadoutsScreen } from './LoadoutsScreen';
-import { PartyScreen } from './PartyScreen';
+import { CartMenu } from '@/cart/CartMenu';
+import { useCosmetics } from '@/cart/cosmetics-store';
 import { HudEditorScreen } from './HudEditorScreen';
 import { QuickPalette } from '@/palette/QuickPalette';
 
@@ -106,15 +104,31 @@ export function MenuLayer({
         return;
       }
       e.preventDefault();
-      const route = useVoidStore.getState().route;
-      if (route.name === 'hud-editor' || route.name === 'mod' || route.name === 'settings') {
-        // Up one level. Both of these are places you went *from* the grid, so the grid is what
-        // is above them; neither is a place Escape should close the whole menu out of.
-        setRoute({ name: useVoidStore.getState().back });
+      if (useCosmetics.getState().wheelOpen && useCosmetics.getState().wheelSource === 'menu') {
+        useCosmetics.getState().setWheelOpen(false);
         return;
       }
-      // The All-mods grid and the Loadouts screen are a level below the islands, not the top.
-      if (route.name === 'grid' || route.name === 'loadouts') {
+      const state = useVoidStore.getState();
+      const route = state.route;
+      if (route.name === 'mod') {
+        state.closeMod();
+        return;
+      }
+      if (route.name === 'hud-editor') {
+        setRoute({ name: state.back });
+        return;
+      }
+      if (route.name === 'mods') {
+        if (state.modSearch !== '') {
+          state.setModSearch('');
+          return;
+        }
+        if (state.modFilter !== 'all') {
+          state.setModFilter('all');
+          return;
+        }
+      } else if (state.context === 'lobby') {
+        // Tabs 2–5 are a level below the Mods tab, not the top.
         setRoute({ name: 'mods' });
         return;
       }
@@ -155,16 +169,9 @@ export function MenuLayer({
       {/* The HUD editor supplies its own lighter scrim, and a match has none at all: rule 9,
           the world stays as it is while the quick panel is up. */}
       {!editing && context === 'lobby' && <div className="menu-layer__dim" />}
-      {/* One screen, two routes: the mods shell owns the panel box and draws either the items
-          or one mod's page inside it (`ModsScreen`). Splitting them here would mean two
-          components solving the same geometry, and the box moving when they disagreed. */}
-      {/* v1 Ship: the islands are the menu. A mod's own page and the Settings page are still
-          the full shell they always were — places you go *from* the Mods island, which Escape
-          brings you back to. */}
-      {route.name === 'mods' && <IslandMenu />}
-      {(route.name === 'grid' || route.name === 'mod' || route.name === 'settings') && <ModsScreen />}
-      {route.name === 'loadouts' && <LoadoutsScreen />}
-      {route.name === 'party' && <PartyScreen />}
+      {/* Cartridge: one shell for every tab and the settings bench; the HUD editor is the one
+          route that takes the whole screen. */}
+      {!editing && <CartMenu />}
       {editing && <HudEditorScreen />}
       {paletteOpen && context === 'lobby' && <QuickPalette />}
     </div>

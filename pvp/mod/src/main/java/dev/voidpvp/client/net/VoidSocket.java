@@ -354,6 +354,20 @@ public final class VoidSocket implements LiveState.Sink, CosmeticState.Sink {
     }
 
     /**
+     * {@code open_store}: Get in launcher Store. Dropped, and answered false, when the link is
+     * down: a Store sheet popping open minutes later, after a reconnect, would be a surprise,
+     * and the page tells the player to open the Store themselves instead.
+     */
+    @Override
+    public boolean openStore(String id) {
+        if (id == null || !isUp()) {
+            return false;
+        }
+        send(Protocol.openStore(id));
+        return true;
+    }
+
+    /**
      * The emote wheel changed in game. <b>Nothing is sent</b>: {@code protocol.json} has no
      * message for the wheel, so it lasts the session; the launcher Store edits the stored one,
      * which comes back in {@code cosmetics.self.emotes}. Kept so the sink stays complete and the

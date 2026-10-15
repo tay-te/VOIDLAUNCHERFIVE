@@ -29,6 +29,8 @@ pub const ONLINE_STATUS: &str = "online:status";
 pub const ONLINE_COSMETICS: &str = "online:cosmetics";
 /// `online:friends` — `void_online::FriendsList`, whole, whenever it changed.
 pub const ONLINE_FRIENDS: &str = "online:friends";
+/// `store:open` — `{ item }`: *Get in launcher Store* in game; open the Store on that item.
+pub const STORE_OPEN: &str = "store:open";
 
 /// Anything that can push an event at the web side.
 ///
@@ -36,6 +38,10 @@ pub const ONLINE_FRIENDS: &str = "online:friends";
 /// window is. `AppHandle` implements this in `lib.rs`; the tests use a recorder.
 pub trait Emitter: Send + Sync + 'static {
     fn emit_json(&self, event: &str, payload: serde_json::Value);
+
+    /// Bring the main window back from the tray and focus it. A no-op where there is no
+    /// window (tests, `--no-default-features`); `AppHandle`'s emitter does the real thing.
+    fn show_window(&self) {}
 }
 
 impl Emitter for () {
@@ -76,9 +82,16 @@ pub mod test_support {
         }
     }
 
+    /// What [`Recorder`] logs for [`Emitter::show_window`], in the event sequence.
+    pub const SHOWN: &str = "(window shown)";
+
     impl Emitter for Recorder {
         fn emit_json(&self, event: &str, payload: serde_json::Value) {
             self.0.lock().unwrap().push((event.to_string(), payload));
+        }
+
+        fn show_window(&self) {
+            self.0.lock().unwrap().push((SHOWN.to_string(), serde_json::Value::Null));
         }
     }
 }

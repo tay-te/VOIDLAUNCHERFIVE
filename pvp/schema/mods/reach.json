@@ -15,10 +15,10 @@
   "source": "`reach` on the tick payload: eye-to-hit-point distance at the moment of each landed attack",
   "enabled": false,
   "default_placement": {
-    "note": "Below Momentum (`293`) in the top-left column, 38 px down: the column already holds the two other numbers a fight produces, Combo and Momentum, and reach is read at the same moment as both.",
+    "note": "The left column's last row on the 64 px Cartridge rhythm, beside Momentum: the numbers a fight produces read together. Combo, the other one, sits beside the crosshair.",
     "anchor": "top-left",
-    "dx": 23,
-    "dy": 331
+    "dx": 20,
+    "dy": 384
   },
   "defaults": {
     "decimals": 2,

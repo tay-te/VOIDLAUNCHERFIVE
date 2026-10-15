@@ -43,12 +43,12 @@
   // side and not added here fails completely silently — no error, no warning, the page simply
   // never hears it. That is exactly how `session` was lost the first time it was sent.
   var EVENTS = ['keys', 'tick', 'server', 'loadout', 'loadouts', 'setting', 'menu', 'session',
-    'settings', 'modaction', 'scoreboard', 'toast', 'cosmetics', 'emote'];
+    'settings', 'modaction', 'scoreboard', 'toast', 'cosmetics', 'emote', 'wheel', 'binds'];
   var CALLS = ['setGameplay', 'setHud', 'setModSetting', 'switchLoadout', 'closeMenu',
     'openKeybindCapture', 'setSurfaces', 'setGlobal',
     'createLoadout', 'renameLoadout', 'duplicateLoadout', 'deleteLoadout', 'exportLoadout',
     'importLoadout', 'setQuickPins', 'setClipboard', 'getClipboard',
-    'equipCosmetic', 'setCosmeticTint', 'setEmoteWheel', 'playEmote'];
+    'equipCosmetic', 'setCosmeticTint', 'setEmoteWheel', 'playEmote', 'openStore'];
   var handlers = {};
   // FIFO, so a second capture opened before the first resolved still lines up with
   // the envelopes Java sends back in the order it armed them.
@@ -348,6 +348,14 @@
      */
     playEmote: function (id) {
       return call('playEmote', [id]) === true;
+    },
+
+    /**
+     * Get in launcher Store: show the launcher's window on this item's Store sheet. Returns
+     * whether the launcher was told; false when the launcher link is down.
+     */
+    openStore: function (id) {
+      return call('openStore', [id]) === true;
     },
 
     /**

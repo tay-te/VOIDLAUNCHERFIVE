@@ -25,6 +25,13 @@
  * every `kind: hud` mod now carries `background`, `border` and `padding`, declared once in
  * `schema/mods/_shared.json#/hud` rather than eight times.
  *
+ * ## Under Cartridge
+ *
+ * The classes are unchanged; what they paint is not. A Cartridge module carries its own 66%
+ * backing (`cart/hud.css`), so the slot box goes bare and the three settings step the module
+ * itself: `background` none → the design's backing, subtle → 78%, solid → the opaque panel;
+ * `border` → a brighter edge; `padding` → the module inset and the keycap gap.
+ *
  * ## Why none of it is a colour
  *
  * Lunar gives essentially every HUD mod a background colour, a border colour and per-element

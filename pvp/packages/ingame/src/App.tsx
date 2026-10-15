@@ -12,6 +12,9 @@ import { MenuLayer } from '@/menu/MenuLayer';
 import { ToastStack } from '@/toasts/ToastStack';
 import { isDebugBridge } from '@/bridge/connect';
 import { FAKE_MOD_COUNT } from '@/dev/fake-mods';
+import { useCosmetics } from '@/cart/cosmetics-store';
+import { CrescentWheel } from '@/cart/CrescentWheel';
+import { layerStyle, useCartScale } from '@/cart/scale';
 
 export interface AppProps {
   /**
@@ -164,9 +167,12 @@ export function App({ debugFrame, backdrop }: AppProps) {
   // has to ask this rather than `menuOpen`, or the HUD editor would mount a second copy of the
   // HUD under a menu layer that is still showing its own.
   const onScreen = phase !== 'shut';
+  // The emote key held in the world: the Crescent wheel over the HUD, driven by Java's `wheel`.
+  const worldWheel = useCosmetics((s) => s.wheelOpen && s.wheelSource === 'world');
+  const scale = useCartScale();
 
   return (
-    <div className={`v-app void-app${debugFrame ? ' void-app--debug' : ''}`}>
+    <div className={`v-app void-app cart${debugFrame ? ' void-app--debug' : ''}`}>
       {debugFrame && backdrop && (
         <div
           className="void-debug-backdrop"
@@ -190,6 +196,12 @@ export function App({ debugFrame, backdrop }: AppProps) {
           onExitEnd={onExitEnd}
         />
       )}
+
+      {worldWheel && !menuOpen ? (
+        <div className="c-layer c-layer--wheel c-layer--world" style={layerStyle(scale)}>
+          <CrescentWheel width={scale.width} height={scale.height} world />
+        </div>
+      ) : null}
 
       {/* Above both layers: a notice raised by the cycle key shows over the game, one raised
           by the Loadouts screen over the menu. */}

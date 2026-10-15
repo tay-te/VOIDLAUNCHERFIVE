@@ -60,13 +60,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import {
-  EditorToolbar,
-  HintBar,
-  SelectionFrame,
-  formatSelectionReadout,
-  type SelectionHandle,
-} from '@/ui';
+import { SelectionFrame, cx, type SelectionHandle } from '@/ui';
 import { HUD_MOD_IDS, type HUDAnchor, type HUDModId } from '@/bridge/protocol';
 import { hudItem, isModOn, useVoidStore } from '@/store/store';
 import {
@@ -83,6 +77,9 @@ import {
 import { modLabel } from '@/registry';
 import { isEscape } from '@/menu/keys';
 import { HudLayer, type LivePlacement } from '@/hud/HudLayer';
+import { Sprite, hasSprite } from '@/cart/Sprite';
+import { Kc } from '@/cart/prims';
+import { useCartScale } from '@/cart/scale';
 
 export { DEFAULT_HUD };
 
@@ -225,19 +222,47 @@ export function HudEditorScreen() {
   // Only when a gesture is *not* running: mid-drag the draft is the truth, computed rather than
   // measured, and re-measuring here would cost a second render for every pointer move.
   useLayoutEffect(() => {
-    if (dragRef.current) return;
+    if (dragRef.current) return undefined;
     setBox(measure(target));
+    // Once more after the faces and the sprite sheet have settled: a widget measured on its first
+    // layout can grow a few px once Geist arrives, and a frame off its widget reads as a bug.
+    const again = window.setTimeout(() => {
+      if (!dragRef.current) setBox(measure(useVoidStore.getState().editorTarget));
+    }, 150);
+    return () => window.clearTimeout(again);
   }, [measure, target, loadout, draft]);
 
   /* ---- committing -------------------------------------------------------------------- */
 
+  /** Placements as they were before each commit, newest last — what Undo walks back. */
+  const undoRef = useRef<{ id: HUDModId; anchor: HUDAnchor; dx: number; dy: number; scale: number }[]>([]);
+  const [undoDepth, setUndoDepth] = useState(0);
+
   const commit = useCallback(
     (next: Draft | null) => {
       if (!next) return;
+      const before = hudItem(useVoidStore.getState().loadout, next.id) ?? { ...DEFAULT_HUD[next.id], scale: 1 };
+      const moved =
+        before.anchor !== next.anchor || before.dx !== next.dx || before.dy !== next.dy || (before.scale ?? 1) !== next.scale;
+      if (moved) {
+        undoRef.current.push({ id: next.id, anchor: before.anchor, dx: before.dx, dy: before.dy, scale: before.scale ?? 1 });
+        if (undoRef.current.length > 50) undoRef.current.shift();
+        setUndoDepth(undoRef.current.length);
+      }
       commitHud(next.id, next.anchor, next.dx, next.dy, next.scale);
     },
     [commitHud],
   );
+
+  const undo = useCallback(() => {
+    const last = undoRef.current.pop();
+    setUndoDepth(undoRef.current.length);
+    if (!last) return;
+    setTarget(last.id);
+    commitHud(last.id, last.anchor, last.dx, last.dy, last.scale);
+  }, [commitHud, setTarget]);
+
+  const exitRef = useRef<() => void>(() => undefined);
 
   /**
    * Place a widget from a placement, and hand back the whole draft including the box it will
@@ -433,9 +458,20 @@ export function HudEditorScreen() {
    */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isEscape(event)) return; // MenuLayer owns Escape; it goes back to the grid.
+      if (isEscape(event)) return; // MenuLayer owns Escape; it goes back to the tab.
       const state = useVoidStore.getState();
       const id = state.editorTarget;
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        exitRef.current();
+        return;
+      }
+      if ((event.key === 'z' || event.key === 'Z') && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        undo();
+        return;
+      }
 
       if (event.key === 'Tab') {
         event.preventDefault();
@@ -474,7 +510,7 @@ export function HudEditorScreen() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [commit, draftFor, measure, placeable, setTarget, viewport]);
+  }, [commit, draftFor, measure, placeable, setTarget, viewport, undo]);
 
   /* ---- the toolbar ------------------------------------------------------------------- */
 
@@ -483,6 +519,7 @@ export function HudEditorScreen() {
     setDraft(null);
     setRoute({ name: useVoidStore.getState().back });
   }, [setRoute]);
+  exitRef.current = exit;
 
   const reset = useCallback(() => {
     // The whole of it is `store.resetHud` — including standing the snap grid down, without which
@@ -491,51 +528,241 @@ export function HudEditorScreen() {
     setDraft(null);
   }, [resetHud]);
 
-  /* ---- the frame --------------------------------------------------------------------- */
+  /* ---- the frame (Cartridge, Figma 629:2) ---------------------------------------------- */
 
+  const scale = useCartScale();
+  const [rulers, setRulers] = useState(true);
+  const toggleMod = useVoidStore((s) => s.toggleMod);
+  const openMod = useVoidStore((s) => s.openMod);
+  const loadoutName = useVoidStore((s) => s.loadout?.name ?? null);
   const selection = draft && target === draft.id ? draft : box;
   const off = HUD_MOD_IDS.length - placeable.length;
+  const parked = HUD_MOD_IDS.filter((id) => !isModOn(loadout, id));
+  const vp = viewport();
+
+  const scaleStep = snap ? SCALE_STEP.snapped : SCALE_STEP.free;
+  const rescale = (by: number) => {
+    if (!selection) return;
+    const unit = { width: selection.width / (selection.scale || 1), height: selection.height / (selection.scale || 1) };
+    const next = clampScale(toStep(selection.scale + by, scaleStep));
+    commit(draftFor(selection.id, selection.anchor, selection.dx, selection.dy, next, unit));
+  };
+  const reanchor = () => {
+    if (!selection) return;
+    const at = CORNER_ORDER.indexOf(selection.anchor);
+    const next = CORNER_ORDER[(at + 1) % CORNER_ORDER.length]!;
+    const unit = { width: selection.width / (selection.scale || 1), height: selection.height / (selection.scale || 1) };
+    commit(
+      draftFor(selection.id, next, next.endsWith('right') ? -24 : 24, next.startsWith('bottom') ? -24 : 24, selection.scale, unit),
+    );
+  };
+
+  // Distances from the selection to the nearer side and the nearer top/bottom edge — the guides.
+  const near = selection
+    ? {
+        left: selection.x <= vp.width - (selection.x + selection.width),
+        top: selection.y <= vp.height - (selection.y + selection.height),
+      }
+    : null;
+  const z = { zoom: scale.u } as React.CSSProperties;
+  const barTop = selection ? Math.max(20, selection.y - 6 - 58 * scale.u) : 0;
+  const barLeft = selection ? Math.min(Math.max(20, selection.x - 6), vp.width - 540 * scale.u) : 0;
 
   return (
-    <div className="editor" ref={rootRef}>
-      <div className="editor__dim" />
+    <div className="editor c-ed" ref={rootRef}>
+      <div className="editor__dim c-ed__dim" />
       {grid && <div className="editor__grid" />}
 
       <HudLayer editor slotProps={slotProps} override={draft ? { [draft.id]: draft } : undefined} />
 
+      {rulers ? (
+        <>
+          <div className="c-ed__ruler c-ed__ruler--x" aria-hidden="true">
+            {Array.from({ length: Math.ceil(vp.width / 20) + 1 }, (_, i) => (
+              <i key={i} className={i % 4 === 0 ? 'is-major' : undefined} style={{ left: i * 20 }} />
+            ))}
+          </div>
+          <div className="c-ed__ruler c-ed__ruler--y" aria-hidden="true">
+            {Array.from({ length: Math.ceil(vp.height / 20) + 1 }, (_, i) => (
+              <i key={i} className={i % 4 === 0 ? 'is-major' : undefined} style={{ top: i * 20 }} />
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {selection && near ? (
+        <>
+          <div
+            className="c-ed__guide c-ed__guide--h"
+            style={{
+              left: near.left ? 0 : selection.x + selection.width,
+              width: Math.max(0, near.left ? selection.x : vp.width - selection.x - selection.width),
+              top: selection.y + selection.height / 2,
+            }}
+          >
+            <span className="c-ed__gnum" style={z}>
+              {Math.round(near.left ? selection.x : vp.width - selection.x - selection.width)}
+            </span>
+          </div>
+          <div
+            className="c-ed__guide c-ed__guide--v"
+            style={{
+              top: near.top ? 0 : selection.y + selection.height,
+              height: Math.max(0, near.top ? selection.y : vp.height - selection.y - selection.height),
+              left: selection.x + selection.width / 2,
+            }}
+          >
+            <span className="c-ed__gnum" style={z}>
+              {Math.round(near.top ? selection.y : vp.height - selection.y - selection.height)}
+              {snap ? ' · snap' : ''}
+            </span>
+          </div>
+        </>
+      ) : null}
+
       {selection && (
         <SelectionFrame
           name={modLabel(selection.id)}
-          readout={formatSelectionReadout(selection.x, selection.y, selection.scale)}
           onHandlePointerDown={onGrip}
+          className="c-ed__sel"
           style={{
-            // The frame is the widget box plus the design's 8px bleed.
-            left: selection.x - 8,
-            top: selection.y - 8,
-            width: selection.width + 16,
-            height: selection.height + 16,
+            // The frame is the widget box plus a 6px bleed; its corners are the scale grips.
+            left: selection.x - 6,
+            top: selection.y - 6,
+            width: selection.width + 12,
+            height: selection.height + 12,
           }}
         />
       )}
-
-      <EditorToolbar
-        className="editor__toolbar"
-        snap={snap}
-        onSnapChange={setSnap}
-        grid={grid}
-        onGridChange={setGrid}
-        onReset={reset}
-        onDone={exit}
-        doneKbd={
-          // The cap sits on the control Escape drives, exactly as it does in the mods bar — one
-          // cap, never two, and never on a control the key does not actually press.
-          <span className="okbd" aria-hidden="true">
-            esc
+      {/* The frame as plain filled boxes: a faint fill, a hairline, and four corner brackets drawn
+          as two bars each — no border tricks, so the engine draws exactly this. */}
+      {selection ? (
+        <div
+          className="c-ed__frame"
+          aria-hidden="true"
+          style={{ left: selection.x - 6, top: selection.y - 6, width: selection.width + 12, height: selection.height + 12 }}
+        >
+          <i className="c-ed__br c-ed__br--tl" />
+          <i className="c-ed__br c-ed__br--tr" />
+          <i className="c-ed__br c-ed__br--bl" />
+          <i className="c-ed__br c-ed__br--br" />
+        </div>
+      ) : null}
+      {selection ? (
+        <span
+          className="c-ed__size"
+          style={{ left: selection.x + selection.width + 14, top: selection.y + selection.height / 2 - 11 * scale.u }}
+        >
+          <span style={z} className="c-ed__sizein">
+            {Math.round(selection.width)} × {Math.round(selection.height)}
           </span>
-        }
-      />
+        </span>
+      ) : null}
 
-      <HintBar className="editor__hint">{editorHint(off)}</HintBar>
+      {/* The selected widget's own island: scale, anchor, its settings, park it. */}
+      {selection ? (
+        <div className="c-ed__wbar" style={{ left: barLeft, top: barTop }}>
+          <div className="c-island c-ed__island" style={z}>
+            <span className="c-label c-ed__wname">{modLabel(selection.id)}</span>
+            <button type="button" className="c-ed__kbtn" aria-label="Smaller" onClick={() => rescale(-scaleStep)}>
+              <Kc>−</Kc>
+            </button>
+            <span className="c-num c-ed__scale">{selection.scale.toFixed(2)}×</span>
+            <button type="button" className="c-ed__kbtn" aria-label="Larger" onClick={() => rescale(scaleStep)}>
+              <Kc>+</Kc>
+            </button>
+            <button type="button" className="c-tab c-ed__tab" onClick={reanchor} title="Pin it to the next corner">
+              Anchor {ANCHOR_ARROW[selection.anchor] ?? '·'}
+            </button>
+            <button type="button" className="c-tab c-ed__tab" onClick={() => openMod(selection.id)}>
+              Settings <Kc>E</Kc>
+            </button>
+            <button type="button" className="c-tab c-ed__tab" onClick={() => toggleMod(selection.id, false)}>
+              Park
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="c-ed__top">
+        <div className="c-island c-ed__island" style={z} role="toolbar" aria-label="HUD layout tools">
+          <span className="c-ed__title">HUD layout</span>
+          <span className="c-mono c-ed__meta">
+            {loadoutName ? `${loadoutName} · ` : ''}
+            {placeable.length} modules
+          </span>
+          <button
+            type="button"
+            className={cx('c-tab c-ed__tab', snap && 'is-on')}
+            aria-label="Snap"
+            aria-pressed={snap}
+            onClick={() => setSnap(!snap)}
+          >
+            <span className={cx('c-sw c-ed__sw', snap && 'is-on')} aria-hidden="true">
+              <b />
+            </span>
+            Snap
+          </button>
+          <button
+            type="button"
+            className={cx('c-tab c-ed__tab', rulers && 'is-on')}
+            aria-label="Rulers"
+            aria-pressed={rulers}
+            onClick={() => setRulers(!rulers)}
+          >
+            Rulers
+          </button>
+          <button
+            type="button"
+            className={cx('c-tab c-ed__tab', grid && 'is-on')}
+            aria-label="Grid"
+            aria-pressed={grid}
+            onClick={() => setGrid(!grid)}
+          >
+            Grid
+          </button>
+          <button type="button" className="c-tab c-ed__tab" aria-label="Undo" disabled={undoDepth === 0} onClick={undo}>
+            <Kc>Ctrl Z</Kc>
+            Undo
+          </button>
+          <button type="button" className="c-tab c-ed__tab" aria-label="Reset" onClick={reset}>
+            Reset
+          </button>
+          <button type="button" className="c-btn c-btn--p c-ed__save" aria-label="Save" onClick={exit}>
+            Save <Kc tone="lt">Enter</Kc>
+          </button>
+        </div>
+      </div>
+
+      {parked.length > 0 ? (
+        <div className="c-ed__parkwrap">
+          <div className="c-ed__park" style={z}>
+            <span className="c-mono">Parked · click to place</span>
+            <div className="c-ed__parked">
+              {parked.slice(0, 9).map((id) => (
+                <button key={id} type="button" className="c-ed__pcart" onClick={() => toggleMod(id, true)} title={`Place ${modLabel(id)}`}>
+                  <span className="c-ed__pbed">{hasSprite(id) ? <Sprite name={id} size={32} /> : null}</span>
+                  <span className="c-ed__pname">{modLabel(id)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="editor__hint c-ed__hint">
+        <span className="c-mono" style={z}>
+          {editorHint(off)}
+        </span>
+      </div>
     </div>
   );
 }
+
+const CORNER_ORDER: HUDAnchor[] = ['top-left', 'top-right', 'bottom-right', 'bottom-left'];
+const ANCHOR_ARROW: Partial<Record<HUDAnchor, string>> = {
+  'top-left': '↖',
+  'top-right': '↗',
+  'bottom-right': '↘',
+  'bottom-left': '↙',
+};

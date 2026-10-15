@@ -376,6 +376,40 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
     }
 
     /**
+     * The {@code binds} table last pushed by {@link #onMenuOpened}, serialised, so an unchanged
+     * table is not re-sent on every menu open. Game thread only.
+     */
+    private String lastBinds;
+
+    /**
+     * Vanilla's key bindings as the player has them set ({@code GameOptions.allKeys}): translation
+     * key, the label vanilla Controls prints, and the key it is on now. Read from the UI thread by
+     * {@code pushWholeState} as well as the game thread; the codes are plain ints only vanilla
+     * Controls writes, so the worst a race can do is report the previous key for one push.
+     */
+    @Override
+    public com.google.gson.JsonArray vanillaBindsJson() {
+        MinecraftClient mc = minecraft();
+        KeyBinding[] all = mc == null || mc.options == null ? null : mc.options.allKeys;
+        if (all == null) {
+            return null;
+        }
+        String[] ids = new String[all.length];
+        String[] labels = new String[all.length];
+        int[] codes = new int[all.length];
+        for (int i = 0; i < all.length; i++) {
+            KeyBinding kb = all[i];
+            if (kb == null) {
+                continue;
+            }
+            ids[i] = kb.getTranslationKey();
+            labels[i] = net.minecraft.client.resource.language.I18n.translate(kb.getTranslationKey());
+            codes[i] = kb.getCode();
+        }
+        return dev.voidpvp.client.input.VanillaBinds.table(ids, labels, codes);
+    }
+
+    /**
      * True unless this is a real signed-in account.
      *
      * <p>Two ways to be offline, and the dev client found the second one. The documented case is
@@ -998,6 +1032,94 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
                 otherScreenOpen, menuScreenOpen, canOpen);
         modAction("stopwatch", state.stopwatchResetCode, "reset", stopwatchResetKey,
                 otherScreenOpen, menuScreenOpen, canOpen);
+
+        pollEmoteWheel(mc, otherScreenOpen, menuScreenOpen, canOpen);
+    }
+
+    // -----------------------------------------------------------------
+    // The emote wheel, held in the world (cosmetics.emote_key, bridge `wheel`)
+    // -----------------------------------------------------------------
+
+    /** The wheel key is down and the wheel is up over the HUD. */
+    private boolean wheelHeld;
+    /** Mouse travel since the wheel opened, screen pixels, x right, y down. */
+    private float wheelAimX;
+    private float wheelAimY;
+    private boolean wheelAimDirty;
+    private long wheelAimSentMs;
+    /** The hotbar slot when the wheel opened; held there so 1-8 pick a slot, not an item. */
+    private int wheelSavedSlot = -1;
+    private final boolean[] wheelDigitDown = new boolean[8];
+
+    /** LWJGL 2's KEY_1 — KEY_8 are the consecutive codes 2-9. */
+    private static final int LWJGL_KEY_1 = 2;
+    /** How often an `aim` may go out while the mouse is moving: ~30 a second. */
+    private static final long WHEEL_AIM_MS = 33L;
+
+    /**
+     * Holding {@code cosmetics.emote_key} with no screen open shows the Crescent wheel over the HUD.
+     *
+     * <p>Sampled per frame with the rest of the hotkeys. No screen is opened — that is the point:
+     * the player keeps moving while they choose (movement keys are untouched), mouse look is
+     * frozen in {@link #freelookTurn} so the mouse picks a slot, and 1-8 pick a slot directly
+     * while the hotbar is held where it was. Release plays what the wheel points at; the page
+     * owns the geometry and calls {@code playEmote}, so Java only reports input on the
+     * {@code wheel} channel.</p>
+     */
+    private void pollEmoteWheel(MinecraftClient mc, boolean otherScreenOpen, boolean menuScreenOpen,
+                                boolean canOpen) {
+        int code = state.emoteWheelCode;
+        boolean usable = code != KeyNames.KEY_NONE && canOpen && !otherScreenOpen && !menuScreenOpen;
+        boolean down = usable && isKeyDown(code);
+        if (down && !wheelHeld) {
+            wheelHeld = true;
+            wheelAimX = 0f;
+            wheelAimY = 0f;
+            wheelAimDirty = false;
+            wheelSavedSlot = mc.player != null ? mc.player.inventory.selectedSlot : -1;
+            for (int i = 0; i < wheelDigitDown.length; i++) {
+                // A digit already down when the wheel opened is not a pick.
+                wheelDigitDown[i] = isKeyDown(LWJGL_KEY_1 + i);
+            }
+            emitWheel("open", -1);
+        } else if (!down && wheelHeld) {
+            wheelHeld = false;
+            wheelSavedSlot = -1;
+            emitWheel(usable ? "release" : "cancel", -1);
+            return;
+        }
+        if (!wheelHeld) {
+            return;
+        }
+        if (mc.player != null && wheelSavedSlot >= 0) {
+            mc.player.inventory.selectedSlot = wheelSavedSlot;
+        }
+        for (int i = 0; i < wheelDigitDown.length; i++) {
+            boolean digit = isKeyDown(LWJGL_KEY_1 + i);
+            if (digit && !wheelDigitDown[i]) {
+                emitWheel("key", i);
+            }
+            wheelDigitDown[i] = digit;
+        }
+        long now = System.currentTimeMillis();
+        if (wheelAimDirty && now - wheelAimSentMs >= WHEEL_AIM_MS) {
+            wheelAimSentMs = now;
+            wheelAimDirty = false;
+            JsonObject o = new JsonObject();
+            o.addProperty("phase", "aim");
+            o.addProperty("x", Math.round(wheelAimX * 10f) / 10f);
+            o.addProperty("y", Math.round(wheelAimY * 10f) / 10f);
+            bridge.emit(VoidBridge.EVENT_WHEEL, o);
+        }
+    }
+
+    private void emitWheel(String phase, int slot) {
+        JsonObject o = new JsonObject();
+        o.addProperty("phase", phase);
+        if (slot >= 0) {
+            o.addProperty("slot", slot);
+        }
+        bridge.emit(VoidBridge.EVENT_WHEEL, o);
     }
 
     /**
@@ -1150,6 +1272,14 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         ClientPlayerEntity player = mc == null ? null : mc.player;
         if (player == null || entity != player) {
             return false;
+        }
+        // The held emote wheel takes the mouse first: the travel picks a slot instead of
+        // turning the player. dy is "up" in 1.8.9's look path, so screen y is its negation.
+        if (wheelHeld) {
+            wheelAimX += dx;
+            wheelAimY -= dy;
+            wheelAimDirty = true;
+            return true;
         }
         boolean enabled = state.freelookOn && state.freelookKeyCode != KeyNames.KEY_NONE;
         boolean engaged = freelook.update(enabled, state.freelookHold,
@@ -1827,6 +1957,16 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
         // one piece of the page's state that cannot be re-read from anywhere when a reloaded page
         // has to be told the session over again. See VoidBridge.pushWholeState.
         bridge.emitMenu(true);
+        // The player may have rebound something in vanilla Controls since the menu last opened;
+        // the Keybinds tab warns against the keys they really have, so re-send a changed table.
+        com.google.gson.JsonArray binds = vanillaBindsJson();
+        if (binds != null) {
+            String now = binds.toString();
+            if (!now.equals(lastBinds)) {
+                lastBinds = now;
+                bridge.emit(VoidBridge.EVENT_BINDS, binds);
+            }
+        }
         ui.requestRender();
     }
 

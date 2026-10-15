@@ -49,14 +49,21 @@ const char kFontRelPath[] = "resources/fonts/Inter-Variable.ttf";
 // ever bold — the weight axis is never set, so every run came out at 400.
 //
 // ── THE FAMILIES THAT MUST BE PRESENT ──────────────────────────────────────────────────────
-// design/quiet-cell-system.md §2 settles the type as **Outfit only**, at three weights:
+// Two generations of the type live here side by side:
 //
-//     "outfit"  300 Light · 400 Regular · 500 Medium        — and nothing else, ever
+//     "geist"       400 Regular · 500 Medium · 600 SemiBold · 700 Bold   — the Cartridge UI
+//     "geist mono"  400 Regular · 500 Medium · 600 SemiBold              — its numbers / keys
+//     "outfit"      300 Light · 400 Regular · 500 Medium                 — the quiet-cell face
 //
-// `--font-display` and `--font-mono` are aliases of `--font-ui` in the token build, so the page
-// resolves to that one family name whatever a rule spells; there is no display face and no
-// monospace to serve. Bricolage Grotesque and DM Mono went out with the system they belonged to
-// and are no longer bundled — do not re-add either name here without re-adding its file.
+// Geist and Geist Mono (SIL OFL 1.1, Vercel; OFL-geist.txt alongside) are what the in-game
+// "Cartridge" redesign is set in. Outfit (design/quiet-cell-system.md §2) stays as the fallback
+// face of that stack and for anything still asking for it; dropping it is a separate decision.
+// Bricolage Grotesque and DM Mono went out with the system they belonged to and are no longer
+// bundled — do not re-add either name here without re-adding its file.
+//
+// How the family name arrives: Ultralight (WebCore) hands Load() the family exactly as one entry
+// of the CSS font-family list, quotes already stripped, original case kept — `'Geist Mono'` comes
+// in as `Geist Mono` — and lower() folds the case. So rows are lower-case with the inner space.
 //
 // Three things have to agree, and nothing checks them for you:
 //   1. this table,
@@ -69,17 +76,21 @@ const char kFontRelPath[] = "resources/fonts/Inter-Variable.ttf";
 // the log to say so. That silence is why every served face is announced once in Load() — a
 // healthy run prints one line per weight the design uses,
 //
-//     font_load: 'outfit' weight 300 -> fonts/outfit-300.ttf (36728 bytes)
-//     font_load: 'outfit' weight 400 -> fonts/outfit-400.ttf (36696 bytes)
-//     font_load: 'outfit' weight 500 -> fonts/outfit-500.ttf (36664 bytes)
+//     font_load: 'geist' weight 400 -> fonts/geist-400.ttf (40296 bytes)
+//     font_load: 'geist' weight 600 -> fonts/geist-600.ttf (40380 bytes)
+//     font_load: 'geist mono' weight 500 -> fonts/geist-mono-500.ttf (42748 bytes)
 //
-// and a missing line is the bug. (New faces are cut the way the existing ones were: instance the
-// google/fonts variable source at the weight, subset it to the same unicode range as
-// packages/ui/scripts/fetch-fonts.mjs, and save as TTF rather than woff2 — FreeType reads TTF.)
+// and a missing line is the bug. (Faces are cut by packages/ingame/scripts/fetch-geist.mjs for
+// Geist and packages/ui/scripts/fetch-fonts.mjs for Outfit: instance the google/fonts variable
+// source at the weight, subset, and save as TTF rather than woff2 — FreeType reads TTF.)
 //
-// Weights match by *nearest*, not exactly, so a page still asking for 600/700 gets the 500
-// instance rather than dropping to the fallback. That is deliberate: §2 stops at 500, and a face
-// one step light is a far smaller wrong than a different typeface.
+// Glyphs a face lacks are not this table's business: Ultralight asks
+// fallback_font_for_characters, which answers Inter. Geist has no ⌃ ⌘ ⌥ ◆ ★ ♥ ✓ ✕ (Geist Sans
+// no ⌫ either), so those come out in Inter — and ✕ (U+2715) is missing from Inter too.
+//
+// Weights match by *nearest* within a family, not exactly, so a page asking for 800 gets the 700
+// instance (or Outfit 600 gets 500) rather than dropping to the fallback. A face one step off is a
+// far smaller wrong than a different typeface.
 struct Face {
   const char* family;  // lower-case, as compared
   int weight;
@@ -87,6 +98,17 @@ struct Face {
 };
 
 const Face kFaces[] = {
+    {"geist", 400, "fonts/geist-400.ttf"},
+    {"geist", 500, "fonts/geist-500.ttf"},
+    {"geist", 600, "fonts/geist-600.ttf"},
+    {"geist", 700, "fonts/geist-700.ttf"},
+    {"geist mono", 400, "fonts/geist-mono-400.ttf"},
+    {"geist mono", 500, "fonts/geist-mono-500.ttf"},
+    {"geist mono", 600, "fonts/geist-mono-600.ttf"},
+    // Symbols servers send — ✔ ✖ ❤ ★ ⚔ ✪ ➤, arrows, box drawing, block elements — that neither
+    // Geist nor the Inter last resort carries. One merged OFL face, built by
+    // packages/ingame/scripts/fetch-symbols.mjs; see fallback_font_for_characters below.
+    {"void symbols", 400, "fonts/void-symbols.ttf"},
     {"outfit", 300, "fonts/outfit-300.ttf"},
     {"outfit", 400, "fonts/outfit-400.ttf"},
     {"outfit", 500, "fonts/outfit-500.ttf"},
@@ -103,6 +125,12 @@ std::string lower(const ultralight::String& s) {
 /// The bundled file for a family, at the nearest weight it ships. Empty when we do not have it.
 std::string face_for(const ultralight::String& family, int weight) {
   std::string name = lower(family);
+  // Belt and braces: WebCore strips the CSS quotes before asking, but a stray quote or space
+  // would otherwise turn 'Geist Mono' into a silent Inter fallback.
+  const char* trim = " \t\"'";
+  size_t first = name.find_first_not_of(trim);
+  size_t last = name.find_last_not_of(trim);
+  name = first == std::string::npos ? std::string() : name.substr(first, last - first + 1);
   const char* best = nullptr;
   int best_distance = 0;
   for (const Face& face : kFaces) {
@@ -122,6 +150,18 @@ class BundledFontLoader : public ultralight::FontLoader {
 
   ultralight::String fallback_font_for_characters(const ultralight::String& characters, int weight,
                                                   bool italic) const override {
+    // A run the page's own stack could not draw. Symbol ranges go to VOID Symbols (the page
+    // names it after Geist too, but a run can arrive here first — a scoreboard line in a face
+    // that lacks the glyph); everything else keeps the Inter last resort.
+    ultralight::String16 utf16 = characters.utf16();
+    const ultralight::Char16* data = utf16.data();
+    for (size_t i = 0; data && i < utf16.length(); ++i) {
+      unsigned c = static_cast<unsigned>(data[i]);
+      if ((c >= 0x2190 && c <= 0x23FF) || (c >= 0x2460 && c <= 0x27BF) || (c >= 0x27F0 && c <= 0x27FF) ||
+          (c >= 0x2900 && c <= 0x297F) || (c >= 0x2B00 && c <= 0x2BFF)) {
+        return ultralight::String("VOID Symbols");
+      }
+    }
     return ultralight::String(kFallbackFamily);
   }
 

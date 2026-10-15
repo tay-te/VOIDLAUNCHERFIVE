@@ -4,7 +4,7 @@
  * There are no devtools in game (§9), so the in-game bundle must also run in a normal
  * browser against a fake bridge. This is that fake: it emits realistic `tick`, `keys`,
  * `server`, `session`, `settings`, `scoreboard`, `loadout`, `cosmetics`, `emote` and `menu`
- * pushes, answers all twenty-one calls with the same clamping and refusals the Java side applies,
+ * pushes, answers all twenty-two calls with the same clamping and refusals the Java side applies,
  * and holds a small loadout library, a set of globals and a cosmetics wardrobe.
  *
  * It is **deterministic**: give it a `seed` and drive it with {@link FakeVoid.advance}
@@ -36,6 +36,8 @@ import type {
   ServerPayload,
   TickPayload,
   ToastPayload,
+  WheelPayload,
+  VanillaBind,
 } from './generated/schema.js';
 import { getModDefaults, isModId } from './mods.js';
 import { decodeShareCode, encodeShareCode } from './share-code.js';
@@ -306,6 +308,39 @@ export const FAKE_OWNED_COSMETICS: readonly CosmeticId[] = Object.freeze([
  */
 export const FAKE_EMOTE_MS = 2400;
 
+/**
+ * Minecraft 1.8.9's key bindings at their factory keys, in `GameOptions.allKeys` order, with the
+ * en_US labels vanilla Controls prints — what Java's `binds` push carries for an untouched
+ * options.txt. F1 and F3 are hard-coded in vanilla, not bindings, so they are not here.
+ */
+export const FAKE_VANILLA_BINDS: readonly VanillaBind[] = Object.freeze([
+  { id: 'key.attack', label: 'Attack/Destroy', key: 'MOUSE0' },
+  { id: 'key.use', label: 'Use Item/Place Block', key: 'MOUSE1' },
+  { id: 'key.forward', label: 'Walk Forwards', key: 'W' },
+  { id: 'key.left', label: 'Strafe Left', key: 'A' },
+  { id: 'key.back', label: 'Walk Backwards', key: 'S' },
+  { id: 'key.right', label: 'Strafe Right', key: 'D' },
+  { id: 'key.jump', label: 'Jump', key: 'SPACE' },
+  { id: 'key.sneak', label: 'Sneak', key: 'LSHIFT' },
+  { id: 'key.sprint', label: 'Sprint', key: 'LCONTROL' },
+  { id: 'key.drop', label: 'Drop Item', key: 'Q' },
+  { id: 'key.inventory', label: 'Inventory', key: 'E' },
+  { id: 'key.chat', label: 'Open Chat', key: 'T' },
+  { id: 'key.playerlist', label: 'List Players', key: 'TAB' },
+  { id: 'key.pickItem', label: 'Pick Block', key: 'MOUSE2' },
+  { id: 'key.command', label: 'Open Command', key: 'SLASH' },
+  { id: 'key.screenshot', label: 'Take Screenshot', key: 'F2' },
+  { id: 'key.togglePerspective', label: 'Toggle Perspective', key: 'F5' },
+  { id: 'key.smoothCamera', label: 'Toggle Cinematic Camera', key: 'NONE' },
+  { id: 'key.streamStartStop', label: 'Start/Stop Stream', key: 'F6' },
+  { id: 'key.streamPauseUnpause', label: 'Pause/Unpause Stream', key: 'F7' },
+  { id: 'key.streamCommercial', label: 'Show Stream Commercials', key: 'F8' },
+  { id: 'key.streamToggleMic', label: 'Push To Talk/Mute', key: 'F9' },
+  { id: 'key.fullscreen', label: 'Toggle Fullscreen', key: 'F11' },
+  { id: 'key.spectatorOutlines', label: 'Highlight Players (Spectators)', key: 'NONE' },
+  ...Array.from({ length: 9 }, (_, i) => ({ id: `key.hotbar.${i + 1}`, label: `Hotbar Slot ${i + 1}`, key: String(i + 1) })),
+] as VanillaBind[]);
+
 const CATALOG_BY_ID = new Map<string, CosmeticCatalogItem>(
   COSMETIC_CATALOG.map((item) => [item.id, item]),
 );
@@ -364,6 +399,13 @@ export interface FakeVoidOptions {
   menuKey?: string;
   /** Where the keyboard listener is attached. Defaults to `globalThis.document`. */
   keyboardTarget?: EventTarget | null;
+  /** Vanilla's key bindings, pushed as `binds`. Defaults to {@link FAKE_VANILLA_BINDS}. */
+  vanillaBinds?: readonly VanillaBind[];
+  /**
+   * Whether a launcher is on the other end of the mod's socket, which is what `openStore`
+   * answers. Defaults to true; false is a dev run with no launcher.
+   */
+  launcherLinked?: boolean;
 }
 
 /** The fake bridge: a {@link VoidBridge} plus the controls a harness or test needs. */
@@ -419,6 +461,10 @@ export interface FakeVoid extends VoidBridge {
    * this returns nothing where {@link FakeVoid.applyModSetting} returns the stored value.
    */
   emitModAction(id: ModId, action: string): void;
+  /** Push one `wheel` step, as Java's held emote key does. */
+  emitWheel(payload: WheelPayload): void;
+  /** Replace vanilla's bindings and push `binds`, as Java does after a vanilla Controls change. */
+  emitBinds(binds: readonly VanillaBind[]): void;
   /** Push a `toast` the way Java does for something that happened with the menu closed. */
   emitToast(toast: ToastPayload): void;
   /** The `cosmetics` payload as it stands — what a reloaded wardrobe would be pushed now. */
@@ -579,6 +625,7 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   };
   let settings: GlobalSettings = { ...FAKE_GLOBAL_SETTINGS, ...(options.settings ?? {}) };
   let scoreboard: ScoreboardPayload = structuredCloneish(options.scoreboard ?? FAKE_SCOREBOARD);
+  let vanillaBinds: VanillaBind[] = (options.vanillaBinds ?? FAKE_VANILLA_BINDS).map((b) => ({ ...b }));
 
   // ---- cosmetics: CosmeticState and Emotes, in miniature ---------------------
   //
@@ -1170,6 +1217,11 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       return beginEmote(id);
     },
 
+    openStore(id) {
+      record({ c: 'openStore', params: [id] });
+      return options.launcherLinked ?? true;
+    },
+
     openKeybindCapture(modId) {
       record({ c: 'openKeybindCapture', params: [modId] });
       return new Promise<Keybind | null>((resolve) => {
@@ -1194,6 +1246,8 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       emit({ e: 'scoreboard', payload: structuredCloneish(scoreboard) });
       // After the loadout and before the menu, where Java's pushWholeState puts it.
       emit({ e: 'cosmetics', payload: cosmeticsPayload() });
+      // Vanilla's bindings, whole, as Java's pushWholeState sends them.
+      emit({ e: 'binds', payload: vanillaBinds.map((b) => ({ ...b })) });
       emit({ e: 'menu', payload: menuOpen });
     },
 
@@ -1280,6 +1334,15 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       settingsFor(id)[key] = applied;
       emit({ e: 'setting', payload: { id, key, value: applied } });
       return applied;
+    },
+
+    emitWheel(payload) {
+      emit({ e: 'wheel', payload });
+    },
+
+    emitBinds(next) {
+      vanillaBinds = next.map((b) => ({ ...b }));
+      emit({ e: 'binds', payload: vanillaBinds.map((b) => ({ ...b })) });
     },
 
     emitToast(toast) {
@@ -1393,8 +1456,44 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
         }
       };
 
+      // The held emote wheel — Java's `cosmetics.emote_key` (B), with the menu closed: open on
+      // the press, the mouse's travel since then as `aim`, 1-8 as `key`, `release` on key-up.
+      let wheelHeld = false;
+      let aimX = 0;
+      let aimY = 0;
+      const onWheelKey = (raw: Event): void => {
+        const event = raw as KeyboardEvent;
+        if (menuOpen || pendingCaptures.length > 0) return;
+        if (event.type === 'keydown' && event.code === 'KeyB' && !event.repeat && !wheelHeld) {
+          wheelHeld = true;
+          aimX = 0;
+          aimY = 0;
+          emit({ e: 'wheel', payload: { phase: 'open' } });
+        } else if (event.type === 'keyup' && event.code === 'KeyB' && wheelHeld) {
+          wheelHeld = false;
+          emit({ e: 'wheel', payload: { phase: 'release' } });
+        } else if (event.type === 'keydown' && wheelHeld && /^Digit[1-8]$/.test(event.code)) {
+          emit({ e: 'wheel', payload: { phase: 'key', slot: Number(event.code.slice(5)) - 1 } });
+        }
+      };
+      const onWheelMouse = (raw: Event): void => {
+        if (!wheelHeld) return;
+        const event = raw as MouseEvent;
+        aimX += event.movementX ?? 0;
+        aimY += event.movementY ?? 0;
+        emit({ e: 'wheel', payload: { phase: 'aim', x: aimX, y: aimY } });
+      };
+
       node.addEventListener('keydown', onKeyDown as EventListener);
-      const detach = (): void => node.removeEventListener('keydown', onKeyDown as EventListener);
+      node.addEventListener('keydown', onWheelKey as EventListener);
+      node.addEventListener('keyup', onWheelKey as EventListener);
+      node.addEventListener('mousemove', onWheelMouse as EventListener);
+      const detach = (): void => {
+        node.removeEventListener('keydown', onKeyDown as EventListener);
+        node.removeEventListener('keydown', onWheelKey as EventListener);
+        node.removeEventListener('keyup', onWheelKey as EventListener);
+        node.removeEventListener('mousemove', onWheelMouse as EventListener);
+      };
       detachKeyboard = detach;
       return detach;
     },

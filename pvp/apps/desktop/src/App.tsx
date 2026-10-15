@@ -36,7 +36,7 @@ import { useOnlineStatus, wireOnlineEvents } from './stores/online';
 import { useLaunch, wireLaunchEvents } from './stores/launch';
 import { useLoadouts, wireLoadoutEvents } from './stores/loadouts';
 import { useSession, wireSessionEvents } from './stores/session';
-import { isSoon, useUi } from './stores/ui';
+import { isSoon, useUi, wireUiEvents } from './stores/ui';
 
 /** Edit mods is a page of PvP: the grid, with the way back above it. */
 function EditMods() {
@@ -114,6 +114,7 @@ export function App() {
       wireLaunchEvents(),
       wireUpdateEvents(),
       wireOnlineEvents(),
+      wireUiEvents(),
     ]);
     return () => {
       void pending.then((unlisteners) => unlisteners.forEach((u) => u()));

@@ -23,7 +23,7 @@
 
 import { memo, useEffect, useReducer } from 'react';
 
-import { ReachChip } from '@/ui';
+import { HudModule, WindowMeter } from './cart';
 import { modSettings, useVoidStore } from '@/store/store';
 import type { HudWidgetProps } from './widgets';
 
@@ -55,7 +55,7 @@ function fadeStep(remaining: number): number {
   return Math.ceil(remaining * FADE_STEPS);
 }
 
-export const HudReach = memo(function HudReach({ variant, sample, className }: HudWidgetProps) {
+export const HudReach = memo(function HudReach({ sample, className }: HudWidgetProps) {
   const live = useVoidStore((s) => s.reach);
   const average = useVoidStore((s) => modSettings(s.loadout, 'reach').mode === 'average');
   const showLabel = useVoidStore((s) => modSettings(s.loadout, 'reach').show_label !== false);
@@ -100,15 +100,28 @@ export const HudReach = memo(function HudReach({ variant, sample, className }: H
     // Lapsed: off the screen until the next hit. Behaviour the setting asked for, not a fault.
     if (remaining <= 0) return null;
   }
+  // Combo's sibling in the frame (B10 draws them as one chip; here they stay two modules because
+  // they are two mods with two placements, two switches and two timeouts — styled as one family).
+  // `average` is said in the tab row, because two figures that look alike and mean different
+  // things is a module lying by omission.
+  const blocks = Math.max(0, average ? reading.average : reading.last);
   return (
-    <ReachChip
-      variant={variant}
-      className={className}
-      blocks={average ? reading.average : reading.last}
-      decimals={decimals}
-      showLabel={showLabel}
-      average={average}
-      remaining={remaining}
-    />
+    <HudModule
+      label={showLabel ? 'REACH' : undefined}
+      head={
+        average || remaining !== undefined ? (
+          <>
+            {average ? <span className="ch-tab ch-tab--aside">avg</span> : null}
+            {remaining === undefined ? null : <WindowMeter remaining={remaining} />}
+          </>
+        ) : undefined
+      }
+      className={className ? `ch-reach ${className}` : 'ch-reach'}
+    >
+      <div className="ch-row">
+        <span className="ch-num">{blocks.toFixed(decimals)}</span>
+        <span className="ch-unit">bl</span>
+      </div>
+    </HudModule>
   );
 });

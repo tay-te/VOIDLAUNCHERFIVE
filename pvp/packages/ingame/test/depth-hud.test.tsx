@@ -231,16 +231,20 @@ describe('the widgets', () => {
     useVoidStore.getState().setSetting('item_counter', 'track', 'ender_pearl');
     tick({ held_count: 12, counts: { ender_pearl: 0 } });
     const { container } = render(<HudItemCounter />);
-    expect(container.textContent).toBe('x0');
+    // The figure; the module's tab names what is counted (`PEARLS`), so no `x` prefix.
+    const figure = () => container.querySelector('.ch-num')?.textContent;
+    expect(figure()).toBe('0');
+    expect(container.querySelector('.ch-tab')?.textContent).toBe('PEARLS');
   });
 
   it('Item counter keeps the held stack for `held_stack`, and draws nothing for an empty hand', () => {
     tick({ held_count: 12, counts: { held_total: 40 } });
     const { container, rerender } = render(<HudItemCounter />);
-    expect(container.textContent).toBe('x12');
+    const figure = () => container.querySelector('.ch-num')?.textContent;
+    expect(figure()).toBe('12');
     act(() => useVoidStore.getState().setSetting('item_counter', 'track', 'held_total'));
     rerender(<HudItemCounter />);
-    expect(container.textContent).toBe('x40');
+    expect(figure()).toBe('40');
     // `held_total` is absent with an empty hand.
     tick({ counts: { ender_pearl: 3 } });
     rerender(<HudItemCounter />);
@@ -250,25 +254,29 @@ describe('the widgets', () => {
   it('Potion counter tracks pots, soup or both, and warns at the threshold', () => {
     tick({ counts: { health_potion: 2, soup: 9 } });
     const { container, rerender } = render(<HudPotionCounter />);
-    expect(container.textContent).toBe('2pots');
-    expect(container.querySelector('.v-hudchip__value--warn')?.textContent).toBe('2');
+    const figures = () =>
+      [...container.querySelectorAll('.ch-figure')].map((el) => el.textContent).join('|');
+    expect(figures()).toBe('2pots');
+    expect(container.querySelector('.ch-num.ch-warn')?.textContent).toBe('2');
     act(() => useVoidStore.getState().setSetting('potion_counter', 'track', 'both'));
     act(() => useVoidStore.getState().setSetting('potion_counter', 'show_label', false));
     rerender(<HudPotionCounter />);
     // `both` keeps its units whatever `show_label` says.
-    expect(container.textContent).toBe('2pots|9soup');
-    expect(container.querySelectorAll('.v-hudchip__value--warn')).toHaveLength(1);
+    expect(figures()).toBe('2pots|9soup');
+    // `show_label` off takes the tab away; the units stay, which is what `both` needs.
+    expect(container.querySelector('.ch-tab')).toBeNull();
+    expect(container.querySelectorAll('.ch-num.ch-warn')).toHaveLength(1);
   });
 
   it('Reach prints the last hit or the average, to the chosen decimals', () => {
     tick({ reach: { blocks: 3, n: 1 } });
     tick({ reach: { blocks: 2.5, n: 2 } });
     const { container, rerender } = render(<HudReach />);
-    expect(container.querySelector('.v-hudchip__value')?.textContent).toBe('2.50');
+    expect(container.querySelector('.ch-num')?.textContent).toBe('2.50');
     act(() => useVoidStore.getState().setSetting('reach', 'mode', 'average'));
     act(() => useVoidStore.getState().setSetting('reach', 'decimals', 1));
     rerender(<HudReach />);
-    expect(container.querySelector('.v-hudchip__value')?.textContent).toBe('2.8');
+    expect(container.querySelector('.ch-num')?.textContent).toBe('2.8');
   });
 
   it('Reach hides itself `hide_after_ms` after the last hit', () => {
@@ -277,7 +285,8 @@ describe('the widgets', () => {
     act(() => useVoidStore.getState().setSetting('reach', 'hide_after_ms', 2000));
     tick({ reach: { blocks: 3, n: 1 } });
     const { container } = render(<HudReach />);
-    expect(container.querySelector('.v-hudchip__bar--rule')).not.toBeNull();
+    // The window, as four steps in the tab row.
+    expect(container.querySelector('.ch-window')).not.toBeNull();
     act(() => {
       vi.advanceTimersByTime(2100);
     });
@@ -293,13 +302,13 @@ describe('the widgets', () => {
     });
     for (const ping of [50, 60, 50, 60, 200]) tick({ ping });
     const { container } = render(<HudPing />);
-    const asides = [...container.querySelectorAll('.v-hudchip__aside')].map((el) => el.textContent);
+    const asides = [...container.querySelectorAll('.ch-aside')].map((el) => el.textContent);
     expect(asides[0]).toContain('avg 84');
     expect(asides[1]).toContain('±43');
-    expect(container.querySelector('.v-hudchip__aside--warn')).not.toBeNull();
-    expect(container.querySelector('.v-hudchip__spike')).not.toBeNull();
+    expect(container.querySelector('.ch-aside--warn')).not.toBeNull();
+    expect(container.querySelector('.ch-spike')).not.toBeNull();
     // In game the mark is the brief, self-fading form.
-    expect(container.querySelector('.v-hudchip__spike--held')).toBeNull();
+    expect(container.querySelector('.ch-spike--held')).toBeNull();
   });
 
   it('Potion effects hides masked effects and blinks on the odd seconds under the threshold', () => {
@@ -311,11 +320,15 @@ describe('the widgets', () => {
       ],
     });
     const { container, rerender } = render(<HudPotionEffects />);
-    const rows = () => [...container.querySelectorAll('.v-potionlist__row')];
+    const rows = () => [...container.querySelectorAll('.ch-fx__row')];
     expect(rows()).toHaveLength(3);
     // 3 s left is odd and under the factory 5: dim. 4 s is the bright beat.
-    expect(rows()[1]!.classList.contains('v-potionlist__row--dim')).toBe(true);
-    expect(rows()[2]!.classList.contains('v-potionlist__row--dim')).toBe(false);
+    expect(rows()[1]!.classList.contains('ch-fx__row--dim')).toBe(true);
+    expect(rows()[2]!.classList.contains('ch-fx__row--dim')).toBe(false);
+    // Both are inside the window, so both timers are amber; the minute-long one is not.
+    expect(rows()[1]!.classList.contains('ch-fx__row--ending')).toBe(true);
+    expect(rows()[2]!.classList.contains('ch-fx__row--ending')).toBe(true);
+    expect(rows()[0]!.classList.contains('ch-fx__row--ending')).toBe(false);
     act(() => useVoidStore.getState().setSetting('potion_effects', 'hidden_effects', 2 ** 16));
     rerender(<HudPotionEffects />);
     expect(rows()).toHaveLength(2);

@@ -38,8 +38,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "top-left",
-          "dx": 23,
-          "dy": 23
+          "dx": 20,
+          "dy": 20
         }
       },
       "keystrokes": {
@@ -71,8 +71,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "bottom-left",
-          "dx": 31,
-          "dy": -109
+          "dx": 20,
+          "dy": -20
         }
       },
       "cps": {
@@ -98,9 +98,9 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "ignore_cancelled": false
         },
         "default_placement": {
-          "anchor": "bottom-left",
-          "dx": 175,
-          "dy": -108
+          "anchor": "top-left",
+          "dx": 122,
+          "dy": 20
         }
       },
       "ping": {
@@ -131,8 +131,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "top-left",
-          "dx": 23,
-          "dy": 65
+          "dx": 256,
+          "dy": 20
         }
       },
       "coordinates": {
@@ -158,8 +158,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "top-left",
-          "dx": 23,
-          "dy": 103
+          "dx": 20,
+          "dy": 128
         }
       },
       "armor_status": {
@@ -178,15 +178,15 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "background": "none",
           "border": false,
           "padding": "normal",
-          "orientation": "horizontal",
+          "orientation": "vertical",
           "show_durability": true,
           "show_held_item": true,
           "warn_below": 0.5
         },
         "default_placement": {
-          "anchor": "top-right",
-          "dx": -25,
-          "dy": 299
+          "anchor": "bottom-right",
+          "dx": -20,
+          "dy": -20
         }
       },
       "potion_effects": {
@@ -213,8 +213,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "top-right",
-          "dx": -25,
-          "dy": 23
+          "dx": -20,
+          "dy": 20
         }
       },
       "watermark": {
@@ -237,8 +237,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "top-left",
-          "dx": 23,
-          "dy": 141
+          "dx": 20,
+          "dy": 84
         }
       },
       "toggle_sprint": {
@@ -354,8 +354,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "top-left",
-          "dx": 23,
-          "dy": 179
+          "dx": 20,
+          "dy": 192
         }
       },
       "combo": {
@@ -378,9 +378,9 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "show_label": true
         },
         "default_placement": {
-          "anchor": "top-left",
-          "dx": 23,
-          "dy": 217
+          "anchor": "center",
+          "dx": 40,
+          "dy": 24
         }
       },
       "saturation": {
@@ -405,8 +405,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "top-left",
-          "dx": 23,
-          "dy": 255
+          "dx": 20,
+          "dy": 256
         }
       },
       "momentum": {
@@ -431,8 +431,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "top-left",
-          "dx": 23,
-          "dy": 293
+          "dx": 20,
+          "dy": 320
         }
       },
       "memory": {
@@ -457,8 +457,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "bottom-right",
-          "dx": -25,
-          "dy": -23
+          "dx": -20,
+          "dy": -188
         }
       },
       "server_address": {
@@ -481,8 +481,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "bottom-right",
-          "dx": -25,
-          "dy": -61
+          "dx": -20,
+          "dy": -252
         }
       },
       "item_counter": {
@@ -507,8 +507,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "bottom-left",
-          "dx": 175,
-          "dy": -146
+          "dx": 184,
+          "dy": -20
         }
       },
       "stopwatch": {
@@ -534,8 +534,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "bottom-right",
-          "dx": -25,
-          "dy": -99
+          "dx": -20,
+          "dy": -316
         }
       },
       "fov": {
@@ -810,7 +810,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "right",
-          "dx": -25,
+          "dx": -20,
           "dy": 0
         }
       },
@@ -899,8 +899,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "bottom-left",
-          "dx": 175,
-          "dy": -184
+          "dx": 184,
+          "dy": -84
         }
       },
       "reach": {
@@ -926,8 +926,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
         },
         "default_placement": {
           "anchor": "top-left",
-          "dx": 23,
-          "dy": 331
+          "dx": 20,
+          "dy": 384
         }
       },
       "chat": {
@@ -962,7 +962,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "others": true,
           "own_first_person": false,
           "glow": true,
-          "emote_camera": true
+          "emote_camera": true,
+          "emote_key": "B"
         }
       }
     }
@@ -1499,6 +1500,10 @@ export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
   {
     "t": "loadout_select",
     "id": "bedwars"
+  },
+  {
+    "t": "open_store",
+    "item": "void-cape-rift"
   },
   {
     "t": "library",
@@ -2120,6 +2125,63 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
     }
   },
   {
+    "e": "wheel",
+    "payload": {
+      "phase": "open"
+    }
+  },
+  {
+    "e": "wheel",
+    "payload": {
+      "phase": "aim",
+      "x": -42.5,
+      "y": 31
+    }
+  },
+  {
+    "e": "wheel",
+    "payload": {
+      "phase": "key",
+      "slot": 3
+    }
+  },
+  {
+    "e": "wheel",
+    "payload": {
+      "phase": "release"
+    }
+  },
+  {
+    "e": "binds",
+    "payload": [
+      {
+        "id": "key.forward",
+        "label": "Walk Forwards",
+        "key": "W"
+      },
+      {
+        "id": "key.drop",
+        "label": "Drop Item",
+        "key": "G"
+      },
+      {
+        "id": "key.attack",
+        "label": "Attack/Destroy",
+        "key": "MOUSE0"
+      },
+      {
+        "id": "key.hotbar.1",
+        "label": "Hotbar Slot 1",
+        "key": "1"
+      },
+      {
+        "id": "key.streamCommercial",
+        "label": "Show Stream Commercials",
+        "key": "NONE"
+      }
+    ]
+  },
+  {
     "c": "equipCosmetic",
     "params": [
       "cape",
@@ -2176,6 +2238,16 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
   },
   {
     "c": "playEmote",
+    "returns": true
+  },
+  {
+    "c": "openStore",
+    "params": [
+      "void-cape-rift"
+    ]
+  },
+  {
+    "c": "openStore",
     "returns": true
   }
 ];

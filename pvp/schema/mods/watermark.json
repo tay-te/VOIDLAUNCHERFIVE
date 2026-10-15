@@ -14,10 +14,10 @@
   "source": "drawn by the overlay; no game field",
   "enabled": true,
   "default_placement": {
-    "note": "The next row of the left column, under Coordinates at 103. **This number is deliberately not `loadout.json`'s.** The Sword PvP example there places the mark at `top-left 20,58`, under an fps at `dy 20` and a ping at `dy 38` — an 18-20 px rhythm, which is a hand-authored product loadout rather than the factory layout. This table's rhythm is 38-42 px, and 58 here would land the mark on top of the ping chip at 65 rather than under it. Same intent — third in the top-left stack, which is where every PvP client puts its mark — expressed in the space the page actually lays out in.",
+    "note": "Under the top row of modules (56 px tall at 20, so 84 is the next row with the 8 px rhythm the Cartridge HUD uses). Third thing in the top-left reading order, where every PvP client puts its mark.",
     "anchor": "top-left",
-    "dx": 23,
-    "dy": 141
+    "dx": 20,
+    "dy": 84
   },
   "defaults": {
     "style": "full"

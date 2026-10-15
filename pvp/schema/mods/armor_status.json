@@ -14,12 +14,12 @@
   "source": "InventoryPlayer.armorInventory durability",
   "enabled": true,
   "default_placement": {
-    "anchor": "top-right",
-    "dx": -25,
-    "dy": 299
+    "anchor": "bottom-right",
+    "dx": -20,
+    "dy": -20
   },
   "defaults": {
-    "orientation": "horizontal",
+    "orientation": "vertical",
     "show_durability": true,
     "show_held_item": true,
     "warn_below": 0.5
@@ -32,7 +32,7 @@
         "horizontal",
         "vertical"
       ],
-      "default": "horizontal"
+      "default": "vertical"
     },
     "show_durability": {
       "description": "Whether to print remaining durability as a number under each piece.",

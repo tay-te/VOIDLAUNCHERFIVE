@@ -23,7 +23,8 @@
 
 import { memo } from 'react';
 
-import { MomentumChip, type MomentumUnit } from '@/ui';
+import { type MomentumUnit } from '@/ui';
+import { HudModule } from './cart';
 import { modSettings, useVoidStore } from '@/store/store';
 import type { HudWidgetProps } from './widgets';
 
@@ -58,7 +59,7 @@ function asMomentumUnit(value: unknown): MomentumUnit {
   return value === 'kmh' ? 'kmh' : 'bps';
 }
 
-export const HudMomentum = memo(function HudMomentum({ variant, sample }: HudWidgetProps) {
+export const HudMomentum = memo(function HudMomentum({ sample }: HudWidgetProps) {
   const live = useVoidStore((s) => s.speed);
   const unit = useVoidStore((s) => asMomentumUnit(modSettings(s.loadout, MOMENTUM_ID).unit));
   // Clamped rather than passed through: the chip formats with `toFixed`, which throws outside
@@ -78,13 +79,14 @@ export const HudMomentum = memo(function HudMomentum({ variant, sample }: HudWid
   // so a player in a match sets the mod up against their own speed.
   const speed = live ?? (sample ? SAMPLE_SPEED : null);
   if (speed === null) return null;
+  // 1 block per second is 3.6 km/h — a block is a metre. A conversion, not a second reading.
+  const figure = unit === 'kmh' ? speed * 3.6 : speed;
   return (
-    <MomentumChip
-      variant={variant}
-      speed={speed}
-      unit={unit}
-      decimals={decimals}
-      showLabel={showLabel}
-    />
+    <HudModule label={showLabel ? 'SPEED' : undefined} className="ch-speed">
+      <div className="ch-row">
+        <span className="ch-num">{figure.toFixed(decimals)}</span>
+        <span className="ch-unit">{unit === 'kmh' ? 'km/h' : 'bps'}</span>
+      </div>
+    </HudModule>
   );
 });

@@ -131,6 +131,8 @@ export interface Evt {
   'online:status': OnlineStatus;
   'online:cosmetics': CosmeticsState;
   'online:friends': FriendsList;
+  /** *Get in launcher Store* in game: open the Store on this item's sheet. */
+  'store:open': { item: string };
 }
 
 export type EvtName = keyof Evt;

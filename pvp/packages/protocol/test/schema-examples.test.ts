@@ -78,6 +78,8 @@ describe('schema examples', () => {
       ),
     );
     expect([...events].sort()).toEqual([
+      // The sixteenth: vanilla's key bindings as the player has them set.
+      'binds',
       // The wardrobe's two: what the local player wears and owns, and their emote starting or
       // ending.
       'cosmetics',
@@ -100,6 +102,8 @@ describe('schema examples', () => {
       'tick',
       // The twelfth: a short notice for something that happened with the menu closed.
       'toast',
+      // The fifteenth: the emote wheel held in the world — open, aim, a 1-8 key, release.
+      'wheel',
     ]);
 
     const calls = new Set(
@@ -118,6 +122,7 @@ describe('schema examples', () => {
       'getClipboard',
       'importLoadout',
       'openKeybindCapture',
+      'openStore',
       'playEmote',
       'renameLoadout',
       'setClipboard',

@@ -101,6 +101,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *                       Sink.emote -> VoidSocket                         PAGE    thread-safe
  *                       (the clip) read by the renderer next frame       SHARED  immutable Active, published
  *                       Listener -> emit("emote", id)                    SHARED  suppressed: no echo (§6.5)
+ * openStore           CosmeticState.openStore                            SHARED  inline; volatile sink read
+ *                       Sink.openStore -> VoidSocket                     PAGE    thread-safe; false when down
  * (any)               VoidBridge.errors                                  SHARED  CopyOnWriteArrayList
  * (any)               VoidBridge.pending (the push queue)                SHARED  synchronized(pending)
  * </pre>
@@ -240,6 +242,31 @@ public final class VoidBridge {
      * answered {@code true}); the end is always pushed, because only the game thread's sweep
      * knows when a clip ran out or movement cancelled it.</p>
      */
+    /**
+     * The emote wheel held in the world ({@code cosmetics.emote_key}, default B).
+     *
+     * <p>The fifteenth channel. {@code {phase: open}} on the press, {@code {phase: aim, x, y}}
+     * with the mouse travel since then (screen pixels, x right, y down; throttled), {@code
+     * {phase: key, slot}} for a 1-8 press, and {@code {phase: release}} or {@code {phase:
+     * cancel}}. Java freezes mouse look while it is held and reports input only — the page draws
+     * the wheel over the HUD layer, owns its geometry, and plays the slot through
+     * {@code playEmote}. Not coalesced (an {@code open} and a {@code release} in one slow frame
+     * are two facts), but {@code aim} is throttled at the source.</p>
+     */
+    public static final String EVENT_WHEEL = "wheel";
+
+    /**
+     * Vanilla's key bindings as the player has them set ({@code GameOptions.allKeys}):
+     * {@code [{id, label, key}]}, whole table.
+     *
+     * <p>The sixteenth channel, so the Keybinds tab and the rebind conflict check warn against the
+     * player's real binds rather than the 1.8.9 defaults. Pushed on {@link #pushWholeState()} and
+     * by {@code VoidClient.onMenuOpened} when the table changed since the last push (the player
+     * rebound something in vanilla Controls). Whole state, so an older queued envelope is
+     * dropped.</p>
+     */
+    public static final String EVENT_BINDS = "binds";
+
     public static final String EVENT_EMOTE = "emote";
 
     /**
@@ -474,7 +501,8 @@ public final class VoidBridge {
             return new JsonPrimitive(Integer.valueOf(surfaces.size()));
         }
         if ("equipCosmetic".equals(call) || "setCosmeticTint".equals(call)
-                || "setEmoteWheel".equals(call) || "playEmote".equals(call)) {
+                || "setEmoteWheel".equals(call) || "playEmote".equals(call)
+                || "openStore".equals(call)) {
             // SHARED, inline — see the classification block. The flag is what keeps the state's
             // own change listeners from pushing this change straight back at the page.
             answeringPage.set(Boolean.TRUE);
@@ -598,8 +626,9 @@ public final class VoidBridge {
     }
 
     /**
-     * The four wardrobe calls. Each answers with what was applied: the id now in the slot, the
-     * tint now on it, the wheel as stored, whether the emote started. A refusal is an answer
+     * The five wardrobe calls. Each answers with what was applied: the id now in the slot, the
+     * tint now on it, the wheel as stored, whether the emote started, whether the launcher was
+     * told to open its Store. A refusal is an answer
      * too (the unchanged value), never an exception.
      */
     private JsonElement invokeCosmetic(String call, JsonArray p) {
@@ -632,6 +661,9 @@ public final class VoidBridge {
                 stored.add(new JsonPrimitive(id));
             }
             return stored;
+        }
+        if ("openStore".equals(call)) {
+            return new JsonPrimitive(Boolean.valueOf(cosmetics.openStore(stringAt(p, 0))));
         }
         // playEmote
         String id = stringAt(p, 0);
@@ -764,7 +796,7 @@ public final class VoidBridge {
             if (EVENT_KEYS.equals(event) || EVENT_MENU.equals(event)
                     || EVENT_LOADOUTS.equals(event) || EVENT_SETTINGS.equals(event)
                     || EVENT_SCOREBOARD.equals(event)
-                    || EVENT_COSMETICS.equals(event)) {
+                    || EVENT_COSMETICS.equals(event) || EVENT_BINDS.equals(event)) {
                 dropChannel(event);
             }
             // `tick` is the exception, and it used to be in the list above.
@@ -970,6 +1002,14 @@ public final class VoidBridge {
         // The wardrobe. Read live from CosmeticState for the same reason the loadout is: the
         // page's own equips are not echoed, so a remembered envelope would be missing them.
         emitCosmetics();
+        // Vanilla's bindings, read live: the player may have rebound one in vanilla Controls since
+        // the last push, and a reloaded page has nothing else to warn against.
+        if (host != null) {
+            JsonArray binds = host.vanillaBindsJson();
+            if (binds != null) {
+                emit(EVENT_BINDS, binds);
+            }
+        }
         // Last, so the screen the menu opens onto is drawn against data that is already there.
         emitMenu(menuOpen);
     }

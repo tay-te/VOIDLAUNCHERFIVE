@@ -39,6 +39,7 @@ import {
   type TickPayload,
   type ImportResult,
   type ToastPayload,
+  type VanillaBind,
 } from '@/bridge/protocol';
 import { getVoid } from '@/bridge/connect';
 // DEV ONLY. `isFakeMod` is a constant `false` in every build that did not ask for the padding
@@ -67,15 +68,30 @@ export type SettingValue = boolean | number | string | null;
  * — the thing that decides what is drawn — and cannot drift from it.
  */
 export type Route =
-  /** The v1 Ship islands — what the menu opens on. */
+  /** The Mods tab: every mod as a cartridge on its category shelf (Cartridge, Figma 594:2). */
   | { name: 'mods' }
-  /** Every mod as a grid of tiles with live previews: "All mods", one click from the island. */
-  | { name: 'grid' }
+  /** The Mods tab with one mod's settings bench open beside the shelves (597:2). */
   | { name: 'mod'; id: ModId }
-  | { name: 'settings' }
+  /** Tab 2 — the loadout case (600:2). */
   | { name: 'loadouts' }
-  | { name: 'party' }
+  /** Tab 3 — the keyboard map of every binding (643:2). */
+  | { name: 'keybinds' }
+  /** Tab 4. */
+  | { name: 'friends' }
+  /** Tab 5. */
+  | { name: 'cosmetics' }
   | { name: 'hud-editor' };
+
+/** The five numbered sections of the top bar, in order — `1`–`5` jump to them. */
+export type MenuTab = 'mods' | 'loadouts' | 'keybinds' | 'friends' | 'cosmetics';
+export const MENU_TABS: readonly MenuTab[] = ['mods', 'loadouts', 'keybinds', 'friends', 'cosmetics'];
+
+/** Which tab a route belongs to (the HUD editor belongs to none). */
+export function tabOf(route: Route): MenuTab | null {
+  if (route.name === 'mod') return 'mods';
+  if (route.name === 'hud-editor') return null;
+  return route.name;
+}
 
 /**
  * How the Mods screen arranges its items.
@@ -522,6 +538,11 @@ export interface VoidState {
   cpsPeak: number;
   /** Who is playing. Null until the first `session` push, and after that never changes. */
   session: SessionInfo | null;
+  /**
+   * Vanilla's key bindings as the player has them set — the `binds` push. Null until it arrives,
+   * and the Keybinds tab and the conflict check then assume the 1.8.9 defaults (`cart/keys.ts`).
+   */
+  vanillaBinds: VanillaBind[] | null;
   /** The client's globals. Factory values until the first `settings` push replaces them. */
   globals: GlobalsView;
   /** Notices on screen, oldest first. Drawn by `ToastStack` over both layers. */
@@ -535,7 +556,7 @@ export interface VoidState {
    * whichever the player came from. Escape is "up one level", and the level above a page is the
    * list it was opened from.
    */
-  back: 'mods' | 'grid';
+  back: MenuTab;
   /** Decided at open; see {@link MenuContext}. */
   context: MenuContext;
   route: Route;
@@ -567,6 +588,8 @@ export interface VoidState {
   applyServer(server: ServerPayload): void;
   applyScoreboard(board: ScoreboardPayload): void;
   applySession(session: SessionInfo): void;
+  /** The `binds` channel: vanilla's key bindings, whole. */
+  applyBinds(binds: VanillaBind[]): void;
   applyGlobals(payload: unknown): void;
   applyMenu(open: boolean): void;
   /** The `toast` channel: a notice Java raised for something that happened with the menu closed. */
@@ -656,6 +679,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   cpsRight: 0,
   cpsPeak: 0,
   session: null,
+  vanillaBinds: null,
   globals: FACTORY_GLOBALS,
   toasts: [],
 
@@ -930,6 +954,14 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     set({ session });
   },
 
+  applyBinds(binds) {
+    // Value, not identity, for the same reason: every pushWholeState re-sends the same table.
+    if (!Array.isArray(binds)) return;
+    const current = get().vanillaBinds;
+    if (current && sameJson(current, binds)) return;
+    set({ vanillaBinds: binds });
+  },
+
   applyGlobals(payload) {
     // Snake_case on the wire (`protocol.json`, `global_settings`), camel in the store. Only the
     // three keys the page uses are lifted; an unknown or absent key leaves the current value
@@ -961,7 +993,15 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     // R-Shift and Escape both close the whole menu, so "close from a page" is covered here.
     set(
       open
-        ? { menuOpen: true, back: 'mods', context: contextNow(), route: { name: 'mods' }, paletteOpen: false }
+        ? {
+            menuOpen: true,
+            back: 'mods',
+            context: contextNow(),
+            route: { name: 'mods' },
+            paletteOpen: false,
+            modSearch: '',
+            modFilter: 'all',
+          }
         : { menuOpen: false, paletteOpen: false },
     );
   },
@@ -971,7 +1011,10 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   },
 
   setRoute(route) {
-    set(route.name === 'mods' || route.name === 'grid' ? { route, back: route.name } : { route });
+    // A tab is somewhere to come back to — the HUD editor's Save and Escape return to the tab it
+    // was opened from. A mod's bench belongs to the Mods tab.
+    const tab = tabOf(route);
+    set(tab ? { route, back: tab } : { route });
   },
   setContext(context) {
     set({ context, ...(context === 'match' ? { route: { name: 'mods' } as Route, paletteOpen: false } : {}) });
@@ -990,9 +1033,9 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     set({ selectedMod: id, route: { name: 'mod', id } });
   },
   closeMod() {
-    // Back to the grid, unchanged. `selectedMod` is deliberately left alone: it is what marks
-    // the tile you were just inside.
-    set({ route: { name: get().back } });
+    // Back to the shelves, unchanged. `selectedMod` is deliberately left alone: it is what marks
+    // the cartridge you were just inside.
+    set({ route: { name: 'mods' } });
   },
   setLayout(layout) {
     set({ layout });

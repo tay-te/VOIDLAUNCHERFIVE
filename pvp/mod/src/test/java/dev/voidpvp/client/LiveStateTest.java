@@ -510,14 +510,13 @@ class LiveStateTest {
         assertEquals("top-left", mark.anchor);
         assertTrue(factory.isOn("watermark"), "and it ships on");
 
-        // It sits under the rest of the top-left column rather than on top of it. The number is
-        // the factory layout's, not loadout.json's example library's — see the watermark's
-        // `default_placement` in schema/mods/watermark.json, and the block it is generated into
-        // in ModRegistry.
-        assertTrue(mark.dy > factory.hudItem("ping").dy,
-                "the mark goes under ping, not over it");
-        assertTrue(mark.dy > factory.hudItem("coordinates").dy,
-                "and under coordinates, which is placed whether or not it is on");
+        // It sits under the top row of 56 px Cartridge modules (FPS, CPS, Ping side by side),
+        // first in the column below it — see the watermark's `default_placement` in
+        // schema/mods/watermark.json, and the block it is generated into in ModRegistry.
+        assertTrue(mark.dy >= factory.hudItem("ping").dy + 56,
+                "the mark goes under the ping module, not over it");
+        assertTrue(mark.dy < factory.hudItem("coordinates").dy,
+                "and above coordinates, which is placed whether or not it is on");
     }
 
     @Test

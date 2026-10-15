@@ -64,6 +64,12 @@ class CosmeticsLinkTest {
         public void emotes(List<String> ids) {
             sent.add("emotes " + ids);
         }
+
+        @Override
+        public boolean openStore(String id) {
+            sent.add("store " + id);
+            return true;
+        }
     }
 
     private static final class Host implements BridgeHost {
@@ -359,8 +365,8 @@ class CosmeticsLinkTest {
                 continue;
             }
             String name = call.get("c").getAsString();
-            if (!Arrays.asList("equipCosmetic", "setCosmeticTint", "setEmoteWheel", "playEmote")
-                    .contains(name)) {
+            if (!Arrays.asList("equipCosmetic", "setCosmeticTint", "setEmoteWheel", "playEmote",
+                    "openStore").contains(name)) {
                 continue;
             }
             // The result example is the one that follows its call in the file.
@@ -370,7 +376,22 @@ class CosmeticsLinkTest {
             assertEquals(expected.get("returns"), answer.get("returns"), name + " " + call);
             checked++;
         }
-        assertEquals(5, checked, "every cosmetic call example was replayed");
+        assertEquals(6, checked, "every cosmetic call example was replayed");
+    }
+
+    @Test
+    @DisplayName("openStore tells the launcher, and answers false with no launcher behind it")
+    void openStoreReachesTheLauncher() {
+        VoidBridge bridge = bridge();
+        assertEquals("{\"c\":\"openStore\",\"returns\":true}",
+                call(bridge, "{\"c\":\"openStore\",\"params\":[\"seraph-halo\"]}"));
+        assertEquals(Arrays.asList("store seraph-halo"), sink.sent);
+        assertEquals("{\"c\":\"openStore\",\"returns\":false}",
+                call(bridge, "{\"c\":\"openStore\",\"params\":[]}"), "no id, nothing sent");
+        CosmeticState.get().setSink(null);
+        assertEquals("{\"c\":\"openStore\",\"returns\":false}",
+                call(bridge, "{\"c\":\"openStore\",\"params\":[\"seraph-halo\"]}"),
+                "no launcher link: the page must not say the Store opened");
     }
 
     @Test

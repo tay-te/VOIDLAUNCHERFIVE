@@ -91,6 +91,15 @@ export function Watermark({ style, cell = 3, className }: WatermarkProps): React
  * this one deliberately does not. What the editor gives it instead is its own drag handle and
  * outline, which are drawn by the editor around whatever the widget renders.
  */
+/**
+ * On the HUD the mark sits in a Cartridge module like every other widget (`cart/hud.css`): the
+ * same backing and edge, no label tab — it is a mark, not a reading. The pixel ring is already
+ * the cartridge sprite language, so it stays; only its frame and the word's voice change.
+ */
 export const HudWatermark = memo(function HudWatermark(): React.ReactElement {
-  return <Watermark />;
+  return (
+    <div className="ch-mod ch-wm">
+      <Watermark />
+    </div>
+  );
 });

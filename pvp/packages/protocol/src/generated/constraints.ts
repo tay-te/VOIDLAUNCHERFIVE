@@ -581,5 +581,6 @@ export const KEYBIND_SETTINGS: readonly string[] =
   "stopwatch.start_key",
   "stopwatch.reset_key",
   "toggle_sneak.keybind",
-  "freelook.keybind"
+  "freelook.keybind",
+  "cosmetics.emote_key"
 ] as const;

@@ -15,8 +15,8 @@
   "enabled": true,
   "default_placement": {
     "anchor": "top-left",
-    "dx": 23,
-    "dy": 23
+    "dx": 20,
+    "dy": 20
   },
   "defaults": {
     "color": "#FFFFFF",

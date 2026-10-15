@@ -35,6 +35,7 @@ use void_loadout::{Loadout, Store};
 use crate::error::Error;
 use crate::events::{
     emit, Emitter, BRIDGE_SERVER, BRIDGE_SESSION, BRIDGE_STATE, GAME_CLOSED, GAME_LOG, GAME_STARTED,
+    STORE_OPEN,
 };
 use crate::models::{LaunchReport, LogLine, SessionStats};
 use crate::presence::{Activity, Presence};
@@ -481,6 +482,12 @@ fn spawn_bridge_forwarder(
                         }),
                     )
                 }
+                // *Get in launcher Store* in game: the window comes back from the tray first,
+                // so the sheet the web side opens is the thing the player sees.
+                Ok(JavaToRust::OpenStore { item }) => {
+                    emitter.show_window();
+                    emit(emitter.as_ref(), STORE_OPEN, &serde_json::json!({ "item": item }));
+                }
                 // `hud` and unknown tags are the store's business, not the launcher UI's —
                 // `sync::pump` has its own subscription for those. So is `hello`; the arm
                 // above writes a log line and deliberately emits no `bridge:*` event.
@@ -822,5 +829,23 @@ mod tests {
                 server: Some("mc.hypixel.net".into()),
             })
         );
+    }
+
+    #[tokio::test]
+    async fn open_store_shows_the_window_then_asks_for_the_item() {
+        let (tx, _) = tokio::sync::broadcast::channel(16);
+        let rec = Recorder::default();
+        spawn_bridge_forwarder(tx.subscribe(), Arc::new(rec.clone()), Arc::new(Mutex::new(GameState::default())), None);
+
+        tx.send(JavaToRust::OpenStore { item: "void-cape-rift".into() }).unwrap();
+        for _ in 0..50 {
+            if rec.names().len() >= 2 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+
+        assert_eq!(rec.names(), [crate::events::test_support::SHOWN, STORE_OPEN]);
+        assert_eq!(rec.payloads(STORE_OPEN), [serde_json::json!({ "item": "void-cape-rift" })]);
     }
 }

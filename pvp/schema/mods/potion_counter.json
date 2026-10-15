@@ -14,10 +14,10 @@
   "source": "`counts.health_potion` and `counts.soup` on the tick payload",
   "enabled": false,
   "default_placement": {
-    "note": "Directly above the Item counter (`-146`) in the 175 column, on the same 38 px rhythm: the hand-and-clicks corner reads, bottom to top, how fast the hand is going (CPS), what it is going through (Item counter) and how many heals are left.",
+    "note": "Above the Item counter in the 184 column, one 64 px Cartridge row up: bottom to top, what the hand holds and how many heals are left.",
     "anchor": "bottom-left",
-    "dx": 175,
-    "dy": -184
+    "dx": 184,
+    "dy": -84
   },
   "defaults": {
     "track": "health_potion",

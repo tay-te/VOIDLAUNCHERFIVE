@@ -225,6 +225,17 @@ public final class Protocol {
         return o;
     }
 
+    /**
+     * {@code open_store}: {@code {t, item}}. Get in launcher Store on a locked item; the launcher
+     * shows its window on that item's Store sheet. Nothing is bought in game.
+     */
+    public static JsonObject openStore(String item) {
+        JsonObject o = new JsonObject();
+        o.addProperty("t", "open_store");
+        o.addProperty("item", item);
+        return o;
+    }
+
     // -- Rust to Java ---------------------------------------------------
 
     /** One decoded inbound frame; {@link Kind#UNKNOWN} for anything we ignore. */

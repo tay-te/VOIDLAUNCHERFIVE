@@ -104,9 +104,10 @@ export const HudScoreboard = memo(function HudScoreboard({ variant, sample, clas
   if (hidden && !editor && !sample) return null;
   return (
     <div
+      // On the Cartridge module backing (`cart/hud.css`), with the server's own § colours kept:
+      // a board's colours are the server's content, not this design's chrome.
       className={[
-        'v-hudchip',
-        editor ? 'v-hudchip--editor' : null,
+        'ch-mod',
         'hud-board',
         hidden ? 'hud-board--hidden' : null,
         className,

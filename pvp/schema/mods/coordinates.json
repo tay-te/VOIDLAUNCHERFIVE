@@ -15,8 +15,8 @@
   "enabled": false,
   "default_placement": {
     "anchor": "top-left",
-    "dx": 23,
-    "dy": 103
+    "dx": 20,
+    "dy": 128
   },
   "defaults": {
     "decimals": 1,

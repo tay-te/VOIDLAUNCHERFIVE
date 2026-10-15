@@ -43,6 +43,9 @@ import type {
   CosmeticsPayload,
   EffectSurface,
   EmotePayload,
+  WheelPayload,
+  BindsPayload,
+  VanillaBind,
   GameplayModId,
   GlobalSettings,
   HUDAnchor,
@@ -81,14 +84,14 @@ export type SessionInfo = SessionPayload;
 export type { GlobalSettings };
 
 /** Re-exported so a consumer of the `cosmetics` and `emote` channels does not reach into `generated/`. */
-export type { CosmeticsPayload, EmotePayload };
+export type { CosmeticsPayload, EmotePayload, WheelPayload, BindsPayload, VanillaBind };
 
 /* -------------------------------------------------------------------------- */
 /* Events                                                                     */
 /* -------------------------------------------------------------------------- */
 
 /**
- * The fourteen channels Java pushes on.
+ * The sixteen channels Java pushes on.
  *
  * **Closed, and that is load-bearing.** Both shims look the name up in a map: `on` returns
  * a no-op subscription for a name it does not know, and `__emit` drops an envelope whose
@@ -112,9 +115,11 @@ export const VOID_EVENTS = [
   'toast',
   'cosmetics',
   'emote',
+  'wheel',
+  'binds',
 ] as const;
 
-/** Name of one of the fourteen push channels. */
+/** Name of one of the sixteen push channels. */
 export type VoidEventName = (typeof VOID_EVENTS)[number];
 
 /** Payload handed to the handler of each channel. */
@@ -203,6 +208,19 @@ export interface VoidEventPayloadMap {
    * but the end always is: only Java knows when a clip finishes or movement cancels it.
    */
   emote: EmotePayload;
+  /**
+   * The emote wheel held in the world (`cosmetics.emote_key`): `open`, then `aim` with the mouse
+   * travel since open (screen px, x right, y down), `key` for a 1-8 press (`slot` 0-7), and
+   * `release` (play what it points at) or `cancel`. Java freezes mouse look while it is held and
+   * only reports input; the page draws the wheel over the HUD layer and owns the geometry.
+   */
+  wheel: WheelPayload;
+  /**
+   * Minecraft's own key bindings as the player has them set (`GameOptions.allKeys`): id, label in
+   * the game's language, current key. Whole table, on `pushWholeState()` and when the menu opens
+   * with a table that changed. Until it arrives the page assumes the 1.8.9 defaults.
+   */
+  binds: BindsPayload;
 }
 
 /** Handler signature for a given channel. */
@@ -219,7 +237,7 @@ export type VoidEventEnvelope = {
 /* Calls                                                                      */
 /* -------------------------------------------------------------------------- */
 
-/** The twenty-one methods JS may call on `window.void`. Closed set. */
+/** The twenty-two methods JS may call on `window.void`. Closed set. */
 export const VOID_CALLS = [
   'setGameplay',
   'setHud',
@@ -242,9 +260,10 @@ export const VOID_CALLS = [
   'setCosmeticTint',
   'setEmoteWheel',
   'playEmote',
+  'openStore',
 ] as const;
 
-/** Name of one of the twenty-one calls. */
+/** Name of one of the twenty-two calls. */
 export type VoidCallName = (typeof VOID_CALLS)[number];
 
 /** Value a mod setting may take. Scalars only; no mod has an object- or array-valued setting. */
@@ -307,6 +326,7 @@ export interface VoidCallParamsMap {
   setCosmeticTint: [slot: CosmeticSlot, hex: string | null];
   setEmoteWheel: [ids: CosmeticId[]];
   playEmote: [id: CosmeticId];
+  openStore: [id: CosmeticId];
 }
 
 /** Return value of each call. `openKeybindCapture` resolves this through a Promise. */
@@ -332,6 +352,7 @@ export interface VoidCallReturnsMap {
   setCosmeticTint: string | null;
   setEmoteWheel: CosmeticId[];
   playEmote: boolean;
+  openStore: boolean;
 }
 
 /** One JS → Java call envelope. */
@@ -501,6 +522,13 @@ export interface VoidBridge {
    * for an id that is not an owned emote. The `emote` event reports its end, not its start.
    */
   playEmote(id: CosmeticId): boolean;
+
+  /**
+   * *Get in launcher Store* on a locked item: asks the launcher to show its window on that
+   * item's Store sheet. Nothing is bought in game. Returns whether the launcher was told;
+   * false when there is no launcher link, and the page then says where to go instead.
+   */
+  openStore(id: CosmeticId): boolean;
 
   /**
    * Whether the page wants to keep the next Escape for itself, rather than let it close
@@ -793,6 +821,11 @@ export function installVoidShim(options: InstallVoidShimOptions = {}): VoidBridg
     playEmote(id) {
       // Nothing played if nobody answered, so the honest fallback is false, as for switchLoadout.
       return call('playEmote', [id]) ?? false;
+    },
+
+    openStore(id) {
+      // No answer means no launcher was reached, so the page must not claim it opened.
+      return call('openStore', [id]) ?? false;
     },
 
     openKeybindCapture(modId) {

@@ -1356,7 +1356,7 @@ export type QuickPins = ModId[];
  */
 export type ProtocolMessage = JavaToRust | RustToJava;
 /**
- * The thirteen messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
+ * The fourteen messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
  */
 export type JavaToRust =
   | HelloJavaToRust
@@ -1371,7 +1371,8 @@ export type JavaToRust =
   | EquipJavaToRust
   | LoadoutSaveJavaToRust
   | LoadoutDeleteJavaToRust
-  | LoadoutSelectJavaToRust;
+  | LoadoutSelectJavaToRust
+  | OpenStoreJavaToRust;
 /**
  * Version of this message set. Bumped on any breaking change. Carried on `hello` and `init` only; both sides compare and refuse to proceed on a mismatch (§7). **2** since `init.loadouts` changed from `loadout_summary` to whole loadouts: a v1 mod would read a v2 `init` without complaint, but a v2 mod against a v1 launcher would receive summaries, materialise every mod at its factory default, and silently apply the wrong loadout on a switch. That is exactly the mixed-halves case `v` exists to refuse.
  */
@@ -1423,7 +1424,9 @@ export type Event =
   | ScoreboardEvent
   | ToastEvent
   | CosmeticsEvent
-  | EmoteEvent;
+  | EmoteEvent
+  | WheelEvent
+  | BindsEvent;
 /**
  * 0 released, 1 pressed.
  */
@@ -1438,6 +1441,12 @@ export type LoadoutsPayload = Loadout[];
  * True when VoidMenuScreen opened, false when it closed. The React app draws the HUD layer and the menu layer into the same Ultralight view (§6.2); this flag is how it decides which is visible.
  */
 export type MenuPayload = boolean;
+/**
+ * Minecraft's own key bindings (`GameOptions.allKeys`) as the player has them set, so the Keybinds tab and the rebind conflict check warn against the player's real binds rather than the 1.8.9 defaults. Pushed on `pushWholeState()` and again when the menu opens with a table that changed since the last push (the player rebound something in vanilla Controls). Whole table, never a delta. A page that has not had it falls back to the 1.8.9 defaults. Keys vanilla hard-codes (F1 hide HUD, F3 debug) are not bindings and are not listed.
+ *
+ * @maxItems 64
+ */
+export type BindsPayload = VanillaBind[];
 /**
  * One JS to Java call, enveloped as {c, params}. In the real bridge `params` is the positional argument list of the method.
  */
@@ -1462,7 +1471,8 @@ export type Call =
   | EquipCosmeticCall
   | SetCosmeticTintCall
   | SetEmoteWheelCall
-  | PlayEmoteCall;
+  | PlayEmoteCall
+  | OpenStoreCall;
 /**
  * [id, on].
  *
@@ -1660,6 +1670,13 @@ export type SetEmoteWheelParams = [CosmeticItemId[]];
  */
 export type PlayEmoteParams = [CosmeticItemId];
 /**
+ * [id].
+ *
+ * @minItems 1
+ * @maxItems 1
+ */
+export type OpenStoreParams = [CosmeticItemId];
+/**
  * The value one JS to Java call returned, enveloped as {c, returns}. Every call except `openKeybindCapture` returns synchronously, because the bridge is in-process (§6.5).
  */
 export type CallResult =
@@ -1683,7 +1700,8 @@ export type CallResult =
   | EquipCosmeticResult
   | SetCosmeticTintResult
   | SetEmoteWheelResult
-  | PlayEmoteResult;
+  | PlayEmoteResult
+  | OpenStoreResult;
 /**
  * The state actually applied. Normally equals the requested value; differs only if the mod refused the change.
  */
@@ -1783,6 +1801,10 @@ export type SetEmoteWheelReturns = CosmeticItemId[];
  * True when the emote started; false when it was refused.
  */
 export type PlayEmoteReturns = boolean;
+/**
+ * True when the launcher was told; false when there is no launcher link.
+ */
+export type OpenStoreReturns = boolean;
 
 /**
  * The closed registry of every mod VOID ships — the 12 defined in PVP_ARCHITECTURE.md §3, the VOID watermark, and the readouts added since — together with the per-mod settings sub-schema, the anti-cheat classification of §11, the Mods-panel `category` taxonomy of Figma 244:538 and the factory defaults. This file is the single source of truth for mod identity, display copy and classification: `loadout.json` and `bridge.json` both $ref its `mod_id` enum and its `<id>_settings` definitions, so a mod is added in exactly one place, and no consumer re-declares a label or a filter tab. An instance of this schema is a registry document; the registry VOID actually ships is `examples[0]`.
@@ -3099,6 +3121,7 @@ export interface CosmeticsSettings {
    * Whether the camera swings to third person and orbits slowly while you emote, so you can see what you are doing. On by default. Off keeps your own view where it is: other players still see the emote, you just do not watch it. The camera never moves while you move — taking a step ends the emote and gives the view straight back.
    */
   emote_camera?: boolean;
+  emote_key?: Keybind;
 }
 /**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
@@ -3419,6 +3442,17 @@ export interface LoadoutSelectJavaToRust {
    */
   t: 'loadout_select';
   id: LoadoutId;
+  [k: string]: any | undefined;
+}
+/**
+ * The player pressed *Get in launcher Store* on a locked item in game (`window.void.openStore`). Nothing is bought in game: the launcher shows and focuses its window and opens the Store on that item's sheet, where the purchase happens. A launcher that does not know the id opens the Store gallery alone.
+ */
+export interface OpenStoreJavaToRust {
+  /**
+   * Message discriminator; always `open_store`.
+   */
+  t: 'open_store';
+  item: CosmeticItemId;
   [k: string]: any | undefined;
 }
 /**
@@ -4043,6 +4077,61 @@ export interface EmotePayload {
   id: CosmeticItemId | null;
 }
 /**
+ * Envelope for the `wheel` event.
+ */
+export interface WheelEvent {
+  /**
+   * Event discriminator; always `wheel`.
+   */
+  e: 'wheel';
+  payload: WheelPayload;
+}
+/**
+ * The emote wheel held in the world (`cosmetics.emote_key`, default B), with no screen open — the player keeps moving, and Java freezes mouse look for as long as the key is down so the mouse picks a slot instead of turning. `open` when the key goes down; `aim` with the mouse travel since `open` in screen pixels (x right, y down), at most ~30 times a second; `key` when one of 1-8 is pressed while it is held (`slot` 0-7, the hotbar is not moved); `release` when the key comes up — the page plays the slot it was pointing at, if any, through `playEmote`; `cancel` when the wheel closes without playing (a screen opened, the player died, the world unloaded). The page draws the wheel over the HUD layer and owns the geometry; Java only reports input.
+ */
+export interface WheelPayload {
+  /**
+   * Which step.
+   */
+  phase: 'open' | 'aim' | 'key' | 'release' | 'cancel';
+  /**
+   * `aim`: horizontal mouse travel since `open`, screen pixels, right positive.
+   */
+  x?: number;
+  /**
+   * `aim`: vertical mouse travel since `open`, screen pixels, down positive.
+   */
+  y?: number;
+  /**
+   * `key`: the wheel slot whose number was pressed, 0-7.
+   */
+  slot?: number;
+}
+/**
+ * Envelope for the `binds` event.
+ */
+export interface BindsEvent {
+  /**
+   * Event discriminator; always `binds`.
+   */
+  e: 'binds';
+  payload: BindsPayload;
+}
+/**
+ * One vanilla key binding.
+ */
+export interface VanillaBind {
+  /**
+   * The binding's translation key, which is stable across languages, e.g. `key.drop` or `key.hotbar.1`.
+   */
+  id: string;
+  /**
+   * The binding's name in the game's language, as vanilla Controls prints it.
+   */
+  label: string;
+  key: Keybind;
+}
+/**
  * `void.setGameplay(id, on)`. Writes the boolean field the mod's actuator Mixin reads every frame (§6.7). Synchronous and authoritative: the toggle in the UI shows the returned value, never an optimistic one.
  */
 export interface SetGameplayCall {
@@ -4311,6 +4400,16 @@ export interface PlayEmoteCall {
   params: PlayEmoteParams;
 }
 /**
+ * `void.openStore(id)`. *Get in launcher Store* on a locked item: Java sends the launcher `open_store` (protocol.json), which shows and focuses the launcher window on that item's Store sheet. Nothing is bought in game and the menu stays open. Returns whether the request reached the launcher; `false` when the launcher link is down (a dev run, or the launcher was closed), and the page then tells the player to open the Store themselves.
+ */
+export interface OpenStoreCall {
+  /**
+   * Call discriminator; always `openStore`.
+   */
+  c: 'openStore';
+  params: OpenStoreParams;
+}
+/**
  * Envelope for a setGameplay return value.
  */
 export interface SetGameplayResult {
@@ -4519,4 +4618,14 @@ export interface PlayEmoteResult {
    */
   c: 'playEmote';
   returns: PlayEmoteReturns;
+}
+/**
+ * Envelope for an openStore return value.
+ */
+export interface OpenStoreResult {
+  /**
+   * Call discriminator; always `openStore`.
+   */
+  c: 'openStore';
+  returns: OpenStoreReturns;
 }

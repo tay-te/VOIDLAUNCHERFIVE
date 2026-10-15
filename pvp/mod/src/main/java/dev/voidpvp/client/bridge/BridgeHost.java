@@ -110,4 +110,14 @@ public interface BridgeHost {
     default String clipboard() {
         return null;
     }
+
+    /**
+     * Vanilla's key bindings as the player has them set, {@code bridge.json} {@code binds_payload}:
+     * {@code [{id, label, key}]}. Called on the UI thread from {@code pushWholeState}; it reads
+     * the bindings' key codes, which only vanilla Controls writes. Null (nothing pushed, the page
+     * keeps the 1.8.9 defaults) when there is no game. Default: null.
+     */
+    default com.google.gson.JsonArray vanillaBindsJson() {
+        return null;
+    }
 }

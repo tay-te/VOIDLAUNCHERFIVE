@@ -2,40 +2,53 @@
  * The seven HUD mods of §3, bound to the store.
  *
  * Every widget here is a thin adapter: it reads the narrowest slice of state it
- * can and hands it to the corresponding presentational component in `@void/ui`.
- * The drawing, the geometry and the Ultralight-safe treatment all live there;
+ * can and hands it to a Cartridge presentational component (`hud/cart/`). The
+ * drawing and the Ultralight-safe treatment live there and in `cart/hud.css`;
  * what lives here is which bridge field feeds which prop, and which of the mod's
  * settings gates it.
+ *
+ * Cartridge, not `@void/ui`'s chips: the desktop launcher shares those and keeps
+ * its look, so the in-game bundle draws its own (Figma section B, frames B10-B13).
+ * The pure helpers (`formatPotionTime`, `formatAmplifier`, `yawIndex`, the crosshair)
+ * are still `@void/ui`'s — a number has one formatter, whichever bundle draws it.
+ *
+ * `show_label` means one thing on every module: the label tab (`FPS`, `PING`…).
+ * Units that are part of a reading (`ms`, `bps`, `MB`) stay with the figure.
  *
  * Each widget subscribes only to what it draws, so a `tick` push that changes
  * the ping does not re-render the FPS chip, and a `keys` push repaints one
  * keycap's class and nothing else.
  */
 
-import { memo } from 'react';
+import { memo, useRef } from 'react';
 import {
-  ArmorList,
   CROSSHAIR_UNIT_PREVIEW,
-  CoordsChip,
-  CpsChip,
   Crosshair,
-  FpsChip,
-  KeystrokesWidget,
-  PingChip,
-  PotionList,
   formatAmplifier,
   formatPotionTime,
   asCrosshairStyle,
-  keystrokesColorStyle,
-  DirectionChip,
+  yawIndex,
   type DirectionStyle,
   type HudVariant,
 } from '@/ui';
-import { cardinalFromYaw, type ArmorSlot } from '@/bridge/protocol';
+import { cardinalFromYaw, type ArmorSlot, type PotionEffect } from '@/bridge/protocol';
 import { modSettings, useModSettings, useVoidStore } from '@/store/store';
 import { clicksPerSecond, createClickRing, pushClick } from '@/store/cps';
 import { armorRow, potionMeta, shortHost } from './format';
 import { pingStats } from './ping-stats';
+import {
+  CartArmor,
+  CartEffects,
+  CartKeystrokes,
+  HudLed,
+  HudModule,
+  Meter,
+  cartKeysStyle,
+  inkStyle,
+  litFor,
+  type CartEffectRow,
+  type LedTone,
+} from './cart';
 
 export interface HudWidgetProps {
   /** `compact` in game, `editor` on the HUD-layout frame. */
@@ -67,7 +80,7 @@ export interface HudWidgetProps {
 /** The frames' own figure, and `TilePreview`'s. A preview with `0 fps` on it is not a preview. */
 const SAMPLE_FPS = 142;
 
-export const HudFps = memo(function HudFps({ variant, sample }: HudWidgetProps) {
+export const HudFps = memo(function HudFps({ sample }: HudWidgetProps) {
   const live = useVoidStore((s) => s.fps);
   const low = useVoidStore((s) => s.fpsLow);
   const showLabel = useVoidStore((s) => modSettings(s.loadout, 'fps').show_label !== false);
@@ -87,14 +100,22 @@ export const HudFps = memo(function HudFps({ variant, sample }: HudWidgetProps) 
   // reachable from a lobby, so without a stand-in `show_low` would be a switch with nothing to
   // switch. Two thirds of the figure is roughly what a real 1% low sits at.
   const lowFigure = low > 0 ? low : sample ? Math.max(1, Math.round(fps * 0.68)) : 0;
+  // The 1% low sits in the tab row, right, in the tab's own voice: it is the figure that gives
+  // the reading a scale, not a second reading, and there it costs the 96px module no width.
+  const showsLow = showLow && lowFigure > 0;
   return (
-    <FpsChip
-      variant={variant}
-      fps={fps}
-      showLabel={showLabel}
-      color={color}
-      onePercentLow={showLow && lowFigure > 0 ? lowFigure : undefined}
-    />
+    <HudModule
+      label={showLabel ? 'FPS' : undefined}
+      head={showsLow ? <span className="ch-tab ch-tab--aside">1% {lowFigure}</span> : undefined}
+      className="ch-fps"
+    >
+      <div className="ch-row">
+        {/* `color` inks the figure only — the one live value on the module. */}
+        <span className="ch-num" style={inkStyle(color)}>
+          {fps}
+        </span>
+      </div>
+    </HudModule>
   );
 });
 
@@ -131,7 +152,80 @@ function usePingStatsSettings() {
   return { showAverage, showJitter, jitterWarn, spikeMs, window };
 }
 
-export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps) {
+/** Props for one ping module — everything `PingChip` took, in Cartridge. */
+interface PingModuleProps {
+  /** Round-trip ms; -1 is "no server" and draws an em-dash. */
+  ping: number;
+  goodMs: number;
+  badMs: number;
+  showLabel: boolean;
+  host?: string;
+  average?: number;
+  jitter?: number;
+  jitterWarnMs: number;
+  /** `brief` fades itself out (stepped, CSS); `held` is the preview's form. */
+  spike?: 'brief' | 'held';
+  spikeKey?: string | number;
+}
+
+/**
+ * `PING  HYPIXEL ●` over `22 ms`. The LED carries the threshold band — mint inside `good_ms`,
+ * amber between, red at `bad_ms` — so the figure stays the ink every other numeral is in.
+ * Three bands, three tones: two of them sharing a colour is how `bad_ms` once moved nothing.
+ */
+function PingModule({
+  ping,
+  goodMs,
+  badMs,
+  showLabel,
+  host,
+  average,
+  jitter,
+  jitterWarnMs,
+  spike,
+  spikeKey,
+}: PingModuleProps) {
+  const unknown = ping < 0;
+  const tone: LedTone = unknown ? 'off' : ping >= badMs ? 'bad' : ping <= goodMs ? 'ok' : 'warn';
+  return (
+    <HudModule
+      label={showLabel ? 'PING' : undefined}
+      className="ch-ping"
+      head={
+        <>
+          {host ? <span className="ch-tab ch-tab--aside">{host}</span> : null}
+          <HudLed tone={tone} />
+        </>
+      }
+    >
+      <div className="ch-row">
+        <span className="ch-num">{unknown ? '—' : ping}</span>
+        {unknown ? null : <span className="ch-unit">ms</span>}
+        {spike ? (
+          <span
+            key={spikeKey}
+            className={spike === 'held' ? 'ch-spike ch-spike--held' : 'ch-spike'}
+            aria-label="spike"
+          />
+        ) : null}
+        {average === undefined ? null : (
+          <span className="ch-aside">avg {Math.round(average)}</span>
+        )}
+        {jitter === undefined ? null : (
+          <span
+            className={
+              jitterWarnMs > 0 && jitter >= jitterWarnMs ? 'ch-aside ch-aside--warn' : 'ch-aside'
+            }
+          >
+            ±{Math.round(jitter)}
+          </span>
+        )}
+      </div>
+    </HudModule>
+  );
+}
+
+export const HudPing = memo(function HudPing({ sample }: HudWidgetProps) {
   const live = useVoidStore((s) => s.ping);
   const liveHost = useVoidStore((s) => s.server.host);
   const showHost = useVoidStore((s) => modSettings(s.loadout, 'ping').show_host !== false);
@@ -141,19 +235,14 @@ export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps
   const history = useVoidStore((s) => s.pingHistory);
   const { showAverage, showJitter, jitterWarn, spikeMs, window } = usePingStatsSettings();
   const host = liveHost ?? (sample ? 'mc.hypixel.net' : null);
-  const chip = (
-    value: number,
-    extra: Partial<React.ComponentProps<typeof PingChip>> = {},
-    key?: number,
-  ) => (
-    <PingChip
+  const chip = (value: number, extra: Partial<PingModuleProps> = {}, key?: number) => (
+    <PingModule
       key={key}
-      variant={variant}
       ping={value}
       goodMs={good}
       badMs={bad}
       showLabel={showLabel}
-      host={showHost && host ? shortHost(host) : undefined}
+      host={showHost && host ? shortHost(host).toUpperCase() : undefined}
       jitterWarnMs={jitterWarn}
       {...extra}
     />
@@ -182,7 +271,7 @@ export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps
     const stats = pingStats(past, window, spikeMs);
     const spiked = pingStats([...past, band[2]!], window, spikeMs);
     return (
-      <div className="v-pingband">
+      <div className="ch-band">
         {chip(band[0]!, {}, 0)}
         {chip(
           band[1]!,
@@ -214,22 +303,50 @@ export const HudPing = memo(function HudPing({ variant, sample }: HudWidgetProps
 /** Somewhere in a world, for a preview opened before the first `tick` lands. */
 const SAMPLE_POS = { x: 128.4, y: 64, z: -302.7, yaw: 45 };
 
-export const HudCoordinates = memo(function HudCoordinates({ variant, sample }: HudWidgetProps) {
+export const HudCoordinates = memo(function HudCoordinates({ sample }: HudWidgetProps) {
   const live = useVoidStore((s) => s.pos);
   const settings = useModSettings('coordinates');
   const pos = live ?? (sample ? SAMPLE_POS : null);
   if (!pos) return null;
+  const decimals = Math.min(2, Math.max(0, Math.round(Number(settings.decimals ?? 0)))) || 0;
+  const stacked = settings.layout === 'stacked';
+  // `color` inks the three readings and the cardinal — the live values — never the axis letters.
+  const ink = inkStyle(typeof settings.color === 'string' ? settings.color : undefined);
+  const facing = settings.show_direction === false ? null : cardinalFromYaw(pos.yaw);
+  const axis = (letter: string, value: number) => (
+    <span className="ch-axis" key={letter}>
+      <span className="ch-axis__k">{letter}</span>
+      <span className="ch-num ch-num--md" style={ink}>
+        {value.toFixed(decimals)}
+      </span>
+    </span>
+  );
+  // Stacked, one axis per line: the three figures share an x-position, so a digit changing is a
+  // digit you can see change. The facing moves to the tab row there, where a line of its own
+  // would be a fourth row for two letters.
   return (
-    <CoordsChip
-      variant={variant}
-      x={pos.x}
-      y={pos.y}
-      z={pos.z}
-      decimals={Number(settings.decimals ?? 0)}
-      layout={settings.layout === 'stacked' ? 'stacked' : 'inline'}
-      color={typeof settings.color === 'string' ? settings.color : undefined}
-      direction={settings.show_direction === false ? undefined : cardinalFromYaw(pos.yaw)}
-    />
+    <HudModule
+      label="XYZ"
+      className={stacked ? 'ch-coords ch-coords--stacked' : 'ch-coords'}
+      head={
+        stacked && facing ? (
+          <span className="ch-tab ch-tab--live" style={ink}>
+            {facing}
+          </span>
+        ) : undefined
+      }
+    >
+      <div className={stacked ? 'ch-coords__axes ch-coords__axes--stacked' : 'ch-coords__axes'}>
+        {axis('X', pos.x)}
+        {axis('Y', pos.y)}
+        {axis('Z', pos.z)}
+        {!stacked && facing ? (
+          <span className="ch-num ch-num--md ch-coords__facing" style={ink}>
+            {facing}
+          </span>
+        ) : null}
+      </div>
+    </HudModule>
   );
 });
 
@@ -242,19 +359,37 @@ export const HudCoordinates = memo(function HudCoordinates({ variant, sample }: 
  * reason it was the first of Wave 2 to ship. `coordinates.show_direction` still exists and is
  * the *inline* form; this is the standalone one. Neither reads the other's settings.
  */
-export const HudDirection = memo(function HudDirection({ variant, sample }: HudWidgetProps) {
+const COMPASS_WORDS: Record<string, string> = {
+  S: 'South', SW: 'Southwest', W: 'West', NW: 'Northwest',
+  N: 'North', NE: 'Northeast', E: 'East', SE: 'Southeast',
+};
+
+/** South is +Z and west is +X in 1.8.9; the diagonals name both axes. Same table as `@void/ui`. */
+const COMPASS_AXES: Record<string, string> = {
+  S: '+Z', SW: '+X +Z', W: '+X', NW: '+X −Z',
+  N: '−Z', NE: '−X −Z', E: '−X', SE: '−X +Z',
+};
+
+export const HudDirection = memo(function HudDirection({ sample }: HudWidgetProps) {
   const live = useVoidStore((s) => s.pos);
   const settings = useModSettings('direction');
   const pos = live ?? (sample ? SAMPLE_POS : null);
   if (!pos) return null;
+  const notation = asDirectionStyle(settings.style);
+  const point = yawIndex(pos.yaw);
+  const facing =
+    notation === 'word' ? COMPASS_WORDS[point] : notation === 'axis' ? COMPASS_AXES[point] : point;
+  // Yaw runs unbounded in game; a module printing `-1043°` is not a reading.
+  const degrees = Math.round(((pos.yaw % 360) + 360) % 360);
   return (
-    <DirectionChip
-      variant={variant}
-      yaw={pos.yaw}
-      notation={asDirectionStyle(settings.style)}
-      showDegrees={settings.show_degrees === true}
-      color={typeof settings.color === 'string' ? settings.color : undefined}
-    />
+    <HudModule label="FACING" className="ch-dir">
+      <div className="ch-row">
+        <span className="ch-num" style={inkStyle(typeof settings.color === 'string' ? settings.color : undefined)}>
+          {facing}
+        </span>
+        {settings.show_degrees === true ? <span className="ch-unit">{degrees}°</span> : null}
+      </div>
+    </HudModule>
   );
 });
 
@@ -301,31 +436,65 @@ export function effectBlinks(durationMs: number, belowS: number): boolean {
   return seconds > 0 && seconds <= belowS && seconds % 2 === 1;
 }
 
+/**
+ * Full durations for the fixture, so its three timers sit at three different fill levels: Speed
+ * II drunk from a 3:00 bottle, Strength from a beacon's minute, Haste on its last quarter.
+ */
+const SAMPLE_FULL_MS: Readonly<Record<number, number>> = { 1: 180_000, 5: 60_000, 3: 45_000 };
+
+/**
+ * The longest duration seen per effect id while it stays applied — the timer's "full".
+ *
+ * The tick sends time left, never the potion's original length, and that length varies by the
+ * bottle (Speed is 3:00, 8:00 extended, 1:30 at II). So the widget remembers: the first reading
+ * of an effect is its full bar, a re-drink that raises it raises the full, and an effect that
+ * drops out is forgotten so the next one starts full again. Per widget instance (a ref, not
+ * module state), so the mod page's fixture cannot teach the HUD a wrong length.
+ */
+function useFullDurations(fx: readonly PotionEffect[], fixture: boolean): (id: number, ms: number) => number {
+  const seen = useRef(new Map<number, number>());
+  if (fixture) return (id, ms) => SAMPLE_FULL_MS[id] ?? ms;
+  const map = seen.current;
+  const present = new Set<number>();
+  for (const effect of fx) {
+    present.add(effect.id);
+    const prev = map.get(effect.id) ?? 0;
+    if (effect.duration_ms > prev) map.set(effect.id, effect.duration_ms);
+  }
+  for (const id of [...map.keys()]) if (!present.has(id)) map.delete(id);
+  return (id, ms) => Math.max(ms, map.get(id) ?? ms);
+}
+
 export const HudPotionEffects = memo(function HudPotionEffects({ sample }: HudWidgetProps) {
   const live = useVoidStore((s) => s.fx);
   const settings = useModSettings('potion_effects');
-  const fx = live.length > 0 || !sample ? live : (SAMPLE_FX as unknown as typeof live);
+  const fixture = live.length === 0 && sample === true;
+  const fx = fixture ? (SAMPLE_FX as unknown as typeof live) : live;
+  const fullOf = useFullDurations(fx, fixture);
   const hidden = Number(settings.hidden_effects ?? 0);
   const blinkBelow = Number(settings.blink_below_s ?? 5);
   const visible = fx.filter(
     (f) => !(settings.hide_ambient && f.ambient) && !effectHidden(hidden, f.id),
   );
   if (visible.length === 0) return null;
-  return (
-    <PotionList
-      effects={visible.map((effect) => {
-        const meta = potionMeta(effect);
-        const level = settings.show_amplifier === false ? '' : formatAmplifier(effect.amplifier);
-        return {
-          color: meta.color,
-          name: level ? `${meta.label} ${level}` : meta.label,
-          time:
-            settings.show_duration === false ? undefined : formatPotionTime(effect.duration_ms),
-          dim: effectBlinks(effect.duration_ms, blinkBelow),
-        };
-      })}
-    />
-  );
+  const rows: CartEffectRow[] = visible.map((effect) => {
+    const meta = potionMeta(effect);
+    const level = settings.show_amplifier === false ? '' : formatAmplifier(effect.amplifier);
+    const seconds = Math.max(0, Math.round(effect.duration_ms / 1000));
+    const full = fullOf(effect.id, effect.duration_ms);
+    return {
+      id: effect.id,
+      color: meta.color,
+      name: level ? `${meta.label} ${level}` : meta.label,
+      time: settings.show_duration === false ? undefined : formatPotionTime(effect.duration_ms),
+      fraction: full > 0 ? effect.duration_ms / full : 0,
+      // Inside the blink window the timer turns amber for the whole of it; the row dims on the
+      // odd seconds only — the blink itself.
+      ending: blinkBelow > 0 && seconds > 0 && seconds <= blinkBelow,
+      dim: effectBlinks(effect.duration_ms, blinkBelow),
+    };
+  });
+  return <CartEffects rows={rows} />;
 });
 
 /* ------------------------------------------------------------------ armor */
@@ -351,11 +520,14 @@ export const HudArmorStatus = memo(function HudArmorStatus({ sample }: HudWidget
   const worn = live.some((slot) => slot.item !== null) || !sample ? live : SAMPLE_ARMOR;
   const rows = worn
     .filter((slot) => settings.show_held_item !== false || slot.slot !== 'held')
-    .map(armorRow)
+    .map((slot) => {
+      const row = armorRow(slot);
+      return row ? { ...row, item: slot.item } : null;
+    })
     .filter((row): row is NonNullable<typeof row> => row !== null);
   if (rows.length === 0) return null;
   return (
-    <ArmorList
+    <CartArmor
       rows={rows}
       orientation={settings.orientation === 'vertical' ? 'vertical' : 'horizontal'}
       showDurability={settings.show_durability !== false}
@@ -371,28 +543,19 @@ export const HudKeystrokes = memo(function HudKeystrokes({ className }: HudWidge
   const settings = useModSettings('keystrokes');
   const cpsLeft = useVoidStore((s) => s.cpsLeft);
   const cpsRight = useVoidStore((s) => s.cpsRight);
-  const radius = settings.corner_radius;
-  // `corner_radius`, `key_color` and `pressed_color` are all applied the same way: by
-  // overriding the token the keycap rules already read, rather than by three bespoke style
-  // hooks. `keystrokesColorStyle` owns the name-to-token resolution so the settings swatches
-  // and the widget cannot show different colours for the same choice.
-  const style: React.CSSProperties = {
-    ...keystrokesColorStyle(
-      typeof settings.key_color === 'string' ? settings.key_color : null,
-      typeof settings.pressed_color === 'string' ? settings.pressed_color : null,
-    ),
-    ...(typeof radius === 'number'
-      ? ({ ['--radius-control' as string]: `${radius}px` } as React.CSSProperties)
-      : null),
-    // `animate` + `fade_ms`: how long a released cap takes to return to rest. The keycap rule
-    // reads this for its transition and the pressed rule overrides it to 0, so a press is always
-    // on the frame and only the release is shaped (`06-hud.css`). Off is a snap both ways.
-    ...({
-      ['--key-fade' as string]: `${settings.animate === false ? 0 : Math.max(0, Number(settings.fade_ms ?? 120))}ms`,
-    } as React.CSSProperties),
-  };
+  // `corner_radius`, `key_color` and `pressed_color` all override a custom property the keycap
+  // rules already read (`cart/hud.css`), rather than three bespoke style hooks; the name-to-
+  // colour table is `CART_KEY_COLORS`, the one place both the widget and a swatch can read.
+  // `animate` + `fade_ms`: how long a released cap takes to return to rest, in three steps. The
+  // press is always on the frame; only the release is shaped. Off is a snap both ways.
+  const style = cartKeysStyle({
+    keyColor: typeof settings.key_color === 'string' ? settings.key_color : null,
+    pressedColor: typeof settings.pressed_color === 'string' ? settings.pressed_color : null,
+    radius: typeof settings.corner_radius === 'number' ? settings.corner_radius : null,
+    fadeMs: settings.animate === false ? 0 : Number(settings.fade_ms ?? 120),
+  });
   return (
-    <KeystrokesWidget
+    <CartKeystrokes
       className={className}
       style={style}
       keys={{
@@ -449,7 +612,7 @@ function sampleRate(ages: readonly number[], windowMs: number): number {
   return clicksPerSecond(ring, SAMPLE_NOW, windowMs);
 }
 
-export const HudCps = memo(function HudCps({ variant, sample }: HudWidgetProps) {
+export const HudCps = memo(function HudCps({ sample }: HudWidgetProps) {
   const liveLeft = useVoidStore((s) => s.cpsLeft);
   const liveRight = useVoidStore((s) => s.cpsRight);
   const mode = useVoidStore((s) => String(modSettings(s.loadout, 'cps').mode ?? 'left'));
@@ -475,17 +638,35 @@ export const HudCps = memo(function HudCps({ variant, sample }: HudWidgetProps) 
   // and off. A peak is by definition at or above the live figure, so the fixture's is the
   // higher of the two hands with a little headroom — which is what a real one looks like.
   const peak = idle && sample ? Math.round(Math.max(left, right) * 1.35 * 10) / 10 : livePeak;
+  const which = mode === 'right' ? 'right' : mode === 'both' ? 'both' : 'left';
+  const main = which === 'right' ? right : left;
   return (
-    <CpsChip
-      variant={variant}
-      left={left}
-      right={right}
-      showLabel={showLabel}
-      peak={showPeak ? peak : undefined}
-      mode={mode === 'right' ? 'right' : mode === 'both' ? 'both' : 'left'}
-    />
+    <HudModule
+      label={showLabel ? 'CPS' : undefined}
+      head={showPeak ? <span className="ch-tab ch-tab--aside">peak {peak}</span> : undefined}
+      className="ch-cps"
+    >
+      <div className="ch-row">
+        <span className="ch-num">{main}</span>
+        {/* `both`: the right hand small beside the left, as the frame draws `11 4`. */}
+        {which === 'both' ? <span className="ch-num ch-num--sub">{right}</span> : null}
+        {/* Six steps in the HUD hue, 2.5 CPS each — the one live mark on the module in colour. */}
+        <Meter
+          n={6}
+          on={litFor(Math.min(main, CPS_METER_MAX) / CPS_METER_MAX, 6)}
+          w={4}
+          h={16}
+          gap={2}
+          color="var(--c-hue-hud)"
+          className="ch-cps__meter"
+        />
+      </div>
+    </HudModule>
   );
 });
+
+/** Where the CPS meter tops out: 15 is a hard butterfly; past it the meter is simply full. */
+const CPS_METER_MAX = 15;
 
 /* ------------------------------------------------------------- crosshair */
 

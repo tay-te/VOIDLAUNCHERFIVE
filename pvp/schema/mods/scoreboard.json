@@ -1,5 +1,5 @@
 {
-  "$comment": "**A HUD mod, not a gameplay one, and that is the decision this file exists to record.** The roster's §3.1 #7 asks for hide / move / scale / recolour, and §3.1 #16 says the movers belong to \"once the HUD editor can own vanilla elements\". The editor owns HTML, so the scoreboard became HTML: Java reads the sidebar objective each tick, pushes it on the `scoreboard` bridge channel only when it changes, and suppresses the vanilla draw; the page draws it as a chip like every other readout. That gets placement, scale, opacity and the shared chrome block from the editor for free, which is the whole of #7, and it means the scoreboard looks like the rest of the HUD instead of like 2015. Off restores the vanilla sidebar untouched.",
+  "$comment": "**A HUD mod, not a gameplay one, and that is the decision this file exists to record.** The roster's \u00a73.1 #7 asks for hide / move / scale / recolour, and \u00a73.1 #16 says the movers belong to \"once the HUD editor can own vanilla elements\". The editor owns HTML, so the scoreboard became HTML: Java reads the sidebar objective each tick, pushes it on the `scoreboard` bridge channel only when it changes, and suppresses the vanilla draw; the page draws it as a chip like every other readout. That gets placement, scale, opacity and the shared chrome block from the editor for free, which is the whole of #7, and it means the scoreboard looks like the rest of the HUD instead of like 2015. Off restores the vanilla sidebar untouched.",
   "id": "scoreboard",
   "kind": "hud",
   "category": "hud",
@@ -11,13 +11,13 @@
   "on_description": "the scoreboard is drawn by VOID",
   "description": "The server's sidebar scoreboard, redrawn as a HUD chip you can move, scale or hide.",
   "settings_title": "Scoreboard settings",
-  "settings_description": "Settings for the Scoreboard HUD mod. Reads the sidebar objective the server set — title, lines and scores — exactly as vanilla would draw it, team prefixes and suffixes included, and draws it on the HUD where the editor puts it. It adds nothing the sidebar did not say.",
+  "settings_description": "Settings for the Scoreboard HUD mod. Reads the sidebar objective the server set \u2014 title, lines and scores \u2014 exactly as vanilla would draw it, team prefixes and suffixes included, and draws it on the HUD where the editor puts it. It adds nothing the sidebar did not say.",
   "source": "the sidebar `ScoreboardObjective`, via the `scoreboard` bridge channel",
   "enabled": false,
   "default_placement": {
-    "note": "Right edge, vertically centred — where vanilla draws the sidebar, so turning the mod on restyles it in place before anyone moves it.",
+    "note": "Right edge, vertically centred \u2014 where vanilla draws the sidebar, so turning the mod on restyles it in place before anyone moves it.",
     "anchor": "right",
-    "dx": -25,
+    "dx": -20,
     "dy": 0
   },
   "defaults": {
@@ -28,7 +28,7 @@
   },
   "settings": {
     "hidden": {
-      "description": "Whether the scoreboard is hidden entirely — vanilla's and this one. For recording, and for servers whose sidebar is an advert.",
+      "description": "Whether the scoreboard is hidden entirely \u2014 vanilla's and this one. For recording, and for servers whose sidebar is an advert.",
       "type": "boolean",
       "default": false
     },
