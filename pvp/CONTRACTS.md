@@ -171,7 +171,7 @@ the JVM as the system properties **`-Dvoid.port`** and **`-Dvoid.token`**. **mod
 them in `net/`, connects, and sends `hello` carrying the token; the server closes the
 socket if it does not match.
 
-Messages are defined in `schema/protocol.json`, §7 — **seven** Java→Rust, three Rust→Java.
+Messages are defined in `schema/protocol.json`, §7 — **ten** Java→Rust, five Rust→Java (the cosmetics and emote messages of `docs/online-contract.md` among them).
 The link carries **state, never frames**. `v` is the protocol version, **`2`** — bumped
 from 1 by the integration pass, for `init.loadouts` carrying whole loadouts rather than
 summaries (`schema/README.md`, and `void_bridge::PROTOCOL_VERSION`) — present on `hello`

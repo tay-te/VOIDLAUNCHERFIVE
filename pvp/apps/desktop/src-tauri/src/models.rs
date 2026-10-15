@@ -309,3 +309,27 @@ pub struct PingResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub favicon: Option<String>,
 }
+
+// ------------------------------------------------------------------ online
+
+/// `cosmetics_state` / `online:cosmetics`: what the player owns and wears, from the backend.
+/// `online: false` (and `equipped: null`) when there is no online session; the window then
+/// shows its offline copy.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct CosmeticsState {
+    pub online: bool,
+    pub owned: Vec<String>,
+    pub equipped: Option<void_online::EquippedSet>,
+}
+
+impl CosmeticsState {
+    pub fn offline() -> Self {
+        CosmeticsState { online: false, owned: Vec::new(), equipped: None }
+    }
+}
+
+impl From<void_online::MyCosmetics> for CosmeticsState {
+    fn from(c: void_online::MyCosmetics) -> Self {
+        CosmeticsState { online: true, owned: c.owned, equipped: Some(c.equipped) }
+    }
+}

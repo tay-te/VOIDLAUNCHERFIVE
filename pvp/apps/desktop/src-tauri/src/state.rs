@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use void_core::auth::Session;
 use void_core::{Config, Paths};
 use void_loadout::Store;
+use void_online::{Online, OnlineConfig};
 
 use crate::adapters::game::GameState;
 use crate::error::Error;
@@ -27,6 +28,9 @@ pub struct AppState {
     /// Discord Rich Presence. Disabled here; `lib.rs` starts the real one, so tests and
     /// the CLI-less command layer never open a Discord socket.
     pub presence: Presence,
+    /// The online backend (docs/online-contract.md). Disabled when this build has no
+    /// `VOID_SUPABASE_URL` / `VOID_SUPABASE_ANON_KEY`; every call then says so.
+    pub online: Online,
 }
 
 impl AppState {
@@ -35,16 +39,20 @@ impl AppState {
         // Seeds the three starter loadouts on first run; a no-op afterwards.
         store.init().map_err(Error::from)?;
 
+        let http = reqwest::Client::builder()
+            .user_agent(concat!("void-pvp-launcher/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .unwrap_or_default();
+        // Tests never reach a backend, whatever the developer's environment says.
+        let online = if cfg!(test) { Online::disabled() } else { Online::new(OnlineConfig::from_env(), http.clone()) };
         Ok(AppState {
             paths,
             store,
-            http: reqwest::Client::builder()
-                .user_agent(concat!("void-pvp-launcher/", env!("CARGO_PKG_VERSION")))
-                .build()
-                .unwrap_or_default(),
+            http,
             session: Mutex::new(None),
             game: Arc::new(Mutex::new(GameState::default())),
             presence: Presence::disabled(),
+            online,
         })
     }
 

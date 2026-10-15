@@ -19,7 +19,7 @@
 
     "java_to_rust": {
       "title": "Java to Rust",
-      "description": "The seven messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
+      "description": "The ten messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.",
       "oneOf": [
         { "description": "Handshake sent immediately on connect.", "$ref": "#/definitions/msg_hello" },
         { "description": "Live loadout state delta.", "$ref": "#/definitions/msg_state" },
@@ -27,17 +27,22 @@
         { "description": "Global settings delta written in game.", "$ref": "#/definitions/msg_globals" },
         { "description": "Periodic session telemetry summary.", "$ref": "#/definitions/msg_session" },
         { "description": "Server connect/disconnect notification.", "$ref": "#/definitions/msg_server" },
-        { "description": "A global hotkey the player pressed in game.", "$ref": "#/definitions/msg_hotkey" }
+        { "description": "A global hotkey the player pressed in game.", "$ref": "#/definitions/msg_hotkey" },
+        { "description": "UUIDs of players the mod sees, whose cosmetics it wants.", "$ref": "#/definitions/msg_cosmetics_query" },
+        { "description": "The local player played an emote.", "$ref": "#/definitions/msg_emote_local" },
+        { "description": "The player equipped or took off an item in game.", "$ref": "#/definitions/msg_equip" }
       ]
     },
 
     "rust_to_java": {
       "title": "Rust to Java",
-      "description": "The three messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.",
+      "description": "The five messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.",
       "oneOf": [
         { "description": "Handshake reply carrying the initial world of state.", "$ref": "#/definitions/msg_init" },
         { "description": "Loadout switched from the launcher or the tray.", "$ref": "#/definitions/msg_loadout" },
-        { "description": "Global settings changed in the launcher.", "$ref": "#/definitions/msg_settings" }
+        { "description": "Global settings changed in the launcher.", "$ref": "#/definitions/msg_settings" },
+        { "description": "Equipped cosmetics: the local player's own set and other VOID players' sets.", "$ref": "#/definitions/msg_cosmetics" },
+        { "description": "Another VOID player on the same server played an emote.", "$ref": "#/definitions/msg_emote_remote" }
       ]
     },
 
@@ -212,6 +217,118 @@
       }
     },
 
+    "msg_cosmetics_query": {
+      "title": "cosmetics_query (Java to Rust)",
+      "description": "The UUIDs of players the mod currently sees (tab list and rendered entities), whose cosmetics it wants. The mod batches, debounces and caches on its side; the launcher batch-fetches from the online backend (`cosmetics-lookup`) behind its own LRU cache and answers with one or more `cosmetics` messages. UUIDs that are not VOID players never appear in a reply: absence is the answer. The mod never talks HTTP; Rust owns network and auth (docs/online-contract.md).",
+      "type": "object",
+      "required": ["t", "uuids"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `cosmetics_query`.", "type": "string", "const": "cosmetics_query" },
+        "uuids": { "description": "Minecraft UUIDs, dashed or undashed. At most 200 per message; send more as several.", "type": "array", "maxItems": 200, "items": { "$ref": "#/definitions/mc_uuid" } }
+      }
+    },
+
+    "msg_emote_local": {
+      "title": "emote (Java to Rust)",
+      "description": "The local player played an emote from their wheel. Java has already started the animation locally; the launcher relays it to the other VOID players on the same server through the online backend, which checks ownership and stamps the sender's identity. Same `t` as the launcher's `emote`; the direction tells them apart, and this one carries no `uuid`.",
+      "type": "object",
+      "required": ["t", "id"],
+      "not": { "description": "A `uuid` makes it the launcher's relay, `msg_emote_remote`.", "required": ["uuid"] },
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `emote`.", "type": "string", "const": "emote" },
+        "id": { "description": "The emote's item id.", "$ref": "#/definitions/cosmetic_id" }
+      }
+    },
+
+    "msg_equip": {
+      "title": "equip (Java to Rust)",
+      "description": "The player equipped an item, or took one off with `id: null`, in the in-game wardrobe (`window.void.equipCosmetic`). Java has already applied it locally; the launcher persists it to the online backend, which validates ownership. If the backend refuses (not owned, wrong slot), the launcher answers with a `cosmetics` message whose `self` is the stored set, which reverts the local change.",
+      "type": "object",
+      "required": ["t", "slot", "id"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `equip`.", "type": "string", "const": "equip" },
+        "slot": { "description": "The slot.", "$ref": "#/definitions/cosmetic_slot" },
+        "id": { "description": "The item id, or null to empty the slot.", "oneOf": [{ "$ref": "#/definitions/cosmetic_id" }, { "type": "null" }] }
+      }
+    },
+
+    "msg_cosmetics": {
+      "title": "cosmetics (Rust to Java)",
+      "description": "Equipped cosmetics. `self` is the local player's own set, sent after every `hello` and after any change (an equip from the launcher Store, a refused in-game equip, a purchase); null when the player has no online session (offline account, backend unreachable or not configured). `players` is a delta: other VOID players' sets that are new or changed since the last message, in reply to `cosmetics_query`; never a full roster, the mod keeps its own cache. Assets are bundled in the mod jar under `assets/void/cosmetics/<id>/`, so an id is all the mod needs; an id it does not have is skipped.",
+      "type": "object",
+      "required": ["t", "self", "players"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `cosmetics`.", "type": "string", "const": "cosmetics" },
+        "self": { "description": "The local player's equipped set, or null with no online session.", "oneOf": [{ "$ref": "#/definitions/equipped_set" }, { "type": "null" }] },
+        "players": { "description": "Other VOID players' sets, new or changed.", "type": "array", "items": { "$ref": "#/definitions/equipped_set" } }
+      }
+    },
+
+    "msg_emote_remote": {
+      "title": "emote (Rust to Java)",
+      "description": "Another VOID player on the same server played an emote. Relayed from the server's Realtime channel; the sender's identity was stamped by the backend, not claimed by the sender. The mod plays it on that player if it can see them and drops it otherwise.",
+      "type": "object",
+      "required": ["t", "uuid", "id", "at"],
+      "additionalProperties": true,
+      "properties": {
+        "t": { "description": "Message discriminator; always `emote`.", "type": "string", "const": "emote" },
+        "uuid": { "description": "Who played it.", "$ref": "#/definitions/mc_uuid" },
+        "id": { "description": "The emote's item id.", "$ref": "#/definitions/cosmetic_id" },
+        "at": { "description": "When it was played, Unix milliseconds on the backend's clock, so the mod can drop one that arrives stale.", "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "mc_uuid": {
+      "title": "Minecraft UUID",
+      "description": "A Minecraft profile UUID. Rust always sends the dashed lowercase form and accepts the undashed form from the mod.",
+      "type": "string",
+      "pattern": "^(?:[0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
+    },
+
+    "cosmetic_id": {
+      "title": "Cosmetic item id",
+      "description": "Kebab-case, globally unique, e.g. `void-cape-rift`. Defined in `cosmetics.json`.",
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+
+    "cosmetic_slot": {
+      "title": "Cosmetic slot",
+      "description": "A wearable slot, one item each. `back` is wings and other back items, `head` hats, `face` masks, `halo` floats above the head and may coexist with a hat, `trail` particles while moving, `badge` the icon beside the nametag. Emotes are not a slot.",
+      "type": "string",
+      "enum": ["cape", "back", "head", "face", "halo", "trail", "badge"]
+    },
+
+    "equipped_set": {
+      "title": "Equipped set",
+      "description": "What one player wears. Every slot is present, null when empty. `emotes` is the player's wheel, at most 8, in wheel order. `tints` is an optional per-slot recolour for items flagged `tintable`, omitted when empty.",
+      "type": "object",
+      "required": ["uuid", "cape", "back", "head", "face", "halo", "trail", "badge", "emotes"],
+      "additionalProperties": true,
+      "properties": {
+        "uuid": { "description": "The player.", "$ref": "#/definitions/mc_uuid" },
+        "cape": { "description": "Cape item id or null.", "oneOf": [{ "$ref": "#/definitions/cosmetic_id" }, { "type": "null" }] },
+        "back": { "description": "Back item id or null.", "oneOf": [{ "$ref": "#/definitions/cosmetic_id" }, { "type": "null" }] },
+        "head": { "description": "Hat item id or null.", "oneOf": [{ "$ref": "#/definitions/cosmetic_id" }, { "type": "null" }] },
+        "face": { "description": "Mask item id or null.", "oneOf": [{ "$ref": "#/definitions/cosmetic_id" }, { "type": "null" }] },
+        "halo": { "description": "Halo item id or null.", "oneOf": [{ "$ref": "#/definitions/cosmetic_id" }, { "type": "null" }] },
+        "trail": { "description": "Trail item id or null.", "oneOf": [{ "$ref": "#/definitions/cosmetic_id" }, { "type": "null" }] },
+        "badge": { "description": "Badge item id or null.", "oneOf": [{ "$ref": "#/definitions/cosmetic_id" }, { "type": "null" }] },
+        "emotes": { "description": "Emote ids on the wheel, in order.", "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/definitions/cosmetic_id" } },
+        "tints": {
+          "description": "Slot name to `#rrggbb` recolour, for tintable items only.",
+          "type": "object",
+          "propertyNames": { "description": "A slot name.", "$ref": "#/definitions/cosmetic_slot" },
+          "additionalProperties": { "description": "The colour.", "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+        }
+      }
+    },
+
     "global_settings": {
       "title": "Global settings",
       "description": "The subset of §8.3 global settings the game needs. Account, Java path and RAM stay on the Rust side and are deliberately absent: they are launcher concerns and the mod has no use for them. additionalProperties is true so the launcher can add a global without a protocol bump.",
@@ -314,6 +431,20 @@
         "hud": [{ "id": "keystrokes", "anchor": "bottom-left", "dx": 24, "dy": -24 }]
       }
     },
-    { "t": "settings", "settings": { "menu_key": "RSHIFT", "cycle_loadout_key": "L", "theme": "void-dark", "ui_scale": 1 } }
+    { "t": "settings", "settings": { "menu_key": "RSHIFT", "cycle_loadout_key": "L", "theme": "void-dark", "ui_scale": 1 } },
+    { "t": "cosmetics_query", "uuids": ["069a79f4-44e9-4726-a5be-fca90e38aaf5", "853c80ef3c3749fdaa49938b674adae6"] },
+    { "t": "emote", "id": "emote-wave" },
+    { "t": "equip", "slot": "cape", "id": "void-cape-rift" },
+    { "t": "equip", "slot": "halo", "id": null },
+    {
+      "t": "cosmetics",
+      "self": { "uuid": "069a79f4-44e9-4726-a5be-fca90e38aaf5", "cape": "void-cape-rift", "back": null, "head": null, "face": null, "halo": null, "trail": null, "badge": "void-badge-founder", "emotes": ["emote-wave"], "tints": { "cape": "#9f8bff" } },
+      "players": [
+        { "uuid": "853c80ef-3c37-49fd-aa49-938b674adae6", "cape": null, "back": "void-wings-ash", "head": null, "face": null, "halo": null, "trail": "void-trail-spark", "badge": null, "emotes": [] }
+      ]
+    },
+    { "t": "cosmetics", "self": null, "players": [] },
+    { "t": "emote", "uuid": "853c80ef-3c37-49fd-aa49-938b674adae6", "id": "emote-wave", "at": 1760527200000 }
   ]
 }
+

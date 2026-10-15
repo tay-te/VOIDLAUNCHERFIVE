@@ -60,7 +60,10 @@ pub async fn auth_login<R: Runtime>(
 /// Sign the active account out; returns the account that is active afterwards, if any.
 #[tauri::command]
 pub async fn auth_logout(state: State<'_, AppState>) -> CmdResult<Option<Account>> {
-    map_err(commands::auth::logout(&state).await)
+    let active = map_err(commands::auth::logout(&state).await)?;
+    // The backend follows the active account: off for nobody or an offline one.
+    commands::online::follow_account(&state).await;
+    Ok(active)
 }
 
 #[tauri::command]
@@ -70,12 +73,20 @@ pub fn auth_accounts(state: State<'_, AppState>) -> CmdResult<AccountList> {
 
 #[tauri::command]
 pub async fn auth_switch(state: State<'_, AppState>, uuid: String) -> CmdResult<Account> {
-    map_err(commands::auth::switch(&state, &uuid).await)
+    let account = map_err(commands::auth::switch(&state, &uuid).await)?;
+    commands::online::follow_account(&state).await;
+    Ok(account)
 }
 
 #[tauri::command]
 pub async fn auth_remove(state: State<'_, AppState>, uuid: String) -> CmdResult<AccountList> {
-    map_err(commands::auth::remove(&state, &uuid).await)
+    let before = state.session.lock().unwrap().as_ref().map(|s| s.uuid.clone());
+    let list = map_err(commands::auth::remove(&state, &uuid).await)?;
+    let after = state.session.lock().unwrap().as_ref().map(|s| s.uuid.clone());
+    if before != after {
+        commands::online::follow_account(&state).await;
+    }
+    Ok(list)
 }
 
 #[tauri::command]
@@ -84,8 +95,11 @@ pub fn auth_current(state: State<'_, AppState>) -> CmdResult<Option<Account>> {
 }
 
 #[tauri::command]
-pub fn auth_offline(state: State<'_, AppState>, name: String) -> CmdResult<Account> {
-    map_err(commands::auth::offline(&state, &name))
+pub async fn auth_offline(state: State<'_, AppState>, name: String) -> CmdResult<Account> {
+    let account = map_err(commands::auth::offline(&state, &name))?;
+    // An offline account has no online features: leave the backend if we were on it.
+    commands::online::sign_out(&state).await;
+    Ok(account)
 }
 
 // ------------------------------------------------------------- prepare / launch
@@ -243,6 +257,95 @@ pub fn open_data_dir(state: State<'_, AppState>) -> CmdResult<String> {
         tracing::warn!(%e, "could not open the data folder");
     }
     Ok(dir)
+}
+
+// ---------------------------------------------------------------------- online
+
+#[tauri::command]
+pub fn online_status(state: State<'_, AppState>) -> CmdResult<void_online::OnlineStatus> {
+    Ok(commands::online::status(&state))
+}
+
+#[tauri::command]
+pub async fn cosmetics_state(state: State<'_, AppState>) -> CmdResult<CosmeticsState> {
+    map_err(commands::online::cosmetics_state(&state).await)
+}
+
+#[tauri::command]
+pub async fn cosmetics_equip(
+    state: State<'_, AppState>,
+    slot: String,
+    id: Option<String>,
+) -> CmdResult<void_online::EquippedSet> {
+    map_err(commands::online::equip(&state, &slot, id).await)
+}
+
+#[tauri::command]
+pub async fn cosmetics_set_emotes(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> CmdResult<void_online::EquippedSet> {
+    map_err(commands::online::set_emotes(&state, ids).await)
+}
+
+/// Create a Stripe Checkout Session and open it in the system browser. Ownership arrives
+/// later, as `online:cosmetics`, once Stripe's webhook has granted it.
+#[tauri::command]
+pub async fn store_checkout(
+    state: State<'_, AppState>,
+    item: String,
+) -> CmdResult<void_online::CheckoutSession> {
+    let session = map_err(commands::online::checkout(&state, &item).await)?;
+    if let Err(e) = tauri_plugin_opener::open_url(&session.url, None::<&str>) {
+        tracing::warn!(%e, "could not open the checkout page");
+        return Err("Couldn’t open your browser for checkout. Nothing was charged.".into());
+    }
+    Ok(session)
+}
+
+#[tauri::command]
+pub async fn friends_list(state: State<'_, AppState>) -> CmdResult<void_online::FriendsList> {
+    map_err(commands::online::friends(&state).await)
+}
+
+#[tauri::command]
+pub async fn friends_request(
+    state: State<'_, AppState>,
+    name: String,
+) -> CmdResult<void_online::FriendsList> {
+    map_err(commands::online::friend_request(&state, &name).await)
+}
+
+#[tauri::command]
+pub async fn friends_accept(
+    state: State<'_, AppState>,
+    uuid: String,
+) -> CmdResult<void_online::FriendsList> {
+    map_err(commands::online::friend_accept(&state, &uuid).await)
+}
+
+#[tauri::command]
+pub async fn friends_decline(
+    state: State<'_, AppState>,
+    uuid: String,
+) -> CmdResult<void_online::FriendsList> {
+    map_err(commands::online::friend_decline(&state, &uuid).await)
+}
+
+#[tauri::command]
+pub async fn friends_cancel(
+    state: State<'_, AppState>,
+    uuid: String,
+) -> CmdResult<void_online::FriendsList> {
+    map_err(commands::online::friend_cancel(&state, &uuid).await)
+}
+
+#[tauri::command]
+pub async fn friends_remove(
+    state: State<'_, AppState>,
+    uuid: String,
+) -> CmdResult<void_online::FriendsList> {
+    map_err(commands::online::friend_remove(&state, &uuid).await)
 }
 
 // ---------------------------------------------------------------------- window

@@ -15,5 +15,6 @@
 //! it, which is how CI without webkit2gtk still covers the launch pipeline.
 
 pub mod game;
+pub mod online_bridge;
 pub mod progress;
 pub mod slp;

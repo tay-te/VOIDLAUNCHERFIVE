@@ -49,6 +49,7 @@ desktop = [
 void-core = { path = "../../../crates/void-core" }
 void-bridge = { path = "../../../crates/void-bridge" }
 void-loadout = { path = "../../../crates/void-loadout" }
+void-online = { path = "../../../crates/void-online" }
 
 tauri = { version = "2", features = ["tray-icon", "image-png"], optional = true }
 tauri-plugin-updater = { version = "2", optional = true }
@@ -68,6 +69,11 @@ tracing-appender = "0.2"
 # Launcher-side Discord Rich Presence over the local IPC socket; pure Rust, no Tauri.
 discord-rich-presence = "1"
 
+[dev-dependencies]
+tokio-tungstenite = "0.29"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+tempfile = "3"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -77,6 +83,3 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
-
-[dev-dependencies]
-tempfile = "3"

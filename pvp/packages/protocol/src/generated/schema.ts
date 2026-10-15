@@ -912,7 +912,7 @@ export type HUDLayout = HUDItem[];
  */
 export type ProtocolMessage = JavaToRust | RustToJava;
 /**
- * The seven messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
+ * The ten messages the mod sends to the launcher. Validate an inbound frame in `void-bridge` against this.
  */
 export type JavaToRust =
   | HelloJavaToRust
@@ -921,7 +921,10 @@ export type JavaToRust =
   | GlobalsJavaToRust
   | SessionJavaToRust
   | ServerJavaToRust
-  | HotkeyJavaToRust;
+  | HotkeyJavaToRust
+  | CosmeticsQueryJavaToRust
+  | EmoteJavaToRust
+  | EquipJavaToRust;
 /**
  * Version of this message set. Bumped on any breaking change. Carried on `hello` and `init` only; both sides compare and refuse to proceed on a mismatch (§7). **2** since `init.loadouts` changed from `loadout_summary` to whole loadouts: a v1 mod would read a v2 `init` without complaint, but a v2 mod against a v1 launcher would receive summaries, materialise every mod at its factory default, and silently apply the wrong loadout on a switch. That is exactly the mixed-halves case `v` exists to refuse.
  */
@@ -931,9 +934,26 @@ export type ProtocolVersion = 2;
  */
 export type HotkeyId = 'loadout.next' | 'overlay';
 /**
- * The three messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.
+ * A Minecraft profile UUID. Rust always sends the dashed lowercase form and accepts the undashed form from the mod.
  */
-export type RustToJava = InitRustToJava | LoadoutRustToJava | SettingsRustToJava;
+export type MinecraftUUID = string;
+/**
+ * Kebab-case, globally unique, e.g. `void-cape-rift`. Defined in `cosmetics.json`.
+ */
+export type CosmeticItemId = string;
+/**
+ * A wearable slot, one item each. `back` is wings and other back items, `head` hats, `face` masks, `halo` floats above the head and may coexist with a hat, `trail` particles while moving, `badge` the icon beside the nametag. Emotes are not a slot.
+ */
+export type CosmeticSlot = 'cape' | 'back' | 'head' | 'face' | 'halo' | 'trail' | 'badge';
+/**
+ * The five messages the launcher sends to the mod. Validate an inbound frame in the mod's `net/` package against this.
+ */
+export type RustToJava =
+  | InitRustToJava
+  | LoadoutRustToJava
+  | SettingsRustToJava
+  | CosmeticsRustToJava
+  | EmoteRustToJava;
 /**
  * The single `window.void` object that joins the Java mod and the in-game React app, as specified in PVP_ARCHITECTURE.md §6.5. Java to JS is push, delivered through `void.on(event, handler)` and batched once per frame; JS to Java is a direct call. The bridge is in-process (Ultralight lives inside the JVM, §6.2), so calls are synchronous and return real applied state -- there is no ack, no optimistic UI and no request id. This file therefore does not describe a transport; it describes, per event, the shape of the payload handed to the handler, and per call, the positional `params` and the `returns` value. An instance of this schema is one enveloped event, call or call result, which is exactly the form the browser `?debug` harness of §9 records and replays against a fake window.void. Payloads are additionalProperties:false: unlike protocol.json this surface is not forward-compatible across versions, because the mod JAR embeds the UI bundle and the two always ship as one binary. The channel list below is the whole contract and both shims close over it: `on` returns a no-op subscription for a name it does not know and `__emit` drops an envelope whose channel has no list, so a channel Java pushes and this file does not declare is lost in total silence. That is how `session` went missing between Java and the page the first time, and why it is written down here now.
  */
@@ -2195,6 +2215,48 @@ export interface HotkeyJavaToRust {
   [k: string]: any | undefined;
 }
 /**
+ * The UUIDs of players the mod currently sees (tab list and rendered entities), whose cosmetics it wants. The mod batches, debounces and caches on its side; the launcher batch-fetches from the online backend (`cosmetics-lookup`) behind its own LRU cache and answers with one or more `cosmetics` messages. UUIDs that are not VOID players never appear in a reply: absence is the answer. The mod never talks HTTP; Rust owns network and auth (docs/online-contract.md).
+ */
+export interface CosmeticsQueryJavaToRust {
+  /**
+   * Message discriminator; always `cosmetics_query`.
+   */
+  t: 'cosmetics_query';
+  /**
+   * Minecraft UUIDs, dashed or undashed. At most 200 per message; send more as several.
+   *
+   * @maxItems 200
+   */
+  uuids: MinecraftUUID[];
+  [k: string]: any | undefined;
+}
+/**
+ * The local player played an emote from their wheel. Java has already started the animation locally; the launcher relays it to the other VOID players on the same server through the online backend, which checks ownership and stamps the sender's identity. Same `t` as the launcher's `emote`; the direction tells them apart, and this one carries no `uuid`.
+ */
+export interface EmoteJavaToRust {
+  /**
+   * Message discriminator; always `emote`.
+   */
+  t: 'emote';
+  id: CosmeticItemId;
+  [k: string]: any | undefined;
+}
+/**
+ * The player equipped an item, or took one off with `id: null`, in the in-game wardrobe (`window.void.equipCosmetic`). Java has already applied it locally; the launcher persists it to the online backend, which validates ownership. If the backend refuses (not owned, wrong slot), the launcher answers with a `cosmetics` message whose `self` is the stored set, which reverts the local change.
+ */
+export interface EquipJavaToRust {
+  /**
+   * Message discriminator; always `equip`.
+   */
+  t: 'equip';
+  slot: CosmeticSlot;
+  /**
+   * The item id, or null to empty the slot.
+   */
+  id: CosmeticItemId | null;
+  [k: string]: any | undefined;
+}
+/**
  * The launcher's answer to `hello` (§6.9). Delivers the entire world of persisted state in one frame: the active loadout, **every other loadout in full**, and global settings. The mod keeps no config files of its own (§6.1); everything it knows arrives here. `loadouts` carries whole loadouts rather than summaries on purpose: a loadout is roughly 1 KB and a library is capped at 128, so the whole library is a few hundred kilobytes at worst, sent once per launch — and in exchange `void.switchLoadout` and the L-key cycle can apply any loadout in under a frame (§8.2) with no round trip, and the in-game Loadouts screen can list the library without a bridge accessor of its own. There is deliberately no `request_loadout` message: nothing the mod does needs one.
  */
 export interface InitRustToJava {
@@ -2253,6 +2315,90 @@ export interface SettingsRustToJava {
    */
   t: 'settings';
   settings: GlobalSettings;
+  [k: string]: any | undefined;
+}
+/**
+ * Equipped cosmetics. `self` is the local player's own set, sent after every `hello` and after any change (an equip from the launcher Store, a refused in-game equip, a purchase); null when the player has no online session (offline account, backend unreachable or not configured). `players` is a delta: other VOID players' sets that are new or changed since the last message, in reply to `cosmetics_query`; never a full roster, the mod keeps its own cache. Assets are bundled in the mod jar under `assets/void/cosmetics/<id>/`, so an id is all the mod needs; an id it does not have is skipped.
+ */
+export interface CosmeticsRustToJava {
+  /**
+   * Message discriminator; always `cosmetics`.
+   */
+  t: 'cosmetics';
+  /**
+   * The local player's equipped set, or null with no online session.
+   */
+  self: EquippedSet | null;
+  /**
+   * Other VOID players' sets, new or changed.
+   */
+  players: EquippedSet[];
+  [k: string]: any | undefined;
+}
+/**
+ * What one player wears. Every slot is present, null when empty. `emotes` is the player's wheel, at most 8, in wheel order. `tints` is an optional per-slot recolour for items flagged `tintable`, omitted when empty.
+ */
+export interface EquippedSet {
+  uuid: MinecraftUUID;
+  /**
+   * Cape item id or null.
+   */
+  cape: CosmeticItemId | null;
+  /**
+   * Back item id or null.
+   */
+  back: CosmeticItemId | null;
+  /**
+   * Hat item id or null.
+   */
+  head: CosmeticItemId | null;
+  /**
+   * Mask item id or null.
+   */
+  face: CosmeticItemId | null;
+  /**
+   * Halo item id or null.
+   */
+  halo: CosmeticItemId | null;
+  /**
+   * Trail item id or null.
+   */
+  trail: CosmeticItemId | null;
+  /**
+   * Badge item id or null.
+   */
+  badge: CosmeticItemId | null;
+  /**
+   * Emote ids on the wheel, in order.
+   *
+   * @maxItems 8
+   */
+  emotes: CosmeticItemId[];
+  /**
+   * Slot name to `#rrggbb` recolour, for tintable items only.
+   */
+  tints?: {
+    /**
+     * The colour.
+     */
+    [k: string]: string | undefined;
+  };
+  [k: string]: any | undefined;
+}
+/**
+ * Another VOID player on the same server played an emote. Relayed from the server's Realtime channel; the sender's identity was stamped by the backend, not claimed by the sender. The mod plays it on that player if it can see them and drops it otherwise.
+ */
+export interface EmoteRustToJava {
+  /**
+   * Message discriminator; always `emote`.
+   */
+  t: 'emote';
+  uuid: MinecraftUUID;
+  id: CosmeticItemId;
+  /**
+   * When it was played, Unix milliseconds on the backend's clock, so the mod can drop one that arrives stale.
+   */
+  at: number;
   [k: string]: any | undefined;
 }
 /**

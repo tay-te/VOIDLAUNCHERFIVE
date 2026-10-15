@@ -39,8 +39,11 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod cosmetics;
 mod protocol;
 mod server;
+
+pub use cosmetics::{EquippedSet, Slot};
 
 pub use protocol::{
     HotkeyId, InitPayload, InitSource, JavaToRust, RustToJava, StaticInit, PROTOCOL_VERSION,

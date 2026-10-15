@@ -12,6 +12,8 @@
 //!    refuses to launch.
 
 use serde::{Deserialize, Serialize};
+
+use crate::cosmetics::{EquippedSet, Slot};
 use void_loadout::{GlobalPatch, GlobalSettings, HudItem, Loadout, LoadoutId, StatePatch};
 
 /// The protocol version carried on `hello` and `init`. Bumped on any breaking change.
@@ -109,6 +111,33 @@ pub enum JavaToRust {
         id: HotkeyId,
     },
 
+    /// The UUIDs of players the mod currently sees, whose cosmetics it wants.
+    ///
+    /// Batched, debounced and cached on the mod side; the launcher answers with one or
+    /// more `cosmetics` messages carrying the sets of the ones that are VOID players.
+    /// UUIDs that are not VOID players simply never appear in a reply.
+    CosmeticsQuery {
+        /// Minecraft UUIDs, dashed or undashed.
+        uuids: Vec<String>,
+    },
+
+    /// The local player played an emote. The launcher broadcasts it to the other VOID
+    /// players on the same server; the mod has already started the animation locally.
+    Emote {
+        /// The emote's item id.
+        id: String,
+    },
+
+    /// The player equipped (or, with `id: null`, took off) an item in the in-game
+    /// wardrobe. Java has already applied it locally; the launcher persists it.
+    Equip {
+        /// The slot.
+        slot: Slot,
+        /// The item id, or `None` to empty the slot.
+        #[serde(default)]
+        id: Option<String>,
+    },
+
     /// A `t` this build does not know. Kept rather than rejected, per §7.
     ///
     /// Never construct this to *send*: it would serialize as `{"t":"unknown"}`.
@@ -148,6 +177,9 @@ impl JavaToRust {
             JavaToRust::Session { .. } => "session",
             JavaToRust::Server { .. } => "server",
             JavaToRust::Hotkey { .. } => "hotkey",
+            JavaToRust::CosmeticsQuery { .. } => "cosmetics_query",
+            JavaToRust::Emote { .. } => "emote",
+            JavaToRust::Equip { .. } => "equip",
             JavaToRust::Unknown => "unknown",
         }
     }
@@ -185,6 +217,30 @@ pub enum RustToJava {
         /// The complete new global settings.
         settings: GlobalSettings,
     },
+
+    /// Cosmetics: the local player's own set and other VOID players' sets.
+    ///
+    /// `players` is a delta — the sets that are new or changed since the last message —
+    /// never a full roster; the mod keeps its own cache. `self` is the local player's set
+    /// whenever it is known, or `null` when the player has no online session.
+    Cosmetics {
+        /// The local player's equipped set.
+        #[serde(rename = "self", default)]
+        self_set: Option<EquippedSet>,
+        /// Other VOID players' sets, new or changed.
+        #[serde(default)]
+        players: Vec<EquippedSet>,
+    },
+
+    /// Another VOID player on the same server played an emote.
+    Emote {
+        /// Who played it, dashed Minecraft UUID.
+        uuid: String,
+        /// The emote's item id.
+        id: String,
+        /// When it was played, Unix milliseconds (server clock).
+        at: u64,
+    },
 }
 
 impl RustToJava {
@@ -194,6 +250,8 @@ impl RustToJava {
             RustToJava::Init { .. } => "init",
             RustToJava::Loadout { .. } => "loadout",
             RustToJava::Settings { .. } => "settings",
+            RustToJava::Cosmetics { .. } => "cosmetics",
+            RustToJava::Emote { .. } => "emote",
         }
     }
 }
@@ -267,6 +325,31 @@ mod tests {
         }))
         .unwrap();
         assert!(matches!(m, JavaToRust::Server { connected: true, .. }));
+    }
+
+    #[test]
+    fn cosmetics_messages_use_the_contract_field_names() {
+        let q: JavaToRust =
+            serde_json::from_value(json!({"t": "cosmetics_query", "uuids": ["a", "b"]})).unwrap();
+        assert_eq!(q, JavaToRust::CosmeticsQuery { uuids: vec!["a".into(), "b".into()] });
+
+        let off: JavaToRust =
+            serde_json::from_value(json!({"t": "equip", "slot": "halo", "id": null})).unwrap();
+        assert_eq!(off, JavaToRust::Equip { slot: Slot::Halo, id: None });
+
+        let m = RustToJava::Cosmetics { self_set: Some(EquippedSet::empty("u")), players: vec![] };
+        let v = serde_json::to_value(&m).unwrap();
+        assert_eq!(v["t"], json!("cosmetics"));
+        assert_eq!(v["self"]["uuid"], json!("u"));
+        assert_eq!(v["players"], json!([]));
+
+        let e = RustToJava::Emote { uuid: "u".into(), id: "emote-wave".into(), at: 1 };
+        assert_eq!(serde_json::to_value(&e).unwrap()["t"], json!("emote"));
+    }
+
+    #[test]
+    fn an_equip_for_a_slot_this_build_does_not_know_is_a_parse_error_not_a_panic() {
+        assert!(serde_json::from_value::<JavaToRust>(json!({"t": "equip", "slot": "aura", "id": "x"})).is_err());
     }
 
     #[test]

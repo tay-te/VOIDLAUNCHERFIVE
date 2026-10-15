@@ -76,6 +76,11 @@ pub fn run() {
                 .unwrap_or(true);
             app_state.presence = presence::Presence::start(presence::Presence::app_id(), rpc_on);
             app_state.presence.set(presence::Activity::Idle);
+            // `online:*` events for the window, for the life of the app.
+            tauri::async_runtime::spawn(commands::online::forwarder(
+                app_state.online.clone(),
+                std::sync::Arc::new(ipc::AppEmitter(app.handle().clone())),
+            ));
             app.manage(app_state);
             app.manage(updater::PendingUpdate::default());
 
@@ -97,6 +102,8 @@ pub fn run() {
                             events::AUTH_STATUS,
                             models::AuthStatus::Complete { account },
                         );
+                        // Online features follow a restored Microsoft account.
+                        commands::online::sign_in(&state).await;
                     }
                     Ok(None) => tracing::info!("no stored account"),
                     Err(e) => tracing::warn!(%e, "could not restore the stored account"),
@@ -139,6 +146,17 @@ pub fn run() {
             ipc::server_ping,
             ipc::open_data_dir,
             ipc::open_path,
+            ipc::online_status,
+            ipc::cosmetics_state,
+            ipc::cosmetics_equip,
+            ipc::cosmetics_set_emotes,
+            ipc::store_checkout,
+            ipc::friends_list,
+            ipc::friends_request,
+            ipc::friends_accept,
+            ipc::friends_decline,
+            ipc::friends_cancel,
+            ipc::friends_remove,
             ipc::window_minimize,
             ipc::window_toggle_maximize,
             ipc::window_close,

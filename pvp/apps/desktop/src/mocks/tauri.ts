@@ -34,6 +34,7 @@ import {
   SWORD_PVP,
 } from './fixtures';
 import { resolveModSettings } from '@void/protocol';
+import { createOnlineMock, fakeUuid } from './online';
 import type {
   Account,
   Loadout,
@@ -140,21 +141,39 @@ function seedPreview(): void {
   state.account = PREVIEW === 'signedout' ? null : structuredClone(PREVIEW_ACCOUNT);
   state.accounts = state.account ? [state.account] : [];
 
-  put(
-    'void.friends.v1',
+  // Friends and cosmetics live on the (mock) server now, as they do on the real one: the
+  // stores fetch them once signed in and keep only an offline copy in localStorage. The
+  // backend knows who is online, on which server, and when they were last seen — not which
+  // game mode they are in — so the preview shows exactly that much.
+  online.seed(
     PREVIEW === 'empty'
-      ? { friends: [], incoming: [], outgoing: [] }
+      ? { owned: PREVIEW_COSMETICS.owned, equipped: PREVIEW_COSMETICS.equipped, friends: [], incoming: [] }
       : {
-          ...PREVIEW_FRIENDS,
-          friends: PREVIEW_FRIENDS.friends.map((f) =>
-            'lastSeen' in f.presence && typeof f.presence.lastSeen === 'number'
-              ? { ...f, presence: { ...f.presence, lastSeen: now + f.presence.lastSeen } }
-              : f,
-          ),
+          owned: PREVIEW_COSMETICS.owned,
+          equipped: PREVIEW_COSMETICS.equipped,
+          incoming: PREVIEW_FRIENDS.incoming,
+          friends: PREVIEW_FRIENDS.friends.map((f) => {
+            const p = f.presence as { state: 'online' | 'offline'; server?: string; lastSeen?: number };
+            return {
+              uuid: fakeUuid(f.name),
+              name: f.name,
+              presence: {
+                state: p.state,
+                ...(p.state === 'online' && p.server ? { server: p.server } : {}),
+                ...(typeof p.lastSeen === 'number' ? { last_seen: now + p.lastSeen } : {}),
+              },
+            };
+          }),
         },
-    force,
   );
-  put('void.cosmetics.v1', PREVIEW_COSMETICS, force);
+  if (force) {
+    try {
+      localStorage.removeItem('void.friends.v1');
+      localStorage.removeItem('void.cosmetics.v1');
+    } catch {
+      /* nothing cached */
+    }
+  }
 
   if (PREVIEW === 'first') {
     try {
@@ -182,6 +201,8 @@ function seedPreview(): void {
   }
 }
 
+const online = createOnlineMock(emit, later);
+
 seedPreview();
 
 /** Reset between tests. Not used by the browser preview. */
@@ -199,6 +220,7 @@ export function __resetMock(): void {
   state.running = false;
   state.log = [];
   handlers.clear();
+  online.reset();
 }
 
 /** Sign in up front, for tests that are not about auth. */
@@ -215,6 +237,17 @@ function addAccount(account: Account): void {
 }
 
 const accountList = () => ({ active: state.account?.uuid ?? null, accounts: structuredClone(state.accounts) });
+
+/** Give the mock server some state — owned items, friends, requests — for tests. */
+export function __seedOnline(seed: Parameters<typeof online.seed>[0]): void {
+  online.seed(seed);
+}
+
+/** Sign in with a Microsoft account, so online features answer — for the Store and friends tests. */
+export function __signInOnline(): Account {
+  addAccount(structuredClone(PREVIEW_ACCOUNT));
+  return state.account!;
+}
 
 /** Speed knob: tests set 0 so a launch is instant; the preview keeps real timings. */
 let speed = 1;
@@ -287,6 +320,7 @@ const commands: Record<string, (args: Args) => unknown> = {
       later(() => {
         if (s.stage === 'complete') addAccount((s as { account: Account }).account);
         emit('auth:status', s);
+        if (s.stage === 'complete') emit('online:status', online.status(state.account));
       }, 700 * (i + 1));
     });
     return {
@@ -304,6 +338,8 @@ const commands: Record<string, (args: Args) => unknown> = {
       state.accounts = state.accounts.filter((a) => a.uuid !== gone);
     }
     state.account = state.accounts[0] ?? null;
+    // The backend follows the active account (`commands::online::follow_account`).
+    emit('online:status', online.status(state.account));
     return state.account;
   },
 
@@ -314,12 +350,16 @@ const commands: Record<string, (args: Args) => unknown> = {
     const found = state.accounts.find((a) => a.uuid === uuid);
     if (!found) throw 'That account is not signed in on this launcher.';
     state.account = found;
+    emit('online:status', online.status(state.account));
     return structuredClone(found);
   },
 
   auth_remove: ({ uuid }) => {
     state.accounts = state.accounts.filter((a) => a.uuid !== uuid);
-    if (state.account?.uuid === uuid) state.account = state.accounts[0] ?? null;
+    if (state.account?.uuid === uuid) {
+      state.account = state.accounts[0] ?? null;
+      emit('online:status', online.status(state.account));
+    }
     return accountList();
   },
 
@@ -331,6 +371,7 @@ const commands: Record<string, (args: Args) => unknown> = {
       throw 'A Minecraft name is 1–16 characters: letters, digits and underscores.';
     }
     addAccount({ ...structuredClone(MOCK_ACCOUNT), name: n, uuid: `offline-${n.toLowerCase()}` });
+    emit('online:status', online.status(state.account));
     return state.account;
   },
 
@@ -663,4 +704,7 @@ const commands: Record<string, (args: Args) => unknown> = {
   window_minimize: () => undefined,
   window_toggle_maximize: () => undefined,
   window_close: () => undefined,
+
+  // --- online (mocks/online.ts) -----------------------------------------------
+  ...online.commands(() => state.account),
 };

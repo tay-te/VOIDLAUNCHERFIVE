@@ -23,6 +23,12 @@ pub const BRIDGE_SESSION: &str = "bridge:session";
 pub const BRIDGE_SERVER: &str = "bridge:server";
 /// `loadout:switched` — the tray or another window changed the active loadout.
 pub const LOADOUT_SWITCHED: &str = "loadout:switched";
+/// `online:status` — `void_online::OnlineStatus`: disabled, signed out, connecting, online, error.
+pub const ONLINE_STATUS: &str = "online:status";
+/// `online:cosmetics` — `models::CosmeticsState`: owned items and the equipped set changed.
+pub const ONLINE_COSMETICS: &str = "online:cosmetics";
+/// `online:friends` — `void_online::FriendsList`, whole, whenever it changed.
+pub const ONLINE_FRIENDS: &str = "online:friends";
 
 /// Anything that can push an event at the web side.
 ///

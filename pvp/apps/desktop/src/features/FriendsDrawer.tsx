@@ -6,8 +6,8 @@
  * (rule 1). Rule 7 is the whole scope: the list, online / in a match, requests in and out,
  * and adding by Minecraft username (3–16 letters, digits, `_`). No party, no chat.
  *
- * The data is `stores/friends` — local until there is a friends backend (§16.2); see that
- * file for what that means for a real install.
+ * The data is `stores/friends`, backed by the online backend through Rust; see that file for
+ * what presence can and cannot say, and for the offline behaviour.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -75,8 +75,9 @@ function Empty({ art, title, body }: { art: string; title: string; body: string 
 export function FriendsDrawer() {
   const open = useUi((s) => s.friendsOpen);
   const setOpen = useUi((s) => s.setFriendsOpen);
-  const { friends, incoming, outgoing, request, accept, decline, cancel } = useFriends();
+  const { friends, incoming, outgoing, request, accept, decline, cancel, error: actionError, dismissError } = useFriends();
   const [adding, setAdding] = useState(false);
+  const [sending, setSending] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -102,8 +103,9 @@ export function FriendsDrawer() {
       setName('');
       setError(null);
       setQuery('');
+      dismissError();
     }
-  }, [open]);
+  }, [open, dismissError]);
 
   if (!open) return null;
 
@@ -116,8 +118,11 @@ export function FriendsDrawer() {
   const nothingAtAll = friends.length + incoming.length + outgoing.length === 0;
   const nothingMatches = !nothingAtAll && online.length + offline.length + inc.length + out.length === 0;
 
-  const send = () => {
-    const problem = request(name);
+  const send = async () => {
+    if (sending) return;
+    setSending(true);
+    const problem = await request(name);
+    setSending(false);
     setError(problem);
     if (!problem) {
       setName('');
@@ -155,7 +160,7 @@ export function FriendsDrawer() {
             className="faddrow"
             onSubmit={(e) => {
               e.preventDefault();
-              send();
+              void send();
             }}
           >
             <input
@@ -173,7 +178,7 @@ export function FriendsDrawer() {
                 setError(null);
               }}
             />
-            <button type="submit" className="btn2 btn2--secondary btn2--sm">
+            <button type="submit" className="btn2 btn2--secondary btn2--sm" disabled={sending} aria-busy={sending}>
               Send
             </button>
           </form>
@@ -194,6 +199,12 @@ export function FriendsDrawer() {
         </label>
       )}
 
+      {actionError ? (
+        <p className="fhelper is-error" role="alert">
+          {actionError}
+        </p>
+      ) : null}
+
       <div className="sheet__scroll">
         {nothingAtAll && !adding ? <Empty art={friendsEmpty} title="No friends yet" body={USERNAME_HELP} /> : null}
         {nothingMatches ? (
@@ -204,10 +215,10 @@ export function FriendsDrawer() {
           <Section label="Requests" count={inc.length}>
             {inc.map((n) => (
               <Row key={n} name={n} sub="New request">
-                <button type="button" className="btn2 btn2--secondary btn2--sm" onClick={() => accept(n)}>
+                <button type="button" className="btn2 btn2--secondary btn2--sm" onClick={() => void accept(n)}>
                   Accept
                 </button>
-                <button type="button" className="btn2 btn2--ghost btn2--sm" onClick={() => decline(n)}>
+                <button type="button" className="btn2 btn2--ghost btn2--sm" onClick={() => void decline(n)}>
                   Decline
                 </button>
               </Row>
@@ -219,7 +230,7 @@ export function FriendsDrawer() {
           <Section label="Sent" count={out.length}>
             {out.map((n) => (
               <Row key={n} name={n} sub="Request sent">
-                <button type="button" className="btn2 btn2--secondary btn2--sm" onClick={() => cancel(n)}>
+                <button type="button" className="btn2 btn2--secondary btn2--sm" onClick={() => void cancel(n)}>
                   Cancel
                 </button>
               </Row>

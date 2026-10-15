@@ -57,6 +57,8 @@ pub async fn login_poll(state: &AppState, emitter: &dyn Emitter, code: auth::Dev
             let account = Account::from(&session);
             *state.session.lock().unwrap() = Some(session);
             emit(emitter, AUTH_STATUS, &AuthStatus::Complete { account });
+            // Online features follow the Microsoft account; failure leaves them off.
+            super::online::sign_in(state).await;
         }
         Err(e) => {
             emit(emitter, AUTH_STATUS, &AuthStatus::Failed { message: e.to_string() });

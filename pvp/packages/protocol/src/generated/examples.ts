@@ -1084,6 +1084,70 @@ export const PROTOCOL_EXAMPLES: ProtocolMessage[] = [
       "theme": "void-dark",
       "ui_scale": 1
     }
+  },
+  {
+    "t": "cosmetics_query",
+    "uuids": [
+      "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+      "853c80ef3c3749fdaa49938b674adae6"
+    ]
+  },
+  {
+    "t": "emote",
+    "id": "emote-wave"
+  },
+  {
+    "t": "equip",
+    "slot": "cape",
+    "id": "void-cape-rift"
+  },
+  {
+    "t": "equip",
+    "slot": "halo",
+    "id": null
+  },
+  {
+    "t": "cosmetics",
+    "self": {
+      "uuid": "069a79f4-44e9-4726-a5be-fca90e38aaf5",
+      "cape": "void-cape-rift",
+      "back": null,
+      "head": null,
+      "face": null,
+      "halo": null,
+      "trail": null,
+      "badge": "void-badge-founder",
+      "emotes": [
+        "emote-wave"
+      ],
+      "tints": {
+        "cape": "#9f8bff"
+      }
+    },
+    "players": [
+      {
+        "uuid": "853c80ef-3c37-49fd-aa49-938b674adae6",
+        "cape": null,
+        "back": "void-wings-ash",
+        "head": null,
+        "face": null,
+        "halo": null,
+        "trail": "void-trail-spark",
+        "badge": null,
+        "emotes": []
+      }
+    ]
+  },
+  {
+    "t": "cosmetics",
+    "self": null,
+    "players": []
+  },
+  {
+    "t": "emote",
+    "uuid": "853c80ef-3c37-49fd-aa49-938b674adae6",
+    "id": "emote-wave",
+    "at": 1760527200000
   }
 ];
 

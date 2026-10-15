@@ -1,6 +1,6 @@
 # void-pvp Rust workspace.
 #
-# Three library crates plus the `void-pvp` CLI binary in `void-core`. `void-core`
+# Four library crates plus the `void-pvp` CLI binary in `void-core`. `void-core`
 # deliberately has no Tauri dependency (PVP_ARCHITECTURE.md §4): that buys a CLI for
 # free and lets the auth and launch path be tested without a webview.
 #
@@ -14,6 +14,7 @@ members = [
     "crates/void-core",
     "crates/void-bridge",
     "crates/void-loadout",
+    "crates/void-online",
 ]
 
 [workspace.package]
@@ -27,6 +28,7 @@ publish = false
 void-core = { path = "crates/void-core" }
 void-bridge = { path = "crates/void-bridge" }
 void-loadout = { path = "crates/void-loadout" }
+void-online = { path = "crates/void-online" }
 
 # --- shared third-party ------------------------------------------------------
 serde = { version = "1", features = ["derive"] }
@@ -54,3 +56,9 @@ ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
 sha2 = "0.10"
 base64 = "0.22"
 semver = "1"
+# TLS for void-online's Realtime websocket. Both are already in the tree through reqwest's
+# default rustls + aws-lc-rs + platform-verifier stack; naming them here (rather than turning on
+# a tokio-tungstenite TLS feature) keeps the process on ONE crypto backend and ONE trust
+# decision: the websocket verifies certificates exactly the way reqwest does.
+tokio-rustls = { version = "0.26", default-features = false, features = ["aws_lc_rs", "tls12"] }
+rustls-platform-verifier = "0.7"

@@ -1,0 +1,19 @@
+{
+  "name": "@void/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "VOID PvP online backend: Supabase migrations, edge functions, catalog seeding, and the tests that run them without Docker.",
+  "scripts": {
+    "test": "node --test --test-reporter=spec \"tests/**/*.test.ts\" \"tests/**/*.test.mjs\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "seed:check": "node scripts/seed-catalog.mjs --check",
+    "seed:sql": "node scripts/seed-catalog.mjs --sql supabase/seed.sql",
+    "seed:remote": "node scripts/seed-catalog.mjs --apply"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.0",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
