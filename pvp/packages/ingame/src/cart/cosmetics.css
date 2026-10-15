@@ -702,3 +702,9 @@
 .cart .c-wheel__bar {
   display: flex;
 }
+
+/* Held in the world: over the HUD, lighter than the menu's scrim — the player is still moving. */
+.cart .c-layer--world {
+  background: rgba(8, 9, 11, 0.18);
+  pointer-events: none;
+}

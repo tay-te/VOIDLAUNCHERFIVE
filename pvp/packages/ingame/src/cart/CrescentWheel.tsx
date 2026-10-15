@@ -9,11 +9,15 @@
  * Cosmetic surface, so the picked card may glow (CONTRACTS: gamified surfaces may use richer
  * colour and glow) — a box-shadow, which this engine draws; nothing else here does.
  *
- * Opened from the menu (B, or "Try it" in the wardrobe). Holding B in the world needs Java to
- * surface the wheel over the HUD layer; see the README's wiring notes.
+ * Two ways up. From the menu (B, or "Try it" in the wardrobe) it takes the pointer and clicks.
+ * Held in the world (`cosmetics.emote_key`, default B) it is drawn over the HUD layer and driven
+ * by the `wheel` channel: Java freezes mouse look and reports the travel as `aim`, which picks a
+ * card by its angle from the crosshair, 1-8 arrive as `key`, and `release` plays the pick.
  */
 
 import { useEffect, useRef, useState } from 'react';
+
+import { useModKey } from './Cartridge';
 
 import type { CosmeticId } from '@/bridge/protocol';
 import { cx } from '@/ui';
@@ -37,8 +41,30 @@ export function crescent(n = EMOTE_WHEEL_SIZE): { x: number; y: number; deg: num
   });
 }
 
-export function CrescentWheel({ width, height }: { width: number; height: number }) {
+/** The card a mouse travel points at, by angle from the crosshair; null while it is too short. */
+export function pickByAim(aim: { x: number; y: number } | null, n = EMOTE_WHEEL_SIZE): number | null {
+  if (!aim || Math.hypot(aim.x, aim.y) < 12) return null;
+  const deg = (Math.atan2(aim.y, aim.x) * 180) / Math.PI;
+  let best = 0;
+  let bestD = Infinity;
+  crescent(n).forEach((s, i) => {
+    // Angles from the crosshair (960, 540), where the flick starts — not from the arc's centre.
+    const cardDeg = (Math.atan2(s.y - 540, s.x - 960) * 180) / Math.PI;
+    const d = Math.abs(((deg - cardDeg + 540) % 360) - 180);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+export function CrescentWheel({ width, height, world = false }: { width: number; height: number; world?: boolean }) {
   const wheel = useCosmetics((s) => (s.self?.emotes ?? []) as CosmeticId[]);
+  const aim = useCosmetics((s) => s.wheelAim);
+  const keyPick = useCosmetics((s) => s.wheelKey);
+  const release = useCosmetics((s) => s.wheelRelease);
+  const holdKey = useModKey('cosmetics') ?? 'B';
   const play = useCosmetics((s) => s.play);
   const setWheelOpen = useCosmetics((s) => s.setWheelOpen);
   const [pick, setPick] = useState<number>(Math.min(5, Math.max(0, wheel.length - 1)));
@@ -49,15 +75,44 @@ export function CrescentWheel({ width, height }: { width: number; height: number
   const oy = (height - 1080) / 2;
 
   const fire = (i: number) => {
+    if (played) return; // the chip is up and closes itself
     const id = wheel[i];
-    if (!id) return;
+    if (!id) {
+      if (world) setWheelOpen(false);
+      return;
+    }
     if (play(id)) {
       setPlayed(id);
       window.setTimeout(() => setWheelOpen(false), 1400);
+    } else if (world) {
+      setWheelOpen(false);
     }
   };
 
+  // The world wheel: Java's input, through the store.
+  const firstRelease = useRef(release);
+  const firstKey = useRef(keyPick?.seq ?? 0);
   useEffect(() => {
+    const at = pickByAim(aim);
+    if (world && at !== null) setPick(at);
+  }, [aim, world]);
+  useEffect(() => {
+    if (!world || !keyPick || keyPick.seq === firstKey.current) return;
+    firstKey.current = keyPick.seq;
+    setPick(keyPick.slot);
+    fire(keyPick.slot);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keyPick, world]);
+  useEffect(() => {
+    if (!world || release === firstRelease.current) return;
+    firstRelease.current = release;
+    fire(pick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [release, world]);
+
+  useEffect(() => {
+    // The world wheel takes no page input at all (the HUD layer has none); Java sends it.
+    if (world) return undefined;
     const onKey = (e: KeyboardEvent) => {
       const n = Number(e.key);
       if (Number.isInteger(n) && n >= 1 && n <= EMOTE_WHEEL_SIZE && e.key.length === 1) {
@@ -80,6 +135,7 @@ export function CrescentWheel({ width, height }: { width: number; height: number
 
   // Pick by angle from the crosshair, so a flick lands without hitting a card.
   const onMove = (e: React.MouseEvent) => {
+    if (world) return;
     const box = root.current?.getBoundingClientRect();
     if (!box || box.width === 0) return;
     const k = width / box.width;
@@ -101,11 +157,11 @@ export function CrescentWheel({ width, height }: { width: number; height: number
   const picked = wheel[pick] ? findCosmetic(wheel[pick]) : undefined;
 
   return (
-    <div className="c-wheel" ref={root} onMouseMove={onMove} role="dialog" aria-label="Emote wheel">
+    <div className={world ? 'c-wheel c-wheel--world' : 'c-wheel'} ref={root} onMouseMove={onMove} role="dialog" aria-label="Emote wheel">
       <div className="c-wheel__in" style={{ left: ox, top: oy }}>
         <div className="c-wheel__hint">
-          <Kc>B</Kc>
-          <span>Point or press 1–8 · you can still move</span>
+          <Kc>{world ? holdKey : 'B'}</Kc>
+          <span>{world ? 'Flick or press 1–8 · release to play · you can still move' : 'Point or press 1–8 · you can still move'}</span>
         </div>
         <i className="c-wheel__cross" />
         {played ? (
@@ -125,7 +181,7 @@ export function CrescentWheel({ width, height }: { width: number; height: number
                 <>
                   <span className="c-wheel__name">{picked.name}</span>
                   <span className="c-mono" style={{ color: RARITY_HUE[picked.rarity] }}>
-                    {picked.rarity} · click or press {pick + 1}
+                    {picked.rarity} · {world ? 'release' : 'click'} or press {pick + 1}
                   </span>
                 </>
               ) : (

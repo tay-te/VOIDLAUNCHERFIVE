@@ -20,7 +20,7 @@
   "definitions": {
     "event_name": {
       "title": "Event name",
-      "description": "The fourteen channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
+      "description": "The fifteen channels Java pushes on. Closed set; `void.on` with any other name is a programming error \u2014 and, because both shims close their channel list over this enum, silently a no-op rather than a throw.",
       "type": "string",
       "enum": [
         "keys",
@@ -36,7 +36,8 @@
         "scoreboard",
         "toast",
         "cosmetics",
-        "emote"
+        "emote",
+        "wheel"
       ]
     },
     "call_name": {
@@ -126,6 +127,10 @@
         {
           "description": "The local player's emote started or ended.",
           "$ref": "#/definitions/event_emote"
+        },
+        {
+          "description": "The held emote wheel moved, opened, closed or fired.",
+          "$ref": "#/definitions/event_wheel"
         }
       ]
     },
@@ -2870,6 +2875,63 @@
           "$ref": "#/definitions/playEmote_returns"
         }
       }
+    },
+    "event_wheel": {
+      "title": "wheel event",
+      "description": "Envelope for the `wheel` event.",
+      "type": "object",
+      "required": [
+        "e",
+        "payload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "e": {
+          "description": "Event discriminator; always `wheel`.",
+          "type": "string",
+          "const": "wheel"
+        },
+        "payload": {
+          "description": "One step of a held emote wheel.",
+          "$ref": "#/definitions/wheel_payload"
+        }
+      }
+    },
+    "wheel_payload": {
+      "title": "wheel payload",
+      "description": "The emote wheel held in the world (`cosmetics.emote_key`, default B), with no screen open \u2014 the player keeps moving, and Java freezes mouse look for as long as the key is down so the mouse picks a slot instead of turning. `open` when the key goes down; `aim` with the mouse travel since `open` in screen pixels (x right, y down), at most ~30 times a second; `key` when one of 1-8 is pressed while it is held (`slot` 0-7, the hotbar is not moved); `release` when the key comes up \u2014 the page plays the slot it was pointing at, if any, through `playEmote`; `cancel` when the wheel closes without playing (a screen opened, the player died, the world unloaded). The page draws the wheel over the HUD layer and owns the geometry; Java only reports input.",
+      "type": "object",
+      "required": [
+        "phase"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "phase": {
+          "description": "Which step.",
+          "type": "string",
+          "enum": [
+            "open",
+            "aim",
+            "key",
+            "release",
+            "cancel"
+          ]
+        },
+        "x": {
+          "description": "`aim`: horizontal mouse travel since `open`, screen pixels, right positive.",
+          "type": "number"
+        },
+        "y": {
+          "description": "`aim`: vertical mouse travel since `open`, screen pixels, down positive.",
+          "type": "number"
+        },
+        "slot": {
+          "description": "`key`: the wheel slot whose number was pressed, 0-7.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        }
+      }
     }
   },
   "examples": [
@@ -3461,6 +3523,33 @@
       "e": "emote",
       "payload": {
         "id": null
+      }
+    },
+    {
+      "e": "wheel",
+      "payload": {
+        "phase": "open"
+      }
+    },
+    {
+      "e": "wheel",
+      "payload": {
+        "phase": "aim",
+        "x": -42.5,
+        "y": 31
+      }
+    },
+    {
+      "e": "wheel",
+      "payload": {
+        "phase": "key",
+        "slot": 3
+      }
+    },
+    {
+      "e": "wheel",
+      "payload": {
+        "phase": "release"
       }
     },
     {

@@ -1423,7 +1423,8 @@ export type Event =
   | ScoreboardEvent
   | ToastEvent
   | CosmeticsEvent
-  | EmoteEvent;
+  | EmoteEvent
+  | WheelEvent;
 /**
  * 0 released, 1 pressed.
  */
@@ -3099,6 +3100,7 @@ export interface CosmeticsSettings {
    * Whether the camera swings to third person and orbits slowly while you emote, so you can see what you are doing. On by default. Off keeps your own view where it is: other players still see the emote, you just do not watch it. The camera never moves while you move — taking a step ends the emote and gives the view straight back.
    */
   emote_camera?: boolean;
+  emote_key?: Keybind;
 }
 /**
  * A complete, hot-swappable template. Applying it writes every actuator field and re-renders the HUD in under a frame (§8.2).
@@ -4041,6 +4043,37 @@ export interface EmotePayload {
    * The emote now playing, or null when none is.
    */
   id: CosmeticItemId | null;
+}
+/**
+ * Envelope for the `wheel` event.
+ */
+export interface WheelEvent {
+  /**
+   * Event discriminator; always `wheel`.
+   */
+  e: 'wheel';
+  payload: WheelPayload;
+}
+/**
+ * The emote wheel held in the world (`cosmetics.emote_key`, default B), with no screen open — the player keeps moving, and Java freezes mouse look for as long as the key is down so the mouse picks a slot instead of turning. `open` when the key goes down; `aim` with the mouse travel since `open` in screen pixels (x right, y down), at most ~30 times a second; `key` when one of 1-8 is pressed while it is held (`slot` 0-7, the hotbar is not moved); `release` when the key comes up — the page plays the slot it was pointing at, if any, through `playEmote`; `cancel` when the wheel closes without playing (a screen opened, the player died, the world unloaded). The page draws the wheel over the HUD layer and owns the geometry; Java only reports input.
+ */
+export interface WheelPayload {
+  /**
+   * Which step.
+   */
+  phase: 'open' | 'aim' | 'key' | 'release' | 'cancel';
+  /**
+   * `aim`: horizontal mouse travel since `open`, screen pixels, right positive.
+   */
+  x?: number;
+  /**
+   * `aim`: vertical mouse travel since `open`, screen pixels, down positive.
+   */
+  y?: number;
+  /**
+   * `key`: the wheel slot whose number was pressed, 0-7.
+   */
+  slot?: number;
 }
 /**
  * `void.setGameplay(id, on)`. Writes the boolean field the mod's actuator Mixin reads every frame (§6.7). Synchronous and authoritative: the toggle in the UI shows the returned value, never an optimistic one.

@@ -73,7 +73,7 @@ export function keepsEscape(): boolean {
   if (hasTextFocus()) return true;
   const state = useVoidStore.getState();
   if (state.paletteOpen) return true;
-  if (useCosmetics.getState().wheelOpen) return true;
+  if (useCosmetics.getState().wheelOpen && useCosmetics.getState().wheelSource === 'menu') return true;
   const route = state.route.name;
   if (route !== 'mods') return true;
   // On the Mods tab Escape first clears a search or a single-shelf view, then closes.
@@ -174,6 +174,8 @@ export function connectBridge(options: ConnectOptions = {}): ConnectResult {
     // (cart/cosmetics-store.ts) — the HUD reads neither.
     bridge.on('cosmetics', (payload) => useCosmetics.getState().apply(payload)),
     bridge.on('emote', (payload) => useCosmetics.getState().applyEmote(payload)),
+    // The fifteenth: the emote key held in the world — the Crescent wheel over the HUD.
+    bridge.on('wheel', (payload) => useCosmetics.getState().applyWheel(payload)),
   ];
 
   if (fake) {

@@ -43,6 +43,7 @@ import type {
   CosmeticsPayload,
   EffectSurface,
   EmotePayload,
+  WheelPayload,
   GameplayModId,
   GlobalSettings,
   HUDAnchor,
@@ -81,14 +82,14 @@ export type SessionInfo = SessionPayload;
 export type { GlobalSettings };
 
 /** Re-exported so a consumer of the `cosmetics` and `emote` channels does not reach into `generated/`. */
-export type { CosmeticsPayload, EmotePayload };
+export type { CosmeticsPayload, EmotePayload, WheelPayload };
 
 /* -------------------------------------------------------------------------- */
 /* Events                                                                     */
 /* -------------------------------------------------------------------------- */
 
 /**
- * The fourteen channels Java pushes on.
+ * The fifteen channels Java pushes on.
  *
  * **Closed, and that is load-bearing.** Both shims look the name up in a map: `on` returns
  * a no-op subscription for a name it does not know, and `__emit` drops an envelope whose
@@ -112,9 +113,10 @@ export const VOID_EVENTS = [
   'toast',
   'cosmetics',
   'emote',
+  'wheel',
 ] as const;
 
-/** Name of one of the fourteen push channels. */
+/** Name of one of the fifteen push channels. */
 export type VoidEventName = (typeof VOID_EVENTS)[number];
 
 /** Payload handed to the handler of each channel. */
@@ -203,6 +205,13 @@ export interface VoidEventPayloadMap {
    * but the end always is: only Java knows when a clip finishes or movement cancels it.
    */
   emote: EmotePayload;
+  /**
+   * The emote wheel held in the world (`cosmetics.emote_key`): `open`, then `aim` with the mouse
+   * travel since open (screen px, x right, y down), `key` for a 1-8 press (`slot` 0-7), and
+   * `release` (play what it points at) or `cancel`. Java freezes mouse look while it is held and
+   * only reports input; the page draws the wheel over the HUD layer and owns the geometry.
+   */
+  wheel: WheelPayload;
 }
 
 /** Handler signature for a given channel. */

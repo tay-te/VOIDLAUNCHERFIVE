@@ -36,6 +36,7 @@ import type {
   ServerPayload,
   TickPayload,
   ToastPayload,
+  WheelPayload,
 } from './generated/schema.js';
 import { getModDefaults, isModId } from './mods.js';
 import { decodeShareCode, encodeShareCode } from './share-code.js';
@@ -420,6 +421,8 @@ export interface FakeVoid extends VoidBridge {
    */
   emitModAction(id: ModId, action: string): void;
   /** Push a `toast` the way Java does for something that happened with the menu closed. */
+  /** Push one `wheel` step, as Java's held emote key does. */
+  emitWheel(payload: WheelPayload): void;
   emitToast(toast: ToastPayload): void;
   /** The `cosmetics` payload as it stands — what a reloaded wardrobe would be pushed now. */
   getCosmetics(): CosmeticsPayload;
@@ -1282,6 +1285,10 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
       return applied;
     },
 
+    emitWheel(payload) {
+      emit({ e: 'wheel', payload });
+    },
+
     emitToast(toast) {
       emit({ e: 'toast', payload: { ...toast } });
     },
@@ -1393,8 +1400,44 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
         }
       };
 
+      // The held emote wheel — Java's `cosmetics.emote_key` (B), with the menu closed: open on
+      // the press, the mouse's travel since then as `aim`, 1-8 as `key`, `release` on key-up.
+      let wheelHeld = false;
+      let aimX = 0;
+      let aimY = 0;
+      const onWheelKey = (raw: Event): void => {
+        const event = raw as KeyboardEvent;
+        if (menuOpen || pendingCaptures.length > 0) return;
+        if (event.type === 'keydown' && event.code === 'KeyB' && !event.repeat && !wheelHeld) {
+          wheelHeld = true;
+          aimX = 0;
+          aimY = 0;
+          emit({ e: 'wheel', payload: { phase: 'open' } });
+        } else if (event.type === 'keyup' && event.code === 'KeyB' && wheelHeld) {
+          wheelHeld = false;
+          emit({ e: 'wheel', payload: { phase: 'release' } });
+        } else if (event.type === 'keydown' && wheelHeld && /^Digit[1-8]$/.test(event.code)) {
+          emit({ e: 'wheel', payload: { phase: 'key', slot: Number(event.code.slice(5)) - 1 } });
+        }
+      };
+      const onWheelMouse = (raw: Event): void => {
+        if (!wheelHeld) return;
+        const event = raw as MouseEvent;
+        aimX += event.movementX ?? 0;
+        aimY += event.movementY ?? 0;
+        emit({ e: 'wheel', payload: { phase: 'aim', x: aimX, y: aimY } });
+      };
+
       node.addEventListener('keydown', onKeyDown as EventListener);
-      const detach = (): void => node.removeEventListener('keydown', onKeyDown as EventListener);
+      node.addEventListener('keydown', onWheelKey as EventListener);
+      node.addEventListener('keyup', onWheelKey as EventListener);
+      node.addEventListener('mousemove', onWheelMouse as EventListener);
+      const detach = (): void => {
+        node.removeEventListener('keydown', onKeyDown as EventListener);
+        node.removeEventListener('keydown', onWheelKey as EventListener);
+        node.removeEventListener('keyup', onWheelKey as EventListener);
+        node.removeEventListener('mousemove', onWheelMouse as EventListener);
+      };
       detachKeyboard = detach;
       return detach;
     },

@@ -240,6 +240,19 @@ public final class VoidBridge {
      * answered {@code true}); the end is always pushed, because only the game thread's sweep
      * knows when a clip ran out or movement cancelled it.</p>
      */
+    /**
+     * The emote wheel held in the world ({@code cosmetics.emote_key}, default B).
+     *
+     * <p>The fifteenth channel. {@code {phase: open}} on the press, {@code {phase: aim, x, y}}
+     * with the mouse travel since then (screen pixels, x right, y down; throttled), {@code
+     * {phase: key, slot}} for a 1-8 press, and {@code {phase: release}} or {@code {phase:
+     * cancel}}. Java freezes mouse look while it is held and reports input only — the page draws
+     * the wheel over the HUD layer, owns its geometry, and plays the slot through
+     * {@code playEmote}. Not coalesced (an {@code open} and a {@code release} in one slow frame
+     * are two facts), but {@code aim} is throttled at the source.</p>
+     */
+    public static final String EVENT_WHEEL = "wheel";
+
     public static final String EVENT_EMOTE = "emote";
 
     /**

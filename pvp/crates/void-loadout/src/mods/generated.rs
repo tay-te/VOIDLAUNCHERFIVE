@@ -3529,6 +3529,13 @@ pub struct CosmeticsSettings {
     /// move — taking a step ends the emote and gives the view straight back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub emote_camera: Option<bool>,
+
+    /// Hold to open the emote wheel in the world: the mouse picks a slot (look freezes while it
+    /// is held), 1-8 pick directly, releasing plays. `B` by default — unbound in vanilla 1.8.9
+    /// and next to the movement keys, so the player keeps moving while they choose. `NONE`
+    /// turns the wheel key off; the wheel is still reachable from the menu.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub emote_key: Option<Keybind>,
 }
 
 // ---------------------------------------------------------------------------

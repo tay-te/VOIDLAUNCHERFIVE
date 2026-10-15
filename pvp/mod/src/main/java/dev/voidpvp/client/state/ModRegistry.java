@@ -1573,7 +1573,14 @@ public final class ModRegistry {
                 // is: other players still see the emote, you just do not watch it. The camera
                 // never moves while you move — taking a step ends the emote and gives the view
                 // straight back.
-                "emote_camera", bool(true));
+                "emote_camera", bool(true),
+                // Hold to open the emote wheel in the world: the mouse picks a slot (look freezes
+                // while it is held), 1-8 pick directly, releasing plays. `B` by default — unbound
+                // in vanilla 1.8.9 and next to the movement keys, so the player keeps moving
+                // while they choose. `NONE` turns the wheel key off; the wheel is still reachable
+                // from the menu.
+                // Type: mods.json#/definitions/keybind.
+                "emote_key", keybind("B"));
 
         // --- The factory HUD layout (19) — where each widget starts ----------------------------
 
@@ -1598,57 +1605,61 @@ public final class ModRegistry {
         // Read by Loadout.defaults(), which seeds a new loadout's hud[] from it.
         place("fps", "top-left", 20, 20);
         place("keystrokes", "bottom-left", 20, -20);
-        // CPS counter: Beside FPS in the top row, as the Cartridge fight HUD (Figma 630:2) draws it:
-        // FPS 96 wide at 20, CPS 128 wide at 122, Ping at 256, a 6 px gap between 56 px modules.
+
+        // CPS counter: Beside FPS in the top row, as the Cartridge fight HUD (Figma 630:2) draws
+        // it: FPS 96 wide at 20, CPS 128 wide at 122, Ping at 256, a 6 px gap between 56 px
+        // modules.
         place("cps", "top-left", 122, 20);
         place("ping", "top-left", 256, 20);
         place("coordinates", "top-left", 20, 128);
         place("armor_status", "bottom-right", -20, -20);
         place("potion_effects", "top-right", -20, 20);
 
-        // Watermark: Under the top row of modules (56 px tall at 20, so 84 is the next row with the 8
-        // px rhythm the Cartridge HUD uses). Third thing in the top-left reading order, where every
-        // PvP client puts its mark.
+        // Watermark: Under the top row of modules (56 px tall at 20, so 84 is the next row with
+        // the 8 px rhythm the Cartridge HUD uses). Third thing in the top-left reading order,
+        // where every PvP client puts its mark.
         place("watermark", "top-left", 20, 84);
 
-        // Direction: Under Coordinates, one 64 px Cartridge row down: the mod a player confuses with
-        // Coordinates, stacked so the difference — a position versus a facing — is visible at a
-        // glance.
+        // Direction: Under Coordinates, one 64 px Cartridge row down: the mod a player confuses
+        // with Coordinates, stacked so the difference — a position versus a facing — is visible
+        // at a glance.
         place("direction", "top-left", 20, 192);
 
         // Combo counter: Just below and right of the crosshair, as the Cartridge fight HUD (Figma
-        // 630:2) places it: the one number that means something only mid-fight belongs where the eyes
-        // already are during one.
+        // 630:2) places it: the one number that means something only mid-fight belongs where the
+        // eyes already are during one.
         place("combo", "center", 40, 24);
         place("saturation", "top-left", 20, 256);
         place("momentum", "top-left", 20, 320);
 
-        // Memory: Above Armor status (160 tall at -20) in the bottom-right column, the corner furthest
-        // from the crosshair: diagnostics are read when something is wrong, not while it is going
-        // wrong.
+        // Memory: Above Armor status (160 tall at -20) in the bottom-right column, the corner
+        // furthest from the crosshair: diagnostics are read when something is wrong, not while it
+        // is going wrong.
         place("memory", "bottom-right", -20, -188);
+
         // Server address: The next 64 px row of the bottom-right column, over Memory: the other
         // diagnostic.
         place("server_address", "bottom-right", -20, -252);
 
-        // Item counter: The second bottom-left column, right of Keystrokes (156 wide at 20, so 184
-        // with the 8 px gap): the hand-and-clicks corner, what the hand is going through.
+        // Item counter: The second bottom-left column, right of Keystrokes (156 wide at 20, so
+        // 184 with the 8 px gap): the hand-and-clicks corner, what the hand is going through.
         place("item_counter", "bottom-left", 184, -20);
 
-        // Stopwatch: Top of the bottom-right column: read when a fight is over, never mid-swing, so it
-        // shares the corner furthest from the crosshair.
+        // Stopwatch: Top of the bottom-right column: read when a fight is over, never mid-swing,
+        // so it shares the corner furthest from the crosshair.
         place("stopwatch", "bottom-right", -20, -316);
 
-        // Scoreboard: Right edge, vertically centred — where vanilla draws the sidebar, so turning the
-        // mod on restyles it in place before anyone moves it.
+        // Scoreboard: Right edge, vertically centred — where vanilla draws the sidebar, so
+        // turning the mod on restyles it in place before anyone moves it.
         place("scoreboard", "right", -20, 0);
 
-        // Potion counter: Above the Item counter in the 184 column, one 64 px Cartridge row up: bottom
-        // to top, what the hand holds and how many heals are left.
+        // Potion counter: Above the Item counter in the 184 column, one 64 px Cartridge row up:
+        // bottom to top, what the hand holds and how many heals are left.
         place("potion_counter", "bottom-left", 184, -84);
 
-        // Reach display: The left column's last row on the 64 px Cartridge rhythm, beside Momentum:
-        // the numbers a fight produces read together. Combo, the other one, sits beside the crosshair.
+        // Reach display: The left column's last row on the 64 px Cartridge rhythm, beside
+        // Momentum: the numbers a fight produces read together. Combo, the other one, sits beside
+        // the crosshair.
         place("reach", "top-left", 20, 384);
     }
 

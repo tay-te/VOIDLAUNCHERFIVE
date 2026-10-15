@@ -248,13 +248,19 @@ export function CartMenu() {
   const setEditorTarget = useVoidStore((s) => s.setEditorTarget);
   const scale = useCartScale();
   const dev = useDevState();
-  const wheelOpen = useCosmetics((s) => s.wheelOpen);
+  // The menu's own wheel (B, Try it); the held-in-world one is drawn over the HUD by App.
+  const wheelOpen = useCosmetics((s) => s.wheelOpen && s.wheelSource === 'menu');
   const tab = tabOf(route) ?? 'mods';
   const benchId = route.name === 'mod' ? route.id : null;
   const geo = panelGeometry(scale, benchId !== null && context === 'lobby');
 
   // The wheel belongs to this open of the menu; closing the menu puts it away.
-  useEffect(() => () => useCosmetics.getState().setWheelOpen(false), []);
+  useEffect(
+    () => () => {
+      if (useCosmetics.getState().wheelSource === 'menu') useCosmetics.getState().setWheelOpen(false);
+    },
+    [],
+  );
 
   // 1–5 sections, H the HUD layout. Not while typing, and not in a match (1–8 are the pins).
   useEffect(() => {

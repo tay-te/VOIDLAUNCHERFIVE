@@ -104,7 +104,7 @@ export function MenuLayer({
         return;
       }
       e.preventDefault();
-      if (useCosmetics.getState().wheelOpen) {
+      if (useCosmetics.getState().wheelOpen && useCosmetics.getState().wheelSource === 'menu') {
         useCosmetics.getState().setWheelOpen(false);
         return;
       }

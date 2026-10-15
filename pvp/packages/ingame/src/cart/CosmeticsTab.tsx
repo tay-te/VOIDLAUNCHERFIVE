@@ -36,6 +36,7 @@ import {
 } from './cosmetics-store';
 import { FooterKeys } from './ModsTab';
 import { useDevState } from './dev';
+import { useModKey } from './Cartridge';
 
 type View = 'wardrobe' | 'emotes';
 
@@ -298,6 +299,7 @@ function SlotCard({ slot, selected, onSelect }: { slot: CosmeticSlot; selected: 
 }
 
 function WheelMini({ onEdit }: { onEdit: () => void }) {
+  const holdKey = useModKey('cosmetics');
   const wheel = useCosmetics((s) => s.self?.emotes ?? []);
   const setWheelOpen = useCosmetics((s) => s.setWheelOpen);
   return (
@@ -313,14 +315,14 @@ function WheelMini({ onEdit }: { onEdit: () => void }) {
           );
         })}
         <span className="c-cos__ringkey">
-          <Kc>B</Kc>
+          <Kc>{holdKey ?? 'B'}</Kc>
         </span>
       </div>
       <div className="c-cos__wheeltext">
         <span className="c-label">
           {wheel.length} of {EMOTE_WHEEL_SIZE}
         </span>
-        <span className="c-mono">Hold B</span>
+        <span className="c-mono">{holdKey ? `Hold ${holdKey}` : 'No key · menu only'}</span>
         <button type="button" className="c-btn c-btn--s c-btn--sm" onClick={onEdit}>
           Edit
         </button>
@@ -427,6 +429,7 @@ const COSMETICS_SWITCHES: readonly { key: string; label: string }[] = [
 ];
 
 function EmoteEditor() {
+  const holdKey = useModKey('cosmetics');
   const self = useCosmetics((s) => s.self);
   const owned = useCosmetics((s) => s.owned);
   const setWheel = useCosmetics((s) => s.setWheel);
@@ -459,9 +462,9 @@ function EmoteEditor() {
         <div className="c-row2 c-cos__hold">
           <span className="c-cos__worntext">
             <span>Hold to open</span>
-            <span className="c-mono">Release on a slot to play</span>
+            <span className="c-mono">Flick to a slot, release to play · 1–8 pick</span>
           </span>
-          <Kc>B</Kc>
+          <Kc>{holdKey ?? 'None'}</Kc>
         </div>
         <span className="c-mono c-col__cap">Play</span>
         {COSMETICS_SWITCHES.map((sw) => (

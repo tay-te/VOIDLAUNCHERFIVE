@@ -2957,6 +2957,11 @@
           "description": "Whether the camera swings to third person and orbits slowly while you emote, so you can see what you are doing. On by default. Off keeps your own view where it is: other players still see the emote, you just do not watch it. The camera never moves while you move — taking a step ends the emote and gives the view straight back.",
           "type": "boolean",
           "default": true
+        },
+        "emote_key": {
+          "description": "Hold to open the emote wheel in the world: the mouse picks a slot (look freezes while it is held), 1-8 pick directly, releasing plays. `B` by default — unbound in vanilla 1.8.9 and next to the movement keys, so the player keeps moving while they choose. `NONE` turns the wheel key off; the wheel is still reachable from the menu.",
+          "$ref": "#/definitions/keybind",
+          "default": "B"
         }
       }
     },
@@ -5876,7 +5881,8 @@
             "others": true,
             "own_first_person": false,
             "glow": true,
-            "emote_camera": true
+            "emote_camera": true,
+            "emote_key": "B"
           }
         }
       }

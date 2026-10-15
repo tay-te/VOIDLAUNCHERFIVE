@@ -76,10 +76,13 @@ in game. The Emote wheel view edits the wheel (pick a slot, then an emote) and w
 `cosmetics` mod's switches; `B` (or "Try it") opens the Crescent wheel over the world from the
 menu: point or press 1–8, click to play.
 
-Wiring left for later, because the bridge has no surface for it yet:
-* **Hold B with the menu shut.** The wheel is a page overlay; showing it over the HUD layer while
-  the player keeps moving needs Java to surface it (a key binding plus a `wheel` open/close event
-  and pointer input without a screen). Today it opens from the menu.
+**Held in the world** (`cosmetics.emote_key`, default B, rebindable in the bench and listed on
+the Keybinds tab): Java shows the wheel over the HUD layer through the `wheel` channel with no
+screen open, so movement keeps working; mouse look freezes while the key is down and its travel
+arrives as `aim`, which picks a card by angle from the crosshair; 1–8 arrive as `key` (the hotbar
+stays put); `release` plays the pick through `playEmote`.
+
+Not drawn:
 * **Outfits** (the frame's "Save look as outfit") — no stored-outfit call exists; not drawn.
 * **Get in launcher Store** — no call asks the launcher to open its Store at an item; the button
   raises a notice naming the item and its price instead.

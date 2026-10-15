@@ -147,6 +147,7 @@ const NOT_IN_THE_PREVIEW: Record<string, string> = {
   // and a fixture that moved when a *binding* changed would be drawing a press nobody made.
   // The `KeybindChip` in the row is the feedback, and the page's meta line prints the key.
   'stopwatch.start_key': 'it asks the clock to change state, and a still frame holds one instant',
+  'cosmetics.emote_key': 'it opens the emote wheel, which is its own overlay (the Crescent wheel), not this diagram',
   'stopwatch.reset_key': 'it asks the reading to drop to zero, and a still frame holds one instant',
 };
 

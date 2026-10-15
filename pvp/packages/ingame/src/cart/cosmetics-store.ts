@@ -25,6 +25,7 @@ import {
   type CosmeticSlot,
   type CosmeticsPayload,
   type EmotePayload,
+  type WheelPayload,
 } from '@/bridge/protocol';
 import { getVoid } from '@/bridge/connect';
 
@@ -39,6 +40,14 @@ export interface CosmeticsState {
   playing: CosmeticId | null;
   /** The crescent emote wheel is up. */
   wheelOpen: boolean;
+  /** Who opened it: the menu (B, Try it) or the emote key held in the world (`wheel` channel). */
+  wheelSource: 'menu' | 'world';
+  /** World wheel: the mouse travel since it opened, screen px (x right, y down). */
+  wheelAim: { x: number; y: number } | null;
+  /** World wheel: the last 1-8 pressed while held, with a sequence so a repeat still fires. */
+  wheelKey: { slot: number; seq: number } | null;
+  /** World wheel: bumps when the key comes up — play what it points at. */
+  wheelRelease: number;
 
   apply(payload: CosmeticsPayload): void;
   applyEmote(payload: EmotePayload): void;
@@ -47,6 +56,8 @@ export interface CosmeticsState {
   setWheel(ids: readonly CosmeticId[]): void;
   play(id: CosmeticId): boolean;
   setWheelOpen(open: boolean): void;
+  /** The `wheel` channel: the emote key held in the world. */
+  applyWheel(payload: WheelPayload): void;
 }
 
 function bridge() {
@@ -63,6 +74,10 @@ export const useCosmetics = create<CosmeticsState>((set, get) => ({
   catalogVersion: null,
   playing: null,
   wheelOpen: false,
+  wheelSource: 'menu',
+  wheelAim: null,
+  wheelKey: null,
+  wheelRelease: 0,
 
   apply(payload) {
     set({ self: payload.self, owned: payload.owned as CosmeticId[], catalogVersion: payload.catalog_version });
@@ -102,7 +117,26 @@ export const useCosmetics = create<CosmeticsState>((set, get) => ({
     return started;
   },
   setWheelOpen(wheelOpen) {
-    set({ wheelOpen });
+    set(wheelOpen ? { wheelOpen } : { wheelOpen, wheelSource: 'menu', wheelAim: null, wheelKey: null });
+  },
+  applyWheel(payload) {
+    switch (payload.phase) {
+      case 'open':
+        set({ wheelOpen: true, wheelSource: 'world', wheelAim: null, wheelKey: null });
+        return;
+      case 'aim':
+        set({ wheelAim: { x: payload.x ?? 0, y: payload.y ?? 0 } });
+        return;
+      case 'key':
+        set({ wheelKey: { slot: payload.slot ?? 0, seq: (get().wheelKey?.seq ?? 0) + 1 } });
+        return;
+      case 'release':
+        set({ wheelRelease: get().wheelRelease + 1 });
+        return;
+      case 'cancel':
+        get().setWheelOpen(false);
+        return;
+    }
   },
 }));
 

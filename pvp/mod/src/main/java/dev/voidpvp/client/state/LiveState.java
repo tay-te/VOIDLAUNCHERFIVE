@@ -320,6 +320,11 @@ public final class LiveState {
      * {@code reset} — not here, because the page reads the schema and not this class.</p>
      */
     public volatile int stopwatchStartCode;
+    /**
+     * {@code cosmetics.emote_key}: held in the world, the emote wheel (VoidClient.pollHotkeys and
+     * the look hook). B by default; {@code KeyNames.KEY_NONE} switches the key off.
+     */
+    public volatile int emoteWheelCode = 48;
     public volatile int stopwatchResetCode;
 
     // -- HUD-mod settings the game loop polls ----------------------------
@@ -574,6 +579,9 @@ public final class LiveState {
                 l.stringSetting("stopwatch", "start_key", "NONE"));
         stopwatchResetCode = dev.voidpvp.client.input.KeyNames.codeOf(
                 l.stringSetting("stopwatch", "reset_key", "NONE"));
+
+        emoteWheelCode = dev.voidpvp.client.input.KeyNames.codeOf(
+                l.stringSetting("cosmetics", "emote_key", "B"));
 
         freelookOn = l.isOn("freelook");
         freelookKeyCode = dev.voidpvp.client.input.KeyNames.codeOf(

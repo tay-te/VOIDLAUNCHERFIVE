@@ -180,3 +180,41 @@ describe('the Crescent wheel', () => {
     expect(useCosmetics.getState().playing).toBeNull();
   });
 });
+
+describe('the world wheel — the emote key held, Java driving', () => {
+  it('opens over the HUD with the menu shut, aims by angle, and plays on release', () => {
+    set(() => useVoidStore.getState().applyMenu(false));
+    const { container } = render(<App />);
+    const wheel = useCosmetics.getState().self!.emotes;
+    expect(wheel.length).toBeGreaterThan(0);
+    set(() => fake().emitWheel({ phase: 'open' }));
+    expect(container.querySelector('.c-layer--world .c-wheel--world')).not.toBeNull();
+    // A flick down-left points at the first card.
+    const play = vi.spyOn(getVoid(), 'playEmote');
+    const first = crescent()[0]!;
+    set(() => fake().emitWheel({ phase: 'aim', x: (first.x - 960) / 4, y: (first.y - 540) / 4 }));
+    expect(container.querySelector('.c-wheel__card.is-pick')?.getAttribute('aria-label')).toMatch(/^1/);
+    set(() => fake().emitWheel({ phase: 'release' }));
+    expect(play).toHaveBeenCalledWith(wheel[0]);
+  });
+
+  it('plays a 1-8 key straight away, and a cancel closes without playing', () => {
+    set(() => useVoidStore.getState().applyMenu(false));
+    const { container } = render(<App />);
+    const play = vi.spyOn(getVoid(), 'playEmote');
+    set(() => fake().emitWheel({ phase: 'open' }));
+    set(() => fake().emitWheel({ phase: 'key', slot: 1 }));
+    expect(play).toHaveBeenCalledWith(useCosmetics.getState().self!.emotes[1]);
+    set(() => useCosmetics.getState().setWheelOpen(false));
+    set(() => fake().emitWheel({ phase: 'open' }));
+    set(() => fake().emitWheel({ phase: 'cancel' }));
+    expect(container.querySelector('.c-wheel--world')).toBeNull();
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it('lists the emote key in the keybind overview', () => {
+    set(() => useVoidStore.getState().setRoute({ name: 'keybinds' }));
+    const { container } = render(<App />);
+    expect(container.querySelector('[data-key="B"]')?.classList.contains('is-void')).toBe(true);
+  });
+});

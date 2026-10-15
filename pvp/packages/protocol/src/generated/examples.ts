@@ -962,7 +962,8 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "others": true,
           "own_first_person": false,
           "glow": true,
-          "emote_camera": true
+          "emote_camera": true,
+          "emote_key": "B"
         }
       }
     }
@@ -2117,6 +2118,33 @@ export const BRIDGE_EXAMPLES: BridgeEnvelope[] = [
     "e": "emote",
     "payload": {
       "id": null
+    }
+  },
+  {
+    "e": "wheel",
+    "payload": {
+      "phase": "open"
+    }
+  },
+  {
+    "e": "wheel",
+    "payload": {
+      "phase": "aim",
+      "x": -42.5,
+      "y": 31
+    }
+  },
+  {
+    "e": "wheel",
+    "payload": {
+      "phase": "key",
+      "slot": 3
+    }
+  },
+  {
+    "e": "wheel",
+    "payload": {
+      "phase": "release"
     }
   },
   {
