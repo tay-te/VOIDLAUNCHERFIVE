@@ -41,6 +41,8 @@ enum Command {
     Whoami,
     /// Download everything a launch needs: manifests, libraries, assets, Java 8.
     Prepare(PrepareArgs),
+    /// Fetch and verify only the signed void-client JAR from the release channel.
+    Mod(ModArgs),
     /// Start the bridge and launch the game.
     Launch(LaunchArgs),
     /// Inspect and switch loadouts.
@@ -65,6 +67,16 @@ struct PrepareArgs {
     /// Prepare for another platform's mod JAR: windows-x64, macos-x64, macos-arm64,
     /// linux-x64. Defaults to this host's. The mod JAR carries the Ultralight natives
     /// and they are 21 MB per platform, so one JAR is published per platform (§13).
+    #[arg(long)]
+    platform: Option<String>,
+}
+
+#[derive(Debug, Args)]
+struct ModArgs {
+    /// Release channel: stable or beta. `$VOID_MOD_MANIFEST_URL` overrides the URL.
+    #[arg(long, default_value = "stable")]
+    channel: String,
+    /// Platform key; defaults to this host's JVM platform.
     #[arg(long)]
     platform: Option<String>,
 }
@@ -158,6 +170,7 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Logout => logout(&paths),
         Command::Whoami => whoami(&paths),
         Command::Prepare(args) => prepare(&http, &paths, &args).await,
+        Command::Mod(args) => fetch_mod(&http, &paths, &args).await,
         Command::Launch(args) => do_launch(&http, &paths, &store, &config, args).await,
         Command::Loadouts(cmd) => loadouts(&store, cmd),
     }
@@ -310,6 +323,32 @@ async fn prepare(http: &reqwest::Client, paths: &Paths, args: &PrepareArgs) -> R
     if !args.no_java {
         let java = java::ensure_java8(http, paths, None).await?;
         println!("Java {} at {}", java.version, java.path.display());
+    }
+    Ok(())
+}
+
+async fn fetch_mod(http: &reqwest::Client, paths: &Paths, args: &ModArgs) -> Result<()> {
+    let ctx = RuleContext::host()?;
+    let platform = match args.platform.as_deref() {
+        None => install::ModPlatform::for_host(&ctx)?,
+        Some(name) => install::ModPlatform::parse(name)
+            .ok_or_else(|| Error::UnsupportedPlatform(name.to_string()))?,
+    };
+    let channel = release::Channel::parse(&args.channel);
+    println!("Resolving void-client for {} from {}", platform.key(), channel.manifest_url());
+    let resolved = release::ensure_mod_jar(
+        http,
+        paths,
+        platform,
+        channel,
+        env!("CARGO_PKG_VERSION"),
+        void_bridge::PROTOCOL_VERSION,
+        Some(progress_printer()),
+    )
+    .await?;
+    println!("VOID client {} ({:?}) at {}", resolved.version, resolved.source, resolved.jar.display());
+    if let Some(notice) = resolved.notice {
+        println!("note: {notice}");
     }
     Ok(())
 }
