@@ -56,6 +56,37 @@ pub enum Error {
         actual: String,
     },
 
+    /// A downloaded file did not match its expected SHA-256.
+    #[error("{path}: sha256 mismatch (expected {expected}, got {actual})")]
+    Sha256Mismatch {
+        /// The file that failed verification.
+        path: PathBuf,
+        /// The digest the manifest promised.
+        expected: String,
+        /// The digest the bytes actually hash to.
+        actual: String,
+    },
+
+    /// The `void-client` release manifest was not signed by the VOID release key.
+    #[error("the VOID client release manifest failed verification: {0}")]
+    Signature(String),
+
+    /// The published `void-client` needs a newer launcher than this one.
+    #[error(
+        "this launcher ({current}) is too old for the current VOID client, which needs \
+         launcher {required} or newer. Restart the launcher to update it."
+    )]
+    LauncherTooOld {
+        /// The minimum launcher version the manifest asks for.
+        required: String,
+        /// This launcher's version.
+        current: String,
+    },
+
+    /// No `void-client` JAR could be found for this platform, online or in the cache.
+    #[error("the VOID client could not be installed: {0}")]
+    ModUnavailable(String),
+
     /// The Microsoft OAuth, Xbox Live, XSTS or Minecraft services flow failed.
     #[error("sign-in failed: {0}")]
     Auth(String),
@@ -111,6 +142,19 @@ impl Error {
     /// Wraps a JSON error with a description of what was being parsed.
     pub fn json(context: impl Into<String>, source: serde_json::Error) -> Self {
         Error::Json { context: context.into(), source }
+    }
+
+    /// Whether this is "the network is not there" rather than "the network said no".
+    ///
+    /// Transport failures (no route, DNS, TLS, timeout) and server-side trouble (5xx,
+    /// 429) are what a warm launch falls back to its caches for. A 404 or a bad
+    /// signature is an answer, and is not.
+    pub fn is_network(&self) -> bool {
+        match self {
+            Error::Http(_) => true,
+            Error::HttpStatus { status, .. } => *status >= 500 || *status == 429 || *status == 408,
+            _ => false,
+        }
     }
 }
 

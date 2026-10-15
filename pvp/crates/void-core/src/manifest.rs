@@ -33,6 +33,14 @@ pub const RESOURCES_BASE: &str = "https://resources.download.minecraft.net";
 /// The Minecraft version this client targets.
 pub const MC_VERSION: &str = "1.8.9";
 
+/// The Legacy Fabric loader build the mod is compiled against — `loader_version` in
+/// `mod/gradle.properties`, kept equal by `the_pinned_loader_matches_the_mod_build`.
+///
+/// Pinned rather than "newest stable": a loader release the mod was never built or tested
+/// against is exactly the kind of change that should arrive with a mod release, not on
+/// whichever day the meta server publishes it.
+pub const LEGACY_FABRIC_LOADER: &str = "0.16.14";
+
 // ---------------------------------------------------------------------------
 // platform
 // ---------------------------------------------------------------------------
@@ -806,15 +814,17 @@ pub async fn fetch_loader_profile(
     .await
 }
 
-/// Resolves 1.8.9 plus the newest stable Legacy Fabric loader into a launch profile.
+/// Resolves 1.8.9 plus the pinned Legacy Fabric loader into a launch profile.
 ///
-/// `loader_version` pins a specific build; `None` takes the newest stable one, falling
-/// back to the newest of any stability if the meta server lists none as stable.
+/// `loader_version` overrides the pin ([`LEGACY_FABRIC_LOADER`]) — the CLI's `--loader`.
+/// Legacy Fabric libraries arrive without hashes; [`fill_maven_sha1`] fetches each one's
+/// published `.sha1` so every file the launch downloads is verified.
 pub async fn resolve_1_8_9(
     client: &reqwest::Client,
     ctx: &RuleContext,
     loader_version: Option<&str>,
 ) -> Result<LaunchProfile> {
+    let loader_version = Some(loader_version.unwrap_or(LEGACY_FABRIC_LOADER));
     let manifest = fetch_version_manifest(client).await?;
     let entry = manifest
         .find(MC_VERSION)
@@ -837,11 +847,89 @@ pub async fn resolve_1_8_9(
     };
     tracing::info!(loader = %chosen.loader.version, intermediary = %chosen.intermediary.version, "legacy fabric");
     let profile = fetch_loader_profile(client, MC_VERSION, &chosen.loader.version).await?;
-    resolve_profile(&vanilla, Some(&profile), ctx)
+    let mut resolved = resolve_profile(&vanilla, Some(&profile), ctx)?;
+    fill_maven_sha1(client, &mut resolved).await?;
+    Ok(resolved)
+}
+
+/// Fills in the SHA-1 of every library the manifests published without one, from the
+/// Maven repository's `<artifact>.sha1` sidecar.
+///
+/// Only Legacy Fabric's entries need this: Mojang publishes hashes inline. A sidecar that
+/// is missing (404) leaves that one library unverified with a warning rather than making
+/// the client unlaunchable; any other failure fails the resolve, because a profile cached
+/// with holes in it would stay that way.
+pub async fn fill_maven_sha1(client: &reqwest::Client, profile: &mut LaunchProfile) -> Result<()> {
+    use futures_util::stream::{self, StreamExt};
+
+    let missing: Vec<(bool, usize, String)> = profile
+        .libraries
+        .iter()
+        .enumerate()
+        .map(|(i, l)| (false, i, l))
+        .chain(profile.natives.iter().enumerate().map(|(i, l)| (true, i, l)))
+        .filter(|(_, _, l)| l.file.sha1.is_none())
+        .map(|(n, i, l)| (n, i, l.file.url.clone()))
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+
+    let results: Vec<(bool, usize, Result<Option<String>>)> = stream::iter(missing)
+        .map(|(natives, i, url)| async move {
+            let sidecar = format!("{url}.sha1");
+            let got = async {
+                let resp = client.get(&sidecar).send().await?;
+                let status = resp.status();
+                if status == reqwest::StatusCode::NOT_FOUND {
+                    tracing::warn!(url = %sidecar, "no .sha1 published; this library stays unverified");
+                    return Ok(None);
+                }
+                if !status.is_success() {
+                    return Err(Error::HttpStatus { url: sidecar.clone(), status: status.as_u16(), detail: None });
+                }
+                let text = resp.text().await?;
+                // Some repositories append the file name: `<hex>  name.jar`.
+                let hex = text.split_whitespace().next().unwrap_or_default().to_ascii_lowercase();
+                if hex.len() == 40 && hex.chars().all(|c| c.is_ascii_hexdigit()) {
+                    Ok(Some(hex))
+                } else {
+                    Err(Error::Manifest(format!("{sidecar} is not a SHA-1")))
+                }
+            }
+            .await;
+            (natives, i, got)
+        })
+        .buffer_unordered(8)
+        .collect()
+        .await;
+
+    for (natives, i, got) in results {
+        let list = if natives { &mut profile.natives } else { &mut profile.libraries };
+        list[i].file.sha1 = got?;
+    }
+    Ok(())
 }
 
 /// Fetches and parses an asset index that has already been downloaded to disk.
 pub fn read_asset_index(path: &std::path::Path) -> Result<AssetIndex> {
     let text = std::fs::read_to_string(path).map_err(|e| Error::io(path, e))?;
     serde_json::from_str(&text).map_err(|e| Error::json(path.display().to_string(), e))
+}
+
+#[cfg(test)]
+mod pin_tests {
+    /// The launcher must start the loader the mod was compiled against. Both numbers
+    /// live in source; this is what keeps them one number.
+    #[test]
+    fn the_pinned_loader_matches_the_mod_build() {
+        let props = include_str!("../../../mod/gradle.properties");
+        let built = props
+            .lines()
+            .filter_map(|l| l.split_once('='))
+            .find(|(k, _)| k.trim() == "loader_version")
+            .map(|(_, v)| v.trim().to_string())
+            .expect("mod/gradle.properties declares loader_version");
+        assert_eq!(super::LEGACY_FABRIC_LOADER, built);
+    }
 }

@@ -25,11 +25,11 @@ pub use void_loadout::{
 /// - `menu_key` … `hud_editor_grid` are `void_loadout::GlobalSettings` — persisted in
 ///   `settings.json` **and** sent to the mod in `init`, because they change how the
 ///   game behaves.
-/// - `java_auto` … `mod_jar` are `void_core::Config` — `config.json`, launcher-only,
+/// - `java_auto` … `game_dir` are `void_core::Config` — `config.json`, launcher-only,
 ///   never on the wire.
-/// - `hide_to_tray_on_launch` and `update_channel` are launcher preferences with no
-///   home in either, so they ride in `GlobalSettings`'s open `extra` map, which the
-///   schema explicitly allows (`additionalProperties: true`).
+/// - `hide_to_tray_on_launch`, `update_channel` and `discord_rpc` are launcher
+///   preferences with no home in either, so they ride in `GlobalSettings`'s open `extra`
+///   map, which the schema explicitly allows (`additionalProperties: true`).
 #[derive(Debug, Clone, Serialize)]
 pub struct Settings {
     // GlobalSettings — crosses to the game
@@ -41,10 +41,25 @@ pub struct Settings {
     // GlobalSettings.extra — launcher preferences
     pub hide_to_tray_on_launch: bool,
     pub update_channel: String,
+    /// Show what you are playing in Discord. Default on.
+    pub discord_rpc: bool,
     // void_core::Config — launcher only
     pub java_auto: bool,
     pub java_path: Option<String>,
     pub ram_mb: u32,
+    /// Extra JVM arguments, as one line (`void_core::join_args`).
+    pub jvm_args: String,
+    /// Game window size; both or neither.
+    pub game_width: Option<u32>,
+    pub game_height: Option<u32>,
+    pub fullscreen: bool,
+    /// The configured game directory, or `None` for the default.
+    pub game_dir: Option<String>,
+    /// Where the game directory is right now (the default when `game_dir` is unset).
+    pub game_dir_effective: String,
+    /// The **developer override** JAR (`$VOID_MOD_JAR` / `config.mod_jar`), read-only
+    /// here: shown so a dev build says it is not running the release client. `None` in
+    /// every normal install, which uses the signed release channel.
     pub mod_jar: Option<String>,
     // derived
     pub active_loadout: String,
@@ -53,6 +68,7 @@ pub struct Settings {
 /// Keys the launcher stores inside `GlobalSettings::extra`.
 pub const EXTRA_HIDE_TO_TRAY: &str = "hide_to_tray_on_launch";
 pub const EXTRA_UPDATE_CHANNEL: &str = "update_channel";
+pub const EXTRA_DISCORD_RPC: &str = "discord_rpc";
 
 /// A partial update. Every field optional: the settings screen writes one row at a time.
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -64,10 +80,20 @@ pub struct SettingsPatch {
     pub hud_editor_grid: Option<i64>,
     pub hide_to_tray_on_launch: Option<bool>,
     pub update_channel: Option<String>,
+    pub discord_rpc: Option<bool>,
     pub java_auto: Option<bool>,
     /// `Some(None)` clears the configured path; `None` leaves it alone.
     pub java_path: Option<Option<String>>,
     pub ram_mb: Option<u32>,
+    /// One line, split like a shell would (`void_core::split_args`).
+    pub jvm_args: Option<String>,
+    /// `Some(None)` clears it (the game's default size).
+    pub game_width: Option<Option<u32>>,
+    pub game_height: Option<Option<u32>>,
+    pub fullscreen: Option<bool>,
+    /// `Some(None)` returns to the default game directory.
+    pub game_dir: Option<Option<String>>,
+    /// Developer override; not offered in the Settings screen.
     pub mod_jar: Option<Option<String>>,
 }
 
@@ -109,6 +135,40 @@ impl From<&void_core::auth::Session> for Account {
             name: s.username.clone(),
             kind: if s.is_offline() { "offline" } else { "microsoft" },
             skin_url: None,
+        }
+    }
+}
+
+impl From<&void_core::auth::StoredAccount> for Account {
+    fn from(s: &void_core::auth::StoredAccount) -> Self {
+        Account {
+            uuid: s.uuid.clone(),
+            name: s.username.clone(),
+            kind: if s.is_offline() { "offline" } else { "microsoft" },
+            skin_url: None,
+        }
+    }
+}
+
+/// What `auth_accounts` / `auth_remove` return: every account and the active one.
+#[derive(Debug, Clone, Serialize)]
+pub struct AccountList {
+    pub active: Option<String>,
+    pub accounts: Vec<Account>,
+}
+
+impl AccountList {
+    pub fn active_account(&self) -> Option<Account> {
+        let uuid = self.active.as_deref()?;
+        self.accounts.iter().find(|a| a.uuid == uuid).cloned()
+    }
+}
+
+impl From<&void_core::auth::Accounts> for AccountList {
+    fn from(a: &void_core::auth::Accounts) -> Self {
+        AccountList {
+            active: a.active.clone(),
+            accounts: a.accounts.iter().map(Account::from).collect(),
         }
     }
 }
@@ -188,6 +248,13 @@ pub struct PrepareReport {
     pub duration_ms: u64,
     pub java_path: String,
     pub java_version: String,
+    /// The `void-client` version that will be installed, or `dev` for an override.
+    pub mod_version: String,
+    /// `fresh` | `cached` | `dev`.
+    pub mod_source: &'static str,
+    /// A newer client exists that this launcher cannot run yet, and similar notes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notice: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -214,6 +281,9 @@ pub struct SessionStats {
     /// The last lines of output when the JVM exited non-zero.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub crash_tail: Option<Vec<String>>,
+    /// The crash report (or JVM `hs_err` file) this session wrote, when it wrote one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub crash_report: Option<String>,
 }
 
 /// Payload of `game:log`.

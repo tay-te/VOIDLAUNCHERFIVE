@@ -200,13 +200,20 @@ Minecraft started (pid Some(2899))
   "java_path": null,
   "max_memory_mb": 2048,
   "jvm_args": [],
+  "game_width": null,
+  "game_height": null,
+  "fullscreen": false,
+  "game_dir": null,
   "mod_jar": null
 }
 ```
 
-`VOID_MS_CLIENT_ID` overrides `ms_client_id`; `VOID_PVP_HOME` overrides the root. **VOID
-ships no Azure client id**: register an application with the device-code flow enabled and
-put its id here. `--offline` needs none of this.
+The Azure client id: `$VOID_MS_CLIENT_ID` at run time, then `ms_client_id`, then the id a
+release build compiled in (`option_env!("VOID_MS_CLIENT_ID")`); see
+[`docs/RELEASING.md`](../docs/RELEASING.md). `VOID_PVP_HOME` overrides the root.
+`mod_jar` (or `$VOID_MOD_JAR`) is the **developer override**: without it the mod comes from
+the signed release channel (`void_core::release`, `void-pvp mod`). `--offline` needs none of
+this.
 
 ---
 

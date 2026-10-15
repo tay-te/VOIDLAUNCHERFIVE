@@ -31,6 +31,7 @@ import crashedArt from '../assets/illustrations/crashed.svg';
 import noSessionsArt from '../assets/illustrations/no-sessions.svg';
 import offlineArt from '../assets/illustrations/offline.svg';
 import unreachableArt from '../assets/illustrations/server-unreachable.svg';
+import { openPath } from '../features/LogDrawer';
 import { CategoryCube, Character, Initial } from '../features/art';
 import { CATEGORY_HUE_VAR, CATEGORY_LABEL, TOTAL_MODS, countsFor, totalOn } from '../local/categories';
 import { findItem } from '../local/catalog';
@@ -417,6 +418,16 @@ function CrashCard() {
           <button type="button" className="btn2 btn2--secondary" onClick={() => setLogOpen(true)}>
             View log
           </button>
+          {crash.report ? (
+            <button
+              type="button"
+              className="btn2 btn2--secondary"
+              title={crash.report}
+              onClick={() => void openPath('crash_report', crash.report).catch(() => setLogOpen(true))}
+            >
+              Crash report
+            </button>
+          ) : null}
           <button
             type="button"
             className="btn2 btn2--primary"

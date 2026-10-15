@@ -64,6 +64,8 @@ export function emit(event: string, payload: unknown): void {
 
 interface MockState {
   account: Account | null;
+  /** Every signed-in account; `account` is the active one. */
+  accounts: Account[];
   loadouts: Loadout[];
   settings: Settings;
   running: boolean;
@@ -74,6 +76,7 @@ interface MockState {
 
 const state: MockState = {
   account: null,
+  accounts: [],
   loadouts: [
     structuredClone(SWORD_PVP),
     structuredClone(BEDWARS),
@@ -135,6 +138,7 @@ function seedPreview(): void {
   const force = PREVIEW !== '';
 
   state.account = PREVIEW === 'signedout' ? null : structuredClone(PREVIEW_ACCOUNT);
+  state.accounts = state.account ? [state.account] : [];
 
   put(
     'void.friends.v1',
@@ -185,6 +189,7 @@ export function __resetMock(): void {
   state.timers.forEach(clearTimeout);
   state.timers = [];
   state.account = null;
+  state.accounts = [];
   state.loadouts = [
     structuredClone(SWORD_PVP),
     structuredClone(BEDWARS),
@@ -199,8 +204,17 @@ export function __resetMock(): void {
 /** Sign in up front, for tests that are not about auth. */
 export function __signIn(): Account {
   state.account = structuredClone(MOCK_ACCOUNT);
+  addAccount(state.account);
   return state.account;
 }
+
+/** Adds (or refreshes) an account and makes it active, as `void_core::auth` does. */
+function addAccount(account: Account): void {
+  state.accounts = [...state.accounts.filter((a) => a.uuid !== account.uuid), account];
+  state.account = account;
+}
+
+const accountList = () => ({ active: state.account?.uuid ?? null, accounts: structuredClone(state.accounts) });
 
 /** Speed knob: tests set 0 so a launch is instant; the preview keeps real timings. */
 let speed = 1;
@@ -271,7 +285,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     ];
     stages.forEach((s, i) => {
       later(() => {
-        if (s.stage === 'complete') state.account = (s as { account: Account }).account;
+        if (s.stage === 'complete') addAccount((s as { account: Account }).account);
         emit('auth:status', s);
       }, 700 * (i + 1));
     });
@@ -285,7 +299,28 @@ const commands: Record<string, (args: Args) => unknown> = {
   },
 
   auth_logout: () => {
-    state.account = null;
+    if (state.account) {
+      const gone = state.account.uuid;
+      state.accounts = state.accounts.filter((a) => a.uuid !== gone);
+    }
+    state.account = state.accounts[0] ?? null;
+    return state.account;
+  },
+
+  auth_accounts: () => accountList(),
+
+  auth_switch: ({ uuid }) => {
+    if (state.running) throw 'Close Minecraft before switching accounts.';
+    const found = state.accounts.find((a) => a.uuid === uuid);
+    if (!found) throw 'That account is not signed in on this launcher.';
+    state.account = found;
+    return structuredClone(found);
+  },
+
+  auth_remove: ({ uuid }) => {
+    state.accounts = state.accounts.filter((a) => a.uuid !== uuid);
+    if (state.account?.uuid === uuid) state.account = state.accounts[0] ?? null;
+    return accountList();
   },
 
   auth_current: () => state.account,
@@ -295,7 +330,7 @@ const commands: Record<string, (args: Args) => unknown> = {
     if (!n || n.length > 16 || !/^[A-Za-z0-9_]+$/.test(n)) {
       throw 'A Minecraft name is 1–16 characters: letters, digits and underscores.';
     }
-    state.account = { ...structuredClone(MOCK_ACCOUNT), name: n };
+    addAccount({ ...structuredClone(MOCK_ACCOUNT), name: n, uuid: `offline-${n.toLowerCase()}` });
     return state.account;
   },
 
@@ -358,6 +393,8 @@ const commands: Record<string, (args: Args) => unknown> = {
             duration_ms: 25 * (tick + 1),
             java_path: '/usr/lib/jvm/java-8/bin/java',
             java_version: '1.8.0_412',
+            mod_version: '0.1.0',
+            mod_source: 'fresh',
           }),
         25 * (tick + 2),
       );
@@ -429,6 +466,7 @@ const commands: Record<string, (args: Args) => unknown> = {
                     '[Client thread/ERROR]: Unreported exception thrown!',
                     'java.lang.OutOfMemoryError: Java heap space (preview fixture)',
                   ],
+                  crash_report: `${MOCK_SYSTEM.data_dir}/game/crash-reports/crash-preview-client.txt`,
                 }
               : {}),
           });
@@ -541,7 +579,18 @@ const commands: Record<string, (args: Args) => unknown> = {
         : {}),
       // Turning auto-detect back on forgets the configured path, as Rust does.
       ...(p.java_auto === true ? { java_path: null } : {}),
+      ...(p.game_width != null ? { game_width: Math.max(640, p.game_width) } : {}),
+      ...(p.game_height != null ? { game_height: Math.max(480, p.game_height) } : {}),
+      ...(p.game_dir !== undefined
+        ? { game_dir_effective: p.game_dir ?? `${MOCK_SYSTEM.data_dir}/game` }
+        : {}),
+      ...(p.update_channel !== undefined
+        ? { update_channel: p.update_channel === 'beta' ? 'beta' : 'stable' }
+        : {}),
     };
+    if (p.jvm_args !== undefined && /(^|\s)-Xm[xs]/.test(p.jvm_args)) {
+      throw `\`${p.jvm_args.match(/-Xm[xs]\S*/)?.[0]}\` is set by the Memory slider; remove it from the JVM arguments.`;
+    }
     return structuredClone(state.settings);
   },
 
@@ -578,14 +627,37 @@ const commands: Record<string, (args: Args) => unknown> = {
 
   open_data_dir: () => MOCK_SYSTEM.data_dir,
 
+  open_path: ({ which, path }) => {
+    const game = `${MOCK_SYSTEM.data_dir}/game`;
+    switch (which) {
+      case 'launcher_log':
+        return `${MOCK_SYSTEM.data_dir}/logs/launcher.log`;
+      case 'game_log':
+        return `${game}/logs/latest.log`;
+      case 'crash_reports':
+        return `${game}/crash-reports`;
+      case 'crash_report':
+        if (typeof path !== 'string' || !path.includes('/crash-reports/')) throw 'That is not a crash report.';
+        return path;
+      case 'game_dir':
+        return game;
+      default:
+        throw `Nothing to open called \`${String(which)}\`.`;
+    }
+  },
+
   updater_check: () => ({
     available: false,
     current_version: MOCK_SYSTEM.app_version,
     version: null,
     notes: null,
     date: null,
-    error: 'The updater endpoint is a placeholder (updates.void.invalid) until release signing exists.',
+    error: 'The browser preview cannot reach the release channel.',
   }),
+
+  updater_install: () => {
+    throw 'The browser preview cannot install updates.';
+  },
 
   // --- window -------------------------------------------------------------
   window_minimize: () => undefined,

@@ -34,9 +34,9 @@ async function until(predicate: () => boolean, label: string, ms = 2000): Promis
 beforeEach(() => {
   __resetMock();
   __setSpeed(0); // no artificial delays; every scheduled callback runs inline
-  useSession.setState({ account: null, system: null, java: null, deviceCode: null, error: null });
+  useSession.setState({ account: null, accounts: [], system: null, java: null, deviceCode: null, error: null });
   useLoadouts.setState({ library: [], active: null, settings: null, error: null });
-  useLaunch.setState({ phase: 'idle', progress: null, log: [], error: null, lastSession: null, crash: null, server: null, launchedServer: null });
+  useLaunch.setState({ phase: 'idle', progress: null, log: [], error: null, notice: null, lastSession: null, crash: null, server: null, launchedServer: null });
   useUi.setState({ screen: 'home', paletteOpen: false, settingsOpen: false, logOpen: false, friendsOpen: false, storeItem: null });
   localStorage.clear();
   useFriends.getState().hydrate();
@@ -60,6 +60,28 @@ describe('session store', () => {
 
     await useSession.getState().logout();
     expect(useSession.getState().account).toBeNull();
+  });
+
+  it('keeps several accounts, switches between them and signs one out', async () => {
+    await useSession.getState().loginOffline('Alpha');
+    await useSession.getState().loginOffline('Bravo');
+    let s = useSession.getState();
+    expect(s.accounts.map((a) => a.name)).toEqual(['Alpha', 'Bravo']);
+    expect(s.account?.name).toBe('Bravo');
+
+    const alpha = s.accounts.find((a) => a.name === 'Alpha')!;
+    await useSession.getState().switchAccount(alpha.uuid);
+    expect(useSession.getState().account?.name).toBe('Alpha');
+
+    // Signing out the active account hands over to the one that is left.
+    await useSession.getState().logout();
+    s = useSession.getState();
+    expect(s.account?.name).toBe('Bravo');
+    expect(s.accounts).toHaveLength(1);
+
+    await useSession.getState().removeAccount(s.account!.uuid);
+    expect(useSession.getState().account).toBeNull();
+    expect(useSession.getState().accounts).toHaveLength(0);
   });
 
   it('surfaces the backend’s own sentence when a name is rejected', async () => {
@@ -211,6 +233,20 @@ describe('launch store', () => {
     useLaunch.getState().dismissCrash();
     emit('game:closed', { code: 143, loadout: 'sword-pvp', played_ms: 5_000, fps_avg: 0 });
     expect(useLaunch.getState().crash).toBeNull();
+    stop();
+  });
+
+  it('carries the crash report path to the crash card', async () => {
+    const stop = await wireLaunchEvents();
+    emit('game:closed', {
+      code: 1,
+      loadout: 'sword-pvp',
+      played_ms: 1_000,
+      fps_avg: 0,
+      crash_tail: [],
+      crash_report: '/x/game/crash-reports/crash-1-client.txt',
+    });
+    expect(useLaunch.getState().crash?.report).toBe('/x/game/crash-reports/crash-1-client.txt');
     stop();
   });
 

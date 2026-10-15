@@ -10,7 +10,9 @@ use void_core::Config;
 use void_loadout::{GlobalSettings, Keybind};
 
 use crate::error::Error;
-use crate::models::{Settings, SettingsPatch, EXTRA_HIDE_TO_TRAY, EXTRA_UPDATE_CHANNEL};
+use crate::models::{
+    Settings, SettingsPatch, EXTRA_DISCORD_RPC, EXTRA_HIDE_TO_TRAY, EXTRA_UPDATE_CHANNEL,
+};
 use crate::state::AppState;
 
 /// Default for the launcher-only preference: hide to the tray after a successful spawn
@@ -18,14 +20,39 @@ use crate::state::AppState;
 /// anyone on two monitors.
 const DEFAULT_HIDE_TO_TRAY: bool = true;
 const DEFAULT_UPDATE_CHANNEL: &str = "stable";
+const DEFAULT_DISCORD_RPC: bool = true;
+
+/// The smallest window `--width`/`--height` accept; below it 1.8.9's menus overlap.
+const MIN_GAME_SIZE: (u32, u32) = (640, 480);
 
 pub fn get(state: &AppState) -> Result<Settings, Error> {
     let globals = state.store.settings()?;
     let config = state.config()?;
-    Ok(join(&globals, &config, state.store.active_id()?.to_string()))
+    Ok(join(&globals, &config, &state.paths, state.store.active_id()?.to_string()))
 }
 
-fn join(globals: &GlobalSettings, config: &Config, active_loadout: String) -> Settings {
+/// The launcher's update channel (`stable` / `beta`), for the updater and the mod
+/// release channel.
+pub fn update_channel(state: &AppState) -> String {
+    state
+        .store
+        .settings()
+        .ok()
+        .and_then(|g| g.extra.get(EXTRA_UPDATE_CHANNEL).and_then(|v| v.as_str()).map(str::to_string))
+        .unwrap_or_else(|| DEFAULT_UPDATE_CHANNEL.to_string())
+}
+
+/// Whether Discord Rich Presence is on.
+pub fn discord_rpc(globals: &GlobalSettings) -> bool {
+    globals.extra.get(EXTRA_DISCORD_RPC).and_then(|v| v.as_bool()).unwrap_or(DEFAULT_DISCORD_RPC)
+}
+
+fn join(
+    globals: &GlobalSettings,
+    config: &Config,
+    paths: &void_core::Paths,
+    active_loadout: String,
+) -> Settings {
     Settings {
         menu_key: globals.menu_key().as_str().to_string(),
         cycle_loadout_key: globals.cycle_loadout_key().as_str().to_string(),
@@ -43,10 +70,17 @@ fn join(globals: &GlobalSettings, config: &Config, active_loadout: String) -> Se
             .and_then(|v| v.as_str())
             .unwrap_or(DEFAULT_UPDATE_CHANNEL)
             .to_string(),
+        discord_rpc: discord_rpc(globals),
         java_auto: config.java_path.is_none(),
         java_path: config.java_path.as_ref().map(|p| p.display().to_string()),
         ram_mb: config.max_memory_mb,
-        mod_jar: config.mod_jar.as_ref().map(|p| p.display().to_string()),
+        jvm_args: void_core::join_args(&config.jvm_args),
+        game_width: config.game_width,
+        game_height: config.game_height,
+        fullscreen: config.fullscreen,
+        game_dir: config.game_dir.as_ref().map(|p| p.display().to_string()),
+        game_dir_effective: config.paths_for(paths).game_dir().display().to_string(),
+        mod_jar: config.mod_jar_override().map(|p| p.display().to_string()),
         active_loadout,
     }
 }
@@ -85,8 +119,14 @@ pub fn set(state: &AppState, patch: SettingsPatch) -> Result<Settings, Error> {
         globals_changed = true;
     }
     if let Some(channel) = patch.update_channel {
+        let channel = if channel == "beta" { "beta" } else { "stable" };
         globals.extra.insert(EXTRA_UPDATE_CHANNEL.into(), channel.into());
         globals_changed = true;
+    }
+    if let Some(on) = patch.discord_rpc {
+        globals.extra.insert(EXTRA_DISCORD_RPC.into(), on.into());
+        globals_changed = true;
+        state.presence.set_enabled(on);
     }
 
     // --- config.json, launcher only -----------------------------------------------
@@ -104,6 +144,46 @@ pub fn set(state: &AppState, patch: SettingsPatch) -> Result<Settings, Error> {
         config.max_memory_mb = ram.clamp(1024, 32768);
         config_changed = true;
     }
+    if let Some(line) = patch.jvm_args {
+        let args = void_core::split_args(&line);
+        // -Xmx/-Xms belong to the Memory slider: a second -Xmx later on the command line
+        // silently wins, and the slider would then be lying.
+        if let Some(bad) = args.iter().find(|a| a.starts_with("-Xmx") || a.starts_with("-Xms")) {
+            return Err(Error::Other(format!(
+                "`{bad}` is set by the Memory slider; remove it from the JVM arguments."
+            )));
+        }
+        if let Some(bad) = args.iter().find(|a| a.starts_with("-Dvoid.")) {
+            return Err(Error::Other(format!("`{bad}` is reserved for the launcher.")));
+        }
+        config.jvm_args = args;
+        config_changed = true;
+    }
+    if let Some(width) = patch.game_width {
+        config.game_width = width.filter(|w| *w > 0).map(|w| w.clamp(MIN_GAME_SIZE.0, 16384));
+        config_changed = true;
+    }
+    if let Some(height) = patch.game_height {
+        config.game_height = height.filter(|h| *h > 0).map(|h| h.clamp(MIN_GAME_SIZE.1, 16384));
+        config_changed = true;
+    }
+    if let Some(full) = patch.fullscreen {
+        config.fullscreen = full;
+        config_changed = true;
+    }
+    if let Some(dir) = patch.game_dir {
+        let dir = dir.map(|d| d.trim().to_string()).filter(|d| !d.is_empty());
+        if let Some(d) = &dir {
+            let path = std::path::Path::new(d);
+            if !path.is_absolute() {
+                return Err(Error::Other("The game directory must be a full path.".into()));
+            }
+            std::fs::create_dir_all(path)
+                .map_err(|e| Error::Other(format!("Could not use {d} as the game directory: {e}")))?;
+        }
+        config.game_dir = dir.map(Into::into);
+        config_changed = true;
+    }
     if let Some(jar) = patch.mod_jar {
         config.mod_jar = jar.filter(|p| !p.trim().is_empty()).map(Into::into);
         config_changed = true;
@@ -118,7 +198,7 @@ pub fn set(state: &AppState, patch: SettingsPatch) -> Result<Settings, Error> {
         config.save(&state.paths)?;
     }
 
-    Ok(join(&globals, &config, state.store.active_id()?.to_string()))
+    Ok(join(&globals, &config, &state.paths, state.store.active_id()?.to_string()))
 }
 
 fn parse_keybind(value: &str) -> Result<Keybind, Error> {
@@ -211,6 +291,67 @@ mod tests {
         assert!(!s.hide_to_tray_on_launch);
         assert!(!s.java_auto);
         assert_eq!(s.java_path.as_deref(), Some("/opt/java8/bin/java"));
+    }
+
+    #[test]
+    fn jvm_arguments_round_trip_and_refuse_what_belongs_elsewhere() {
+        let state = scratch_state();
+        let s = set(
+            &state,
+            SettingsPatch { jvm_args: Some(r#"-XX:+UseG1GC -Dname="a b""#.into()), ..Default::default() },
+        )
+        .unwrap();
+        assert_eq!(s.jvm_args, r#"-XX:+UseG1GC "-Dname=a b""#);
+        assert_eq!(state.config().unwrap().jvm_args, ["-XX:+UseG1GC", "-Dname=a b"]);
+
+        let err = set(&state, SettingsPatch { jvm_args: Some("-Xmx8G".into()), ..Default::default() })
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("Memory"), "{err}");
+        assert!(set(&state, SettingsPatch { jvm_args: Some("-Dvoid.port=1".into()), ..Default::default() }).is_err());
+    }
+
+    #[test]
+    fn window_size_fullscreen_and_game_dir_persist() {
+        let state = scratch_state();
+        let dir = state.paths.root().join("elsewhere");
+        let s = set(
+            &state,
+            SettingsPatch {
+                game_width: Some(Some(100)),
+                game_height: Some(Some(1080)),
+                fullscreen: Some(true),
+                game_dir: Some(Some(dir.display().to_string())),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(s.game_width, Some(640), "clamped to the smallest usable window");
+        assert_eq!(s.game_height, Some(1080));
+        assert!(s.fullscreen);
+        assert_eq!(s.game_dir_effective, dir.display().to_string());
+        assert!(dir.is_dir(), "the directory is created when chosen");
+
+        let s = set(&state, SettingsPatch { game_dir: Some(None), game_width: Some(None), ..Default::default() })
+            .unwrap();
+        assert_eq!(s.game_dir, None);
+        assert_eq!(s.game_width, None);
+        assert!(s.game_dir_effective.ends_with("game"));
+        assert!(set(&state, SettingsPatch { game_dir: Some(Some("relative/dir".into())), ..Default::default() }).is_err());
+    }
+
+    #[test]
+    fn discord_presence_defaults_on_and_the_channel_is_one_of_two() {
+        let state = scratch_state();
+        assert!(get(&state).unwrap().discord_rpc);
+        let s = set(
+            &state,
+            SettingsPatch { discord_rpc: Some(false), update_channel: Some("nightly".into()), ..Default::default() },
+        )
+        .unwrap();
+        assert!(!s.discord_rpc);
+        assert_eq!(s.update_channel, "stable");
+        assert_eq!(update_channel(&state), "stable");
     }
 
     #[test]

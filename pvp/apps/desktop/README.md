@@ -82,25 +82,38 @@ pnpm install
 
 ### Microsoft sign-in needs an Azure application id
 
-`void-core` deliberately compiles no client id in: an Azure application is
-per-publisher, has to be registered with the device-code flow enabled and approved for
-the Minecraft API, and would be a credential in the repository. Set one before using
-**Sign in**:
+An Azure application is per-publisher and has to be approved by Mojang for the Minecraft
+API, so its id is **injected, not committed**: a release build compiles in
+`$VOID_MS_CLIENT_ID` from the CI secret (`option_env!`). Precedence at run time:
+`$VOID_MS_CLIENT_ID` → `"ms_client_id"` in `~/.void-pvp/config.json` → the compiled-in id.
+The registration and approval steps are in
+[`docs/RELEASING.md`](../../docs/RELEASING.md#microsoft-sign-in-azure-app-and-minecraft-api-approval).
+Without one, **Play offline** still works end to end.
 
-```sh
-export VOID_MS_CLIENT_ID=<your azure application (client) id>
-```
+The launcher keeps **several accounts** (`accounts.json`, no tokens; one keychain entry per
+account for its refresh token). Switch from the profile menu or Settings → *Accounts*.
+Before every launch the Minecraft access token is refreshed if it has under 30 minutes of
+its 24 hours left. When the OS keychain is unavailable the refresh tokens fall back to
+`credentials.json`, restricted to the current user (mode 0600, or an `icacls` ACL on Windows).
 
-…or put `"ms_client_id"` in `~/.void-pvp/config.json`. Without it, **Play offline** still
-works end to end — it needs no network at all.
+### Discord Rich Presence needs a Discord application id
+
+`$VOID_DISCORD_APP_ID` at build time (CI secret) or run time; without it presence is off.
+See [`docs/RELEASING.md`](../../docs/RELEASING.md#discord-rich-presence).
 
 ## Running
 
 ```sh
 pnpm dev:web        # browser preview at http://127.0.0.1:5183 — no Rust, no webview
 pnpm tauri dev      # the real launcher
-pnpm tauri build    # a signed-shaped installer for the host OS
+pnpm tauri build    # the installer for the host OS (needs the updater key; see below)
 ```
+
+`pnpm tauri build` produces signed updater artifacts (`createUpdaterArtifacts`), so it wants
+`TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD` in the environment — or
+`--config '{"bundle":{"createUpdaterArtifacts":false}}'` for an unsigned local build. Releases are
+built by `.github/workflows/pvp-release.yml` on `pvp-v*` tags; everything about keys, secrets,
+channels and signing is in [`docs/RELEASING.md`](../../docs/RELEASING.md).
 
 `dev:web` pins **5183** with `--strictPort`, so it fails loudly rather than drifting to
 another port. [`packages/ingame`](../../packages/ingame/README.md)'s harness sits on
@@ -250,24 +263,52 @@ gitignored; the full-resolution captures and per-pixel diffs land in `visual-qa/
 2. **Pick a loadout.** The library is seeded on first run — `~/.void-pvp/loadouts/*.json`.
    Version is 1.8.9 and the picker's other entries are disabled: it is the only version
    this client targets (§15).
-3. **Launch** (or `⌘↵` / `Ctrl+↵`). `prepare` resolves the 1.8.9 and Legacy Fabric
-   manifests, downloads libraries, natives, the client jar and ~3,000 asset objects with
-   SHA-1 verification, then finds or fetches Temurin 8. Progress streams as
-   `prepare:progress`; the button becomes a bar with a step label and a MB/s readout.
-   `prepare` is idempotent — everything is verified against the manifest and skipped if
-   already present — so pressing Launch again on a warm install costs a manifest fetch.
-4. **The bridge and the JVM.** `void-bridge` binds `127.0.0.1:0`, mints a per-spawn
+3. **Launch** (or `⌘↵` / `Ctrl+↵`). `prepare` resolves the 1.8.9 manifests and the
+   Legacy Fabric loader **pinned** to the one the mod builds against
+   (`void_core::manifest::LEGACY_FABRIC_LOADER` = `mod/gradle.properties`), downloads
+   libraries (Legacy Fabric's verified against their Maven `.sha1`), natives, the client jar
+   and ~3,000 asset objects with SHA-1 verification, finds or fetches Temurin 8 (SHA-256 from
+   the Adoptium API, x64 on Apple Silicon and Windows on ARM), and resolves the **VOID client**
+   from the signed release channel. Progress streams as `prepare:progress`; the button becomes
+   a bar with a step label and a MB/s readout. `prepare` is idempotent, and a warm install
+   checks sizes against a verified-install stamp instead of re-hashing every file.
+   **Offline**, every step falls back to its cache — the game manifests, the signed mod
+   manifest and JAR, the installed Java — so a warm launch needs no internet.
+4. **The VOID client.** `void_core::release` fetches
+   `releases/download/pvp-<channel>/mod-manifest.json`, verifies its ed25519 signature against
+   the key compiled into the launcher, checks the bridge protocol and minimum launcher version,
+   downloads this platform's JAR into `mods-cache/<sha256>/` (SHA-256 checked) and installs it
+   atomically into the game's `mods/`, removing any other `void-client-*.jar`. Developers
+   override it with `$VOID_MOD_JAR` or `"mod_jar"` in `config.json` (`scripts/launcher.ps1 -Build`
+   sets it); Settings shows the override read-only and there is no user-facing JAR field.
+5. **The bridge and the JVM.** `void-bridge` binds `127.0.0.1:0`, mints a per-spawn
    token, and both are passed to the JVM as `-Dvoid.port` / `-Dvoid.token` (§7). The mod
    connects, sends `hello`, and gets the whole world of state back in `init`.
-5. **Hide to tray.** After a successful spawn the window hides (configurable in
+6. **Hide to tray.** After a successful spawn the window hides (configurable in
    Settings). The tray offers *Show launcher · Switch loadout ▸ · Quit*; switching there
    hot-swaps the loadout in the running game rather than only affecting the next launch.
-6. **Back with stats.** `game:closed` brings the window back and shows played time and
-   average fps, folded into the loadout's own totals from the mod's `session` reports.
+7. **Back with stats.** `game:closed` brings the window back and shows played time and
+   average fps, folded into the loadout's own totals from the mod's `session` reports. A
+   non-zero exit shows the crash card with *View log* and *Crash report* (the newest
+   `crash-reports/crash-*.txt` or `hs_err_pid*.log` the session wrote).
+
+**Logs.** The launcher writes `logs/launcher.YYYY-MM-DD.log` in the data folder (last 7 days;
+Settings → *Launcher log*). The log drawer copies the game output to the clipboard and opens
+`latest.log` and `crash-reports/`.
+
+**Updates.** At start the launcher checks the channel's `latest.json`
+(`pvp-stable` / `pvp-beta`, Settings → *Update channel*); a banner offers *Restart to update*,
+which downloads and verifies the signed installer, installs it (NSIS passive mode on Windows)
+and relaunches. A second launch focuses the running window (single-instance).
+
+**Settings** also hold JVM arguments, the game window size and fullscreen, the game directory
+(saves/options/logs; downloads stay in the data folder) and Discord status. Sliders commit on
+release and validated fields on blur, so dragging does not write the disk on every step.
 
 Everything lives under `~/.void-pvp` (or `$VOID_PVP_HOME`): `loadouts/`, `settings.json`,
-`config.json`, `versions/`, `libraries/`, `assets/`, `java/`, `game/`. Settings → *Data
-folder* → **Open** reveals it.
+`config.json`, `accounts.json`, `versions/`, `libraries/`, `assets/`, `java/`, `release/`,
+`mods-cache/`, `natives-cache/`, `logs/`, `game/`. Settings → *Data folder* → **Open**
+reveals it.
 
 ## What is verified here, and what needs a real machine
 
@@ -298,13 +339,12 @@ Verified on this Linux container (Rust 1.94, Node 22, pnpm 9.12.3, webkit2gtk 2.
 - **`server_ping`.** The wire format is unit-tested (varints, the status JSON, MOTD
   flattening, host splitting) and failure against an unroutable address is tested, but no
   live server was reached.
-- **Bundling.** `pnpm tauri build` was not run. `src-tauri/icons/` holds PNGs only;
-  Windows and macOS bundles want `icon.ico` and `icon.icns` — run `pnpm tauri icon
-  <source.png>` on a real machine to generate the full set.
-- **The updater.** Wired, but `tauri.conf.json` points at `https://updates.void.invalid/…`
-  — `.invalid` is reserved by RFC 2606 and can never resolve, so a development build
-  cannot be talked into installing anything. Replace the endpoint and the `pubkey`
-  placeholder when release signing exists (§16.5).
+- **Bundling.** Verified on Windows 11 (2026-10-15): `pnpm tauri build` produces
+  `src-tauri/target/release/bundle/nsis/VOID PVP_<v>_x64-setup.exe` (~5 MB) and its updater
+  `.sig`. The macOS universal `.dmg` is built only by the release workflow — not run on a Mac yet.
+- **The updater end to end.** The endpoint and public key are real
+  (`releases/download/pvp-stable/latest.json`), but no release has been published yet, so
+  download → install → relaunch has not been exercised against a live `latest.json`.
 
 ## Notes for whoever picks this up
 
@@ -330,7 +370,8 @@ Verified on this Linux container (Rust 1.94, Node 22, pnpm 9.12.3, webkit2gtk 2.
   `src-tauri/src/models.rs`, which no schema describes.
 - **The three-way settings split** (§8.3) is deliberate and easy to undo by accident:
   `menu_key`/`cycle_loadout_key`/`theme`/`ui_scale`/`hud_editor_grid` are
-  `void-loadout`'s `GlobalSettings` and cross to the mod in `init`; `java_path`/`ram_mb`/
-  `mod_jar` are `void-core`'s `config.json` and never leave Rust; `hide_to_tray_on_launch`
-  and `update_channel` ride in `GlobalSettings.extra`, which the schema allows. If it
+  `void-loadout`'s `GlobalSettings` and cross to the mod in `init`; `java_path`/`ram_mb`/`jvm_args`/
+  `game_width`/`game_height`/`fullscreen`/`game_dir`/`mod_jar` are `void-core`'s
+  `config.json` and never leave Rust; `hide_to_tray_on_launch`, `update_channel` and
+  `discord_rpc` ride in `GlobalSettings.extra`, which the schema allows. If it
   changes how the game *plays*, it belongs in the loadout, not in any of the three.

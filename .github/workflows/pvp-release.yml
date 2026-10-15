@@ -1,0 +1,289 @@
+# ---------------------------------------------------------------------------
+# VOID PvP release
+#
+# Push a tag `pvp-v<version>` (e.g. `pvp-v0.2.0`, or `pvp-v0.2.0-beta.1` for the beta
+# channel) whose version matches apps/desktop/src-tauri/tauri.conf.json
+# (`node pvp/scripts/release/bump-version.mjs <version>` sets it everywhere). This:
+#
+#   1. runs the whole of pvp-ci.yml (schemas, Rust, web, mod, natives, per-OS JARs);
+#   2. builds the launcher: Windows NSIS installer, macOS universal .app + .dmg, signed
+#      for the Tauri updater, code-signed when the certificates are configured;
+#   3. signs the void-client release manifest (ed25519) over the per-OS mod JARs;
+#   4. publishes the `pvp-v<version>` GitHub Release (installers, latest.json, JARs,
+#      mod-manifest.json) and copies latest.json + mod-manifest.json onto the fixed
+#      channel releases the launcher reads:
+#        releases/download/pvp-stable/{latest.json,mod-manifest.json}
+#        releases/download/pvp-beta/{latest.json,mod-manifest.json}
+#      A stable tag updates both channels; a prerelease tag only `pvp-beta`.
+#
+# Releases are never marked "latest": the repository's /releases/latest belongs to the
+# Electron launcher's `v*` releases (build.yml), which is why the PvP channels are fixed
+# tags instead.
+#
+# Secrets (all optional except VOID_MOD_MANIFEST_KEY; each step says what it skips):
+#   VOID_MOD_MANIFEST_KEY        PEM ed25519 private key for mod-manifest.json  (required)
+#   TAURI_SIGNING_PRIVATE_KEY    Tauri updater key; without it there is no latest.json
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+#   WINDOWS_CERTIFICATE          base64 .pfx Authenticode certificate
+#   WINDOWS_CERTIFICATE_PASSWORD
+#   APPLE_CERTIFICATE            base64 .p12 Developer ID Application certificate
+#   APPLE_CERTIFICATE_PASSWORD
+#   APPLE_SIGNING_IDENTITY       e.g. "Developer ID Application: Name (TEAMID)"
+#   APPLE_ID, APPLE_PASSWORD (app-specific), APPLE_TEAM_ID   notarization
+#   VOID_MS_CLIENT_ID            Azure app (client) id compiled into the launcher
+#   VOID_DISCORD_APP_ID          Discord application id for Rich Presence
+# ---------------------------------------------------------------------------
+name: pvp release
+
+on:
+  push:
+    tags: ['pvp-v*']
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pvp-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  meta:
+    name: version and secrets
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+      channel: ${{ steps.v.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version from the tag matches the launcher
+        id: v
+        run: |
+          version="${GITHUB_REF_NAME#pvp-v}"
+          configured=$(node -p "require('./pvp/apps/desktop/src-tauri/tauri.conf.json').version")
+          if [ "$version" != "$configured" ]; then
+            echo "::error::tag $GITHUB_REF_NAME is $version but tauri.conf.json says $configured — run pvp/scripts/release/bump-version.mjs $version"
+            exit 1
+          fi
+          if [[ "$version" == *-* ]]; then prerelease=true; channel=beta; else prerelease=false; channel=stable; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "VOID PvP $version ($channel)"
+
+      - name: The mod manifest key is configured
+        env:
+          KEY: ${{ secrets.VOID_MOD_MANIFEST_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::VOID_MOD_MANIFEST_KEY is not set: the launcher would refuse an unsigned mod release"
+            exit 1
+          fi
+
+  ci:
+    name: CI
+    needs: meta
+    uses: ./.github/workflows/pvp-ci.yml
+
+  launcher:
+    name: launcher (${{ matrix.name }})
+    needs: [meta, ci]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            os: windows-latest
+            args: --bundles nsis
+          - name: macos
+            os: macos-14
+            args: --target universal-apple-darwin --bundles app,dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: pvp/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pvp/pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.name == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            pvp/apps/desktop/src-tauri/target
+          key: ${{ runner.os }}-release-cargo-${{ hashFiles('pvp/apps/desktop/src-tauri/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-release-cargo-
+
+      - name: pnpm install and the workspace packages the launcher imports
+        working-directory: pvp
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @void/protocol build
+          pnpm --filter @void/ui build
+
+      # Optional secrets are exported only when set: an empty APPLE_CERTIFICATE or
+      # TAURI_SIGNING_PRIVATE_KEY in the environment makes the bundler try to use it.
+      - name: Signing configuration
+        id: sign
+        shell: bash
+        env:
+          TAURI_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MS_CLIENT_ID: ${{ secrets.VOID_MS_CLIENT_ID }}
+          DISCORD_APP_ID: ${{ secrets.VOID_DISCORD_APP_ID }}
+        run: |
+          put() { { echo "$1<<__VOID_EOF__"; echo "$2"; echo "__VOID_EOF__"; } >> "$GITHUB_ENV"; }
+          if [ -n "$TAURI_KEY" ]; then
+            put TAURI_SIGNING_PRIVATE_KEY "$TAURI_KEY"
+            put TAURI_SIGNING_PRIVATE_KEY_PASSWORD "$TAURI_KEY_PASSWORD"
+            echo "updater=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::TAURI_SIGNING_PRIVATE_KEY is not set: no updater artifacts, no latest.json — installed launchers will not auto-update to this release"
+            echo '{"bundle":{"createUpdaterArtifacts":false}}' > pvp/apps/desktop/src-tauri/tauri.release.conf.json
+            echo "updater=false" >> "$GITHUB_OUTPUT"
+            echo "extra=--config src-tauri/tauri.release.conf.json" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "${{ matrix.name }}" = macos ]; then
+            if [ -n "$APPLE_CERTIFICATE" ]; then
+              for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY; do put "$v" "${!v}"; done
+              if [ -n "$APPLE_ID" ]; then
+                for v in APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do put "$v" "${!v}"; done
+              else
+                echo "::warning::APPLE_ID is not set: the app is signed but not notarized"
+              fi
+            else
+              echo "::warning::APPLE_CERTIFICATE is not set: the macOS app is unsigned (Gatekeeper will warn)"
+            fi
+          fi
+          [ -n "$MS_CLIENT_ID" ] && put VOID_MS_CLIENT_ID "$MS_CLIENT_ID" || echo "::warning::VOID_MS_CLIENT_ID is not set: Microsoft sign-in needs a client id in config.json"
+          [ -n "$DISCORD_APP_ID" ] && put VOID_DISCORD_APP_ID "$DISCORD_APP_ID" || echo "::notice::VOID_DISCORD_APP_ID is not set: Discord Rich Presence is off in this build"
+          true
+
+      # Tauri merges src-tauri/tauri.windows.conf.json on Windows by itself.
+      - name: Windows code signing certificate
+        if: matrix.name == 'windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE) {
+            Write-Output "::warning::WINDOWS_CERTIFICATE is not set: the installer is unsigned (SmartScreen will warn)"
+            exit 0
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'void-cert.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $password = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          Remove-Item $pfx
+          @{ bundle = @{ windows = @{ certificateThumbprint = $cert.Thumbprint } } } |
+            ConvertTo-Json -Depth 5 |
+            Set-Content -Encoding utf8 pvp/apps/desktop/src-tauri/tauri.windows.conf.json
+          Write-Output "signing with $($cert.Subject)"
+
+      - name: Build and upload the launcher
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: pvp/apps/desktop
+          tauriScript: pnpm tauri
+          args: ${{ matrix.args }} ${{ steps.sign.outputs.extra }}
+          tagName: ${{ github.ref_name }}
+          releaseName: VOID PvP ${{ needs.meta.outputs.version }}
+          releaseBody: VOID PvP launcher ${{ needs.meta.outputs.version }} — Windows installer, macOS universal app, and the signed VOID client for each platform.
+          releaseDraft: true
+          prerelease: ${{ needs.meta.outputs.prerelease }}
+          includeUpdaterJson: ${{ steps.sign.outputs.updater }}
+          updaterJsonPreferNsis: true
+
+  publish:
+    name: mod manifest, publish, channels
+    needs: [meta, ci, launcher]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ github.ref_name }}
+      VERSION: ${{ needs.meta.outputs.version }}
+      CHANNEL: ${{ needs.meta.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download the per-OS mod JARs from CI
+        uses: actions/download-artifact@v4
+        with:
+          name: void-client-platform-jars
+          path: dist/jars
+
+      # min_launcher_version is this release: the mod and the launcher ship together
+      # (protocol.json), and an older launcher keeps the last mod it can drive until it
+      # takes the update it is offered.
+      - name: Sign mod-manifest.json
+        env:
+          VOID_MOD_MANIFEST_KEY: ${{ secrets.VOID_MOD_MANIFEST_KEY }}
+        run: |
+          ls -l dist/jars
+          node pvp/scripts/release/mod-manifest.mjs sign \
+            --jars dist/jars \
+            --channel "$CHANNEL" \
+            --min-launcher "$VERSION" \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/$TAG" \
+            --out dist/mod-manifest.json
+
+      - name: Upload the JARs and the manifest to the release
+        run: |
+          shopt -s nullglob
+          jars=(dist/jars/void-client-*-windows-*.jar dist/jars/void-client-*-macos-*.jar dist/jars/void-client-*-linux-*.jar)
+          gh release upload "$TAG" "${jars[@]}" dist/mod-manifest.json --clobber --repo "${{ github.repository }}"
+
+      - name: Publish the release (not as "latest")
+        run: |
+          gh release edit "$TAG" --draft=false --latest=false \
+            --prerelease=${{ needs.meta.outputs.prerelease }} --repo "${{ github.repository }}"
+
+      - name: Point the channel releases at this version
+        run: |
+          set -euo pipefail
+          repo="${{ github.repository }}"
+          files=(dist/mod-manifest.json)
+          if gh release download "$TAG" --pattern latest.json --dir dist --repo "$repo"; then
+            files+=(dist/latest.json)
+          else
+            echo "::warning::no latest.json on $TAG (no updater key): channel launchers will not see this update"
+          fi
+          channels=(pvp-beta)
+          [ "$CHANNEL" = stable ] && channels=(pvp-stable pvp-beta)
+          for ch in "${channels[@]}"; do
+            if ! gh release view "$ch" --repo "$repo" > /dev/null 2>&1; then
+              gh release create "$ch" --repo "$repo" --prerelease --latest=false \
+                --title "VOID PvP — ${ch#pvp-} channel" \
+                --notes "Fixed channel release read by the VOID PvP launcher (latest.json, mod-manifest.json). Do not delete; the files are replaced on every release."
+            fi
+            gh release upload "$ch" "${files[@]}" --clobber --repo "$repo"
+            echo "$ch -> $TAG"
+          done

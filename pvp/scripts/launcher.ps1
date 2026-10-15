@@ -4,11 +4,12 @@
 #   powershell -ExecutionPolicy Bypass -File pvp\scripts\launcher.ps1 -Build    # rebuild the client first
 #
 # -Build rebuilds the in-game bundle (packages/ingame) into the mod, then the mod jar with its
-# Ultralight natives, and points ~/.void-pvp/config.json at that jar so every Launch installs it.
+# Ultralight natives, and points ~/.void-pvp/config.json `mod_jar` (the developer override) at
+# that jar so every Launch installs it instead of the signed release-channel client.
 # Run setup-windows.ps1 once before the first use.
 #
-# Sign-in: Microsoft needs an Azure application id that VOID does not ship (see
-# apps/desktop/README.md); use Settings -> Play offline with any name. Offline accounts cannot
+# Sign-in: Microsoft needs an Azure application id (compiled into release builds from the
+# VOID_MS_CLIENT_ID secret; see docs/RELEASING.md); use Settings -> Play offline with any name. Offline accounts cannot
 # join online-mode servers such as Hypixel — launch to the Title screen and play singleplayer.
 param([switch]$Build, [switch]$NoRun)
 $ErrorActionPreference = 'Stop'

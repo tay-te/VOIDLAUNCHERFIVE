@@ -644,9 +644,10 @@ Three flags, each of which fails silently when omitted:
 
 **Through the launcher there are two more**, and they are §16's, not Loom's:
 
-- `~/.void-pvp/config.json` must name a **current** `mod_jar` for **this JVM's** arch —
-  `macos-x64` on any Mac, Rosetta included. It is settable from Settings → Data & updates
-  now; when it is unset the launcher installs nothing and the log says so on stderr.
+- the installed `void-client` JAR must be **current** and for **this JVM's** arch —
+  `macos-x64` on any Mac, Rosetta included. The signed release channel picks it per platform;
+  a developer build points `$VOID_MOD_JAR` / `config.json` `mod_jar` at a local JAR instead,
+  and the launch log names which one ran.
 - the Java 8 it picks must be **x64**. It now prefers one that can load LWJGL 2, and prints
   `found Java 8 … arch="x86_64"`. If that line says `aarch64`, the window will not appear.
 

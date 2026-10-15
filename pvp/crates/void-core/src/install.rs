@@ -105,9 +105,17 @@ impl ModPlatform {
 /// Two passes, because the asset list only exists once the asset index has been fetched:
 /// libraries, natives, the client jar and the index first, then every asset object.
 ///
-/// The mod JAR itself is not fetched here yet — today it comes from `config.mod_jar` as
-/// a local path — but the platform it *would* be fetched for is resolved and logged, so
-/// the release-channel step of §12.3 has one place to hang off. See [`prepare_for`].
+/// **Offline.** When the manifests cannot be fetched (no network, Mojang or Legacy
+/// Fabric down) a profile cached by an earlier `prepare` for the same loader is used
+/// instead, and the downloads then find everything already on disk. A cold install with
+/// no network still fails, naming the network error.
+///
+/// **Warm.** After a run that fetched and hashed every file, a stamp records the profile
+/// hash; the next run with the same profile checks sizes instead of re-hashing ~3,000
+/// files (see [`Downloader::trust_existing_sizes`]).
+///
+/// The mod JAR is the release channel's business ([`crate::release::ensure_mod_jar`]),
+/// keyed off the same [`ModPlatform`].
 pub async fn prepare(
     client: &reqwest::Client,
     paths: &Paths,
@@ -136,7 +144,18 @@ pub async fn prepare_for(
 
     tracing::info!(platform = platform.key(), "mod JAR platform for this installation");
 
-    let profile = manifest::resolve_1_8_9(client, ctx, loader_version).await?;
+    let loader = loader_version.unwrap_or(manifest::LEGACY_FABRIC_LOADER);
+    let profile = match manifest::resolve_1_8_9(client, ctx, Some(loader)).await {
+        Ok(profile) => profile,
+        Err(e) if e.is_network() => match cached_profile_for(paths, loader) {
+            Some(cached) => {
+                tracing::warn!(error = %e, profile = %cached.profile_id, "manifests unreachable; using the cached profile");
+                cached
+            }
+            None => return Err(e),
+        },
+        Err(e) => return Err(e),
+    };
     tracing::info!(
         libraries = profile.libraries.len(),
         natives = profile.natives.len(),
@@ -145,7 +164,8 @@ pub async fn prepare_for(
         profile.profile_id
     );
 
-    let downloader = Downloader::new(client.clone(), paths);
+    let warm = read_stamp(paths).as_deref() == Some(profile.hash().as_str());
+    let downloader = Downloader::new(client.clone(), paths).trust_existing_sizes(warm);
     downloader.fetch_all(&profile.files(), progress.clone()).await?;
 
     let index_path = paths.root().join(&profile.asset_index.relative_path);
@@ -155,8 +175,27 @@ pub async fn prepare_for(
     downloader.fetch_all(&asset_files, progress).await?;
 
     save_profile(paths, &profile)?;
+    if !warm {
+        write_stamp(paths, &profile.hash());
+    }
 
     Ok(profile)
+}
+
+/// `versions/1.8.9/verified.stamp`: the hash of the last profile whose every file was
+/// fetched or hashed and found correct.
+fn stamp_file(paths: &Paths) -> PathBuf {
+    profile_cache_dir(paths).join("verified.stamp")
+}
+
+fn read_stamp(paths: &Paths) -> Option<String> {
+    std::fs::read_to_string(stamp_file(paths)).ok().map(|s| s.trim().to_string())
+}
+
+fn write_stamp(paths: &Paths, hash: &str) {
+    if let Err(e) = std::fs::write(stamp_file(paths), hash) {
+        tracing::warn!(error = %e, "could not write the verified-install stamp");
+    }
 }
 
 /// Writes the resolved profile next to the client jar, so a later run can see what was
@@ -194,6 +233,22 @@ pub fn cached_profile(paths: &Paths) -> Option<LaunchProfile> {
         }
     }
     None
+}
+
+/// The cached profile for one loader build, if a previous `prepare` saved one.
+pub fn cached_profile_for(paths: &Paths, loader_version: &str) -> Option<LaunchProfile> {
+    let dir = profile_cache_dir(paths);
+    let entries = std::fs::read_dir(dir).ok()?;
+    let needle = format!("-{loader_version}-");
+    entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.ends_with(".profile.json") && n.contains(&needle))
+        })
+        .find_map(|p| serde_json::from_str::<LaunchProfile>(&std::fs::read_to_string(p).ok()?).ok())
 }
 
 #[cfg(test)]
@@ -258,6 +313,29 @@ mod tests {
 
         let found = cached_profile(&paths).expect("one of them is found");
         assert_eq!(found.profile_id, "fabric-loader-0.19.3-1.8.9");
+    }
+
+    #[test]
+    fn the_offline_fallback_finds_the_profile_for_the_pinned_loader_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::at(dir.path());
+        save_profile(&paths, &profile(manifest::MC_VERSION, "fabric-loader-0.16.14-1.8.9")).unwrap();
+        save_profile(&paths, &profile(manifest::MC_VERSION, "fabric-loader-0.19.3-1.8.9")).unwrap();
+        assert_eq!(
+            cached_profile_for(&paths, "0.16.14").unwrap().profile_id,
+            "fabric-loader-0.16.14-1.8.9"
+        );
+        assert!(cached_profile_for(&paths, "0.15.0").is_none());
+    }
+
+    #[test]
+    fn the_verified_stamp_round_trips() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::at(dir.path());
+        assert_eq!(read_stamp(&paths), None);
+        std::fs::create_dir_all(profile_cache_dir(&paths)).unwrap();
+        write_stamp(&paths, "abc");
+        assert_eq!(read_stamp(&paths).as_deref(), Some("abc"));
     }
 
     #[test]

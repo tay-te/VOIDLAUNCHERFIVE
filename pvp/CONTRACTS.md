@@ -464,7 +464,8 @@ to *prefer* it (`JavaInstall::runs_lwjgl2`), and falls back to an unusable one o
 only Java 8 on the machine, with a warning that says what will happen.
 
 **Which jar is actually loaded is now reported at every launch.** `launch::installed_mod_jars` lists
-what is in `mods/` and the launcher writes one line naming the JAR and its age into the log drawer —
-`stderr` when `mod_jar` is unset, because then nothing was installed this run and Fabric will load
-whatever an earlier run left. A stale client answers `hello` and behaves normally, so the 45-second
+what is in `mods/` and the launcher writes one line naming the JAR, its age and where it came from
+(release channel, cached, or developer override) into the log drawer — `stderr` when nothing was
+resolved, because then nothing was installed this run and Fabric will load whatever an earlier run
+left. Since the release channel landed (`void_core::release`), every launch installs a verified JAR. A stale client answers `hello` and behaves normally, so the 45-second
 handshake watchdog never fires for it; naming the file is the only defence.

@@ -57,9 +57,25 @@ pub async fn auth_login<R: Runtime>(
     Ok(dto)
 }
 
+/// Sign the active account out; returns the account that is active afterwards, if any.
 #[tauri::command]
-pub fn auth_logout(state: State<'_, AppState>) -> CmdResult<()> {
-    map_err(commands::auth::logout(&state))
+pub async fn auth_logout(state: State<'_, AppState>) -> CmdResult<Option<Account>> {
+    map_err(commands::auth::logout(&state).await)
+}
+
+#[tauri::command]
+pub fn auth_accounts(state: State<'_, AppState>) -> CmdResult<AccountList> {
+    map_err(commands::auth::accounts(&state))
+}
+
+#[tauri::command]
+pub async fn auth_switch(state: State<'_, AppState>, uuid: String) -> CmdResult<Account> {
+    map_err(commands::auth::switch(&state, &uuid).await)
+}
+
+#[tauri::command]
+pub async fn auth_remove(state: State<'_, AppState>, uuid: String) -> CmdResult<AccountList> {
+    map_err(commands::auth::remove(&state, &uuid).await)
 }
 
 #[tauri::command]
@@ -204,6 +220,20 @@ pub fn java_status(state: State<'_, AppState>) -> CmdResult<JavaStatus> {
 #[tauri::command]
 pub async fn server_ping(host: String) -> CmdResult<PingResult> {
     map_err(commands::servers::ping(&host).await)
+}
+
+/// Reveal one of a closed set of places (see `commands::system::open_target`): the
+/// launcher log, the game's `latest.log`, the crash reports, one crash report, the game
+/// directory.
+#[tauri::command]
+pub fn open_path(state: State<'_, AppState>, which: String, path: Option<String>) -> CmdResult<String> {
+    let target = map_err(commands::system::open_target(&state, &which, path.as_deref()))?;
+    let target = target.display().to_string();
+    if let Err(e) = tauri_plugin_opener::open_path(&target, None::<&str>) {
+        tracing::warn!(%e, %target, "could not open the path");
+        return Err(format!("Could not open {target}: {e}"));
+    }
+    Ok(target)
 }
 
 #[tauri::command]
