@@ -137,6 +137,8 @@ public final class Showcase {
     };
 
     private void buildScenes() {
+        scenes.add(hero("hero-night", 18000));
+        scenes.add(hero("hero-dusk", 12800));
         scenes.add(lineup("lineup-front", 6000, 180, 0, 2.0, -7.5, 6));
         scenes.add(lineup("lineup-back", 6000, 180, 180, 2.0, 7.5, 6));
         scenes.add(lineup("night-front", 18000, 180, 0, 2.0, -7.5, 6));
@@ -198,6 +200,32 @@ public final class Showcase {
             }
         };
         s.time = time;
+        return s;
+    }
+
+    /** The beauty shot: three full outfits, close, from three-quarters behind, breathing. */
+    private Scene hero(String name, long time) {
+        Scene s = new Scene(name) {
+            @Override
+            void stage(Showcase sh, MinecraftClient mc) {
+                sh.spawn(mc, 0, set("void-cape", "void-wings", null, null, "void-halo", null, "void-badge-founder"), fixed(-1.9, 0.6, 165, -20, false));
+                sh.spawn(mc, 1, set("dusk-cape", "ember-wings", null, null, "seraph-halo", null, null), fixed(0, -0.4, 182, 10, false));
+                sh.spawn(mc, 2, set("cell-cape", "orbit-ring", "monarch-crown", null, null, null, null), fixed(1.9, 0.5, 200, 15, false));
+            }
+
+            @Override
+            void camera(int tick, double[] o) {
+                o[0] = 1.1;
+                o[1] = GROUND + 0.2;
+                o[2] = 4.4;
+                o[3] = 167;
+                o[4] = 2;
+            }
+        };
+        s.time = time;
+        s.settle = 60;
+        s.frames = 48;
+        s.fps = 16;
         return s;
     }
 
