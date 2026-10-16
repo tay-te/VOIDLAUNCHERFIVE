@@ -163,8 +163,20 @@ public final class FolkBrain {
 			}
 		}
 		if (this.engagedWith != null) {
-			tickEngaged(level, now);
-			return;
+			if (now >= this.nextEvaluate) {
+				// danger still counts while they talk: a monster in sight or the alarm ends the conversation
+				this.nextEvaluate = now + EVALUATE_EVERY;
+				evaluate(level);
+				if ((this.activity == Activity.FLEE || this.activity == Activity.ALARM) && this.engagedWith != null) {
+					ServerPlayer p = this.engagedWith;
+					disengage();
+					NpcModule.conversations().close(p, this.folk.getId());
+				}
+			}
+			if (this.engagedWith != null) {
+				tickEngaged(level, now);
+				return;
+			}
 		}
 		if (now - this.lastThink < this.thinkInterval) {
 			return;
