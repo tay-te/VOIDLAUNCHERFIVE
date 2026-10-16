@@ -33,11 +33,20 @@
 // how much of the bright share scatters into the halo at strength 100
 #define BLOOM_SCATTER 0.5
 // the open sky's share of the source: a bright sky is a broad source, and wholly it washed the land under a grey-gold
-// veil whenever the sun stood in the view; the sun and its glow still bloom, the clouds wholly
+// veil whenever the sun stood in the view; the sun and its glow still bloom
 #define BLOOM_SKY 0.2
+// the clouds' share of the source (the merge of phase 2, with welkin-clouds' lit clouds): a sunlit deck sits just under
+// white over half the view, and wholly it veiled a peak over the cloud sea in milk; a cloud's body gives this share, a
+// rim past white (the silver lining, added past the clouds' shoulder) its whole light
+#define BLOOM_CLOUD 0.3
 
 float bloomLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}
+
+// How much of a cloud pixel's bright share goes into the bloom: BLOOM_CLOUD for the body, all of it for a rim past white.
+float bloomCloudShare(vec3 display) {
+	return mix(BLOOM_CLOUD, 1.0, smoothstep(1.0, 1.4, max(display.r, max(display.g, display.b))));
 }
 
 // How much more light a display colour (taken to linear: lin) stands for: 1 up to the mids, about 6 at white.

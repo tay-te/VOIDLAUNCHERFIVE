@@ -119,6 +119,27 @@ bool openSkyAt(ivec2 p) {
 	return open;
 }
 
+#ifdef BLOOM
+// How much of pixel p's bright share (display colour c) feeds the bloom: the open sky BLOOM_SKY, a cloud (or a far rain
+// curtain over the sky) its body BLOOM_CLOUD and its rim past white wholly (lib/bloom.glsl; the merge of phase 2), the
+// rest wholly.
+float bloomShareAt(ivec2 p, vec3 c) {
+	float d = texelFetch(depthtex0, p, 0).r;
+#ifdef DISTANT_HORIZONS
+	d = min(d, texelFetch(dhDepthTex0, p, 0).r);
+#endif
+	if (d < 1.0) {
+		return 1.0;
+	}
+#ifdef WORLD_OVERWORLD
+	if (texelFetch(colortex6, p, 0).r <= 999.0) {
+		return bloomCloudShare(c);
+	}
+#endif
+	return BLOOM_SKY;
+}
+#endif
+
 #ifdef C3_BEAMS
 #include "/lib/noise.glsl"
 flat in vec3 beamSun;
@@ -165,8 +186,8 @@ void main() {
 			vec4 fl = texelFetch(colortex2, p, 0);
 			float emit = fl.x > 0.5 ? unpackEmission(fl.z) : 0.0;
 			vec3 b = bloomSource(c, emit);
-			// (the open sky only in part: lib/bloom.glsl BLOOM_SKY)
-			b *= openSkyAt(p) ? BLOOM_SKY : 1.0;
+			// (the open sky and the clouds' bodies only in part: lib/bloom.glsl BLOOM_SKY, BLOOM_CLOUD)
+			b *= bloomShareAt(p, c);
 			// (a soft brightness weight: the full 1 / (1 + brightness) also swallowed a lamp's few bright pixels, so the
 			// lamps barely glowed; this one still keeps a lone glint from flickering into a blotch)
 			float w = 1.0 / (1.0 + 0.15 * bloomLuma(b));

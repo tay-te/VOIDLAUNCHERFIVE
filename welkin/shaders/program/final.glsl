@@ -56,6 +56,12 @@ uniform sampler2D depthtex0;
 uniform sampler2D dhDepthTex0;
 #endif
 #endif
+#ifdef WORLD_OVERWORLD
+#ifndef WU_colortex6
+#define WU_colortex6
+uniform sampler2D colortex6; // the clouds' distance (> 999: none)
+#endif
+#endif
 #endif
 // ---- end atmos
 
@@ -92,7 +98,13 @@ void main() {
 		d = min(d, texelFetch(dhDepthTex0, p, 0).r);
 #endif
 		// (the sky lends nothing out: the pixel sun, moon and stars keep their whole brightness; the land half)
-		c = bloomApply(c, texture(colortex9, texcoord).rgb, emit, d >= 1.0 ? 0.0 : 0.5);
+		float lend = d >= 1.0 ? 0.0 : 0.5;
+#ifdef WORLD_OVERWORLD
+		// (a cloud lends out as the land does, so a sunlit deck spreads its light rather than only gaining the halo over
+		// it; the merge of phase 2)
+		lend = d >= 1.0 && texelFetch(colortex6, p, 0).r <= 999.0 ? 0.5 : lend;
+#endif
+		c = bloomApply(c, texture(colortex9, texcoord).rgb, emit, lend);
 	}
 #endif
 	// ---- end atmos
