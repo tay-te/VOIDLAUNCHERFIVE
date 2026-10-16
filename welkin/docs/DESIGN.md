@@ -1147,7 +1147,7 @@ fits far weather into it, so the far land, the clouds and the curtains carry the
 - **Far mist at night** is the near mist's thinner veil (`MIST_OPACITY` x 0.5..1 by the sun's height), so the near and
   far mist still add up to one; its colour is the near mist's (`mistColor`, now lit by the night sky).
 - **Checked:** every `live.sh` variant compiles (P5's own variants and four for the merge added to the merge's
-  `live_runs.txt`); the load runs are in the wave 3 summary at the end of this section.
+  `live_runs.txt`); the load runs are in the wave 3 summary.
 
 ### The wave 3 merge, 2 of 3: underground air and rock (P6) onto the lighting (2026-10-16)
 
@@ -1218,3 +1218,25 @@ the lighting's own water fixes are carried into it.
   light, so the tone rolls a glint into white; the emission is read with `unpackEmission`.
 - **Checked:** every `live.sh` variant compiles (P7's own and seven for the merge added); the load runs are in the
   wave 3 summary.
+
+### The wave 3 merge: the summary (2026-10-16)
+
+- **Follow-ups on the merged water** (seen in the first load run of the valley at 12:00, its cascades in light and
+  dark triangles where the lighting's water had read as smooth blue sheets): from the air every turned-away water face
+  is left out (a fall's step above the eye showed its top's back, shaded as the view from under water, beside its
+  turned-down copy's sky); water down a slope or a fall (from about 15 degrees) reflects and takes its light as level
+  water, is nearly opaque (`WS_ALPHA_FALL` 0.86), a little paler (churned with air) and has no bank band; and the sun's
+  reach on water is worked out for level water (each facet had met the shadow map at its own angle). The cascades now
+  read as smooth, slightly paler sheets, in the sun and in the gorge's shade, as before the merge.
+- **Compile check:** every `live.sh` variant compiles on the final tree: 322 runs (every program, wave 2's variants,
+  and P5's, P6's and P7's with the merge's own added to `live_runs.txt`).
+- **Load runs** (test world B, Welkin from each commit by `git archive`, defaults): after P5 far0, mist1, storm0,
+  village 18:30 and valley 18:30; after P6 wcave0 and mist1; after P7 water0, rain0, shore 12:00 and 18:30, valley 12:00
+  and 18:30, village 18:30, and the valley at 12:00 again after each water follow-up, with the tree before P7 (015d01be)
+  for comparison. No shader errors in any run. The shore at 18:30 shows clear shallows over the sand and weed, the
+  sky's Fresnel reflection and a glitter path broken by the waves toward the low sun; the crystal cavern of wcave0 its
+  violet cave air over the lit amethyst.
+- **Not done here:** the grain check and the cost of the three modules (P5's and P7's were estimates on their
+  branches; P6's was not measured); the curtains themselves were not caught on screen (storm0 aims at a storm 7 km off
+  from the summit, where it hangs under the decks the summit looks down on); the options' generator table
+  (`options.py`) still lacks every option since wave 1.
