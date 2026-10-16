@@ -123,7 +123,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 // Volumetric haze strength: How thick the volumetric haze is.  [haze]
 #define HAZE_VOLUME_STRENGTH 100 // [50 75 100 125 150 200]
 // Volumetric haze detail: How many points along each view the volumetric haze looks at. More gives cleaner light and shadow in the air.  [haze]
-#define HAZE_VOLUME_STEPS 20 // [12 16 20 28]
+#define HAZE_VOLUME_STEPS 14 // [10 14 20 28]
 // ---- end atmos
 // ---- Clouds
 // Block clouds: Solid clouds made of blocks, drawn by the shader and shaped by the weather. Off brings back the normal Minecraft clouds.  [clouds]

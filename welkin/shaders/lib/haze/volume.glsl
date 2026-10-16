@@ -107,6 +107,7 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, float shaftLen, float shaf
 #endif
 	float shaft = 0.0, hzSun = 0.0, hzAll = 0.0, tau = 0.0;
 	float dtN = nearEnd / float(NN);
+	float cloudVis = 1.0;
 	for (int i = 0; i < NN; i++) {
 		float t = (float(i) + u) * dtN;
 		vec3 pp = dirP * t;
@@ -118,7 +119,11 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, float shaftLen, float shaf
 #endif
 		vis *= hvLineVis(y, line0, w0);
 #ifdef HV_CLOUDS
-		vis *= welkinCloudShadow(pp, ce);
+		// (a cloud's shadow changes slowly along the near air: read every other step, which halves the walk's cost of it)
+		if ((i & 1) == 0) {
+			cloudVis = welkinCloudShadow(dirP * (t + 0.5 * dtN), ce);
+		}
+		vis *= cloudVis;
 #endif
 		shaft += t < shaftLen ? vis * min(dtN, shaftLen - t + 0.5 * dtN) : 0.0;
 		float rho = hvDensity(y, g0);
