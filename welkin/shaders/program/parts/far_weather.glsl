@@ -32,6 +32,7 @@ void main() {
 #include "/lib/haze/haze.glsl"
 #include "/lib/clouds/map.glsl"
 #include "/lib/far_weather/wf_far_weather.glsl"
+#include "/lib/underground/ug_common.glsl"
 
 in vec2 texcoord;
 
@@ -58,8 +59,10 @@ void main() {
 	if (!cloud) {
 		color.rgb = waterFog(p, texcoord, color.rgb);
 	}
-	// 2. far weather
+	// 2. far weather; at cave mouths it hands over to the cave air (M5) as composite2's near air does, by ug.amount
+	vec3 fogged = color.rgb;
 	color.rgb = welkinFarWeather(p, texcoord, color.rgb, km);
+	color.rgb = mix(color.rgb, fogged, ugState().amount);
 #endif
 	outColor = color;
 	outCloud = vec4(km, 0.0, 0.0, 1.0);

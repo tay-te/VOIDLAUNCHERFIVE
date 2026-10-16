@@ -1148,3 +1148,30 @@ fits far weather into it, so the far land, the clouds and the curtains carry the
   far mist still add up to one; its colour is the near mist's (`mistColor`, now lit by the night sky).
 - **Checked:** every `live.sh` variant compiles (P5's own variants and four for the merge added to the merge's
   `live_runs.txt`); the load runs are in the wave 3 summary at the end of this section.
+
+### The wave 3 merge, 2 of 3: underground air and rock (P6) onto the lighting (2026-10-16)
+
+`welkin-ug` (head 3884bd53, built on 05e84318; its own notes are in `lib/underground/`'s headers) merged second. It adds
+the cave air in composite2 (`ugComposite`: cave fog by the space's openness in floor, middle and roof strata, cavern
+water tinted by kind, mist over cave rivers and buried seas, an ember haze over lava) and the rock in the light pass
+(`ugSurface`: damp walls with drip streaks, the realm's faint light, glowworm light and specks, the lava's warmth),
+with the Underground screen (`UG_*`; `UG_FOG_SAMPLES` 2/3/4 in the profiles) and `UG_DEBUG`.
+
+- **Conflicts:** `lib/settings.glsl` (the modules line and the debug options: both), `program/composite2.glsl` (the
+  lighting's and far weather's air with the hand-over at cave mouths), `program/deferred.glsl` (the lighting's light
+  pass against P6's `welkinLightCore` call and its light added after it), `shaders.properties` (the lighting's
+  profiles, sliders and screens with the Underground screen and options added) and the lang file (both).
+- **The rock's light in linear light:** P6 added its light to the lit, display-space colour (`+= albedo * light +
+  glow`), which the new light pass would have laid over the tone curve. Now deferred hands it to `lib/light.glsl`
+  (`lightUgLin`, `lightUgEmit`, taken to linear with `toLinear`, which matches P6's display values in the dark, where
+  the curve's S has faded out): the realm's and glowworms' light lights the albedo like the sky's fill, under the
+  fill's occlusion (corners and the feet of walls keep their depth in a glowworm cave), and the specks and drips add
+  as emitted light, all before the tone, so a lit cave wall rolls into its highlights as the land does.
+- **The emission carried through the fog** is read with `unpackEmission` (the light review packed the light class
+  into `colortex2.z`; P6 read the raw value).
+- **The hand-over at cave mouths covers the lighting's air too:** besides the haze and the valley mist (P6), the sun
+  shafts and the aerial perspective fade out by `ug.amount`, and so does composite1's far weather (the far air, far
+  mist and curtains), so a far view from a cave mouth does not keep the far piece of the air while the near piece has
+  handed over (which would have drawn a ring at 1912 blocks).
+- **Checked:** every `live.sh` variant compiles (P6's own and five for the merge added); the load runs are in the
+  wave 3 summary.

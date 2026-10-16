@@ -208,6 +208,13 @@ float blockLightDaylight(float skyLevel) {
 // colour twice over (light through a leaf is a deeper, warmer green than light off it). contact: the ambient
 // occlusion's visibility (lib/ao.glsl lightAoFetch, 1 for none; not faded), with lightAoCover and lightAoBend: it darkens the
 // sky's fill and the ground's bounce fully and the torch light by half, never the sun (the shadows carry that).
+// M5 underground (P6, merged onto the lighting 2026-10-16): the extra light under the land, linear, set by deferred
+// from lib/underground/ug_surface.glsl before it lights a pixel: lightUgLin lights the albedo like the sky's fill (the
+// realm's faint light, the glowworms' teal, the lava's warmth; under the fill's occlusion), lightUgEmit is light the
+// rock gives off (glowworm specks, drips catching the light). Both 0 elsewhere.
+vec3 lightUgLin = vec3(0.0);
+vec3 lightUgEmit = vec3(0.0);
+
 vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
 		float facing, float ao, float glow, float contact) {
 	vec3 a = toLinear(albedo);
@@ -272,13 +279,13 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 		through = aT * skyLandDirect() * sunShare * glow;
 	}
 #endif
-	vec3 light = ambient * aoFill + block * aoBlock + direct;
+	vec3 light = ambient * aoFill + block * aoBlock + direct + lightUgLin * aoFill;
 	light = max(light, vec3(LAND_FLOOR)); // never quite black: cave walls still read
 	light = mix(light, max(light, vec3(0.27)), nightVision);
 #if defined WORLD_NETHER || defined WORLD_END
-	vec3 lin = a * light;
+	vec3 lin = a * light + lightUgEmit;
 #else
-	vec3 lin = a * light + through;
+	vec3 lin = a * light + through + lightUgEmit;
 #endif
 	// the highlights' pull toward white only while the sun stands high (a face in the low sun keeps its amber)
 	toneHighlightDesat = LAND_HIGHLIGHT_DESAT * smoothstep(0.15, 0.4, sunHeight());

@@ -77,6 +77,8 @@ uniform float viewHeight;
 #define WELKIN_WET_CLOUDS
 #endif
 #endif
+// ---- M5 underground (P6): damp walls, realm, glowworm and lava light (lib/underground/ug_surface.glsl)
+#include "/lib/underground/ug_surface.glsl"
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
@@ -158,6 +160,13 @@ void main() {
 		HzState st = hzState();
 		WelkinWet wet = welkinWetSurface(st, albedo, eyePos, n, g.w, hzWetClass(material));
 #endif
+		// ---- M5 underground (P6): damp, darker rock before the light (not on the LOD's land)
+		UgSurface us = UgSurface(vec3(1.0), vec3(0.0), vec3(0.0));
+		if (!s.fromLod) {
+			us = ugSurface(ugState(), eyePos, n, dist);
+		}
+		albedo *= us.albedo;
+		// ---- end M5
 		vec2 lm = g.zw;
 		lm.x = welkinHandBlockLight(lm.x, dist); // a torch in hand lights the ground on the same ramp
 		// the LOD's leaves: the crown's average self-shade the near shadow map gives near crowns (lib/light.glsl)
@@ -208,6 +217,10 @@ void main() {
 			contact *= aoMc;
 			aoMc = 1.0;
 		}
+		// ---- M5 underground (P6): the realm's, the glowworms' and the lava's light and the rock's own glow, in linear
+		// light inside the light pass (under the fill's occlusion, before the tone), not added to the toned colour
+		lightUgLin = toLinear(us.light);
+		lightUgEmit = toLinear(us.glow);
 		color.rgb = welkinLightGlow(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, aoMc, glow,
 			contact);
 #ifdef WELKIN_WET

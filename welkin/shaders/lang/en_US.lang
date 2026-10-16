@@ -17,6 +17,8 @@ screen.WEATHER=Weather and seasons
 screen.WEATHER.comment=Wet ground, distant rain, frost and the light of each season.
 screen.PLANTS=Plants and wind
 screen.PLANTS.comment=How leaves, grass and water plants move in the wind.
+screen.UNDERGROUND=Underground
+screen.UNDERGROUND.comment=Cave fog, cave water, glowworm caves and damp walls.
 screen.FAR=Far land
 screen.FAR.comment=How the far land drawn by VOID LOD looks.
 screen.LOOK=Colour and finish
@@ -185,6 +187,36 @@ option.WAVING_WATER_PLANTS.comment=Seagrass and kelp sway in the water, and lily
 option.WAVE_STRENGTH=Wind strength
 option.WAVE_STRENGTH.comment=How far leaves and plants move. They never move more than two texture pixels.
 
+option.UG_FOG=Cave fog
+option.UG_FOG.comment=Caves fill with a smooth fog that closes in tight passages and reaches far in great caverns and over buried seas. Needs VOID Gloam for all but a plain cave fog.
+
+option.UG_FOG_SAMPLES=Cave fog detail
+option.UG_FOG_SAMPLES.comment=How many points along each view the cave fog looks at to tell passages from caverns. More follows the shape of the cave more closely.
+value.UG_FOG_SAMPLES.2=Low
+value.UG_FOG_SAMPLES.3=Medium
+value.UG_FOG_SAMPLES.4=High
+
+option.UG_FOG_DENSITY=Cave fog strength
+option.UG_FOG_DENSITY.comment=How thick cave fog is.
+
+option.UG_FOG_BRIGHTNESS=Cave fog brightness
+option.UG_FOG_BRIGHTNESS.comment=How bright cave fog and mist are drawn. How dark caves are for play does not change.
+
+option.UG_WATER_KINDS=Cave water colours
+option.UG_WATER_KINDS.comment=Underground water takes the colour of its kind: river, buried sea or a realm's lake.
+
+option.UG_WATER_MIST=Mist over cave water
+option.UG_WATER_MIST.comment=Mist rises over great underground rivers, low fog lies on buried seas, and a haze hangs over lava.
+
+option.UG_GLOWWORMS=Glowworm caves
+option.UG_GLOWWORMS.comment=Caves hung with glowworm silk glow a soft blue-green under the roof, with tiny specks of light on the roof itself.
+
+option.UG_DAMP=Damp walls
+option.UG_DAMP.comment=Darker, damp walls with drip streaks where water drips from the roof.
+
+option.UG_AMBIENT=Cave air light
+option.UG_AMBIENT.comment=A faint light in each underground realm's own colour, a little brighter in great caverns than in passages. How dark caves are for play does not change.
+
 option.FAR_TEXTURE=Far land texture
 option.FAR_TEXTURE.comment=Gives the far land drawn by VOID LOD a faint pixel texture on the world's grid, getting coarser with distance and fading out into the haze.
 
@@ -338,3 +370,7 @@ value.WF_DEBUG.1=Tiles
 value.WF_DEBUG.2=Rain depth
 value.WF_DEBUG.3=Far mist depth
 value.WF_DEBUG.4=Far haze
+option.UG_DEBUG=Underground debug
+option.UG_DEBUG.comment=Draws the cave map from VOID Gloam on screen, with the cave state as bars. For testing only.
+value.UG_DEBUG.0=Off
+value.UG_DEBUG.1=On
