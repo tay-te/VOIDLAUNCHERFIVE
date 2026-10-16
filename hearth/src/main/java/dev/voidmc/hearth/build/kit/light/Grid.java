@@ -117,6 +117,62 @@ public final class Grid {
 		}
 	}
 
+	/**
+	 * The grid of a draft between two local corners (inclusive): what the draft places, else the natural ground of its
+	 * site (stone under the standing level, water under the water line, air above). The draft's frame: +z is the back.
+	 */
+	public static Grid of(dev.voidmc.hearth.build.draft.Draft d, int x0, int y0, int z0, int x1, int y1, int z1) {
+		dev.voidmc.hearth.build.terrain.Site site = d.site();
+		int w = d.frontage();
+		int dp = d.depth();
+		return new Grid(new Source() {
+			@Override
+			public BlockState at(int x, int y, int z) {
+				dev.voidmc.hearth.build.draft.Draft.Cell c = d.cell(x, y, z);
+				return c != null ? c.state() : natural(x, y, z);
+			}
+
+			@Override
+			public BlockState drawn(int x, int y, int z) {
+				dev.voidmc.hearth.build.draft.Draft.Cell c = d.cell(x, y, z);
+				return c != null ? c.state() : null;
+			}
+
+			@Override
+			public boolean paint(Painter sink) {
+				d.forEach((x, y, z, c) -> sink.put(x, y, z, c.state()));
+				return true;
+			}
+
+			@Override
+			public BlockState natural(int x, int y, int z) {
+				if (y < site.ground(x, z)) {
+					return Blocks.STONE.defaultBlockState();
+				}
+				int wy = site.water(x, z);
+				if (wy != dev.voidmc.hearth.build.terrain.Site.NONE && y < wy) {
+					return Blocks.WATER.defaultBlockState();
+				}
+				return Blocks.AIR.defaultBlockState();
+			}
+
+			@Override
+			public boolean placed(int x, int y, int z) {
+				return d.cell(x, y, z) != null;
+			}
+
+			@Override
+			public boolean inPlot(int x, int z) {
+				return x >= 0 && z >= 0 && x < w && z < dp;
+			}
+
+			@Override
+			public Direction plusZ() {
+				return dev.voidmc.hearth.build.draft.Dirs.BACK;
+			}
+		}, x0, y0, z0, x1, y1, z1);
+	}
+
 	private Grid(Grid g) {
 		this.x0 = g.x0;
 		this.y0 = g.y0;

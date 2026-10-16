@@ -15,6 +15,7 @@ import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.craft.ShopHouse;
 import dev.voidmc.hearth.build.kit.craft.Wares;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import dev.voidmc.hearth.build.kit.light.Lighting;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
@@ -78,9 +79,12 @@ public final class CountingHouse implements Archetype {
 		Yard.pave(d, 0, 0, s.w - 1, s.hz0 - 1, 0);
 		Yard.connect(d, s.ex, s.door, s.hz0 - 1);
 		if (hall.deck != Integer.MIN_VALUE) {
-			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.6));
+			// the room on the deck only where the terrace's stair can reach it (the outside stair climbs one storey)
+			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, hall.storeys() == 1 && d.chance(0.6));
 		}
 		Groundwork.clear(d, 0, 0, s.w - 1, s.dp - 1, hall.top + 2);
+		// rails round the stairwells and on the terrace where it stands open over the street
+		Edges.guard(d, -4, hall.top);
 	}
 
 	/** The window to the square: glazed, no stall board (nothing is sold over this sill), ledgers and a candle on the sill inside. */

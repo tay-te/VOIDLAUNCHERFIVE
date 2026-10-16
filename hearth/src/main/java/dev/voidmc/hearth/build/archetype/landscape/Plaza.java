@@ -21,6 +21,7 @@ import dev.voidmc.hearth.build.kit.landscape.Planters;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -37,10 +38,11 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * of bands with inlays at the crossings, a checker, rays, staggered setts, plain setts with mended patches, boards on
  * sleepers in timber cultures) inside a kerb of the band stone. What the planner has already stood on the square (the
  * well, a bell, stalls, a fountain: the {@code keep} rectangles) is left exactly as it is, framed by a ring of the band
- * stone. Round the thing at the middle go benches looking at it and the notice board; lamps stand at the corners.
- * Where nothing stands in the middle (a little square where lanes meet, or a square drawn on its own) the plaza makes its
- * own centrepiece: a tree in a raised planter ringed by benches, a fire pit with log seats in the north and on the
- * steppe, a small fountain in the south, a stone lantern by a blossom tree in the karst.
+ * stone. Round the thing at the middle go benches looking at it and the notice board; lamps stand at the corners. Where
+ * nothing stands in the middle (a little square where lanes meet, or a square drawn on its own) the plaza makes its own
+ * centrepiece, the one thing in the open middle (a big square adds a pair of shade trees at its back, never a grove): a
+ * tree in a raised planter ringed by benches, a fire pit with log seats in the north and on the steppe, a small
+ * fountain in the south, a stone lantern by a blossom tree in the karst.
  *
  * <p>The main square is the market's floor too: the planner later stands stalls, lamps, a fountain and a statue in the
  * ring two to five blocks in from its edge, so on the heart plaza that ring and the edge rows (where the doors of the
@@ -174,10 +176,13 @@ public final class Plaza implements Archetype {
 		// the floor: the pattern, a kerb round the edge, a frame round what stands there
 		int period = Math.min(w, dp) >= 13 ? 4 : 3;
 		boolean centreKept = g.kept(cx, cz);
-		Paving.lay(d, 0, 0, w - 1, dp - 1, 0, Paving.paint(d, Paving.pattern(d), ccx, ccz, period, !centreKept));
+		Paving.Pattern pattern = Paving.pattern(d);
+		Paving.lay(d, 0, 0, w - 1, dp - 1, 0, Paving.paint(d, pattern, ccx, ccz, period, !centreKept));
 		if (!Manner.wood(d.mat(Role.PAVING))) {
 			Paving.kerb(d, 0, 0, w - 1, dp - 1, 0);
-			// a dotted border of the inlay just inside the kerb
+		}
+		if (!Manner.wood(d.mat(Role.PAVING)) && pattern != Paving.Pattern.SETTS) {
+			// a dotted border of the inlay just inside the kerb (a square of plain setts keeps its calm)
 			Mat inlay = Paving.inlay(d);
 			try (var s = d.stage(StageKind.EXTERIOR)) {
 				List<int[]> ring = Draft.ring(1, 1, w - 2, dp - 2);
@@ -232,9 +237,10 @@ public final class Plaza implements Archetype {
 				}
 			}
 		}
-		// on a big square that is not the market, trees in planters in the quarters
+		// on a big square that is not the market, a pair of shade trees in planters at the back quarters (the front and the
+		// middle stay open to gather in)
 		if (!heart && Math.min(w, dp) >= 15) {
-			for (int[] q : new int[][]{{w / 4, dp / 4}, {w - 1 - w / 4, dp / 4}, {w / 4, dp - 1 - dp / 4}, {w - 1 - w / 4, dp - 1 - dp / 4}}) {
+			for (int[] q : new int[][]{{w / 4, dp - 1 - dp / 4}, {w - 1 - w / 4, dp - 1 - dp / 4}}) {
 				if (g.free(q[0] - 1, q[1] - 1) && g.free(q[0] + 1, q[1] + 1) && g.free(q[0] - 1, q[1] + 1) && g.free(q[0] + 1, q[1] - 1)) {
 					top = Math.max(top, Planters.box(d, q[0] - 1, q[1] - 1, q[0] + 1, q[1] + 1, 0, true));
 					for (int z = q[1] - 1; z <= q[1] + 1; z++) {
@@ -246,6 +252,7 @@ public final class Plaza implements Archetype {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
+		Edges.guard(d);
 		// leave what the planner stood here exactly as it is
 		for (int[] r : keep) {
 			for (int z = Math.max(0, r[1]); z <= Math.min(dp - 1, r[3]); z++) {

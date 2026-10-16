@@ -18,6 +18,7 @@ import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Baths;
 import dev.voidmc.hearth.build.kit.civic.Fam;
@@ -182,7 +183,10 @@ public final class Bathhouse implements Archetype {
 			Halls.lanternUnder(d, ix0 + 2, base, z, 2);
 			Halls.lanternUnder(d, ix1 - 2, base, z, 2);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(skyline + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
@@ -226,46 +230,35 @@ public final class Bathhouse implements Archetype {
 		int deck = Adobe.roof(d, x0, z0, x1, z1, plate, true, false);
 		// the hot room's dome in the middle, star-lights in it; little domes over the corners
 		int hcz = (z0 + z1) / 2 + 1;
-		Fam stone = Adobe.domeSheet(d);
-		if (stone == null) {
-			stone = Fam.of("minecraft:smooth_sandstone", StageKind.ROOF);
-		}
 		int r = Math.min((x1 - x0) / 2 - 1, (z1 - z0) / 2 - 1);
 		r = Math.min(r, 4);
-		// a drum lifts the dome clear of the parapet, lights in its faces
-		Towers.shaft(d, cx - r, hcz - r, 2 * r + 1, deck, deck + 1, t, deck + 1);
-		for (Side s : Side.of(cx - r, hcz - r, cx + r, hcz + r)) {
-			for (int i = 2; i < s.last() - 1; i += 2) {
-				int fi = i;
-				d.inStage(StageKind.OPENINGS, () -> d.set(s.x(fi), deck, s.z(fi), Blocks.GLASS.defaultBlockState()));
-			}
-		}
-		double[] radii = r >= 4 ? new double[]{4.4, 4.2, 3.8, 3.2, 2.3, 1.0} : new double[]{3.4, 3.2, 2.6, 1.8, 0.8};
-		int top = Towers.lathe(d, cx, hcz, deck + 2, radii, stone, maxH);
-		// star-lights: glass in the dome's courses, in rings
-		for (int ring = 1; ring <= 2; ring++) {
-			int yy = deck + 2 + ring;
-			double rr = radii[ring] - 0.7;
-			for (int k = 0; k < 8; k++) {
-				double a = k * Math.PI / 4 + ring * Math.PI / 8;
-				int x = (int) Math.round(cx + Math.cos(a) * rr);
-				int z = (int) Math.round(hcz + Math.sin(a) * rr);
-				if (!d.isEmpty(x, yy, z)) {
-					d.inStage(StageKind.OPENINGS, () -> d.set(x, yy, z, Blocks.GLASS.defaultBlockState()));
+		// the hot room's one dome: a smooth hemisphere springing off a round drum of lights (none on a mesa pueblo, whose
+		// baths keep their flat roof)
+		boolean domed = !Pueblo.is(d);
+		int top = domed ? Adobe.dome(d, cx, hcz, deck, r - 1, maxH) : deck;
+		if (domed) {
+			// star-lights: glass in the dome's lower courses, in rings
+			for (int ring = 1; ring <= 2; ring++) {
+				int yy = deck + 2 + ring;
+				double rr = r - 0.6 - 0.5 * ring;
+				for (int k = 0; k < 8; k++) {
+					double a = k * Math.PI / 4 + ring * Math.PI / 8;
+					int x = (int) Math.round(cx + Math.cos(a) * rr);
+					int z = (int) Math.round(hcz + Math.sin(a) * rr);
+					if (!d.isEmpty(x, yy, z)) {
+						d.inStage(StageKind.OPENINGS, () -> d.set(x, yy, z, Blocks.GLASS.defaultBlockState()));
+					}
 				}
 			}
-		}
-		top = Towers.finial(d, cx, top + 1, hcz, maxH, false);
-		for (int[] c : new int[][]{{x0 + 2, z1 - 2}, {x1 - 2, z1 - 2}}) {
-			Towers.shaft(d, c[0] - 1, c[1] - 1, 3, deck, deck, t, -1);
-			Towers.lathe(d, c[0], c[1], deck + 1, new double[]{1.6, 1.0, 0.4}, stone, maxH);
 		}
 		// inside: open the hot room up into the dome, the marble platform, basins, benches, the cold pool
 		int ix0 = x0 + 1;
 		int ix1 = x1 - 1;
 		int iz0 = z0 + 1;
 		int iz1 = z1 - 1;
-		d.clearBox(cx - r + 1, plate, hcz - r + 1, cx + r - 1, deck + 1, hcz + r - 1);
+		if (domed) {
+			d.clearBox(cx - r + 2, plate, hcz - r + 2, cx + r - 2, deck + 1, hcz + r - 2);
+		}
 		Fam marble = Fam.of("minecraft:smooth_quartz|minecraft:calcite", StageKind.INTERIOR);
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			for (int z = hcz - 1; z <= hcz + 1; z++) {
@@ -276,6 +269,8 @@ public final class Bathhouse implements Archetype {
 		}
 		d.poi(PoiType.MEETING_POINT, cx, base, hcz - 2, Dirs.BACK);
 		d.poi(PoiType.SEAT, cx, base, hcz, Dirs.FRONT);
+		// the bathers' copper bowl and water jar at a corner of the hot stone
+		d.inStage(StageKind.INTERIOR, () -> d.set(cx + 1, base + 1, hcz + 1, Blocks.DECORATED_POT.defaultBlockState()));
 		Baths.steam(d, cx - 3 > ix0 ? cx - 3 : ix0 + 1, base, hcz + 2);
 		Baths.steam(d, cx + 3 < ix1 ? cx + 3 : ix1 - 1, base, hcz + 2);
 		// basins along the side walls, a bench between each
@@ -298,7 +293,10 @@ public final class Bathhouse implements Archetype {
 		}
 		Furniture.chest(d, ix0, base, iz0, Dirs.RIGHT, List.<Object[]>of(new Object[]{"minecraft:white_wool", 16}));
 		Halls.lanternUnder(d, cx, base, hcz, 4);
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
@@ -374,7 +372,10 @@ public final class Bathhouse implements Archetype {
 			Garden.tree(d, w - 3, base, hz0 - 2, 3);
 		}
 		Garden.garden(d, 1, 1, 2, hz0 - 2, base);
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
@@ -433,6 +434,13 @@ public final class Bathhouse implements Archetype {
 		for (int x = x0 + 1; x <= x1 - 1; x += 2) {
 			d.poi(PoiType.SEAT, x, base, iz1 - 1, Dirs.FRONT);
 		}
+		// the water bucket and the ladle's jar at the end of each tier, for the stones
+		try (var s = d.stage(StageKind.INTERIOR)) {
+			d.set(x1 - 1, base + 2, iz1, Blocks.DECORATED_POT.defaultBlockState());
+			if (iz1 - 1 > pz + 1) {
+				d.set(x1 - 1, base + 1, iz1 - 1, Blocks.DECORATED_POT.defaultBlockState());
+			}
+		}
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			int sx = x0 + 1;
 			int sz = pz + 1;
@@ -456,7 +464,10 @@ public final class Bathhouse implements Archetype {
 		if (h.snow() || d.site().snowy()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, cx);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top.ridge() + 3);
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top.ridge() + 3, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 }

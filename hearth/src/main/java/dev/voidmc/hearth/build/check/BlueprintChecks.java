@@ -63,6 +63,8 @@ public final class BlueprintChecks {
 					bp.step(s, i, (x, y, z, state, tag) -> this.placed.put(BlockPos.asLong(x, y, z), state));
 				}
 			}
+			// where a building site's works stood and were taken down (cave air, SiteWorks) the site is as it was
+			this.placed.long2ObjectEntrySet().removeIf(e -> e.getValue().is(Blocks.CAVE_AIR));
 		}
 
 		/** The block at a position: what the blueprint placed, else natural ground, water or air. */

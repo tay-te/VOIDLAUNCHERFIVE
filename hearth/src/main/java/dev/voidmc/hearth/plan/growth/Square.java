@@ -19,24 +19,39 @@ import net.minecraft.nbt.IntArrayTag;
 /**
  * The main square: held open from the founding (a village green with its well in the middle), paved as a plaza at
  * village tier, then furnished — market stalls round the well, a fountain, a statue, lamps at the corners — each kept
- * two blocks in from the square's edge so the houses and shops fronting it keep their doors on it.
+ * two blocks in from the square's edge so the houses and shops fronting it keep their doors on it. In the cultures whose
+ * villages gather round a green (a Bohemian <i>náves</i>, ART_REVIEW_2 item 24) the village's plaza is a green
+ * (param {@code green}: grass, a pond or the well, a lime tree), paved over as the town's square when it is a town.
  */
 public final class Square {
 	private Square() {
 	}
 
 	public static boolean paved(PlanContext ctx) {
+		boolean town = ctx.tier.ordinal() >= dev.voidmc.hearth.api.SettlementTier.TOWN.ordinal();
 		for (PlotView p : ctx.settlement.plots()) {
-			if (p.spec().archetype().equals(Archetypes.PLAZA) && p.spec().params().getBooleanOr("heart", false)) {
+			if (heart(p.spec()) && (!town || !p.spec().params().getBooleanOr("green", false))) {
 				return true;
 			}
 		}
 		for (QueuedProject q : ctx.state.queue) {
-			if (q.spec().archetype().equals(Archetypes.PLAZA) && q.spec().params().getBooleanOr("heart", false)) {
+			if (heart(q.spec()) && (!town || !q.spec().params().getBooleanOr("green", false))) {
 				return true;
 			}
 		}
 		return false;
+	}
+
+	private static boolean heart(PlotSpec s) {
+		return s.archetype().equals(Archetypes.PLAZA) && s.params().getBooleanOr("heart", false);
+	}
+
+	/** Whether the culture's villages gather round a green rather than a paved square (not a dense, walled layout's). */
+	static boolean greenVillage(PlanContext ctx) {
+		return !ctx.state.layout.dense && switch (ctx.culture) {
+			case TEMPERATE, NORTHERN, ALPINE, MOORLAND, WISTERIA -> true;
+			default -> false;
+		};
 	}
 
 	/** The plaza's own height: room for trees in its planters and a lamp's arm (arch-landscape.md §6). */
@@ -51,12 +66,31 @@ public final class Square {
 		if (r == null) {
 			return false;
 		}
+		boolean town = ctx.tier.ordinal() >= dev.voidmc.hearth.api.SettlementTier.TOWN.ordinal();
+		// the village green, paved over as the town's square once the village is a town
+		int replaces = -1;
+		for (PlotView p : ctx.settlement.plots()) {
+			if (heart(p.spec()) && p.spec().params().getBooleanOr("green", false)) {
+				if (p.state() != dev.voidmc.hearth.api.PlotState.BUILT) {
+					return false;
+				}
+				replaces = p.id();
+			}
+		}
 		CompoundTag params = new CompoundTag();
 		params.putBoolean("heart", true);
 		params.put("keep", new IntArrayTag(keep(ctx, r)));
+		boolean green = greenVillage(ctx) && !town;
+		if (green) {
+			params.putBoolean("green", true);
+		}
+		if (replaces >= 0) {
+			params.putInt("replaces", replaces);
+		}
 		PlotSpec spec = new PlotSpec(Archetypes.PLAZA, ctx.style, ctx.nextSeed(), new BlockPos(r.x0(), ctx.state.heartY, r.z0()), r.x1() - r.x0() + 1,
 			r.z1() - r.z0() + 1, Direction.SOUTH, plazaHeight(ctx), Build.finish(ctx, ctx.catalogue.info(Archetypes.PLAZA), 0, null), params);
-		Roads.issue(ctx, spec, "heart: the square is paved as a plaza");
+		Roads.issue(ctx, spec, replaces, green ? "heart: the village green" : replaces >= 0 ? "heart: the green is paved as the town's square"
+			: "heart: the square is paved as a plaza");
 		return true;
 	}
 

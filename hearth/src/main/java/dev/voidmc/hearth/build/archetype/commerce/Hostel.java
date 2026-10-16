@@ -36,6 +36,7 @@ import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -45,13 +46,13 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
 
 /**
- * {@code hearth:commerce/hostel}: the house at the town's gate where pilgrims and travellers sleep cheaply. A long plain
- * range of two storeys with its ridge along the road: on the ground floor the refectory, long tables and benches for the
- * travellers' supper, the keeper's counter by the door and the kitchen hearth on the end wall; up the stair the
+ * {@code hearth:commerce/hostel}: the house at the town's gate where pilgrims and travellers sleep cheaply. A long
+ * plain range of two storeys with its ridge along the road: on the ground floor the refectory, long tables and benches
+ * for the travellers' supper, the keeper's counter by the door and the kitchen hearth on the end wall; up the stair the
  * dormitory, beds head to the wall in two rows down its length with a chest between each pair and lanterns over the
  * aisle (on a low plot, one storey: refectory and dormitory side by side behind a partition). Outside, a bench by the
- * door under the house's board, a wayside cross for the pilgrims, a trough and a hitching rail for the travellers' beasts
- * (the stables' hire works from it), and behind, a draw-well and the woodpile.
+ * door under the house's board, a wayside cross for the pilgrims, a trough and a hitching rail for the travellers'
+ * beasts (the stables' hire works from it), and behind, a draw-well and the woodpile.
  *
  * <p>POIs: BEDs (6 or more), the INNKEEPER's JOB_SITE, COUNTER and MARKET_STALL, TABLE, SEATs, the HEARTH, STORAGE, a
  * HITCHING_POST, the DOOR. Params: {@code name} (int, the board's name, default by seed).
@@ -226,6 +227,14 @@ public final class Hostel implements Archetype {
 				if (!ok || !ground.free(end[0], end[1]) || !ground.take(cells, end)) {
 					continue;
 				}
+				// each bench is sat down on from its end: the floor at one end of each kept clear
+				for (int bz : new int[]{z - 1, z + 1}) {
+					if (ground.free(x + 3, bz)) {
+						ground.keep(x + 3, bz);
+					} else if (ground.free(x - 1, bz)) {
+						ground.keep(x - 1, bz);
+					}
+				}
 				Venue.trestle(d, x, base, z, Dirs.RIGHT, 3);
 				Venue.candles(d, x + 1, base + 1, z, 2);
 				tabled = true;
@@ -295,6 +304,8 @@ public final class Hostel implements Archetype {
 			Garden.snowBanks(d, 0, zF, w - 1, zM, base, doorCol);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, sh.skyline() + 3));
+		// rails round the dormitory's stairwell and on the balcony
+		Edges.guard(d);
 	}
 
 	/**

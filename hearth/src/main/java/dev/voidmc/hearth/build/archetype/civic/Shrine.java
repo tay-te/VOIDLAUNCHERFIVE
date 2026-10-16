@@ -100,6 +100,7 @@ public final class Shrine implements Archetype {
 			case STILT -> top = c == Culture.TROPICAL ? spiritHouse(d) : edicola(d);
 			default -> top = pillar(d, false);
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
 	}
 

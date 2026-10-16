@@ -19,6 +19,14 @@ public final class PreviewScene {
 	 * @param culture decides the ground cover (sand in the desert, snow in the tundra...)
 	 */
 	public static Voxels build(@Nullable Blueprint bp, PlotSpec spec, TerrainProbe probe, int margin, Culture culture) {
+		return build(bp, spec, probe, margin, culture, Integer.MAX_VALUE);
+	}
+
+	/**
+	 * As {@link #build(Blueprint, PlotSpec, TerrainProbe, int, Culture)} with only the blueprint's first {@code stages}
+	 * stages applied: a construction site as the sim leaves it while the next stage waits.
+	 */
+	public static Voxels build(@Nullable Blueprint bp, PlotSpec spec, TerrainProbe probe, int margin, Culture culture, int stages) {
 		Voxels v = new Voxels();
 		int x0 = Math.min(spec.origin().getX(), spec.origin().getX()) - margin;
 		int z0 = spec.origin().getZ() - margin;
@@ -55,7 +63,7 @@ public final class PreviewScene {
 			}
 		}
 		if (bp != null) {
-			for (int s = 0; s < bp.stageCount(); s++) {
+			for (int s = 0; s < Math.min(stages, bp.stageCount()); s++) {
 				for (int i = 0; i < bp.stepCount(s); i++) {
 					bp.step(s, i, (x, y, z, state, tag) -> v.set(x, y, z, state));
 				}

@@ -262,6 +262,7 @@ final class ChapelStave {
 		if (h.snow() || d.site().snowy()) {
 			Garden.snowBanks(d, px0, pz0, px1, pz1, base, cx);
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(capTop, ridge) + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

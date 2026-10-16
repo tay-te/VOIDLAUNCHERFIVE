@@ -156,52 +156,7 @@ final class Session {
 			yr[1] = 0;
 		}
 		Site site = d.site();
-		this.g = new Grid(new Grid.Source() {
-			@Override
-			public BlockState at(int x, int y, int z) {
-				Draft.Cell c = d.cell(x, y, z);
-				return c != null ? c.state() : natural(x, y, z);
-			}
-
-			@Override
-			public BlockState drawn(int x, int y, int z) {
-				Draft.Cell c = d.cell(x, y, z);
-				return c != null ? c.state() : null;
-			}
-
-			@Override
-			public boolean paint(Grid.Painter sink) {
-				d.forEach((x, y, z, c) -> sink.put(x, y, z, c.state()));
-				return true;
-			}
-
-			@Override
-			public BlockState natural(int x, int y, int z) {
-				if (y < site.ground(x, z)) {
-					return Blocks.STONE.defaultBlockState();
-				}
-				int wy = site.water(x, z);
-				if (wy != Site.NONE && y < wy) {
-					return Blocks.WATER.defaultBlockState();
-				}
-				return AIR;
-			}
-
-			@Override
-			public boolean placed(int x, int y, int z) {
-				return d.cell(x, y, z) != null;
-			}
-
-			@Override
-			public boolean inPlot(int x, int z) {
-				return x >= 0 && z >= 0 && x < w && z < dp;
-			}
-
-			@Override
-			public Direction plusZ() {
-				return Dirs.BACK;
-			}
-		}, x0 - MARGIN, Math.min(yr[0], 0) - LightRules.BELOW, z0 - MARGIN, x1 + MARGIN, Math.max(yr[1], 0) + LightRules.ABOVE, z1 + MARGIN);
+		this.g = Grid.of(d, x0 - MARGIN, Math.min(yr[0], 0) - LightRules.BELOW, z0 - MARGIN, x1 + MARGIN, Math.max(yr[1], 0) + LightRules.ABOVE, z1 + MARGIN);
 		List<BlockPos> starts = new ArrayList<>();
 		List<BlockPos> entrances = new ArrayList<>();
 		for (int[] e : d.entrances()) {

@@ -294,6 +294,7 @@ final class ChapelWestern {
 		if (h.snow()) {
 			Garden.snowBanks(d, nx0, zN0, nx1, zC1, base, cx);
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(capTop, ridge) + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -386,6 +387,11 @@ final class ChapelWestern {
 			Towers.clock(d, Side.of(x0, z0, x0 + size - 1, z0 + size - 1, Dirs.FRONT), 2, yb - 2, false, 0);
 		}
 		Towers.belfry(d, x0, z0, size, yb, bh, t, true);
+		// the ringer's ladder from the ground floor up the side wall through a hatch in each landing to the belfry
+		int lx = x0 + 1;
+		int lz = z0 + size - 2;
+		Halls.landings(d, x0 + 1, z0 + 1, x0 + size - 2, z0 + size - 2, base - 1, yb - 1, lx, lz, d.mat(Role.FLOOR).full());
+		dev.voidmc.hearth.build.kit.Stairs.ladder(d, lx, lz, base, yb - 1, Dirs.RIGHT);
 		int top = Towers.cap(d, x0, z0, size, yb + bh, cap, maxH);
 		// a weather vane or a cross, the lamp at its foot
 		if (front) {

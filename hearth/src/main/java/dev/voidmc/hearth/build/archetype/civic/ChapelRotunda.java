@@ -216,6 +216,7 @@ final class ChapelRotunda {
 			Sacred.churchyard(d, x1 + 2, z0, w - 1, z1, 0, true, Dirs.FRONT);
 		}
 		dev.voidmc.hearth.build.kit.civic.Halls.lamp(d, Math.max(0, px - 3), 0, 0, 2);
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, topY + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

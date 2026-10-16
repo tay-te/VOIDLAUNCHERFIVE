@@ -24,21 +24,25 @@ like, what it reads and registers, and how it meets the planner.
 
 **Plaza.** The whole plot levelled (water embanked) and paved in the culture's pattern (`Paving`): square rings or
 circles round a medallion, a grid of bands with inlays at the crossings, a checker, rays, staggered setts, plain setts
-with mended patches, boards on log sleepers in timber cultures. A kerb of the band stone round the edge; a frame of it
+with mended patches, boards on log sleepers in timber cultures; a Bohemian square in plain cobble setts of one stone,
+the medallion its only pattern and no dotted border. A kerb of the band stone round the edge; a frame of it
 round everything kept. What stands in the middle (the planner's well or bell, in `keep`) gets benches on its sides and
 back looking at it, the notice board at a front corner and the meeting point before it; where nothing stands there
 (junction squares, a plaza drawn alone) the plaza raises its own centrepiece: a tree in a raised planter ringed by
 benches; a fire pit with log seats (northern, tundra, steppe; a HEARTH POI); a little tiled basin with a jet in a
-cauldron (desert, mediterranean, mesa). Lamps at the four corners; on big plazas that are not the market, trees in
-planters in the quarters. On the heart plaza the two edge rows (where the doors round the square open) and the ring
+cauldron (desert, mediterranean, mesa). The middle is the one thing in the open: lamps at the four corners, and on big
+plazas that are not the market a pair of shade trees in planters at the back quarters (never a grove filling the
+middle). On the heart plaza the two edge rows (where the doors round the square open) and the ring
 two to five in from the edge (where the planner stands stalls, lamps, a fountain and a statue) are paved but left
 clear. The notice board is the quest module's `hearth:notice_board`, resolved by id at draw time, or a lettered sign
 on a fence post where that block is absent (`NoticeBoards`).
 
 **Well.** A stone curb round a deep shaft on a paved square, and the culture's well head (`head`): a windlass with its
 crank under a little roof (gable, hip, half-hip, curved karst roof); a well sweep in the north and on the steppe (a tall
-post, a long pole with a stone counterweight, the bucket on a chain); a wrought-iron arch with a lantern on its crown
-(mediterranean); a domed kiosk on arched piers (desert, mesa). Benches, a trough, pots and corner lamps round it.
+post, a long pole with a stone counterweight); a wrought-iron arch with a lantern on its crown (mediterranean); a domed
+kiosk on arched piers with a finial of its own stone (desert, mesa). The rope (a chain) hangs down the shaft and the
+bucket stands full on the paving by the curb, where a hand can take it up. Benches, a trough, pots and corner lamps
+round it.
 
 **Fountain.** Built on top of the paving, never dug into it, so one set into a paved plaza keeps the plaza's floor as
 its basin's bed: a basin whose rim is a ring of stone seats, a column carrying a tazza over the water (three wide even in
@@ -51,15 +55,21 @@ tropical, bayou); a stone trough with a timber pump and a bucket (northern, tund
 
 **Statue.** A stepped plinth (a step all round, a base moulding, on plots 13+ high a die of two courses, a cornice
 overhanging it) and a lettered sign whose lines are translatable components with English fallbacks (`Inscriptions`). On
-it: a figure some seven blocks tall, three across at the chest with its arms beside (legs apart or a robe to the ground,
-the breast a little proud, sloping shoulders, a capped head): the founder with a raised sword and a cloak falling behind,
-a keeper holding up a lantern, an elder with a staff, a scholar with an open book;
-in polished stone, white marble (mediterranean, wisteria), green bronze (temperate, maritime, alpine towns), carved
-cypress (bayou); an obelisk with a capstone, gilded in towns (desert, mesa); a stele (steppe); a rune stone (northern,
-tundra); a seated sage in jade (karst); a tiki (tropical).
+it: a figure some eight blocks tall in the round, two deep and three across at the chest so it reads as a person from
+any corner, its arms standing off the torso (legs apart or a robe to the ground with its hem sloping, sloping shoulders,
+a neck, the head a block clear of the shoulders with a cap and its back rounded): the founder with a raised sword and a
+cloak falling behind, a keeper holding up a lantern, an elder with a staff, a scholar with an open book; in polished
+stone, white marble (mediterranean, wisteria), green bronze (temperate, maritime, alpine towns), carved cypress (bayou);
+an obelisk on a flared foot with a recessed band and a pyramidion of its own stone (desert, mesa); a stele with a carved
+panel (steppe); a rune stone two wide with a rounded shoulder, a band of knotwork and runes in relief (northern,
+tundra); a seated sage in jade (karst); a tiki (tropical). A low monument stands on a step of slabs.
 
-**Bell.** On a 3-wide plot a bell frame of two posts with the bell hung between them under a beam and a little roof, its
-rope a chain; on a 5-wide plot a pavilion (`Pavilions`): a podium with steps, four posts (arched masonry piers in the
+**Bell.** On a small plot a bell frame in the culture's manner, its rope a chain: two posts on stone feet under a beam
+(braced on a five-wide plot) and a little shingled gable (temperate, alpine, moorland, maritime, bayou); an A-frame of
+raking logs under a turf cap (northern, tundra); a masonry arch with a stepped crest (desert, mesa, steppe); red posts
+under a curved roof turned up at its ends (karst, wisteria); a bell gable, a rendered wall with the bell in an arched
+opening under a tiled pediment (mediterranean); bamboo posts under a thatched cap (tropical). On a plot five by five or
+more a pavilion (`Pavilions`): a podium with steps, four posts (arched masonry piers in the
 desert), the bell hung from a beam, a roof in the culture's form (curved in the karst, a stepped cupola in the desert),
 lanterns under the eaves, benches.
 
@@ -68,19 +78,20 @@ towns), a karst stone lantern, a fire basket on a pillar (north, steppe), a tiki
 (south), a bayou lantern on a chain, a lantern under a little roof (alpine, wisteria); flowers, pots or a clipped bush in
 the island's corners, seats back to back against the post.
 
-**Garden.** Terraced where the ground rises or falls behind the street (`Terraces`: retaining walls with a coping, steps
-on the path). Cottage (fence or hedge, a path to an arbour with a bench, a cross path, borders, a fruit tree, a
+**Garden.** Terraced where the ground rises or falls behind the street (`Terraces`: retaining walls with a coping, a
+parapet where the wall stands three or more, steps on the path). Cottage (fence or hedge, a path to an arbour with a bench, a cross path, borders, a fruit tree, a
 beehive, a bird bath); kitchen (rows of crops with water channels, a scarecrow, compost, water butt, an olive or fruit
-tree); riad (walled with a coping and an arched gate, tiled walks quartering it round a little fountain, palms, a dry
+tree); riad (walled with a coping, a crest of the masonry's wall where the land outside stands high enough to step onto it, and an arched gate, tiled walks quartering it round a little fountain, palms, a dry
 garden, stone benches); cactus garden under a ramada (mesa); zen (raked gravel, moss islands, weathered stones, a pool,
 a blossom tree, a stone lantern, a viewing deck); tropical; rock (dry-stone walled, heather, boulders, a birch); bog
 (pools, mud, a boardwalk, a willow hung with moss); winter garden (spruces, a fire bowl with log seats).
 
 **Park.** Terraced like the garden. A gate on the street and openings half way down the sides, a broad walk up the middle
 (steps where it climbs a terrace), a cross walk on each terrace, a loop walk on level ground, a pond with lilies and
-reeds in one quarter, clumps of the culture's trees in the others (`Trees`: broadleaf, conifer, birch, palm, blossom,
-olive, acacia, willow with hanging moss; crowns of several lumps, pruned so nothing floats), borders by the gate,
-benches and lamps along the walk, and at city tier a bandstand (a pavilion) where the walks meet.
+reeds in one quarter, the culture's trees standing one or two to a lawn in the others, five apart, some lawns left open
+with flowers (`Trees`: broadleaf, conifer with its leader of leaves over the last whorl, birch, palm, blossom, olive,
+acacia, willow with hanging moss; crowns of several lumps, pruned so nothing floats; an olive's kinked trunk leans only
+into its own lawn), borders by the gate, benches and lamps along the walk where no tree's trunk or crown leans over it, and at city tier a bandstand (a pavilion) where the walks meet.
 
 **Palisade.** One stake thick along the planner's line, stakes of the local tree a block into the ground, set in panels
 of three to five whose tops step down a slope panel by panel (`TownWall.crest`), ragged heights,
@@ -140,6 +151,11 @@ statue and bandstand, `NOTICE_BOARD` in front of the plaza's board, `HEARTH` at 
 tower tops and the gatehouse, `VIEWPOINT` on towers, walks, arbours and pond benches, `GATE` in the gatehouse passage,
 `JOB_SITE` GUARD at the grindstones, `STORAGE` at the chests, `DOOR` at doors. `LandscapeTest` walks to each of them
 from the entrances in every culture on flat, slope and hills.
+
+**Guards (`Edges`).** Every piece here (and every commerce building) ends with `Edges.guard(d)`: where a walked cell
+stands beside a drop of three or more (a terrace over falling ground, a plinth on a slope, the back of a stall), a low
+wall of the masonry on open ground or a rail of the railing on a deck guards it, never across a door, a step, a stair,
+a ladder head or a POI and never cutting the way to one; on the goods of a stall at the plot's edge a jug instead.
 
 ## How the pieces meet the planner
 

@@ -9,6 +9,7 @@ import dev.voidmc.hearth.build.kit.Body;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Halls;
@@ -38,6 +39,38 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  */
 final class CourtYard {
 	private CourtYard() {
+	}
+
+	/**
+	 * A pueblo gateway in wall s at column cx: three wide and three high from the ground, a lintel of the beam's logs over
+	 * it with their ends run through the wall either side, the wall above it carried up as it was (up to {@code top});
+	 * registered as a way in (an entrance and its DOOR) before it.
+	 */
+	static void gateway(Draft d, Side s, int cx, int top) {
+		int i = s.index(cx);
+		var beam = d.mat(Role.BEAM);
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int k = -1; k <= 1; k++) {
+				int ii = i + k;
+				if (ii < 1 || ii > s.last() - 1) {
+					continue;
+				}
+				for (int y = 0; y <= 2; y++) {
+					d.set(s.x(ii), y, s.z(ii), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+				}
+			}
+			for (int k = -2; k <= 2; k++) {
+				int ii = i + k;
+				if (ii >= 0 && ii <= s.last() && 3 <= top) {
+					d.set(s.x(ii), 3, s.z(ii), beam.log(s.along().getAxis()));
+				}
+			}
+		}
+		// the way in: an open gateway is the building's door
+		int ex = s.outX(i, 1);
+		int ez = s.outZ(i, 1);
+		d.entrance(ex, 0, ez);
+		d.poi(dev.voidmc.hearth.api.PoiType.DOOR, ex, 0, ez, s.out().getOpposite());
 	}
 
 	static void draw(Draft d) {
@@ -73,8 +106,14 @@ final class CourtYard {
 				}
 			}
 		}
-		merlons(d, front, wallTop + 1, dress);
-		Halls.iwan(d, front, cx, 0, wallTop + 3, 2);
+		// the mesa's court is a pueblo plaza's: a plain gateway under a lintel of vigas, no crested wall, no iwan
+		boolean pueblo = Pueblo.is(d);
+		if (pueblo) {
+			gateway(d, front, cx, wallTop);
+		} else {
+			merlons(d, front, wallTop + 1, dress);
+			Halls.iwan(d, front, cx, 0, wallTop + 3, 2);
+		}
 		// --- the arcades down both sides of the court, their flat roofs on the compound's side walls
 		for (boolean left : new boolean[]{true, false}) {
 			int ax0 = left ? 0 : w - aw;
@@ -90,7 +129,9 @@ final class CourtYard {
 			}
 			Side line = Side.of(ax0, fz, ax1, zb, left ? Dirs.RIGHT : Dirs.LEFT);
 			int[] piers = Arches.piers(0, line.last(), 3);
-			Arches.arcade(d, line, piers, 0, wallTop - 1, Arches.Kind.POINTED, dress.full(), wall.full());
+			// (the mesa's portales: vigas on posts, not pointed arches)
+			Arches.Kind ak = pueblo ? Arches.Kind.BRACED : Arches.Kind.POINTED;
+			Arches.arcade(d, line, piers, 0, wallTop - 1, ak, pueblo ? Arches.pierPaint(d, ak) : dress.full(), pueblo ? null : wall.full());
 			Adobe.roof(d, ax0, fz, ax1, zb, wallTop - 1, true, false);
 			// benches against the outer wall, lanterns under the roof
 			int bx = left ? ax0 + 1 : ax1 - 1;
@@ -111,7 +152,7 @@ final class CourtYard {
 		basin(d, cx, bz, dress);
 		int px0 = aw + 1;
 		int px1 = w - aw - 2;
-		if (px1 - px0 >= 4 && zb - fz >= 6) {
+		if (px1 - px0 >= 4 && zb - fz >= 6 && !pueblo) {
 			Adobe.palm(d, px0, 0, zb - 2, Math.min(5, maxH - 3));
 			if (d.chance(0.6)) {
 				Adobe.palm(d, px1, 0, fz + 2, Math.min(5, maxH - 3));
@@ -119,13 +160,19 @@ final class CourtYard {
 		}
 		// --- the hall's own iwan on the court, screens either side, the roof, the dome
 		Side hallFront = hall.side(0, Dirs.FRONT);
-		Halls.iwan(d, hallFront, cx, 0, plate + 3, 2);
+		if (pueblo) {
+			gateway(d, hallFront, cx, plate);
+		} else {
+			Halls.iwan(d, hallFront, cx, 0, plate + 3, 2);
+		}
 		for (int off : new int[]{-4, 4, -6, 6}) {
 			int x = cx + off;
 			int i = hallFront.index(x);
 			if (i >= 2 && i <= hallFront.last() - 2 && x > aw && x < w - 1 - aw) {
 				Fenestration.framed(d, hallFront, i, 1, 1, 2, dress, false, false, false);
-				Adobe.screen(d, hallFront, i, 1);
+				if (!pueblo) {
+					Adobe.screen(d, hallFront, i, 1);
+				}
 			}
 		}
 		for (Side s : new Side[]{hall.side(0, Dirs.LEFT), hall.side(0, Dirs.RIGHT), hall.side(0, Dirs.BACK)}) {
@@ -161,7 +208,10 @@ final class CourtYard {
 				Lighting.post(d, c[0], 0, c[1]);
 			}
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 2));
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int crown = pueblo ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(maxH - 1, skyline + 2), crown + 2));
 	}
 
 	/** Merlons along the top of a wall: a block every other cell over the coping course at y. */

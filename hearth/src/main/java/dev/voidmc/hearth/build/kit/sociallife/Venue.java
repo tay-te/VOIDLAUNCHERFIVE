@@ -22,20 +22,20 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * Where folk gather to be entertained: a stage for the musicians and players (a boarded platform with a moulded lip, a
- * step up at one end, the culture's cloth hung behind it, a drum and a stool), the dice tables of the social module (green
- * baize on a dark frame, a stool at each end), and benches. Every piece registers what the social module looks for:
- * {@code STAGE} and the entertainer's job site on a stage, {@code GAMING_TABLE} at a dice table, {@code SEAT}s.
+ * step up at one end, the culture's cloth hung behind it, a drum and a stool), the dice tables of the social module
+ * (green baize on a dark frame, a stool at each end), and benches. Every piece registers what the social module looks
+ * for: {@code STAGE} and the entertainer's job site on a stage, {@code GAMING_TABLE} at a dice table, {@code SEAT}s.
  */
 public final class Venue {
 	private Venue() {
 	}
 
 	/**
-	 * A stage over {@code [x0..x1] × [z0..z1]} on the floor at standing level {@code y} (the boards at y, the players stand
-	 * at y + 1), its front toward {@code toAudience}: the front edge in upside-down stairs (a moulded lip), a step up at
-	 * the front's left end, wall banners in the culture's cloth on the wall behind where there is one, a drum (a note
-	 * block) and a stool at the back corners. Registers {@code STAGE} at the middle of the front row and the entertainer's
-	 * job site beside it. Answers the standing cell of the STAGE point.
+	 * A stage over {@code [x0..x1] × [z0..z1]} on the floor at standing level {@code y} (the boards at y, the players
+	 * stand at y + 1), its front toward {@code toAudience}: the front edge in upside-down stairs (a moulded lip), a step
+	 * up at the front's left end, wall banners in the culture's cloth on the wall behind where there is one, a drum (a
+	 * note block, a candle on it) and a stool at the back corners. Registers {@code STAGE} at the middle of the front row
+	 * and the entertainer's job site beside it. Answers the standing cell of the STAGE point.
 	 */
 	public static int[] stage(Draft d, int x0, int z0, int x1, int z1, int y, Direction toAudience, boolean dress) {
 		int ax = Math.min(x0, x1);
@@ -90,6 +90,9 @@ public final class Venue {
 				if (d.isEmpty(bl[0], y + 1, bl[1]) && d.isEmpty(bl[0], y + 2, bl[1])) {
 					d.set(bl[0], y + 1, bl[1], Blocks.NOTE_BLOCK.defaultBlockState().trySetValue(
 						net.minecraft.world.level.block.state.properties.BlockStateProperties.NOTEBLOCK_INSTRUMENT, NoteBlockInstrument.BASEDRUM));
+					// a candle stood on the drum (nobody climbs onto it)
+					d.set(bl[0], y + 2, bl[1], Blocks.CANDLE.defaultBlockState().setValue(
+						net.minecraft.world.level.block.state.properties.BlockStateProperties.LIT, true));
 				}
 				if (d.isEmpty(br[0], y + 1, br[1])) {
 					d.set(br[0], y + 1, br[1], wood.slab(SlabType.BOTTOM));
@@ -165,8 +168,8 @@ public final class Venue {
 	}
 
 	/**
-	 * A trestle table and its benches: a slab-topped board {@code n} long from (x, y, z) along {@code run} on two trestles,
-	 * a bench of stairs along each long side where the floor is free. Registers a TABLE and the seats.
+	 * A trestle table and its benches: a slab-topped board {@code n} long from (x, y, z) along {@code run} on two
+	 * trestles, a bench of stairs along each long side where the floor is free. Registers a TABLE and the seats.
 	 */
 	public static void trestle(Draft d, int x, int y, int z, Direction run, int n) {
 		Mat wood = d.mat(Role.FURNITURE);
@@ -195,8 +198,8 @@ public final class Venue {
 	}
 
 	/**
-	 * A wall banner at (x, y, z) hung on the block behind it (opposite {@code facing}) in the given stage (inside a room it
-	 * is an interior fitting).
+	 * A wall banner at (x, y, z) hung on the block behind it (opposite {@code facing}) in the given stage (inside a room
+	 * it is an interior fitting).
 	 */
 	public static void banner(Draft d, int x, int y, int z, Direction facing, String colour, List<String[]> patterns, StageKind stage) {
 		Block banner = States.block("minecraft:" + colour + "_wall_banner", States.block("minecraft:white_wall_banner", Blocks.AIR));
