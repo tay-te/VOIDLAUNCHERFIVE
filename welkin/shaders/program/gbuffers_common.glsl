@@ -281,7 +281,7 @@ vec4 wdRelief(vec3 nGeo, int m) {
 	float inv = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-12));
 	T *= inv;
 	B *= inv;
-	float k = 2.2 * keep * (matIsLeaves(m) ? 0.8 : 1.0);
+	float k = 1.4 * keep * (matIsLeaves(m) ? 0.9 : (m == M_GRASS_BLOCK ? 0.7 : 1.0));
 	vec3 nr = normalize(nGeo - k * (grad.x * T + grad.y * B));
 	float cav = h0 - 0.25 * (hx1 + hx0 + hy1 + hy0);
 	return vec4(octEncode(nr), 0.0, 0.5 + clamp(cav * 2.0 * keep, -0.45, 0.45));

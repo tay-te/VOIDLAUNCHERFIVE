@@ -122,7 +122,7 @@ void main() {
 			wdN = octDecode(wdRel.xy);
 			float fg = sunFacing(dot(n, lightDir)), fr = sunFacing(dot(wdN, lightDir));
 			facing *= clamp(fr / max(fg, 0.08), 0.0, 1.7);
-			wdCav = clamp(1.0 + (wdRel.w - 0.5) * 0.8, 0.72, 1.18);
+			wdCav = clamp(1.0 + (wdRel.w - 0.5) * 0.5, 0.8, 1.12);
 		}
 #endif
 		vec3 sunShare = vec3(1.0);
