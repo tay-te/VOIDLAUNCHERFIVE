@@ -4,5 +4,5 @@
 # When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
 # breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
 # by an archetype not listed for it fails the tests.
-defense/gatehouse furnished-reached roof-hole  # furnished-reached 0/84 (tests 1), roof-hole 42/84 (tests 403)
-defense/watchtower roof-hole                   # roof-hole 36/84 (tests 194)
+defense/gatehouse roof-hole   # roof-hole 84/84 (tests 366)
+defense/watchtower roof-hole  # roof-hole 36/84 (tests 192)

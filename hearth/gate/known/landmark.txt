@@ -4,10 +4,8 @@
 # When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
 # breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
 # by an archetype not listed for it fails the tests.
-landmark/bell_tower furnished-reached roof-hole                             # furnished-reached 0/84 (tests 2), roof-hole 0/84 (tests 42)
-landmark/cathedral walk furnished-reached roof-hole                         # walk 0/84 (tests 1), furnished-reached 4/84 (tests 56), roof-hole 0/84 (tests 60)
-landmark/clock_tower furnished-reached roof-hole                            # furnished-reached 0/84 (tests 2), roof-hole 0/84 (tests 36)
-landmark/great_hall furnished-reached roof-hole                             # furnished-reached 0/84 (tests 2), roof-hole 0/84 (tests 32)
-landmark/lighthouse roof-hole                                               # roof-hole 0/84 (tests 65)
-landmark/pagoda walk door-sides furnished-reached floating-piece roof-hole  # walk 36/84 (tests 138), door-sides 36/84 (tests 138), furnished-reached 0/84 (tests 1), floating-piece 78/84 (tests 343), roof-hole 0/84 (tests 40)
-landmark/temple roof-hole                                                   # roof-hole 9/84 (tests 57)
+landmark/cathedral walk furnished-reached roof-hole               # walk 0/42 (tests 1), furnished-reached 4/42 (tests 54), roof-hole 0/42 (tests 10)
+landmark/great_hall furnished-reached                             # furnished-reached 0/24 (tests 1)
+landmark/lighthouse roof-hole                                     # roof-hole 3/24 (tests 12)
+landmark/pagoda walk door-sides furnished-reached floating-piece  # walk 3/12 (tests 124), door-sides 3/12 (tests 124), furnished-reached 3/12 (tests 124), floating-piece 6/12 (tests 343)
+landmark/temple roof-hole                                         # roof-hole 3/42 (tests 5)

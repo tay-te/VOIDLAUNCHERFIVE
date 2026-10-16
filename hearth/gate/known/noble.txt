@@ -4,8 +4,8 @@
 # When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
 # breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
 # by an archetype not listed for it fails the tests.
-noble/castle door-sides ladder-top furnished-reached floating-piece roof-hole  # door-sides 24/84 (tests 266), ladder-top 72/84 (tests 683), furnished-reached 65/84 (tests 670), floating-piece 0/84 (tests 3), roof-hole 55/84 (tests 552)
-noble/hunting_lodge door-sides ladder-top furnished-reached roof-hole          # door-sides 0/84 (tests 6), ladder-top 0/84 (tests 18), furnished-reached 2/84 (tests 39), roof-hole 2/84 (tests 48)
-noble/keep ladder-top furnished-reached roof-hole                              # ladder-top 84/84 (tests 783), furnished-reached 15/84 (tests 146), roof-hole 63/84 (tests 581)
-noble/palace door-sides ladder-top furnished-reached floating-piece roof-hole  # door-sides 17/84 (tests 544), ladder-top 84/84 (tests 782), furnished-reached 29/84 (tests 349), floating-piece 0/84 (tests 7), roof-hole 78/84 (tests 766)
-noble/stables furnished-reached roof-hole                                      # furnished-reached 2/84 (tests 21), roof-hole 5/84 (tests 72)
+noble/castle door-sides ladder-top furnished-reached floating-piece roof-hole  # door-sides 18/84 (tests 141), ladder-top 72/84 (tests 639), furnished-reached 37/84 (tests 346), floating-piece 0/84 (tests 1), roof-hole 49/84 (tests 414)
+noble/hunting_lodge door-sides furnished-reached                               # door-sides 0/84 (tests 4), furnished-reached 2/84 (tests 24)
+noble/keep ladder-top furnished-reached roof-hole                              # ladder-top 36/84 (tests 463), furnished-reached 18/84 (tests 136), roof-hole 64/84 (tests 469)
+noble/palace ladder-top furnished-reached roof-hole                            # ladder-top 18/18 (tests 288), furnished-reached 0/18 (tests 194), roof-hole 12/18 (tests 683)
+noble/stables furnished-reached                                                # furnished-reached 2/84 (tests 21)

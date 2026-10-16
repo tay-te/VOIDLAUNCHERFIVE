@@ -4,9 +4,8 @@
 # When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
 # breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
 # by an archetype not listed for it fails the tests.
-deep/dwelling walk ladder-top roof-hole                                          # walk 8/84 (tests 220), ladder-top 0/84 (tests 2), roof-hole 0/84 (tests 38)
-deep/forge roof-hole                                                             # roof-hole 0/84 (tests 22)
-deep/glow_garden roof-hole                                                       # roof-hole 84/84 (tests 552)
-deep/hall walk door-sides ladder-top furnished-reached floating-piece roof-hole  # walk 0/84 (tests 4), door-sides 0/84 (tests 2), ladder-top 0/84 (tests 1), furnished-reached 0/84 (tests 4), floating-piece 0/84 (tests 2), roof-hole 12/84 (tests 117)
-deep/lift walk door-sides roof-hole                                              # walk 0/84 (tests 46), door-sides 0/84 (tests 9), roof-hole 70/84 (tests 833)
-deep/market door-sides roof-hole                                                 # door-sides 0/84 (tests 4), roof-hole 0/84 (tests 312)
+deep/dwelling walk                     # walk 8/84 (tests 177)
+deep/glow_garden roof-hole             # roof-hole 84/84 (tests 518)
+deep/hall furnished-reached roof-hole  # furnished-reached 0/84 (tests 3), roof-hole 16/84 (tests 78)
+deep/lift walk door-sides roof-hole    # walk 0/84 (tests 23), door-sides 0/84 (tests 9), roof-hole 70/84 (tests 788)
+deep/market roof-hole                  # roof-hole 0/84 (tests 260)

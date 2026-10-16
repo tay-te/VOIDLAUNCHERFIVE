@@ -1,0 +1,9 @@
+# Known failures of the audit gate's play rules on decayed buildings (the age lane, build/age/Decay.java; BUILDING_GUIDE.md
+# §8, "The audit gate"). Every blueprint with a decay param is tallied as age/decay, whatever its archetype (Gate.listedAs):
+# rails left on rotted boards, doors whose step fell in, roofs holed by decay. The counts take in every finding on a decayed
+# building (DecayTest itself fails only on what decay adds to the building as built); the audit measures no decay.
+# Rules: walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole (build/check/PlayChecks.java).
+# When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
+# breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
+# by an archetype not listed for it fails the tests.
+age/decay walk door-sides ladder-top furnished-reached floating-piece roof-hole  # walk (tests 122), door-sides (tests 152), ladder-top (tests 199), furnished-reached (tests 238), floating-piece (tests 241), roof-hole (tests 3483)

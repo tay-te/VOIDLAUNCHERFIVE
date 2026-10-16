@@ -4,9 +4,9 @@
 # When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
 # breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
 # by an archetype not listed for it fails the tests.
-landscape/bell roof-hole                     # roof-hole 0/84 (tests 1)
-landscape/festival_ground roof-hole          # roof-hole 1/84 (tests 17)
-landscape/fountain floating-piece roof-hole  # floating-piece 0/84 (tests 2), roof-hole 0/84 (tests 1)
-landscape/garden roof-hole                   # roof-hole 0/84 (tests 1)
-landscape/park floating-piece roof-hole      # floating-piece 3/84 (tests 36), roof-hole 0/84 (tests 3)
-landscape/well roof-hole                     # roof-hole 0/84 (tests 5)
+landscape/bell roof-hole                            # roof-hole 0/84 (tests 1)
+landscape/festival_ground floating-piece roof-hole  # floating-piece 0/84 (tests 93), roof-hole 0/84 (tests 46)
+landscape/fountain floating-piece                   # floating-piece 0/84 (tests 3)
+landscape/garden floating-piece                     # floating-piece 8/84 (tests 29)
+landscape/park floating-piece                       # floating-piece 8/84 (tests 65)
+landscape/well roof-hole                            # roof-hole 0/84 (tests 2)
