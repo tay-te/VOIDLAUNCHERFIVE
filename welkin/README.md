@@ -27,7 +27,9 @@ absolute; every change is checked against them on screenshots.
    texture sit on the world texel grid, like block texture.)
 5. **Voxel clouds.** Clouds are cells, opaque, with crisp edges. Never soft ray-marched volumes.
 6. **Directional sunlight and shadows first.** They are the foundation of the quality.
-7. **No TAA, no bloom haze, no fuzzy volumetrics, no blur.** Everything renders at full resolution.
+7. **No TAA, no bloom haze, no fuzzy volumetrics, no blur.** Everything renders at full resolution. (Since 2026-10-16,
+   at the user's pick: a bloom from light past white only, god rays and a volumetric haze lit through the shadows, all
+   smooth and grain-free; textures never pass through any of them.)
 8. **Natural surface colours.** The surface stays real-world: nothing glowing or fantasy-tinted. Underground may be
    fantastical.
 9. **Within budget.** The pass budgets of DESIGN.md section 3.5 hold.
@@ -66,11 +68,13 @@ welkin/
 | `deferred2` (`program/deferred_shadow.glsl`) | The sun's reach, raw, into `colortex10`: the near map through PCSS on a noise-turned Vogel disk, the contact and far rays on screen (jittered), the terrain's shadow past the map and the far casters inside it (with `SHADOWS`) |
 | `deferred3` (`program/deferred_resolve.glsl`) | The plane- and normal-weighted 4x4 resolve of `colortex10` into `colortex11` (and `TEMPORAL_LIGHT`'s history, off by default), skipped where the whole window holds one value (open sun, deep shadow): no grain reaches the light |
 | `deferred4` (`program/deferred.glsl`) | The surface from `depthtex0` where the chunks drew, else `dhDepthTex0`; the light in linear light (sun or moon by the resolved reach, the far land's tops by the terrain's slope; the light through leaves; the sky's fill from the dome's irradiance along the bent normal (`lib/sky/irradiance.glsl`) with the ground's bounce, under the resolved ambient occlusion with its multi-bounce (`lib/ao.glsl`, `lib/denoise.glsl`), and past the map and on the LOD the sun outside the occlusion's open cone taken off (`AO_SUN_FAR`); torches; under the land the realm's, the glowworms' and the lava's light on damp rock, P6 `lib/underground/ug_surface.glsl`) brought to the screen by the land's filmic tone curve (`lib/tone.glsl`); wet ground; cloud shadows; the far fade into the horizon |
-| `deferred5` (`program/deferred_shafts.glsl`) | The sun shafts' raw term at half resolution into `colortex13`: the sunlit share of the near air (96 blocks) along each view ray, 12 shadow-map compares with a noise-offset start, only while a low sun opens the gate (with `SUN_SHAFTS`; overworld only; workstream D) |
+| `deferred5` (`program/deferred_shafts.glsl`) | With `HAZE_VOLUME` (MEDIUM, HIGH): one walk per half-resolution texel along the view ray (`lib/haze/volume.glsl`), near through the shadow map, far through the terrain's shadow line, both through the clouds' shadow, into `colortex13`: the sun shafts' term (the sunlit air weighted toward the eye) and the volumetric haze's sunlit and whole in-scatter. Without it the plain shafts' walk (96 blocks, 12 shadow-map compares). Noise-offset starts; overworld only |
 | `composite` | Water fog, then valley mist from VOID Gloam's near tiles (`lib/mist.glsl`, M1); debug views. **The atmosphere goes here** (haze M2, underground fog M5), then voxel clouds (M3) and `composite1` far weather (M4) |
 | `composite1` | Far weather, overworld only (P5, `lib/far_weather/`): the water fog while the eye is under water (from above, the water's body covers its bed itself, M6), then the far air past the near haze's seam at 1912 blocks (over the land and the clouds past it), far valley mist carrying on from the near mist, and rain curtains under rainy far weather cells; a curtain over the sky or a cloud is finished here with all its air (marked by its distance negated in `colortex6`) |
-| `composite2` (the atmosphere) | Near water's reflections of terrain on HIGH (`WS_WATER_SSR`, M6, `lib/ws/ssr.glsl`); the water fog (the Nether and the End; composite1 lays it in the overworld), the haze by country with its forward scatter toward the sun (`lib/air.glsl`, `AIR_MIE`), the valley mist, the sun shafts resolved from `colortex13` (`lib/shafts.glsl`), the haze in front, the land's aerial perspective (`AERIAL_PERSPECTIVE`); then the underground air (P6, `lib/underground/ug_atmosphere.glsl`: cave fog by the space's openness in strata, cavern water by kind, mist over cave rivers and seas), which the surface air hands over to at cave mouths; debug views |
-| `final` | A soft shoulder past white, then invisible anti-banding (one 8-bit step of fixed triangular noise) |
+| `composite2` (the atmosphere) | Near water's reflections of terrain on HIGH (`WS_WATER_SSR`, M6, `lib/ws/ssr.glsl`); the water fog (the Nether and the End; composite1 lays it in the overworld), the haze by country with its forward scatter toward the sun (`lib/air.glsl`, `AIR_MIE`), the valley mist, the volumetric haze and the sun shafts (god rays in the sun's warm light) resolved from `colortex13` (`lib/haze/volume.glsl`, `lib/shafts.glsl`), the haze in front, the land's aerial perspective (`AERIAL_PERSPECTIVE`); then the underground air (P6, `lib/underground/ug_atmosphere.glsl`: cave fog by the space's openness in strata, cavern water by kind, mist over cave rivers and seas), which the surface air hands over to at cave mouths; debug views |
+| `composite3` | Half resolution: the bloom's bright source into `colortex14` (`lib/bloom.glsl`: the light past white, its headroom given back; every dimension, with `BLOOM`) and the sun beams toward the sun on the screen into `colortex12` (`SHAFT_BEAMS`, overworld) |
+| `composite4` | Half resolution: the bloom's halo from six of `colortex14`'s mip levels (a tight core and a wide soft halo, weights summing to 1) into `colortex9` (with `BLOOM`) |
+| `final` | The sun beams (4x4 texels of `colortex12`) and the bloom's halo laid on in linear light with headroom, then a soft shoulder past white, then invisible anti-banding (one 8-bit step of fixed triangular noise) |
 
 ### Buffers
 
@@ -81,11 +85,12 @@ welkin/
 | `colortex2` | RGBA8 | x lit in deferred, y material / 255, z emission |
 | `colortex3` | RGBA8 | water in front: its lit colour (rgb) and how much of it the far fade leaves (a); the valley mist reads it |
 | `colortex4` | RGBA8 | water info (M6): its normal (rg), the sky reflection's weight (b), the kind (a: 1 near water, 0.66 far, 0.33 glass) |
-| `colortex9` | RGBA16F, half size | the ambient occlusion's raw term: visibility (r), the bent normal's tangent parts in the face's frame (g, b), view depth (a) |
+| `colortex9` | RGBA16F, half size | the ambient occlusion's raw term: visibility (r), the bent normal's tangent parts in the face's frame (g, b), view depth (a); after the light the bloom's halo (`composite4`) |
 | `colortex10` | RGBA16F | the shadow's raw terms: r the sun's reach, g what passes the leaves, b water travel or -1 - the canopy over the point (workstream C), a view depth |
 | `colortex11` | RGBA16F | the resolved reach and what passes, view depth; never cleared (`TEMPORAL_LIGHT`'s history) |
-| `colortex12` | RGBA16F, half size | the resolved ambient occlusion (`deferred1`): visibility (r), the bent normal's tangent parts (g, b), the view depth (a) |
-| `colortex13` | RGBA16F, half size | the sun shafts' raw term (`deferred5`): the sunlit share of the near air (r), view distance (a); `composite2` resolves it depth-aware over 4x4 texels |
+| `colortex12` | RGBA16F, half size | the resolved ambient occlusion (`deferred1`): visibility (r), the bent normal's tangent parts (g, b), the view depth (a); after the light the sun beams' light (`composite3`, rgb) |
+| `colortex13` | RGBA16F, half size | the walk's raw terms (`deferred5`): the shafts' sunlit air (r), the volumetric haze's sunlit (g) and whole (b) in-scatter, view distance (a); `composite2` resolves them depth-aware over 4x4 texels |
+| `colortex14` | RGBA16F, half size, mipmapped | the bloom's bright source (`composite3`); `composite4` gathers its halo into `colortex9` |
 | `colortex15` | RGBA32F, 256 x 512 | the terrain's light, a texel a cell of Gloam's N0 tile: rows 0..255 the shadow lines, 256..511 slope and ground |
 
 Self-lit programs write `colortex2.x = 0` with blending off for that buffer (`shaders.properties`), so deferred never
