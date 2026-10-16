@@ -48,6 +48,9 @@
 // how far a sky ray is walked
 #define HV_SKY_END 2400.0
 #define HV_LAND_END 3000.0
+// the near air stays clear: a step's haze counts by t^2 / (t^2 + HV_NEAR_CLEAR^2), so the crowns and the ground near
+// the eye keep their darks (a few percent of bright air over a near shade lifted its 5 % luma by a third)
+#define HV_NEAR_CLEAR 72.0
 // the most the volumetric haze covers (the land always reads through)
 #define HV_MAX_OPACITY 0.70
 
@@ -126,7 +129,7 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, float shaftLen, float shaf
 		vis *= cloudVis;
 #endif
 		shaft += t < shaftLen ? vis * min(dtN, shaftLen - t + 0.5 * dtN) : 0.0;
-		float rho = hvDensity(y, g0);
+		float rho = hvDensity(y, g0) * (t * t / (t * t + HV_NEAR_CLEAR * HV_NEAR_CLEAR));
 		float tr = exp(-tau);
 		hzSun += rho * vis * dtN * tr;
 		hzAll += rho * dtN * tr;
@@ -152,7 +155,7 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, float shaftLen, float shaf
 #ifdef HV_CLOUDS
 			vis *= welkinCloudShadow(pp, ce);
 #endif
-			float rho = hvDensity(y, g);
+			float rho = hvDensity(y, g) * (t * t / (t * t + HV_NEAR_CLEAR * HV_NEAR_CLEAR));
 			float tr = exp(-tau);
 			hzSun += rho * vis * dt * tr;
 			hzAll += rho * dt * tr;
