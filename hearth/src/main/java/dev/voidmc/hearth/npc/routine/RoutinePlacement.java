@@ -30,9 +30,19 @@ public final class RoutinePlacement {
 	}
 
 	public static Placement where(ServerLevel level, Settlement settlement, Resident resident, ResidentPlaces places, TownState town) {
+		return where(level, settlement, resident, places, town, schedule(settlement, resident, NpcTime.today()));
+	}
+
+	/** The resident's day, as their brain would have it. */
+	public static Schedule schedule(Settlement settlement, Resident resident, long day) {
+		long seed = resident.id.getMostSignificantBits() ^ resident.id.getLeastSignificantBits();
+		return Schedule.of(resident.job, resident.age, NpcData.of(resident).traits(), settlement.culture(), seed, day);
+	}
+
+	/** As above, with the resident's schedule for today already at hand (the embodiment manager keeps them). */
+	public static Placement where(ServerLevel level, Settlement settlement, Resident resident, ResidentPlaces places, TownState town, Schedule schedule) {
 		NpcData data = NpcData.of(resident);
 		long seed = resident.id.getMostSignificantBits() ^ resident.id.getLeastSignificantBits();
-		Schedule schedule = Schedule.of(resident.job, resident.age, data.traits(), settlement.culture(), seed, NpcTime.today());
 		int minute = NpcTime.minuteOfDay(level);
 		Schedule.Block block = schedule.at(minute);
 		// Folded away only moments ago (a chunk reloading, a player stepping back): they are where they were.
