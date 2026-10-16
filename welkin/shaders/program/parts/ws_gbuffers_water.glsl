@@ -143,7 +143,10 @@ void main() {
 		w.footprint = footprint;
 		w.far = false;
 		w.sunShare = vec3(1.0);
-		w.reach = welkinSunReach(eyePos, nW, lm.y, material, sunFacing(dot(nW, L)), w.sunShare);
+		// (the lighting's rule, merged 2026-10-16) the sun's reach as for level water: a fall's facets and a slope's
+		// tilted quads would each meet the sun at their own angle, sunlit beside shaded in triangles
+		vec3 nL = welkinWaterNormal(nW);
+		w.reach = welkinSunReach(eyePos, nL, lm.y, material, sunFacing(dot(nL, L)), w.sunShare);
 #ifdef WELKIN_WS_CLOUD_SHADOW
 		// the decks' shadows, as deferred lays them on the land
 		if (lm.y > 0.0) {
