@@ -44,6 +44,7 @@ import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -55,13 +56,13 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:commerce/tavern}: the drinking house, not the inn. A low broad house of one lofty storey whose tap room
- * is open to the rafters under tie beams, lanterns hung from them on chains; along its back wall the bar with the
- * casks racked behind the keeper's lane and stools before it; beside the bar the stair down to the cellar of casks; at
- * the far end the great hearth with its stone breast and the stack through the gable; in a corner the musicians' stage
- * with the culture's cloth hung behind it and a drum; dice tables of green baize where folk play the social module's
- * dice of an evening; settles along the walls and a trestle by the windows. Outside, the ale-stake (a pole with a bush
- * tied to its end) over the door, the painted board on its wrought bracket, a bench by the door, a barrel stood on end
- * for a table, and behind, a little garden with a shade tree, tables, the woodpile and the empties.
+ * is open to the rafters under tie beams, lanterns hung from them on chains; along its back wall the bar with the casks
+ * racked behind the keeper's lane and stools before it; beside the bar the stair down to the cellar of casks; at the
+ * far end the great hearth with its stone breast and the stack through the gable; in a corner the musicians' stage with
+ * the culture's cloth hung behind it and a drum; dice tables of green baize where folk play the social module's dice of
+ * an evening; settles along the walls and a trestle by the windows. Outside, the ale-stake (a pole with a bush tied to
+ * its end) over the door, the painted board on its wrought bracket, a bench by the door, a barrel stood on end for a
+ * table, and behind, a little garden with a shade tree, tables, the woodpile and the empties.
  *
  * <p>Two plans: the long house (the ridge along the street, the door in the front) and, on broad deep plots in the
  * timber, log, alpine and stone cultures, the gable to the street with a yard beside it, a pentice along the yard side
@@ -76,9 +77,10 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  *
  * <p>Params:
  * <ul>
- *   <li>{@code gable_front} (boolean): the gable to the street with a yard beside it (default by seed, where the plot is
- *   12+ wide and 12+ deep and the culture builds so)</li>
- *   <li>{@code yard_left} (boolean): with {@code gable_front}, the yard on the left seen from the street (default by seed)</li>
+ *   <li>{@code gable_front} (boolean): the gable to the street with a yard beside it (default by seed, where the plot
+ *   is 12+ wide and 12+ deep and the culture builds so)</li>
+ *   <li>{@code yard_left} (boolean): with {@code gable_front}, the yard on the left seen from the street (default by
+ *   seed)</li>
  *   <li>{@code name} (int): which of the tavern names the board shows (default by seed)</li>
  *   <li>{@code variant} (int): the style variant</li>
  * </ul>
@@ -307,6 +309,18 @@ public final class Tavern implements Archetype {
 		boolean bar = barN >= 3 && fr.vLen() >= 5;
 		if (bar) {
 			Trade.bar(d, k0[0], base, k0[1], fr.uDir(), barN, fr.vDir(), 2);
+			// jugs and candle stubs along the top of the kegs racked two high
+			try (var s = d.stage(StageKind.INTERIOR)) {
+				for (int u = barU0; u < barU0 + barN; u++) {
+					int kx = fr.x(u, 0);
+					int kz = fr.z(u, 0);
+					var keg = d.get(kx, base + 1, kz);
+					if (keg != null && keg.is(Blocks.BARREL) && d.isEmpty(kx, base + 2, kz)) {
+						d.set(kx, base + 2, kz, (u & 1) == 0 ? Blocks.FLOWER_POT.defaultBlockState()
+							: Blocks.CANDLE.defaultBlockState().setValue(BlockStateProperties.LIT, false));
+					}
+				}
+			}
 			for (int u = barU0; u < barU0 + barN; u++) {
 				for (int v = 0; v <= 2; v++) {
 					if (v == 1) {
@@ -366,6 +380,11 @@ public final class Tavern implements Archetype {
 		trestles(d, plan, base, fr);
 		settles(d, plan, base);
 		plan.blockDrawn(d);
+		if (raised) {
+			// the raised tap room has no cellar or chimney breast to fill its walls: tables and benches along them
+			dev.voidmc.hearth.build.kit.Rooms.furnish(d, plan.room(), dev.voidmc.hearth.build.kit.Rooms.Type.DINING, 0, JobType.NONE);
+			plan.blockDrawn(d);
+		}
 		dev.voidmc.hearth.build.kit.Rooms.furnish(d, plan.room(), dev.voidmc.hearth.build.kit.Rooms.Type.HALL, 0, JobType.NONE);
 
 		// --- light by design: lanterns from the tie beams over the floor, sconces at the hearth, then the rest
@@ -386,7 +405,9 @@ public final class Tavern implements Archetype {
 				}
 			}
 		}
+		headsClear(d, ix0, iz0, ix1, iz1, base);
 		Lighting.room(d, ix0, iz0, ix1, iz1, base);
+		topsDressed(d, ix0, iz0, ix1, iz1, base, plate);
 
 		// --- outside
 		exterior(d, t, body, roof, front, doorSide, doorCol, base, zF, zM, gable, yardLeft, deck, skyline);
@@ -402,6 +423,8 @@ public final class Tavern implements Archetype {
 			Garden.snowBanks(d, bx0, zF, bx1, zM, base, doorCol);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 3));
+		// rails on the veranda and the cellar stair's open side
+		Edges.guard(d);
 	}
 
 	// ------------------------------------------------------------------------------------------- roof
@@ -447,10 +470,10 @@ public final class Tavern implements Archetype {
 	// ------------------------------------------------------------------------------------------- the tap room
 
 	/**
-	 * The hearth on a wall of the room: a fire (an open fire in a stone surround) with stone cheeks either side and a stone
-	 * breast over them to the tie beams, its flue running up in the wall to a stack through the roof. Tried on the end
-	 * wall away from the stair first, then the other walls, wherever three cells of solid wall stand behind it. Answers
-	 * {x, z, toWall dx, toWall dz} of the fire, or null.
+	 * The hearth on a wall of the room: a fire (an open fire in a stone surround) with stone cheeks either side and a
+	 * stone breast over them to the tie beams, its flue running up in the wall to a stack through the roof. Tried on the
+	 * end wall away from the stair first, then the other walls, wherever three cells of solid wall stand behind it.
+	 * Answers {x, z, toWall dx, toWall dz} of the fire, or null.
 	 */
 	private static int[] hearth(Draft d, RoomFrame fr, Floorplan plan, int y, Roofs.Roof roof, Body body) {
 		List<int[]> tries = new ArrayList<>();
@@ -504,6 +527,11 @@ public final class Tavern implements Archetype {
 							d.set(cells[k][0], yy, cells[k][1], stone.full());
 						}
 					}
+					// where the room is open to the rafters the breast goes on up into them (a breast that stops at the
+					// plate leaves a ledge under the roof)
+					for (int yy = plate; roof != null && yy <= roof.ridgeY && d.isEmpty(cells[k][0], yy, cells[k][1]); yy++) {
+						d.set(cells[k][0], yy, cells[k][1], stone.full());
+					}
 				}
 			}
 			d.poi(PoiType.HEARTH, frontCell[0], y, frontCell[1], toWall);
@@ -525,8 +553,8 @@ public final class Tavern implements Archetype {
 	}
 
 	/**
-	 * Where no wall will take a chimney breast (a lattice or bamboo wall, a raised house of boards): a stove against a wall
-	 * of the room, the HEARTH before it.
+	 * Where no wall will take a chimney breast (a lattice or bamboo wall, a raised house of boards): a stove against a
+	 * wall of the room, the HEARTH before it.
 	 */
 	private static void stove(Draft d, Floorplan plan, int y) {
 		for (Direction wall : Dirs.HORIZONTAL) {
@@ -603,6 +631,11 @@ public final class Tavern implements Archetype {
 			}
 			if (!plan.inside(fx, fz) || !plan.take(cells.toArray(int[][]::new), new int[]{fx, fz})) {
 				continue;
+			}
+			// the way up: the floor before the step stays clear, so the players (and the folk) reach it from the room
+			int[] before = {step[0] + Dirs.dx(face), step[1] + Dirs.dz(face)};
+			if (plan.inside(before[0], before[1]) && plan.free(before[0], before[1])) {
+				plan.keepArea(before[0], before[1], before[0], before[1]);
 			}
 			// the step at the front's end is on the floor in front: keep it free of furniture
 			Venue.stage(d, r[0], r[1], r[2], r[3], y, face, true);
@@ -714,6 +747,61 @@ public final class Tavern implements Archetype {
 				}
 				Venue.bench(d, a[0], y, a[1], Dirs.of(b[0] - a[0], b[1] - a[1]), 2, wall);
 				i += 2;
+			}
+		}
+	}
+
+	/**
+	 * The tops of the racked casks and the shelves (anything stacked two high) dressed with a jug or a candle stub, as a
+	 * tap room's are: nobody climbs up there, and a bare top under the beams would read as a loft.
+	 */
+	private static void topsDressed(Draft d, int ix0, int iz0, int ix1, int iz1, int base, int plate) {
+		try (var s = d.stage(StageKind.INTERIOR)) {
+			for (int z = iz0; z <= iz1; z++) {
+				for (int x = ix0; x <= ix1; x++) {
+					for (int y = base + 2; y < plate; y++) {
+						Draft.Cell top = d.cell(x, y - 1, z);
+						Draft.Cell under = d.cell(x, y - 2, z);
+						if (top == null || top.stage() != StageKind.INTERIOR || top.state().isAir() || under == null || under.state().isAir()
+							|| !d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z)
+							|| dev.voidmc.hearth.build.kit.light.Spaces.passable(top.state())
+							|| !dev.voidmc.hearth.build.kit.light.Spaces.standable(top.state())
+							|| top.state().getBlock() instanceof net.minecraft.world.level.block.SlabBlock
+							|| top.state().getBlock() instanceof net.minecraft.world.level.block.StairBlock) {
+							continue;
+						}
+						d.set(x, y, z, ((x + z) & 1) == 0 ? Blocks.FLOWER_POT.defaultBlockState()
+							: Blocks.CANDLE.defaultBlockState().setValue(BlockStateProperties.LIT, false));
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * No lantern at head height over a raised place someone stands on (the stage's boards and its lip, a step, a stool):
+	 * where the tie beams are low a lantern hung over the floor hangs in the face of the player on the stage.
+	 */
+	private static void headsClear(Draft d, int ix0, int iz0, int ix1, int iz1, int base) {
+		for (int z = iz0; z <= iz1; z++) {
+			for (int x = ix0; x <= ix1; x++) {
+				var under = d.get(x, base, z);
+				if (under == null || under.isAir() || !(under.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+					|| under.getBlock() instanceof net.minecraft.world.level.block.SlabBlock || under.isCollisionShapeFullBlock(
+						net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO))) {
+					continue;
+				}
+				for (int yy = base + 1; yy <= base + 2; yy++) {
+					var s = d.get(x, yy, z);
+					if (s != null && s.getBlock() instanceof net.minecraft.world.level.block.LanternBlock) {
+						// (air, not forgotten: on a hillside the cell is dug out of the ground)
+						d.air(x, yy, z);
+						// and the chain it hung from, down from the beam
+						for (int cy = yy + 1; d.get(x, cy, z) != null && d.get(x, cy, z).getBlock() instanceof net.minecraft.world.level.block.ChainBlock; cy++) {
+							d.air(x, cy, z);
+						}
+					}
+				}
 			}
 		}
 	}

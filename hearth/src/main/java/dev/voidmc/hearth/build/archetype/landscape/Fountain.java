@@ -20,6 +20,7 @@ import dev.voidmc.hearth.build.kit.landscape.Planters;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
@@ -33,14 +34,15 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * {@code hearth:landscape/fountain}: water in the square, in the culture's manner.
  *
  * <ul>
- *   <li><b>A basin with a jet</b> (temperate, wisteria, maritime, alpine, moorland, steppe): a square, octagonal or round
- *   basin whose rim is a ring of stone seats looking out, a column in the water carrying a bowl the jet spills over
- *   (a second, wider bowl on the bigger plots), lamps at the corners of the larger fountains.</li>
- *   <li><b>A Moorish fountain</b> (desert, mediterranean, mesa): a low octagonal basin, its rim inlaid in a second stone, a short spout in
- *   the middle, pots of flowers round it.</li>
+ *   <li><b>A basin with a jet</b> (temperate, wisteria, maritime, alpine, moorland, steppe): a square, octagonal or
+ *   round basin whose rim is a ring of stone seats looking out, a column in the water carrying a bowl the jet spills
+ *   over (a second, wider bowl on the bigger plots), lamps at the corners of the larger fountains.</li>
+ *   <li><b>A Moorish fountain</b> (desert, mediterranean, mesa): a low octagonal basin, its rim inlaid in a second
+ *   stone, a short spout in the middle, pots of flowers round it.</li>
  *   <li><b>A spring pool</b> (karst, tropical, bayou): an irregular pool edged with mossy stones (palm or cypress logs
  *   in the timber cultures), lily pads, a bamboo spout pouring into a stone bowl, a stone lantern or torches.</li>
- *   <li><b>A trough and pump</b> (northern, tundra): a long stone trough, a timber pump post with its spout, a bucket.</li>
+ *   <li><b>A trough and pump</b> (northern, tundra): a long stone trough, a timber pump post with its spout, a
+ *   bucket.</li>
  * </ul>
  * Everything stands on the paving (nothing is dug below the square), so a fountain set into a paved plaza keeps the
  * plaza's floor as its basin's bed. The water is still where it is drawn; the jet runs when the game first updates it,
@@ -89,6 +91,7 @@ public final class Fountain implements Archetype {
 			default -> basin(d, w, dp, cx, cz);
 		};
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
+		Edges.guard(d);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 

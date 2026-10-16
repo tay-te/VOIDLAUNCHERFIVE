@@ -24,13 +24,15 @@ height: a roof that cannot fit pitched becomes flat behind a parapet, towers and
 
 **Market hall.** In the timber traditions (temperate, wisteria) a Bohemian market house: a lofty arcade of pointed
 arches rendered with the walls (the arch rings in dressed stone) open on three sides, the framed hall set flush on it
-(no jetty, so the arches read from the square), a tall framed gable turned to the square with the loft door under a
-hoist beam and its lantern, a balcony for proclamations in towns, the bell cupola on the ridge. Elsewhere: an arcaded
+(no jetty, so the arches read from the square), a tall framed gable turned to the square with the loft's shuttered
+loading hatch under a hoist beam and its lantern, a balcony for proclamations in towns, the bell cupola on the ridge. Elsewhere: an arcaded
 ground floor open on three sides, its piers and arches in the culture's manner (round
 stone arches, pointed ones, braced timber posts, bracketed eastern posts), market counters under it with a merchant's
-place behind each; a back bay closed in for the stores and the stair; the hall upstairs with tables and benches under
-the roof; a cupola on the ridge with a bell and, in towns of standing, clock faces (front and back). Flat-roofed
-traditions put little domes on drums over the roof instead (the souk). Dormers light the deepest pitched roofs.
+place behind each; a back bay closed in for the stores and the stair, its door at the head of the aisle (the counters
+stand in the side bays, so both its sides are clear floor), the flight up along its back wall walked onto from a cell of floor at its foot and landing clear of the hall's hearth; the hall upstairs with tables and benches under the roof, sconces on its long walls; a
+cupola on the ridge with a bell and, in towns of standing, clock faces (front and back). Flat-roofed traditions raise one
+dome on a drum over the middle of the roof instead (the souk). Dormers light the deepest pitched roofs. Rails stand on
+the plinth where it rises over falling ground (`Edges`).
 
 **Inn.** A coaching inn, the broadest front in the street: its range runs the whole width of the plot, two storeys over
 a lofty ground floor (three on plots 13+ wide and 13+ deep where the height allows), the ground floor in stone wherever
@@ -45,7 +47,9 @@ table with stools in the forecourt's outer row; within, the bar with its kegs ra
 table between two benches out from the long walls, a long table down the middle where there is room, tables backed
 against the bar or the stair with a bench before each, settles along the rest), the
 hearth, lanterns hung from the joists over the tables and the bar. Upstairs, on every floor, a corridor along the back
-with a runner and lanterns, guest rooms along the street (a second flight beside the first on three-storey inns); the
+with a runner and lanterns, guest rooms along the street, four wide where the range allows with one bed (two in a room
+six wide), a chest and a chair and a clear floor before the door, no rug at a bed's side (a second flight beside the
+first on three-storey inns; under a pitched roof the top floor has a ceiling of boards, the attic above it roof space); the
 gallery looks over the yard, and across it stands a gabled stable (stalls behind half doors, hay and water, a hay door
 over the middle, a lantern). Alpine and karst inns carry a balcony across the upper front, the mediterranean a vine
 pergola, the dry south a flat roof with a shaded terrace, latticed screens, a striped awning and a palm in the yard;
@@ -54,11 +58,12 @@ raised traditions (bayou, tropical) lift it on stilts with a stair down to the s
 
 **Bank.** A rusticated stone storey whatever the culture (or a stone base under a karst hall), barred windows, a
 portico of columns and a pediment where the plot allows (a karst gate roof, an adobe crest), and on smaller plots an
-aedicule (two columns and a pediment framing the door); a low hipped roof behind a cornice whatever the houses do (a
+aedicule (two columns and a pediment framing the door), the pediment always under the eave; a low hipped roof behind a cornice whatever the houses do (a
 crested parapet, the beam ends in a row, latticed screens and a little dome on a drum in the dry south); the counter
 across the banking hall with the minter's workstation at its end; the strongroom behind an iron door with buttons
 (chests of coin, a block of gold); the press room with a blast furnace, an anvil and the coin press (a die under a
-piston); a lectern for the ledgers. Two storeys where deep enough, else one tall hall.
+piston) along the wall away from the stair, so the flight lands on clear floor; a lectern for the ledgers at the back.
+Two storeys where deep enough, else one tall hall.
 
 **Chapel.** One per tradition:
 - *Bohemian parish church* (temperate, wisteria; `ChapelBohemian`): stone whatever the houses are. White render (the

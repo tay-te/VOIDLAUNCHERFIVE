@@ -26,6 +26,7 @@ import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits.GardenKind;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -42,17 +43,18 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * terraced where the ground rises or falls behind the street (a retaining wall with a coping, steps on the path).
  *
  * <ul>
- *   <li><b>Cottage</b> (temperate, alpine, wisteria): fenced or hedged, a path from the gate to an arbour with a bench at
- *   the back, a cross path, borders of flowers, a fruit tree, a beehive, a bird bath.</li>
+ *   <li><b>Cottage</b> (temperate, alpine, wisteria): fenced or hedged, a path from the gate to an arbour with a bench
+ *   at the back, a cross path, borders of flowers, a fruit tree, a beehive, a bird bath.</li>
  *   <li><b>Kitchen</b> (northern, mediterranean, steppe): beds of crops in rows with water between, a scarecrow, a
  *   compost bin and a water butt, a trellis of vines on the back fence, an olive or fruit tree, pots.</li>
- *   <li><b>Riad</b> (desert): walled, quartered by tiled walks meeting at a little fountain, palms in two quarters, a dry
- *   garden of sand, cacti and pots in the others, stone benches in the shade. On the mesa a cactus garden under a
+ *   <li><b>Riad</b> (desert): walled, quartered by tiled walks meeting at a little fountain, palms in two quarters, a
+ *   dry garden of sand, cacti and pots in the others, stone benches in the shade. On the mesa a cactus garden under a
  *   ramada of poles.</li>
- *   <li><b>Zen</b> (karst): raked gravel with moss islands and weathered stones, a blossom tree, a stone lantern, a pool
- *   crossed by stepping stones, a viewing deck with a bench at the back.</li>
+ *   <li><b>Zen</b> (karst): raked gravel with moss islands and weathered stones, a blossom tree, a stone lantern, a
+ *   pool crossed by stepping stones, a viewing deck with a bench at the back.</li>
  *   <li><b>Tropical</b>: ferns and big leaves, palms, a lily pool, bamboo.</li>
- *   <li><b>Rock</b> (moorland, maritime): dry-stone walled, heather and boulders, a flagged path, a birch, a bench.</li>
+ *   <li><b>Rock</b> (moorland, maritime): dry-stone walled, heather and boulders, a flagged path, a birch, a
+ *   bench.</li>
  *   <li><b>Bog</b> (bayou): pools and mud, a boardwalk, a tree hung with moss. <b>Winter garden</b> (tundra): spruces,
  *   stones, a fire bowl with log seats.</li>
  * </ul>
@@ -143,6 +145,7 @@ public final class GardenPlot implements Archetype {
 			top = Math.max(top, Lamps.standard(d, cx + 1, level[1], 1, 4, Manner.lamp(d), null));
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
+		Edges.guard(d);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
@@ -182,6 +185,15 @@ public final class GardenPlot implements Archetype {
 			Mat cope = d.mat(Role.WALL_ACCENT);
 			List<int[]> all = new ArrayList<>(front);
 			all.addAll(rest);
+			// where the land outside stands as high as the wall's foot plus one, a hand could step up onto a flat coping and
+			// walk the wall over the garden: the whole wall then takes a crest of the masonry's wall instead
+			boolean crest = false;
+			for (int[] c : all) {
+				int ox = c[0] == 0 ? -1 : c[0] == w - 1 ? w : c[0];
+				int oz = c[1] == 0 ? -1 : c[1] == dp - 1 ? dp : c[1];
+				crest |= d.site().ground(ox, oz) >= l.y(c[1]) + 1;
+			}
+			boolean crested = crest && wall.has(Form.WALL);
 			try (var s = d.stage(StageKind.WALLS)) {
 				for (int[] c : all) {
 					int g = l.y(c[1]);
@@ -191,7 +203,8 @@ public final class GardenPlot implements Archetype {
 					}
 					d.set(c[0], g, c[1], wall.full());
 					d.set(c[0], g + 1, c[1], wall.full());
-					d.set(c[0], g + 2, c[1], Manner.wood(cope) ? wall.slab(SlabType.BOTTOM) : cope.slab(SlabType.BOTTOM).orElse(wall.full()));
+					d.set(c[0], g + 2, c[1], crested ? wall.wall() : Manner.wood(cope) ? wall.slab(SlabType.BOTTOM)
+						: cope.slab(SlabType.BOTTOM).orElse(wall.full()));
 				}
 				if (wall.has(Form.STAIRS)) {
 					d.set(l.cx() - 1, l.y(0) + 1, 0, wall.stairs(Dirs.LEFT, Half.TOP));
@@ -420,6 +433,18 @@ public final class GardenPlot implements Archetype {
 			clearCell(d, tx, l.y(tz), tz);
 			top = Math.max(top, Trees.tree(d, tx, l.y(tz), tz, Math.min(6, d.maxHeight() - l.y(tz)), Trees.kind(d), l.cx() + 1, l.dp() - 6, l.w() - 2,
 				l.dp() - 2));
+		}
+		// the tree's low boughs pruned off over the back corner (head high), so the way to the butt stays open
+		int butt = l.w() - 2;
+		for (int z = bz - 2; z <= bz; z++) {
+			for (int x = butt - 2; x <= butt; x++) {
+				for (int dy = 0; dy <= 1; dy++) {
+					var st = d.get(x, l.y(z) + dy, z);
+					if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.LeavesBlock) {
+						d.remove(x, l.y(z) + dy, z);
+					}
+				}
+			}
 		}
 		Benches.bench(d, l.cx() - 1 >= 1 ? l.cx() - 1 : l.cx(), l.y(bz), bz, Dirs.FRONT, Dirs.RIGHT, 1, false);
 		return top;

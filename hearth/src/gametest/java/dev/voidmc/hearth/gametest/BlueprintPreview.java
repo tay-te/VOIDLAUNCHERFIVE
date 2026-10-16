@@ -228,7 +228,10 @@ public final class BlueprintPreview {
 		params.remove("stage");
 		int tier = params.contains("tier") ? params.getIntOr("tier", 2) : 2;
 		params.remove("tier");
-		return new PlotSpec(info.id(), style.id(), seed, new BlockPos(ox, floor, oz), sizeX, sizeZ, facing, Math.max(info.maxHeight(), 8), tier, params);
+		// height=N: the plot's height (default the archetype's most)
+		int height = params.contains("height") ? params.getIntOr("height", info.maxHeight()) : Math.max(info.maxHeight(), 8);
+		params.remove("height");
+		return new PlotSpec(info.id(), style.id(), seed, new BlockPos(ox, floor, oz), sizeX, sizeZ, facing, height, tier, params);
 	}
 
 	private static Cell renderOne(BlueprintServiceImpl service, IsoRenderer renderer, ArchetypeInfo info, Style style, long seed, int index, String terrain,
