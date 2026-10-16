@@ -117,9 +117,11 @@ void main() {
 	if (matIsWater(material)) {
 		// (the lighting's fix, merged 2026-10-16) Minecraft draws water's top twice, once turned down for the view
 		// from under it. On a slope or a fall the reversed copy splits the quad along the other diagonal, so seen from
-		// above half of each step's copy stands over the surface: from the air, a turned-away water face below the eye
-		// is that copy, and it is left out
-		if (!gl_FrontFacing && isEyeInWater != 1 && eyePos.y < 0.0) {
+		// above half of each step's copy stands over the surface: from the air, a turned-away water face is that copy
+		// (below the eye), or a top seen from under its plane (a fall's step above the eye, whose turned-down copy
+		// faces the eye), and it is left out; else a fall seen from below showed each step's top as the dark view from
+		// under water beside its copy's bright sky, in triangles
+		if (!gl_FrontFacing && isEyeInWater != 1) {
 			discard;
 		}
 		// the opaque surface behind the water along this pixel's ray (depthtex1 holds no translucents)
