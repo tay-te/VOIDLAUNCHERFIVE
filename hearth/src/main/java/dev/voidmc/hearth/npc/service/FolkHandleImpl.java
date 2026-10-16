@@ -95,7 +95,10 @@ public final class FolkHandleImpl implements NpcService.FolkHandle {
 		}
 		this.target = target.immutable();
 		this.nextRepath = now + FolkBrain.config().repathCooldown();
-		Path path = f.getNavigation().createPath(target, 1);
+		java.util.List<BlockPos> spots = f.level() instanceof net.minecraft.world.level.Level level ? dev.voidmc.hearth.npc.entity.FolkSpots.approaches(level, target)
+			: java.util.List.of();
+		f.getNavigation().setRequiredPathLength(Math.abs(target.getY() - f.getBlockY()) >= 3 ? 96.0F : 16.0F);
+		Path path = spots.isEmpty() ? f.getNavigation().createPath(target, 1) : f.getNavigation().createPath(new java.util.HashSet<>(spots), 0);
 		this.pathFound = path != null && f.getNavigation().moveTo(path, speed);
 		return this.pathFound || arrived();
 	}

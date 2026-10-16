@@ -143,7 +143,8 @@ public class FolkNight implements FabricClientGameTest {
 				String path = "no bed";
 				if (bed != null) {
 					f.getNavigation().setRequiredPathLength(160);
-					Path way = f.getNavigation().createPath(bed, 1);
+					List<BlockPos> spots = dev.voidmc.hearth.npc.entity.FolkSpots.approaches(level, bed);
+					Path way = spots.isEmpty() ? f.getNavigation().createPath(bed, 1) : f.getNavigation().createPath(new java.util.HashSet<>(spots), 0);
 					f.getNavigation().setRequiredPathLength(16);
 					path = way == null ? "no path" : way.canReach() ? "path ok (" + way.getNodeCount() + " nodes)"
 						: "partial path to " + way.getEndNode().asBlockPos().toShortString();

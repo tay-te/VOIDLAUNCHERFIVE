@@ -561,6 +561,7 @@ public final class FolkBrain {
 			this.lastProgressPos = pos;
 			this.nextRepath = 0;
 			this.detour = null;
+			this.approaches = null;
 			this.partialBest = Double.MAX_VALUE;
 		}
 		double dist = Math.sqrt(dx * dx + dz * dz + dy * dy);
@@ -585,9 +586,20 @@ public final class FolkBrain {
 			}
 			BlockPos goal = this.detour != null ? this.detour : target;
 			double far = Math.sqrt(goal.distSqr(this.folk.blockPosition()));
-			this.folk.getNavigation().setRequiredPathLength((float) Mth.clamp(far * 1.4 + 16.0, 16.0, MAX_PATH));
-			boolean ok = this.folk.getNavigation().moveTo(goal.getX() + 0.5, goal.getY(), goal.getZ() + 0.5,
-				goal == target ? Math.max(0, (int) within - 1) : 1, speed);
+			// another storey wants a wider search: the way up is often at the far end of the house
+			double budget = far * 1.4 + 16.0 + (Math.abs(goal.getY() - this.folk.getBlockY()) >= 3 ? 48.0 : 0.0);
+			this.folk.getNavigation().setRequiredPathLength((float) Mth.clamp(budget, 16.0, MAX_PATH));
+			net.minecraft.world.level.pathfinder.Path way;
+			if (goal == target) {
+				if (this.approaches == null) {
+					this.approaches = FolkSpots.approaches(level, target);
+				}
+				way = this.approaches.isEmpty() ? this.folk.getNavigation().createPath(target, Math.max(0, (int) within - 1))
+					: this.folk.getNavigation().createPath(new java.util.HashSet<>(this.approaches), 0);
+			} else {
+				way = this.folk.getNavigation().createPath(goal, 1);
+			}
+			boolean ok = this.folk.getNavigation().moveTo(way, speed);
 			this.nextRepath = now + config().repathCooldown() + this.random.nextInt(10);
 			if (!ok) {
 				this.stuckFor += config().repathCooldown();
@@ -621,6 +633,8 @@ public final class FolkBrain {
 	/** A spot to make for first, when the last partial path toward the goal brought the folk no nearer. */
 	private @Nullable BlockPos detour;
 	private int detourUntil;
+	/** Where one stands to use the current goal ({@link FolkSpots#approaches}), found once per goal. */
+	private java.util.@Nullable List<BlockPos> approaches;
 	/** The nearest the end of a partial path has brought the folk to the current goal. */
 	private double partialBest = Double.MAX_VALUE;
 
