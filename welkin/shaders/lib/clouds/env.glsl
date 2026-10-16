@@ -30,9 +30,9 @@
 // margin over the cover's threshold, plus a hashed nudge so the tops are lumpy, not terraced rings): a fair-weather
 // cumulus is a voxel dome, thin at its ragged rim, three or four tiers over its heart. The low stratus takes one
 // tier at most; the high deck stays one thin sheet.)
-#define WC_TIER 4.0          // each tier over the first 4 blocks
-#define WC_MAIN_TIERS 3      // the main deck: up to 4 + 3 x 4 = 16 blocks
-#define WC_LOW_TIERS 1       // the low stratus: up to 8
+#define WC_TIER 6.0          // each tier over the first 4 blocks (review round 2: 6, was 4: a fair cumulus up to 22 blocks tall, a volume with lit sides rather than a slab)
+#define WC_MAIN_TIERS 3      // the main deck: up to 4 + 3 x 6 = 22 blocks
+#define WC_LOW_TIERS 1       // the low stratus: up to 10
 
 // Gloam's Contract.Slot ordinals: the texel column of each uniform in the header mirror (rows 1..3).
 #define WC_SLOT_SEED 2

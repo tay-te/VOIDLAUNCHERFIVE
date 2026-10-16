@@ -133,6 +133,7 @@ struct CloudBody {
 	int lv;        // the ring
 	bool field;    // the field may be read along the light
 	float bill;    // (review round 2) the billows over the body: -0.5 a hollow .. 0.5 a swell, smooth (wcBillow)
+	float relief;  // (review round 2) how the billows turn to the sun: 1 a swell's sunward flank .. -1 its far side
 };
 
 // (review round 2) Smooth value noise with its lattice every `w` blocks at camera-relative point q, on the clouds'
@@ -182,6 +183,7 @@ CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField) {
 	b.field = false;
 	b.top = iv.y;
 	b.bill = 0.0;
+	b.relief = 0.0;
 #ifdef WC_FIELD
 	if (useField && (b.k == 0 || b.k == 1)) {
 		vec2 f = wcField(b.p.xz - h.n.xz * 0.05, b.lv, e);
@@ -196,6 +198,12 @@ CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField) {
 		b.bill = wcBillow(b.p.xz, e);
 		if (h.n.y < -0.5) {
 			b.top += b.bill * 7.0 * (0.4 + 0.6 * b.depth);
+		}
+		// (a belly's or a top's billows as relief toward a sun from the side: a swell's flank turned to the sun lit, its
+		// far flank in its own shade, so the lobes read as rounded volumes, not as blotches)
+		if (abs(h.n.y) > 0.5 && length(e.sun.xz) > 0.05) {
+			vec2 sd = normalize(e.sun.xz);
+			b.relief = clamp((b.bill - wcBillow(b.p.xz + sd * 6.0, e)) * 3.6, -1.0, 1.0);
 		}
 	}
 #endif
@@ -355,7 +363,9 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	vec3 light = amb + bounce;
 	vec3 glint = vec3(0.0), g;
 	if (e.sun.y > -0.12) {
-		light += wcBodyLight(b, n, sigma, rd, e.sun, sunC, e, g) * shadow;
+		// (review round 2: the billows' relief, strongest with the sun low and to the side)
+		float lat = 1.0 - smoothstep(0.35, 0.95, e.sun.y);
+		light += wcBodyLight(b, n, sigma, rd, e.sun, sunC, e, g) * shadow * (1.0 + 0.55 * b.relief * lat);
 		glint += g * shadow;
 	}
 	if (night > 0.0) {
@@ -397,7 +407,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		hueF /= wcLuma(hueF);
 		// (thin rims and ragged edges brightest, the thick heart of a belly a soft shade under them: the forms read)
 		float lift = (n.y > 0.5 ? 1.5 : (n.y < -0.5 ? 1.3 : 1.4 * mix(0.85, 1.1, b.hIn))) * mix(1.0, 1.25, sw * sw)
-			* mix(1.22, 0.74, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.3 * b.bill)
+			* mix(1.22, 0.74, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.3 * b.bill) * (1.0 + 0.22 * b.relief)
 			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
 		// (the shortfall is added in the floor's own warm light, not taken channel by channel: a per-channel max of a
 		// cool grey belly and a cream floor came out a mauve-brown mottle)
@@ -494,6 +504,7 @@ vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 	b.lv = h.level;
 	b.field = false;
 	b.bill = 0.0;
+	b.relief = 0.0;
 	return wcCloudLight(b, h.n, h.tone, rd, 1.0, e);
 }
 
