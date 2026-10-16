@@ -126,11 +126,14 @@ final class Procedural {
         float hit = rx == null ? 0 : rx.step;
         float flourish = rx == null ? 0 : rx.flourish;
         if (!p.isSneaking()) {
-            spread = Math.min(1f, spread + 0.3f * flare + 0.12f * hit + 0.6f * flourish);
-            sweep *= 1f - 0.6f * Math.max(flare, flourish);
+            // Toward fully open and forward whatever the wearer is doing: a combo at a sprint
+            // still reads as wings thrown wide, not swept back.
+            float open = Math.min(1f, Math.max(0.85f * flare + 0.15f * hit, flourish));
+            spread += (1f - spread) * open;
+            sweep *= 1f - 0.85f * open;
             amp += 0.1f * flare + 0.4f * flourish;
             rate += 0.5f * flare + 1.0f * flourish;
-            tip = Math.max(0f, tip - 0.35f * flare - 0.6f * flourish);
+            tip *= 1f - open;
         }
         spread = Math.max(0f, spread - 0.6f * flinch);
         tip = Math.min(1f, tip + 0.5f * flinch);
@@ -145,11 +148,13 @@ final class Procedural {
         }
         float flap = a * (float) Math.sin(fx.flapPhase) * 55f;
         float tipFlap = a * (float) Math.sin(fx.flapPhase - 0.9f) * 35f;
-        float rootY = (15f + 60f * w) * DEG;
+        // A flinch snaps the wings back and down at once (the state springs are too slow for
+        // a quarter-second reaction); the follow-through springs below give it its shudder.
+        float rootY = (15f + 60f * w + 28f * flinch) * DEG;
         float squash = sec.on ? sec.squash : 0f;
         float beat = sec.on ? sec.beat : 0f;
         float rootZDeg = -55f + 70f * s + flap
-                + 16f * hit - 24f * squash - 34f * beat
+                + 16f * hit - 24f * squash - 34f * beat - 34f * flinch
                 + (flinch > 0.02f ? (float) Math.sin(time * 47f) * 6f * flinch : 0f);
         float rootZ = rootZDeg * DEG;
         float rootX = (-6f * s) * DEG;

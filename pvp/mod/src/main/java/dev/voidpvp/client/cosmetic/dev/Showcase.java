@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
 public final class Showcase {
 
     private static final String WORLD = "void-showcase";
-    private static final double GROUND = 4.0;
+    static final double GROUND = 4.0;
 
     private final File out;
     private final Set<String> only;
@@ -99,6 +99,10 @@ public final class Showcase {
         boolean hud;
         /** Scene tick at which the local player's emote (if any) starts. */
         int emoteAt = 8;
+        /** Secondary motion on (the A/B "before" takes turn it off). */
+        boolean motion = true;
+        /** Reactive level pinned for this scene, or negative for the setting (full). */
+        float reactive = -1f;
 
         Scene(String name) {
             this.name = name;
@@ -113,7 +117,7 @@ public final class Showcase {
 
     private static final String[] NAMES = {"Kestrel", "Nyx", "Wren", "Sable", "Orin", "Lumen", "Vesper", "Ash"};
 
-    private static JsonObject set(String cape, String back, String head, String face, String halo,
+    static JsonObject set(String cape, String back, String head, String face, String halo,
                                   String trail, String badge) {
         JsonObject o = new JsonObject();
         o.addProperty("cape", cape);
@@ -127,7 +131,7 @@ public final class Showcase {
     }
 
     /** The six launch outfits, one per mannequin, between them wearing every item. */
-    private static final JsonObject[] OUTFITS = {
+    static final JsonObject[] OUTFITS = {
         set("void-cape", "void-wings", null, null, "void-halo", "spark-trail", "void-badge-founder"),
         set("cell-cape", null, "monarch-crown", null, null, "ember-trail", "cell-badge"),
         set("dusk-cape", "ember-wings", null, "ice-visor", "seraph-halo", "frost-trail", "frost-badge"),
@@ -163,6 +167,21 @@ public final class Showcase {
         scenes.add(badges("badges", 6000));
         scenes.add(emoteCamera("emote-cam", 6000));
         scenes.add(crowd("perf-20", 6000));
+        // Secondary motion and fight reactions (ShowcaseMotion); the -off takes are the same
+        // scripts with both switched off, for side-by-side comparison.
+        scenes.add(ShowcaseMotion.fight("fight", 6000, true));
+        scenes.add(ShowcaseMotion.fight("fight-night", 18000, true));
+        scenes.add(ShowcaseMotion.fight("fight-off", 6000, false));
+        scenes.add(ShowcaseMotion.turns("turns", 6000, true));
+        scenes.add(ShowcaseMotion.turns("turns-off", 6000, false));
+        scenes.add(ShowcaseMotion.sprintJump("sprint-jump", 6000));
+        scenes.add(ShowcaseMotion.sprintJump("sprint-jump-night", 17800));
+        scenes.add(ShowcaseMotion.brawl("brawl-20", 18000));
+        // The perf scene again with motion and reactions off: the same run's A/B of their cost.
+        Scene off = crowd("perf-20-off", 6000);
+        off.motion = false;
+        off.reactive = 0f;
+        scenes.add(off);
     }
 
     /** A row of the six outfits, facing {@code faceYaw}, the camera at {@code camZ} looking {@code camYaw}. */
@@ -641,6 +660,7 @@ public final class Showcase {
         sceneTick = 0;
         shotFrames = -1;
         mc.options.hudHidden = !scene.hud;
+        dev.voidpvp.client.cosmetic.Reactive.devMotion(scene.motion, scene.reactive);
         setTime(mc, scene.time);
         scene.stage(this, mc);
         place(mc);
@@ -660,6 +680,7 @@ public final class Showcase {
     }
 
     private final double[] cam = new double[5];
+    private boolean camPlaced;
 
     private void place(MinecraftClient mc) {
         ClientPlayerEntity p = mc.player;
@@ -667,15 +688,21 @@ public final class Showcase {
             return;
         }
         scene.camera(sceneTick, cam);
+        // A moving camera interpolates from where it was last tick, like a player's view does;
+        // a still one has nothing to interpolate.
+        double[] was = new double[] {p.x, p.y, p.z, p.yaw, p.pitch};
+        boolean moving = camPlaced && sceneTick > 1
+                && Math.abs(cam[0] - was[0]) + Math.abs(cam[1] - was[1]) + Math.abs(cam[2] - was[2]) < 1.5;
         p.refreshPositionAndAngles(cam[0], cam[1], cam[2], (float) cam[3], (float) cam[4]);
-        p.prevX = p.x;
-        p.prevY = p.y;
-        p.prevZ = p.z;
-        p.prevTickX = p.x;
-        p.prevTickY = p.y;
-        p.prevTickZ = p.z;
-        p.prevYaw = p.yaw;
-        p.prevPitch = p.pitch;
+        p.prevX = moving ? was[0] : p.x;
+        p.prevY = moving ? was[1] : p.y;
+        p.prevZ = moving ? was[2] : p.z;
+        p.prevTickX = p.prevX;
+        p.prevTickY = p.prevY;
+        p.prevTickZ = p.prevZ;
+        p.prevYaw = moving ? (float) was[3] : p.yaw;
+        p.prevPitch = moving ? (float) was[4] : p.pitch;
+        camPlaced = true;
         p.velocityX = p.velocityY = p.velocityZ = 0;
         p.abilities.flying = true;
     }

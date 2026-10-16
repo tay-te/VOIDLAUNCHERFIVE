@@ -79,6 +79,7 @@ final class Secondary {
     private boolean wasOnGround = true;
     private float fall;
     private boolean fresh = true;
+    private long lastNanos;
     private int hurtSeen, hitSeen, killSeen;
     // ---- wings
     final DampedSpring[] layers = {new DampedSpring(LAYER[0], 0), new DampedSpring(LAYER[1], 0),
@@ -115,6 +116,12 @@ final class Secondary {
         float headYaw = p.prevHeadYaw + wrap(p.headYaw - p.prevHeadYaw) * td;
         float pitch = p.prevPitch + (p.pitch - p.prevPitch) * td;
         float bodyYaw = p.prevBodyYaw + wrap(p.bodyYaw - p.prevBodyYaw) * td;
+        long nowN = System.nanoTime();
+        if (nowN - lastNanos > 250_000_000L) {
+            // Not drawn for a while (first person, off screen): start from the body again.
+            fresh = true;
+        }
+        lastNanos = nowN;
         if (!active || !enabled) {
             fresh = true;
             on = false;
@@ -230,13 +237,13 @@ final class Secondary {
                 hurtSeen = r.hurtSerial;
                 float k = r.level * r.hurtStrength;
                 float side = (hurtSeen & 1) == 0 ? 1f : -1f;
-                wobX.kick(-5.5f * k);
-                wobZ.kick(4.5f * side * k);
-                hatYaw.kick(90f * side * k);
-                hatPitch.kick(-60f * k);
-                capeShotX += 1.3 * side * k;
-                capeShotY -= 1.5 * k;
-                capeShotZ += 3.0 * k;
+                wobX.kick(-4.2f * k);
+                wobZ.kick(3.4f * side * k);
+                hatYaw.kick(700f * side * k);
+                hatPitch.kick(-500f * k);
+                capeShotX += 1.4 * side * k;
+                capeShotY -= 0.6 * k;
+                capeShotZ += 2.4 * k;
             }
             if (r.hitSerial != hitSeen) {
                 hitSeen = r.hitSerial;
@@ -256,7 +263,7 @@ final class Secondary {
         // -------------------------------------------------------------- cape inertia
         // The body's acceleration, exaggerated into the sheet: the cloth already lags the
         // anchors, this makes it whip. A flare outward on sharp turns (centrifugal on the hem).
-        float g = 0.32f;
+        float g = 0.25f;
         capeKickX = -ax * g * dt;
         capeKickY = -Math.min(0f, ay) * 0.15f * dt;
         capeKickZ = -az * g * dt;

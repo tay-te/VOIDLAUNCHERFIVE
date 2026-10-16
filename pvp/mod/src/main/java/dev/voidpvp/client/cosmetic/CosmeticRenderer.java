@@ -119,7 +119,9 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         float time = (now - EPOCH) / 1e9f + fx.phase;
         PlayerEntityModel model = owner.getModel();
         boolean sleeping = p.isSleeping();
-        boolean glowOn = live.cosmeticsGlow && dist < MID * q && !gui;
+        // A dying player's tilt is not in the Java modelview (playerModelview), so their glow
+        // would hang in the air where they stood.
+        boolean glowOn = live.cosmeticsGlow && dist < MID * q && !gui && p.deathTime == 0;
         int light = p.getLightmapCoordinates(td);
         float glowK = glowOn ? glowStrength(p, td) : 0;
         // Emissive texels: full strength in the dark, about half against daylight, where the lit

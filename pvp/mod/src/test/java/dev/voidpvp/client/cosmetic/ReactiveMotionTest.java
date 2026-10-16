@@ -349,6 +349,28 @@ class ReactiveMotionTest {
 
     // ------------------------------------------------------------------ cloth
 
+    @Test
+    @DisplayName("the lift limit: a cape may stream out behind, never fold over the head")
+    void liftLimit() {
+        // Hanging straight down, and streaming out level behind: untouched.
+        double[] down = {0, 12, 2.35};
+        assertTrue(!CapeRenderer.liftLimit(down, 0));
+        double[] level = {0, 0.25, 14};
+        assertTrue(!CapeRenderer.liftLimit(level, 0));
+        // Straight up above the collar: swung down behind to the limit, same distance.
+        double[] up = {1, -11.75, 2.36};
+        assertTrue(CapeRenderer.liftLimit(up, 0));
+        double dy = up[1] - 0.25, dz = up[2] - 2.35;
+        double len = Math.sqrt(12 * 12 + 0.01 * 0.01);
+        assertEquals(len, Math.sqrt(dy * dy + dz * dz), 1e-9);
+        assertEquals(-0.2 * len, dy, 1e-9);
+        assertEquals(1, up[0], 0, "x is kept");
+        // Thrown forward over the head: brought down in front, below horizontal.
+        double[] over = {0, -6, -4};
+        assertTrue(CapeRenderer.liftLimit(over, 0));
+        assertTrue(over[1] > 0.25 && over[2] < 2.35, "in front and below the collar");
+    }
+
     private static Cloth hung() {
         Cloth c = new Cloth(6, 8, 0.06, 0.9);
         double[] ax = new double[7], ay = new double[7], az = new double[7];

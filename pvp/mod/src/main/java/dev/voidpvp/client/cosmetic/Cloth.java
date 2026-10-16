@@ -281,12 +281,14 @@ public final class Cloth {
      * positions. Safe to call between steps; non-finite input is ignored.
      */
     public void kick(double vx, double vy, double vz, double power) {
-        if (!placed || !(Math.abs(vx) + Math.abs(vy) + Math.abs(vz) < 1e3)) {
+        double mag = Math.abs(vx) + Math.abs(vy) + Math.abs(vz);
+        if (!placed || !(mag < 1e3) || mag < 1e-5) {
             return;
         }
         int w = cols + 1;
         for (int r = 1; r <= rows; r++) {
-            double k = Math.pow((double) r / rows, power) * step;
+            double u = (double) r / rows;
+            double k = (power == 1.0 ? u : Math.pow(u, power)) * step;
             double dx = vx * k, dy = vy * k, dz = vz * k;
             for (int c = 0; c <= cols; c++) {
                 int i = r * w + c;
