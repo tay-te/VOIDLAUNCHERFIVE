@@ -46,6 +46,11 @@ uniform sampler2D colortex2;
 #endif
 #endif
 
+#ifndef WU_frameTimeCounter
+#define WU_frameTimeCounter
+uniform float frameTimeCounter;
+#endif
+
 // How sharply the soft minimum of the ground round a place leans to the lowest of its four cells (per block).
 #define MIST_POOL_SHARPNESS 0.2
 // The basin floor: the lowest ground among the four nodes round a place of a coarser lattice (every MIST_BASIN cells,
@@ -88,6 +93,10 @@ uniform sampler2D colortex2;
 // The opacity of the thickest mist (a full cover): it leaves the land under it readable (a river still shows through
 // a full canyon). Thinner mist runs smoothly down from it.
 #define MIST_OPACITY 0.72
+// (the defects pass, 2026-10-16) the slab's soft crown (blocks over which it thins to nothing at its top), and the most
+// of the last stretch of a ray counted as inside it (blocks)
+#define MIST_SOFT_TOP 4.0
+#define MIST_LAST_MAX 40.0
 
 struct MistTiles {
 	bool data;      // the near tiles hold Gloam's data
@@ -120,6 +129,15 @@ float mistCameraY() {
 // The camera's position in cells, from the corner of cell `base`.
 vec2 mistCells(vec2 eyeXZ, ivec2 camCell, ivec2 base) {
 	return (vec2(cameraPositionInt.xz & 15) + cameraPositionFract.xz + eyeXZ) / 16.0 + vec2(camCell - base);
+}
+
+// (the defects pass) a cell hash for the mist's billows, 0..1
+float mistHash(ivec2 c) {
+	uint h = uint(c.x) * 0x8DA6B343u ^ uint(c.y) * 0xD8163841u;
+	h ^= h >> 13;
+	h *= 0x5bd1e995u;
+	h ^= h >> 15;
+	return float(h >> 8) / 16777216.0;
 }
 
 struct MistPoint {
@@ -247,6 +265,16 @@ MistPoint mistAt(vec2 eyeXZ, MistTiles t) {
 	vec2 rel = cells + vec2(base - t.centre) - 0.5;
 	float edge = clamp((127.0 - max(abs(rel.x), abs(rel.y))) / 15.0, 0.0, 1.0);
 	m.density = mist * pool * floorCut * edge * fill;
+	// (the defects pass) soft billows: the density swells and thins over a few dozen blocks, drifting slowly, so a deep
+	// pool of mist reads as drifts and not one even wall (smooth, sampled with the slab: no grain)
+	vec2 wpos = (vec2(cameraPositionInt.xz & 4095) + cameraPositionFract.xz + eyeXZ) / 36.0 + vec2(frameTimeCounter * 0.012, frameTimeCounter * 0.005);
+	vec2 bi = floor(wpos);
+	vec2 bf = wpos - bi;
+	bf = bf * bf * (3.0 - 2.0 * bf);
+	ivec2 bc = ivec2(bi);
+	float h00 = mistHash(bc), h10 = mistHash(bc + ivec2(1, 0)), h01 = mistHash(bc + ivec2(0, 1)), h11 = mistHash(bc + ivec2(1, 1));
+	float billow = mix(mix(h00, h10, bf.x), mix(h01, h11, bf.x), bf.y);
+	m.density *= 0.45 + 1.1 * billow;
 	return m;
 }
 
@@ -279,7 +307,11 @@ void mistSegment(inout MistRay r, float ta, float tb, MistPoint a, MistPoint b, 
 	float k = 1.0 / (tb - ta);
 	float m0 = mix(a.density, b.density, (u0 - ta) * k);
 	float m1 = mix(a.density, b.density, (u1 - ta) * k);
-	r.depth += (u1 - u0) * 0.5 * (m0 + m1);
+	// (the defects pass, 2026-10-16) the slab thins over its top few blocks instead of ending in a lid: a ray that only
+	// grazes the top (along a cliff at the water's level, over the pool at a fall's foot) takes little, so the mist
+	// has a soft crown and no hard white line or solid-looking wall where its top meets the rock
+	float under = 0.5 * (max(ga, 0.0) + max(gb, 0.0));
+	r.depth += (u1 - u0) * 0.5 * (m0 + m1) * smoothstep(0.0, MIST_SOFT_TOP, under);
 	r.enter = min(r.enter, u0);
 	r.exit = max(r.exit, u1);
 }
@@ -415,7 +447,9 @@ vec3 valleyMistWith(ivec2 p, vec2 uv, vec3 scene, MistTiles t, MistPoint a) {
 	float below = e.top - dir.y * end;
 	if (below > 0.0 && e.density > 0.0) {
 		float inside = dir.y < -1e-4 ? below / -dir.y : end;
-		r.depth = max(r.depth, min(inside, end - t1) * e.density);
+		// (the defects pass) with its soft crown, and no more than a few dozen blocks of it: a level ray to a fall's
+		// foot counted its whole length and drew the pool's mist as a solid white plume
+		r.depth = max(r.depth, min(min(inside, end - t1), MIST_LAST_MAX) * e.density * smoothstep(0.0, MIST_SOFT_TOP, below));
 	}
 	if (r.depth <= 0.0) {
 		return scene;
