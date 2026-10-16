@@ -354,7 +354,7 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
   cosmetics: [
     { key: 'others', label: "Show other players' cosmetics", control: 'switch' },
     { key: 'own_first_person', label: 'Own trail in first person', control: 'switch' },
-    { key: 'glow', label: 'Glow', control: 'switch' },
+    { key: 'glow_level', label: 'Glow', control: 'select', options: ['off', 'low', 'high'] },
     { key: 'emote_camera', label: 'Emote camera', control: 'switch' },
     { key: 'reactive', label: 'Fight reactions', control: 'select', options: ['off', 'subtle', 'full'] },
   ],

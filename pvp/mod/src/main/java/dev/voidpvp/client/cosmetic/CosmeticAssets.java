@@ -188,6 +188,16 @@ public final class CosmeticAssets {
      * @param frames how many frames are stacked vertically in the image
      */
     public static Tex texture(final String id, final String name, final int frames, final float fps) {
+        return texture(id, name, frames, fps, null);
+    }
+
+    /**
+     * As {@link #texture(String, String, int, float)}, with an optional material mask
+     * ({@code material.png}) folded into the image's alpha before upload: every opaque texel the
+     * mask marks gets alpha 254 - material (matte 254, cloth 253, metal 252, glass 251, emissive
+     * 250), which the material shader reads and the fixed-function path cannot tell from opaque.
+     */
+    static Tex texture(final String id, final String name, final int frames, final float fps, final String mask) {
         return cached(id + "/tex/" + name, new Loader<Tex>() {
             @Override
             public Tex load() {
@@ -200,6 +210,13 @@ public final class CosmeticAssets {
                     if (img == null) {
                         return null;
                     }
+                    if (mask != null) {
+                        byte[] mb = read(id + "/" + mask);
+                        BufferedImage m = mb == null ? null : javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(mb));
+                        if (m != null) {
+                            img = withMaterials(img, m);
+                        }
+                    }
                     int gl = Gl.upload(img);
                     return new Tex(gl, img.getWidth(), img.getHeight() / Math.max(1, frames),
                             Math.max(1, frames), fps);
@@ -208,6 +225,47 @@ public final class CosmeticAssets {
                 }
             }
         });
+    }
+
+    /** The mask's key colours, in material order: black, blue, yellow, cyan, white. */
+    private static final int[] MATERIAL_KEYS = {0x000000, 0x0000FF, 0xFFFF00, 0x00FFFF, 0xFFFFFF};
+
+    /** The material index a mask colour stands for (nearest key), or -1 for a clear texel. */
+    static int materialOf(int argb) {
+        if ((argb >>> 24) < 128) {
+            return -1;
+        }
+        int best = 0, bestD = Integer.MAX_VALUE;
+        for (int i = 0; i < MATERIAL_KEYS.length; i++) {
+            int k = MATERIAL_KEYS[i];
+            int dr = ((argb >> 16) & 255) - ((k >> 16) & 255), dg = ((argb >> 8) & 255) - ((k >> 8) & 255),
+                    db = (argb & 255) - (k & 255);
+            int d = dr * dr + dg * dg + db * db;
+            if (d < bestD) {
+                bestD = d;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /** Folds a material mask (one frame tall, or as tall as the image) into the albedo's alpha. */
+    static BufferedImage withMaterials(BufferedImage img, BufferedImage mask) {
+        int w = img.getWidth(), h = img.getHeight();
+        if (mask.getWidth() != w || h % mask.getHeight() != 0) {
+            VoidLog.warn("cosmetic material mask is " + mask.getWidth() + "x" + mask.getHeight() + ", texture " + w + "x" + h);
+            return img;
+        }
+        BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+        int mh = mask.getHeight();
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int c = img.getRGB(x, y);
+                int mat = (c >>> 24) == 255 ? materialOf(mask.getRGB(x, y % mh)) : -1;
+                out.setRGB(x, y, mat < 0 ? c : (c & 0xFFFFFF) | ((254 - mat) << 24));
+            }
+        }
+        return out;
     }
 
     /**
@@ -223,6 +281,10 @@ public final class CosmeticAssets {
         private final float fps;
         private boolean uploaded;
         private Tex albedo, tint, emissive;
+        /** The albedo's alpha carries per-texel materials ({@code material.png}). */
+        public final boolean materialMask;
+        /** Something on the item glows: an emissive layer or an emissive part. */
+        public final boolean glows;
 
         Bundle(String id) {
             this.id = id;
@@ -230,6 +292,9 @@ public final class CosmeticAssets {
             this.cape = has(id, "cape.json") ? cape(id) : null;
             this.frames = model != null ? model.frames : cape != null ? cape.frames : 1;
             this.fps = model != null ? model.fps : cape != null ? cape.fps : 0;
+            this.materialMask = has(id, "material.png");
+            this.glows = has(id, "emissive.png") || (model != null && model.hasEmissiveMaterial)
+                    || (cape != null && cape.material == CosmeticShader.EMISSIVE);
         }
 
         private void upload() {
@@ -237,7 +302,7 @@ public final class CosmeticAssets {
                 return;
             }
             uploaded = true;
-            albedo = texture(id, "texture.png", frames, fps);
+            albedo = texture(id, "texture.png", frames, fps, materialMask ? "material.png" : null);
             tint = has(id, "tint.png") ? texture(id, "tint.png", frames, fps) : null;
             emissive = has(id, "emissive.png") ? texture(id, "emissive.png", frames, fps) : null;
         }

@@ -22,6 +22,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  *   <li>{@code renderWorld(IFJ)V}, right after {@code ParticleManager.renderParticles} (offset
  *       1013, its only call there): trail particles draw where vanilla's do, with the camera
  *       transform applied and depth from the world.</li>
+ *   <li>{@code renderWorld(IFJ)V} head, and its {@code profiler.swap("hand")} (unconditional, just
+ *       before the hand's depth clear): the world pass opens and closes for the cosmetics' bloom,
+ *       which composites there — after the world, before the hand and the HUD.</li>
  *   <li>{@code transformCamera}: the two reads of {@code lastThirdPersonDistance} and
  *       {@code thirdPersonDistance} (offsets 257-265, one each) go through
  *       {@link EmoteCamera#distance}, the identity unless the local player is emoting. The angle
@@ -50,6 +53,17 @@ public abstract class CosmeticsGameRendererMixin {
             shift = At.Shift.AFTER))
     private void void$cosmeticsTrails(int pass, float tickDelta, long limit, CallbackInfo ci) {
         CosmeticsHub.worldPass(client, tickDelta);
+    }
+
+    @Inject(method = "renderWorld(IFJ)V", at = @At("HEAD"))
+    private void void$cosmeticsWorldStart(int pass, float tickDelta, long limit, CallbackInfo ci) {
+        CosmeticsHub.worldStart();
+    }
+
+    @Inject(method = "renderWorld(IFJ)V", at = @At(value = "INVOKE_STRING",
+            target = "Lnet/minecraft/util/profiler/Profiler;swap(Ljava/lang/String;)V", args = "ldc=hand"))
+    private void void$cosmeticsBloom(int pass, float tickDelta, long limit, CallbackInfo ci) {
+        CosmeticsHub.beforeHand(client);
     }
 
     @Redirect(method = "transformCamera", at = @At(value = "FIELD",

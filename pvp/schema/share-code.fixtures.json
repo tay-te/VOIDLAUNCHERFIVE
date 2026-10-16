@@ -3,7 +3,7 @@
   "codes": [
     {
       "made_by": "rust",
-      "code": "VOID1.TY_NDoIwEIRfxewZiGj869GH8GKMwXaBRmCxrUYlvLtTjImnznb7zUwHqu-G1HGgotO1OFJ0kRCkTRsuAyVknqTyzSqbQ75Ipfl8G7UFRLr3NCZ_aJD-n1ssf9hXTVAJKCGvi4bhnK3GExZaupjMBqtWQ-bZNtvFQYwnNUxRODDyt2KNZHqLtPG6lMfZ2If1scU6Rl0ZqXSgEa-6oo3Q3llT8ax3hQ5WM8xvd6uv-Dx6V1XDZ98728Xyk28yhaKd4wpNl-MH.5da3d392",
+      "code": "VOID1.TY_NDoIwEIRfxewZifhvjz6EF2MMtgs0AottNSrh3Z1iTDx1tttvZtpTdTekjj3lra7EkaKLhCDNtOYiUELmSSrbrNIZ5IvUNJtto7aASHeehuQPDdL9c_PFD_uqESoAJeR1XjOc09VwwkJLG5PZYNVoyCzdprs4iPGk-jEKB0b-VqyQTG-RJl4X8jgb-7A-tljHqCsjlQ404FWbNxHaO2tKnnQu18FqhvntbvUVn0fvsqz57Dtn21h-9E3GULRzXKLpcvgA.12e24555",
       "expect": {
         "name": "Bridge practice",
         "mods": { "zoom": { "fov_divisor": 6, "key": "V" }, "cps": { "on": true, "mode": "both" }, "fps": { "on": true } },
@@ -13,7 +13,7 @@
     },
     {
       "made_by": "java",
-      "code": "VOID1.VY_NDoIwEIRfxey5EpH416MP4cUYg22BRmCxVKOSvrtT1ERPszvdb3Y7UJs3hiRtndWlmXQuV94qQ4Ks4hYPJ6PRNAplmqyTDRpnSpJpBpd1T3Ig1Y2CNkad2FcUBD2Zm2ifzQPuDmDBt6O2N9uzI7lMZgFT1VWT3A9kIWOQoLxVVZyISZ6baW0KD1vfsXW1QIG8aTpbC-pVXmNlGsQnoPgP8Nz90vPsDUf9oskiHARdrladcQeIsqzNse-cbSM2fkKMhx3CCw.d18cf04a",
+      "code": "VOID1.VY_NDoIwEIRfxey5EvHfHn0IL8YYbAs0AoulGpX03Z2iJnqa3el-s9uemqw2JGnrrC7MqHWZ8lYZEmQVN3g4GY2mVijTZJ1s0DhTkEzncFl3JHtS7SBoY9SJfUlB0JO5jvbZPODuAOZ8O2p7sx07kstkEjBVXjXJfU8WMgQJyhpVxomY5LkeVyb3sPUdW1cLFMgbp5O1oE5lFVamQXwC8v8Az-0vPZ294ahfNFmEg6DL1aoz7gBRFJU5dq2zTcSGT4jhsEN4AQ.820719de",
       "expect": {
         "name": "Bridge practice",
         "mods": { "zoom": { "fov_divisor": 6, "key": "V" }, "cps": { "on": true, "mode": "both" }, "fps": { "on": true } },

@@ -44,6 +44,74 @@ export function shade(c, k) {
   return C.map((v) => Math.max(0, Math.min(255, Math.round(k >= 0 ? v + (255 - v) * k : v * (1 + k)))));
 }
 
+/* -------------------------------------------------------------------------------- ramps */
+
+export function toHsl(c) {
+  const [r, g, b] = (typeof c === 'string' ? rgb(c) : c).map((v) => v / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return [h * 60, s, l];
+}
+
+export function fromHsl(h, s, l) {
+  h = ((h % 360) + 360) % 360 / 360;
+  s = Math.max(0, Math.min(1, s));
+  l = Math.max(0, Math.min(1, l));
+  if (s === 0) return [l, l, l].map((v) => Math.round(v * 255));
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const t = (x) => {
+    x = x < 0 ? x + 1 : x > 1 ? x - 1 : x;
+    if (x < 1 / 6) return p + (q - p) * 6 * x;
+    if (x < 1 / 2) return q;
+    if (x < 2 / 3) return p + (q - p) * (2 / 3 - x) * 6;
+    return p;
+  };
+  return [t(h + 1 / 3), t(h), t(h - 1 / 3)].map((v) => Math.round(v * 255));
+}
+
+/**
+ * A hue-shifted value ramp of `n` shades through `base` (which lands near the middle): the
+ * shadows turn toward violet-blue and gain saturation, the lights turn toward warm and lose it,
+ * the way painted light behaves (docs/cosmetics.md, "the reference board"). `lo`/`hi` are the
+ * lightness of the darkest and lightest shade.
+ */
+export function ramp(base, n = 6, { lo = 0.06, hi = 0.9, cool = 250, warm = 45, shiftDark = 0.3, shiftLight = 0.2 } = {}) {
+  const [h, s, l] = toHsl(base);
+  const towards = (from, to, k) => {
+    let d = ((to - from + 540) % 360) - 180;
+    return from + d * k;
+  };
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    const L = t < 0.5 ? lo + (l - lo) * (t / 0.5) : l + (hi - l) * ((t - 0.5) / 0.5);
+    const dark = Math.max(0, 0.5 - t) * 2, light = Math.max(0, t - 0.5) * 2;
+    const H = dark > 0 ? towards(h, cool, dark * shiftDark) : towards(h, warm, light * shiftLight);
+    // HSL saturation reads hotter the darker a colour is: ease it off in the shadows.
+    const S = Math.min(s, 0.85) * (1 - dark * 0.3) * (1 - light * 0.4);
+    out.push(fromHsl(H, S, L));
+  }
+  return out;
+}
+
+/** Relative luminance 0..1 (Rec. 709), for checking a composition's value structure. */
+export function lum(c) {
+  const [r, g, b] = typeof c === 'string' ? rgb(c) : c;
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+/** Material key colours for `material.png` (docs/cosmetics.md, "Materials"). */
+export const MAT = {
+  matte: [0, 0, 0], cloth: [0, 0, 255], metal: [255, 255, 0], glass: [0, 255, 255], emissive: [255, 255, 255],
+};
+
 /* -------------------------------------------------------------------------------- noise */
 
 /** Deterministic hash noise, so a re-paint is byte-identical. */

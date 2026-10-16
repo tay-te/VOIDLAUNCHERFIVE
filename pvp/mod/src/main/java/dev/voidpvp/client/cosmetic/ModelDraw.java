@@ -1,10 +1,8 @@
 package dev.voidpvp.client.cosmetic;
 
 import com.mojang.blaze3d.platform.GlStateManager;
-import net.minecraft.client.render.BufferBuilder;
-import net.minecraft.client.render.Tessellator;
-import net.minecraft.client.render.VertexFormats;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL13;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -47,16 +45,20 @@ final class ModelDraw {
         return l;
     }
 
-    /** Emits a bone's cubes, positions in model pixels, UVs normalised to one frame. */
+    /**
+     * Emits a bone's cubes, positions in model pixels, UVs normalised to one frame. Immediate mode
+     * inside the list (compiled once): it is the only way to give each vertex the second
+     * texture coordinate the material shader reads its material from (unit 2, unused by the game
+     * and ignored by the fixed-function fallback).
+     */
     private static void emit(CosmeticModel m, CosmeticModel.Bone b) {
         if (b.cubes.length == 0) {
             return;
         }
-        Tessellator t = Tessellator.getInstance();
-        BufferBuilder buf = t.getBuffer();
-        buf.begin(GL11.GL_QUADS, VertexFormats.POSITION_TEXTURE_NORMAL);
         float iw = 1f / m.texW, ih = 1f / m.texH;
+        GL11.glBegin(GL11.GL_QUADS);
         for (CosmeticModel.Cube c : b.cubes) {
+            GL13.glMultiTexCoord2f(GL13.GL_TEXTURE2, c.material, 0);
             for (int f = 0; f < 6; f++) {
                 float[] r = c.uv[f];
                 if (r == null) {
@@ -67,37 +69,42 @@ final class ModelDraw {
                 // conventions documented on Atlas in mod/cosmetics-art/lib.mjs.
                 switch (f) {
                     case 0: // north, -z: u +x, v +y
-                        quad(buf, c.x0, c.y0, c.z0, c.x1, c.y0, c.z0, c.x1, c.y1, c.z0, c.x0, c.y1, c.z0, u0, v0, u1, v1, 0, 0, -1);
+                        quad(c.x0, c.y0, c.z0, c.x1, c.y0, c.z0, c.x1, c.y1, c.z0, c.x0, c.y1, c.z0, u0, v0, u1, v1, 0, 0, -1);
                         break;
                     case 1: // south, +z: u -x, v +y
-                        quad(buf, c.x1, c.y0, c.z1, c.x0, c.y0, c.z1, c.x0, c.y1, c.z1, c.x1, c.y1, c.z1, u0, v0, u1, v1, 0, 0, 1);
+                        quad(c.x1, c.y0, c.z1, c.x0, c.y0, c.z1, c.x0, c.y1, c.z1, c.x1, c.y1, c.z1, u0, v0, u1, v1, 0, 0, 1);
                         break;
                     case 2: // east, +x: u +z, v +y
-                        quad(buf, c.x1, c.y0, c.z0, c.x1, c.y0, c.z1, c.x1, c.y1, c.z1, c.x1, c.y1, c.z0, u0, v0, u1, v1, 1, 0, 0);
+                        quad(c.x1, c.y0, c.z0, c.x1, c.y0, c.z1, c.x1, c.y1, c.z1, c.x1, c.y1, c.z0, u0, v0, u1, v1, 1, 0, 0);
                         break;
                     case 3: // west, -x: u -z, v +y
-                        quad(buf, c.x0, c.y0, c.z1, c.x0, c.y0, c.z0, c.x0, c.y1, c.z0, c.x0, c.y1, c.z1, u0, v0, u1, v1, -1, 0, 0);
+                        quad(c.x0, c.y0, c.z1, c.x0, c.y0, c.z0, c.x0, c.y1, c.z0, c.x0, c.y1, c.z1, u0, v0, u1, v1, -1, 0, 0);
                         break;
                     case 4: // up, -y: u +x, v -z
-                        quad(buf, c.x0, c.y0, c.z1, c.x1, c.y0, c.z1, c.x1, c.y0, c.z0, c.x0, c.y0, c.z0, u0, v0, u1, v1, 0, -1, 0);
+                        quad(c.x0, c.y0, c.z1, c.x1, c.y0, c.z1, c.x1, c.y0, c.z0, c.x0, c.y0, c.z0, u0, v0, u1, v1, 0, -1, 0);
                         break;
                     default: // down, +y: u +x, v -z
-                        quad(buf, c.x0, c.y1, c.z1, c.x1, c.y1, c.z1, c.x1, c.y1, c.z0, c.x0, c.y1, c.z0, u0, v0, u1, v1, 0, 1, 0);
+                        quad(c.x0, c.y1, c.z1, c.x1, c.y1, c.z1, c.x1, c.y1, c.z0, c.x0, c.y1, c.z0, u0, v0, u1, v1, 0, 1, 0);
                         break;
                 }
             }
         }
-        t.draw();
+        GL11.glEnd();
+        GL13.glMultiTexCoord2f(GL13.GL_TEXTURE2, 0, 0);
     }
 
-    private static void quad(BufferBuilder buf,
-                             float ax, float ay, float az, float bx, float by, float bz,
+    private static void quad(float ax, float ay, float az, float bx, float by, float bz,
                              float cx, float cy, float cz, float dx, float dy, float dz,
                              float u0, float v0, float u1, float v1, float nx, float ny, float nz) {
-        buf.vertex(ax, ay, az).texture(u0, v0).normal(nx, ny, nz).next();
-        buf.vertex(dx, dy, dz).texture(u0, v1).normal(nx, ny, nz).next();
-        buf.vertex(cx, cy, cz).texture(u1, v1).normal(nx, ny, nz).next();
-        buf.vertex(bx, by, bz).texture(u1, v0).normal(nx, ny, nz).next();
+        GL11.glNormal3f(nx, ny, nz);
+        GL11.glTexCoord2f(u0, v0);
+        GL11.glVertex3f(ax, ay, az);
+        GL11.glTexCoord2f(u0, v1);
+        GL11.glVertex3f(dx, dy, dz);
+        GL11.glTexCoord2f(u1, v1);
+        GL11.glVertex3f(cx, cy, cz);
+        GL11.glTexCoord2f(u1, v0);
+        GL11.glVertex3f(bx, by, bz);
     }
 
     /**

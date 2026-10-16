@@ -78,7 +78,7 @@ export type CosmeticId =
   | "cell-badge"
   | "frost-badge";
 
-export const COSMETIC_CATALOG_VERSION = 1;
+export const COSMETIC_CATALOG_VERSION = 2;
 
 export const COSMETIC_SLOTS: readonly CosmeticSlot[] = ["cape", "back", "head", "face", "halo", "trail", "badge"];
 
@@ -86,16 +86,16 @@ export const COSMETIC_SLOTS: readonly CosmeticSlot[] = ["cape", "back", "head", 
 export const EMOTE_WHEEL_SIZE = 8;
 
 export const COSMETIC_CATALOG: readonly CosmeticCatalogItem[] = [
-  {"id":"cell-cape","kind":"cape","name":"Cell cape","blurb":"a grid of violet cells that breathes light toward the hem.","rarity":"epic","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"cape","pattern":"cell"}},
-  {"id":"void-cape","kind":"cape","name":"Void cape","blurb":"the VOID ring, white on black, with one cell in orbit.","rarity":"legendary","availability":"paid","price_cents":499,"tintable":false,"preview":{"style":"cape","pattern":"void"}},
-  {"id":"ring-cape","kind":"cape","name":"Ring cape","blurb":"the VOID ring on slate.","rarity":"rare","availability":"paid","price_cents":299,"tintable":true,"default_tint":"#474a4f","preview":{"style":"cape","pattern":"ring"}},
-  {"id":"origin-cape","kind":"cape","name":"Origin cape","blurb":"two halves of grey. Every account has one.","rarity":"common","availability":"free","price_cents":0,"tintable":false,"preview":{"style":"cape","pattern":"origin"}},
-  {"id":"dusk-cape","kind":"cape","name":"Dusk cape","blurb":"three soft bands, graded from dusk to dark, with a few early stars.","rarity":"rare","availability":"paid","price_cents":299,"tintable":false,"preview":{"style":"cape","pattern":"dusk"}},
-  {"id":"static-cape","kind":"cape","name":"Static cape","blurb":"a scatter of pale cells, like a dead channel.","rarity":"epic","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"cape","pattern":"static"}},
+  {"id":"cell-cape","kind":"cape","name":"Cell cape","blurb":"a grid of violet cells dissolving toward the hem, a wave of light running down what is left.","rarity":"epic","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"cape","pattern":"cell"}},
+  {"id":"void-cape","kind":"cape","name":"Void cape","blurb":"an eclipse in a corona of sixteen cells; one burns at a time as it circles.","rarity":"legendary","availability":"paid","price_cents":499,"tintable":false,"preview":{"style":"cape","pattern":"void"}},
+  {"id":"ring-cape","kind":"cape","name":"Ring cape","blurb":"the VOID ring as a silver seal pressed into cloth, in any colour you like.","rarity":"rare","availability":"paid","price_cents":299,"tintable":true,"default_tint":"#474a4f","preview":{"style":"cape","pattern":"ring"}},
+  {"id":"origin-cape","kind":"cape","name":"Origin cape","blurb":"charcoal herringbone, silver thread and one travelling stitch of light. Every account has one.","rarity":"common","availability":"free","price_cents":0,"tintable":false,"preview":{"style":"cape","pattern":"origin"}},
+  {"id":"dusk-cape","kind":"cape","name":"Dusk cape","blurb":"the last light over the hills: a crescent moon, early stars, fireflies over the dark.","rarity":"rare","availability":"paid","price_cents":299,"tintable":false,"preview":{"style":"cape","pattern":"dusk"}},
+  {"id":"static-cape","kind":"cape","name":"Static cape","blurb":"a dead channel on an old set, until the VOID ring surfaces through the snow.","rarity":"epic","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"cape","pattern":"static"}},
   {"id":"ember-wings","kind":"back","name":"Ember wings","blurb":"long dark feathers, warm at the tips. They glide when you fall.","rarity":"legendary","availability":"paid","price_cents":899,"tintable":false,"is_new":true,"preview":{"style":"back","pattern":"feather","hue":"#ff9e7a"}},
   {"id":"void-wings","kind":"back","name":"Void wings","blurb":"black glass membranes with violet veins of light.","rarity":"legendary","availability":"paid","price_cents":899,"tintable":false,"preview":{"style":"back","pattern":"membrane","hue":"#9f8bff"}},
   {"id":"orbit-ring","kind":"back","name":"Orbit","blurb":"a cold ring of cells turning slowly behind you.","rarity":"epic","availability":"paid","price_cents":599,"tintable":false,"preview":{"style":"back","pattern":"orbit","hue":"#7adfff"}},
-  {"id":"monarch-crown","kind":"head","name":"Monarch crown","blurb":"a thin dark crown with one warm stone.","rarity":"epic","availability":"paid","price_cents":499,"tintable":false,"preview":{"style":"head","pattern":"crown","hue":"#ff9e7a"}},
+  {"id":"monarch-crown","kind":"head","name":"Monarch crown","blurb":"worked old gold with a warm stone at the front and three smaller ones round it.","rarity":"epic","availability":"paid","price_cents":499,"tintable":false,"preview":{"style":"head","pattern":"crown","hue":"#ff9e7a"}},
   {"id":"wool-beanie","kind":"head","name":"Wool beanie","blurb":"ribbed, folded once, in any colour you like.","rarity":"common","availability":"paid","price_cents":299,"tintable":true,"default_tint":"#6e5bd6","preview":{"style":"head","pattern":"beanie","hue":"#9f8bff"}},
   {"id":"dapper-top-hat","kind":"head","name":"Top hat","blurb":"black felt with a violet band.","rarity":"rare","availability":"paid","price_cents":399,"tintable":true,"default_tint":"#9f8bff","preview":{"style":"head","pattern":"tophat","hue":"#9f8bff"}},
   {"id":"seraph-halo","kind":"halo","name":"Seraph halo","blurb":"a ring of warm light that rises and settles as you breathe.","rarity":"legendary","availability":"paid","price_cents":599,"tintable":false,"is_new":true,"preview":{"style":"halo","pattern":"ring","hue":"#ff9e7a"}},

@@ -14,7 +14,7 @@ import type { ModRegistryDocument, Loadout, ProtocolMessage, BridgeEnvelope } fr
 /** `mods.json` `examples`. */
 export const MODS_EXAMPLES: ModRegistryDocument[] = [
   {
-    "version": 13,
+    "version": 14,
     "mods": {
       "fps": {
         "id": "fps",
@@ -961,7 +961,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "on": true,
           "others": true,
           "own_first_person": false,
-          "glow": true,
+          "glow_level": "high",
           "emote_camera": true,
           "reactive": "full",
           "emote_key": "B"

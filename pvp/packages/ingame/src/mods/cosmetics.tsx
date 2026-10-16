@@ -13,8 +13,8 @@
  *
  *   · `others` — the right-hand figure is another VOID player. Off, they stand there in vanilla;
  *     their set is not gone, this client just does not draw it.
- *   · `glow` — the halos' bloom, as a dim ring of cells around the bright ones. Off, the same
- *     halo, flat.
+ *   · `glow_level` — the halos' bloom, as a dim ring of cells around the bright ones (`low` and
+ *     `high` alike; the diagram has no finer step). Off, the same halo, flat.
  *   · `reactive` — the fight: both capes kick out at the hem (whipped by a hit) and the halos
  *     throw a pulse of cells to either side. `subtle` is a shorter kick and a fainter pulse;
  *     `off` leaves the set standing still.
@@ -170,7 +170,7 @@ export function CosmeticsPreview({ dense = false, className }: DiagramProps = {}
   const settings = useModSettings('cosmetics');
   const others = settings.others !== false;
   const ownFirstPerson = settings.own_first_person === true;
-  const glow = settings.glow !== false;
+  const glow = settings.glow_level !== 'off';
   const emoteCamera = settings.emote_camera !== false;
   const reactive = typeof settings.reactive === 'string' ? settings.reactive : 'full';
 

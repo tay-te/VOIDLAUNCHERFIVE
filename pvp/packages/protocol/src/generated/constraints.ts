@@ -558,6 +558,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
     "last",
     "average"
   ],
+  "cosmetics.glow_level": [
+    "off",
+    "low",
+    "high"
+  ],
   "cosmetics.reactive": [
     "off",
     "subtle",

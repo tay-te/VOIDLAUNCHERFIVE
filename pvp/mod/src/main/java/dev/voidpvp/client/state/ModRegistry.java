@@ -182,7 +182,7 @@ public final class ModRegistry {
      * removed or reclassified. Carried in a loadout share code ({@code ShareCode}) so a code
      * made against a newer registry can be recognised as such.
      */
-    public static final int REGISTRY_VERSION = 13;
+    public static final int REGISTRY_VERSION = 14;
 
     static {
         // --- HUD mods (19) — they read game state and draw -------------------------------------
@@ -1563,11 +1563,14 @@ public final class ModRegistry {
                 // the player who likes to watch it. Your cape, halo and the rest are never drawn
                 // in first person — the game does not draw your model there either.
                 "own_first_person", bool(false),
-                // Whether emissive cosmetics glow — the soft bloom around halos, wing edges and
-                // bright trails. On by default, because those items are designed around it. Off
-                // draws the same shapes flat, which is cheaper on a weak GPU and easier on the
-                // eyes in a dark cave.
-                "glow", bool(true),
+                // How strongly emissive cosmetics glow — the bloom around halos, wing edges, lit
+                // trims and bright trails. `high` by default, because those items are designed
+                // around it: a soft, layered glow that is strong at night and barely there in
+                // daylight. `low` keeps a gentler, tighter glow at a little less cost. `off`
+                // draws the same shapes with their lit parts but no bloom at all, which is
+                // cheapest on a weak GPU and easiest on the eyes in a dark cave. Replaces the
+                // earlier on/off `glow` switch.
+                "glow_level", enumOf("high", "off", "low", "high"),
                 // Whether the camera swings to third person and orbits slowly while you emote, so
                 // you can see what you are doing. On by default. Off keeps your own view where it
                 // is: other players still see the emote, you just do not watch it. The camera

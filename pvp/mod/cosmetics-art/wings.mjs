@@ -100,59 +100,54 @@ function emberWings(save) {
   const dark = (front) => (front ? -0.08 : 0);
 
   const boneLook = (face, i, j, w, h) => {
-    if (face === 'up') return { c: shade('#5a4f6e', i % 4 === 0 ? 0.08 : 0) };
-    if (face === 'down') return { c: P.void2 };
-    return { c: j === 0 ? '#54496b' : j === h - 1 ? P.void2 : '#3b3349' };
+    if (face === 'up') return { c: i % 4 === 0 ? '#6e5f72' : '#5a4c60' };
+    if (face === 'down') return { c: '#16111d' };
+    return { c: j === 0 ? '#5a4c60' : j === h - 1 ? '#16111d' : '#382d40' };
   };
 
-  // Coverts: two staggered rows of short rounded feathers.
-  const covert = (len) => (u, v, w, h, front) => {
-    const row = v < h * 0.55 ? 0 : 1;
-    const off = row ? 2 : 0;
-    const k = (u + off) % 4;
-    const end = row === 0 ? h * 0.62 : h - 1;
-    const tip = (k === 0 || k === 3) ? 1 : 0;
-    if (v > end - tip) return null;
-    const edge = k === 3 ? -0.14 : k === 0 ? 0.07 : 0;
-    const c = mix(P.void3, '#3e3550', 0.55 + row * 0.15);
-    return { c: shade(c, edge + dark(front) + (v === 0 ? 0.08 : 0)) };
-  };
-  void covert;
+
+  // Ramps (docs/cosmetics.md, the reference board): soot feathers that are plum in the shadow
+  // and warm ash in the light, and an ember ramp for the burning tips — deep coal to a hot core.
+  const SOOT = ['#120d18', '#1d1626', '#2a2134', '#3a2f44', '#54465a', '#76656f'];
+  const EMBER = ['#3a1814', '#7a2e1e', '#c4552f', '#ff8a5c', '#ffb894', '#ffe9dc'];
 
   const coverts = (u, v, w, h, front) => {
     const row = v < h * 0.5 ? 0 : 1;
     const k = (u + (row ? 2 : 0)) % 4;
     const rowEnd = row === 0 ? Math.floor(h * 0.6) : h - 1;
-    if (v > rowEnd - ((k === 0 || k === 3) ? 1 : 0)) return null;
-    // Lighter than the flight feathers beneath, so the layering reads from behind.
-    const c = mix('#3a3149', '#5a4e70', row ? 0.35 : 0.7);
-    const rim = v === rowEnd - ((k === 0 || k === 3) ? 1 : 0) ? -0.18 : 0;
-    return { c: shade(c, (k === 3 ? -0.15 : k === 0 ? 0.08 : 0) + rim + dark(front)) };
+    const tip = (k === 0 || k === 3) ? 1 : 0;
+    if (v > rowEnd - tip) return null;
+    // The coverts sit over the flight feathers and are a step lighter, so the layering reads.
+    let c = row ? SOOT[3] : SOOT[4];
+    if (k === 3) c = row ? SOOT[2] : SOOT[3];
+    if (k === 0 && v < rowEnd - 1) c = row ? SOOT[4] : SOOT[5];
+    if (v === rowEnd - tip) c = SOOT[1];
+    if (v === 0) c = SOOT[5];
+    return { c: shade(c, dark(front)) };
   };
 
-  // Secondaries: two-pixel feathers hanging from the arm, a pale shaft, warm only at the edge.
+  // Secondaries: hanging from the arm, longest at the wrist, the trailing edge warming to coal.
   const secondaries = (u, v, w, h, front) => {
     const fi = Math.floor(u / 4), k = u % 4;
-    // Shorter at the body, longest at the wrist: the trailing edge sweeps down and out.
     const len = Math.round(h * (0.55 + 0.4 * (u / w) + (fi % 2) * 0.05));
     const end = len - ((k === 0 || k === 3) ? 2 : 0);
     if (v > end) return null;
     const t = v / len;
-    let c = mix('#231e2f', '#2f2840', t);
-    if (k === 1) c = shade(c, 0.1);
-    if (k === 3) c = shade(c, -0.12);
-    const tip = clamp01((v - (len - 6)) / 6);
-    c = mix(c, P.emb1, smooth(tip) * 0.45 * (u / w));
+    let c = t < 0.5 ? SOOT[2] : SOOT[1];
+    if (k === 1) c = t < 0.5 ? SOOT[3] : SOOT[2];   // the shaft
+    if (k === 3) c = SOOT[0];
+    const tip = clamp01((v - (len - 5)) / 5) * (u / w);
+    if (tip > 0.25) c = tip > 0.6 ? EMBER[1] : mix(c, EMBER[0], 0.7);
     return { c: shade(c, dark(front)) };
   };
 
   // Primary coverts on the hand.
   const pcoverts = coverts;
 
-  // Primaries: long feathers fanning from the wrist, the longest just past it; ember tips that
-  // flicker on the emissive strip.
+  // Primaries: long feathers fanning from the wrist; each burns from the tip back — coal, ember,
+  // a hot core at the very end — flickering on the emissive strip.
   const primaries = (u, v, w, h, front, f) => {
-    const slant = u - v * 0.32;           // feathers lean outward toward their tips
+    const slant = u - v * 0.32;
     if (slant < 0) return null;
     const fi = Math.floor(slant / 4.4), k = Math.floor(slant) % 4;
     const nf = Math.ceil(w / 4.4);
@@ -160,16 +155,19 @@ function emberWings(save) {
     const end = len - ((k === 0 || k === 3) ? 2 : 0);
     if (v > end) return null;
     const t = v / len;
-    let c = mix('#211c2c', '#2e2740', t);
-    if (k === 1) c = shade(c, 0.1);
-    if (k === 3) c = shade(c, -0.14);
-    const tipT = clamp01((v - (len - 9)) / 9);
-    c = mix(c, tipT > 0.7 ? P.emb4 : P.emb2, smooth(tipT) * 0.92);
+    let c = t < 0.4 ? SOOT[2] : SOOT[1];
+    if (k === 1) c = t < 0.4 ? SOOT[4] : SOOT[3];
+    if (k === 3) c = SOOT[0];
+    const burn = clamp01((v - (len - 10)) / 10);
+    if (burn > 0) {
+      const i = burn > 0.88 ? 5 : burn > 0.72 ? 4 : burn > 0.5 ? 3 : burn > 0.3 ? 2 : burn > 0.12 ? 1 : 0;
+      c = k === 3 && i > 1 ? EMBER[i - 1] : EMBER[i];
+    }
     let e = null;
-    if (tipT > 0.35) {
+    if (burn > 0.3) {
       const phase = hash(fi, 3, 41);
       const flick = 0.62 + 0.38 * Math.sin((f / F + phase) * Math.PI * 2) + (hash(fi, v, 500 + f) < 0.06 ? 0.4 : 0);
-      e = [tipT > 0.85 ? P.emb6 : tipT > 0.6 ? P.emb5 : P.emb3, Math.round(Math.min(255, smooth((tipT - 0.35) / 0.65) * 230 * flick))];
+      e = [burn > 0.85 ? EMBER[5] : burn > 0.6 ? EMBER[4] : EMBER[3], Math.round(Math.min(255, smooth((burn - 0.3) / 0.7) * 235 * flick))];
     }
     return { c: shade(c, dark(front)), e };
   };
@@ -181,6 +179,8 @@ function emberWings(save) {
   const sec = plane(A, cv, WRIST[0], ROOT[0], 1.0, 14, Z.feat, secondaries, F, H);
   const pcov = plane(A, cv, WRIST[0] - HAND, WRIST[0], 1.2, 6.2, Z.cov, pcoverts, F, H);
   const pri = plane(A, cv, WRIST[0] - HAND, WRIST[0], 1.0, 21, Z.feat, primaries, F, H);
+  // Feathers have the soft grazing sheen of cloth.
+  for (const c of [cov, sec, pcov, pri]) c.material = 'cloth';
   const right = [
     { name: 'wing_r', parent: null, pivot: ROOT, rotation: [0, 0, 8], cubes: [arm] },
     { name: 'wing_r_cov', parent: 'wing_r', pivot: [ROOT[0], 1.2, Z.cov], cubes: [cov] },
@@ -268,6 +268,9 @@ function voidWings(save) {
   const armMem = plane(A, cv, WRIST[0], ROOT[0], 1, BODY + 1, Z, membrane(0, 1), F, H);
   const handMem = plane(A, cv, WRIST[0] - HAND - 0.5, WRIST[0], -1.5, 19, Z, membrane(ARM, -1.5), F, H);
   const armBone = solid(A, cv, [WRIST[0], 0.4, 2.55], [ROOT[0], 1.6, 3.45], strutLook, F, H);
+  // Black glass: the membranes are see-through, and mirror-bright at a glancing angle.
+  armMem.material = 'glass';
+  handMem.material = 'glass';
   const right = [
     { name: 'wing_r', parent: null, pivot: ROOT, rotation: [0, 0, 8], cubes: [armBone, armMem] },
     { name: 'wing_r_tip', parent: 'wing_r', pivot: WRIST, rotation: [0, 0, 14], cubes: [handMem] },

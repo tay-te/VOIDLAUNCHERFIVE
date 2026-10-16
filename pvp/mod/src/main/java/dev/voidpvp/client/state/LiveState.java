@@ -278,6 +278,8 @@ public final class LiveState {
     public volatile boolean cosmeticsOthers = true;
     public volatile boolean cosmeticsOwnFirstPerson;
     public volatile boolean cosmeticsGlow = true;
+    /** {@code glow_level}: 0 off, 1 low, 2 high. {@link #cosmeticsGlow} is "not off". */
+    public volatile int cosmeticsGlowLevel = 2;
     public volatile boolean cosmeticsEmoteCamera = true;
     /**
      * {@code cosmetics.reactive} as a scale on every fight reaction: off 0, subtle 0.45, full 1.
@@ -639,7 +641,14 @@ public final class LiveState {
         cosmeticsOn = l.isOn("cosmetics");
         cosmeticsOthers = l.boolSetting("cosmetics", "others", true);
         cosmeticsOwnFirstPerson = l.boolSetting("cosmetics", "own_first_person", false);
-        cosmeticsGlow = l.boolSetting("cosmetics", "glow", true);
+        String glow = l.stringSetting("cosmetics", "glow_level", "high");
+        cosmeticsGlowLevel = "off".equals(glow) ? 0 : "low".equals(glow) ? 1 : 2;
+        // Dev: the showcase's -Pvoid.showcase.glow pins the level for a run.
+        String pinned = System.getProperty("void.dev.cosmetics.glow");
+        if (pinned != null) {
+            cosmeticsGlowLevel = "off".equals(pinned) ? 0 : "low".equals(pinned) ? 1 : 2;
+        }
+        cosmeticsGlow = cosmeticsGlowLevel > 0;
         cosmeticsEmoteCamera = l.boolSetting("cosmetics", "emote_camera", true);
         cosmeticsReactive = reactiveLevel(l.stringSetting("cosmetics", "reactive", "full"));
     }

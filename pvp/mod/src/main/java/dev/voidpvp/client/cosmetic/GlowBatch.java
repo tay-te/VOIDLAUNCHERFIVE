@@ -14,6 +14,9 @@ import org.lwjgl.opengl.GL11;
  *
  * <p>Deliberately modest: a soft falloff texture, alpha well under one, a size in pixels of the
  * item. A glow you notice as a glow is already too much.</p>
+ *
+ * <p>Since the {@link Bloom} pass this is the fallback: where bloom runs, the anchors are still
+ * collected (they size the light pool under the player) but no sprite is drawn.</p>
  */
 final class GlowBatch {
 
@@ -39,6 +42,15 @@ final class GlowBatch {
     int poolRgb;
     float poolStrength;
 
+    /** An anchor that is not drawn (the bloom pass glows instead): it only sizes the light pool. */
+    void note(int rgb, float alpha) {
+        alpha *= GAIN;
+        if (alpha > poolStrength) {
+            poolStrength = alpha;
+            poolRgb = rgb;
+        }
+    }
+
     void add(float ex, float ey, float ez, float half, int rgb, float alpha) {
         alpha *= GAIN;
         half *= SIZE;
@@ -60,9 +72,17 @@ final class GlowBatch {
         n++;
     }
 
-    /** Draws and clears. Leaves blend off, depth mask on, lighting as it found it (on). */
-    void flush() {
+    /**
+     * Draws and clears. Leaves blend off, depth mask on, lighting as it found it (on). With
+     * {@code draw} false (the {@link Bloom} pass is doing the glow) it only clears: the anchors
+     * were still collected, to size the light pool under the player.
+     */
+    void flush(boolean draw) {
         if (n == 0) {
+            return;
+        }
+        if (!draw) {
+            n = 0;
             return;
         }
         GlStateManager.pushMatrix();

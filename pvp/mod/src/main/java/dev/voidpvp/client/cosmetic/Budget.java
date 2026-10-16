@@ -52,11 +52,25 @@ public final class Budget {
         clothNanos += nanos;
     }
 
+    /** Dev: an exact running total for A/B windows ({@link #window}). */
+    private static long windowNanos;
+    private static int windowFrames;
+
+    /** Dev: mean layer cost in microseconds since the last call, and resets the window. */
+    public static double window() {
+        double us = windowFrames == 0 ? 0 : windowNanos / 1000.0 / windowFrames;
+        windowNanos = 0;
+        windowFrames = 0;
+        return us;
+    }
+
     /** Once per rendered frame. */
     public static void endFrame() {
         if (frameNanos > 0) {
             RING[ringN++ & 511] = frameNanos;
         }
+        windowNanos += frameNanos;
+        windowFrames++;
         averageNanos = averageNanos * 0.95 + frameNanos * 0.05;
         clothAverage = clothAverage * 0.95 + clothNanos * 0.05;
         clothNanos = 0;
@@ -105,9 +119,9 @@ public final class Budget {
         }
         lastReport = now;
         return String.format(java.util.Locale.ROOT,
-                "cosmetics: %.0f us/frame avg (capes %.0f: sim %.0f [cloth %.0f], mesh %.0f, draw %.0f; models %.0f, glow %.0f), quality %.2f, %d trail particles, %d fps",
+                "cosmetics: %.0f us/frame avg (capes %.0f: sim %.0f [cloth %.0f], mesh %.0f, draw %.0f; models %.0f, glow %.0f), quality %.2f, %d trail particles, %d fps; %s",
                 averageMicros(), SPLIT_AVG[0] / 1000.0, SPLIT_AVG[3] / 1000.0, clothAverage / 1000.0,
                 SPLIT_AVG[4] / 1000.0, SPLIT_AVG[5] / 1000.0, SPLIT_AVG[1] / 1000.0, SPLIT_AVG[2] / 1000.0, quality, Trails.live(),
-                net.minecraft.client.MinecraftClient.getCurrentFps());
+                net.minecraft.client.MinecraftClient.getCurrentFps(), Bloom.diagnostic());
     }
 }

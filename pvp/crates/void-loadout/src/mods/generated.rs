@@ -1105,6 +1105,26 @@ pub enum ReachMode {
     Average,
 }
 
+/// How strongly emissive cosmetics glow — the bloom around halos, wing edges, lit trims and
+/// bright trails. `high` by default, because those items are designed around it: a soft,
+/// layered glow that is strong at night and barely there in daylight. `low` keeps a gentler,
+/// tighter glow at a little less cost. `off` draws the same shapes with their lit parts but no
+/// bloom at all, which is cheapest on a weak GPU and easiest on the eyes in a dark cave.
+/// Replaces the earlier on/off `glow` switch.
+///
+/// `mods.json#/definitions/cosmetics_settings/properties/glow_level`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CosmeticsGlowLevel {
+    /// `off` draws the same shapes with their lit parts but no bloom at all, which is cheapest
+    /// on a weak GPU and easiest on the eyes in a dark cave.
+    Off,
+    /// `low` keeps a gentler, tighter glow at a little less cost.
+    Low,
+    /// `high` by default, because those items are designed around it.
+    High,
+}
+
 /// How much cosmetics react to the fight. `full` by default: your cape whips when you are hit,
 /// your wings flare and your trail thickens as a combo builds, your halo brightens a step per
 /// hit and pulses on a kill, and everything dims a little when you are low on health — and
@@ -3537,11 +3557,14 @@ pub struct CosmeticsSettings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub own_first_person: Option<bool>,
 
-    /// Whether emissive cosmetics glow — the soft bloom around halos, wing edges and bright
-    /// trails. On by default, because those items are designed around it. Off draws the same
-    /// shapes flat, which is cheaper on a weak GPU and easier on the eyes in a dark cave.
+    /// How strongly emissive cosmetics glow — the bloom around halos, wing edges, lit trims and
+    /// bright trails. `high` by default, because those items are designed around it: a soft,
+    /// layered glow that is strong at night and barely there in daylight. `low` keeps a
+    /// gentler, tighter glow at a little less cost. `off` draws the same shapes with their lit
+    /// parts but no bloom at all, which is cheapest on a weak GPU and easiest on the eyes in a
+    /// dark cave. Replaces the earlier on/off `glow` switch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub glow: Option<bool>,
+    pub glow_level: Option<CosmeticsGlowLevel>,
 
     /// Whether the camera swings to third person and orbits slowly while you emote, so you can
     /// see what you are doing. On by default. Off keeps your own view where it is: other

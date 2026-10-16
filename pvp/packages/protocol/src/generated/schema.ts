@@ -3114,9 +3114,9 @@ export interface CosmeticsSettings {
    */
   own_first_person?: boolean;
   /**
-   * Whether emissive cosmetics glow — the soft bloom around halos, wing edges and bright trails. On by default, because those items are designed around it. Off draws the same shapes flat, which is cheaper on a weak GPU and easier on the eyes in a dark cave.
+   * How strongly emissive cosmetics glow — the bloom around halos, wing edges, lit trims and bright trails. `high` by default, because those items are designed around it: a soft, layered glow that is strong at night and barely there in daylight. `low` keeps a gentler, tighter glow at a little less cost. `off` draws the same shapes with their lit parts but no bloom at all, which is cheapest on a weak GPU and easiest on the eyes in a dark cave. Replaces the earlier on/off `glow` switch.
    */
-  glow?: boolean;
+  glow_level?: 'off' | 'low' | 'high';
   /**
    * Whether the camera swings to third person and orbits slowly while you emote, so you can see what you are doing. On by default. Off keeps your own view where it is: other players still see the emote, you just do not watch it. The camera never moves while you move — taking a step ends the emote and gives the view straight back.
    */

@@ -171,6 +171,22 @@ loom {
             if (project.hasProperty('void.showcase.quality')) {
                 vmArg "-Dvoid.dev.cosmetics.quality=${project.property('void.showcase.quality')}"
             }
+            // Dev: draw the bloom mask and its first blurred level in the corner of every frame.
+            if (project.hasProperty('void.showcase.bloomView')) {
+                vmArg '-Dvoid.dev.bloom.view=true'
+            }
+            // Dev: -Pvoid.showcase.shader=false draws the cosmetics the fixed-function way.
+            if (project.hasProperty('void.showcase.shader')) {
+                vmArg "-Dvoid.dev.cosmetics.shader=${project.property('void.showcase.shader')}"
+            }
+            // The cosmetics `glow` level for the run (off, low, high); default high.
+            if (project.hasProperty('void.showcase.glow')) {
+                vmArg "-Dvoid.dev.cosmetics.glow=${project.property('void.showcase.glow')}"
+            }
+            // -PvoidGlDebug: log every GL error with the Java stack that raised it (render/GlDebug).
+            if (project.hasProperty('voidGlDebug')) {
+                vmArg '-Dvoid.dev.gldebug=true'
+            }
         }
     }
 }

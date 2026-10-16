@@ -127,6 +127,35 @@ public final class CosmeticsHub {
         }
     }
 
+    /** Head of the world pass. */
+    public static void worldStart() {
+        Bloom.worldStart();
+    }
+
+    /** After the world, before the hand: the bloom composite. */
+    public static void beforeHand(MinecraftClient mc) {
+        Bloom.composite(mc);
+    }
+
+    /** {@code GlStateManager}'s fog switch and mode, mirrored for the material shader. */
+    public static void fogEnabled(boolean on) {
+        CosmeticShader.fogEnabled(on);
+    }
+
+    public static void fogMode(int mode) {
+        CosmeticShader.fogMode(mode);
+    }
+
+    /** Dev (the showcase's A/B measurement): draw the fixed-function way while on. */
+    public static void devFixedFunction(boolean on) {
+        CosmeticShader.devOff = on;
+    }
+
+    /** Minecraft rebuilt its framebuffer. */
+    public static void framebufferRebuilt() {
+        Bloom.invalidate();
+    }
+
     /** Right after vanilla's particles in the world pass. */
     public static void worldPass(MinecraftClient mc, float td) {
         net.minecraft.entity.Entity cam = mc.getCameraEntity();

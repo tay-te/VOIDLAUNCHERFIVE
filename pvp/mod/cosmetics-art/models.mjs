@@ -40,8 +40,9 @@ function mirrorBone(b, rename) {
  * A lit cell: lighter top, base sides, darker underside, one bright texel on the top-left of
  * each face — the same little bevel the launcher's pixel cards give their cells.
  */
-function cellPaint(base, emissive, emiAlpha = 255) {
+function cellPaint(base, emissive, emiAlpha = 255, material = undefined) {
   return {
+    material,
     alb: (face, i, j) => {
       const k = face === 'up' ? 0.22 : face === 'down' ? -0.35 : face === 'north' || face === 'south' ? 0.04 : -0.08;
       return [shade(base, k + (i === 0 && j === 0 ? 0.12 : 0))];
@@ -54,62 +55,75 @@ function cell(atlas, alb, emi, from, to, look) {
   const { cube, rects } = atlas.cube(from, to);
   paintFaces(alb, rects, look.alb);
   if (look.emi && emi) paintFaces(emi, rects, look.emi);
+  if (look.material) cube.material = look.material;
   return cube;
 }
 
 /* ================================================================================ crown */
 
 function crown(save) {
-  // Aged dark gold: a band two pixels tall, lit along its top edge, with a row of short cells
-  // standing on it (taller at the corners and the front) and one warm stone set in the front.
+  // Old gold, worked: a band with an engraved lattice between a lit lip and a dark foot, twelve
+  // points (tallest at the front, each with a bright tip), a cut ember stone at the front and
+  // smaller stones round the sides — violet left and right, ice at the back. All metal, so the
+  // lattice and the points catch a moving highlight; the stones are glass, lit from within.
   const A = new Atlas(128, 64, 2);
   const alb = new Canvas(128, 64);
   const emi = new Canvas(128, 64);
-  const goldD = '#5a4526', goldM = '#8a6a3c', goldL = P.gold3, goldH = P.gold4;
-  const metal = (face, i, j, w, h) => {
-    if (face === 'up') return [goldL];
-    if (face === 'down') return [shade(goldD, -0.3)];
-    if (j === 0) return [i % 3 === 1 ? goldH : goldL];
-    if (j === h - 1) return [shade(goldD, -0.15)];
-    return [(i + j) % 4 === 0 ? goldM : shade(goldM, -0.12)];
+  const G = ['#2b1a0f', '#563719', '#8a5f2d', '#c2964f', '#e8c47f', '#fff0c8'];
+  // Quiet surfaces, so the metal shading carries the form: a lit lip, a plain body with one
+  // engraved dot every four texels, a dark foot.
+  const band = (face, i, j, w, h) => {
+    if (face === 'up') return [G[4]];
+    if (face === 'down') return [G[0]];
+    if (j === 0) return [G[4]];
+    if (j === h - 1) return [G[1]];
+    return [i % 4 === 2 && j === Math.floor(h / 2) ? G[2] : G[3]];
+  };
+  const point = (face, i, j, w, h) => {
+    if (face === 'up') return [G[5]];
+    if (face === 'down') return [G[1]];
+    return [j < h / 2 ? G[4] : G[3]];
   };
   const cubes = [];
-  const add = (from, to, f = metal) => {
+  const add = (from, to, f, material = 'metal') => {
     const { cube, rects } = A.cube(from, to);
     paintFaces(alb, rects, f);
+    cube.material = material;
     cubes.push(cube);
+    return rects;
   };
-  const Y0 = -9.7, Y1 = -8.0, R = 4.65, T = 0.55;
-  add([-R, Y0, -R], [R, Y1, -R + T]);
-  add([-R, Y0, R - T], [R, Y1, R]);
-  add([R - T, Y0, -R + T], [R, Y1, R - T]);
-  add([-R, Y0, -R + T], [-R + T, Y1, R - T]);
-  // Standing cells: 1.1 wide, on a regular step round the band.
-  const cell = (x, z, h) => add([x - 0.55, Y0 - h, z - 0.55], [x + 0.55, Y0, z + 0.55], (face, i, j, w, hh) => {
-    if (face === 'up') return [goldH];
-    if (face === 'down') return [goldD];
-    return [j === 0 ? goldL : j === hh - 1 ? goldD : goldM];
-  });
+  const Y0 = -9.9, Y1 = -8.0, R = 4.65, T = 0.6;
+  add([-R, Y0, -R], [R, Y1, -R + T], band);
+  add([-R, Y0, R - T], [R, Y1, R], band);
+  add([R - T, Y0, -R + T], [R, Y1, R - T], band);
+  add([-R, Y0, -R + T], [-R + T, Y1, R - T], band);
   const edge = R - T / 2;
   for (const [x, z, h] of [
-    [-edge, -edge, 1.6], [edge, -edge, 1.6], [-edge, edge, 1.6], [edge, edge, 1.6],
-    [-2.3, -edge, 1.0], [2.3, -edge, 1.0], [0, -edge, 2.1],
-    [-2.3, edge, 1.0], [2.3, edge, 1.0], [0, edge, 1.0],
-    [-edge, 0, 1.0], [edge, 0, 1.0],
-  ]) cell(x, z, h);
-  // The stone: a warm faceted cell on the front of the band, below the tall front cell.
-  {
-    const { cube, rects } = A.cube([-0.75, -9.45, -R - 0.4], [0.75, -8.15, -R + 0.05]);
-    paintFaces(alb, rects, (face, i, j) => [face === 'north' ? (i === 0 && j === 0 ? P.emb6 : j === 0 ? P.emb5 : P.emb3) : P.emb2]);
-    paintFaces(emi, rects, (face, i, j) => [face === 'north' && i === 0 && j === 0 ? P.emb6 : P.emb4, face === 'north' ? 220 : 120]);
-    cubes.push(cube);
+    [-edge, -edge, 1.7], [edge, -edge, 1.7], [-edge, edge, 1.7], [edge, edge, 1.7],
+    [-2.3, -edge, 1.1], [2.3, -edge, 1.1], [0, -edge, 2.4],
+    [-2.3, edge, 1.1], [2.3, edge, 1.1], [0, edge, 1.3],
+    [-edge, 0, 1.3], [edge, 0, 1.3],
+  ]) {
+    const s = h > 2 ? 0.65 : 0.55;
+    add([x - s, Y0 - h, z - s], [x + s, Y0, z + s], point);
+    // A bright tip on the tall points.
+    if (h >= 1.3) add([x - 0.32, Y0 - h - 0.55, z - 0.32], [x + 0.32, Y0 - h, z + 0.32], () => [G[5]]);
   }
+  // Stones: cut glass, lit from inside on the emissive layer.
+  const stone = (from, to, ramp, glowA) => {
+    const rects = add(from, to, (face, i, j) => [face === 'down' ? ramp[0] : i === 0 && j === 0 ? ramp[3] : j === 0 ? ramp[2] : ramp[1]], 'glass');
+    paintFaces(emi, rects, (face, i, j) => [i === 0 && j === 0 ? ramp[3] : ramp[2], face === 'down' ? Math.round(glowA * 0.5) : glowA]);
+  };
+  stone([-0.8, -9.6, -R - 0.45], [0.8, -8.2, -R + 0.05], [P.emb1, P.emb3, P.emb4, P.emb6], 220);
+  stone([R - 0.05, -9.4, -0.55], [R + 0.4, -8.4, 0.55], [P.vio1, P.vio3, P.vio4, P.vio6], 150);
+  stone([-R - 0.4, -9.4, -0.55], [-R + 0.05, -8.4, 0.55], [P.vio1, P.vio3, P.vio4, P.vio6], 150);
+  stone([-0.55, -9.4, R - 0.05], [0.55, -8.4, R + 0.4], [P.ice1, P.ice3, P.ice4, P.ice6], 150);
   save('monarch-crown', 'texture.png', alb);
   save('monarch-crown', 'emissive.png', emi);
   save('monarch-crown', 'model.json', {
     format: 'void-cosmetic/1', attach: 'head', texture_size: [128, 64], helmet_fit: true,
     bones: [{ name: 'crown', pivot: [0, -8, 0], rotation: [-4, 0, 3], cubes }],
-    glow: [{ bone: 'crown', at: [0, -8.8, -5], color: P.emb4, size: 2.4, strength: 0.5 }],
+    glow: [{ bone: 'crown', at: [0, -8.9, -5], color: P.emb4, size: 2.4, strength: 0.5 }],
   });
 }
 
@@ -144,6 +158,7 @@ function beanie(save) {
   save('wool-beanie', 'tint.png', tint);
   save('wool-beanie', 'model.json', {
     format: 'void-cosmetic/1', attach: 'head', texture_size: [128, 64], helmet_fit: true,
+    material: 'cloth',
     bones: [{ name: 'beanie', pivot: [0, -6, 0], rotation: [-2, 0, 0], cubes }],
   });
 }
@@ -186,23 +201,36 @@ function topHat(save) {
     const g = bandGrey(f, i, j, w, h)[0][0] / 255;
     return [[Math.round(0x9f * g), Math.round(0x8b * g), Math.round(0xff * g)]];
   }, bandGrey);
+  // A small silver buckle on the band, front left: a frame around a dark slot.
+  {
+    const { cube, rects } = A.cube([-2.9, -10.3, -4.15], [-1.3, -8.8, -3.95]);
+    paintFaces(alb, rects, (face, i, j, w, h) => [face === 'north' && i > 0 && i < w - 1 && j > 0 && j < h - 1 ? '#2a2c33' : face === 'up' || j === 0 ? '#e4e7ee' : '#a3a8b4']);
+    cube.material = 'metal';
+    cubes.push(cube);
+  }
   save('dapper-top-hat', 'texture.png', alb);
   save('dapper-top-hat', 'tint.png', tint);
   save('dapper-top-hat', 'model.json', {
-    format: 'void-cosmetic/1', attach: 'head', texture_size: [128, 128], helmet_fit: true,
+    format: 'void-cosmetic/1', attach: 'head', texture_size: [128, 128], helmet_fit: true, material: 'cloth',
     bones: [{ name: 'hat', pivot: [0, -8, 0], rotation: [-5, 0, -6], cubes }],
   });
 }
 
 /* ================================================================================ halos */
 
-/** A chunky ring of overlapping cells: reads as a solid ring with a pixel-art edge. */
-function ringOf(A, alb, emi, n, r, y, size, height, look) {
+/**
+ * A chunky ring of overlapping cells: reads as a solid ring with a pixel-art edge. With
+ * `accent` = [every, look, grow], every n-th cell is a larger, brighter one, which gives the ring
+ * a rhythm the eye can follow as it turns.
+ */
+function ringOf(A, alb, emi, n, r, y, size, height, look, accent = null) {
   const out = [];
   for (let k = 0; k < n; k++) {
     const a = (k / n) * Math.PI * 2;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    out.push(cell(A, alb, emi, [x - size / 2, y - height / 2, z - size / 2], [x + size / 2, y + height / 2, z + size / 2], look));
+    const acc = accent && k % accent[0] === 0;
+    const s = acc ? size * accent[2] : size, h = acc ? height * accent[2] : height;
+    out.push(cell(A, alb, emi, [x - s / 2, y - h / 2, z - s / 2], [x + s / 2, y + h / 2, z + s / 2], acc ? accent[1] : look));
   }
   return out;
 }
@@ -214,10 +242,14 @@ function halos(save) {
     const alb = new Canvas(128, 64);
     const emi = new Canvas(128, 64);
     const Y = -12.8;
-    const gold = cellPaint(P.gold4, P.emb5, 175);
-    const inner = cellPaint(P.emb6, P.emb6, 230);
-    const mote = cellPaint(P.emb5, P.emb6, 255);
-    const ring = ringOf(A, alb, emi, 26, 5.1, Y, 1.55, 1.0, gold);
+    // Worked gold catches the light (metal); the filament and the motes are light (emissive).
+    // Its light is gold, not ember: a warm candle colour from the ember family's lightest end.
+    const goldLight = '#ffdca6', goldCore = '#fff3dc';
+    const gold = cellPaint('#a8763a', goldLight, 50, 'metal');
+    const boss = cellPaint('#d4a85c', goldCore, 110, 'metal');
+    const inner = cellPaint(goldCore, goldCore, 230, 'emissive');
+    const mote = cellPaint(goldLight, goldCore, 255, 'emissive');
+    const ring = ringOf(A, alb, emi, 26, 5.1, Y, 1.55, 1.0, gold, [13, boss, 1.35]);
     const fil = ringOf(A, alb, emi, 18, 4.15, Y + 0.05, 0.7, 0.45, inner);
     const motes = [];
     for (let k = 0; k < 4; k++) {
@@ -257,10 +289,11 @@ function halos(save) {
     const alb = new Canvas(128, 64);
     const emi = new Canvas(128, 64);
     const Y = -12.6;
-    const vio = cellPaint(P.vio3, P.vio4, 150);
-    const edge = cellPaint(P.vio5, P.vio6, 220);
-    const ice = cellPaint(P.ice5, P.ice6, 255);
-    const ring = ringOf(A, alb, emi, 22, 4.7, Y, 1.25, 0.8, vio);
+    const vio = cellPaint(P.vio3, P.vio4, 110, 'metal');
+    const vioBoss = cellPaint(P.vio4, P.vio5, 150, 'metal');
+    const edge = cellPaint(P.vio5, P.vio6, 220, 'emissive');
+    const ice = cellPaint(P.ice5, P.ice6, 255, 'emissive');
+    const ring = ringOf(A, alb, emi, 22, 4.7, Y, 1.25, 0.8, vio, [11, vioBoss, 1.4]);
     const lip = ringOf(A, alb, emi, 22, 4.0, Y - 0.2, 0.5, 0.4, edge);
     const motes = [];
     for (let k = 0; k < 3; k++) {
@@ -331,7 +364,13 @@ function masks(save) {
       }
       return cube;
     };
-    const mk = (from, to, look) => { const { cube, rects } = A.cube(from, to); return paint(cube, rects, look); };
+    // The frame is metal; the band is glass — tinted, see-through at the face, mirror-bright at
+    // a glancing angle.
+    const mk = (from, to, look) => {
+      const { cube, rects } = A.cube(from, to);
+      cube.material = look === rim ? 'metal' : 'glass';
+      return paint(cube, rects, look);
+    };
     // A wraparound band: the front glass spans the face and turns the corners onto the sides,
     // framed top and bottom by a slim rim.
     const front = [mk([-4.75, Y0, Z0], [4.75, Y1, Z1], glassPaint(0)),
@@ -356,7 +395,9 @@ function masks(save) {
     const alb = new Canvas(W, H * F);
     const emi = new Canvas(W, H * F);
     const A = new Atlas(W, H, 2);
-    const ceramic = '#4a4258', light = '#6c6280', deep = '#2a2434';
+    // Dusky ceramic in a cool ramp: the proud brow plate the lightest, the chin the darkest, each
+    // plate graded top to bottom and bevelled, so the face reads as parts and not a slab.
+    const ceramic = '#4d4361', light = '#82779c', deep = '#241f2e';
     // The seam as a polyline in face pixels (x across -4.4..4.4, y down -7.6..-0.4).
     const seam = [[0.6, -7.6], [0.2, -6.3], [0.9, -5.2], [0.4, -3.9], [1.3, -2.6], [0.7, -1.3], [1.1, -0.4]];
     const seamDist = (x, y) => {
@@ -369,7 +410,7 @@ function masks(save) {
       }
       return d;
     };
-    const plate = (x0, y0, x1, y1, zf, slitTop, slitBottom) => {
+    const plate = (x0, y0, x1, y1, zf, slitTop, slitBottom, tone = 0) => {
       const { cube, rects } = A.cube([x0, y0, zf], [x1, y1, zf + 0.55]);
       for (const [face, r] of Object.entries(rects)) {
         const w = r[2] - r[0], h = r[3] - r[1];
@@ -380,7 +421,7 @@ function masks(save) {
             let c, e = null;
             if (face === 'north') {
               const bevel = j === 0 || i === 0 ? 0.1 : (j === h - 1 || i === w - 1) ? -0.22 : 0;
-              c = shade(mix(ceramic, light, 0.25 + 0.2 * (1 - j / h)), bevel + (hash(i, j, 41) < 0.12 ? 0.03 : 0));
+              c = shade(mix(ceramic, light, 0.15 + 0.35 * (1 - j / h) + tone), bevel + (hash(i, j, 41) < 0.1 ? 0.025 : 0));
               const sd = seamDist(X, Y);
               if (sd < 0.28) { c = mix(P.vio4, P.vio6, pulse); e = [P.vio5, Math.round(170 + 85 * pulse)]; }
               else if (sd < 0.6) { c = shade(c, -0.25); e = [P.vio3, Math.round(50 * pulse)]; }
@@ -400,11 +441,11 @@ function masks(save) {
     };
     const Z = -4.95;
     const cubes = [
-      plate(-4.5, -7.7, 4.5, -5.0, Z - 0.15, true, false),          // brow, standing proud
-      plate(-4.4, -4.1, -0.5, -1.5, Z, false, true),                // cheeks below the slits
-      plate(0.5, -4.1, 4.4, -1.5, Z, false, true),
-      plate(-0.5, -5.0, 0.5, -1.5, Z + 0.05, false, false),         // the nose bridge between the eyes
-      plate(-3.2, -1.5, 3.2, -0.3, Z + 0.1, false, false),          // chin
+      plate(-4.5, -7.7, 4.5, -5.0, Z - 0.15, true, false, 0.2),     // brow, standing proud
+      plate(-4.4, -4.1, -0.5, -1.5, Z, false, true, 0.05),          // cheeks below the slits
+      plate(0.5, -4.1, 4.4, -1.5, Z, false, true, 0.05),
+      plate(-0.5, -5.0, 0.5, -1.5, Z + 0.05, false, false, 0.1),    // the nose bridge between the eyes
+      plate(-3.2, -1.5, 3.2, -0.3, Z + 0.1, false, false, -0.12),   // chin
     ];
     save('rift-mask', 'texture.png', alb);
     save('rift-mask', 'emissive.png', emi);
@@ -428,8 +469,8 @@ function orbit(save) {
   const alb = new Canvas(128, 64);
   const emi = new Canvas(128, 64);
   const C = [0, -1.5, 5.6];
-  const dim = cellPaint(P.ice3, P.ice4, 150);
-  const lit = cellPaint(P.ice5, P.ice6, 240);
+  const dim = cellPaint(P.ice3, P.ice4, 120, 'metal');
+  const lit = cellPaint(P.ice5, P.ice6, 240, 'emissive');
   const ringCells = (n, r, size) => {
     const out = [];
     for (let k = 0; k < n; k++) {
@@ -442,7 +483,7 @@ function orbit(save) {
   };
   const outer = ringCells(18, 7.2, 1.0);
   const inner = ringCells(12, 5.6, 0.9);
-  const core = cell(A, alb, emi, [C[0] - 0.7, C[1] - 0.7, C[2] - 0.7], [C[0] + 0.7, C[1] + 0.7, C[2] + 0.7], cellPaint(P.ice6, P.ice6, 255));
+  const core = cell(A, alb, emi, [C[0] - 0.7, C[1] - 0.7, C[2] - 0.7], [C[0] + 0.7, C[1] + 0.7, C[2] + 0.7], cellPaint(P.ice6, P.ice6, 255, 'emissive'));
   save('orbit-ring', 'texture.png', alb);
   save('orbit-ring', 'emissive.png', emi);
   save('orbit-ring', 'model.json', {

@@ -390,6 +390,12 @@ const REMOVED_SETTINGS: &[(&str, &str)] = &[
     // above and a wider blast radius: `mode` was in the shipped registry defaults from the
     // first release, so it is in essentially every loadout on disk.
     ("toggle_sprint", "mode"),
+    // `cosmetics.glow` — the on/off switch became `cosmetics.glow_level` (`off`/`low`/`high`)
+    // when the sprites gave way to a real bloom pass with a cost worth choosing. A boolean
+    // cannot deserialise as the enum, and `glow` was in the registry defaults, so every loadout
+    // written since the cosmetics mod shipped carries it; the next save writes `glow_level`'s
+    // default instead.
+    ("cosmetics", "glow"),
 ];
 
 /// Reads a loadout, dropping settings that have since been removed from the registry.

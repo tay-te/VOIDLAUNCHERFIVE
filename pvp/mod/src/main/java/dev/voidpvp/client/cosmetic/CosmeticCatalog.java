@@ -19,7 +19,7 @@ import java.util.Map;
 public final class CosmeticCatalog {
 
     /** {@code cosmetics.json#/version}. */
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
 
     /** The slots, in contract order. Emotes are not a slot. */
     public static final List<String> SLOTS = Collections.unmodifiableList(java.util.Arrays.asList(

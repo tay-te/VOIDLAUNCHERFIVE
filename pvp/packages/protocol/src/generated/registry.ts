@@ -16,7 +16,7 @@ import type { ModRegistryDocument } from './schema.js';
  * Prefer the helpers in `src/mods.ts` over reading this directly.
  */
 export const MOD_REGISTRY_DOCUMENT = {
-  "version": 13,
+  "version": 14,
   "mods": {
     "fps": {
       "id": "fps",
@@ -963,7 +963,7 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": true,
         "others": true,
         "own_first_person": false,
-        "glow": true,
+        "glow_level": "high",
         "emote_camera": true,
         "reactive": "full",
         "emote_key": "B"

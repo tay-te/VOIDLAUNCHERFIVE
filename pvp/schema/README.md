@@ -153,6 +153,24 @@ one validatable schema, and because it is exactly the recording format the brows
 
 Newest first. Each entry says what moved, why, and what had to change to follow it.
 
+### 2026-10-16 — `cosmetics.glow` becomes `cosmetics.glow_level`
+
+`mods.json` registry `version` unchanged (no mod added or removed); `protocol.json` and
+`bridge.json` untouched; `cosmetics.json` catalog `version` 1 → 2 (the launch art was repainted and
+seven blurbs now describe what is drawn).
+
+**The on/off `glow` switch is replaced by `glow_level`: `off`, `low` or `high` (default `high`).**
+The cosmetics' glow stopped being additive sprites and became a real bloom pass (a mask written
+while emissive cosmetics draw, blurred at a quarter, an eighth and a sixteenth of the screen,
+composited before the hand), and that pass has a cost worth choosing between a gentler two-level
+`low` and the full `high`. A boolean cannot deserialise as the enum and `glow` was in the registry
+defaults, so `("cosmetics", "glow")` joins `REMOVED_SETTINGS` in `crates/void-loadout/src/store.rs`:
+dropped on the way in, the next save writes `glow_level`'s default. Followed by: `ModRegistry.java`,
+`generated.rs` (`CosmeticsGlowLevel`) and `@void/protocol` regenerated; `LiveState.cosmeticsGlowLevel`
+(and `cosmeticsGlow` as "not off", which the trails still read); the launcher's `SETTING_SPECS`
+(a select); the in-game wardrobe's emote page (an Off/Low/High option group beside the switches),
+the mod's value chip and diagram; the wardrobe test.
+
 ### 2026-10-15 (later) — the wardrobe reaches the page, and a switch for what the client draws
 
 `protocol.json` untouched by this entry (its cosmetics messages arrived from `pvp-backend`, in the
