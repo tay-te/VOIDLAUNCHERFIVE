@@ -63,12 +63,13 @@ void main() {
 #include "/lib/sky/table.glsl"
 #include "/lib/haze/haze.glsl"
 #include "/lib/air.glsl"
+// ---- atmos (welkin-atmos): the luminous sky's air and the volumetric haze (lib/sky/luminous.glsl, lib/haze/volume.glsl)
+// (the luminous sky first: the shafts take its frame)
+#include "/lib/sky/luminous.glsl"
 #if defined SUN_SHAFTS && defined SHADOWS
 #define WELKIN_SHAFTS_READ
 #include "/lib/shafts.glsl"
 #endif
-// ---- atmos (welkin-atmos): the luminous sky's air and the volumetric haze (lib/sky/luminous.glsl, lib/haze/volume.glsl)
-#include "/lib/sky/luminous.glsl"
 #ifdef HAZE_VOLUME
 #define HV_READ
 #include "/lib/haze/volume.glsl"
@@ -351,7 +352,12 @@ void main() {
 #else
 			float lit = shaftResolve(p, s.sky ? 1e4 : length(eyePos));
 #endif
-			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky) * (cloud ? 0.0 : 1.0);
+			// atmos (shafts and bloom): thicker in hazy air and where the morning's valley mist lies, thinner in rain
+			float shThick = mix(0.85, 1.5, clamp(st.haze.x, 0.0, 1.0)) * (1.0 - 0.5 * st.rain);
+#if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
+			shThick *= 1.0 + 0.8 * clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
+#endif
+			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky, lum, shThick) * (cloud ? 0.0 : 1.0);
 #if SHAFT_DEBUG == 1
 			color.rgb = vec3(lit); // the resolved sunlit share of the near air
 #elif SHAFT_DEBUG == 2

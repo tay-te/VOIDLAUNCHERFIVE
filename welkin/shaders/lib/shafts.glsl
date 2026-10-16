@@ -20,25 +20,45 @@
 //
 // Cost: SHAFT_STEPS compares per half-resolution texel; the pass returns at once while the gate is shut (noon, night),
 // and composite2 skips the gather then.
+//
+// ---- atmos (welkin-atmos, shafts and bloom step, 2026-10-16): bold god rays, built from the depth prototype SHAFTS.
+// Two parts, both smooth (the lighting noise only inside their raw terms, resolved over the 4x4 noise tile):
+//   3D shafts  with the volumetric haze on, its walk (lib/haze/volume.glsl hvWalk) gives the term: the sunlit air along
+//              the whole ray, near through the shadow map (crowns, trunks, houses), far through the terrain's shadow
+//              line (ridges, mesas), both through the clouds' shadow (the gaps between clouds), weighted toward the eye
+//              by exp(-t / SHAFT_FALLOFF). shaftLight turns it into the sun's own warm light by a strong forward lobe
+//              and a broad one: bold beams toward a low sun, and side-on a soft directional glow rather than nothing.
+//              Open from the horizon through the golden hours, a quarter at noon, thicker in hazy and misty air.
+//   beams      (SHAFT_BEAMS) when the sun stands in or near the view: composite3 walks each half-resolution texel
+//              toward the sun's place on the screen and gathers the open sky (no land, no LOD, no cloud) weighted by
+//              the glow round the sun, so the light through gaps in a crown, between clouds and over a ridge's outline
+//              streams toward the eye as radial beams; final gathers the 4x4 texels round each pixel and adds them.
 
 #include "/lib/settings.glsl"
 
 #define SHAFT_STEPS 12
 #define SHAFT_REACH 96.0
+// atmos: the 3D shafts' reach (lib/haze/volume.glsl): the air's weight falls by e over this many blocks from the eye
+#define SHAFT_FALLOFF 220.0
 
 #ifndef WU_sunPosition
 #define WU_sunPosition
 uniform vec3 sunPosition;
 #endif
 
-// How open the gate is for the sun at world direction sunW: fully from about 9 degrees down to the horizon, about half
-// at 16:30, shut from about 37 degrees up (the pass then costs nothing) and at night. Uniform over the frame.
+// How open the gate is for the sun at world direction sunW: fully from about 12 degrees down to the horizon, easing to
+// a quarter from about 45 degrees up (beams through a canopy at noon stay, faint), shut at night. Uniform over the
+// frame. (atmos: was shut from 37 degrees up; the bold shafts keep a trace by day)
 float shaftGate(vec3 sunW) {
 	float h = sunW.y;
-	return smoothstep(0.0, 0.05, h) * (1.0 - smoothstep(0.15, 0.6, h));
+	return smoothstep(-0.02, 0.05, h) * mix(1.0, 0.25, smoothstep(0.2, 0.72, h));
 }
 
 // ---- the resolve and the light, for composite2 (define WELKIN_SHAFTS_READ and include lib/air.glsl first)
+// atmos: the 3D shafts' gain and cap (shaftLight)
+#define SHAFT_GAIN 1.7
+#define SHAFT_CAP 0.40
+
 #ifdef WELKIN_SHAFTS_READ
 #ifndef WU_colortex13
 #define WU_colortex13
@@ -64,18 +84,25 @@ float shaftResolve(ivec2 p, float dist) {
 	return wsum > 1e-3 ? sum / wsum : texelFetch(colortex13, clamp(qc, ivec2(0), hi), 0).r;
 }
 
-// The shafts' light for view direction dirW (world, unit), `lit` the resolved sunlit share, in display values to add.
-// On the sky (`sky`) a fraction: there the sunlit air only brightens the glow round the sun the dome and the forward
-// scatter already draw; the beams show against the land, the trunks and the crowns.
-vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky) {
+// The shafts' light for view direction dirW (world, unit), `lit` the resolved term, in display values to add. f the
+// luminous sky's frame (lib/sky/luminous.glsl: the sun's hue and gold, how golden the hour, how clear the sky); thick
+// how thick the air is against temperate air (haziness, valley mist; 1 plain). On the sky (`sky`) a fraction: there the
+// sunlit air only brightens the glow round the sun the dome already draws; the beams show against the land, the trunks
+// and the crowns. (atmos: bold, in the sun's own warm light, soft-capped well under white)
+vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, float thick) {
 	float mu = dot(dirW, sunW);
-	float lobe = 0.55 * airHg(mu, 0.8) + 0.45 * airHg(mu, 0.35);
+	// a strong forward lobe (the beams toward the sun) and a broad one (side-on, a soft directional glow)
+	float lobe = 0.62 * airHg(mu, 0.86) + 0.38 * airHg(mu, 0.45);
+	// the sun's light: its own hue, led toward the warm gold through the golden hours (display, luma 1)
+	vec3 hue = pow(mix(f.hue, f.gold, 0.55) * 0.4, vec3(1.0 / 2.2));
+	hue /= max(dot(hue, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
+	// as bright as the sun-side horizon (never darker than a pale level)
 	vec3 sunSide = skyHazeHorizon(kind, true);
-	vec3 col = sunSide / max(dot(sunSide, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
-	float x = (float(SHAFT_STRENGTH) * 0.01 * 0.22 * (sky ? 0.3 : 1.0)) * lobe * shaftGate(sunW) * lit
-		* (1.0 - skyNightStep());
-	// a soft cap: never more than about a dozen 8-bit levels (0.05), however long the sunlit air
-	return col * (0.05 * (1.0 - exp(-x / 0.05)));
+	float level = max(dot(sunSide, vec3(0.2126, 0.7152, 0.0722)), 0.3);
+	float gate = shaftGate(sunW) * f.clear * f.day * mix(0.75, 1.0, f.warm);
+	float x = float(SHAFT_STRENGTH) * 0.01 * SHAFT_GAIN * lobe * gate * lit * thick * (sky ? 0.3 : 1.0);
+	// a soft cap: never more than SHAFT_CAP of the sun-side level, however long the sunlit air
+	return hue * level * (SHAFT_CAP * (1.0 - exp(-x / SHAFT_CAP)));
 }
 #endif
 

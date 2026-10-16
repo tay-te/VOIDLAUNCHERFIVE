@@ -11,7 +11,9 @@
 //   both   times the clouds' shadow over the point (lib/clouds/shadow.glsl: the gaps between clouds)
 // and the haze's density at each step (hvDensity: thick low down, in valleys and the low ground, thinning up the
 // ridges; the rays toward the horizon stay low longest and gather most), with its own transmittance. Out:
-//   r  the plain sun shafts' sunlit share (lib/shafts.glsl's term, within SHAFT_REACH: the shafts keep their look)
+//   r  the sun shafts' term (shafts and bloom step): the sunlit air along the whole ray, near (the shadow map: crowns,
+//      trunks, houses) and far (the terrain's shadow line: ridges), times the clouds' shadow (their gaps), each step
+//      weighted by exp(-t / SHAFT_FALLOFF) and the sum over SHAFT_FALLOFF: 0 no lit air, 1 a long ray wholly in the sun
 //   g  the haze's sunlit in-scatter (the integral of density x sunlit x transmittance, blocks of sea-level air)
 //   b  its whole in-scatter (the same without the sunlit share)
 //   a  the view distance (for the depth-aware resolve)
@@ -53,6 +55,8 @@
 #define HV_NEAR_CLEAR 72.0
 // the most the volumetric haze covers (the land always reads through)
 #define HV_MAX_OPACITY 0.70
+// the near steps' spacing: t grows as this power of the step (1 even)
+#define HV_NEAR_POW 1.6
 
 float hvDensity(float y, float ground) {
 	float sea = exp(-clamp(y - HAZE_SEA_LEVEL, -40.0, 600.0) / HV_H_SEA);
@@ -76,7 +80,8 @@ float hvLineVis(float y, vec2 line, float w) {
 #endif
 }
 
-vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, float shaftLen, float shaftReach) {
+// shaftsOn: whether the shafts' term is wanted (the sun up and SUN_SHAFTS on); 0 in r otherwise.
+vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 	float tEnd = sky ? HV_SKY_END : min(dist, HV_LAND_END);
 #if defined WF_FAR_HAZE && defined DISTANT_HORIZONS
 	// the far haze (composite1) owns the air past the near tiles' band (lib/haze/haze.glsl's hand-over)
@@ -109,10 +114,13 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, float shaftLen, float shaf
 	CloudEnv ce = welkinCloudEnv();
 #endif
 	float shaft = 0.0, hzSun = 0.0, hzAll = 0.0, tau = 0.0;
-	float dtN = nearEnd / float(NN);
 	float cloudVis = 1.0;
+	// (shafts and bloom step: the near steps crowd toward the eye, t growing as the 1.6th power of the step, so the beams
+	// between trunks a few blocks off are walked as finely as the long shadows further out)
 	for (int i = 0; i < NN; i++) {
-		float t = (float(i) + u) * dtN;
+		float s0 = float(i) / float(NN), s1 = (float(i) + 1.0) / float(NN), su = (float(i) + u) / float(NN);
+		float t = nearEnd * pow(su, HV_NEAR_POW);
+		float dtN = nearEnd * (pow(s1, HV_NEAR_POW) - pow(s0, HV_NEAR_POW));
 		vec3 pp = dirP * t;
 		float y = camY + pp.y;
 #ifdef WELKIN_SHADOWS_LIVE
@@ -128,7 +136,7 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, float shaftLen, float shaf
 		}
 		vis *= cloudVis;
 #endif
-		shaft += t < shaftLen ? vis * min(dtN, shaftLen - t + 0.5 * dtN) : 0.0;
+		shaft += vis * exp(-t / SHAFT_FALLOFF) * dtN;
 		float rho = hvDensity(y, g0) * (t * t / (t * t + HV_NEAR_CLEAR * HV_NEAR_CLEAR));
 		float tr = exp(-tau);
 		hzSun += rho * vis * dtN * tr;
@@ -155,6 +163,7 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, float shaftLen, float shaf
 #ifdef HV_CLOUDS
 			vis *= welkinCloudShadow(pp, ce);
 #endif
+			shaft += vis * exp(-t / SHAFT_FALLOFF) * dt;
 			float rho = hvDensity(y, g) * (t * t / (t * t + HV_NEAR_CLEAR * HV_NEAR_CLEAR));
 			float tr = exp(-tau);
 			hzSun += rho * vis * dt * tr;
@@ -162,7 +171,7 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, float shaftLen, float shaf
 			tau += rho * dt * HV_SIGMA_MARCH;
 		}
 	}
-	return vec4(shaftLen > 0.0 ? shaft / shaftReach : 0.0, hzSun, hzAll, dist);
+	return vec4(shaftsOn ? shaft / SHAFT_FALLOFF : 0.0, hzSun, hzAll, dist);
 }
 #endif
 

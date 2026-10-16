@@ -65,13 +65,11 @@ void main() {
 		vec3 view = s.sky ? viewFromDepth(uv, 1.0, gbufferProjectionInverse) : s.view;
 		float dist = s.sky ? 1e4 : length(view);
 		vec3 dirP = mat3(gbufferModelViewInverse) * (view / max(length(view), 1e-4));
-		float shaftLen = 0.0;
+		bool shaftsOn = false;
 #if defined SUN_SHAFTS && defined WELKIN_SHADOWS_LIVE
-		if (shaftGate(sunW) > 0.0 && sunAngle < 0.5) {
-			shaftLen = min(min(dist, SHAFT_REACH), 0.98 * shadowReach());
-		}
+		shaftsOn = shaftGate(sunW) > 0.0 && sunAngle < 0.5;
 #endif
-		outShaft = hvWalk(q, dirP, dist, s.sky, shaftLen, SHAFT_REACH);
+		outShaft = hvWalk(q, dirP, dist, s.sky, shaftsOn);
 		return;
 	}
 #endif

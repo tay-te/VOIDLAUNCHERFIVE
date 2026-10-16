@@ -385,7 +385,7 @@ option.AERIAL_PERSPECTIVE.comment=Past the near land, the land's colours lean to
 value.AERIAL_PERSPECTIVE.0=Off
 suffix.AERIAL_PERSPECTIVE=%
 option.SUN_SHAFTS=Sun shafts
-option.SUN_SHAFTS.comment=At a low sun, beams of sunlit air between trunks and through gaps in the woods, and the long shadows of hills streaking the air. Subtle and smooth, never a fog; nearly nothing at noon. Needs Sun and moon shadows.
+option.SUN_SHAFTS.comment=God rays: beams of sunlit air between trunks, through gaps in the woods and the clouds and over ridges, in the sun's warm light, boldest at a low sun and in morning haze; side-on a soft glow toward the sun. Smooth, never a fog. Needs Sun and moon shadows.
 option.SHAFT_STRENGTH=Sun shaft strength
 option.SHAFT_STRENGTH.comment=How bright the sun shafts are.
 suffix.SHAFT_STRENGTH=%
@@ -421,4 +421,14 @@ option.HAZE_VOLUME_STRENGTH.comment=How thick the volumetric haze is.
 suffix.HAZE_VOLUME_STRENGTH=%
 option.HAZE_VOLUME_STEPS=Volumetric haze detail
 option.HAZE_VOLUME_STEPS.comment=How many points along each view the volumetric haze looks at. More gives cleaner light and shadow in the air.
+# ---- end atmos
+
+# ---- atmos (welkin-atmos): the sun beams and the bloom
+option.SHAFT_BEAMS=Sun beams
+option.SHAFT_BEAMS.comment=When the sun stands in or near the view, beams of its light stream from gaps in the crowns, between the clouds and over ridges toward the eye. Smooth, no grain.
+option.BLOOM=Bloom
+option.BLOOM.comment=A wide soft halo and a tighter core round the brightest light: the sun and the sky near it, sunlit clouds, pale stone and snow, glints on water, torches and lamps. Only light past white spreads; textures stay crisp.
+option.BLOOM_STRENGTH=Bloom strength
+option.BLOOM_STRENGTH.comment=How much of the brightest light spreads into the halo.
+suffix.BLOOM_STRENGTH=%
 # ---- end atmos
