@@ -310,6 +310,18 @@ void main() {
 		} else {
 			h = welkinHaze(st, eyePos, n, s.sky, 0.0, air, gl_FragCoord.xy);
 		}
+#if R2_SKY != 0
+		// (review round 2) from mid-afternoon into the golden hours the far haze takes a little warmth whatever its
+		// kind's own cool tint (a misty land's white at 16:48 read cool beside both reference packs' warm cream):
+		// cream in the afternoon, rose-peach on a clear morning, least once the hour is a full sunset (its glow has it)
+		{
+			float wA = 0.5 * smoothstep(0.1, 0.5, lum.warm) * (1.0 - 0.5 * smoothstep(0.8, 1.0, lum.warm)) * lum.clear * lum.up;
+			vec3 tw = sunAngle < 0.25 || sunAngle > 0.75 ? vec3(1.05, 0.97, 0.95) : vec3(1.06, 1.0, 0.88);
+			tw /= dot(tw, vec3(0.2126, 0.7152, 0.0722));
+			h.back.rgb = mix(h.back.rgb, h.back.rgb * tw, wA);
+			h.front.rgb = mix(h.front.rgb, h.front.rgb * tw, wA);
+		}
+#endif
 		// M5 underground (P6): the surface air hands over to the cave air at cave mouths
 		h.back.a *= 1.0 - ug.amount;
 		h.front.a *= 1.0 - ug.amount;
