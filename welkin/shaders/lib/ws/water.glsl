@@ -256,6 +256,12 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	return vec4(N * 0.5 + 0.5, 1.0);
 #elif WS_DEBUG_VIEW == 2
 	return vec4(vec3(w.reach) * sunShare, 1.0);
+#elif WS_DEBUG_VIEW == 6
+	// the water's inputs: red its sky light, green the body's opacity, blue the reflection's share (x4)
+	return vec4(w.lm.y, a, F * 4.0, 1.0);
+#elif WS_DEBUG_VIEW == 7
+	// the body's lit colour, and the texture and tint behind it (top half / bottom half of each pixel row pair)
+	return vec4((int(gl_FragCoord.y) & 2) == 0 ? body : w.tex * w.tint, 1.0);
 #endif
 	return vec4(rgb, alpha);
 }
