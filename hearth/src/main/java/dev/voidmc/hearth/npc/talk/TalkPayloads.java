@@ -19,6 +19,10 @@ public final class TalkPayloads {
 	private TalkPayloads() {
 	}
 
+	/** The most options one conversation shows, and markers one packet carries (both ends agree). */
+	public static final int MAX_OPTIONS = 64;
+	public static final int MAX_MARKERS = 4096;
+
 	public static void register() {
 		PayloadTypeRegistry.clientboundPlay().register(Show.TYPE, Show.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(Choose.TYPE, Choose.CODEC);
@@ -65,8 +69,10 @@ public final class TalkPayloads {
 			buf.writeUtf(p.title);
 			buf.writeUtf(p.settlement);
 			ComponentSerialization.STREAM_CODEC.encode(buf, p.speech);
-			buf.writeVarInt(p.options.size());
-			for (Option o : p.options) {
+			// as many as the reader takes (a longer list would leave bytes unread and drop the connection)
+			int count = Math.min(p.options.size(), MAX_OPTIONS);
+			buf.writeVarInt(count);
+			for (Option o : p.options.subList(0, count)) {
 				buf.writeUtf(o.id);
 				ComponentSerialization.STREAM_CODEC.encode(buf, o.label);
 				buf.writeBoolean(o.locked);
@@ -80,7 +86,7 @@ public final class TalkPayloads {
 			String title = buf.readUtf();
 			String settlement = buf.readUtf();
 			Component speech = ComponentSerialization.STREAM_CODEC.decode(buf);
-			int n = Math.min(buf.readVarInt(), 64);
+			int n = Math.min(buf.readVarInt(), MAX_OPTIONS);
 			List<Option> options = new ArrayList<>(n);
 			for (int i = 0; i < n; i++) {
 				String id = buf.readUtf();
@@ -106,13 +112,14 @@ public final class TalkPayloads {
 	public record Markers(int[] entities, byte[] markers) implements CustomPacketPayload {
 		public static final Type<Markers> TYPE = new Type<>(Hearth.id("npc/markers"));
 		public static final StreamCodec<RegistryFriendlyByteBuf, Markers> CODEC = StreamCodec.of((buf, p) -> {
-			buf.writeVarInt(p.entities.length);
-			for (int i = 0; i < p.entities.length; i++) {
+			int count = Math.min(p.entities.length, MAX_MARKERS);
+			buf.writeVarInt(count);
+			for (int i = 0; i < count; i++) {
 				buf.writeVarInt(p.entities[i]);
 				buf.writeByte(p.markers[i]);
 			}
 		}, buf -> {
-			int n = Math.min(buf.readVarInt(), 4096);
+			int n = Math.min(buf.readVarInt(), MAX_MARKERS);
 			int[] e = new int[n];
 			byte[] m = new byte[n];
 			for (int i = 0; i < n; i++) {

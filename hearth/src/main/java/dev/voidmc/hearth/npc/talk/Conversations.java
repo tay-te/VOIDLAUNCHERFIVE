@@ -164,6 +164,12 @@ public final class Conversations {
 			}
 		}
 		ranked.sort(Comparator.<Ranked>comparingInt(r -> r.option.order()).thenComparingInt(r -> r.index));
+		if (ranked.size() > TalkPayloads.MAX_OPTIONS) {
+			// too many to send: the last (goodbye) stays
+			Ranked last = ranked.get(ranked.size() - 1);
+			ranked = new ArrayList<>(ranked.subList(0, TalkPayloads.MAX_OPTIONS - 1));
+			ranked.add(last);
+		}
 		List<TalkPayloads.Option> options = new ArrayList<>(ranked.size());
 		for (Ranked r : ranked) {
 			options.add(new TalkPayloads.Option(r.option.id(), r.option.label(), r.option.locked(), r.option.hint(), r.option.tooltip()));
