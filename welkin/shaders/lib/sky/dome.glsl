@@ -176,7 +176,11 @@ vec3 skyFull(vec3 dirW, SkyFrame f) {
 		if (k == 4) {
 			col = mix(col, skyTable(3, SKY_ROW_SPRITE).rgb, 0.3 * f.show.r);
 		} else if (k > 0) {
-			col = mix(col, skyTable(k - 1, SKY_ROW_SPRITE).rgb, f.show.r);
+			// (review round 2) a low sun's core and middle stand past display white, so the disc outshines its glow and
+			// the bloom gives it a bright heart
+			float lowSun = 1.0 - smoothstep(0.0, 0.35, f.sunW.y);
+			float hot = k == 1 ? 1.0 + 0.45 * lowSun : (k == 2 ? 1.0 + 0.25 * lowSun : 1.0);
+			col = mix(col, skyTable(k - 1, SKY_ROW_SPRITE).rgb * hot, f.show.r);
 		}
 	}
 #endif

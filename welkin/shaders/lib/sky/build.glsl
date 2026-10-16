@@ -278,7 +278,12 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 
 	// the sun
 	// (air and tone (D): the dawn sun a quarter softer than the evening's in its low degrees)
+	// (review round 2: an eighth, was a quarter: the dawn crowns of a wood take the sun, as Complementary's glow)
+#if R2_LIGHT == 0
 	float dawnSoft = 1.0 - 0.25 * morning * (1.0 - smoothstep(0.04, 0.3, h));
+#else
+	float dawnSoft = 1.0 - 0.12 * morning * (1.0 - smoothstep(0.04, 0.3, h));
+#endif
 	vec3 sunLin = skyLandSunColour(h, morning) * skyLandSunStrength(h) * dawnSoft * weatherSun * (1.0 - s.blind);
 
 	// the sky's fill: clear blue, cooler as the sun sinks and bluer still in the blue hour; grey under cloud

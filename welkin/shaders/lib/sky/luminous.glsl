@@ -167,7 +167,14 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// the glow round the sun: mixed toward the sun's hue at a brighter level (amber at a low sun, never white)
 	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.45);
 	float glow = (0.22 + 0.55 * f.low) * f.up;
-	vec3 target = f.gold * max(y, 0.10) * (1.2 + 1.2 * lobe);
+	float tl = max(y, 0.10) * (1.2 + 1.2 * lobe);
+#if R2_SKY != 0
+	// (review round 2) round a low sun the glow stays under the disc's own light (about 0.8 on screen), so the pixel
+	// sun reads as a solid bright disc in its glow; it had blazed the sky round it to the disc's own cream and the
+	// disc showed only as its saturated rim (a hollow ring), or not at all
+	tl = min(tl, mix(6.0, 0.6, f.low * f.up));
+#endif
+	vec3 target = f.gold * tl;
 	L = mix(L, target, clamp(lobe * glow * k, 0.0, 0.92));
 	// the dome lit: the whole sky a little brighter by day, the sun's half more while the sun is low
 	L *= 1.0 + k * (0.10 + 0.14 * f.low * f.up * side);

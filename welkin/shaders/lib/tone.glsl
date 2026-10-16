@@ -170,6 +170,11 @@ vec3 welkinTone(vec3 x) {
 	// sunlit pale stone and sand read a clean near-white, not cream; the mids and the shade keep their colour
 	float yl = lumaLin(x);
 	x = mix(vec3(yl), x, LAND_SATURATION * (1.0 - toneHighlightDesat * smoothstep(0.45, 0.9, yl)));
+#if R2_LIGHT != 0
+	// (review round 2) the brightest faces a little under the shoulder's top, so pale stone in the morning sun keeps its
+	// texture and relief instead of a flat near white (valley 08:00's sunlit diorite)
+	x *= 1.0 - 0.14 * smoothstep(0.5, 1.0, yl);
+#endif
 	return toDisplay(clamp(x, 0.0, 1.0));
 }
 

@@ -197,7 +197,7 @@ CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField) {
 		// (review round 2) the billows: a belly's light runs through thicker and thinner lobes, a top has its domes
 		b.bill = wcBillow(b.p.xz, e);
 		if (h.n.y < -0.5) {
-			b.top += b.bill * 7.0 * (0.4 + 0.6 * b.depth);
+			b.top += b.bill * 3.0 * (0.4 + 0.6 * b.depth);
 		}
 		// (a belly's or a top's billows as relief toward a sun from the side: a swell's flank turned to the sun lit, its
 		// far flank in its own shade, so the lobes read as rounded volumes, not as blotches)
@@ -235,8 +235,9 @@ float wcLightPath(CloudBody b, vec3 l, CloudEnv e) {
 	// (a belly's light also crosses the cloud's breadth on its way down to it: deeper inside a broad cloud, more of it;
 	// so a wide, thin deck's belly darkens toward its heart instead of hanging overhead as one white sheet)
 	// (review round 1: 9, was 14: the belly's heart a softer shade, not grey blotches inside a white cloud)
-	// (review round 2: and the billows: a thick lobe of the belly darker, a thin one brighter)
-	own += b.hIn < 0.02 ? 9.0 * b.depth * (1.0 + 0.9 * b.bill) : 0.0;
+	// (review round 2: 6, and a little of the billows: a heavy grey heart and dark lobes read as dirty smudges in a
+	// lit cloud; the billows' form comes from their relief toward the sun instead)
+	own += b.hIn < 0.02 ? 6.0 * b.depth * (1.0 + 0.3 * b.bill) : 0.0;
 #ifdef WC_FIELD
 	float hl = length(l.xz);
 	if (b.field && hl > 0.03) {
@@ -291,7 +292,10 @@ vec3 wcBodyLight(CloudBody b, vec3 n, float sigma, vec3 rd, vec3 l, vec3 col, Cl
 	// (review round 2: the many-times-scattered light leans forward too, more gently than the single scattering: a
 	// cloud's shaded body seen toward the light is brighter than seen from behind it)
 	float msPhase = mix(1.0, min(wcHG(c, 0.35), 2.6), 0.45);
-	float ms = exp(-tau) * (p1 - fwd) + (0.6 * exp(-0.3 * tau) * mix(1.0, p1, 0.3) + 0.45 * exp(-0.1 * tau)) * under * msPhase;
+	// (review round 2: a third, softest octave: the light scattered all through a cloud keeps even a thick heart bright,
+	// as the reference packs' clouds are)
+	float ms = exp(-tau) * (p1 - fwd) + (0.6 * exp(-0.3 * tau) * mix(1.0, p1, 0.3) + 0.45 * exp(-0.1 * tau)
+		+ 0.22 * exp(-0.03 * tau)) * under * msPhase;
 	// (a top's dome takes the light most squarely at its heart, its rims at a grazing angle: domes read from above)
 	// (review round 1: a side bright at its brow and darker toward its foot, so a cloud's sides read as a rounded,
 	// lit volume from below, not a flat band)
@@ -340,7 +344,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// (a top's hollows, its thin rims and the lower tiers between taller ones see a little less of it than its domes)
 	float view = n.y > 0.5 ? mix(0.5, 0.92, smoothstep(0.0, 0.8, b.depth)) : (n.y < -0.5 ? 0.62 : mix(0.68, 0.92, b.hIn));
 	// (review round 1: 0.3, was 0.42, the same: fewer dark blotches in a belly)
-	float occl = (1.0 - 0.3 * b.depth * lower * mix(0.6, 1.0, tall)) * (1.0 - 0.16 * b.bill * lower);
+	float occl = (1.0 - 0.3 * b.depth * lower * mix(0.6, 1.0, tall)) * (1.0 - 0.08 * b.bill * lower);
 	// (at night less of it: the land's night fill is lifted for play, and a cloud as bright read as a patch of day sky)
 	vec3 amb = skyAmbientLight() * (view * occl * mix(1.0, 0.55, night));
 	// round sunset the shaded parts take the dusk sky's own hue, warm toward the sun and lilac away from it
@@ -365,7 +369,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	if (e.sun.y > -0.12) {
 		// (review round 2: the billows' relief, strongest with the sun low and to the side)
 		float lat = 1.0 - smoothstep(0.35, 0.95, e.sun.y);
-		light += wcBodyLight(b, n, sigma, rd, e.sun, sunC, e, g) * shadow * (1.0 + 0.55 * b.relief * lat);
+		light += wcBodyLight(b, n, sigma, rd, e.sun, sunC, e, g) * shadow * (1.0 + 0.5 * clamp(b.relief, -0.6, 1.0) * lat);
 		glint += g * shadow;
 	}
 	if (night > 0.0) {
@@ -407,7 +411,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		hueF /= wcLuma(hueF);
 		// (thin rims and ragged edges brightest, the thick heart of a belly a soft shade under them: the forms read)
 		float lift = (n.y > 0.5 ? 1.5 : (n.y < -0.5 ? 1.3 : 1.4 * mix(0.85, 1.1, b.hIn))) * mix(1.0, 1.25, sw * sw)
-			* mix(1.22, 0.74, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.3 * b.bill) * (1.0 + 0.22 * b.relief)
+			* mix(1.22, 0.74, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.15 * b.bill) * (1.0 + 0.22 * b.relief)
 			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
 		// (the shortfall is added in the floor's own warm light, not taken channel by channel: a per-channel max of a
 		// cool grey belly and a cream floor came out a mauve-brown mottle)
