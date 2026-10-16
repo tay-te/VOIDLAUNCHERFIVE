@@ -170,7 +170,10 @@ the POIs around their anchor.
 
 The brain (`FolkBrain`) thinks every 2 ticks with a player within 24 blocks, every 5 within 64, every 12 beyond;
 paths are asked for at most once per `repath_cooldown`, and a folk that makes no progress for ten seconds gives up
-(or, if no player can see it or where it is going, is moved there; a sleeper nobody sees slips into bed). Small human touches: they look at players passing
+(or, if no player can see it or where it is going, is moved there; a sleeper nobody sees slips into bed). A folk
+where no path starts at all (up on a well's rim by way of its cauldron, a fence top) hops down to the nearest
+whole-block ground after two searches in a row, seen or not. A night that runs into a new schedule block or a new
+day's schedule (midnight) is not a change: sleepers stay in bed. Small human touches: they look at players passing
 close, wave the first time they see one, greet players they know by name in chat (reputation 25+ or met before;
 at most once per 40 s per player), turn to face each other and take turns talking when two are at leisure together
 (and sometimes become friends), children play tag round the square, elders stoop and sit, everyone breathes.
