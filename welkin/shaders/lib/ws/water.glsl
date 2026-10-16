@@ -243,7 +243,7 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 		float spark = smoothstep(1.0 - share, 1.0 - share + 0.01, h) * lobe;
 		// sparkles where a cell is 1.5 to 6 screen pixels: nearer they would be blocks of white, farther they shimmer
 		float cellPx = 0.0625 / max(w.footprint, 1e-5);
-		float sparkle = smoothstep(1.2, 2.0, cellPx) * (1.0 - smoothstep(5.0, 9.0, cellPx));
+		float sparkle = smoothstep(1.2, 2.0, cellPx) * (1.0 - smoothstep(8.0, 14.0, cellPx));
 		float mean = share * lobe;
 		g += (mix(mean, spark, sparkle) * WS_GLITTER_GAIN + lobe * WS_GLITTER_GLOW) * mix(0.5, 1.0, F);
 		glint = skyDirectLight() * sunShare * (w.reach * g) * (1.0 - fall) * (1.0 - foam);
