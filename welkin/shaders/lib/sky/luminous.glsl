@@ -32,6 +32,10 @@
 #define WU_rainStrength
 uniform float rainStrength;
 #endif
+#ifndef WU_sunAngle
+#define WU_sunAngle
+uniform float sunAngle; // 0 sunrise, 0.25 noon, 0.5 sunset
+#endif
 
 struct SkyLum {
 	vec3 sunW;
@@ -80,7 +84,11 @@ SkyLum skyLumFrame(vec3 sunW) {
 	f.hue = h / max(skyLumLuma(h), 1e-4);
 	// the glow's amber: a warm gold (less orange than Complementary's), by how golden the hour is
 	const vec3 GOLD = vec3(1.0, 0.66, 0.36) / 0.7448;
-	vec3 g = mix(f.hue, GOLD, 0.6 * f.warm);
+	// (review round 1) the morning's a rose-gold, softer and pinker than the evening's amber (the warm pink morning
+	// air of a clear dawn; the land's own dawn sun is rose-gold too)
+	const vec3 ROSE_GOLD = vec3(1.0, 0.70, 0.58) / 0.7559;
+	float morning = sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0;
+	vec3 g = mix(f.hue, mix(GOLD, ROSE_GOLD, morning), 0.6 * f.warm);
 	f.gold = g / max(skyLumLuma(g), 1e-4);
 	return f;
 }

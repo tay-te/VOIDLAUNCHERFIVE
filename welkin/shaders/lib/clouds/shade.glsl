@@ -334,16 +334,21 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// ambient term, so the dusk and dawn decks stood as brown and charcoal slabs over a glowing sky. The floor is the
 	// sky behind the cloud in rose and peach (peach toward the sun, rose-lilac away from it), a little over it, most on
 	// the thin parts and the tops, so the forms still read; the lit tops and the silver lining go on over it.
-	float glowK = dusk * (1.0 - closed) * (1.0 - 0.7 * smoothstep(0.2, 0.8, rainStrength));
+	// (and through the golden hours, more gently: a morning or late-afternoon cloud's belly takes the warm low sky's
+	// light rather than a grey shade under it)
+	float goldenK = skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r * (1.0 - dusk);
+	float glowK = max(dusk, 0.75 * goldenK) * (1.0 - closed) * (1.0 - 0.7 * smoothstep(0.2, 0.8, rainStrength));
 	if (glowK > 0.0) {
 		float sw = wcSunward(rd, e);
 		vec3 behind = skyDomeOnly(rd, skyFrame());
 		// (rose away from the sun, peach toward it; their own colour, the clouds glow in the low sun's light)
 		vec3 hueF = mix(vec3(0.97, 0.72, 0.70), vec3(1.0, 0.70, 0.50), sw);
+		// (in the golden hours with the sun still high, a warm cream: the light of a bright low sky, not a sunset's)
+		hueF = mix(hueF, mix(vec3(0.96, 0.90, 0.88), vec3(1.0, 0.88, 0.74), sw), goldenK);
 		hueF /= wcLuma(hueF);
 		// (thin rims and ragged edges brightest, the thick heart of a belly a soft shade under them: the forms read)
 		float lift = (n.y > 0.5 ? 1.5 : (n.y < -0.5 ? 1.3 : 1.4 * mix(0.85, 1.1, b.hIn))) * mix(1.0, 1.25, sw * sw)
-			* mix(1.22, 0.74, b.depth * mix(0.6, 1.0, lower))
+			* mix(1.22, 0.74, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK)
 			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
 		vec3 fl = hueF * (wcLuma(behind) * lift);
 		c = mix(c, max(c, fl), glowK);

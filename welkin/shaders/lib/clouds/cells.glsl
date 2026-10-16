@@ -350,8 +350,9 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 		// deep inside, the puffs saturate: the cloud's heart is lumpy instead (a finer swell 6 cells across), so a
 		// broad deck has domes and hollows all over its top and a mottled belly, not one flat field
 		float lump = wcValue(m, 72, e.seed + 57u);
+		// (review round 1: the lumps take less of the field, 0.45 not 0.65: they drew grey blotches inside a belly)
 		c.field.y = margin > 0.0 || wide > 0.5
-			? 0.5 + 0.5 * clamp(max(margin, wide > 0.5 ? 0.3 : 0.0), 0.0, 1.0) * (0.35 + 0.65 * lump)
+			? 0.5 + 0.5 * clamp(max(margin, wide > 0.5 ? 0.3 : 0.0), 0.0, 1.0) * (0.55 + 0.45 * lump)
 			: clamp(0.5 + 0.5 * margin, 0.0, 0.5);
 		if (n > thr || wide > 0.5) {
 			// thin at a cloud's ragged edge, thick inside it (the shading's body)
