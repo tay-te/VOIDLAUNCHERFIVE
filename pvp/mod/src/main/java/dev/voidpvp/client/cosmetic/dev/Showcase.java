@@ -219,6 +219,8 @@ public final class Showcase {
         scenes.add(off);
         // The cosmetics style test (ShowcaseStyle): only when asked for by name (st-*).
         ShowcaseStyle.add(scenes);
+        // The polish views (ShowcasePolish): only when asked for by name (pv-*).
+        ShowcasePolish.add(scenes);
         // The same crowd, measured in alternating windows so machine load affects every mode alike.
         Scene ab = crowd("perf-ab", 6000);
         ab.ab = true;
@@ -899,10 +901,10 @@ public final class Showcase {
         });
     }
 
-    /** Whether a scene runs: every non-style scene by default, else what {@code only} names. */
+    /** Whether a scene runs: every scene but the style test's and the polish views by default, else what {@code only} names. */
     private boolean wanted(String name) {
         if (only == null) {
-            return !name.startsWith("st-");
+            return !name.startsWith("st-") && !name.startsWith("pv-");
         }
         if (only.contains(name)) {
             return true;
