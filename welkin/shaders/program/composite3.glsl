@@ -129,10 +129,10 @@ flat in vec3 beamLight;
 #define BEAM_STEPS 24
 #define BEAM_REACH 0.8
 #define BEAM_DECAY 0.955
-#define BEAM_GLOW 0.30
+#define BEAM_GLOW 0.18
 // how strong the beams are (of the sun-side horizon's light), and on the sky itself (the dome already glows there)
 #define BEAM_GAIN 0.9
-#define BEAM_SKY 0.40
+#define BEAM_SKY 0.12
 
 // Whether the open sky shows at screen point uv (1), or land, the far land or a cloud stands there (0).
 float beamOpen(vec2 uv) {
