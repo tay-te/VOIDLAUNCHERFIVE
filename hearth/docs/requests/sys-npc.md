@@ -30,6 +30,17 @@ its burner, housing other trades there may want a look (`plan`/`sim` housing). N
 
 ## 3. Build lanes: what the folk still cannot reach
 
-See `docs/review/systems/npc.md` §4 for the walkthrough's folk path results after the npc fixes (the audit's own
-HIGH list in `docs/review/audit/findings/walkthrough.md` counted many beds folk do reach, because it asked for a path
-to the bed block itself). The rows still failing there are building geometry for the archetype lanes.
+After the npc fixes the walkthrough's folk check (part A, eleven archetypes, four cultures) reaches 391 of 399 beds,
+job sites and stores from the street (the audit had 323 of 418). The eight left are mine work faces, reached from the
+cell beside them. The remaining HIGH rows of that run are for the archetype lanes and were already in the audit: the
+keep's wall-walk turrets (guard posts) unreached; the northern and desert bakery's oven nook (y+1, a raised floor with
+no step); the desert townhouse's bed alcove (a one-block step up a folk takes but a player must jump). See
+`docs/review/systems/npc.md` §4.
+
+## 4. Sim/plan: residents of a grown city with no home
+
+**Seen** (`FolkNight`, second run, Sigskog of 225, every plot built): the lord (Yngve Nes), a merchant and a builder had
+`home = NO_PLOT` at midnight; the lord's keep is his workplace only. They walked to the settlement's centre to "sleep"
+and stood there. The npc side now sends someone with no home to doze on an inn bench (or rests them at the centre
+when there is no inn), but a city whose plots are all built should have housed its lord (the keep's or a manor's
+beds) and its people: worth a look in the sim's housing assignment.
