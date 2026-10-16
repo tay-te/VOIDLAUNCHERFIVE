@@ -205,7 +205,7 @@ final class Secondary {
         float yLag = (hatY.value - (float) y) * PX;
         hatRoll = soft(yawLag * 0.11f, 9f) * DEG;
         hatPitchOut = soft(pitchLag * 0.14f - yLag * 0.9f, 10f) * DEG;
-        hatLift = -clamp(yLag * 0.35f, 0f, 1.3f);
+        hatLift = -clamp(yLag * 0.25f, 0f, 0.6f);
         hatSquash = clamp(-yLag * 0.03f, 0f, 0.08f) + 0.07f * squash;
 
         // -------------------------------------------------------------- halo

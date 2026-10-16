@@ -258,7 +258,7 @@ final class ShowcaseMotion {
         };
         s.time = time;
         s.settle = 44;
-        s.frames = 156;
+        s.frames = 204;
         s.fps = 24;
         s.motion = motion;
         s.reactive = motion ? 1f : 0f;

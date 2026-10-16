@@ -390,8 +390,10 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 // A breath of wind, so a cape at rest is never perfectly dead.
                 // An idle breeze with slow gusts, so a cape at rest sways and never hangs dead.
                 double gust = Math.max(0, Math.sin(time * 0.31)) * Math.max(0, Math.sin(time * 1.13));
-                cloth.windX = Math.sin(time * 0.7) * 0.9 + Math.sin(time * 1.9) * 0.35 + gust * 1.2;
-                cloth.windZ = Math.cos(time * 0.5) * 0.8 + gust * 1.6;
+                // Kept under what lifts a sheet against gravity (drag 7 x wind ~2.3 b/s): a gust
+                // stirs a standing cape, it never holds it out flat like a flag.
+                cloth.windX = Math.sin(time * 0.7) * 0.9 + Math.sin(time * 1.9) * 0.35 + gust * 0.6;
+                cloth.windZ = Math.cos(time * 0.5) * 0.8 + gust * 0.8;
                 cloth.windY = 0;
                 // Low-resolution capes step at 60 Hz (Cloth.step) and only on alternate frames;
                 // the time carries over, and the mesh is reused between steps.
