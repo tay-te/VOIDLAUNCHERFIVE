@@ -76,6 +76,8 @@ public final class SimWorld implements HearthWorld, SimContext {
 	private final Atlas atlas;
 	private final SettlementStore store;
 	private final SimIndex index;
+	/** Where live settlement ids are handed out: the overworld's index. */
+	private final SimIndex ids;
 	private final SpatialIndex spatial;
 	private final ChunkApplier applier;
 	private final LodFootprints footprints;
@@ -86,7 +88,6 @@ public final class SimWorld implements HearthWorld, SimContext {
 	/** Regions whose plan is being computed for adoption, and regions known to hold nobody (this session). */
 	private final LongSet adopting = new LongOpenHashSet();
 	private final LongSet unsettled = new LongOpenHashSet();
-	private final Map<UUID, Long> playerIn = new HashMap<>();
 	private final java.util.ArrayDeque<SimSettlement> saveQueue = new java.util.ArrayDeque<>();
 	private boolean quiet;
 	private boolean fastForward;
@@ -119,6 +120,10 @@ public final class SimWorld implements HearthWorld, SimContext {
 		this.store = new SettlementStore(data);
 		this.index = level.getDataStorage().computeIfAbsent(SimIndex.TYPE);
 		this.index.data().setOps(this.ops);
+		// live ids come from the overworld's index whatever level a settlement is in, so they are unique on the server
+		// (other modules key per-player state by settlement id alone)
+		this.ids = level.dimension() == net.minecraft.world.level.Level.OVERWORLD ? this.index
+			: level.getServer().overworld().getDataStorage().computeIfAbsent(SimIndex.TYPE);
 		var embody = rules.config.embody();
 		this.spatial = new SpatialIndex(embody.radius() + embody.hysteresis(), rules.config.atlas().guardMargin());
 		this.applier = new ChunkApplier(level, this.spatial, blueprints(), this.probe, () -> !INLINE_BLUEPRINTS);
@@ -130,8 +135,21 @@ public final class SimWorld implements HearthWorld, SimContext {
 	/** Reads the level's settlements from disk and puts them on the clock. */
 	public void load() {
 		List<SimSettlement> loaded = this.store.loadAll(this.ops);
+		int bad = 0;
 		for (SimSettlement s : loaded) {
-			register(s, false);
+			if (!Atlas.isHistoric(s.id())) {
+				// ids are never handed out twice, even if the index was saved before a settlement it counted (a crash)
+				this.ids.reserveId(s.id());
+			}
+			try {
+				register(s, false);
+			} catch (RuntimeException e) {
+				// one settlement that will not come back must not keep the world from loading: its file stays for a fix
+				LOG.error("hearth: settlement {} ({}) could not be loaded; left out of this session, its file kept", s.id(), s.name(), e);
+				this.settlements.remove(s.id());
+				this.spatial.remove(s.id());
+				bad++;
+			}
 		}
 		// the files are the truth: drop index entries whose file is gone, add those it missed
 		for (SimIndex.Entry e : this.index.entries()) {
@@ -139,7 +157,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 				this.index.remove(e.id());
 			}
 		}
-		LOG.info("hearth: {} settlements loaded in {}", loaded.size(), this.level.dimension().identifier());
+		LOG.info("hearth: {} settlements loaded in {}", loaded.size() - bad, this.level.dimension().identifier());
 	}
 
 	private void register(SimSettlement s, boolean isNew) {
@@ -422,7 +440,12 @@ public final class SimWorld implements HearthWorld, SimContext {
 		this.adopting.add(region);
 		this.atlas.planAsync(rx, rz).whenComplete((p, t) -> this.level.getServer().execute(() -> {
 			this.adopting.remove(region);
-			if (p != null) {
+			if (t != null) {
+				LOG.error("hearth: the history of region {},{} in {} could not be worked out; it stays unsettled this session", rx, rz,
+					this.level.dimension().identifier(), t);
+				this.unsettled.add(region);
+			} else if (p != null && SimServer.world(this.level) == this) {
+				// (not once this world has been unloaded: a server stopping while the plan was made)
 				considerAdoption(p, pos);
 			}
 		}));
@@ -438,7 +461,20 @@ public final class SimWorld implements HearthWorld, SimContext {
 		BoundingBox b = plan.bounds();
 		if (pos.getMaxBlockX() >= b.minX() - m && pos.getMinBlockX() <= b.maxX() + m && pos.getMaxBlockZ() >= b.minZ() - m
 			&& pos.getMinBlockZ() <= b.maxZ() + m) {
-			adopt(plan);
+			try {
+				adopt(plan);
+			} catch (RuntimeException e) {
+				// a bug in the resident factory or a FOUNDED listener: the town is not adopted this session (its region is not
+				// marked adopted, so a later session tries again), and the chunk loading goes on
+				LOG.error("hearth: adopting the settlement of region {},{} failed; trying again next session", plan.regionX(), plan.regionZ(), e);
+				this.unsettled.add(region);
+				RegionPlan.Site site = plan.site();
+				if (site != null && this.settlements.remove(site.settlementId()) != null) {
+					this.spatial.remove(site.settlementId());
+					this.index.remove(site.settlementId());
+					this.index.unmarkAdopted(region);
+				}
+			}
 		}
 	}
 
@@ -479,7 +515,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		this.server.stats().adoptNanos.add(System.nanoTime() - start);
 		LOG.info("hearth: adopted {} ({} {}, {} souls, {} plots, founded {} days before the world) at {}", s.name(), s.culture().getSerializedName(),
 			s.tier().getSerializedName(), s.population(), s.plots().size(), site.age(), s.center().toShortString());
-		SettlementEvents.FOUNDED.invoker().onFounded(this, s);
+		fireFounded(s);
 		for (SimPlot p : s.plots()) {
 			this.applier.enqueuePlot(p);
 		}
@@ -951,7 +987,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		BlockPos center = new BlockPos(at.getX(), y, at.getZ());
 		Culture c = culture != null ? culture
 			: dev.voidmc.hearth.sim.terrain.CultureVote.at(at.getX(), at.getZ(), this.probe::biomeHolder, b -> HearthServices.culture(b));
-		long id = this.index.allocateId();
+		long id = this.ids.allocateId();
 		RandomSource random = RandomSource.create(id * 0x9E3779B97F4A7C15L ^ this.level.getSeed());
 		String n = name != null ? name : Names.settlement(c, random);
 		return new Founding(id, n, c, center, random);
@@ -989,7 +1025,16 @@ public final class SimWorld implements HearthWorld, SimContext {
 		s.markDirty();
 		register(s, isNew);
 		LOG.info("hearth: founded {} ({}) at {}", s.name(), f.culture.getSerializedName(), f.center.toShortString());
-		SettlementEvents.FOUNDED.invoker().onFounded(this, s);
+		fireFounded(s);
+	}
+
+	/** {@code FOUNDED}; a listener that throws is logged, and the settlement stays founded for everyone else. */
+	private void fireFounded(SimSettlement s) {
+		try {
+			SettlementEvents.FOUNDED.invoker().onFounded(this, s);
+		} catch (RuntimeException e) {
+			LOG.error("hearth: a FOUNDED listener failed for {} (#{})", s.name(), s.id(), e);
+		}
 	}
 
 	private int foundings;
@@ -1024,11 +1069,6 @@ public final class SimWorld implements HearthWorld, SimContext {
 			this.applier.enqueuePlot(p);
 		}
 		return System.nanoTime() - start;
-	}
-
-	/** Players near settlements: embodiment and arrival banners. Called every 20 ticks. */
-	public Map<UUID, Long> playerPresence() {
-		return this.playerIn;
 	}
 
 	/** Ages/residents helper for commands: counts by age stage. */

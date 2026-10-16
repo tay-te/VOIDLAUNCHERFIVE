@@ -190,7 +190,9 @@ public final class SimServer {
 	public static long budgetNanos(SimConfig.Clock c, double mspt) {
 		double comfortable = c.highMspt() * 0.6;
 		double f = mspt <= comfortable ? 1 : mspt >= c.highMspt() ? 0 : 1 - (mspt - comfortable) / (c.highMspt() - comfortable);
-		return (long) ((c.minBudgetMs() + (c.budgetMs() - c.minBudgetMs()) * f) * 1e6);
+		// (a minimum set above the budget is the budget: slowing down never raises it)
+		double min = Math.min(c.minBudgetMs(), c.budgetMs());
+		return (long) ((min + (c.budgetMs() - min) * f) * 1e6);
 	}
 
 	void tick() {
@@ -239,16 +241,15 @@ public final class SimServer {
 		}
 		long applierBudget = (long) (this.rules.config.applier().budgetMs() * 1e6);
 		for (SimWorld w : this.worlds.values()) {
-			w.applier().tick(applierBudget, this.rules.config.applier().maxBlocks());
+			// one world's failure must not stop the others, nor the server: each part is caught, logged and tried next tick
+			guard(w, "writing construction", () -> w.applier().tick(applierBudget, this.rules.config.applier().maxBlocks()));
 			// sites for daughter hamlets, a few candidates a tick
-			w.tickHamlets(HAMLET_BUDGET);
+			guard(w, "looking for hamlet sites", () -> w.tickHamlets(HAMLET_BUDGET));
 			// caravans arriving, and trees owed by abstract foresters felled in loaded woods
-			w.tickLand((long) (this.rules.resources.extraction().fellBudgetMs() * 1e6));
+			guard(w, "caravans and felling", () -> w.tickLand((long) (this.rules.resources.extraction().fellBudgetMs() * 1e6)));
 		}
 		if (this.ticks % 20 == 0) {
-			for (SimWorld w : this.worlds.values()) {
-				presence(w);
-			}
+			presence();
 		}
 		// autosaves are written a slice at a time
 		long saveStart = System.nanoTime();
@@ -270,57 +271,103 @@ public final class SimServer {
 
 	// ---------------------------------------------------------------- embodiment and arrivals
 
-	private void presence(SimWorld w) {
+	/** Where each player stood at the last look: the level and the settlement (whose ids are per level), for the banner. */
+	private record Presence(ResourceKey<Level> level, long settlement) {
+	}
+
+	private final Map<UUID, Presence> presence = new java.util.HashMap<>();
+	/** Failures so far of each part of the tick in each world, so a part failing every tick logs once, then now and then. */
+	private final Map<String, Integer> failures = new java.util.HashMap<>();
+
+	/**
+	 * Embodiment and the arrival banner, every second, for every player on the server: one who is in a level Hearth does
+	 * not run in (the Nether, the End) stands in no settlement, so walking through a portal out of a town says so.
+	 */
+	private void presence() {
 		SimConfig.Embody cfg = this.rules.config.embody();
-		Set<SimSettlement> was = this.embodied.get(w);
-		Set<SimSettlement> now = new HashSet<>();
-		for (ServerPlayer p : w.level().players()) {
-			int px = p.getBlockX();
-			int pz = p.getBlockZ();
-			if (!p.isSpectator()) {
-				for (long id : w.spatial().near(px, pz)) {
-					SimSettlement s = w.settlement(id);
-					if (s != null && distance(s.bounds(), px, pz) <= cfg.radius() + (s.embodied() ? cfg.hysteresis() : 0)) {
-						now.add(s);
+		Map<SimWorld, Set<SimSettlement>> now = new IdentityHashMap<>();
+		for (SimWorld w : this.worlds.values()) {
+			now.put(w, new HashSet<>());
+		}
+		for (ServerPlayer p : this.server.getPlayerList().getPlayers()) {
+			SimWorld w = world(p.level());
+			SimSettlement in = null;
+			if (w != null) {
+				int px = p.getBlockX();
+				int pz = p.getBlockZ();
+				if (!p.isSpectator()) {
+					Set<SimSettlement> near = now.get(w);
+					for (long id : w.spatial().near(px, pz)) {
+						SimSettlement s = w.settlement(id);
+						if (s != null && distance(s.bounds(), px, pz) <= cfg.radius() + (s.embodied() ? cfg.hysteresis() : 0)) {
+							near.add(s);
+						}
 					}
 				}
+				in = w.settlementAt(px, pz, cfg.bannerMargin());
 			}
-			SimSettlement in = w.settlementAt(px, pz, cfg.bannerMargin());
-			long inId = in == null ? Long.MIN_VALUE : in.id();
-			Long prev = w.playerPresence().put(p.getUUID(), inId);
-			if (prev == null || prev != inId) {
-				if (ServerPlayNetworking.canSend(p, ArrivalPayload.TYPE)) {
-					ServerPlayNetworking.send(p, in == null ? ArrivalPayload.LEFT : ArrivalPayload.of(in));
-				}
+			Presence at = new Presence(p.level().dimension(), in == null ? Long.MIN_VALUE : in.id());
+			Presence prev = this.presence.put(p.getUUID(), at);
+			// (leaving every town for the wilderness of another level is no news to a client that thinks it is in none)
+			boolean changed = prev == null ? in != null : !prev.equals(at) && (in != null || prev.settlement != Long.MIN_VALUE);
+			if (changed && ServerPlayNetworking.canSend(p, ArrivalPayload.TYPE)) {
+				ServerPlayNetworking.send(p, in == null ? ArrivalPayload.LEFT : ArrivalPayload.of(in));
 			}
 		}
-		w.playerPresence().keySet().removeIf(id -> w.level().getServer().getPlayerList().getPlayer(id) == null);
+		this.presence.keySet().removeIf(id -> this.server.getPlayerList().getPlayer(id) == null);
 		for (SimSettlement s : this.pinned) {
-			if (w.settlement(s.id()) == s) {
-				now.add(s);
-			}
-		}
-		for (SimSettlement s : was) {
-			if (!now.contains(s)) {
-				s.setEmbodied(false);
-				SettlementEvents.EMBODIMENT_CHANGED.invoker().onEmbodimentChanged(w, s, false);
-			}
-		}
-		for (SimSettlement s : now) {
-			if (!was.contains(s)) {
-				s.setEmbodied(true);
-				SettlementEvents.EMBODIMENT_CHANGED.invoker().onEmbodimentChanged(w, s, true);
-				schedule(w, s, true);
-				// partial stages are now written as they accrue
-				for (SimPlot plot : s.plots()) {
-					if (plot.isActive()) {
-						w.applier().enqueuePlot(plot);
-					}
+			for (SimWorld w : this.worlds.values()) {
+				if (w.settlement(s.id()) == s) {
+					now.get(w).add(s);
 				}
 			}
 		}
-		was.clear();
-		was.addAll(now);
+		for (SimWorld w : this.worlds.values()) {
+			Set<SimSettlement> was = this.embodied.get(w);
+			Set<SimSettlement> here = now.get(w);
+			if (was == null || here == null) {
+				continue;
+			}
+			for (SimSettlement s : was) {
+				if (!here.contains(s)) {
+					s.setEmbodied(false);
+					guard(w, "letting " + s.name() + " go", () -> SettlementEvents.EMBODIMENT_CHANGED.invoker().onEmbodimentChanged(w, s, false));
+				}
+			}
+			for (SimSettlement s : here) {
+				if (!was.contains(s)) {
+					s.setEmbodied(true);
+					guard(w, "embodying " + s.name(), () -> SettlementEvents.EMBODIMENT_CHANGED.invoker().onEmbodimentChanged(w, s, true));
+					schedule(w, s, true);
+					// partial stages are now written as they accrue
+					for (SimPlot plot : s.plots()) {
+						if (plot.isActive()) {
+							w.applier().enqueuePlot(plot);
+						}
+					}
+				}
+			}
+			was.clear();
+			was.addAll(here);
+		}
+	}
+
+	/**
+	 * Runs one part of a world's tick, catching what it throws: a bug in one settlement, a listener or a blueprint must
+	 * not take the server down. The first failure of each part is logged with its trace, later ones now and then.
+	 */
+	void guard(SimWorld w, String what, Runnable part) {
+		try {
+			part.run();
+		} catch (RuntimeException | LinkageError e) {
+			String key = w.level().dimension().identifier() + " " + what;
+			int n = this.failures.merge(key, 1, Integer::sum);
+			if (n == 1) {
+				LOG.error("hearth: {} failed in {}; carrying on", what, w.level().dimension().identifier(), e);
+			} else if (Integer.bitCount(n) == 1) {
+				LOG.error("hearth: {} failed in {} again ({} times now): {}", what, w.level().dimension().identifier(), n, e.toString());
+			}
+		}
 	}
 
 	/** Horizontal distance from a column to a box (0 inside). */

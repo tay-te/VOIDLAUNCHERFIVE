@@ -76,6 +76,8 @@ public final class ChunkApplier {
 	private static final int WAIT_TICKS = 10;
 	private final java.util.function.BooleanSupplier defer;
 	private int ticks;
+	/** Chunk passes that threw (and were skipped). */
+	public final LongAdder failures = new LongAdder();
 	/** Chunk passes put off because a blueprint they needed was still being made. */
 	public final LongAdder deferred = new LongAdder();
 
@@ -155,7 +157,18 @@ public final class ChunkApplier {
 				// it will be queued again when it loads
 				continue;
 			}
-			int done = applyChunk(chunk, key, start, budgetNanos, maxBlocks - blocks);
+			int done;
+			try {
+				done = applyChunk(chunk, key, start, budgetNanos, maxBlocks - blocks);
+			} catch (RuntimeException e) {
+				// a blueprint or block entity that will not write: this chunk waits for its next load or the plot's next
+				// progress, the rest of the queue goes on (blocks written before the failure are found in place next time)
+				this.failures.increment();
+				if (this.failures.sum() == 1 || Long.bitCount(this.failures.sum()) == 1) {
+					LOG.error("hearth: writing construction into chunk {},{} failed ({} so far)", ChunkPos.getX(key), ChunkPos.getZ(key), this.failures.sum(), e);
+				}
+				continue;
+			}
 			if (done < 0) {
 				// ran out of budget part way: finish it first next tick
 				this.queue.addAndMoveToFirst(key);
@@ -177,7 +190,8 @@ public final class ChunkApplier {
 		AppliedLedger before = ledger;
 		int placed = 0;
 		boolean unfinished = false;
-		List<PlotRef> refs = this.index.refs(key);
+		// a copy: giving up a plot fires PLOT_ABANDONED, whose listeners may change the settlement's plots and so the index
+		List<PlotRef> refs = List.copyOf(this.index.refs(key));
 		if (this.defer.getAsBoolean() && !ready(refs, ledger)) {
 			// every blueprint this chunk may need is being made in the background: write it once they are all ready
 			this.waiting.add(key);
