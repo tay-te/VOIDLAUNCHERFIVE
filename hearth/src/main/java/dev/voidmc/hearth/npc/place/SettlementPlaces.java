@@ -86,7 +86,7 @@ public final class SettlementPlaces {
 		return this.publicPlaces.getOrDefault(type, List.of());
 	}
 
-	/** Seats, tables and hearths in the settlement's inns. */
+	/** Seats, tables, hearths and counters in the settlement's inns, taverns and hostels. */
 	public List<Poi> inn(Settlement settlement) {
 		if (this.dirty) {
 			rebuild(settlement);
@@ -123,7 +123,8 @@ public final class SettlementPlaces {
 			}
 			String path = plot.spec().archetype().getPath();
 			boolean home = path.startsWith("house/") || path.startsWith("dev/home");
-			boolean inn = path.equals("commerce/inn");
+			// where folk go for a drink and a seat of an evening, and where someone with no home dozes: inns, taverns, hostels
+			boolean inn = path.equals("commerce/inn") || path.equals("commerce/tavern") || path.equals("commerce/hostel");
 			for (Poi poi : e.getValue().pois) {
 				if (inn && (poi.type() == PoiType.SEAT || poi.type() == PoiType.TABLE || poi.type() == PoiType.HEARTH || poi.type() == PoiType.COUNTER)) {
 					this.innPlaces.add(poi);

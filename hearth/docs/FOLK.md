@@ -152,8 +152,9 @@ jailers keep the night watch like a third of the guards; entertainers rise late 
 and butchers start before dawn; the charcoal burner tends the clamp until 19:00; miners, haulers, diggers, salters and
 beekeepers lunch at work.
 
-Someone the sim has not housed yet (no home plot, no bed) dozes on a bench at the inn at night rather than standing
-about the town's centre.
+Someone the sim has not housed yet (no home plot, no bed) dozes on a bench at the inn (a tavern or hostel counts; else
+any public bench) at night rather than standing about the town's centre. Taverns and hostels are inns for the evening
+and the meals at the inn too.
 
 Overrides, checked once a second: a monster in sight → flee (and if there are several, or raiders, the town alarm:
 one folk runs to ring the nearest bell, everyone else goes home and cowers); rain on outdoor activities → shelter

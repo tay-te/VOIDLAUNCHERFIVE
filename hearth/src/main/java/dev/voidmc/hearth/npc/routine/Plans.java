@@ -50,12 +50,16 @@ public final class Plans {
 	}
 
 	/**
-	 * To bed; someone with no home of their own (the sim has not housed them yet) dozes on a bench at the inn rather than
-	 * standing about the town's centre all night.
+	 * To bed; someone with no home of their own (the sim has not housed them yet) dozes on a bench at the inn (a tavern,
+	 * a hostel; else any public bench) rather than standing about the town's centre all night.
 	 */
 	private static Task sleep(FolkBrain brain, ResidentPlaces p) {
 		if (p.bed == null && brain.resident.home == Resident.NO_PLOT && NpcData.of(brain.resident).anchor().isEmpty()) {
 			Poi seat = pick(brain, brain.town.places.inn(brain.settlement), PoiType.SEAT);
+			if (seat == null && brain.folk.level() instanceof ServerLevel level) {
+				// no inn: a bench somewhere public
+				seat = pick(brain, brain.town.places.all(level, brain.settlement, PoiType.SEAT));
+			}
 			if (seat != null) {
 				return new Tasks.Sit(seat, 20 * 60 * 5, ItemStack.EMPTY, null);
 			}
