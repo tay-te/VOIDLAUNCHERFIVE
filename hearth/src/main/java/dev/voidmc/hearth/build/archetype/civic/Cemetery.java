@@ -113,21 +113,29 @@ public final class Cemetery implements Archetype {
 				front.add(new int[]{x, 0});
 			}
 		}
-		Enclosure.run(d, front, 2);
+		boundary(d, front, 2, level);
 
 		// --- the chapel, its back (and in a corner its side) in the boundary
 		if (chapel) {
 			chapel(d, t, chx0, chapelZ0, chx1, dp - 1, level[chapelZ0]);
 		}
-		List<int[]> sides = new ArrayList<>();
+		// (where the terraces step up beside a run of wall, the wall rises with them: its coping stays two and a half over
+		// the highest ground inside beside it, so nobody steps from a terrace onto the wall head and along it over the drop)
 		for (int z = 1; z < dp; z++) {
-			sides.add(new int[]{0, z});
-			sides.add(new int[]{w - 1, z});
+			int hi = level[z];
+			for (int k = -1; k <= 1; k++) {
+				if (z + k >= 0 && z + k < dp) {
+					hi = Math.max(hi, level[z + k]);
+				}
+			}
+			int hgt = 2 + hi - level[z];
+			boundary(d, List.of(new int[]{0, z}, new int[]{w - 1, z}), hgt, level);
 		}
+		List<int[]> back = new ArrayList<>();
 		for (int x = 1; x < w - 1; x++) {
-			sides.add(new int[]{x, dp - 1});
+			back.add(new int[]{x, dp - 1});
 		}
-		Enclosure.run(d, sides, 2);
+		boundary(d, back, 2 + Math.max(0, level[Math.max(0, dp - 2)] - level[dp - 1]), level);
 
 		// --- the walks: the main walk from the gate to the chapel, cross walks every seven rows from the middle one, the
 		// square round the calvary; graves fill the rows between the walks, their feet on a walk, heads away from it
@@ -238,7 +246,8 @@ public final class Cemetery implements Archetype {
 						int[][] cells = Graves.cells(x, fz, head, cross);
 						boolean ok = true;
 						for (int[] c : cells) {
-							ok &= c[0] >= 1 && c[0] <= w - 2 && c[1] >= 1 && c[1] <= dp - 2 && !taken[c[0]][c[1]] && Enclosure.ground(d, c[0], y, c[1]);
+							// (a walk left along the boundary: a headstone against the wall is the step up onto its head)
+							ok &= c[0] >= 2 && c[0] <= w - 3 && c[1] >= 2 && c[1] <= dp - 3 && !taken[c[0]][c[1]] && Enclosure.ground(d, c[0], y, c[1]);
 						}
 						if (!ok) {
 							continue;
@@ -285,6 +294,7 @@ public final class Cemetery implements Archetype {
 				Venue.bench(d, c[0], ly, c[1], Dirs.RIGHT, 1, c[2] == 0 ? Dirs.BACK : Dirs.FRONT);
 			}
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, maxH - 1);
 	}
 
@@ -352,5 +362,28 @@ public final class Cemetery implements Archetype {
 			Sacred.pews(d, x0 + 1, x1 - 1, z0 + 2, iz1 - 3, y, cx, Dirs.BACK, false);
 		}
 		Lighting.room(d, x0 + 1, z0 + 1, x1 - 1, z1 - 1, y);
+	}
+
+	/**
+	 * The boundary over the cells, each at least {@code height} high, and higher where the land outside rises toward the
+	 * wall's head (a retaining wall on the uphill side): its coping stands two and a half over the ground beyond it too, so
+	 * nobody walks from the hillside onto the wall head and along it over the drop inside.
+	 */
+	private static void boundary(Draft d, List<int[]> cells, int height, int[] level) {
+		int w = d.frontage();
+		int dp = d.depth();
+		for (int[] c : cells) {
+			int x = c[0];
+			int z = c[1];
+			int out = Integer.MIN_VALUE;
+			for (int[] o : new int[][]{{x - 1, z}, {x + 1, z}, {x, z - 1}, {x, z + 1}}) {
+				if (o[0] < 0 || o[0] >= w || o[1] < 0 || o[1] >= dp) {
+					out = Math.max(out, d.site().ground(o[0], o[1]));
+				}
+			}
+			int g = level[Math.clamp(z, 0, dp - 1)];
+			int h = out == Integer.MIN_VALUE ? height : Math.max(height, out - g + 2);
+			Enclosure.run(d, List.of(c), h);
+		}
 	}
 }

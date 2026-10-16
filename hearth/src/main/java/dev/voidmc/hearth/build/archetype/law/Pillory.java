@@ -38,6 +38,22 @@ public final class Pillory implements Archetype {
 		return INFO;
 	}
 
+	/** A ring of the footing stone set into the ground round the post's foot behind (x, z), the post's own cell left. */
+	static void plazaRing(Draft d, int x, int z) {
+		var stone = dev.voidmc.hearth.build.kit.landmark.Stone.footing(d);
+		try (var st = d.stage(dev.voidmc.hearth.api.StageKind.EXTERIOR)) {
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dz = 0; dz <= 2; dz++) {
+					int xx = x + dx;
+					int zz = z + dz;
+					if (xx >= 0 && zz >= 0 && xx < d.frontage() && zz < d.depth()) {
+						d.set(xx, -1, zz, stone.full());
+					}
+				}
+			}
+		}
+	}
+
 	@Override
 	public void draw(Draft d) {
 		int w = d.frontage();
@@ -47,8 +63,10 @@ public final class Pillory implements Archetype {
 		d.entrance(cx, 0, -1);
 		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
 		Paving.lay(d, 0, 0, w - 1, dp - 1, 0, Paving.paint(d, Paving.pattern(d), cx, (dp - 1) / 2.0, 2, false));
-		// the dais: a step up (two on a deeper plot), the flight across the middle of its front
-		int h = dp >= 6 && d.maxHeight() >= 8 ? 2 : 1;
+		// the dais: a step up (two on a deeper plot), the flight across the middle of its front (the mesa's post stands on
+		// the plaza's own ground, a ring of stones round its foot)
+		boolean pueblo = dev.voidmc.hearth.build.kit.civic.Pueblo.is(d);
+		int h = pueblo ? 0 : dp >= 6 && d.maxHeight() >= 8 ? 2 : 1;
 		int z0 = h;
 		int z1 = dp - 1 - (dp >= 7 ? 1 : 0);
 		int x0 = 0;
@@ -60,11 +78,21 @@ public final class Pillory implements Archetype {
 		int pz = z0 + Math.min(1, z1 - z0);
 		int s0 = Math.max(x0 + 1, px - 1);
 		int s1 = Math.min(x1 - 1, px + 1);
-		Justice.dais(d, x0, z0, x1, z1, h, s0, s1);
+		if (pueblo) {
+			plazaRing(d, px, pz);
+		} else {
+			Justice.dais(d, x0, z0, x1, z1, h, s0, s1);
+		}
 		// a stone column in the masonry and market-town traditions, a timber frame elsewhere
 		Tradition t = Tradition.of(d);
-		boolean column = t == Tradition.TIMBER || t == Tradition.ALPINE || t == Tradition.STONE || t == Tradition.MEDITERRANEAN;
-		int top = column ? Justice.column(d, px, h, pz, Dirs.FRONT) : Justice.pillory(d, px, h, pz, Dirs.FRONT);
+		// (the karst's cangue at the yamen's gate; a whipping post on the steppe, in the tropics, the north and the mesa's
+		// missions; the pillory's neck board in the desert)
+		int top = switch (t) {
+			case TIMBER, ALPINE, STONE, MEDITERRANEAN -> Justice.column(d, px, h, pz, Dirs.FRONT);
+			case KARST -> Justice.cangue(d, px, h, pz, Dirs.FRONT);
+			case STEPPE, STILT, LOG -> Justice.post(d, px, h, pz, Dirs.FRONT);
+			case ADOBE -> dev.voidmc.hearth.build.kit.civic.Pueblo.is(d) ? Justice.post(d, px, h, pz, Dirs.FRONT) : Justice.pillory(d, px, h, pz, Dirs.FRONT);
+		};
 		if (wide) {
 			// the stocks along the dais beside it, their bench behind
 			int sx = right ? x0 : x1;
@@ -87,6 +115,7 @@ public final class Pillory implements Archetype {
 			top = Math.max(top, Lamps.standard(d, lx, 0, lz, 4, Manner.lamp(d), null));
 		}
 		d.poi(PoiType.MEETING_POINT, px, 0, -1, Dirs.BACK);
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 1));
 	}
 }

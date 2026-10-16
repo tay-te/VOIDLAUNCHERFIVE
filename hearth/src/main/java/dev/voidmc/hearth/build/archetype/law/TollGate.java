@@ -19,6 +19,7 @@ import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Signs;
 import dev.voidmc.hearth.build.kit.civic.Storeys;
 import dev.voidmc.hearth.build.kit.civic.Towers;
@@ -184,12 +185,18 @@ public final class TollGate implements Archetype {
 		Side pierRoad = Side.of(rx0, 0, w - 1, dp - 1, Dirs.LEFT);
 		Openings.door(d, pierRoad, dp - 2, 0, 1, new Openings.DoorOpts(false, false, false));
 		Stairs.ladder(d, rx, 1, 0, fy - 1, Dirs.BACK);
+		// the guard's lodge at the ladder's foot: his chest and barrels of the tolls taken in kind against the walls
+		Rooms.Room guard = new Rooms.Room(rx0 + 1, 1, w - 2, dp - 2, 0, Math.max(2, fy - 1));
+		guard.block(rx, 1);
+		guard.keep(rx, 2);
+		guard.keep(rx0 + 1, dp - 2);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, guard), Rooms.Type.STORAGE, 0, JobType.NONE);
 		Lighting.room(d, rx0 + 1, 1, w - 2, dp - 2, 0);
 		// --- the keeper's room
 		Rooms.Room keeper = new Rooms.Room(1, 1, w - 2, dp - 2, fy, 3);
 		keeper.keep(rx, 1);
 		keeper.keep(rx, 2);
-		Rooms.furnish(d, keeper, Rooms.Type.BEDROOM, 1, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, keeper), Rooms.Type.BEDROOM, 1, JobType.NONE);
 		Lighting.room(d, keeper);
 
 		// --- the barrier across the road's mouth on the field side: a striped boom at head height, its counterweight
@@ -202,7 +209,10 @@ public final class TollGate implements Archetype {
 		if (d.isEmpty(lx1 - 1, 3, sz)) {
 			Signs.hangingSign(d, lx1 - 1, 3, sz, Dirs.LEFT, List.of(new String[]{"", ""}, new String[]{"hearth.build.law.toll", "Toll"}, new String[]{"", ""}));
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 2));
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(maxH - 1, skyline + 2), pueblo + 2));
 	}
 
 	/** Setts down the passage, kerbed along each side in the dressing. */

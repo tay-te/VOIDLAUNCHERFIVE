@@ -338,6 +338,7 @@ final class ChapelBohemian {
 				Halls.yardEdge(d, gx0, gz0 - 1, gx1, dp - 1, 0, right ? Dirs.LEFT : Dirs.RIGHT);
 			}
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

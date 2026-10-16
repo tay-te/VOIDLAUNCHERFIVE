@@ -350,7 +350,10 @@ final class PrecinctChurch {
 			p.keep(inner, 0, dz - 1);
 			p.keep(inner, 0, dz + 1);
 			p.keep(inner - Dirs.dx(toCourt), 0, dz);
-			p.keep(courtWall + Dirs.dx(toCourt), 0, dz);
+			// a full threshold on the walk's side: the door's cell and one either side clear from foot to head
+			for (int k = -1; k <= 1; k++) {
+				p.threshold(courtWall + Dirs.dx(toCourt), dz + k);
+			}
 		}
 		// the runner up the middle
 		Mat cloth = d.mat(Role.CLOTH);
@@ -417,6 +420,22 @@ final class PrecinctChurch {
 		int fz = westTower ? zN0 + 1 : zN0 + 1;
 		if (d.isEmpty(fx, 0, fz) && !p.kept(fx, 0, fz)) {
 			d.inStage(StageKind.INTERIOR, () -> d.set(fx, 0, fz, Blocks.WATER_CAULDRON.defaultBlockState().setValue(BlockStateProperties.LEVEL_CAULDRON, 3)));
+		}
+		// lamps hung down the nave and the choir on long chains from the roof, in two rows either side of the runner (one
+		// over it in a narrow church), every fourth row, low enough to light the pews: the church's light is its own
+		int[] lampX = x1 - x0 >= 8 ? new int[]{cx - 2, cx + 2} : new int[]{cx};
+		for (int z = zN0 + 2; z <= Math.max(zEnd, zC1 - 2); z += 4) {
+			for (int lx : lampX) {
+				int ceil = Integer.MIN_VALUE;
+				for (int y = 3; y < hn + 12 && ceil == Integer.MIN_VALUE; y++) {
+					if (!d.isEmpty(lx, y, z)) {
+						ceil = y;
+					}
+				}
+				if (ceil != Integer.MIN_VALUE && ceil >= 6 && d.isEmpty(lx, ceil - 1, z)) {
+					dev.voidmc.hearth.build.kit.light.Lighting.chandelier(d, lx, z, ceil, Math.min(ceil - 2, 4));
+				}
+			}
 		}
 		// banners of the house's colours between the windows
 		List<String> colours = Signs.clothColours(d);

@@ -45,6 +45,8 @@ public final class Adobe {
 		Mat frieze = d.mat(Role.ACCENT);
 		Mat dressed = d.mat(Role.WALL_ACCENT);
 		boolean allRound = d.tier() >= 3;
+		// the mesa's pueblo parapet: one low course all round under its coping, no crest, no raised corners, no tiles
+		boolean pueblo = Pueblo.is(d);
 		int y = plate + 1;
 		int cx = (x0 + x1) / 2;
 		try (var s = d.stage(StageKind.ROOF)) {
@@ -57,14 +59,14 @@ public final class Adobe {
 				boolean corner = (c[0] == x0 || c[0] == x1) && (c[1] == z0 || c[1] == z1);
 				boolean front = c[1] == z0;
 				// the frieze: accent tiles alternating with the wall stone, a band of colour under the parapet
-				boolean tile = (front || allRound) && !corner && ((c[0] + c[1]) & 1) == 0 && frieze.has(Form.FULL);
+				boolean tile = !pueblo && (front || allRound) && !corner && ((c[0] + c[1]) & 1) == 0 && frieze.has(Form.FULL);
 				d.set(c[0], plate, c[1], tile ? frieze.full() : corner ? dressed.full() : wall.full());
 				if (!parapet || !d.allowed(c[0], y, c[1])) {
 					continue;
 				}
 				int off = Math.abs(c[0] - cx);
-				boolean crested = crest && front && off <= 2 && x1 - x0 >= 8;
-				int h = corner ? 2 : crested ? (off <= 1 ? 2 + (off == 0 ? 1 : 0) : 2) : 1;
+				boolean crested = !pueblo && crest && front && off <= 2 && x1 - x0 >= 8;
+				int h = pueblo ? 1 : corner ? 2 : crested ? (off <= 1 ? 2 + (off == 0 ? 1 : 0) : 2) : 1;
 				for (int k = 0; k < h; k++) {
 					if (d.allowed(c[0], y + k, c[1])) {
 						d.set(c[0], y + k, c[1], corner || crested ? dressed.full() : wall.full());
@@ -221,7 +223,8 @@ public final class Adobe {
 	 */
 	public static int dome(Draft d, int cx, int cz, int deck, int r, int maxH) {
 		Fam fam = domeSheet(d);
-		if (fam == null || DOMED.putIfAbsent(d, Boolean.TRUE) != null) {
+		// (the mesa's pueblos and missions raise no domes: their crown is the stepped room and the bell wall)
+		if (fam == null || Pueblo.is(d) || DOMED.putIfAbsent(d, Boolean.TRUE) != null) {
 			return deck;
 		}
 		int rd = r + 1;

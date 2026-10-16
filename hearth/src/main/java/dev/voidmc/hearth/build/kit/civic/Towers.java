@@ -138,7 +138,9 @@ public final class Towers {
 			int[] piers = size >= 7 ? Arches.piers(0, side.last(), 3) : new int[]{0, side.last()};
 			Paint c = Arches.timber(kind) ? d.mat(Role.BEAM).log(side.axis()) : course;
 			Arches.arcade(d, side, piers, y0, y0 + h, kind, pier, c);
-			// a low parapet between the piers: something to lean on, nothing to fall through
+			// a low parapet between the piers: something to lean on, nothing to fall through and nothing to step up onto
+			// (a balustrade of the dressed stone's wall, a slab would be a step out onto the roofs)
+			Paint sill = Arches.timber(Arches.kind(t)) ? Halls.post(d) : Halls.rail(d, d.mat(Role.WALL_ACCENT));
 			for (int i = 1; i < side.last(); i++) {
 				boolean isPier = false;
 				for (int p : piers) {
@@ -146,8 +148,7 @@ public final class Towers {
 				}
 				if (!isPier) {
 					int fi = i;
-					d.inStage(StageKind.EXTERIOR, () -> d.set(side.x(fi), y0, side.z(fi), Arches.timber(Arches.kind(t))
-						? Halls.post(d) : d.mat(Role.WALL_ACCENT).slab(SlabType.BOTTOM)));
+					d.inStage(StageKind.EXTERIOR, () -> d.set(side.x(fi), y0, side.z(fi), sill));
 				}
 			}
 		}
@@ -529,19 +530,27 @@ public final class Towers {
 		return States.block("minecraft:lightning_rod", Blocks.END_ROD);
 	}
 
-	/** Crenellations: a parapet of the wall with merlons every other block, coped. */
+	/**
+	 * The parapet round a walked roof deck at standing level y: one course of the wall under a coping of the dressing,
+	 * its corners carried up a course as little piers in the wall-accent stone (the town's guard and watch houses, the
+	 * flat-roofed jails). No crenels: a row of merlons round a small civic roof reads as a ruin's broken wall head. The
+	 * mesa's pueblos keep even the corners low ({@link Pueblo#parapet}).
+	 */
 	public static void battlements(Draft d, int x0, int z0, int x1, int z1, int y) {
 		Mat wall = d.mat(Role.WALL);
 		Mat accent = d.mat(Role.WALL_ACCENT);
+		Mat coping = accent.has(Form.SLAB) ? accent : wall;
+		boolean pueblo = Pueblo.is(d);
 		try (var s = d.stage(StageKind.ROOF)) {
-			int k = 0;
 			for (int[] c : Draft.ring(x0, z0, x1, z1)) {
-				d.set(c[0], y, c[1], wall.full());
 				boolean corner = (c[0] == x0 || c[0] == x1) && (c[1] == z0 || c[1] == z1);
-				if (corner || (k & 1) == 0) {
-					d.set(c[0], y + 1, c[1], accent.has(Form.SLAB) ? accent.full() : wall.full());
+				d.set(c[0], y, c[1], wall.full());
+				if (corner && !pueblo) {
+					d.set(c[0], y + 1, c[1], accent.has(Form.FULL) ? accent.full() : wall.full());
+					d.set(c[0], y + 2, c[1], coping.slab(SlabType.BOTTOM));
+				} else {
+					d.set(c[0], y + 1, c[1], coping.slab(SlabType.BOTTOM));
 				}
-				k++;
 			}
 		}
 	}
