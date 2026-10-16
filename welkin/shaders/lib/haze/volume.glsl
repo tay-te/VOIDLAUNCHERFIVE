@@ -206,10 +206,12 @@ vec3 hvColour(vec3 air, float fsun, float mu, SkyLum f) {
 	float y = skyLumLuma(A);
 	// in shadow: the sky's light only, cooler and dimmer
 	vec3 shade = A * vec3(0.80, 0.90, 1.06) * 0.50;
-	// in the sun: brighter, and toward a low sun mixed toward the sun's amber (the forward scatter)
+	// in the sun: brighter, and in the sun's own light: the sunlit share of the in-scatter takes the sun's hue (amber
+	// through the golden hours, plain at noon), most toward the sun (the forward scatter), less side-on
 	float fwd = (0.30 + 0.70 * f.low) * (0.55 * skyLumHg(mu, 0.80) + 0.45 * skyLumHg(mu, 0.40)) * f.up;
 	vec3 lit = A * (1.12 + 0.55 * fwd);
-	lit = mix(lit, f.hue * skyLumLuma(lit), clamp(0.55 * fwd * (0.4 + 0.6 * f.low), 0.0, 0.75));
+	float sunShare = clamp((0.30 + 0.45 * fwd) * f.warm * f.up, 0.0, 0.8);
+	lit = mix(lit, f.gold * skyLumLuma(lit), sunShare);
 	vec3 L = mix(shade, lit, fsun);
 	// (at night and in a closed sky the light is the plain air's)
 	L = mix(A, L, f.day * mix(0.35, 1.0, f.clear));

@@ -38,6 +38,8 @@ struct SkyLum {
 	vec3 hue;    // the sun's glow hue, linear, luma 1
 	float day;   // 1 by day, 0 at night
 	float low;   // 0 sun high .. 1 sun on the horizon
+	float warm;  // the golden afternoon and morning: 0 sun high .. 1 from about 6 degrees down to the horizon
+	vec3 gold;   // the glow's hue (linear, luma 1): the sun's own, led toward amber through the golden hours
 	float up;    // the sun's glow is there: from just under the horizon up
 	float clear; // 1 a clear sky .. about 0.1 under a full overcast
 };
@@ -60,15 +62,20 @@ SkyLum skyLumFrame(vec3 sunW) {
 	f.clear = (1.0 - 0.88 * overcast) * (1.0 - 0.5 * clamp(rainStrength, 0.0, 1.0));
 	f.low = 1.0 - smoothstep(0.05, 0.55, sunW.y);
 	f.up = smoothstep(-0.14, 0.02, sunW.y);
+	f.warm = 1.0 - smoothstep(0.10, 0.62, sunW.y);
 	// the sun's light (linear) while it is up; under the horizon the table's sun-side horizon carries the hue
 	vec3 sunL = skyLandDirect();
 	vec3 horL = pow(max(skyHorizon(true), vec3(1e-4)), vec3(2.2));
 	float ls = skyLumLuma(sunL);
 	vec3 h = ls > 1e-3 ? sunL / ls : horL / max(skyLumLuma(horL), 1e-4);
 	h = mix(h, horL / max(skyLumLuma(horL), 1e-4), (1.0 - smoothstep(0.0, 0.06, sunW.y)) * 0.5);
-	// a fifth back toward white (less gold), and never a channel past 1.9 of the luma (no neon orange)
-	h = min(mix(vec3(1.0), h, 0.8), vec3(1.9));
+	// never a channel past 1.9 of the luma (no neon orange)
+	h = min(h, vec3(1.9));
 	f.hue = h / max(skyLumLuma(h), 1e-4);
+	// the glow's amber: a warm gold (less orange than Complementary's), by how golden the hour is
+	const vec3 GOLD = vec3(1.0, 0.66, 0.36) / 0.7448;
+	vec3 g = mix(f.hue, GOLD, 0.6 * f.warm);
+	f.gold = g / max(skyLumLuma(g), 1e-4);
 	return f;
 }
 
@@ -114,15 +121,15 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	float band = exp(-hp / 0.30) * (1.0 - 0.45 * smoothstep(0.0, 0.12, -d.y));
 	vec3 pale = mix(L, vec3(y), 0.42) * 1.55;
 	vec3 coolPale = pale * vec3(0.98, 1.0, 1.03);
-	float warm = f.low * f.up * mix(0.30, 1.0, side * side);
-	vec3 bandC = mix(coolPale, f.hue * skyLumLuma(pale), clamp(0.70 * warm, 0.0, 1.0));
+	float warm = f.warm * f.up * mix(0.25, 1.0, side * side);
+	vec3 bandC = mix(coolPale, f.gold * skyLumLuma(pale), clamp(0.80 * warm, 0.0, 1.0));
 	L = mix(L, bandC, clamp(band * 0.85 * k, 0.0, 1.0));
 	y = skyLumLuma(L);
 
 	// the glow round the sun: mixed toward the sun's hue at a brighter level (amber at a low sun, never white)
 	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.55);
 	float glow = (0.22 + 0.55 * f.low) * f.up;
-	vec3 target = f.hue * max(y, 0.10) * (1.2 + 1.2 * lobe);
+	vec3 target = f.gold * max(y, 0.10) * (1.2 + 1.2 * lobe);
 	L = mix(L, target, clamp(lobe * glow * k, 0.0, 0.92));
 	// the dome lit: the whole sky a little brighter by day, the sun's half more while the sun is low
 	L *= 1.0 + k * (0.10 + 0.14 * f.low * f.up * side);
