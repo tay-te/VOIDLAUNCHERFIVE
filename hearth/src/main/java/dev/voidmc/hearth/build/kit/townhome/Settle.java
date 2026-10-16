@@ -73,7 +73,11 @@ public final class Settle {
 		ledges(d);
 		// (a gallery door whose lattice became a rail is a window now; a yard thing a rail cut off is not put out)
 		doors(d);
-		yardDoors(d);
+		if (yardDoors(d) > 0) {
+			// (a door cut to the yard this late may open onto an edge nobody walked before)
+			guards(d);
+			ledges(d);
+		}
 		if (debug(d)) {
 			int[] lost = lostOutside(d, walk(d), d.bodyRect());
 			System.out.println("settle end lost=" + (lost == null ? "none" : lost[0] + "/" + lost[1] + "/" + lost[2]));
@@ -310,7 +314,7 @@ public final class Settle {
 		int cut = 0;
 		int[] b = d.bodyRect();
 		for (int round = 0; round < 6; round++) {
-			LongOpenHashSet reached = walk(d);
+			LongOpenHashSet reached = walkLeaves(d);
 			int[] lost = lostOutside(d, reached, b);
 			if (debug(d)) {
 				System.out.println("settle yard lost=" + (lost == null ? "none" : lost[0] + "/" + lost[1] + "/" + lost[2]) + " body=" + java.util.Arrays.toString(b));
@@ -327,6 +331,8 @@ public final class Settle {
 				}
 			}
 			walls.sort(java.util.Comparator.comparingInt(c -> Math.abs(c[0] - lost[0]) + Math.abs(c[1] - lost[2])));
+			// (a door that lets folk out onto a strip along a drop is no way to the yard: the thing stays in)
+			int fallsBefore = falls(d, reached).size();
 			boolean done = false;
 			for (int i = 0; i < Math.min(16, walls.size()) && !done; i++) {
 				int x = walls.get(i)[0];
@@ -344,7 +350,8 @@ public final class Settle {
 					Block door = d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR);
 					int fy = y;
 					d.inStage(StageKind.OPENINGS, () -> d.door(x, fy, z, door, out, net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
-					if (ok(d, x, y, z, out) && reachedThing(d, walk(d), lost)) {
+					LongOpenHashSet after = walkLeaves(d);
+					if (ok(d, x, y, z, out) && reachedThing(d, after, lost) && falls(d, after).size() <= fallsBefore) {
 						d.poi(dev.voidmc.hearth.api.PoiType.DOOR, x + Dirs.dx(out), y, z + Dirs.dz(out), out.getOpposite());
 						if (debug(d)) {
 							System.out.println("settle yard door " + x + "/" + y + "/" + z + " " + out);
@@ -1552,7 +1559,7 @@ public final class Settle {
 	/** Something to stand on: not a fence, wall or gate, nor the small things set on furniture (candles, lanterns, pots). */
 	public static boolean standable(BlockState s) {
 		Block b = s.getBlock();
-		if (s.isAir() || b instanceof FenceBlock || b instanceof WallBlock || b instanceof FenceGateBlock || b instanceof net.minecraft.world.level.block.CandleBlock
+		if (s.isAir() || b instanceof ChainBlock || b instanceof FenceBlock || b instanceof WallBlock || b instanceof FenceGateBlock || b instanceof net.minecraft.world.level.block.CandleBlock
 			|| b instanceof LanternBlock || b instanceof FlowerPotBlock || b instanceof net.minecraft.world.level.block.CakeBlock
 			|| b instanceof net.minecraft.world.level.block.AbstractSkullBlock || b instanceof net.minecraft.world.level.block.SeaPickleBlock) {
 			return false;
@@ -1587,11 +1594,23 @@ public final class Settle {
 
 	/** Every cell walked to from the entrances and the street, within the plot and four round it. */
 	public static LongOpenHashSet walk(Draft d) {
-		return walk(d, null);
+		return walk(d, null, false);
+	}
+
+	/**
+	 * As {@link #walk(Draft)}, the leaf of an open trapdoor closing the edge of its cell it stands on, as the light check
+	 * walks (a lattice filling a window is no way out to the yard). The yard's things are judged by this walk.
+	 */
+	static LongOpenHashSet walkLeaves(Draft d) {
+		return walk(d, null, true);
+	}
+
+	static LongOpenHashSet walk(Draft d, it.unimi.dsi.fastutil.longs.@org.jspecify.annotations.Nullable Long2LongOpenHashMap from) {
+		return walk(d, from, false);
 	}
 
 	/** As {@link #walk(Draft)}; {@code from}, when given, gets each walked cell's predecessor (a start's is itself). */
-	static LongOpenHashSet walk(Draft d, it.unimi.dsi.fastutil.longs.@org.jspecify.annotations.Nullable Long2LongOpenHashMap from) {
+	private static LongOpenHashSet walk(Draft d, it.unimi.dsi.fastutil.longs.@org.jspecify.annotations.Nullable Long2LongOpenHashMap from, boolean leaves) {
 		int m = 4;
 		int x0 = -m;
 		int x1 = d.frontage() - 1 + m;
@@ -1631,13 +1650,18 @@ public final class Settle {
 			for (Direction dir : Dirs.HORIZONTAL) {
 				int nx = x + Dirs.dx(dir);
 				int nz = z + Dirs.dz(dir);
-				if (nx < x0 || nx > x1 || nz < z0 || nz > z1) {
+				// (walkLeaves: the leaf of an open trapdoor on this side of the cell, a rail, a shutter, a lattice filling a
+				// window, closes it)
+				if (nx < x0 || nx > x1 || nz < z0 || nz > z1 || leaves && (leaf(d, x, y, z, dir) || leaf(d, x, y + 1, z, dir))) {
 					continue;
 				}
 				for (int dy = 1; dy >= -3; dy--) {
 					int ny = y + dy;
 					if (ny < y0 || ny > y1 || dy == 1 && !headroom) {
 						continue;
+					}
+					if (leaves && (leaf(d, nx, ny, nz, dir.getOpposite()) || leaf(d, nx, ny + 1, nz, dir.getOpposite()))) {
+						break;
 					}
 					if (walkable(d, nx, ny, nz)) {
 						if (seen.add(Draft.key(nx, ny, nz))) {
@@ -1669,6 +1693,12 @@ public final class Settle {
 			}
 		}
 		return seen;
+	}
+
+	/** An open trapdoor at (x, y, z) whose leaf stands on its {@code side} edge (the edge away from its facing). */
+	private static boolean leaf(Draft d, int x, int y, int z, Direction side) {
+		BlockState s = d.get(x, y, z);
+		return s != null && s.getBlock() instanceof TrapDoorBlock && s.getValue(TrapDoorBlock.OPEN) && s.getValue(TrapDoorBlock.FACING) == side.getOpposite();
 	}
 
 	private static void link(it.unimi.dsi.fastutil.longs.@org.jspecify.annotations.Nullable Long2LongOpenHashMap from, long to, long by) {
