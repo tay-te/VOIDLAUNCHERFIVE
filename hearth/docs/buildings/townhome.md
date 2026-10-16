@@ -108,7 +108,7 @@ All optional; defaults are seeded choices. Party walls are always read through `
 
 | key | archetypes | meaning |
 |---|---|---|
-| `storeys` | rowhouse (2), townhouse (3–4), tenement (3–4, flat roofs 3–5), shophouse (2–3), tower_house (3–5), courtyard_house (1–2) | suggested full storeys; the attached types move a storey up or down now and then by seed so a row steps its eaves, and every type drops storeys (then flattens its pitch) to fit the plot's height, and goes flat only in a culture that builds flat roofs |
+| `storeys` | rowhouse (2), townhouse (3–4; 2 when asked), merchant_house (3–4; 2 when asked), scribe_house (2 standing alone, 3 in a row), tenement (3–4, flat roofs 3–5), shophouse (2–3), tower_house (3–5), courtyard_house (1–2) | suggested full storeys; the attached types move a storey up or down now and then by seed so a row steps its eaves, and every type drops storeys (then flattens its pitch) to fit the plot's height, and goes flat only in a culture that builds flat roofs |
 | `party_left`, `party_right` | rowhouse, townhouse, tenement, shophouse | shared side walls: blind, no eaves, the roof gabled against them; parapets, firewalls and chimneys on them in masonry towns |
 | `corner_left`, `corner_right` | rowhouse, townhouse, tenement, shophouse | a street along that side: windows, the roof hipped toward it where the culture hips, a corner oriel (townhouse), the shop front turning the corner (shophouse) |
 | `walkway_y` | townhouse, tenement | a walkway meets the front at this world y: a door there onto it |
@@ -129,6 +129,29 @@ All optional; defaults are seeded choices. Party walls are always read through `
 In a cliff town's face quarter (`plan/layout/CliffFace`, PLANNING.md) each course is set back a course's height
 instead, so the face climbs at one in one beside its stair streets and the terraces of a row of columns join into one
 walkway along the face.
+
+## The last walk-round (`kit/townhome/Settle`)
+
+Every home ends with `Settle.finish` (run by each `house/*` archetype before `Voids.finish`), which walks the drawn
+house as the audit's walker does and puts right what a player or the folk could not use:
+
+- **doors**: dressing cleared from both fronts, furniture moved out of the way, a lintel over a door in a wall that
+  stops at its head, a door that still opens onto nothing walled up;
+- **yard doors**: a back door cut where a butt, a barrel or a composter in the yard cannot be walked to; the yard is
+  judged by a walk that respects shutter leaves (`walkLeaves`: a lattice window is no way out), no door is cut onto a
+  strip along a drop or onto the top of a yard thing, and what no door can reach is not put out;
+- **reach**: a stool, a crate or a table taken from the one cell a bed or chest is used from (`lift` takes whatever
+  rests or is stacked on it with it: a pot, a table's top, a barrel);
+- **pockets**: small unreachable ledges under the roof filled, corners behind a bench opened;
+- **guards and ledges**: every walked edge over a drop of four railed; the last ledges shut the first way that keeps
+  every bed, store, job, door and ladder walked and gives up no room's floor. No rail is set that leaves a flight or
+  a ladder with no way off at its top (`brokenWays`, the audit's bad flights and dead ladders).
+
+`-Dhearth.settle.debug=<archetype>,<style>` prints what it did and its walk maps. `HomeSliceDebugTest`
+(`HEARTH_SLICE=house/cottage,mesa,flat,1007 HEARTH_SLICE_Y=0,8`) prints a case's plan slices in the audit's frame.
+
+Roof-deck chimneys (`TownHouses.chimney` on a flat roof) stand two courses over the deck, so the crown's corbels are
+over head height (a fire at head height made them steps onto the coping).
 
 ## POIs
 

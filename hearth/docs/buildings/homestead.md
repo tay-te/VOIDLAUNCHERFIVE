@@ -243,7 +243,8 @@ courtyard houses).
 - `RoofDress` – barge boards (a roof row or column restated in the trim).
 - `Carving` – horns over a hall's gables (one block past the ridge), window trim (thin caps and sills in the frame's
   timber, `trim`/`board`).
-- `Adobe` – parapets (rounded, shouldered, or merlons for forts and seats), wind towers, reed ramadas, lean-tos of poles
+- `Adobe` – parapets (rounded, shouldered, or merlons for forts and seats; on a lived deck a rounded coping stands on
+  one course, two high, a shouldered one on two), wind towers, reed ramadas, lean-tos of poles
   and reeds, doorway shades, mud yard walls, tiled thresholds, jars, roof-terrace life.
 - `Bohemia` – the Bohemian village: roof forms and steep pitches, the carried ridge, boarded gables with their pent,
   fieldstone plinths, benches, wattle, roofed gates, log hives.
@@ -276,6 +277,14 @@ field water contained; pastures gated and watered; barn lofts with a way up and 
 piles; longhouses with a central fire and HEARTH POI; split-level cottages opening on two levels; every home has a bed
 (and most of its promised count); cottage upgrades; and the shared invariants for every forced value of `layout`,
 `crop`, `roof` (longhouse), `loft`, `stilts`, `side_walk` in every culture.
+
+## Small homes: room to turn round
+
+Hut, hovel, hermit hut and shack (`StationHomes.roomToTurn`): the one room keeps six standing cells in one piece and no
+corner of its floor shut off behind the furniture; what crowds it goes (stores into a barrel niche in the wall, the rest
+out), first what stands between the open floor and a shut-off corner. A stilted round house fills the gap under its
+boards where the slope leaves it two high or less (a crawl space shut in by the ring beam). A laithe whose barn end
+would be under five wide is all house. The dry shack keeps a row before its door for a reed shade and jars.
 
 ## Known limits
 
