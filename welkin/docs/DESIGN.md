@@ -1103,3 +1103,48 @@ shafts run as `deferred5` after the light (`deferred4`), as D built them.
   valley 05:30, valley 12:00 and plain 12:00 (term p90 1.07, 1.05, 1.16: the plain's grass, at the limit before, now
   passes); the shafts on against off pass in all six views (medians 1.00, p90 at most 1.16).
 - **Cost:** in section 3.5 (measured after the C + D merge). Nothing was cut in the merge.
+### P5: far weather (2026-10-11, branch `welkin-far`)
+
+The staged module M4 (far haze, far valley mist, rain curtains), rewritten for the look of section 3.2 and the pack as it stands after P4 and the light step. Not yet run in game (compile-checked only).
+
+- **The pass:** `composite1` (overworld only; `program/composite1.glsl` slot, body `program/parts/far_weather.glsl`, library `lib/far_weather/`), after the clouds and before the near atmosphere, so the near haze and mist lie in front of everything it draws. It always runs in the overworld, because it now lays the **water fog** there first (moved from `composite2`, which keeps it in the Nether and the End): the far air and the far layers must lie over a lake's water as over the land, and before the move composite2's water fog would have been laid over them. Iris writes both `colortex0` and `colortex6`.
+- **Far air** (`wf_air.glsl`): the near haze (`welkinHaze`) stops at 1912 blocks horizontal with `WF_FAR_HAZE` and LOD (it already did); the far air carries the same integral on from exactly that line with the same media and densities: the camera's clear air (`s.haze.w` x the kind's clear-air factor over max(2048, 0.75 x the world's reach), thinning over 160 blocks), the camera's rain (constant along the ray, VOID LOD's rain curtain) and the far land's murk (F tiles through `hzLandIn`, blended bilinearly, read once at the geometric middle of the far piece, as the near haze's last segment). Two far-only terms that do not thin with height, a hazy country's curtain (`void_haze.z`) and the grey of far rain (W1 rain at the ray's middle, bilinear), ease in over 2 km past the seam, so the density has no step at the line. The colour is the air pulled toward the far kinds by the murk's share, as in the near haze. Closed form (`hzLayer2`), no marching, no steps, no dither, no texel snapping. The seam test (no ring at 1912 blocks) follows from the two integrals meeting at one line.
+- **Far valley mist** (`wf_mist.glsl`): the near mist's rules carried onto the F tiles (1 km cells, blended bilinearly): mist = potential x the hour's mist (or `MIST_FORCE`); pool from the cell's valley-scale lowness or its water; the slab from F0's valley floor + 1 + (3 + 24 x mist) x pool, capped at the floor + 2 + 26 x mist; density mist x pool, cut under the floor value. Its density fades **in** over the near tiles' fade band (Chebyshev cells 112..127 from the near tiles' centre) with weight 1 minus the near mist's, so along any ray the two add up to one mist. The ray is sampled at the band's inner and outer edges, once between (`MIST_SAMPLES` 3 and up) and at the surface, with the near mist's exact straight pieces (`mistSegment`) and its surface slab. Opacity and colour are the near mist's (`MIST_OPACITY` x cover, `mistColor`). Needs `VALLEY_MIST` and Gloam's F tiles.
+- **Rain curtains** (`wf_curtains.glsl`): one box column per rainy W1 cell (rain over 0.12), in the clouds' drifting frame (`CloudEnv`: W1 addressed with the clouds' own shift and `w1Off`, its edge fade from the header's W1 centre), so curtains travel with the fronts and the clouds over them. Without Gloam's W1 the clouds' fallback field places them (only in vanilla rain). The column's top is the base of the deck the cloud map (`wcMapCell`) holds over its middle (the low stratus, else the main deck, else the lowest deck) plus 2 blocks, so rain meets the cloud with no sky between; its foot is under F0's ground. A 2D DDA walks the cells between the floor and the main deck's base, from 384 blocks out to the land, a nearer cloud (`colortex6`) or `WF_CURTAIN_REACH`, capped at `WF_CURTAIN_STEPS`; each rainy cell's box is met exactly. Opacity 0.82 x (1 - exp(-depth)), smooth. The nearest column carries soft streaks (smooth value noise across its face in the weather's frame, drifting slowly down), not pixel steps. Colour: rain lit like a cloud's underside by the sky table, ambient x 0.85 plus the direct light where a low sun or moon gets under the deck (less under a storm), brighter looking toward the light, darker storm grey; lightning through the table's flash. Each curtain sinks into the far air for its own distance.
+- **Curtains against the sky or a cloud** haze themselves (the far piece, then `welkinHaze` for the near piece), because composite2 would otherwise haze a sky pixel for the whole ray and a curtain would look paler against the sky than against land behind it. On such a sky pixel the pass also lays composite2's sky haze on the sky behind the curtain and writes the curtain's distance to `colortex6`, so composite2 treats the pixel as a cloud (no second haze; its valley mist still lies in front). composite2 now reads `colortex6` in the overworld whether or not `CLOUDS` is on.
+- **Left out:** the module's `dh_terrain` touches (`WF_DH_TEXTURE`, `WF_DH_WET`): the skeleton's `FAR_TEXTURE` owns the far texture, and the wet far land waits for a measurement of LOD's auto-tune (option table module `far_weather_dh`, proposed). `WF_HAZE_STEPS` (no steps since the style pivot) and `WF_LIGHTNING` (the flash lights curtains always) are gone.
+- **Options:** `WF_CURTAINS`, `WF_CURTAIN_STEPS` (16/40/64), `WF_CURTAIN_REACH` (16/32/64 km) on the Weather screen; `WF_FAR_MIST`, `WF_FAR_HAZE` on the Far land screen; LOW turns off curtains and far mist. `WF_DEBUG`: 1 the W1 and F tiles as panels, 2 curtain depth, 3 far mist depth with the near band as a ring, 4 the far air's opacity (and sky pixels whose curtain hazed itself, blue).
+- **Cost** (estimates, not measured): the base (ray, `hzState`, `CloudEnv`) about 0.02 ms; far air one bilinear land read and a W1 bilinear per far-land pixel, about 0.02-0.04 ms; far mist 32 fetches per far-land pixel only while there is mist, about 0.03-0.06 ms at dawn; curtains one W1 fetch per cell walked (the horizon band only walks far) plus two per rainy cell, 0.03-0.08 ms. About 0.1-0.2 ms in all against the 0.2 ms budget. Measure in P8.
+
+### The wave 3 merge, 1 of 3: far weather (P5) onto the lighting (2026-10-16)
+
+`welkin-far` (head a99778d4, built on 05e84318, before the lighting rework) merged onto `welkin` at 27ecbc82. The user's
+newest rule (2026-10-16) wants the heavy effects done beautifully; this merge keeps the lighting's air as it is and
+fits far weather into it, so the far land, the clouds and the curtains carry the same air on past the near haze's seam.
+
+- **Conflicts:** `program/composite2.glsl` (the lighting's `uv` and `cloudKm` against P5's `colortex6` read without
+  `CLOUDS` and the water fog moved to composite1: both kept, the water fog laid by composite2 only in the Nether and
+  the End); `shaders.properties` (the lighting's profiles, sliders and pass lines with P5's options added: LOW
+  `!WF_CURTAINS !WF_FAR_MIST`, MEDIUM 40 steps / 32 km, HIGH 64 / 64 km, the composite1 lines after the shafts');
+  the lang file, README (composite1's row before composite2's) and this file (both). `lib/settings.glsl` merged on its
+  own. The pass layout is unchanged but for composite1 (no `tools/wrappers.sh` mapping needed).
+- **The far air with the forward scatter, once** (`wf_far_weather.glsl`): composite2 gives its haze the sun's forward
+  scatter (`airMie`) and lays the share its haze did not on the land as part of the aerial perspective, by the near
+  haze's opacity, which with `WF_FAR_HAZE` and LOD now stops at the seam. So the far air over the land keeps the plain
+  air (else the far land toward a low sun would take the scatter twice), while everything composite2 does not touch
+  again (a cloud's far piece, a finished curtain and what lies behind it) takes the air with the scatter.
+- **Clouds past the seam** take the far air's piece in composite1: since workstream D composite2 hazes a cloud as land
+  at its distance, and with far haze on that stops at the seam too, so far decks low over the horizon would have lost
+  their haze.
+- **Finished curtains, marked negative:** a curtain over the sky or a cloud is hazed here (the far piece, then the near
+  piece, in the scattered air), over what lies behind it hazed as composite2 would (the sky as sky; a cloud as land at
+  its distance, without the world's edge), and `colortex6` takes the curtain's distance negated. composite2 then lays
+  no haze, shafts or aerial perspective on it (P5's old mark, the distance itself, would now have had composite2 haze
+  the pixel again as a cloud), only the valley mist in front where the pixel is against the sky.
+- **The far murk where the ray ends** (`wf_air.glsl`): the near haze's far segment now reads the land seen, not the
+  segment's geometric middle (which stood bright columns of haze over the far land), and gives the far kinds' tint up
+  to the camera's own from 3 to 16 km; the far air does the same, so the two still meet with no ring at 1912 blocks.
+- **Far mist at night** is the near mist's thinner veil (`MIST_OPACITY` x 0.5..1 by the sun's height), so the near and
+  far mist still add up to one; its colour is the near mist's (`mistColor`, now lit by the night sky).
+- **Checked:** every `live.sh` variant compiles (P5's own variants and four for the merge added to the merge's
+  `live_runs.txt`); the load runs are in the wave 3 summary at the end of this section.

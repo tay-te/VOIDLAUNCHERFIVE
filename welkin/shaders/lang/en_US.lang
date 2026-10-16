@@ -161,6 +161,18 @@ option.WET_PUDDLE_REACH=Puddle distance
 option.WET_PUDDLE_REACH.comment=How far away puddles are still drawn.
 suffix.WET_PUDDLE_REACH= blocks
 
+option.WF_CURTAINS=Distant rain
+option.WF_CURTAINS.comment=Grey curtains of rain hang under faraway rain clouds and travel with the weather.
+
+option.WF_CURTAIN_STEPS=Distant rain detail
+option.WF_CURTAIN_STEPS.comment=How many weather cells each view checks for rain. More finds thin, faraway showers too.
+
+option.WF_CURTAIN_REACH=Distant rain reach
+option.WF_CURTAIN_REACH.comment=How far away rain curtains are still drawn, in blocks.
+value.WF_CURTAIN_REACH.16384.0=16 km
+value.WF_CURTAIN_REACH.32768.0=32 km
+value.WF_CURTAIN_REACH.65536.0=64 km
+
 option.WAVING_LEAVES=Moving leaves
 option.WAVING_LEAVES.comment=Leaves move with the wind. With VOID Gloam the wind changes with the weather.
 
@@ -182,6 +194,12 @@ suffix.FAR_TEXTURE_PIXELS= px
 
 option.FAR_FADE=Far fade
 option.FAR_FADE.comment=The far land fades smoothly into the horizon towards the edge of what is drawn.
+
+option.WF_FAR_MIST=Far valley mist
+option.WF_FAR_MIST.comment=Valley mist carries on into the hollows of the faraway land, past the near mist.
+
+option.WF_FAR_HAZE=Far haze
+option.WF_FAR_HAZE.comment=The haze carries on over the far land drawn by VOID LOD, thicker in hazy countries and under faraway rain.
 
 option.SOFT_BANDS=Soft bands
 option.SOFT_BANDS.comment=How much light, the sky and the glow round the sun gather into gentle bands. 0 is a plain smooth gradient. There is never a hard edge or a dither pattern.
@@ -313,3 +331,10 @@ option.SUN_SHAFTS.comment=At a low sun, beams of sunlit air between trunks and t
 option.SHAFT_STRENGTH=Sun shaft strength
 option.SHAFT_STRENGTH.comment=How bright the sun shafts are.
 suffix.SHAFT_STRENGTH=%
+option.WF_DEBUG=Far weather debug
+option.WF_DEBUG.comment=Test views for far weather.
+value.WF_DEBUG.0=Off
+value.WF_DEBUG.1=Tiles
+value.WF_DEBUG.2=Rain depth
+value.WF_DEBUG.3=Far mist depth
+value.WF_DEBUG.4=Far haze

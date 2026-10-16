@@ -1,9 +1,13 @@
 // VOID Welkin: the near atmosphere (composite2 in every dimension). The scene so far, with the air laid over it, or a
 // debug view (DEBUG_VIEW, lib/settings.glsl). Before it, in the overworld only: composite, the voxel clouds (M3: they
-// wrote colortex0 and their distance in colortex6), and composite1, far weather (M4, still to come).
+// wrote colortex0 and their distance in colortex6), and composite1, far weather (P5: in the overworld it lays the water
+// fog, then the far air past the seam on the land and the clouds, far valley mist and rain curtains; a sky or cloud
+// pixel with a curtain in front it finishes with all its air, as this pass would, and marks it with the curtain's
+// distance negated in colortex6: this pass then lays no haze, shafts or aerial perspective on it again, only the valley
+// mist in front where the pixel is against the sky).
 //
 // Order per pixel:
-//   1. water fog (lib/water.glsl), so the far water's bed (LOD) and the near water's bed (chunks) read the same under
+//   1. water fog (lib/water.glsl; in the overworld composite1 lays it, P5), so the far water's bed (LOD) and the near water's bed (chunks) read the same under
 //      the same depth of water; while the eye is in water it owns the view and nothing below runs
 //   2. overworld, eye in open air: the haze by country (M2, lib/haze/) from the camera out, cut where valley mist
 //      begins: the haze behind the mist, then the valley mist (M1, lib/mist.glsl), then the haze in front. The haze
@@ -80,7 +84,7 @@ uniform sampler2D colortex0;
 #define WU_sunPosition
 uniform vec3 sunPosition;
 #endif
-#if defined WORLD_OVERWORLD && defined CLOUDS
+#if defined WORLD_OVERWORLD // P5 far weather: was `&& defined CLOUDS`; composite1 writes colortex6 too
 #ifndef WU_colortex6
 #define WU_colortex6
 uniform sampler2D colortex6;
@@ -208,14 +212,20 @@ void main() {
 	// M3: a cloud drawn here (composite), nearer than whatever lies behind it; it fogged itself by ring
 	bool cloud = false;
 	float cloudKm = 1000.0;
-#if defined WORLD_OVERWORLD && defined CLOUDS
+	bool finished = false;
+#if defined WORLD_OVERWORLD // P5 far weather: was `&& defined CLOUDS` (composite1 writes colortex6 too)
 	cloudKm = texelFetch(colortex6, p, 0).r;
+	// a rain curtain composite1 finished over the sky or a cloud, with all its air: marked by its distance negated
+	finished = isEyeInWater == 0 && cloudKm < 0.0;
 	cloud = isEyeInWater == 0 && cloudKm < 999.0;
 #endif
-	// 1. water fog (not over a cloud in front of a lake, seen from above the deck)
+	// 1. water fog (not over a cloud in front of a lake, seen from above the deck). P5 far weather: in the overworld
+	// composite1 lays it, before the far air and layers (which must lie over a lake's water as over the land).
+#if !defined WORLD_OVERWORLD
 	if (!cloud) {
 		color.rgb = waterFog(p, uv, color.rgb);
 	}
+#endif
 #if defined WORLD_OVERWORLD
 	if (isEyeInWater == 0) {
 		Surface s = surfaceAt(p, uv);
@@ -230,7 +240,14 @@ void main() {
 		air = airMie(air, normalize(eyePos), sunW, st.kind);
 		vec3 n = s.sky ? vec3(0.0, 1.0, 0.0) : hzScreenNormal(eyePos);
 		WelkinHaze h;
-		if (cloud) {
+		if (finished) {
+			// P5: composite1 laid this pixel's whole air (the curtain's near and far pieces, the sky or cloud behind)
+			h.air = air;
+			h.rainLook = 0.0;
+			h.dp = p;
+			h.back = vec4(air, 0.0);
+			h.front = vec4(air, 0.0);
+		} else if (cloud) {
 			// a cloud takes the same air as land at its distance (the clear air thins with height, so a deck overhead
 			// keeps its colour and the far decks low over the horizon sink into the haze the land beyond them meets),
 			// but not the world's far edge: the clouds stand past the land
