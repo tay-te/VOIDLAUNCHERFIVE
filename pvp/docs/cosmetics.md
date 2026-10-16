@@ -116,7 +116,13 @@ out of the head into a slow third-person orbit and back, restoring the player's 
   prints the split (cape sim, mesh, draw; models; glow). Distant low-resolution capes integrate at
   60 Hz and reuse their mesh between steps; model emissive passes drop past the mid band by day. Capes draw
   from a per-sheet vertex buffer uploaded once a frame; glow is placed from the camera view matrix
-  the game already holds, never a `glGetFloat`.
+  the game already holds, never a `glGetFloat`. Secondary motion and reactions measured inside
+  that noise: across three interleaved A/B runs of the pinned showcase (on a machine busy enough
+  to double every figure), the p10/p50 frame cost of `perf-20` averaged 954/1412 us against
+  938/1367 us for the build without them, and 847/1344 us for the same run's `perf-20-off`;
+  `brawl-20` (ten duels, reactions and their extra emissive pass on everyone) 868/1390 us.
+  `Budget.percentiles()` logs those figures per scene, since a mean on a busy machine is
+  mostly preemption.
 - Respects invisibility (nothing drawn), spectators (no layer), sleeping (head items only),
   riding (no trail), the inventory preview (the cape holds its shape), the `cosmetics` mod
   switches, and LOD by distance scaled by `Budget.quality`, which shrinks the bands when the layer
