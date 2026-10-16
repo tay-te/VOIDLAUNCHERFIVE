@@ -106,9 +106,9 @@ final class CapeRenderer {
 
     /**
      * Keeps the sheet from flipping over the wearer's head ({@code m} in torso-local pixels).
-     * Knockback throws the body backwards
-     * into its own cape many times a fight, and free cloth answers by folding up and over the
-     * shoulders like a hood — physically fair, and the ugliest thing a cape can do. Seen from the
+     * Knockback throws the body backwards into its own cape many times a fight, and free cloth
+     * answers by folding up and over the shoulders like a hood — physically fair, and the
+     * ugliest thing a cape can do. Seen from the
      * collar (in the body's y-z plane), cloth behind the back may rise to about 12 degrees above
      * horizontal (a sprint streams it out flat), cloth in front of the back must hang at least 20
      * degrees below it (over the shoulders, never over the head). A point past the limit swings

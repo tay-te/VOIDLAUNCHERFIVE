@@ -612,6 +612,7 @@ public final class Showcase {
                     say(String.format(java.util.Locale.ROOT, "showcase: %s cosmetics layer %.0f us/frame (quality %.2f)",
                             scene.name, dev.voidpvp.client.cosmetic.Budget.averageMicros(),
                             dev.voidpvp.client.cosmetic.Budget.quality()));
+                    say("showcase: " + scene.name + " " + dev.voidpvp.client.cosmetic.Budget.percentiles());
                 }
                 if (sceneTick == 6) {
                     for (Object[] e : pendingEmotes) {
@@ -649,7 +650,8 @@ public final class Showcase {
             say("showcase: done, " + out.getAbsolutePath());
             writer.shutdown();
             try {
-                writer.awaitTermination(30, TimeUnit.SECONDS);
+                // A busy machine can be well behind on PNG writes; the last scene must not lose its tail.
+                writer.awaitTermination(300, TimeUnit.SECONDS);
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
             }
