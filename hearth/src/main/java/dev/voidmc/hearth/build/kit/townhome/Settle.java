@@ -1446,6 +1446,9 @@ public final class Settle {
 	private static boolean tryRails(Draft d, LongArrayList cells, dev.voidmc.hearth.build.draft.Paint guard, LongOpenHashSet before) {
 		LongOpenHashSet set = new LongOpenHashSet(cells);
 		List<BlockState> was = new ArrayList<>();
+		// (nor a rail standing on a flight's top tread, taking its head room: the roof slope one steps up onto beside a
+		// ladder is railed where the walk leaves it, not on it)
+		int broken = brokenWays(d, walk(d));
 		d.inStage(StageKind.EXTERIOR, () -> {
 			for (int i = 0; i < cells.size(); i++) {
 				long k = cells.getLong(i);
@@ -1454,8 +1457,9 @@ public final class Settle {
 			}
 		});
 		LongOpenHashSet after = walk(d);
+		boolean breaks = brokenWays(d, after) > broken;
 		for (long k : before) {
-			if (!set.contains(k) && !set.contains(Draft.key(Draft.keyX(k), Draft.keyY(k) - 1, Draft.keyZ(k))) && !after.contains(k)) {
+			if (breaks || !set.contains(k) && !set.contains(Draft.key(Draft.keyX(k), Draft.keyY(k) - 1, Draft.keyZ(k))) && !after.contains(k)) {
 				if (debug(d)) {
 					System.out.println("settle rails " + cells.size() + " lose " + Draft.keyX(k) + "/" + Draft.keyY(k) + "/" + Draft.keyZ(k));
 				}

@@ -305,6 +305,20 @@ public final class CliffDwelling implements Archetype {
 		Side s = b.side(0, Dirs.FRONT);
 		int y = b.floorY(0) + 3;
 		Fronts.pent(d, s, 0, s.last(), y, 2);
+		// the pent's upper course closed at both ends by a cheek of the roof's stuff: the ladder up to the deck passes the
+		// pent and folk step off onto it, and its end treads, railed over the drop beside the house, made a flight with no
+		// head room (the rail stands on the cheek instead)
+		Mat roofMat = d.mat(Role.ROOF);
+		try (var st = d.stage(StageKind.ROOF)) {
+			for (int i : new int[]{0, s.last()}) {
+				int x = s.outX(i, 1);
+				int z = s.outZ(i, 1);
+				net.minecraft.world.level.block.state.BlockState was = d.get(x, y + 1, z);
+				if (was != null && was.getBlock() instanceof net.minecraft.world.level.block.StairBlock && roofMat.has(Form.FULL)) {
+					d.set(x, y + 1, z, roofMat.full());
+				}
+			}
+		}
 		Mat post = d.mat(Role.FRAME);
 		try (var st = d.stage(StageKind.FRAME)) {
 			for (int i : new int[]{0, s.last()}) {
