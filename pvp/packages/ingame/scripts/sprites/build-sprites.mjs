@@ -3,7 +3,7 @@
 //
 //   pnpm --filter @void/ingame sprites      (or: node scripts/sprites/build-sprites.mjs)
 //
-// Every sprite in ./defs.mjs is a 16 x 16 grid. Each art pixel is drawn as an 8 x 8 block
+// Every sprite in ./defs.mjs is a 16 x 16 grid (or 32 x 32: the generated cosmetics). Each art pixel is drawn as a block
 // (nearest neighbour) into one 128 x 128 cell; cells are laid out 12 per row on a transparent
 // sheet. Outputs:
 //   src/cart/sprites.css    `.cart { --c-sheet: url(data:image/png;base64,...) }`
@@ -208,7 +208,7 @@ function text(cv, str, x, y, colour, s = 1) {
 const names = Object.keys(SPRITES);
 const grids = names.map((n) => {
   const g = SPRITES[n]();
-  if (!g || g.n !== 16) throw new Error(`sprite ${n} is not a 16x16 grid`);
+  if (!g || (g.n !== 16 && g.n !== 32)) throw new Error(`sprite ${n} is not a 16x16 or 32x32 grid`);
   return g;
 });
 const ROWS = Math.ceil(names.length / COLS);
@@ -259,7 +259,7 @@ if (ranked.length > 255) {
 const paletteSize = new Set(remap.values()).size;
 
 const sheet = new Canvas(COLS * STRIDE, ROWS * STRIDE);
-grids.forEach((g, i) => sheet.sprite(g, (i % COLS) * STRIDE + GUTTER, Math.floor(i / COLS) * STRIDE + GUTTER, SCALE));
+grids.forEach((g, i) => sheet.sprite(g, (i % COLS) * STRIDE + GUTTER, Math.floor(i / COLS) * STRIDE + GUTTER, CELL / g.n));
 const png = sheet.png();
 const b64 = png.toString('base64');
 
@@ -308,7 +308,7 @@ if (review) {
     pick.forEach(([n, g], i) => {
       const x = (i % rcols) * cw;
       const y = oy + Math.floor(i / rcols) * ch;
-      cv.sprite(g, x + ((cw - 16 * rs) >> 1), y + 4, rs);
+      cv.sprite(g, x + ((cw - 16 * rs) >> 1), y + 4, (rs * 16) / g.n);
       const label = n.length * 4 > cw ? n.slice(0, Math.floor(cw / 4)) : n;
       text(cv, label, x + ((cw - label.length * 4) >> 1), y + 16 * rs + 9, '#9aa0aa');
     });

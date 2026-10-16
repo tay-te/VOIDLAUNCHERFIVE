@@ -24,14 +24,22 @@ import {
 
 export type CosmeticKind = CatalogKind;
 
-/** How an item's art is drawn — see `CosmeticArt` in `features/art.tsx`. */
+/**
+ * How an item's art is drawn — see `CosmeticArt` in `features/art.tsx`. Every worn item's
+ * picture is rendered from the item itself (`scripts/gen-cosmetics.mjs` writes
+ * `assets/cosmetics/<id>.png` from the bundled model and textures), so the Store shows the
+ * texels the game draws. Emotes have no texture and keep their pose glyph.
+ */
 export type ArtStyle =
-  | { kind: 'cape'; pattern: 'cell' | 'void' | 'ring' | 'origin' | 'dusk' | 'static' | 'split' | 'band' }
-  | { kind: 'trail'; pattern: 'spark' | 'drift' | 'ring' | 'stair'; hue: string }
-  | { kind: 'emote'; pattern: string[] }
-  | { kind: 'badge'; pattern: 'cell' | 'ring' | 'bar' | 'dots' | 'plain' | 'founder'; hue: string }
-  /** Back, head, face and halo items: a pixel glyph of the item in its accent colour. */
-  | { kind: 'glyph'; pattern: string[]; hue: string };
+  /** A cape's face (seen from behind) and lining (from the front) at their native 10 x 16. */
+  | { kind: 'cape'; face: string; lining: string }
+  /** Back, head, face and halo items: a lit three-quarter portrait. */
+  | { kind: 'model'; src: string }
+  /** A trail's particles along an arc. */
+  | { kind: 'trail'; src: string }
+  /** A badge's 9 x 9 enamel pin. */
+  | { kind: 'badge'; src: string }
+  | { kind: 'emote'; pattern: string[] };
 
 export interface CosmeticItem {
   id: string;
@@ -60,34 +68,28 @@ export const KIND_LABEL: Record<CosmeticKind, string> = {
   emote: 'Emote',
 };
 
-/** Pixel glyphs for the 3D items, by preview pattern. `#` is the accent, `+` a lit texel. */
-const GLYPHS: Record<string, string[]> = {
-  feather: ['#.......#', '##.....##', '###...###', '####.####', '.###.###.', '..#+.+#..'],
-  membrane: ['#.......#', '##.....##', '#+#...#+#', '##+#.#+##', '.#.#.#.#.', '..#...#..'],
-  orbit: ['..###..', '.#...#.', '#..+..#', '#.+++.#', '#..+..#', '.#...#.', '..###..'],
-  crown: ['#..#..#', '#.###.#', '#######', '###+###'],
-  beanie: ['..###..', '.#####.', '#######', '#.#.#.#', '#######'],
-  tophat: ['.#####.', '.#####.', '.#####.', '.+++++.', '#######'],
-  visor: ['#########', '#+++++++#', '#########'],
-  rift: ['#########', '##..#..##', '####+####', '#####+###', '.#######.'],
-  ring: ['..#####..', '.+.....+.', '..#####..'],
-  motes: ['+.......+', '..#####..', '.#.....#.', '..#####..'],
-};
+/** The rendered pictures, by file name (`<id>.png`, `<id>-lining.png`). */
+const PICTURES: Record<string, string> = Object.fromEntries(
+  Object.entries(import.meta.glob('../assets/cosmetics/*.png', { eager: true, import: 'default' }) as Record<string, string>).map(
+    ([path, url]) => [path.slice(path.lastIndexOf('/') + 1, -'.png'.length), url],
+  ),
+);
+
+/** An item's picture, or an empty string for an id this build has none for. */
+export const pictureOf = (name: string): string => PICTURES[name] ?? '';
 
 function artFor(i: CosmeticCatalogItem): ArtStyle {
-  const p = i.preview;
-  const hue = p.hue ?? '#edeeef';
   switch (i.kind) {
     case 'cape':
-      return { kind: 'cape', pattern: (p.pattern ?? 'origin') as Extract<ArtStyle, { kind: 'cape' }>['pattern'] };
+      return { kind: 'cape', face: pictureOf(i.id), lining: pictureOf(`${i.id}-lining`) };
     case 'trail':
-      return { kind: 'trail', pattern: (p.pattern ?? 'spark') as Extract<ArtStyle, { kind: 'trail' }>['pattern'], hue };
+      return { kind: 'trail', src: pictureOf(i.id) };
     case 'emote':
-      return { kind: 'emote', pattern: p.rows ?? [] };
+      return { kind: 'emote', pattern: i.preview.rows ?? [] };
     case 'badge':
-      return { kind: 'badge', pattern: (p.pattern ?? 'plain') as Extract<ArtStyle, { kind: 'badge' }>['pattern'], hue };
+      return { kind: 'badge', src: pictureOf(i.id) };
     default:
-      return { kind: 'glyph', pattern: GLYPHS[p.pattern ?? ''] ?? ['#'], hue };
+      return { kind: 'model', src: pictureOf(i.id) };
   }
 }
 

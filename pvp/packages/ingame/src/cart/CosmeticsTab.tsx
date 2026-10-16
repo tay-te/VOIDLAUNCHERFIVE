@@ -22,6 +22,7 @@ import type { CosmeticCatalogItem, CosmeticId, CosmeticSlot } from '@/bridge/pro
 import { useModSettings, useVoidStore } from '@/store/store';
 import { cx } from '@/ui';
 import { Sprite, hasSprite, type SpriteName } from './Sprite';
+import { DOLL_PLACEMENT } from './cosmetic-doll';
 import { Kc, Led, Switch } from './prims';
 import {
   COSMETIC_SLOTS,
@@ -110,13 +111,16 @@ export function PaperDoll({ facing, emote }: { facing: 'front' | 'back'; emote?:
   const layer = (p: Placed) => {
     const id = worn(p.slot);
     if (!id) return null;
-    const size = p.size * CELL;
+    // Every launch item knows exactly where it sits (generated with its sprite from the item's own
+    // model, cosmetic-doll.ts); the slot's default only covers an id this build has no sprite for.
+    const at = DOLL_PLACEMENT[id] ?? p;
+    const size = at.size * CELL;
     const tint = tintOf(p.slot);
     return (
       <span
         key={p.slot}
         className={cx('c-doll__item', `c-doll__item--${p.slot}`)}
-        style={{ left: p.x * CELL - size / 2, top: p.y * CELL, width: size, height: size }}
+        style={{ left: at.x * CELL - size / 2, top: at.y * CELL, width: size, height: size }}
         data-slot={p.slot}
       >
         <Sprite name={itemSprite(id, p.slot)} size={size} />

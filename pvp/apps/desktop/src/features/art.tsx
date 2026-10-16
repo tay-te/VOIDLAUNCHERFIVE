@@ -9,6 +9,9 @@
  *   `Character`       the player in their cape, back or front (`69:162`, `75:544`)
  *   `CosmeticArt`     a Store item's picture (`73:1466` and siblings)
  *
+ * A cosmetic's picture is the item itself: `scripts/gen-cosmetics.mjs` renders it from the
+ * bundled model and textures into `assets/cosmetics/`, so the Store shows the game's texels.
+ *
  * Positions are the frames' own, so these are absolutely placed boxes rather than flowed
  * ones: a figure assembled from parts has no layout to flow.
  */
@@ -126,8 +129,11 @@ const BODY: readonly { part: string; x: number; y: number; w: number; h: number;
   { part: 'boot-r', x: 93.5, y: 347.6, w: 45.1, h: 26.4, fill: '#25262a', r: '8.8px' },
 ];
 
-/** The cape's box on the figure, behind (front view) or over (back view) the torso. */
-const CAPE = { x: 35.2, y: 101.2, w: 114.4, h: 226.6 };
+/**
+ * The cape's box on the figure, behind (front view) or over (back view) the torso: Minecraft's
+ * proportions (ten pixels to the torso's eight, sixteen down), so its texels are square.
+ */
+const CAPE = { x: 35.2, y: 101.2, w: 114.4, h: 183 };
 const COLLAR = { x: 33, y: 92.4, w: 118.8, h: 11 };
 
 /** The face the front view adds: two eyes and a mouth, in the figure's own greys. */
@@ -159,14 +165,8 @@ export function Character({
   });
   const capeLayer =
     cape && cape.kind === 'cape' ? (
-      <span
-        className="figure__cape"
-        style={{
-          ...box(CAPE.x, CAPE.y, CAPE.w, CAPE.h),
-          borderRadius: `${s(8.8)}px ${s(8.8)}px ${s(15.4)}px ${s(15.4)}px`,
-        }}
-      >
-        <CapeFace pattern={cape.pattern} w={s(CAPE.w)} h={s(CAPE.h)} worn />
+      <span className="figure__cape" style={box(CAPE.x, CAPE.y, CAPE.w, CAPE.h)}>
+        <img className="pixelart" src={view === 'back' ? cape.face : cape.lining} alt="" draggable={false} />
       </span>
     ) : null;
 
@@ -197,7 +197,7 @@ export function Character({
       {cape && view === 'back' ? (
         <>
           <i
-            style={{ ...box(COLLAR.x, COLLAR.y, COLLAR.w, COLLAR.h), background: '#2b2740', borderRadius: s(5.5) }}
+            style={{ ...box(COLLAR.x, COLLAR.y, COLLAR.w, COLLAR.h), background: '#36323b', borderRadius: s(5.5) }}
           />
           {capeLayer}
         </>
@@ -206,174 +206,14 @@ export function Character({
   );
 }
 
-// ----------------------------------------------------------------- capes
-
-const CAPE_FILL: Record<string, string> = {
-  cell: '#1b1826',
-  void: '#080809',
-  ring: '#474a4f',
-  origin: '#292a2e',
-  dusk: '#292a2e',
-  static: '#292a2e',
-  split: '#292a2e',
-  band: '#292a2e',
-};
-
-/** The VOID ring in 10px cells on a 14px step, centred in a 96 × 150 cape (`73:1529`). */
-const CAPE_RING: readonly [number, number][] = [
-  [36, 42], [50, 42], [22, 56], [64, 56], [22, 70], [64, 70], [36, 84], [50, 84],
-];
-
-/** Static's scatter, in the card's 96 × 150 frame (`73:1581`). */
-const STATIC: readonly [number, number][] = [
-  [5, 4], [31, 4], [70, 4], [18, 18], [44, 18], [83, 18], [31, 32], [57, 32], [5, 46], [44, 46],
-  [70, 46], [18, 60], [57, 60], [83, 60], [5, 74], [31, 74], [70, 74], [18, 88], [44, 88], [83, 88],
-  [31, 102], [57, 102], [5, 116], [44, 116], [70, 116], [18, 130], [57, 130], [83, 130],
-];
-
-/** Cell cape on a card: on/dim per cell, six across and nine down (`73:1467`). */
-const CELL_CARD = ['.##.##', '##.##.', '#.##.#', '.##.##', '##.##.', '#.##.#', '.##.##', '##.##.', '#.##.#'];
-
-/**
- * A cape's face, drawn into a `w × h` box. Card art is authored at 96 × 150; the worn
- * cape (`worn`) is the figure's 114.4 × 226.6 and the cell pattern is drawn the way the
- * frame wears it — seven across, fourteen down, dimming toward the hem.
- */
-function CapeFace({ pattern, w, h, worn = false }: { pattern: string; w: number; h: number; worn?: boolean }) {
-  const kx = w / 96;
-  const ky = h / 150;
-  const cells: ReactElement[] = [];
-  const cell = (key: string, x: number, y: number, size: number, fill: string, r = 0.3) =>
-    cells.push(
-      <i key={key} style={{ left: x, top: y, width: size, height: size, background: fill, borderRadius: size * r }} />,
-    );
-
-  switch (pattern) {
-    case 'cell':
-      if (worn) {
-        // `69:176`: 9.9px cells on a 14.3 step, 7 × 14. Alternate cells sit 0.12 apart and
-        // the whole field drains 0.06 a row toward the hem.
-        const k = w / 114.4;
-        for (let row = 0; row < 14; row += 1) {
-          for (let col = 0; col < 7; col += 1) {
-            const hi = 0.95 - 0.06 * row;
-            const a = Math.max(0.12, (row + col) % 2 === 0 ? hi : hi - 0.12);
-            cell(`${col}:${row}`, (9.35 + col * 14.3) * k, (8.8 + row * 14.3) * k, 9.9 * k, `rgba(159,139,255,${a.toFixed(2)})`, 0.36);
-          }
-        }
-      } else {
-        CELL_CARD.forEach((row, y) =>
-          [...row].forEach((c, x) =>
-            cell(`${x}:${y}`, (9 + x * 14) * kx, (8 + y * 15) * ky, 9 * kx, c === '#' ? '#9f8bff' : 'rgba(159,139,255,0.35)', 0.33),
-          ),
-        );
-      }
-      break;
-    case 'void':
-    case 'ring':
-      CAPE_RING.forEach(([x, y]) => cell(`${x}:${y}`, x * kx, (y + (worn ? 30 : 0)) * ky, 10 * kx, '#ededf0'));
-      break;
-    case 'origin':
-      cells.push(<i key="half" style={{ left: w / 2, top: 0, width: w / 2, height: h, background: '#5c5e63' }} />);
-      break;
-    case 'dusk':
-      ['#5c5c60', '#47474b', '#363638'].forEach((fill, i) =>
-        cells.push(<i key={fill} style={{ left: 0, top: (i * h) / 3, width: w, height: h / 3, background: fill }} />),
-      );
-      break;
-    case 'static':
-      STATIC.forEach(([x, y]) => cell(`${x}:${y}`, x * kx, y * ky, 8 * kx, 'rgba(237,237,240,0.55)', 0.25));
-      break;
-    default:
-      break;
-  }
-
-  return (
-    <span className="capeface" style={{ width: w, height: h, background: CAPE_FILL[pattern] ?? '#292a2e' }}>
-      {cells}
-    </span>
-  );
-}
-
 // ------------------------------------------------------------- store art
 
-/** A trail: cells stepping off toward the top-right, shrinking and fading (`73:1616`). */
-const SPARK: readonly [number, number, number, number][] = [
-  [210, 30, 20, 1], [186, 56, 16, 0.9], [164, 76, 13, 0.8], [144, 92, 11, 0.7],
-  [127, 105, 9, 0.6], [112, 115, 7, 0.5], [99, 123, 6, 0.4],
-];
-
-function hexA(hex: string, a: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-}
-
-function TrailArt({ pattern, hue }: { pattern: string; hue: string }) {
-  let cells: [number, number, number, number][] = [...SPARK];
-  if (pattern === 'drift') cells = SPARK.map(([x, y, s, a], i) => [x - 40 + (i % 2) * 18, y + 10, s, a]);
-  if (pattern === 'ring')
-    cells = Array.from({ length: 10 }, (_, i) => {
-      const t = (i / 10) * Math.PI * 2;
-      return [161 + Math.cos(t) * 56 - 6, 94 + Math.sin(t) * 56 - 6, 12, 0.3 + (i / 10) * 0.7];
-    });
-  if (pattern === 'stair') cells = Array.from({ length: 7 }, (_, i) => [96 + i * 20, 136 - i * 16, 12, 0.35 + i * 0.1]);
-  return (
-    <>
-      {cells.map(([x, y, s, a]) => (
-        <i key={`${x}:${y}`} className="art__cell" style={{ left: x, top: y, width: s, height: s, borderRadius: s * 0.3, background: hexA(hue, a) }} />
-      ))}
-    </>
-  );
-}
-
-/** The founder badge's diamond on a 7 x 7 grid. */
-const FOUNDER: readonly [number, number][] = [
-  [3, 0], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [0, 3], [1, 3], [2, 3], [3, 3], [4, 3],
-  [5, 3], [6, 3], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [2, 5], [3, 5], [4, 5], [3, 6],
-];
-
-function BadgeArt({ pattern, hue }: { pattern: string; hue: string }) {
-  const mark: ReactElement[] = [];
-  if (pattern === 'cell')
-    for (let y = 0; y < 3; y += 1) for (let x = 0; x < 3; x += 1) mark.push(<i key={`${x}${y}`} style={{ left: 17 + x * 8, top: 13 + y * 8, width: 6, height: 6, background: hue }} />);
-  if (pattern === 'ring')
-    RING.forEach(([x, y]) => mark.push(<i key={`${x}${y}`} style={{ left: 16 + x * 3.4, top: 14 + y * 3.4, width: 3, height: 3, background: hue }} />));
-  if (pattern === 'dots')
-    [0, 1, 2].forEach((i) => mark.push(<i key={i} style={{ left: 18 + i * 9, top: 22, width: 6, height: 6, background: hue }} />));
-  if (pattern === 'founder')
-    // A cut stone: a diamond of cells with a violet heart.
-    FOUNDER.forEach(([x, y]) =>
-      mark.push(<i key={`${x}${y}`} style={{ left: 16 + x * 4, top: 12 + y * 4, width: 3.5, height: 3.5, background: x === 3 && y === 3 ? '#9f8bff' : hue }} />),
-    );
+/** The founder's and every badge's plate: the pin beside a name, as the nametag shows it. */
+function BadgeArt({ src }: { src: string }) {
   return (
     <span className="art__plate">
-      {mark}
-      {pattern === 'bar' ? <i style={{ left: 18, top: 34, width: 120, height: 4, background: hue }} /> : null}
-      <span className="art__plate-name" style={pattern === 'plain' || pattern === 'bar' ? { left: 18 } : undefined}>
-        Kestrel
-      </span>
-    </span>
-  );
-}
-
-/** A back, head, face or halo item as a pixel glyph: `#` the accent, `+` a lit texel. */
-function GlyphArt({ pattern, hue }: { pattern: readonly string[]; hue: string }) {
-  const size = 12;
-  const step = 15;
-  const w = (pattern[0]?.length ?? 0) * step;
-  const h = pattern.length * step;
-  return (
-    <span className="art__emote" style={{ width: w, height: h }}>
-      {pattern.flatMap((row, y) =>
-        [...row].map((c, x) =>
-          c === '#' || c === '+' ? (
-            <i
-              key={`${x}:${y}`}
-              style={{ left: x * step, top: y * step, width: size, height: size, background: c === '+' ? '#edeeef' : hexA(hue, 0.85) }}
-            />
-          ) : null,
-        ),
-      )}
+      <img className="art__pin pixelart" src={src} alt="" draggable={false} />
+      <span className="art__plate-name">Kestrel</span>
     </span>
   );
 }
@@ -401,13 +241,13 @@ export function CosmeticArt({ item }: { item: CosmeticItem }) {
     <span className={`art art--${art.kind}`} aria-hidden="true">
       {art.kind === 'cape' ? (
         <span className="art__cape">
-          <CapeFace pattern={art.pattern} w={96} h={150} />
+          <img className="pixelart" src={art.face} alt="" draggable={false} />
         </span>
       ) : null}
-      {art.kind === 'trail' ? <TrailArt pattern={art.pattern} hue={art.hue} /> : null}
-      {art.kind === 'badge' ? <BadgeArt pattern={art.pattern} hue={art.hue} /> : null}
+      {art.kind === 'model' ? <img className="art__model" src={art.src} alt="" draggable={false} /> : null}
+      {art.kind === 'trail' ? <img className="art__trail" src={art.src} alt="" draggable={false} /> : null}
+      {art.kind === 'badge' ? <BadgeArt src={art.src} /> : null}
       {art.kind === 'emote' ? <EmoteArt pattern={art.pattern} /> : null}
-      {art.kind === 'glyph' ? <GlyphArt pattern={art.pattern} hue={art.hue} /> : null}
     </span>
   );
 }

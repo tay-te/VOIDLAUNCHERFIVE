@@ -1667,19 +1667,12 @@ button.pbfield:hover,
 }
 
 .figure > i,
-.figure__cape,
-.capeface,
-.capeface > i {
+.figure__cape {
   position: absolute;
   display: block;
 }
 
 .figure__cape {
-  overflow: hidden;
-}
-
-.capeface {
-  position: relative;
   overflow: hidden;
 }
 
@@ -1823,28 +1816,45 @@ button.pbfield:hover,
   display: block;
 }
 
+/* Item pictures are rendered from the item itself (gen-cosmetics); pixel art is scaled with
+   nearest-neighbour so a texel stays a crisp square. */
+.pixelart {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
 .art__cape {
   position: absolute;
   left: 50%;
-  top: 19px;
-  width: 96px;
-  height: 150px;
-  margin-left: -48px;
-  border-radius: 14px;
-  overflow: hidden;
+  top: 22px;
+  width: 90px;
+  height: 144px;
+  margin-left: -45px;
 }
 
-.art__cell,
-.art__plate i,
+.art__model {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 180px;
+  height: 180px;
+  margin: -90px 0 0 -90px;
+}
+
+.art__trail {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 324px;
+  height: 180px;
+  margin: -90px 0 0 -162px;
+}
+
 .art__emote i {
   position: absolute;
   display: block;
-}
-
-.art--trail {
-  left: 50%;
-  width: 322px;
-  margin-left: -161px;
 }
 
 .art__plate {
@@ -1859,8 +1869,12 @@ button.pbfield:hover,
   border: 1px solid var(--line-07);
 }
 
-.art__plate i {
-  border-radius: 2px;
+.art__pin {
+  position: absolute;
+  left: 16px;
+  top: 12px;
+  width: 27px;
+  height: 27px;
 }
 
 .art__plate-name {
