@@ -162,7 +162,9 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 
 	// the body: the biome tint (the cobalt taken out) over a calmed vanilla texture, lit in the light pass's linear
 	// light and tone as level water; the waves' tilt toward the light shows as gentle light and shade
-	vec3 albedo = waterTone(w.tint) * mix(vec3(0.75), w.tex, WS_TEXTURE_SHARE) * wsSeasonWater(sea);
+	// (a fall right at the eye: see the spray below; its texture's streaks would be bands a tenth of the screen wide)
+	float spray = fall * (1.0 - smoothstep(0.8, 3.0, dist));
+	vec3 albedo = waterTone(w.tint) * mix(vec3(0.75), w.tex, WS_TEXTURE_SHARE * (1.0 - spray)) * wsSeasonWater(sea);
 	vec3 faceN = welkinWaterNormal(w.geoNormal);
 	float facing = sunFacing(mix(dot(top ? N : faceN, L), dot(faceN, L), fall));
 	vec3 sunShare = w.sunShare * wsSeasonSun(sea);
@@ -196,7 +198,6 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	a = mix(a, max(a, WS_ALPHA_FALL), fall);
 	// a fall right at the eye (looking through it from behind, or standing in its spray): its pixels would be blocks
 	// wider than the screen's tenth, so the sheet goes over to a soft, bright veil of spray, the world dim behind it
-	float spray = fall * (1.0 - smoothstep(0.8, 3.0, dist));
 	foam = mix(foam, 0.45, spray);
 	a = mix(a, 0.8, spray);
 	albedo = mix(albedo, vec3(0.86, 0.91, 0.93), foam);

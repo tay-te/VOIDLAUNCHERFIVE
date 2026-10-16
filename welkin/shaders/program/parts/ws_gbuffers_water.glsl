@@ -184,7 +184,9 @@ void main() {
 		}
 #endif
 		outColor = wsShadeWater(w, inp, sea, sf, outInfo);
-		outWater = vec4(outColor.rgb / max(outColor.a, 1e-3), 1.0);
+		// (the defects pass) the mark's alpha: 1 level water, 0.5 a fall's sheet or a cascade's steep step (the valley
+		// mist takes a fall as the rock behind it, not as open water)
+		outWater = vec4(outColor.rgb / max(outColor.a, 1e-3), nW.y < 0.96 && nW.y > -0.5 ? 0.5 : 1.0);
 		return;
 	}
 

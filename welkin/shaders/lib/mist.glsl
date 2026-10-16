@@ -391,7 +391,9 @@ vec3 valleyMistWith(ivec2 p, vec2 uv, vec3 scene, MistTiles t, MistPoint a) {
 
 	// Only where the sky reaches: land the sky light does not reach (caves, under overhangs) gets none. Water and the
 	// sky are open by definition (a deep lake's bed has little sky light under the water).
-	bool water = texelFetch(colortex3, p, 0).a > 0.0;
+	// (the defects pass, 2026-10-16) only level water: a fall (its mark's alpha 0.5) is open as far as the rock behind
+	// it is, else under the pool's mist its whole sheet stood out as a bright plume against the shaded gorge
+	bool water = texelFetch(colortex3, p, 0).a > 0.75;
 	vec4 flags = texelFetch(colortex2, p, 0);
 	vec4 g = texelFetch(colortex1, p, 0);
 	// Vanilla's clouds stand far over any slab: the ray to one is treated as a ray to the sky, ending at the cloud.
