@@ -269,6 +269,22 @@ public final class RoundHouse implements Archetype {
 				d.set(c[0], base - 1, c[1], floor.full());
 			}
 		}
+		// where the slope comes up under the floor to leave a gap two high or less, the gap is filled (a crawl space a
+		// ring beam shuts in is a pocket nobody gets to, and no builder leaves the ground short of the boards there)
+		Mat found = d.mat(Role.FOUNDATION);
+		try (var s = d.stage(StageKind.FOUNDATION)) {
+			for (int[] c : deck.disc()) {
+				int g = d.site().ground(c[0], c[1]);
+				if (d.site().water(c[0], c[1]) != Site.NONE || base - 1 - g > 2) {
+					continue;
+				}
+				for (int y = g; y <= base - 2; y++) {
+					if (d.isAbsent(c[0], y, c[1])) {
+						d.set(c[0], y, c[1], found.full());
+					}
+				}
+			}
+		}
 		try (var s = d.stage(StageKind.FOUNDATION)) {
 			for (int[] c : ring.wall()) {
 				if (d.isEmpty(c[0], base - 2, c[1]) && base - 2 >= d.site().ground(c[0], c[1])) {
