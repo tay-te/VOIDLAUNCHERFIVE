@@ -68,6 +68,15 @@ public final class ScaffoldLedger {
 		return out;
 	}
 
+	/** Every listed position (packed), whoever put it up. */
+	public void forEach(java.util.function.LongConsumer each) {
+		for (List<Long> l : this.byBuilder.values()) {
+			for (long p : l) {
+				each.accept(p);
+			}
+		}
+	}
+
 	public boolean isEmpty() {
 		return this.byBuilder.isEmpty();
 	}
