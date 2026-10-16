@@ -533,11 +533,27 @@ public final class Hall {
 		}
 		int[] r = this.body.rect(this.body.storeys() - 1);
 		int y = this.deck + 1;
-		if (y + 1 >= this.d.maxHeight()) {
+		if (y >= this.d.maxHeight()) {
 			return this;
 		}
-		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(this.d, r[0], r[1], r[2], r[3], this.deck,
-			dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.SHOULDERED);
+		if (y + 1 < this.d.maxHeight()) {
+			dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(this.d, r[0], r[1], r[2], r[3], this.deck,
+				dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.SHOULDERED);
+		}
+		// where the plot's height took no coping (the shouldered parapet wants three rows over the deck), the wall is
+		// carried up one course round the deck: a deck folk climb to is never an open edge
+		Mat wall = this.d.mat(Role.WALL);
+		try (var st = this.d.stage(StageKind.ROOF)) {
+			for (Side side : Side.of(r[0], r[1], r[2], r[3])) {
+				for (int i = 0; i < side.length(); i++) {
+					int x = side.x(i);
+					int z = side.z(i);
+					if (this.d.isSolid(x, this.deck, z) && this.d.isAbsent(x, y, z)) {
+						this.d.set(x, y, z, wall.full());
+					}
+				}
+			}
+		}
 		this.top = Math.max(this.top, y + 1);
 		return this;
 	}
@@ -677,7 +693,9 @@ public final class Hall {
 				// canvas of one colour, not the house's every cloth cell by cell
 				dev.voidmc.hearth.build.kit.townhome.Life.awning(this.d, ax0, az0, ax1, az1, deckY + 2);
 				for (int[] c : new int[][]{{ax1, az1}, {ax1, az0}}) {
-					if (this.d.isEmpty(c[0], deckY, c[1]) && this.d.isSolid(c[0], deckY - 1, c[1])) {
+					// the back pole never stands against the deck room's wall, closing the way past it to the room's door
+					boolean closes = az1 != az0 && c[1] == az1 && this.d.isSolid(c[0], deckY, c[1] + 1);
+					if (!closes && this.d.isEmpty(c[0], deckY, c[1]) && this.d.isSolid(c[0], deckY - 1, c[1])) {
 						this.d.set(c[0], deckY, c[1], pole.fence());
 						this.d.set(c[0], deckY + 1, c[1], pole.fence());
 					}
@@ -722,9 +740,13 @@ public final class Hall {
 						doorBeside |= n != null && n.getBlock() instanceof net.minecraft.world.level.block.DoorBlock;
 					}
 					if (!doorBeside && dev.voidmc.hearth.build.kit.refine.Lofts.ladder(this.d, x, z, y0, deckY, toWall, null)) {
-						// the hatch's lid, standing open against the parapet: it keeps the rain off and folk climb past it
+						// the hatch's lid, lifted off and laid on the deck beside it (stood open against the parapet, its top
+						// edge was a step up onto the coping and over the edge)
 						Mat lid = this.d.mat(Role.SHUTTER).has(Form.TRAPDOOR) ? this.d.mat(Role.SHUTTER) : this.d.mat(Role.FURNITURE);
-						this.d.inStage(StageKind.ROOF, () -> this.d.set(x, deckY, z, lid.trapdoor(toWall.getOpposite(), Half.BOTTOM, true)));
+						int lx = mx;
+						if (this.d.isEmpty(lx, deckY, z) && this.d.isSolid(lx, deckY - 1, z)) {
+							this.d.inStage(StageKind.ROOF, () -> this.d.set(lx, deckY, z, lid.trapdoor(toWall.getOpposite(), Half.BOTTOM, false)));
+						}
 						return new int[]{x, z};
 					}
 				}
