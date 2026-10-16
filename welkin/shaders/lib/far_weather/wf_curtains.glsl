@@ -111,11 +111,13 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 	float camY = e.camY;
 	float dy = dir.y;
 	float ceiling = wfCurtainCeiling(e);
+	// (the defects pass, 2026-10-16: the reach was held to DH's render distance, which VOID LOD reports small, so every
+	// curtain past about 4-8 km was cut, and the storms the fronts hang 7-20 km out never showed. A curtain stands
+	// under the clouds, which are drawn far past the land, and the walk stops at the land anyway: only a world drawn
+	// without far land keeps a shorter reach, so curtains do not stand on the void.)
 	float reach = WF_CURTAIN_REACH;
-#ifdef DISTANT_HORIZONS
-	reach = min(reach, max(float(dhRenderDistance), 4096.0));
-#else
-	reach = min(reach, 8192.0);
+#ifndef DISTANT_HORIZONS
+	reach = min(reach, 16384.0);
 #endif
 
 	// the stretch of ray between the floor and the ceiling, past the curtains' start, before the land and the clouds
@@ -189,8 +191,10 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 			float sideIn = max(tn.x, tn.y);
 			float tIn = max(sideIn, max(ty1, tEnter));
 			float tOut = min(min(tf.x, tf.y), min(ty2, tExit));
-			// seen from above, a column's top is under its own deck: the clouds cover it
-			bool hidden = ty1 >= max(sideIn, tEnter) && dy < 0.0;
+			// (seen from above through a gap in the deck, a column's top shows: the walk has already stopped at any cloud
+			// in front, so a top the ray reaches is not under a cloud. It was hidden here, which kept every curtain off
+			// the views from the peaks.)
+			bool hidden = false;
 #if WF_DEBUG == 5
 			wfDbgState = max(wfDbgState, tOut > tIn && !hidden ? 4 : 3);
 #endif
@@ -244,16 +248,21 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 	}
 	float storm = stormSum / od;
 	stormOut = storm;
-	layer.alpha = WF_CURTAIN_ALPHA * (1.0 - exp(-od * mix(1.2, 1.6, storm)));
+	layer.alpha = WF_CURTAIN_ALPHA * (1.0 - exp(-od * mix(1.3, 1.9, storm)));
 
-	// rain lit like a cloud's underside: the dome's light, a share of the direct light where a low sun or moon gets
-	// under the deck (little under a storm), brighter looking toward it; lightning through the sky table's flash
+	// (the defects pass, 2026-10-16) the rain takes the colour of the deck's underside it falls from (the sky table's
+	// cloud base, slate under a storm), a little darker inside the shaft, so a curtain reads as the cloud's own grey
+	// reaching down to the land and a storm as a dark wall against the bright horizon. It was lit with the land's
+	// linear light, which came out the haze's own pale grey and vanished into it. Toward a low sun the rain glows (the
+	// light gets under the deck and scatters forward through the drops); lightning lights it from inside.
 	vec3 l = lightDirWorld();
-	float under = mix(0.18, 0.55, 1.0 - smoothstep(0.12, 0.45, l.y)) * (1.0 - 0.7 * storm);
-	float forward = pow(clamp(dot(dir, l), 0.0, 1.0), 6.0) * 0.6 * (1.0 - 0.5 * storm);
-	vec3 albedo = mix(vec3(0.66, 0.68, 0.72), vec3(0.46, 0.48, 0.54), storm);
-	vec3 light = skyAmbientLight() * 0.85 + skyDirectLight() * (under + forward) + skyFlashLight() * (0.3 + 0.7 * storm);
-	layer.color = albedo * light;
+	float lowSun = 1.0 - smoothstep(0.10, 0.45, l.y);
+	float forward = pow(clamp(dot(dir, l), 0.0, 1.0), 5.0) * mix(0.25, 0.7, lowSun) * (1.0 - 0.6 * storm);
+	vec3 base = mix(skyCloud(SKY_CLOUD_BASE), skyCloud(SKY_CLOUD_STORM), smoothstep(0.1, 0.7, storm));
+	vec3 c = base * mix(0.86, 0.62, storm);
+	c += skyHorizon(true) * forward * (1.0 - skyNightStep());
+	c += skyFlashLight() * (0.25 + 0.75 * storm) * 0.6;
+	layer.color = c;
 	return layer;
 }
 
