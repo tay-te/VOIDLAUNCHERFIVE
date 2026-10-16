@@ -21,7 +21,7 @@
 //   UgSurface us = ugSurface(ugState(), eyePos, n, dist);
 //   albedo *= us.albedo;                                     // before the light
 //   lightUgLin = toLinear(us.light);                         // lib/light.glsl: in linear light, inside the light
-//   lightUgEmit = toLinear(us.glow);                         //   pass, before the tone (merged onto the lighting)
+//   lightEmitLin = toLinear(us.glow);                         //   pass, before the tone (merged onto the lighting)
 //   color.rgb = welkinLightGlow(albedo, ...);
 
 #ifndef WELKIN_UG_SURFACE

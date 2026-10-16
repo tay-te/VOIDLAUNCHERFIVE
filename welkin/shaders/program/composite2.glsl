@@ -20,7 +20,7 @@
 //   3. debug views
 //   then, in every dimension, the underground air (M5, P6, lib/underground/): the surface air above (the haze, the
 //      mist, the shafts and the aerial perspective) hands over to it by ug.amount at cave mouths
-// Still to come here: the near-water reflections (M6, HIGH).
+// Near water on HIGH (WS_WATER_SSR, M6) first takes the terrain's reflection, before any air (lib/ws/ssr.glsl).
 
 #define WELKIN_DEPTH_BEHIND
 #include "/lib/common.glsl"
@@ -97,6 +97,26 @@ uniform vec3 sunPosition;
 uniform sampler2D colortex6;
 #endif
 #endif
+// ---- M6 water (welkin-water): reflections of terrain in near water (WS_WATER_SSR, on HIGH; lib/ws/ssr.glsl)
+#if defined WS_WATER_SSR && defined WORLD_OVERWORLD
+#include "/lib/sky/dome.glsl"
+#include "/lib/ws/config.glsl"
+#ifndef WU_colortex4
+#define WU_colortex4
+uniform sampler2D colortex4;
+#endif
+#ifndef WU_gbufferModelView
+#define WU_gbufferModelView
+uniform mat4 gbufferModelView;
+#endif
+#ifndef WU_viewWidth
+#define WU_viewWidth
+uniform float viewWidth;
+#endif
+#include "/lib/ws/ssr.glsl"
+#define WELKIN_WS_SSR_ON
+#endif
+// ---- end M6 water
 
 #if DEBUG_VIEW != 0
 #include "/lib/debug.glsl"
@@ -225,6 +245,13 @@ void main() {
 	// a rain curtain composite1 finished over the sky or a cloud, with all its air: marked by its distance negated
 	finished = isEyeInWater == 0 && cloudKm < 0.0;
 	cloud = isEyeInWater == 0 && cloudKm < 999.0;
+#endif
+#ifdef WELKIN_WS_SSR_ON
+	// M6 water: the terrain near water reflects, before any air (not on a cloud drawn in front of the water); composite1
+	// changed nothing within its reach (no far air, curtains or far mist inside 384 blocks, no water fog from above)
+	if (!cloud && isEyeInWater == 0) {
+		color.rgb = wsWaterSSR(color.rgb, p);
+	}
 #endif
 	// 1. water fog (not over a cloud in front of a lake, seen from above the deck). P5 far weather: in the overworld
 	// composite1 lays it, before the far air and layers (which must lie over a lake's water as over the land).

@@ -5,11 +5,17 @@
 // Leaves and plants sway exactly as gbuffers_terrain sways them (lib/sway.glsl, the same inputs), so their shadows
 // move with them. Opaque and cutout blocks write depth; translucents also write what light they let through into
 // shadowcolor0, stored at half: stained glass its colour, water a pale blue-green with alpha 0 (receivers then also
-// fade it with the depth the light travels).
+// fade it with the depth the light travels). With WS_CAUSTICS (M6 water) the water's light carries the waves' caustics.
 
 #define WELKIN_SHADOW_PASS
 #include "/lib/common.glsl"
 #include "/lib/shadow.glsl"
+// ---- M6 water (welkin-water): caustics, the waves' light on the ground under water (lib/ws/ripples.glsl)
+#include "/lib/ws/config.glsl"
+#if defined WS_CAUSTICS && WS_RIPPLE_MODE > 0 && defined WORLD_OVERWORLD && !defined WELKIN_SHADOW_SOLID
+#define WELKIN_WS_CAUSTICS
+#endif
+// ---- end M6 water
 
 #ifdef VERTEX_SHADER
 
@@ -19,6 +25,9 @@ in vec4 at_midBlock;
 out vec2 texcoord;
 out vec4 glcolor;
 flat out int material;
+#ifdef WELKIN_WS_CAUSTICS
+out vec3 wsRel; // M6 water: the camera-relative point, for the caustics
+#endif
 
 #ifndef WU_shadowModelView
 #define WU_shadowModelView
@@ -119,6 +128,9 @@ void main() {
 		vec3 foot = pp + at_midBlock.xyz / 64.0 - vec3(0.0, 0.5, 0.0);
 		view = shadowModelView * vec4(mix(foot, pp, keep), 1.0);
 	}
+#ifdef WELKIN_WS_CAUSTICS
+	wsRel = (shadowModelViewInverse * view).xyz;
+#endif
 	gl_Position = gl_ProjectionMatrix * view;
 	gl_Position.xyz = shadowDistort(gl_Position.xyz);
 }
@@ -130,6 +142,13 @@ void main() {
 in vec2 texcoord;
 in vec4 glcolor;
 flat in int material;
+#ifdef WELKIN_WS_CAUSTICS
+in vec3 wsRel;
+#include "/lib/void.glsl"
+#include "/lib/sway.glsl"
+#include "/lib/ws/inputs.glsl"
+#include "/lib/ws/ripples.glsl"
+#endif
 
 #ifndef WU_gtexture
 #define WU_gtexture
@@ -145,8 +164,16 @@ void main() {
 	// (fast leaves) mark their texels as the cutout ones do (workstream C)
 	outShadow = matIsLeaves(material) ? vec4(0.5, 0.5, 0.0, 1.0) : vec4(0.5, 0.5, 0.5, 1.0);
 #else
+#ifdef WELKIN_WS_CAUSTICS
+	float wsTexel = max(length(dFdx(wsRel)), length(dFdy(wsRel)));
+#endif
 	if (matIsWater(material)) {
-		outShadow = vec4(vec3(0.70, 0.86, 0.88) * 0.5, 0.0);
+		vec3 light = vec3(0.70, 0.86, 0.88);
+#ifdef WELKIN_WS_CAUSTICS
+		// M6 water: the waves gather the light into lines that move with them on the ground below
+		light *= wsCaustic(wsRel.xz, wsTexel, wsWind(), rainStrength, frameTimeCounter);
+#endif
+		outShadow = vec4(light * 0.5, 0.0);
 		return;
 	}
 	vec4 c = texture(gtexture, texcoord) * glcolor;

@@ -79,6 +79,16 @@ uniform float viewHeight;
 #endif
 // ---- M5 underground (P6): damp walls, realm, glowworm and lava light (lib/underground/ug_surface.glsl)
 #include "/lib/underground/ug_surface.glsl"
+// ---- M6 water (welkin-water): the wet band at the water's edge, frost, the season's light (lib/ws/surface.glsl)
+#if defined WORLD_OVERWORLD && (defined WS_SHORE_WET || defined WS_FROST || defined WS_SEASON_LIGHT)
+#include "/lib/sway.glsl"
+#include "/lib/ws/config.glsl"
+#include "/lib/ws/inputs.glsl"
+#include "/lib/ws/season.glsl"
+#include "/lib/ws/surface.glsl"
+#define WELKIN_WS_DEFERRED
+#endif
+// ---- end M6 water
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
@@ -167,6 +177,19 @@ void main() {
 		}
 		albedo *= us.albedo;
 		// ---- end M5
+		// ---- M6 water (welkin-water): the shore's wet band (the wetter of it and the rain's), frost, the season's
+		// tints of the sun and the shade (the shade's on the fill, below)
+#ifdef WELKIN_WS_DEFERRED
+#ifdef WELKIN_WET
+		float wsRainWet = wet.wet;
+#else
+		float wsRainWet = 0.0;
+#endif
+		WsDeferred wsd = wsDeferredSurface(albedo, eyePos, n, g.w, material, unpackEmission(flags.z), wsRainWet,
+			reach * facing, blocksPerPixelAt(dist, gbufferProjection[1][1], viewHeight));
+		sunShare *= wsd.sunTint;
+#endif
+		// ---- end M6 water
 		vec2 lm = g.zw;
 		lm.x = welkinHandBlockLight(lm.x, dist); // a torch in hand lights the ground on the same ramp
 		// the LOD's leaves: the crown's average self-shade the near shadow map gives near crowns (lib/light.glsl)
@@ -179,6 +202,9 @@ void main() {
 			reach *= farCanopySun(material);
 			fill *= farCanopyFill(material);
 		}
+#ifdef WELKIN_WS_DEFERRED
+		fill *= wsd.ambientTint; // M6 water: the season's tint of the shade
+#endif
 		// ---- Light: ambient (B): the ambient occlusion round near points and its bent normal (program/deferred_ao.glsl,
 		// lib/ao.glsl); lib/light.glsl lays it on the fill and the torch light
 		// (the LOD's land too: the middle and far land take it at their own, wider scale)
@@ -220,9 +246,17 @@ void main() {
 		// ---- M5 underground (P6): the realm's, the glowworms' and the lava's light and the rock's own glow, in linear
 		// light inside the light pass (under the fill's occlusion, before the tone), not added to the toned colour
 		lightUgLin = toLinear(us.light);
-		lightUgEmit = toLinear(us.glow);
+		lightEmitLin = toLinear(us.glow);
+#ifdef WELKIN_WS_DEFERRED
+		// M6 water: glints on frost and snow where the direct light reaches, as emitted light in linear light (the
+		// land's direct light: the tone rolls a glint into white, as it does a sunlit pale face)
+		lightEmitLin += wsDeferredSparkle(wsd, eyePos, n, material, skyLandDirect() * reach * facing * sunShare);
+#endif
 		color.rgb = welkinLightGlow(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, aoMc, glow,
 			contact);
+#ifdef WELKIN_WS_DEFERRED
+		color.rgb = wsDeferredDebug(wsd, color.rgb); // M6 water: the WS_DEBUG views
+#endif
 #ifdef WELKIN_WET
 		// puddles mirror the sky (the sky table's horizon), glint toward the light where it reaches, flick with drops
 		vec3 skyR = skyHorizon(false);

@@ -1175,3 +1175,46 @@ with the Underground screen (`UG_*`; `UG_FOG_SAMPLES` 2/3/4 in the profiles) and
   handed over (which would have drawn a ring at 1912 blocks).
 - **Checked:** every `live.sh` variant compiles (P6's own and five for the merge added); the load runs are in the
   wave 3 summary.
+### The water step (P7, the water half; branch welkin-water)
+
+- **The surface** (`lib/ws/`, `program/parts/ws_gbuffers_water.glsl`, `ws_dh_water.glsl`): an exact sum of 18 fixed waves at the pixel's own point (integer-wrapped phase, seamless anywhere in the world and across the clock's hourly wrap), weighted by VOID Gloam's wind (`void_wind`; without Gloam the breeze the leaves sway in), calmer under trees and roofs; rain rings spread and fade in each block while it rains (`WS_RIPPLES` 2). With distance the waves shorter than a few screen pixels fade out and hand their tilt on as roughness, so nothing shimmers and the sun's glitter path grows longer and softer toward the horizon, continuous from the chunks' water onto the LOD's.
+- **Reflection and glint:** the sky table's dome in the reflected direction (`skyDomeOnly`), by Schlick's Fresnel, dimmed where the sky is hidden; the sun's (or moon's) image as a crisp-edged disc on calm water that spreads with roughness, the only thing the water draws above 1.0. Near water on HIGH also reflects terrain (`WS_WATER_SSR`, composite2: 12 growing steps and 4 refine steps, a fixed start, a smooth fade at the screen's edge; nothing past 256 blocks or on the LOD).
+- **The body:** the biome tint over the vanilla texture (`WS_WATER_TEXTURE`), lit by the pack's own ramp with the sun through the near shadow map and the clouds' shadows (trees and decks shade the water); its opacity from the depth of water the view crosses (`depthtex1` near, `dhDepthTex1` far), murkier in rain, with a pale band where it thins out over a bank. From below, the Snell window opens smoothly. `lib/water.glsl`'s fog from above is gone (the body does it); its under-water fog stays. Glass and ice take the sky's reflection by Fresnel.
+- **Caustics** (`WS_CAUSTICS`): the shadow pass's water writes the same wave field's light lines into shadowcolor0, so the sun on the ground under water carries them through `shadowVisibility`'s water tint; they fade out where a shadow texel grows past a fraction of a block.
+- **Shore, frost and seasons** (deferred, `lib/ws/surface.glsl`): a smooth wet band within about 6 blocks of water and 1.4 blocks above its level (2.4 when the ground is wet), from Gloam's N0 tile, counted as the wetter of it and the rain's wet ground, never both; winter's paler, weaker sun, cooler shade and darker water, autumn's warmer light (`WS_SEASON_LIGHT`, from Gloam's warmth and season state); frost settling texel by texel on the blocks' own grid on cold mornings, melting by mid-morning (later in shade), a smooth average where a texel is under a pixel, and a few fixed glints on frost and snow in the sun (`WS_FROST`). No seasons, shore band or frost without Gloam's uniforms.
+- **Not taken from the staged module:** its shadow program and lookup (`ws_shadow.glsl`, `lib/ws/shadow.glsl`: the light step's own are the pack's), its stepped facets, banded Fresnel and opacity, Bayer-dithered opacity and shadow fade, hashed 5 Hz glints and far glitter cells, and `wsSeasonHaze` (the haze has its own seasons: INTEGRATION.md C7).
+
+### The wave 3 merge, 3 of 3: water (P7) onto the lighting (2026-10-16)
+
+`welkin-water` (head 46f29b33, built on 05e84318) merged last. Its water replaces the lighting's (`lib/watersurf.glsl`
+stays for the puddles' sky in deferred; gbuffers_common's `G_WATERFLAG` path is no longer used by any program), and
+the lighting's own water fixes are carried into it.
+
+- **Conflicts:** `lib/settings.glsl` (the modules line, the Weather and Debug options, the empty `#ifdef` tests: all
+  kept), `lib/water.glsl` (P7's: no fog from above, the body covers the bed by the depth it crosses; the fog under
+  water stays, laid by composite1 in the overworld), `program/dh_water.glsl` (P7's slot, body in
+  `parts/ws_dh_water.glsl`), `program/shadow.glsl` (the lighting's low-plant shrink and solid pass with P7's
+  caustics; the caustics are off in `shadow_solid`, which draws no water), `program/composite2.glsl` (P7's reflections
+  of terrain before any air, after the cloud and finished-curtain marks), `program/deferred.glsl` (the lighting's light
+  pass with P7's shore, frost and season), `shaders.properties` (profiles with `WS_CAUSTICS` on MEDIUM and HIGH and
+  `WS_WATER_SSR` on HIGH; the Water screen; the Weather screen with both P5's and P7's options; debug and sliders),
+  the lang file, README and this file. `gbuffers_water.glsl` merged on its own to P7's slot.
+- **The water on the new light** (`lib/ws/water.glsl`): the body is lit in the light pass's linear light and tone,
+  its albedo into `welkinLightCore` (P7 multiplied the albedo onto a white face's toned light, which over-saturated
+  and darkened it under the new curve), with the sky's irradiance as its fill, the sun through the shadow map and the
+  clouds' shadows; the bank's pale band now pales the albedo before the light. The biome tint loses its cobalt
+  (`waterTone`, the lighting's natural blue-green). Reflection by Schlick's Fresnel of the sky table's dome, clear
+  shallows from the depth crossed (0.2 opacity at the thinnest film, 0.94 deep), and the sun's image spreading with
+  the waves' sub-pixel roughness into a glitter path toward a low sun were all in P7 and stay.
+- **The lighting's water fixes kept:** the turned-down copy of water's top is discarded from the air (the light and
+  dark triangles on falls); every top, sloped ones too, ripples and takes its light as level water, and a fall's
+  upright sheet reflects about a normal leaning up (`welkinWaterNormal`, `waterReflectNormal`); the LOD's baked bed is
+  taken back out of its water colour (`parts/ws_dh_water.glsl`), so the far water matches the near.
+- **Glass** reads `separateAo`'s vertex alpha as corner shading (P7 took it for the texture's alpha) and lights with
+  it (`welkinLightFull`).
+- **Shore, frost and seasons in the light pass:** the season's sun tint on `sunShare`, its shade tint on the fill;
+  frost and snow glints go in as emitted linear light (`lightEmitLin`, shared with P6's glow; P7 added
+  `skyDirectLight() * LIGHT_SUN_GAIN`, a constant the lighting removed, onto the toned colour), with the land's direct
+  light, so the tone rolls a glint into white; the emission is read with `unpackEmission`.
+- **Checked:** every `live.sh` variant compiles (P7's own and seven for the merge added); the load runs are in the
+  wave 3 summary.

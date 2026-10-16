@@ -13,6 +13,8 @@ screen.AIR=Haze and mist
 screen.AIR.comment=The air over the land: distance haze coloured by the country you are in, and valley mist.
 screen.CLOUDS=Clouds
 screen.CLOUDS.comment=Block clouds shaped by the weather.
+screen.WATER=Water
+screen.WATER.comment=The water's surface, its texture and reflections.
 screen.WEATHER=Weather and seasons
 screen.WEATHER.comment=Wet ground, distant rain, frost and the light of each season.
 screen.PLANTS=Plants and wind
@@ -153,6 +155,22 @@ option.CLOUD_FAIR=Fair-weather cloud
 option.CLOUD_FAIR.comment=How much of a fair sky still has cloud. 34 gives about as many scattered clouds as vanilla.
 suffix.CLOUD_FAIR=%
 
+option.WS_RIPPLES=Water surface
+option.WS_RIPPLES.comment=Flat water, smooth ripples that move with the wind, or ripples plus rings where rain falls.
+value.WS_RIPPLES.0=Flat
+value.WS_RIPPLES.1=Wind ripples
+value.WS_RIPPLES.2=Ripples and rain
+
+option.WS_WATER_TEXTURE=Vanilla water texture
+option.WS_WATER_TEXTURE.comment=How much of Minecraft's own water texture shows through the shader's water.
+suffix.WS_WATER_TEXTURE=%
+
+option.WS_CAUSTICS=Light under water
+option.WS_CAUSTICS.comment=Rippling lines of sunlight on the ground under water, moving with the waves. Needs sun and moon shadows.
+
+option.WS_WATER_SSR=Near reflections
+option.WS_WATER_SSR.comment=Water close to you also reflects nearby land and trees, not just the sky. Costs about 0.3 ms.
+
 option.WET_ENABLED=Wet ground
 option.WET_ENABLED.comment=Rain darkens the ground and it dries out slowly afterwards. Sand and soil soak up more than stone.
 
@@ -174,6 +192,14 @@ option.WF_CURTAIN_REACH.comment=How far away rain curtains are still drawn, in b
 value.WF_CURTAIN_REACH.16384.0=16 km
 value.WF_CURTAIN_REACH.32768.0=32 km
 value.WF_CURTAIN_REACH.65536.0=64 km
+option.WS_SHORE_WET=Wet shores
+option.WS_SHORE_WET.comment=A darker wet band on the land along the water's edge. Needs VOID Gloam.
+
+option.WS_FROST=Frost
+option.WS_FROST.comment=Frost on the blocks' pixels on cold mornings, melting by mid-morning, and a few glints on frost and snow in the sun.
+
+option.WS_SEASON_LIGHT=Seasonal light
+option.WS_SEASON_LIGHT.comment=A low winter sun with cooler shade, and warmer light in autumn. Needs VOID Gloam.
 
 option.WAVING_LEAVES=Moving leaves
 option.WAVING_LEAVES.comment=Leaves move with the wind. With VOID Gloam the wind changes with the weather.
@@ -374,3 +400,10 @@ option.UG_DEBUG=Underground debug
 option.UG_DEBUG.comment=Draws the cave map from VOID Gloam on screen, with the cave state as bars. For testing only.
 value.UG_DEBUG.0=Off
 value.UG_DEBUG.1=On
+option.WS_DEBUG=Water and shadow debug
+option.WS_DEBUG.comment=Test views for water and shadows.
+value.WS_DEBUG.0=Off
+value.WS_DEBUG.1=Water normals
+value.WS_DEBUG.2=Sun visibility
+value.WS_DEBUG.3=Wet shores
+value.WS_DEBUG.4=Season factors
