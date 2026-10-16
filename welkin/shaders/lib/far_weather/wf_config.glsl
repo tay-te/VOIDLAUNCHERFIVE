@@ -23,7 +23,7 @@
 #define WF_CURTAIN_START 384.0
 #define WF_CURTAIN_FADE_IN 640.0
 #define WF_MIN_RAIN 0.12
-#define WF_CURTAIN_DENSITY 0.0018
+#define WF_CURTAIN_DENSITY 0.0026
 #define WF_CURTAIN_ALPHA 0.9
 // How much of a curtain's own colour shows through the air in front of it (it reads as a dark body in the haze).
 #define WF_CURTAIN_KEEP 0.35

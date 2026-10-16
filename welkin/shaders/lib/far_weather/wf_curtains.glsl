@@ -206,19 +206,26 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 				float hm = tm * hk;
 				float fade = smoothstep(WF_CURTAIN_START, WF_CURTAIN_START + WF_CURTAIN_FADE_IN, hm)
 					* (1.0 - smoothstep(0.8 * reach, reach, hm));
-				float odi = (tOut - tIn) * WF_CURTAIN_DENSITY * sqrt(rain) * mix(1.0, 1.6, storm) * profile * fade;
-				if (first && odi > 0.0) {
-					// soft streaks on the nearest column, across its face in the weather's own frame (they travel with
-					// it), drifting slowly down
-					first = false;
-					tFirst = tIn;
+				// (the defects pass, 2026-10-16) a shaft, not a box: densest down its middle, thinning to nothing at its
+				// sides and fading up into the deck, so no hard vertical edge or flat top shows
+				vec2 rel = ((lo + d * tm) - 0.5 * (bmin + bmax)) / (0.5 * size);
+				float body = 1.0 - smoothstep(0.3, 1.0, length(rel));
+				profile *= 1.0 - smoothstep(0.82, 1.0, vr);
+				float odi = (tOut - tIn) * WF_CURTAIN_DENSITY * sqrt(rain) * mix(1.0, 1.6, storm) * profile * fade * body;
+				if (odi > 0.0) {
+					// soft streaks on every column, across its face in the weather's own frame (they travel with it),
+					// drifting slowly down; finer on the nearest
+					if (first) {
+						first = false;
+						tFirst = tIn;
+					}
 					// (the frame wrapped to W1's own 256 cells, so the floats stay exact anywhere in the world)
 					vec2 hw = (vec2(c0 & 255) + lo + d * tIn) * 1024.0;
 					float u = abs(tn.x - sideIn) < 1e-3 ? hw.y : hw.x;
 					float yh = camY + dy * tIn;
 					float streak = 0.65 * wfNoise2(vec2(u / 40.0, (yh + fall) / 160.0), e.seed + 0x5F5u)
 						+ 0.35 * wfNoise2(vec2(u / 14.0, (yh + fall) / 70.0), e.seed + 0x5F6u);
-					odi *= 0.55 + 0.9 * streak;
+					odi *= 0.45 + 1.1 * streak;
 				}
 				od += odi;
 				stormSum += storm * odi;
