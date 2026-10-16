@@ -28,20 +28,23 @@
 #include "/lib/settings.glsl"
 
 // the threshold and its knee, in linear light with headroom (1 = display white without headroom)
-#define BLOOM_THRESHOLD 0.85
-#define BLOOM_KNEE 0.35
+#define BLOOM_THRESHOLD 1.0
+#define BLOOM_KNEE 0.4
 // how much of the bright share scatters into the halo at strength 100
-#define BLOOM_SCATTER 0.55
+#define BLOOM_SCATTER 0.5
+// the open sky's share of the source: a bright sky is a broad source, and wholly it washed the land under a grey-gold
+// veil whenever the sun stood in the view; the sun and its glow still bloom, the clouds wholly
+#define BLOOM_SKY 0.35
 
 float bloomLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
 
-// How much more light a display colour (taken to linear: lin) stands for: 1 up to the mids, about 9 at white.
+// How much more light a display colour (taken to linear: lin) stands for: 1 up to the mids, about 6 at white.
 float bloomHeadroom(vec3 lin, float emit) {
 	float y = mix(bloomLuma(lin), max(lin.r, max(lin.g, lin.b)), 0.25);
 	float s = smoothstep(0.5, 1.0, y);
-	return (1.0 + 8.0 * s * s * s) * (1.0 + 8.0 * emit);
+	return (1.0 + 5.0 * s * s * s) * (1.0 + 8.0 * emit);
 }
 
 // The bright share of display colour `display` (linear, with headroom). emit 0..1 a glowing texel's own light.

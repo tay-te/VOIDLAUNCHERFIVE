@@ -92,10 +92,6 @@ uniform float viewWidth;
 uniform float viewHeight;
 #endif
 
-#ifdef C3_BEAMS
-#include "/lib/noise.glsl"
-flat in vec3 beamSun;
-flat in vec3 beamLight;
 #ifndef WU_depthtex0
 #define WU_depthtex0
 uniform sampler2D depthtex0;
@@ -111,6 +107,23 @@ uniform sampler2D dhDepthTex0;
 uniform sampler2D colortex6;
 #endif
 
+// Whether nothing is drawn at full-resolution pixel p: no land, no LOD, and (in the overworld) no cloud.
+bool openSkyAt(ivec2 p) {
+	bool open = texelFetch(depthtex0, p, 0).r >= 1.0;
+#ifdef DISTANT_HORIZONS
+	open = open && texelFetch(dhDepthTex0, p, 0).r >= 1.0;
+#endif
+#ifdef WORLD_OVERWORLD
+	open = open && texelFetch(colortex6, p, 0).r > 999.0;
+#endif
+	return open;
+}
+
+#ifdef C3_BEAMS
+#include "/lib/noise.glsl"
+flat in vec3 beamSun;
+flat in vec3 beamLight;
+
 // the walk: steps, how far toward the sun it reaches (screen heights), how fast a step's weight fades from the texel,
 // how wide the glow round the sun the beams carry is (screen heights)
 #define BEAM_STEPS 24
@@ -118,7 +131,7 @@ uniform sampler2D colortex6;
 #define BEAM_DECAY 0.955
 #define BEAM_GLOW 0.30
 // how strong the beams are (of the sun-side horizon's light), and on the sky itself (the dome already glows there)
-#define BEAM_GAIN 0.55
+#define BEAM_GAIN 0.9
 #define BEAM_SKY 0.40
 
 // Whether the open sky shows at screen point uv (1), or land, the far land or a cloud stands there (0).
@@ -152,6 +165,8 @@ void main() {
 			vec4 fl = texelFetch(colortex2, p, 0);
 			float emit = fl.x > 0.5 ? unpackEmission(fl.z) : 0.0;
 			vec3 b = bloomSource(c, emit);
+			// (the open sky only in part: lib/bloom.glsl BLOOM_SKY)
+			b *= openSkyAt(p) ? BLOOM_SKY : 1.0;
 			float w = 1.0 / (1.0 + bloomLuma(b));
 			sum += b * w;
 			wsum += w;

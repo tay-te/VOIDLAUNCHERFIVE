@@ -45,12 +45,12 @@ void main() {
 #ifdef BLOOM
 	vec2 uv = gl_FragCoord.xy / vec2(textureSize(colortex14, 0));
 	// the core (levels 1, 2) and the halo (3 .. 6); the weights sum to 1
-	g += tentAt(uv, 1.0) * 0.16;
+	g += tentAt(uv, 1.0) * 0.14;
 	g += tentAt(uv, 2.0) * 0.18;
-	g += tentAt(uv, 3.0) * 0.18;
-	g += tentAt(uv, 4.0) * 0.18;
-	g += tentAt(uv, 5.0) * 0.16;
-	g += tentAt(uv, 6.0) * 0.14;
+	g += tentAt(uv, 3.0) * 0.22;
+	g += tentAt(uv, 4.0) * 0.22;
+	g += tentAt(uv, 5.0) * 0.14;
+	g += tentAt(uv, 6.0) * 0.10;
 #endif
 	outGlow = vec4(g, 1.0);
 }
