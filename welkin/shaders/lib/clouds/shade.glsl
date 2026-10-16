@@ -255,10 +255,15 @@ vec3 wcCloudSun(CloudEnv e) {
 	vec4 s = skyTable(SKY_X_SUN, SKY_ROW_LIGHT);
 	vec3 hue = s.a > 0.02 ? s.rgb / s.a : vec3(0.55, 0.30, 0.20);
 	// gold through the golden hour, a deep orange over the last degrees, rose once the sun is under the horizon
+	// (review round 1: only the hue moves, the brightness is kept: these targets are dim colours, about 0.4 of the
+	// sun's luma, and mixing toward them halved the low sun on the clouds, so a dusk deck's lit faces came out brown)
+	float y0 = max(wcLuma(hue), 1e-4);
+	hue /= y0;
 	float low = 1.0 - smoothstep(0.03, 0.22, e.sun.y);
-	hue = mix(hue, vec3(0.58, 0.39, 0.25), 0.45 * low);
-	hue = mix(hue, vec3(0.58, 0.32, 0.24), 0.6 * (1.0 - smoothstep(-0.01, 0.09, e.sun.y)));
-	hue = mix(hue, vec3(0.50, 0.25, 0.30), smoothstep(0.0, -0.08, e.sun.y));
+	hue = mix(hue, vec3(0.58, 0.39, 0.25) / 0.4203, 0.45 * low);
+	hue = mix(hue, vec3(0.58, 0.36, 0.26) / 0.3995, 0.5 * (1.0 - smoothstep(-0.01, 0.09, e.sun.y)));
+	hue = mix(hue, vec3(0.60, 0.36, 0.40) / 0.4140, smoothstep(0.0, -0.08, e.sun.y));
+	hue *= y0 / max(wcLuma(hue), 1e-4);
 	float strength = max(s.a, smoothstep(-0.10, 0.06, e.sun.y) * (1.0 - 0.85 * wcClosed()));
 	return hue * strength * (1.0 + 0.2 * wcDuskAmount(e.sun.y) * (1.0 - wcClosed()));
 }
@@ -287,7 +292,10 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		// (a belly takes the dusk's rose and violet, rosier toward the sun: a sunset's clouds glow, never a muddy taupe)
 		vec3 hue = n.y > 0.5 ? mix(mix(WC_LILAC, WC_VIOLET, 0.4), mix(WC_ROSE, WC_GOLD, 0.3), sw)
 			: mix(mix(WC_VIOLET, WC_DUSK, 0.25), mix(WC_ROSE, WC_VIOLET, 0.25), sw * sw);
-		amb = mix(amb, hue * ((n.y > 0.5 ? 0.8 : mix(0.78, 0.98, sw * sw)) * wcLuma(amb)), 0.85 * dusk * (1.0 - closed));
+		// (review round 1: the hue at the ambient light's own brightness; these palette colours sit at about 0.6 luma
+		// and taken as they were they darkened every dusk face to brown)
+		hue /= max(wcLuma(hue), 1e-4);
+		amb = mix(amb, hue * ((n.y > 0.5 ? 0.92 : mix(0.9, 1.05, sw * sw)) * wcLuma(amb)), 0.85 * dusk * (1.0 - closed));
 	}
 	// the land's bounce under a cloud: its sunlit ground's light thrown up, warmer and stronger at a low sun
 	vec3 sunC = wcCloudSun(e);
@@ -316,6 +324,23 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		light += glow * under * mix(0.2, 1.0, sw * sw) * mix(1.0, 0.55, b.depth) * (n.y < 0.5 ? 1.0 : 0.0);
 	}
 	vec3 c = wcAlbedo(tone) * light;
+
+	// (review round 1) round sunrise and sunset a cloud is never darker than the sky behind it: the light scattered many
+	// times inside a deck comes from the whole bright low sky, which the luminous sky made brighter than the bellies'
+	// ambient term, so the dusk and dawn decks stood as brown and charcoal slabs over a glowing sky. The floor is the
+	// sky behind the cloud in rose and peach (peach toward the sun, rose-lilac away from it), a little over it, most on
+	// the thin parts and the tops, so the forms still read; the lit tops and the silver lining go on over it.
+	float glowK = dusk * (1.0 - closed) * (1.0 - 0.7 * smoothstep(0.2, 0.8, rainStrength));
+	if (glowK > 0.0) {
+		float sw = wcSunward(rd, e);
+		vec3 behind = skyDomeOnly(rd, skyFrame());
+		vec3 hueF = mix(mix(WC_LILAC, WC_ROSE, 0.6), mix(WC_ROSE, vec3(1.0, 0.76, 0.58), 0.65), sw);
+		hueF = mix(hueF / wcLuma(hueF), behind / max(wcLuma(behind), 1e-4), 0.3);
+		float lift = (n.y > 0.5 ? 1.16 : (n.y < -0.5 ? 1.05 : 1.10)) * mix(1.0, 1.14, sw * sw) * mix(1.06, 0.92, b.depth * lower)
+			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
+		vec3 fl = hueF * (wcLuma(behind) * lift);
+		c = mix(c, max(c, fl), glowK);
+	}
 
 	// at night a cloud is never a black cut-out in the stars: its body takes at least the night dome's own colour
 	// behind it, a top a little over it, a base a little under

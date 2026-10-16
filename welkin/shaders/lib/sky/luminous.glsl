@@ -57,7 +57,10 @@ float skyLumHg(float mu, float g) {
 SkyLum skyLumFrame(vec3 sunW) {
 	SkyLum f;
 	f.sunW = sunW;
-	f.day = 1.0 - skyNightStep();
+	// (review round 1: by the sun's own height as well as the table's night step. The night step follows vanilla's
+	// light ramp, which is already 0.7 at 18:30 and 05:30 with the sun still some 5 degrees up: the golden hours' glow,
+	// the sunlit haze, the god rays and the beams were all cut to a third just when they should be at their boldest)
+	f.day = max(1.0 - skyNightStep(), smoothstep(-0.10, 0.03, sunW.y));
 	float overcast = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
 	f.clear = (1.0 - 0.88 * overcast) * (1.0 - 0.5 * clamp(rainStrength, 0.0, 1.0));
 	// the sky table's golden hour (Gloam's Twilight maths, 0..1; about 0.67 at 17:00 and 1 at 06:30) leads the warmth:

@@ -313,6 +313,16 @@ void main() {
 		// M5 underground (P6): the surface air hands over to the cave air at cave mouths
 		h.back.a *= 1.0 - ug.amount;
 		h.front.a *= 1.0 - ug.amount;
+		// (review round 1) the pixel sun reads through the air near the horizon: the disc's light is far stronger than
+		// the air's, which only dims it a little (so a setting sun shows as a disc with its halo, not a soft glow)
+		float sunDisc = 0.0;
+		if (s.sky && !cloud && !finished) {
+			float rS = float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4;
+			float aS = sqrt(max(2.0 * (1.0 - dot(normalize(eyePos), sunW)), 0.0));
+			sunDisc = 0.75 * (1.0 - smoothstep(0.95 * rS, 1.5 * rS, aS)) * smoothstep(-0.04, 0.0, sunW.y);
+		}
+		h.back.a *= 1.0 - sunDisc;
+		h.front.a *= 1.0 - sunDisc;
 		color.rgb = welkinHazeBack(color.rgb, h);
 		vec3 ugBeforeMist = color.rgb;
 #ifdef WELKIN_VALLEY_MIST
@@ -342,7 +352,7 @@ void main() {
 			hvMist = clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
 #endif
 			color.rgb = mix(hvComposite(color.rgb, hvRaw, st, normalize(eyePos), sunW, airPlain, s.sky, hvMist, lum),
-				color.rgb, ug.amount);
+				color.rgb, max(ug.amount, sunDisc));
 		}
 #endif
 		// ---- end atmos
@@ -359,7 +369,7 @@ void main() {
 #if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
 			shThick *= 1.0 + 0.8 * clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
 #endif
-			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky, lum, shThick) * (cloud ? 0.0 : 1.0);
+			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky, lum, shThick, s.sky ? 1e4 : length(eyePos)) * (cloud ? 0.0 : 1.0);
 #if SHAFT_DEBUG == 1
 			color.rgb = vec3(lit); // the resolved sunlit share of the near air
 #elif SHAFT_DEBUG == 2

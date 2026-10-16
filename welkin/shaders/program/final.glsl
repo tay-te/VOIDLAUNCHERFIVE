@@ -105,7 +105,8 @@ void main() {
 		lend = d >= 1.0 && texelFetch(colortex6, p, 0).r <= 999.0 ? 0.5 : lend;
 #endif
 		vec4 glow = texture(colortex9, texcoord); // rgb the halo, a the frame's mean bright share (composite4)
-		c = bloomApply(c, glow.rgb, emit, lend, glow.a);
+		// (review round 1: a lit surface that does not glow keeps its pale texels out of the halo, lib/bloom.glsl)
+		c = bloomApply(c, glow.rgb, emit, lend, glow.a, d < 1.0 && emit <= 0.0 ? 1.0 : 0.0);
 	}
 #endif
 	// ---- end atmos

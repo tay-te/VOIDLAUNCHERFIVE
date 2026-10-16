@@ -106,6 +106,14 @@ uniform sampler2D dhDepthTex0;
 #define WU_colortex6
 uniform sampler2D colortex6;
 #endif
+#ifndef WU_gbufferProjectionInverse
+#define WU_gbufferProjectionInverse
+uniform mat4 gbufferProjectionInverse;
+#endif
+#ifndef WU_sunPosition
+#define WU_sunPosition
+uniform vec3 sunPosition;
+#endif
 
 // Whether nothing is drawn at full-resolution pixel p: no land, no LOD, and (in the overworld) no cloud.
 bool openSkyAt(ivec2 p) {
@@ -136,7 +144,23 @@ float bloomShareAt(ivec2 p, vec3 c) {
 		return bloomCloudShare(c);
 	}
 #endif
+#ifdef WORLD_OVERWORLD
+	// (review round 1) the pixel sun's disc and rim wholly: a low sun through the haze still blooms into a halo
+	vec3 v = normalize((gbufferProjectionInverse * vec4((vec2(p) + 0.5) / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0)).xyz);
+	return mix(BLOOM_SKY, 1.0, bloomSunDisc(v, normalize(sunPosition)));
+#else
 	return BLOOM_SKY;
+#endif
+}
+
+// Whether pixel p is a lit surface that does not glow (lib/bloom.glsl bloomHeadroom's `diffuse`): land, the far land,
+// water, creatures; not the sky, a cloud, or a glowing texel.
+float bloomDiffuseAt(ivec2 p, float emit) {
+	float d = texelFetch(depthtex0, p, 0).r;
+#ifdef DISTANT_HORIZONS
+	d = min(d, texelFetch(dhDepthTex0, p, 0).r);
+#endif
+	return d < 1.0 && emit <= 0.0 ? 1.0 : 0.0;
 }
 #endif
 
@@ -185,7 +209,7 @@ void main() {
 			vec3 c = texelFetch(colortex0, p, 0).rgb;
 			vec4 fl = texelFetch(colortex2, p, 0);
 			float emit = fl.x > 0.5 ? unpackEmission(fl.z) : 0.0;
-			vec3 b = bloomSource(c, emit);
+			vec3 b = bloomSource(c, emit, bloomDiffuseAt(p, emit));
 			// (the open sky and the clouds' bodies only in part: lib/bloom.glsl BLOOM_SKY, BLOOM_CLOUD)
 			b *= bloomShareAt(p, c);
 			// (a soft brightness weight: the full 1 / (1 + brightness) also swallowed a lamp's few bright pixels, so the

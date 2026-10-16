@@ -56,8 +56,10 @@ float shaftGate(vec3 sunW) {
 
 // ---- the resolve and the light, for composite2 (define WELKIN_SHAFTS_READ and include lib/air.glsl first)
 // atmos: the 3D shafts' gain and cap (shaftLight)
-#define SHAFT_GAIN 2.0
-#define SHAFT_CAP 0.40
+#define SHAFT_GAIN 1.7
+#define SHAFT_CAP 0.50
+// (review round 1) on the open sky: the beams between clouds and over ridges toward a low sun
+#define SHAFT_SKY 0.4
 
 #ifdef WELKIN_SHAFTS_READ
 #ifndef WU_colortex13
@@ -89,7 +91,12 @@ float shaftResolve(ivec2 p, float dist) {
 // how thick the air is against temperate air (haziness, valley mist; 1 plain). On the sky (`sky`) a fraction: there the
 // sunlit air only brightens the glow round the sun the dome already draws; the beams show against the land, the trunks
 // and the crowns. (atmos: bold, in the sun's own warm light, soft-capped well under white)
-vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, float thick) {
+// (review round 1) dist: the surface's view distance (blocks; anything large for the sky). The beams are the term
+// against what the same ray would gather wholly in the sun: the open air's glow comes from the ray's length, and the
+// share of it in shadow is taken out more than in proportion, so the crowns', ridges' and clouds' shadows stand as dark
+// lanes between bright beams. (Before, the soft cap saturated every long ray toward the sun to the same level, a half
+// shadowed ray kept 0.35 of a lit one's 0.40, and no beam could be seen.)
+vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, float thick, float dist) {
 	float mu = dot(dirW, sunW);
 	// a strong forward lobe (the beams toward the sun) and a broad one (side-on, a soft directional glow)
 	float lobe = 0.75 * airHg(mu, 0.88) + 0.25 * airHg(mu, 0.5);
@@ -102,10 +109,15 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, f
 	float gate = shaftGate(sunW) * f.clear * f.day * mix(0.75, 1.0, f.warm);
 	// (the term to the 1.25th power: a ray half in shadow keeps less than half, so the beams stand clearer against the
 	// shadows between them, and the short rays down to the near ground lift its darks less)
-	float x = float(SHAFT_STRENGTH) * 0.01 * SHAFT_GAIN * lobe * gate * pow(max(lit, 0.0), 1.25) * thick
-		* (sky ? 0.2 : 1.0);
-	// a soft cap: never more than SHAFT_CAP of the sun-side level, however long the sunlit air
-	return hue * level * (SHAFT_CAP * (1.0 - exp(-x / SHAFT_CAP)));
+#ifdef HAZE_VOLUME
+	float open = sky ? 1.0 : 1.0 - exp(-min(dist, 3000.0) / SHAFT_FALLOFF);
+#else
+	float open = sky ? 1.0 : clamp(dist / SHAFT_REACH, 0.0, 1.0);
+#endif
+	float ratio = clamp(max(lit, 0.0) / max(open, 1e-3), 0.0, 1.0);
+	float x = float(SHAFT_STRENGTH) * 0.01 * SHAFT_GAIN * lobe * gate * pow(open, 1.25) * thick * (sky ? SHAFT_SKY : 1.0);
+	// a soft cap on the open air's glow (never more than SHAFT_CAP of the sun-side level), then the shadowed share out
+	return hue * level * (SHAFT_CAP * (1.0 - exp(-x / SHAFT_CAP))) * (ratio * ratio);
 }
 #endif
 

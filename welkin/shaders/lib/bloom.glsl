@@ -42,6 +42,14 @@
 // how much of the frame's mean bright share is kept off every pixel's halo (bloomApply's flat veil)
 #define BLOOM_FLAT 0.85
 
+// (review round 1) How much view direction v (view space, unit) lies on the pixel sun's disc and its rim, 0..1, from
+// sunV (view space, unit): the sun is drawn SUN_SIZE art pixels of SKY_ART_PIXEL 1e-4 radians in radius.
+float bloomSunDisc(vec3 v, vec3 sunV) {
+	float r = float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4;
+	float a = sqrt(max(2.0 * (1.0 - dot(v, sunV)), 0.0));
+	return 1.0 - smoothstep(0.95 * r, 1.5 * r, a);
+}
+
 float bloomLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
@@ -52,16 +60,27 @@ float bloomCloudShare(vec3 display) {
 }
 
 // How much more light a display colour (taken to linear: lin) stands for: 1 up to the mids, about 6 at white.
-float bloomHeadroom(vec3 lin, float emit) {
+// `diffuse` (review round 1): 1 for a lit surface that does not glow (the land, not a lamp, not the sky or a cloud):
+// its texture's near white is a pale albedo in plain daylight, not a light source, so it gets headroom only for what
+// is lit past display white (a glint, the glitter, a sunlit wet sheen), never for being white; a sunlit daisy or a
+// birch's bark took the sun's headroom and bloomed into a square halo.
+float bloomHeadroom(vec3 lin, float emit, float diffuse) {
 	float y = mix(bloomLuma(lin), max(lin.r, max(lin.g, lin.b)), 0.25);
 	float s = smoothstep(0.5, 1.0, y);
-	return (1.0 + 5.0 * s * s * s) * (1.0 + 8.0 * emit);
+	float h = 1.0 + 5.0 * s * s * s;
+	float past = smoothstep(1.0, 1.35, max(lin.r, max(lin.g, lin.b)));
+	h = mix(h, 1.0 + 5.0 * past, diffuse * (1.0 - smoothstep(0.0, 0.2, emit)));
+	return h * (1.0 + 8.0 * emit);
+}
+
+float bloomHeadroom(vec3 lin, float emit) {
+	return bloomHeadroom(lin, emit, 0.0);
 }
 
 // The bright share of display colour `display` (linear, with headroom). emit 0..1 a glowing texel's own light.
-vec3 bloomSource(vec3 display, float emit) {
+vec3 bloomSource(vec3 display, float emit, float diffuse) {
 	vec3 lin = pow(max(display, 0.0), vec3(2.2));
-	lin *= bloomHeadroom(lin, emit);
+	lin *= bloomHeadroom(lin, emit, diffuse);
 	float y = bloomLuma(lin);
 	float soft = clamp(y - BLOOM_THRESHOLD + BLOOM_KNEE, 0.0, 2.0 * BLOOM_KNEE);
 	soft = soft * soft / (4.0 * BLOOM_KNEE + 1e-5);
@@ -76,11 +95,11 @@ vec3 bloomSource(vec3 display, float emit) {
 // it is kept off (the merge of phase 2: a sunlit snow peak over a sunlit cloud sea filled the frame with source and the
 // shadows went milky; the darks keep their depth, a lamp at night or the sun's glow is unchanged, as their frame's mean
 // is small beside them). Display in, display out (before final's shoulder).
-vec3 bloomApply(vec3 c, vec3 glow, float emit, float lend, float veil) {
+vec3 bloomApply(vec3 c, vec3 glow, float emit, float lend, float veil, float diffuse) {
 	float k = BLOOM_SCATTER * float(BLOOM_STRENGTH) * 0.01;
 	vec3 lin = pow(max(c, 0.0), vec3(2.2));
-	float head = bloomHeadroom(lin, emit);
-	vec3 own = bloomSource(c, emit);
+	float head = bloomHeadroom(lin, emit, diffuse);
+	vec3 own = bloomSource(c, emit, diffuse);
 	vec3 add = k * (glow - lend * own);
 	add -= min(vec3(k * BLOOM_FLAT * veil), max(add, 0.0));
 	vec3 hdr = lin * head + add;
