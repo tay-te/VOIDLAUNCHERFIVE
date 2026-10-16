@@ -228,6 +228,18 @@ class GateRulesTest {
 	}
 
 	@Test
+	void decayedBuildingsAreListedUnderTheAgeLane() {
+		CompoundTag decayed = new CompoundTag();
+		decayed.putDouble(dev.voidmc.hearth.build.age.Decay.PARAM, 0.6);
+		PlotSpec built = new PlotSpec(Hearth.id("house/cottage"), StyleRegistry.styleId(dev.voidmc.hearth.api.Culture.TEMPERATE), 1L,
+			new BlockPos(0, 64, 0), 9, 9, Direction.SOUTH, 16, 2, new CompoundTag());
+		PlotSpec ruin = new PlotSpec(Hearth.id("house/cottage"), StyleRegistry.styleId(dev.voidmc.hearth.api.Culture.TEMPERATE), 1L,
+			new BlockPos(0, 64, 0), 9, 9, Direction.SOUTH, 16, 2, decayed);
+		assertEquals("house/cottage", Gate.listedAs(built));
+		assertEquals(Gate.DECAYED, Gate.listedAs(ruin));
+	}
+
+	@Test
 	void theSwitchDecidesWhetherARuleFails() {
 		PlotSpec spec = new PlotSpec(Hearth.id("test/gate_probe"), StyleRegistry.styleId(dev.voidmc.hearth.api.Culture.TEMPERATE), 1L,
 			new BlockPos(0, 64, 0), 9, 9, Direction.SOUTH, 16, 2, new CompoundTag());

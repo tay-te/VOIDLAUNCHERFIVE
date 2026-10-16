@@ -35,7 +35,8 @@ import java.util.stream.Stream;
  * first part of the archetype path, so each fix lane edits its own files), one line per archetype: its path, then the
  * rules it still breaks, then a comment. A lane that fixes an archetype deletes the rule (the report lists entries no
  * longer seen); the list only shrinks. The directory is {@code -Dhearth.gate.known} (the build sets it), else {@code
- * gate/known} under the working directory; with neither (in game) nothing is known.
+ * gate/known} under the working directory; with neither (in game) nothing is known. A decayed building's findings go
+ * under {@link #DECAYED} ({@code age.txt}), not its archetype's.
  */
 public final class Gate {
 	private Gate() {
@@ -136,12 +137,24 @@ public final class Gate {
 
 	// ------------------------------------------------------------------------------------------- applying
 
+	/** The pseudo-archetype decayed buildings are tallied and listed under ({@code gate/known/age.txt}). */
+	public static final String DECAYED = "age/decay";
+
+	/**
+	 * The path a blueprint's findings are tallied and looked up under: its archetype's, or {@link #DECAYED} for a decayed
+	 * one. A piece left hanging when the boards under it rot, or a door whose step fell in, is the decay pass's to answer
+	 * (the age lane), not the archetype's; what the building gets wrong as built shows in its undecayed cases.
+	 */
+	public static String listedAs(PlotSpec spec) {
+		return dev.voidmc.hearth.build.age.Decay.level(spec) > 0 ? DECAYED : spec.archetype().getPath();
+	}
+
 	/**
 	 * Tallies a blueprint's play-rule findings and, in {@link Mode#HARD}, adds those not listed as known to {@code out}
 	 * (each as one line beginning {@code "gate <rule>: "}).
 	 */
 	public static void apply(PlotSpec spec, List<Finding> findings, List<String> out) {
-		String path = spec.archetype().getPath();
+		String path = listedAs(spec);
 		// the gate's own tests ("test/..." archetypes) stay out of the report
 		boolean tally = !path.startsWith("test/");
 		if (tally) {
