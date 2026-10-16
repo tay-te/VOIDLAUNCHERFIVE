@@ -156,8 +156,8 @@ class CosmeticsLinkTest {
     @DisplayName("an id the catalog does not know, or one in the wrong slot, reads as nothing worn")
     void equippedSetRejectsUnknownAndMisplacedIds() {
         Protocol.Inbound in = Protocol.parse("{\"t\":\"cosmetics\",\"players\":[{\"uuid\":\""
-                + OTHER.toUpperCase() + "\",\"cape\":\"cape-from-the-future\",\"halo\":\"void-cape\","
-                + "\"head\":\"dapper-top-hat\",\"emotes\":[\"emote-wave\",\"spark-trail\",\"emote-wave\"],"
+                + OTHER.toUpperCase() + "\",\"cape\":\"cape-from-the-future\",\"halo\":\"regent-cape\","
+                + "\"head\":\"atelier-fedora\",\"emotes\":[\"emote-wave\",\"gilt-trail\",\"emote-wave\"],"
                 + "\"tints\":{\"head\":\"#ABCDEF\",\"wings\":\"#000000\",\"cape\":\"red\"},"
                 + "\"slot_from_the_future\":\"x\"}]}");
         assertEquals(Protocol.Inbound.Kind.COSMETICS, in.kind);
@@ -166,7 +166,7 @@ class CosmeticsLinkTest {
         assertEquals(OTHER, s.uuid, "uuids are normalised to dashed lower case");
         assertNull(s.get("cape"), "an unknown id is not worn");
         assertNull(s.get("halo"), "a cape in the halo slot is not worn");
-        assertEquals("dapper-top-hat", s.get("head"));
+        assertEquals("atelier-fedora", s.get("head"));
         assertEquals(Arrays.asList("emote-wave"), s.emotes(), "non-emotes and repeats are dropped");
         assertEquals(0xABCDEF, s.tint("head"));
         assertEquals(-1, s.tint("cape"), "a malformed tint is dropped");
@@ -213,16 +213,16 @@ class CosmeticsLinkTest {
     @DisplayName("equips queue per slot while the link is down, last write wins")
     void equipsCoalescePerSlot() {
         OutboundQueue queue = new OutboundQueue();
-        queue.addEquip(Protocol.equip("cape", "void-cape"));
-        queue.addEquip(Protocol.equip("halo", "seraph-halo"));
-        queue.addEquip(Protocol.equip("cape", "dusk-cape"));
-        queue.addEquip(Protocol.equip("cape", "ring-cape"));
+        queue.addEquip(Protocol.equip("cape", "regent-cape"));
+        queue.addEquip(Protocol.equip("halo", "aureole-halo"));
+        queue.addEquip(Protocol.equip("cape", "nocturne-cape"));
+        queue.addEquip(Protocol.equip("cape", "bespoke-cape"));
         queue.addEquip(Protocol.equip("halo", null));
         assertFalse(queue.isEmpty());
 
         List<JsonObject> out = queue.drain();
         assertEquals(2, out.size(), "one message per slot: cape, halo");
-        assertEquals(Protocol.equip("cape", "ring-cape"), out.get(0),
+        assertEquals(Protocol.equip("cape", "bespoke-cape"), out.get(0),
                 "the cape the player kept, not the ones they tried on");
         assertEquals(Protocol.equip("halo", null), out.get(1), "taking it off is a state too");
         assertTrue(queue.isEmpty(), "draining empties it");
@@ -236,17 +236,17 @@ class CosmeticsLinkTest {
     @DisplayName("equip refuses what is not owned, unknown, or for another slot, and says what is worn")
     void equipRefusals() {
         CosmeticState cs = CosmeticState.get();
-        cs.applyLauncher(null, null, Arrays.asList("void-cape", "seraph-halo"));
+        cs.applyLauncher(null, null, Arrays.asList("regent-cape", "aureole-halo"));
         sink.sent.clear();
 
-        assertEquals("void-cape", cs.equip("cape", "void-cape"));
-        assertEquals("void-cape", cs.equip("cape", "cell-cape"), "not owned: refused");
-        assertEquals("void-cape", cs.equip("cape", "seraph-halo"), "wrong slot: refused");
-        assertEquals("void-cape", cs.equip("cape", "cape-from-the-future"), "unknown: refused");
+        assertEquals("regent-cape", cs.equip("cape", "regent-cape"));
+        assertEquals("regent-cape", cs.equip("cape", "atelier-cape"), "not owned: refused");
+        assertEquals("regent-cape", cs.equip("cape", "aureole-halo"), "wrong slot: refused");
+        assertEquals("regent-cape", cs.equip("cape", "cape-from-the-future"), "unknown: refused");
         assertEquals("origin-cape", cs.equip("cape", "origin-cape"), "free items are owned");
-        assertNull(cs.equip("wings", "void-wings"), "not a slot");
+        assertNull(cs.equip("wings", "blade-wings"), "not a slot");
         assertNull(cs.equip("cape", null), "null takes it off");
-        assertEquals(Arrays.asList("equip cape void-cape null", "equip cape origin-cape null",
+        assertEquals(Arrays.asList("equip cape regent-cape null", "equip cape origin-cape null",
                 "equip cape null null"), sink.sent, "a refusal tells the launcher nothing");
     }
 
@@ -259,13 +259,13 @@ class CosmeticsLinkTest {
     void wardrobeCallsAnswerAndDoNotEcho() {
         VoidBridge bridge = bridge();
         CosmeticState.get().applyLauncher(null, null,
-                Arrays.asList("ring-cape", "emote-wave", "emote-clap"));
+                Arrays.asList("bespoke-cape", "emote-wave", "emote-clap"));
         drain(bridge);
 
-        assertEquals("{\"c\":\"equipCosmetic\",\"returns\":\"ring-cape\"}",
-                call(bridge, "{\"c\":\"equipCosmetic\",\"params\":[\"cape\",\"ring-cape\"]}"));
-        assertEquals("{\"c\":\"equipCosmetic\",\"returns\":\"ring-cape\"}",
-                call(bridge, "{\"c\":\"equipCosmetic\",\"params\":[\"cape\",\"cell-cape\"]}"),
+        assertEquals("{\"c\":\"equipCosmetic\",\"returns\":\"bespoke-cape\"}",
+                call(bridge, "{\"c\":\"equipCosmetic\",\"params\":[\"cape\",\"bespoke-cape\"]}"));
+        assertEquals("{\"c\":\"equipCosmetic\",\"returns\":\"bespoke-cape\"}",
+                call(bridge, "{\"c\":\"equipCosmetic\",\"params\":[\"cape\",\"atelier-cape\"]}"),
                 "refused: the answer is the cape still worn");
         assertEquals("{\"c\":\"setCosmeticTint\",\"returns\":\"#9f8bff\"}",
                 call(bridge, "{\"c\":\"setCosmeticTint\",\"params\":[\"cape\",\"#9F8BFF\"]}"));
@@ -274,7 +274,7 @@ class CosmeticsLinkTest {
                 "nothing tintable in the halo slot");
         assertEquals("{\"c\":\"setEmoteWheel\",\"returns\":[\"emote-wave\",\"emote-clap\"]}",
                 call(bridge, "{\"c\":\"setEmoteWheel\",\"params\":[[\"emote-wave\",\"emote-bow\","
-                        + "\"spark-trail\",\"emote-clap\",\"emote-wave\"]]}"));
+                        + "\"gilt-trail\",\"emote-clap\",\"emote-wave\"]]}"));
         assertEquals("{\"c\":\"playEmote\",\"returns\":false}",
                 call(bridge, "{\"c\":\"playEmote\",\"params\":[\"emote-bow\"]}"), "not owned");
         assertEquals("{\"c\":\"equipCosmetic\",\"returns\":null}",
@@ -283,7 +283,7 @@ class CosmeticsLinkTest {
         assertTrue(on(drain(bridge), VoidBridge.EVENT_COSMETICS).isEmpty(),
                 "§6.5: the page's own changes are not pushed back at it");
         assertTrue(bridge.errors().isEmpty(), "no dispatch threw: " + bridge.errors());
-        assertEquals(Arrays.asList("equip cape ring-cape null", "equip cape ring-cape #9f8bff",
+        assertEquals(Arrays.asList("equip cape bespoke-cape null", "equip cape bespoke-cape #9f8bff",
                 "emotes [emote-wave, emote-clap]"), sink.sent, "and the launcher heard each change");
     }
 
@@ -324,7 +324,7 @@ class CosmeticsLinkTest {
     void launcherChangesArePushed() throws Exception {
         final VoidBridge bridge = bridge();
         final EquippedSet self = Protocol.parse("{\"t\":\"cosmetics\",\"self\":{\"uuid\":\"" + SELF
-                + "\",\"cape\":\"ring-cape\",\"halo\":\"seraph-halo\",\"emotes\":[\"emote-wave\"],"
+                + "\",\"cape\":\"bespoke-cape\",\"halo\":\"aureole-halo\",\"emotes\":[\"emote-wave\"],"
                 + "\"tints\":{\"cape\":\"#9f8bff\"}}}").self;
         // From another thread, the way void-ws delivers it: the flag that suppresses echoes is
         // per thread, so a launcher change can never be mistaken for the page's own.
@@ -332,7 +332,7 @@ class CosmeticsLinkTest {
             @Override
             public void run() {
                 CosmeticState.get().applyLauncher(self, null,
-                        Arrays.asList("ring-cape", "seraph-halo", "emote-wave"));
+                        Arrays.asList("bespoke-cape", "aureole-halo", "emote-wave"));
             }
         }, "void-ws");
         ws.start();
@@ -343,7 +343,7 @@ class CosmeticsLinkTest {
         JsonObject payload = pushed.get(0);
         assertEquals(3, payload.entrySet().size(), "{self, owned, catalog_version}: " + payload);
         assertEquals(SELF, payload.getAsJsonObject("self").get("uuid").getAsString());
-        assertEquals("ring-cape", payload.getAsJsonObject("self").get("cape").getAsString());
+        assertEquals("bespoke-cape", payload.getAsJsonObject("self").get("cape").getAsString());
         assertEquals("#9f8bff", payload.getAsJsonObject("self").getAsJsonObject("tints")
                 .get("cape").getAsString());
         assertTrue(payload.getAsJsonArray("owned").toString().contains("\"origin-cape\""),
@@ -356,8 +356,8 @@ class CosmeticsLinkTest {
     void callExamplesReturnTheirResults() {
         VoidBridge bridge = bridge();
         CosmeticState.get().applyLauncher(null, null,
-                Arrays.asList("ring-cape", "seraph-halo", "emote-wave", "emote-clap"));
-        CosmeticState.get().equip("halo", "seraph-halo");
+                Arrays.asList("bespoke-cape", "aureole-halo", "emote-wave", "emote-clap"));
+        CosmeticState.get().equip("halo", "aureole-halo");
         JsonArray examples = Schemas.examples("bridge.json");
         int checked = 0;
         for (int i = 0; i < examples.size(); i++) {
@@ -385,13 +385,13 @@ class CosmeticsLinkTest {
     void openStoreReachesTheLauncher() {
         VoidBridge bridge = bridge();
         assertEquals("{\"c\":\"openStore\",\"returns\":true}",
-                call(bridge, "{\"c\":\"openStore\",\"params\":[\"seraph-halo\"]}"));
-        assertEquals(Arrays.asList("store seraph-halo"), sink.sent);
+                call(bridge, "{\"c\":\"openStore\",\"params\":[\"aureole-halo\"]}"));
+        assertEquals(Arrays.asList("store aureole-halo"), sink.sent);
         assertEquals("{\"c\":\"openStore\",\"returns\":false}",
                 call(bridge, "{\"c\":\"openStore\",\"params\":[]}"), "no id, nothing sent");
         CosmeticState.get().setSink(null);
         assertEquals("{\"c\":\"openStore\",\"returns\":false}",
-                call(bridge, "{\"c\":\"openStore\",\"params\":[\"seraph-halo\"]}"),
+                call(bridge, "{\"c\":\"openStore\",\"params\":[\"aureole-halo\"]}"),
                 "no launcher link: the page must not say the Store opened");
     }
 
@@ -399,16 +399,16 @@ class CosmeticsLinkTest {
     @DisplayName("a reloaded page gets the wardrobe it would otherwise never be told")
     void pushWholeStateCarriesCosmetics() {
         VoidBridge bridge = bridge();
-        CosmeticState.get().applyLauncher(null, null, Arrays.asList("void-cape"));
+        CosmeticState.get().applyLauncher(null, null, Arrays.asList("regent-cape"));
         drain(bridge);
         // The page equips; nothing is pushed (no echo)...
-        call(bridge, "{\"c\":\"equipCosmetic\",\"params\":[\"cape\",\"void-cape\"]}");
+        call(bridge, "{\"c\":\"equipCosmetic\",\"params\":[\"cape\",\"regent-cape\"]}");
         assertTrue(on(drain(bridge), VoidBridge.EVENT_COSMETICS).isEmpty());
         // ...so a reload must re-read it live, not replay something remembered.
         bridge.pushWholeState();
         List<JsonObject> pushed = on(drain(bridge), VoidBridge.EVENT_COSMETICS);
         assertEquals(1, pushed.size());
-        assertEquals("void-cape", pushed.get(0).getAsJsonObject("self").get("cape").getAsString());
+        assertEquals("regent-cape", pushed.get(0).getAsJsonObject("self").get("cape").getAsString());
     }
 
     @Test

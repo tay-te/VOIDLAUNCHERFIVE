@@ -19,7 +19,7 @@ import java.util.Map;
 public final class CosmeticCatalog {
 
     /** {@code cosmetics.json#/version}. */
-    public static final int VERSION = 3;
+    public static final int VERSION = 4;
 
     /** The slots, in contract order. Emotes are not a slot. */
     public static final List<String> SLOTS = Collections.unmodifiableList(java.util.Arrays.asList(
@@ -99,36 +99,36 @@ public final class CosmeticCatalog {
 
     // BEGIN GENERATED DATA
     static {
-        add("cell-cape", Kind.CAPE, "Cell cape", "epic", "paid", 399, false, -1, false, false);
-        add("void-cape", Kind.CAPE, "Void cape", "legendary", "paid", 499, false, -1, false, false);
-        add("ring-cape", Kind.CAPE, "Ring cape", "rare", "paid", 299, true, 0x474A4F, false, false);
         add("origin-cape", Kind.CAPE, "Origin cape", "common", "free", 0, false, -1, false, false);
-        add("dusk-cape", Kind.CAPE, "Dusk cape", "rare", "paid", 299, false, -1, false, false);
-        add("static-cape", Kind.CAPE, "Static cape", "epic", "paid", 399, false, -1, false, false);
-        add("ember-wings", Kind.BACK, "Ember wings", "legendary", "paid", 899, false, -1, false, false);
-        add("void-wings", Kind.BACK, "Void wings", "legendary", "paid", 899, false, -1, false, false);
-        add("orbit-ring", Kind.BACK, "Orbit", "epic", "paid", 599, false, -1, false, false);
-        add("monarch-crown", Kind.HEAD, "Monarch crown", "epic", "paid", 499, false, -1, false, false);
-        add("wool-beanie", Kind.HEAD, "Wool beanie", "common", "paid", 299, true, 0x6E5BD6, false, false);
-        add("dapper-top-hat", Kind.HEAD, "Top hat", "rare", "paid", 399, true, 0x9F8BFF, false, false);
-        add("seraph-halo", Kind.HALO, "Seraph halo", "legendary", "paid", 599, false, -1, false, false);
-        add("void-halo", Kind.HALO, "Void halo", "epic", "paid", 499, false, -1, false, false);
-        add("ice-visor", Kind.FACE, "Ice visor", "epic", "paid", 399, false, -1, false, false);
-        add("rift-mask", Kind.FACE, "Rift mask", "rare", "paid", 349, false, -1, false, false);
-        add("emote-wave", Kind.EMOTE, "Wave", "common", "paid", 199, false, -1, false, false);
-        add("emote-clap", Kind.EMOTE, "Clap", "common", "paid", 199, false, -1, false, false);
-        add("emote-bow", Kind.EMOTE, "Bow", "rare", "paid", 199, false, -1, false, false);
+        add("bespoke-cape", Kind.CAPE, "Bespoke cape", "rare", "paid", 299, true, 0x827A77, false, false);
+        add("meridian-cape", Kind.CAPE, "Meridian cape", "rare", "paid", 349, false, -1, false, false);
+        add("atelier-cape", Kind.CAPE, "Atelier cape", "epic", "paid", 449, false, -1, false, false);
+        add("nocturne-cape", Kind.CAPE, "Nocturne cape", "epic", "paid", 449, false, -1, false, false);
+        add("regent-cape", Kind.CAPE, "Regent cape", "legendary", "paid", 599, false, -1, false, false);
+        add("blade-wings", Kind.BACK, "Blade wings", "legendary", "paid", 899, false, -1, false, false);
+        add("halcyon-ring", Kind.BACK, "Halcyon ring", "epic", "paid", 699, false, -1, false, false);
+        add("vesper-sheath", Kind.BACK, "Vesper sheath", "epic", "paid", 549, false, -1, false, false);
+        add("atelier-fedora", Kind.HEAD, "Atelier fedora", "epic", "paid", 449, false, -1, false, false);
+        add("sovereign-crown", Kind.HEAD, "Sovereign crown", "legendary", "paid", 699, false, -1, false, false);
+        add("cloister-hood", Kind.HEAD, "Cloister hood", "rare", "paid", 349, false, -1, false, false);
+        add("aureole-halo", Kind.HALO, "Aureole", "legendary", "paid", 599, false, -1, false, false);
+        add("lumen-halo", Kind.HALO, "Lumen", "epic", "paid", 449, false, -1, false, false);
+        add("porcelain-mask", Kind.FACE, "Porcelain mask", "epic", "paid", 449, false, -1, false, false);
+        add("aegis-visor", Kind.FACE, "Aegis visor", "rare", "paid", 349, false, -1, false, false);
+        add("emote-wave", Kind.EMOTE, "Greeting", "common", "paid", 199, false, -1, false, false);
+        add("emote-clap", Kind.EMOTE, "Applause", "common", "paid", 199, false, -1, false, false);
+        add("emote-bow", Kind.EMOTE, "Reverence", "rare", "paid", 199, false, -1, false, false);
         add("emote-salute", Kind.EMOTE, "Salute", "common", "paid", 199, false, -1, false, false);
-        add("emote-shrug", Kind.EMOTE, "Shrug", "common", "paid", 199, false, -1, false, false);
-        add("emote-sit", Kind.EMOTE, "Sit", "rare", "paid", 149, false, -1, true, false);
-        add("spark-trail", Kind.TRAIL, "Spark trail", "rare", "paid", 399, false, -1, false, false);
-        add("ember-trail", Kind.TRAIL, "Ember trail", "rare", "paid", 399, false, -1, false, false);
-        add("frost-trail", Kind.TRAIL, "Frost trail", "rare", "paid", 399, false, -1, false, false);
-        add("stair-trail", Kind.TRAIL, "Stair trail", "common", "paid", 299, false, -1, false, false);
+        add("emote-shrug", Kind.EMOTE, "Nonchalance", "common", "paid", 199, false, -1, false, false);
+        add("emote-sit", Kind.EMOTE, "Repose", "rare", "paid", 149, false, -1, true, false);
+        add("gilt-trail", Kind.TRAIL, "Gilt sparks", "rare", "paid", 399, false, -1, false, false);
+        add("amethyst-trail", Kind.TRAIL, "Amethyst dust", "rare", "paid", 399, false, -1, false, false);
+        add("topaz-trail", Kind.TRAIL, "Topaz frost", "rare", "paid", 399, false, -1, false, false);
+        add("jade-trail", Kind.TRAIL, "Jade steps", "common", "paid", 299, false, -1, false, false);
         add("void-badge-founder", Kind.BADGE, "Founder", "exclusive", "grant", 0, false, -1, false, false);
         add("void-badge-player", Kind.BADGE, "VOID player", "common", "free", 0, false, -1, false, false);
-        add("cell-badge", Kind.BADGE, "Cell badge", "rare", "paid", 199, false, -1, false, false);
-        add("frost-badge", Kind.BADGE, "Frost badge", "rare", "paid", 199, false, -1, false, false);
+        add("atelier-badge", Kind.BADGE, "Atelier pin", "rare", "paid", 199, false, -1, false, false);
+        add("laurel-badge", Kind.BADGE, "Laurel pin", "rare", "paid", 199, false, -1, false, false);
         add("style-c-cape", Kind.CAPE, "Atelier cape", "epic", "grant", 0, false, -1, false, true);
         add("style-c-wings", Kind.BACK, "Blade wings", "epic", "grant", 0, false, -1, false, true);
         add("style-c-hat", Kind.HEAD, "Atelier fedora", "epic", "grant", 0, false, -1, false, true);

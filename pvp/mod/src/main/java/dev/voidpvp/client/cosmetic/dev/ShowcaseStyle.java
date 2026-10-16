@@ -7,8 +7,9 @@ import java.util.List;
 
 /**
  * The cosmetics style test (pvp/design/cosmetics-style-test/): the same cape, back item and hat in
- * three sets — the v3 reference, C (VOID luxe) and D (collectible toy) — staged identically so
- * each view can be laid side by side in three columns. Scenes are named {@code st-<view>-<set>};
+ * three sets — the shipped VOID luxe Atelier pieces ({@code lux}, the test's C taken to the final
+ * bar), the test's C (VOID luxe) and D (collectible toy) — staged identically so each view can be
+ * laid side by side in three columns. Scenes are named {@code st-<view>-<set>};
  * they never run in the default showcase, only when asked for ({@code -Pvoid.showcase.only=st-*}).
  *
  * <p>Every mannequin here wears the default Steve skin (the showcase picks a uuid that gives it),
@@ -20,7 +21,7 @@ final class ShowcaseStyle {
 
     /** The sets: name, cape, back, head. */
     static final String[][] SETS = {
-        {"v3", "void-cape", "void-wings", "dapper-top-hat"},
+        {"lux", "atelier-cape", "blade-wings", "atelier-fedora"},
         {"c", "style-c-cape", "style-c-wings", "style-c-hat"},
         {"d", "style-d-cape", "style-d-wings", "style-d-hat"},
     };

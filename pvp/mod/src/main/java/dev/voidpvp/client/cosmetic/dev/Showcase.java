@@ -136,14 +136,32 @@ public final class Showcase {
         return o;
     }
 
-    /** The six launch outfits, one per mannequin, between them wearing every item. */
+    /**
+     * The six launch outfits, one per mannequin, between them wearing every item: the collection's
+     * sets (docs/cosmetics.md), each one metal and one jewel.
+     */
     static final JsonObject[] OUTFITS = {
-        set("void-cape", "void-wings", null, null, "void-halo", "spark-trail", "void-badge-founder"),
-        set("cell-cape", null, "monarch-crown", null, null, "ember-trail", "cell-badge"),
-        set("dusk-cape", "ember-wings", null, "ice-visor", "seraph-halo", "frost-trail", "frost-badge"),
-        set("static-cape", null, "dapper-top-hat", null, null, "stair-trail", null),
-        set("ring-cape", "orbit-ring", "wool-beanie", null, null, null, "void-badge-player"),
-        set("origin-cape", null, null, "rift-mask", null, null, null),
+        // Atelier: silver, amethyst.
+        set("atelier-cape", "blade-wings", "atelier-fedora", null, "lumen-halo", "amethyst-trail", "atelier-badge"),
+        // Regent: gold, ember-garnet.
+        set("regent-cape", "vesper-sheath", "sovereign-crown", null, null, "gilt-trail", "void-badge-founder"),
+        // Nocturne: silver and steel, ice-topaz.
+        set("nocturne-cape", "halcyon-ring", null, "aegis-visor", null, "topaz-trail", null),
+        // Meridian: brass, jade.
+        set("meridian-cape", null, "cloister-hood", "porcelain-mask", null, "jade-trail", "laurel-badge"),
+        // House: silver, pearl.
+        set("bespoke-cape", null, null, null, "aureole-halo", null, "void-badge-player"),
+        set("origin-cape", null, null, null, null, null, null),
+    };
+
+    /** Every launch item that is worn (emotes, trails and badges aside), in catalog order: the item sheet. */
+    static final String[][] ITEMS = {
+        {"cape", "origin-cape"}, {"cape", "bespoke-cape"}, {"cape", "meridian-cape"}, {"cape", "atelier-cape"},
+        {"cape", "nocturne-cape"}, {"cape", "regent-cape"},
+        {"back", "blade-wings"}, {"back", "halcyon-ring"}, {"back", "vesper-sheath"},
+        {"head", "atelier-fedora"}, {"head", "sovereign-crown"}, {"head", "cloister-hood"},
+        {"halo", "aureole-halo"}, {"halo", "lumen-halo"},
+        {"face", "porcelain-mask"}, {"face", "aegis-visor"},
     };
 
     private void buildScenes() {
@@ -161,11 +179,17 @@ public final class Showcase {
         // At ten blocks, the distance a cosmetic has to read at in a fight.
         scenes.add(lineup("far-back", 6000, 180, 180, 2.0, 10.5, 6));
         scenes.add(lineup("far-back-night", 18000, 180, 180, 2.0, 10.5, 6));
-        scenes.add(closeups("capes-close", 6000, new String[] {"cell-cape", "void-cape", "dusk-cape"}, true));
-        scenes.add(closeups("capes-close-2", 6000, new String[] {"static-cape", "ring-cape", "origin-cape"}, true));
-        scenes.add(closeups("back-close", 6000, new String[] {"ember-wings", "void-wings", "orbit-ring"}, false));
-        scenes.add(closeups("back-close-night", 18000, new String[] {"ember-wings", "void-wings", "orbit-ring"}, false));
-        scenes.add(closeups("capes-close-night", 18000, new String[] {"cell-cape", "void-cape", "dusk-cape"}, true));
+        scenes.add(closeups("capes-close", 6000, new String[] {"atelier-cape", "regent-cape", "nocturne-cape"}, true));
+        scenes.add(closeups("capes-close-2", 6000, new String[] {"meridian-cape", "bespoke-cape", "origin-cape"}, true));
+        scenes.add(closeups("back-close", 6000, new String[] {"halcyon-ring", "blade-wings", "vesper-sheath"}, false));
+        scenes.add(closeups("back-close-night", 18000, new String[] {"halcyon-ring", "blade-wings", "vesper-sheath"}, false));
+        scenes.add(closeups("capes-close-night", 18000, new String[] {"atelier-cape", "regent-cape", "nocturne-cape"}, true));
+        scenes.add(closeups("capes-close-2-night", 18000, new String[] {"meridian-cape", "bespoke-cape", "origin-cape"}, true));
+        // One still per item, alone, framed for its slot: the item sheet (by day and by night).
+        for (String[] it : ITEMS) {
+            scenes.add(item("item-" + it[1], it[0], it[1], 6000));
+            scenes.add(item("item-night-" + it[1], it[0], it[1], 18000));
+        }
         scenes.add(run("run-capes", 6000));
         scenes.add(run("run-dusk", 13000));
         scenes.add(wings("wings-glide", 6000));
@@ -243,9 +267,9 @@ public final class Showcase {
         Scene s = new Scene(name) {
             @Override
             void stage(Showcase sh, MinecraftClient mc) {
-                sh.spawn(mc, 0, set("void-cape", "void-wings", null, null, "void-halo", null, "void-badge-founder"), fixed(-1.9, 0.6, 165, -20, false));
-                sh.spawn(mc, 1, set("dusk-cape", "ember-wings", null, null, "seraph-halo", null, null), fixed(0, -0.4, 182, 10, false));
-                sh.spawn(mc, 2, set("cell-cape", "orbit-ring", "monarch-crown", null, null, null, null), fixed(1.9, 0.5, 200, 15, false));
+                sh.spawn(mc, 0, OUTFITS[0], fixed(-1.9, 0.6, 165, -20, false));
+                sh.spawn(mc, 1, OUTFITS[1], fixed(0, -0.4, 182, 10, false));
+                sh.spawn(mc, 2, OUTFITS[2], fixed(1.9, 0.5, 200, 15, false));
             }
 
             @Override
@@ -339,7 +363,7 @@ public final class Showcase {
             @Override
             void stage(Showcase sh, MinecraftClient mc) {
                 // A glider dropping slowly from height; one standing; one sneaking (folded).
-                sh.spawn(mc, 0, set(null, "ember-wings", null, null, "seraph-halo", null, null), new ShowcasePlayer.Script() {
+                sh.spawn(mc, 0, set(null, "blade-wings", null, null, "aureole-halo", null, null), new ShowcasePlayer.Script() {
                     @Override
                     public void at(int tick, double[] o) {
                         int t = tick % 40;
@@ -353,8 +377,8 @@ public final class Showcase {
                         o[7] = 0;
                     }
                 });
-                sh.spawn(mc, 1, set("void-cape", "void-wings", null, null, null, null, null), fixed(0.2, 0, 160, 0, false));
-                sh.spawn(mc, 2, set(null, "void-wings", "wool-beanie", null, null, null, null), fixed(2.8, 0.4, 210, 0, true));
+                sh.spawn(mc, 1, set("atelier-cape", "blade-wings", "atelier-fedora", null, null, null, null), fixed(0.2, 0, 160, 0, false));
+                sh.spawn(mc, 2, set(null, "blade-wings", "cloister-hood", null, null, null, null), fixed(2.8, 0.4, 210, 0, true));
             }
 
             @Override
@@ -370,6 +394,55 @@ public final class Showcase {
         s.settle = 70;
         s.frames = 36;
         s.fps = 24;
+        return s;
+    }
+
+    /**
+     * One item alone on one mannequin, framed for its slot: three-quarters behind for a cape or a
+     * back item, three-quarters in front and close for a hat, a mask or a halo.
+     */
+    private Scene item(String name, final String slot, final String id, long time) {
+        final boolean back = "cape".equals(slot) || "back".equals(slot);
+        Scene s = new Scene(name) {
+            @Override
+            void stage(Showcase sh, MinecraftClient mc) {
+                JsonObject o = set(null, null, null, null, null, null, null);
+                o.addProperty(slot, id);
+                sh.spawn(mc, 0, o, new ShowcasePlayer.Script() {
+                    @Override
+                    public void at(int tick, double[] p) {
+                        p[0] = 0;
+                        p[1] = GROUND;
+                        p[2] = 0;
+                        p[3] = back ? 160 : 205;
+                        p[4] = back ? 0 : 6;
+                        p[5] = back ? 0 : Math.sin(tick * 0.04) * 5;
+                        p[6] = 1;
+                        p[7] = 0;
+                    }
+                });
+            }
+
+            @Override
+            void camera(int tick, double[] o) {
+                if (!back) {
+                    o[0] = -0.25;
+                    o[1] = GROUND + ("halo".equals(slot) ? 0.62 : 0.4);
+                    o[2] = -1.55;
+                    o[3] = -10;
+                    o[4] = "halo".equals(slot) ? 22 : 9;
+                } else {
+                    o[0] = 0.35;
+                    o[1] = GROUND + 0.1;
+                    o[2] = "back".equals(slot) ? 3.0 : 2.4;
+                    o[3] = 172;
+                    o[4] = 8;
+                }
+            }
+        };
+        s.time = time;
+        s.settle = 40;
+        s.steve = true;
         return s;
     }
 
@@ -459,9 +532,9 @@ public final class Showcase {
         Scene s = new Scene(name) {
             @Override
             void stage(Showcase sh, MinecraftClient mc) {
-                sh.spawn(mc, 0, set(null, null, "monarch-crown", null, "void-halo", null, null), fixed(-1.3, 0, 200, 0, false));
-                sh.spawn(mc, 1, set(null, null, "dapper-top-hat", "ice-visor", null, null, null), fixed(0, 0.3, 180, 0, false));
-                sh.spawn(mc, 2, set(null, null, "wool-beanie", "rift-mask", "seraph-halo", null, null), fixed(1.3, 0, 160, 0, false));
+                sh.spawn(mc, 0, set(null, null, "sovereign-crown", null, null, null, null), fixed(-1.3, 0, 200, 0, false));
+                sh.spawn(mc, 1, set(null, null, "atelier-fedora", null, "lumen-halo", null, null), fixed(0, 0.3, 180, 0, false));
+                sh.spawn(mc, 2, set(null, null, "cloister-hood", "porcelain-mask", null, null, null), fixed(1.3, 0, 160, 0, false));
             }
 
             @Override
@@ -487,7 +560,7 @@ public final class Showcase {
             @Override
             void stage(Showcase sh, MinecraftClient mc) {
                 CosmeticState.get().setOwnsEverything(true);
-                JsonObject o = set("void-cape", "ember-wings", null, null, "seraph-halo", null, "void-badge-founder");
+                JsonObject o = set("atelier-cape", "blade-wings", "atelier-fedora", null, null, null, "void-badge-founder");
                 o.addProperty("uuid", mc.player.getUuid().toString());
                 CosmeticState.get().applyLauncher(EquippedSet.fromJson(o), null, null);
                 sh.selfEmote = "emote-wave";
@@ -554,7 +627,7 @@ public final class Showcase {
         Scene s = new Scene(name) {
             @Override
             void stage(Showcase sh, MinecraftClient mc) {
-                String[] b = {"void-badge-founder", "void-badge-player", "cell-badge", "frost-badge"};
+                String[] b = {"void-badge-founder", "void-badge-player", "atelier-badge", "laurel-badge"};
                 for (int i = 0; i < 4; i++) {
                     sh.spawn(mc, i, set(null, null, null, null, null, null, b[i]), fixed((i - 1.5) * 1.1, 0, 180, 0, false));
                 }

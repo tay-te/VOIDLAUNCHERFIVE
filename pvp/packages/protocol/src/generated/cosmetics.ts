@@ -47,38 +47,38 @@ export interface CosmeticCatalogItem {
 }
 
 export type CosmeticId =
-  | "cell-cape"
-  | "void-cape"
-  | "ring-cape"
   | "origin-cape"
-  | "dusk-cape"
-  | "static-cape"
-  | "ember-wings"
-  | "void-wings"
-  | "orbit-ring"
-  | "monarch-crown"
-  | "wool-beanie"
-  | "dapper-top-hat"
-  | "seraph-halo"
-  | "void-halo"
-  | "ice-visor"
-  | "rift-mask"
+  | "bespoke-cape"
+  | "meridian-cape"
+  | "atelier-cape"
+  | "nocturne-cape"
+  | "regent-cape"
+  | "blade-wings"
+  | "halcyon-ring"
+  | "vesper-sheath"
+  | "atelier-fedora"
+  | "sovereign-crown"
+  | "cloister-hood"
+  | "aureole-halo"
+  | "lumen-halo"
+  | "porcelain-mask"
+  | "aegis-visor"
   | "emote-wave"
   | "emote-clap"
   | "emote-bow"
   | "emote-salute"
   | "emote-shrug"
   | "emote-sit"
-  | "spark-trail"
-  | "ember-trail"
-  | "frost-trail"
-  | "stair-trail"
+  | "gilt-trail"
+  | "amethyst-trail"
+  | "topaz-trail"
+  | "jade-trail"
   | "void-badge-founder"
   | "void-badge-player"
-  | "cell-badge"
-  | "frost-badge";
+  | "atelier-badge"
+  | "laurel-badge";
 
-export const COSMETIC_CATALOG_VERSION = 3;
+export const COSMETIC_CATALOG_VERSION = 4;
 
 export const COSMETIC_SLOTS: readonly CosmeticSlot[] = ["cape", "back", "head", "face", "halo", "trail", "badge"];
 
@@ -86,36 +86,36 @@ export const COSMETIC_SLOTS: readonly CosmeticSlot[] = ["cape", "back", "head", 
 export const EMOTE_WHEEL_SIZE = 8;
 
 export const COSMETIC_CATALOG: readonly CosmeticCatalogItem[] = [
-  {"id":"cell-cape","kind":"cape","name":"Cell cape","blurb":"a grid of violet cells dissolving toward the hem, a wave of light running down what is left.","rarity":"epic","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"cape","pattern":"cell"}},
-  {"id":"void-cape","kind":"cape","name":"Void cape","blurb":"an eclipse in a corona of sixteen cells; one burns at a time as it circles.","rarity":"legendary","availability":"paid","price_cents":499,"tintable":false,"preview":{"style":"cape","pattern":"void"}},
-  {"id":"ring-cape","kind":"cape","name":"Ring cape","blurb":"the VOID ring as a silver seal pressed into cloth, in any colour you like.","rarity":"rare","availability":"paid","price_cents":299,"tintable":true,"default_tint":"#474a4f","preview":{"style":"cape","pattern":"ring"}},
-  {"id":"origin-cape","kind":"cape","name":"Origin cape","blurb":"charcoal herringbone, silver thread and one travelling stitch of light. Every account has one.","rarity":"common","availability":"free","price_cents":0,"tintable":false,"preview":{"style":"cape","pattern":"origin"}},
-  {"id":"dusk-cape","kind":"cape","name":"Dusk cape","blurb":"the last light over the hills: a crescent moon, early stars, fireflies over the dark.","rarity":"rare","availability":"paid","price_cents":299,"tintable":false,"preview":{"style":"cape","pattern":"dusk"}},
-  {"id":"static-cape","kind":"cape","name":"Static cape","blurb":"a dead channel on an old set, until the VOID ring surfaces through the snow.","rarity":"epic","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"cape","pattern":"static"}},
-  {"id":"ember-wings","kind":"back","name":"Ember wings","blurb":"long dark feathers, warm at the tips. They glide when you fall.","rarity":"legendary","availability":"paid","price_cents":899,"tintable":false,"is_new":true,"preview":{"style":"back","pattern":"feather","hue":"#ff9e7a"}},
-  {"id":"void-wings","kind":"back","name":"Void wings","blurb":"black glass membranes with violet veins of light.","rarity":"legendary","availability":"paid","price_cents":899,"tintable":false,"preview":{"style":"back","pattern":"membrane","hue":"#9f8bff"}},
-  {"id":"orbit-ring","kind":"back","name":"Orbit","blurb":"a cold ring of cells turning slowly behind you.","rarity":"epic","availability":"paid","price_cents":599,"tintable":false,"preview":{"style":"back","pattern":"orbit","hue":"#7adfff"}},
-  {"id":"monarch-crown","kind":"head","name":"Monarch crown","blurb":"worked old gold with a warm stone at the front and three smaller ones round it.","rarity":"epic","availability":"paid","price_cents":499,"tintable":false,"preview":{"style":"head","pattern":"crown","hue":"#ff9e7a"}},
-  {"id":"wool-beanie","kind":"head","name":"Wool beanie","blurb":"ribbed, folded once, in any colour you like.","rarity":"common","availability":"paid","price_cents":299,"tintable":true,"default_tint":"#6e5bd6","preview":{"style":"head","pattern":"beanie","hue":"#9f8bff"}},
-  {"id":"dapper-top-hat","kind":"head","name":"Top hat","blurb":"black felt with a violet band.","rarity":"rare","availability":"paid","price_cents":399,"tintable":true,"default_tint":"#9f8bff","preview":{"style":"head","pattern":"tophat","hue":"#9f8bff"}},
-  {"id":"seraph-halo","kind":"halo","name":"Seraph halo","blurb":"a ring of warm light that rises and settles as you breathe.","rarity":"legendary","availability":"paid","price_cents":599,"tintable":false,"is_new":true,"preview":{"style":"halo","pattern":"ring","hue":"#ff9e7a"}},
-  {"id":"void-halo","kind":"halo","name":"Void halo","blurb":"a violet ring with two motes in orbit.","rarity":"epic","availability":"paid","price_cents":499,"tintable":false,"preview":{"style":"halo","pattern":"motes","hue":"#9f8bff"}},
-  {"id":"ice-visor","kind":"face","name":"Ice visor","blurb":"a slim band of cold light across the eyes.","rarity":"epic","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"face","pattern":"visor","hue":"#7adfff"}},
-  {"id":"rift-mask","kind":"face","name":"Rift mask","blurb":"a dark faceplate split by a violet seam.","rarity":"rare","availability":"paid","price_cents":349,"tintable":false,"preview":{"style":"face","pattern":"rift","hue":"#9f8bff"}},
-  {"id":"emote-wave","kind":"emote","name":"Wave","blurb":"a hand, raised and shaken.","rarity":"common","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"emote","rows":["#...#","#.#.#","#####",".###.","..#.."]}},
-  {"id":"emote-clap","kind":"emote","name":"Clap","blurb":"three claps, unhurried.","rarity":"common","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"emote","rows":["#...#",".#.#.","..#..",".#.#.","#...#"]}},
-  {"id":"emote-bow","kind":"emote","name":"Bow","blurb":"a slow, formal bow.","rarity":"rare","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"emote","rows":["..##.",".##..","####.",".#.#.",".#..#"]}},
-  {"id":"emote-salute","kind":"emote","name":"Salute","blurb":"a crisp salute to the other side.","rarity":"common","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"emote","rows":["###..","#.#..","####.","..#..",".#.#."]}},
-  {"id":"emote-shrug","kind":"emote","name":"Shrug","blurb":"both shoulders, no comment.","rarity":"common","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"emote","rows":["#...#",".#.#.","..#..","..#..",".#.#."]}},
-  {"id":"emote-sit","kind":"emote","name":"Sit","blurb":"sit down wherever you stand, until you move.","rarity":"rare","availability":"paid","price_cents":149,"tintable":false,"loop":true,"preview":{"style":"emote","rows":[".#...",".#...",".###.","...#.","...##"]}},
-  {"id":"spark-trail","kind":"trail","name":"Spark trail","blurb":"violet cells that shrink and fade behind you.","rarity":"rare","availability":"paid","price_cents":399,"tintable":false,"is_new":true,"preview":{"style":"trail","pattern":"spark","hue":"#9f8bff"}},
-  {"id":"ember-trail","kind":"trail","name":"Ember trail","blurb":"warm motes drifting up and out.","rarity":"rare","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"trail","pattern":"drift","hue":"#ff9e7a"}},
-  {"id":"frost-trail","kind":"trail","name":"Frost trail","blurb":"cold flakes that settle where you step.","rarity":"rare","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"trail","pattern":"ring","hue":"#7adfff"}},
-  {"id":"stair-trail","kind":"trail","name":"Stair trail","blurb":"jade cells that climb in even steps.","rarity":"common","availability":"paid","price_cents":299,"tintable":false,"preview":{"style":"trail","pattern":"stair","hue":"#7ae0b0"}},
-  {"id":"void-badge-founder","kind":"badge","name":"Founder","blurb":"for the players who were here first. Not for sale.","rarity":"exclusive","availability":"grant","price_cents":0,"tintable":false,"preview":{"style":"badge","pattern":"founder","hue":"#ff9e7a"}},
-  {"id":"void-badge-player","kind":"badge","name":"VOID player","blurb":"the VOID ring before your name. Every account has one.","rarity":"common","availability":"free","price_cents":0,"tintable":false,"preview":{"style":"badge","pattern":"ring","hue":"#edeeef"}},
-  {"id":"cell-badge","kind":"badge","name":"Cell badge","blurb":"a three-by-three mark before your name.","rarity":"rare","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"badge","pattern":"cell","hue":"#9f8bff"}},
-  {"id":"frost-badge","kind":"badge","name":"Frost badge","blurb":"three cold cells beside your name.","rarity":"rare","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"badge","pattern":"dots","hue":"#7adfff"}},
+  {"id":"origin-cape","kind":"cape","name":"Origin cape","blurb":"taupe wool, a weighted hem, a glint running down one silver thread. Every account has one.","rarity":"common","availability":"free","price_cents":0,"tintable":false,"preview":{"style":"cape","pattern":"origin","hue":"#e9e5f0"}},
+  {"id":"bespoke-cape","kind":"cape","name":"Bespoke cape","blurb":"wool in the colour you choose, an ivory yoke piped in silver, a pearl at the clasp.","rarity":"rare","availability":"paid","price_cents":299,"tintable":true,"default_tint":"#827a77","preview":{"style":"cape","pattern":"bespoke","hue":"#e9e5f0"}},
+  {"id":"meridian-cape","kind":"cape","name":"Meridian cape","blurb":"ivory and taupe meeting at a brass seam, a jade at its head, cut to a swallowtail.","rarity":"rare","availability":"paid","price_cents":349,"tintable":false,"preview":{"style":"cape","pattern":"meridian","hue":"#7ae0b0"}},
+  {"id":"atelier-cape","kind":"cape","name":"Atelier cape","blurb":"an ivory V-yoke piped in silver, an amethyst where it closes, a bias-cut hem.","rarity":"epic","availability":"paid","price_cents":449,"tintable":false,"preview":{"style":"cape","pattern":"atelier","hue":"#9f8bff"}},
+  {"id":"nocturne-cape","kind":"cape","name":"Nocturne cape","blurb":"a constellation stitched in silver; light runs along the thread to one ice-topaz star.","rarity":"epic","availability":"paid","price_cents":449,"tintable":false,"preview":{"style":"cape","pattern":"nocturne","hue":"#7adfff"}},
+  {"id":"regent-cape","kind":"cape","name":"Regent cape","blurb":"charcoal wool framed in gold, a gold crest set with a garnet, cut to a point.","rarity":"legendary","availability":"paid","price_cents":599,"tintable":false,"preview":{"style":"cape","pattern":"regent","hue":"#ff9e7a"}},
+  {"id":"blade-wings","kind":"back","name":"Blade wings","blurb":"ivory lacquer blades on a polished silver spar, an amethyst at each wrist.","rarity":"legendary","availability":"paid","price_cents":899,"tintable":false,"preview":{"style":"back","pattern":"blades","hue":"#9f8bff"}},
+  {"id":"halcyon-ring","kind":"back","name":"Halcyon ring","blurb":"a silver ring that floats behind you, an ice-topaz held at its heart.","rarity":"epic","availability":"paid","price_cents":699,"tintable":false,"preview":{"style":"back","pattern":"ring","hue":"#7adfff"}},
+  {"id":"vesper-sheath","kind":"back","name":"Vesper sheath","blurb":"a sword in a lacquered scabbard across the back, gold fittings, a garnet pommel.","rarity":"epic","availability":"paid","price_cents":549,"tintable":false,"preview":{"style":"back","pattern":"sheath","hue":"#ff9e7a"}},
+  {"id":"atelier-fedora","kind":"head","name":"Atelier fedora","blurb":"bone felt, a pinched crown, the brim snapped down; an amethyst on the band.","rarity":"epic","availability":"paid","price_cents":449,"tintable":false,"preview":{"style":"head","pattern":"fedora","hue":"#9f8bff"}},
+  {"id":"sovereign-crown","kind":"head","name":"Sovereign crown","blurb":"worked gold on an ermine band, eight points, one garnet at the front.","rarity":"legendary","availability":"paid","price_cents":699,"tintable":false,"preview":{"style":"head","pattern":"crown","hue":"#ff9e7a"}},
+  {"id":"cloister-hood","kind":"head","name":"Cloister hood","blurb":"a bone wool hood with a peaked cowl, edged in brass, a jade at the throat.","rarity":"rare","availability":"paid","price_cents":349,"tintable":false,"preview":{"style":"head","pattern":"hood","hue":"#7ae0b0"}},
+  {"id":"aureole-halo","kind":"halo","name":"Aureole","blurb":"a fine band of polished gold with a single pearl at the front.","rarity":"legendary","availability":"paid","price_cents":599,"tintable":false,"preview":{"style":"halo","pattern":"band","hue":"#e9e5f0"}},
+  {"id":"lumen-halo","kind":"halo","name":"Lumen","blurb":"a silver ring of rays, an amethyst at its crown.","rarity":"epic","availability":"paid","price_cents":449,"tintable":false,"preview":{"style":"halo","pattern":"rays","hue":"#9f8bff"}},
+  {"id":"porcelain-mask","kind":"face","name":"Porcelain mask","blurb":"ivory porcelain, a brass hairline, one jade tear.","rarity":"epic","availability":"paid","price_cents":449,"tintable":false,"preview":{"style":"face","pattern":"porcelain","hue":"#7ae0b0"}},
+  {"id":"aegis-visor","kind":"face","name":"Aegis visor","blurb":"brushed steel across the eyes, a slit of ice-topaz glass.","rarity":"rare","availability":"paid","price_cents":349,"tintable":false,"preview":{"style":"face","pattern":"visor","hue":"#7adfff"}},
+  {"id":"emote-wave","kind":"emote","name":"Greeting","blurb":"a raised hand, two easy waves, chin up.","rarity":"common","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"emote","rows":["#...#","#.#.#","#####",".###.","..#.."]}},
+  {"id":"emote-clap","kind":"emote","name":"Applause","blurb":"three unhurried claps for a good fight.","rarity":"common","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"emote","rows":["#...#",".#.#.","..#..",".#.#.","#...#"]}},
+  {"id":"emote-bow","kind":"emote","name":"Reverence","blurb":"a slow court bow, one hand to the heart.","rarity":"rare","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"emote","rows":["..##.",".##..","####.",".#.#.",".#..#"]}},
+  {"id":"emote-salute","kind":"emote","name":"Salute","blurb":"a crisp salute, held, to the other side.","rarity":"common","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"emote","rows":["###..","#.#..","####.","..#..",".#.#."]}},
+  {"id":"emote-shrug","kind":"emote","name":"Nonchalance","blurb":"a shrug with the palms open, unbothered.","rarity":"common","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"emote","rows":["#...#",".#.#.","..#..","..#..",".#.#."]}},
+  {"id":"emote-sit","kind":"emote","name":"Repose","blurb":"sit down wherever you stand, at ease, until you move.","rarity":"rare","availability":"paid","price_cents":149,"tintable":false,"loop":true,"preview":{"style":"emote","rows":[".#...",".#...",".###.","...#.","...##"]}},
+  {"id":"gilt-trail","kind":"trail","name":"Gilt sparks","blurb":"fine sparks of gold kicked up at your heels.","rarity":"rare","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"trail","pattern":"spark","hue":"#eec064"}},
+  {"id":"amethyst-trail","kind":"trail","name":"Amethyst dust","blurb":"cut amethyst motes that drift up behind you.","rarity":"rare","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"trail","pattern":"drift","hue":"#9f8bff"}},
+  {"id":"topaz-trail","kind":"trail","name":"Topaz frost","blurb":"ice-topaz facets that settle where you stepped.","rarity":"rare","availability":"paid","price_cents":399,"tintable":false,"preview":{"style":"trail","pattern":"settle","hue":"#7adfff"}},
+  {"id":"jade-trail","kind":"trail","name":"Jade steps","blurb":"small jade tiles that climb in step with your stride.","rarity":"common","availability":"paid","price_cents":299,"tintable":false,"preview":{"style":"trail","pattern":"stair","hue":"#7ae0b0"}},
+  {"id":"void-badge-founder","kind":"badge","name":"Founder","blurb":"a gold pin set with a garnet, for the players who were here first. Not for sale.","rarity":"exclusive","availability":"grant","price_cents":0,"tintable":false,"preview":{"style":"badge","pattern":"founder","hue":"#ff9e7a"}},
+  {"id":"void-badge-player","kind":"badge","name":"VOID player","blurb":"the VOID ring as a silver pin. Every account has one.","rarity":"common","availability":"free","price_cents":0,"tintable":false,"preview":{"style":"badge","pattern":"ring","hue":"#d3d7df"}},
+  {"id":"atelier-badge","kind":"badge","name":"Atelier pin","blurb":"amethyst enamel in a polished silver rim.","rarity":"rare","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"badge","pattern":"atelier","hue":"#9f8bff"}},
+  {"id":"laurel-badge","kind":"badge","name":"Laurel pin","blurb":"a brass laurel round a jade.","rarity":"rare","availability":"paid","price_cents":199,"tintable":false,"preview":{"style":"badge","pattern":"laurel","hue":"#7ae0b0"}},
 ];
 
 export const COSMETIC_IDS: readonly CosmeticId[] = COSMETIC_CATALOG.map((i) => i.id);

@@ -1,0 +1,8 @@
+{
+ "stiffness": 0.92,
+ "weight": 1.15,
+ "frames": {
+  "count": 8,
+  "fps": 5
+ }
+}

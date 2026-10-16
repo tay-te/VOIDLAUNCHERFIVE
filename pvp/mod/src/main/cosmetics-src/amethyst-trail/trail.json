@@ -1,0 +1,13 @@
+{
+ "motion": "drift",
+ "colors": [
+  "#d2c8ff",
+  "#9f8bff",
+  "#9f8bff"
+ ],
+ "life": 1.3,
+ "rate": 10,
+ "size": 0.1,
+ "cap": 24,
+ "glow": 0.4
+}

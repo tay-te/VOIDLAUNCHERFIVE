@@ -45,8 +45,8 @@ class OwnershipTest {
     void offline() {
         CosmeticState s = new CosmeticState();
         assertEquals("origin-cape", s.equip("cape", "origin-cape"));
-        assertEquals("origin-cape", s.equip("cape", "void-cape"), "refused: still wearing the free cape");
-        assertFalse(s.owns("void-wings"));
+        assertEquals("origin-cape", s.equip("cape", "regent-cape"), "refused: still wearing the free cape");
+        assertFalse(s.owns("blade-wings"));
         assertTrue(s.owns("void-badge-player"));
     }
 
@@ -56,12 +56,12 @@ class OwnershipTest {
         CosmeticState s = new CosmeticState();
         RecordingSink sink = new RecordingSink();
         s.setSink(sink);
-        assertEquals("void-wings", s.equip("back", "void-wings"));
-        assertEquals(Arrays.asList("back=void-wings"), sink.equips);
+        assertEquals("blade-wings", s.equip("back", "blade-wings"));
+        assertEquals(Arrays.asList("back=blade-wings"), sink.equips);
         assertNull(s.equip("badge", "void-badge-founder"), "founder is grant-only");
-        assertEquals("void-wings", s.equip("back", "void-cape"), "wrong slot: refused, still wearing the wings");
-        assertTrue(s.ownedIds().contains("void-wings"), "what we wear is reported as owned");
-        assertFalse(s.ownedIds().contains("ember-wings"));
+        assertEquals("blade-wings", s.equip("back", "regent-cape"), "wrong slot: refused, still wearing the wings");
+        assertTrue(s.ownedIds().contains("blade-wings"), "what we wear is reported as owned");
+        assertFalse(s.ownedIds().contains("vesper-sheath"));
     }
 
     @Test
@@ -70,7 +70,7 @@ class OwnershipTest {
         CosmeticState s = new CosmeticState();
         s.setSink(new RecordingSink());
         s.setSelfUuid("069a79f444e94726a5befca90e38aaf5");
-        s.equip("cape", "void-cape");
+        s.equip("cape", "regent-cape");
         s.applyLauncher(EquippedSet.empty(""), null, null);
         assertNull(s.self().get("cape"));
         assertEquals("069a79f4-44e9-4726-a5be-fca90e38aaf5", s.self().uuid, "keeps the session uuid");

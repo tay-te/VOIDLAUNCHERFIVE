@@ -151,8 +151,8 @@ final class ShowcaseMotion {
         Showcase.Scene s = new Showcase.Scene(name) {
             @Override
             void stage(Showcase sh, MinecraftClient mc) {
-                sh.spawn(mc, 0, Showcase.set("void-cape", "void-wings", null, null, "void-halo", "spark-trail", null), duel[0]);
-                sh.spawn(mc, 1, Showcase.set("dusk-cape", "ember-wings", null, null, "seraph-halo", "frost-trail", null), duel[1]);
+                sh.spawn(mc, 0, Showcase.OUTFITS[0], duel[0]);
+                sh.spawn(mc, 1, Showcase.OUTFITS[1], duel[1]);
             }
 
             @Override
@@ -236,8 +236,8 @@ final class ShowcaseMotion {
         Showcase.Scene s = new Showcase.Scene(name) {
             @Override
             void stage(Showcase sh, MinecraftClient mc) {
-                sh.spawn(mc, 0, Showcase.set("void-cape", "void-wings", null, null, "void-halo", null, null), a);
-                sh.spawn(mc, 1, Showcase.set("ring-cape", null, "dapper-top-hat", null, "seraph-halo", null, null), b);
+                sh.spawn(mc, 0, Showcase.OUTFITS[2], a);
+                sh.spawn(mc, 1, Showcase.OUTFITS[3], b);
             }
 
             @Override
@@ -270,9 +270,9 @@ final class ShowcaseMotion {
         final int n = 220;
         final Track[] lanes = new Track[3];
         final String[][] outfits = {
-            {"void-cape", "void-wings", null, null, "void-halo", "spark-trail"},
-            {"dusk-cape", "ember-wings", null, null, "seraph-halo", "ember-trail"},
-            {"cell-cape", null, "monarch-crown", null, null, "frost-trail"},
+            {"atelier-cape", "blade-wings", "atelier-fedora", null, "lumen-halo", "amethyst-trail"},
+            {"regent-cape", "vesper-sheath", "sovereign-crown", null, null, "gilt-trail"},
+            {"nocturne-cape", "halcyon-ring", null, "aegis-visor", null, "topaz-trail"},
         };
         for (int k = 0; k < 3; k++) {
             Track a = new Track(n);

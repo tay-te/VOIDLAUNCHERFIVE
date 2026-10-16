@@ -38,6 +38,133 @@ so the showcase can draw it, found by `CosmeticCatalog.get`, but left out of the
 the Supabase seed and `CosmeticCatalog.all()`/`ofKind()`. The current ones are the two candidate
 directions in `design/cosmetics-style-test/` (painted by `mod/cosmetics-art/style-test.mjs`).
 
+## The collection: VOID luxe (the art bible)
+
+The launch line is one collection in one style, **VOID luxe**: tailored, restrained, expensive.
+Every item is warm light neutrals and worked metal, with **one jewel** that is the only colour and
+the only light. It replaced the v3 line (a rainbow of glowing patterns) after the style test in
+`design/cosmetics-style-test/`; the palettes below live in code in
+`mod/cosmetics-art/collection.mjs`, and nothing is painted outside them.
+
+### Scale and form (non-negotiable)
+
+- **Minecraft texel scale.** Capes are the vanilla 64 x 32 (a 10 x 16 face). 3D items are at the
+  skin's density, one texel per model pixel; 2x only for fine detail, never as a habit.
+- **Short hue-shifted ramps, no smooth gradients.** Four or five shades per material, chosen by
+  hand; shadows lean cool (violet-blue), lights lean warm. Form is single texels: a lit top-left
+  edge, a shaded lower-right, and the material shader does the rest.
+- **Proportion.** Wings span 1.6-2.2 blocks; hats sit on the head, not over it; nothing hides the
+  player's silhouette.
+- **Restraint.** Neutrals, one metal family (two at most, e.g. silver with steel), and ONE accent:
+  the jewel. A second colour is a mistake, not variety.
+
+### Neutrals (cloth, felt, porcelain, lacquer)
+
+Warmer and lighter than the style test's graphite, so a silhouette keeps its value against a
+night sky and a dark field. Every item carries at least one value of 60% or more.
+
+| ramp | dark → light | use |
+|---|---|---|
+| ivory | `#6f6a72 #a39d9c #cfc6b8 #e8dfcd #f8f2e4` | porcelain, linings, felt, yokes |
+| bone | `#5f5652 #8f8172 #bba98c #d9c9a8 #efe4c8` | warm cloth, wool, sheaths |
+| taupe (warm grey) | `#2c2a33 #45414a #625c60 #827a77 #a59c94` | mid-value fields, felt, bands |
+| charcoal | `#121117 #1c1a22 #28252e #36323b` | the deep note only: a band, a lining, a field framed by metal |
+
+Charcoal is never the whole item: when a field is charcoal it is framed in metal or ivory so the
+shape survives at night.
+
+### Metals (trim, clasps, bands, settings, spars)
+
+Metal is what keeps the line rich: it carries the highlights, glints as things move (`metal`
+material) and gives value contrast in the dark.
+
+| ramp | dark → light | character |
+|---|---|---|
+| gold | `#3d2410 #7a4f1c #c08a35 #eec064 #fff1bf` | warm, regal: crowns, crests, the Regent set |
+| brass | `#3a2c1c #6e5630 #a8894f #d4b878 #f2e4b4` | paler, greener: buckles, fittings, the Meridian set |
+| silver (polished) | `#2e3140 #5f6577 #9da3b1 #d3d7df #fbfcff` | cool, high contrast: settings, spars, the Atelier and Nocturne sets |
+| steel (brushed) | `#2a2d33 #4a4f57 #717780 #9aa0a8 #c0c5cb` | quiet, narrow range: visors, hinges, everyday hardware |
+
+### The jewels
+
+The jewels are VOID's category hues cut as stones. Each item has one (a mirrored pair, like two
+wings, counts as one); it is the only saturated colour and the only light on the item.
+
+| jewel | deep → sparkle | from |
+|---|---|---|
+| amethyst | `#251a5c #4f3db3 #9f8bff #d2c8ff #f7f4ff` | VOID violet `#9F8BFF` |
+| ember-garnet | `#4a1220 #a8343a #ff9e7a #ffcdb4 #fff4ec` | ember `#FF9E7A` |
+| ice-topaz | `#0f3550 #2582b5 #7adfff #c2f2ff #f2fdff` | ice `#7ADFFF` |
+| jade | `#0c3a30 #258a66 #7ae0b0 #c0f4da #f0fff7` | jade `#7AE0B0` |
+| pearl | `#7d7890 #b9b4c8 #e9e5f0 #f9f7fc #ffffff` | the house stone: free items, angelic pieces |
+| onyx | `#08080c #14141b #24242f #454556 #b8b8d0` | the dark stone: no light, one glint |
+
+**How a jewel is cut.** Small and precise: one to four texels on a cape, a 1-2 pixel cube on a
+model, in a metal setting (a ring of texels or a bezel cube) one value step darker than the metal
+around it. The stone's texels are deep at the lower right, base in the middle, light at the upper
+left and one **sparkle** texel. The model cube is `glass` (deep, with a hard highlight and a
+Fresnel sky reflection); the emissive layer lights the sparkle at full alpha and the base at
+about 60%, so the stone glows from within, blooms at night (scaled by ambient light) and **flares
+with the fight**: the renderer multiplies the emissive layer and its bloom by
+`Reactive.intensity` for the slot, so the stone brightens a step per landed hit, pulses on a kill
+and dims on low health with no extra code per item. Jewels twinkle on a slow strip (6-8 frames
+at 5-6 fps, one bright frame): light catching a facet, never a flash.
+
+### Materials, by part
+
+| part | material | ramps |
+|---|---|---|
+| cape field, felt, wool, hood | `cloth` | ivory, bone, taupe, charcoal |
+| porcelain, lacquer, wood, bone | `matte` | ivory, bone, charcoal |
+| trim, piping, embroidery thread, clasps, crowns, halos, spars, hardware | `metal` | one metal family |
+| the jewel, visor glass | `glass` + emissive layer | one jewel |
+| a part that *is* light (a halo's core filament, a travelling glint of thread) | `emissive` | the jewel's light end |
+
+Emissive covers 2% of an item or less. No outlines glow, no fields glow, nothing glows in
+daylight that would not catch the sun.
+
+### Silhouette language
+
+Fill the item black at ten blocks: it must still say what it is.
+
+- **Capes are tailored garments**, not printed banners: a yoke across the shoulders, a clasp or
+  brooch where the yoke meets the body (the jewel), a contrasting lining, a trim of metal thread
+  down the edges, one embroidered motif with 30%+ value contrast, and a **cut hem** — straight
+  and weighted, swallowtail, a centre point, an asymmetric bias cut, rounded corners. The cut is
+  the cape's silhouette and differs on every cape.
+- **Hats are iconic shapes**: a crown's points, a fedora's teardrop crown and snapped brim (taller
+  than wide at the crown, pinched at the front, brim down in front and up behind), a hood's
+  peak. A hat that reads as a box is not done.
+- **Back items are one strong line**: a fan of blades, a perfect ring, a diagonal sheath.
+- **Halos are a thin true ellipse** of metal with the jewel at the front; **masks** a clean
+  face plane with the eyes cut out.
+- **Trails** are fine metal sparks or jewel motes, two or three texels, sparse; **badges** are
+  enamel pins: a metal rim lit at the top left, flat enamel, a one-texel jewel or glint.
+
+### Variety without noise
+
+Variety comes from **material, cut and silhouette**, not from colour. Two capes differ by their
+hem, their yoke, their metal and their motif; two hats by their shape. The line is organised in
+sets, each one metal and one jewel, so pieces belong together in a lobby:
+
+| set | metal | jewel | pieces |
+|---|---|---|---|
+| House | steel, silver | pearl | Origin cape (free), Bespoke cape, VOID player pin (free) |
+| Atelier | silver | amethyst | Atelier cape, Blade wings, Atelier fedora, Lumen halo, Amethyst dust, Atelier pin |
+| Regent | gold | ember-garnet | Regent cape, Sovereign crown, Vesper sheath, Aureole halo (pearl), Gilt sparks, Founder pin |
+| Nocturne | silver, steel | ice-topaz | Nocturne cape, Halcyon ring, Aegis visor, Topaz frost |
+| Meridian | brass | jade | Meridian cape, Cloister hood, Porcelain mask, Jade steps, Laurel pin |
+
+Names are an atelier's: a house name and the garment (Regent cape, Cloister hood), never a
+gamer adjective.
+
+### Motion
+
+Luxe moves with weight: capes are heavy wool (`stiffness` 0.9-0.96, `weight` 1.1-1.35) and hang;
+wings barely stir (`motion: { rate: 0.6-0.8, amp: 0.4-0.6 }`); halos turn once in 20-30 s;
+emotes are unhurried and end on a held pose (eased `cubic`/`sine`, a `back` overshoot only on a
+flourish), confident rather than goofy.
+
 ## The reference board: what premium cosmetic art looks like
 
 Lunar's cosmetics are flat-textured models with canned animation: a texture of even values, lit

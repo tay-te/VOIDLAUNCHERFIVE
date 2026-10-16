@@ -18,7 +18,6 @@ import { paintCapes } from './capes.mjs';
 import { paintModels } from './models.mjs';
 import { paintBadges, paintEmotes, paintTrails } from './motion.mjs';
 import { paintStyleTest } from './style-test.mjs';
-import { paintWings } from './wings.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = join(HERE, '..', 'src', 'main', 'cosmetics-src');
@@ -36,7 +35,6 @@ function save(id, file, content) {
 
 paintCapes(save);
 paintModels(save);
-paintWings(save);
 paintEmotes(save);
 paintTrails(save);
 paintBadges(save);

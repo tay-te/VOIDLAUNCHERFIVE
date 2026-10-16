@@ -592,7 +592,7 @@ describe('cosmetics store (rules 5, 8)', () => {
   });
 
   it('offline, equips only what is owned, one per kind, and a second press takes it off', async () => {
-    await useCosmetics.getState().equip('void-cape');
+    await useCosmetics.getState().equip('regent-cape');
     expect(useCosmetics.getState().equipped.cape).toBe('origin-cape');
     await useCosmetics.getState().equip('void-badge-player');
     expect(useCosmetics.getState().equipped.badge).toBe('void-badge-player');
@@ -626,7 +626,7 @@ describe('cosmetics store (rules 5, 8)', () => {
     await useCosmetics.getState().equip('origin-cape');
     expect(useCosmetics.getState().equipped.cape).toBeUndefined();
     // Not owned: nothing happens, nothing is sent.
-    await useCosmetics.getState().equip('void-cape');
+    await useCosmetics.getState().equip('regent-cape');
     expect(useCosmetics.getState().equipped.cape).toBeUndefined();
   });
 
@@ -647,18 +647,18 @@ describe('cosmetics store (rules 5, 8)', () => {
     __signInOnline();
     await wireOnlineEvents();
     await useCosmetics.getState().refresh();
-    await useCosmetics.getState().buy('void-cape');
-    expect(useCosmetics.getState().owned).toContain('void-cape');
-    expect(useCosmetics.getState().checkout).toEqual({ item: 'void-cape', phase: 'done' });
+    await useCosmetics.getState().buy('regent-cape');
+    expect(useCosmetics.getState().owned).toContain('regent-cape');
+    expect(useCosmetics.getState().checkout).toEqual({ item: 'regent-cape', phase: 'done' });
 
-    await useCosmetics.getState().buy('void-cape');
+    await useCosmetics.getState().buy('regent-cape');
     expect(useCosmetics.getState().checkout).toMatchObject({ phase: 'failed', message: expect.stringMatching(/already own/) });
   });
 
   it('offline, buying says what is needed instead of pretending', async () => {
-    await useCosmetics.getState().buy('void-cape');
+    await useCosmetics.getState().buy('regent-cape');
     expect(useCosmetics.getState().checkout).toMatchObject({ phase: 'failed', message: expect.stringMatching(/Microsoft account/) });
-    expect(useCosmetics.getState().owned).not.toContain('void-cape');
+    expect(useCosmetics.getState().owned).not.toContain('regent-cape');
   });
 
   it('signing out drops back to the offline copy', async () => {

@@ -1,5 +1,5 @@
 /**
- * Emotes, trails and badges — everything that is not a model.
+ * Emotes, trails and badges of the VOID luxe line — everything that is not a model.
  *
  * Emote keyframes are degrees (rotation) and model pixels (position), per player part, with an
  * ease per key that shapes the segment *arriving* at it. Model space: y down, -z is the way the
@@ -8,82 +8,97 @@
  * z < 0); y on a forward-pointing arm swings it across (the right arm inward is y < 0).
  * `upper` bends the whole upper body (head, torso, arms) about the waist; `root` moves and turns
  * the whole player, e.g. down onto the ground for sit.
+ *
+ * Luxe emotes are unhurried and confident: eased in and out (`cubic`, `sine`), a held pose in
+ * the middle, the chin up, a `back` overshoot only where a flourish wants one, never a bounce.
  */
 
-import { Canvas, P, mix, shade } from './lib.mjs';
+import { Canvas } from './lib.mjs';
+import { J, M, N, stoneLight } from './collection.mjs';
 
 /* ================================================================================ emotes */
 
 const k = (t, v, e = 'sine') => [t, v, e];
+const Z = [0, 0, 0];
 
 const EMOTES = {
+  // Greeting: the hand rises in one smooth arc, two easy waves from the elbow, the chin lifts and
+  // the body opens a little toward the wave; it settles as smoothly as it rose.
   'emote-wave': {
-    length: 2.2, blend: 0.22,
+    length: 2.6, blend: 0.25,
     parts: {
-      right_arm: { rotation: [k(0, [0, 0, 0]), k(0.32, [-12, 0, 152], 'back'), k(0.55, [-10, 0, 128]), k(0.78, [-12, 0, 156]), k(1.01, [-10, 0, 128]), k(1.24, [-12, 0, 156]), k(1.5, [-10, 0, 140]), k(2.2, [0, 0, 0], 'cubic')] },
-      head: { rotation: [k(0, [0, 0, 0]), k(0.4, [-4, -10, 6]), k(1.6, [-4, -10, 6]), k(2.2, [0, 0, 0])] },
-      left_arm: { rotation: [k(0, [0, 0, 0]), k(0.5, [4, 0, -6]), k(2.2, [0, 0, 0])] },
-      body: { rotation: [k(0, [0, 0, 0]), k(0.5, [0, 4, 0]), k(1.8, [0, 4, 0]), k(2.2, [0, 0, 0])] },
+      right_arm: { rotation: [k(0, Z), k(0.45, [-14, 0, 146], 'cubic'), k(0.8, [-10, 0, 128]), k(1.15, [-14, 0, 150]), k(1.5, [-10, 0, 130]), k(1.85, [-12, 0, 142]), k(2.6, Z, 'cubic')] },
+      left_arm: { rotation: [k(0, Z), k(0.6, [6, 0, -5]), k(2.0, [6, 0, -5]), k(2.6, Z)] },
+      head: { rotation: [k(0, Z), k(0.5, [-7, -12, 5], 'cubic'), k(2.0, [-7, -12, 5]), k(2.6, Z, 'cubic')] },
+      body: { rotation: [k(0, Z), k(0.5, [0, 6, 0], 'cubic'), k(2.0, [0, 6, 0]), k(2.6, Z, 'cubic')] },
     },
   },
+  // Applause: three unhurried claps in front of the chest, the head lifted, a slight lean back.
   'emote-clap': {
-    length: 2.6, blend: 0.2,
+    length: 2.8, blend: 0.22,
     parts: (() => {
-      const r = [k(0, [0, 0, 0]), k(0.3, [-72, -14, 0], 'quad')];
-      const l = [k(0, [0, 0, 0]), k(0.3, [-72, 14, 0], 'quad')];
-      let t = 0.3;
+      const r = [k(0, Z), k(0.35, [-68, -16, 0], 'cubic')];
+      const l = [k(0, Z), k(0.35, [-68, 16, 0], 'cubic')];
+      let t = 0.35;
       for (let i = 0; i < 3; i++) {
-        r.push(k(t + 0.18, [-74, -34, 0], 'quad'), k(t + 0.42, [-70, -10, 0], 'cubic'));
-        l.push(k(t + 0.18, [-74, 34, 0], 'quad'), k(t + 0.42, [-70, 10, 0], 'cubic'));
-        t += 0.5;
+        r.push(k(t + 0.2, [-70, -34, 0], 'quad'), k(t + 0.55, [-66, -12, 0], 'cubic'));
+        l.push(k(t + 0.2, [-70, 34, 0], 'quad'), k(t + 0.55, [-66, 12, 0], 'cubic'));
+        t += 0.55;
       }
-      r.push(k(2.6, [0, 0, 0], 'cubic'));
-      l.push(k(2.6, [0, 0, 0], 'cubic'));
+      r.push(k(2.8, Z, 'cubic'));
+      l.push(k(2.8, Z, 'cubic'));
       return {
         right_arm: { rotation: r },
         left_arm: { rotation: l },
-        head: { rotation: [k(0, [0, 0, 0]), k(0.4, [6, 0, 0]), k(2.1, [6, 0, 0]), k(2.6, [0, 0, 0])] },
+        head: { rotation: [k(0, Z), k(0.45, [-6, 0, 0], 'cubic'), k(2.3, [-6, 0, 0]), k(2.8, Z)] },
+        upper: { rotation: [k(0, Z), k(0.45, [-4, 0, 0], 'cubic'), k(2.3, [-4, 0, 0]), k(2.8, Z)] },
       };
     })(),
   },
+  // Reverence: a court bow. The right foot draws back, the right hand comes to the heart, the left
+  // sweeps out low, the body folds from the waist and holds, then rises taller than it bowed.
   'emote-bow': {
-    length: 3.0, blend: 0.25,
+    length: 3.3, blend: 0.28,
     parts: {
-      upper: { rotation: [k(0, [0, 0, 0]), k(0.7, [46, 0, 0], 'cubic'), k(1.9, [48, 0, 0]), k(2.7, [0, 0, 0], 'cubic')] },
-      head: { rotation: [k(0, [0, 0, 0]), k(0.7, [18, 0, 0]), k(1.9, [20, 0, 0]), k(2.7, [0, 0, 0])] },
-      right_arm: { rotation: [k(0, [0, 0, 0]), k(0.7, [-38, -42, 0]), k(1.9, [-38, -42, 0]), k(2.7, [0, 0, 0])] },
-      left_arm: { rotation: [k(0, [0, 0, 0]), k(0.7, [26, 0, -8]), k(1.9, [26, 0, -8]), k(2.7, [0, 0, 0])] },
-      right_leg: { rotation: [k(0, [0, 0, 0]), k(0.6, [-6, 0, 0]), k(2.0, [-6, 0, 0]), k(2.7, [0, 0, 0])] },
-      left_leg: { rotation: [k(0, [0, 0, 0]), k(0.6, [8, 0, 0]), k(2.0, [8, 0, 0]), k(2.7, [0, 0, 0])] },
+      upper: { rotation: [k(0, Z), k(0.8, [40, 0, 0], 'cubic'), k(2.0, [42, 0, 0]), k(2.9, [-3, 0, 0], 'cubic'), k(3.3, Z)] },
+      head: { rotation: [k(0, Z), k(0.8, [14, 0, 0], 'cubic'), k(2.0, [16, 0, 0]), k(2.9, [-5, 0, 0], 'cubic'), k(3.3, Z)] },
+      right_arm: { rotation: [k(0, Z), k(0.7, [-58, -46, 0], 'cubic'), k(2.0, [-58, -46, 0]), k(2.9, Z, 'cubic')] },
+      left_arm: { rotation: [k(0, Z), k(0.8, [-24, 0, -38], 'cubic'), k(2.0, [-26, 0, -40]), k(2.9, Z, 'cubic')] },
+      right_leg: { rotation: [k(0, Z), k(0.6, [14, 0, 0], 'cubic'), k(2.1, [14, 0, 0]), k(2.9, Z, 'cubic')] },
+      left_leg: { rotation: [k(0, Z), k(0.6, [-6, 0, 0], 'cubic'), k(2.1, [-6, 0, 0]), k(2.9, Z, 'cubic')] },
     },
   },
+  // Salute: up crisply to the brow, held still, a small nod, lowered with control.
   'emote-salute': {
-    length: 2.2, blend: 0.15,
+    length: 2.4, blend: 0.16,
     parts: {
-      right_arm: { rotation: [k(0, [0, 0, 0]), k(0.22, [-132, -58, 12], 'back'), k(1.5, [-132, -58, 12]), k(1.7, [-128, -52, 14]), k(2.1, [0, 0, 0], 'cubic')] },
-      head: { rotation: [k(0, [0, 0, 0]), k(0.2, [-3, 0, 0]), k(1.6, [-3, 0, 0]), k(2.1, [0, 0, 0])] },
-      body: { rotation: [k(0, [0, 0, 0]), k(0.2, [0, -6, 0]), k(1.6, [0, -6, 0]), k(2.1, [0, 0, 0])] },
-      root: { position: [k(0, [0, 0, 0]), k(0.2, [0, -0.4, 0]), k(1.6, [0, -0.4, 0]), k(2.1, [0, 0, 0])] },
+      right_arm: { rotation: [k(0, Z), k(0.28, [-134, -56, 12], 'cubic'), k(1.55, [-134, -56, 12]), k(1.75, [-130, -52, 13]), k(2.35, Z, 'cubic')] },
+      head: { rotation: [k(0, Z), k(0.28, [-4, 0, 0], 'cubic'), k(1.45, [-4, 0, 0]), k(1.65, [4, 0, 0]), k(1.85, [-2, 0, 0]), k(2.35, Z)] },
+      body: { rotation: [k(0, Z), k(0.28, [0, -5, 0], 'cubic'), k(1.75, [0, -5, 0]), k(2.35, Z)] },
+      root: { position: [k(0, Z), k(0.28, [0, -0.4, 0], 'cubic'), k(1.75, [0, -0.4, 0]), k(2.35, Z)] },
     },
   },
+  // Nonchalance: palms open at the hips, the shoulders lift and drop once, a tilt of the head.
   'emote-shrug': {
-    length: 1.9, blend: 0.18,
+    length: 2.1, blend: 0.2,
     parts: {
-      right_arm: { rotation: [k(0, [0, 0, 0]), k(0.35, [-34, 22, 38], 'back'), k(1.25, [-34, 22, 38]), k(1.9, [0, 0, 0], 'cubic')] },
-      left_arm: { rotation: [k(0, [0, 0, 0]), k(0.35, [-34, -22, -38], 'back'), k(1.25, [-34, -22, -38]), k(1.9, [0, 0, 0], 'cubic')] },
-      head: { rotation: [k(0, [0, 0, 0]), k(0.35, [-6, 0, 14], 'back'), k(1.25, [-6, 0, 14]), k(1.9, [0, 0, 0])] },
-      root: { position: [k(0, [0, 0, 0]), k(0.3, [0, -0.8, 0], 'quad'), k(1.25, [0, -0.8, 0]), k(1.9, [0, 0, 0])] },
+      right_arm: { rotation: [k(0, Z), k(0.4, [-30, 24, 30], 'cubic'), k(1.35, [-30, 24, 30]), k(2.1, Z, 'cubic')] },
+      left_arm: { rotation: [k(0, Z), k(0.4, [-30, -24, -30], 'cubic'), k(1.35, [-30, -24, -30]), k(2.1, Z, 'cubic')] },
+      head: { rotation: [k(0, Z), k(0.45, [-4, 8, 12], 'cubic'), k(1.35, [-4, 8, 12]), k(2.1, Z)] },
+      root: { position: [k(0, Z), k(0.35, [0, -0.8, 0], 'cubic'), k(0.8, [0, -0.5, 0]), k(1.35, [0, -0.5, 0]), k(2.1, Z)] },
     },
   },
+  // Repose: down onto the ground at ease, one knee raised, leaning back on the hands.
   'emote-sit': {
-    length: 1.2, loop: true, loop_from: 0.8, blend: 0.2, camera: 'low',
+    length: 1.3, loop: true, loop_from: 0.9, blend: 0.22, camera: 'low',
     parts: {
-      root: { position: [k(0, [0, 0, 0]), k(0.7, [0, 11.2, 0], 'cubic'), k(1.2, [0, 11.2, 0])] },
-      right_leg: { rotation: [k(0, [0, 0, 0]), k(0.7, [-86, 14, 0], 'cubic'), k(1.2, [-86, 14, 0])] },
-      left_leg: { rotation: [k(0, [0, 0, 0]), k(0.7, [-86, -14, 0], 'cubic'), k(1.2, [-86, -14, 0])] },
-      right_arm: { rotation: [k(0, [0, 0, 0]), k(0.7, [-38, 4, 8]), k(1.2, [-38, 4, 8])] },
-      left_arm: { rotation: [k(0, [0, 0, 0]), k(0.7, [-38, -4, -8]), k(1.2, [-38, -4, -8])] },
-      upper: { rotation: [k(0, [0, 0, 0]), k(0.7, [-6, 0, 0]), k(1.2, [-6, 0, 0])] },
+      root: { position: [k(0, Z), k(0.8, [0, 11.2, 0], 'cubic'), k(1.3, [0, 11.2, 0])] },
+      right_leg: { rotation: [k(0, Z), k(0.8, [-118, 10, 0], 'cubic'), k(1.3, [-118, 10, 0])] },
+      left_leg: { rotation: [k(0, Z), k(0.8, [-84, -16, 0], 'cubic'), k(1.3, [-84, -16, 0])] },
+      right_arm: { rotation: [k(0, Z), k(0.8, [26, 0, 14], 'cubic'), k(1.3, [26, 0, 14])] },
+      left_arm: { rotation: [k(0, Z), k(0.8, [26, 0, -14], 'cubic'), k(1.3, [26, 0, -14])] },
+      upper: { rotation: [k(0, Z), k(0.8, [-10, 0, 0], 'cubic'), k(1.3, [-10, 0, 0])] },
+      head: { rotation: [k(0, Z), k(0.8, [-6, 0, 0], 'cubic'), k(1.3, [-6, 0, 0])] },
     },
   },
 };
@@ -94,143 +109,172 @@ export function paintEmotes(save) {
 
 /* ================================================================================ trails */
 
-/** A crisp cell: a filled square with one lit corner texel, on an 8x8 sprite. */
-function cellSprite(color, size = 6) {
-  const c = new Canvas(8, 8);
-  const o = Math.floor((8 - size) / 2);
-  c.paint(o, o, size, size, (i, j) => {
-    const corner = (i === 0 || i === size - 1) && (j === 0 || j === size - 1);
-    if (corner) return [shade(color, -0.1), 160];
-    if (i <= 1 && j <= 1) return [shade(color, 0.35)];
-    return [color];
-  });
-  return c;
-}
+/*
+ * Trail sprites are white and greys: the runtime multiplies each particle by one of the trail's
+ * colours, so the sprite carries only the cut (light facets, mid, shadow) and the ramp the colour.
+ * Small and sparse: two to five texels on an 8 x 8 sprite, drawn about a tenth of a block.
+ */
 
-/** A soft round mote: bright core, falloff. */
-function moteSprite(core, rim) {
-  const c = new Canvas(8, 8);
-  c.paint(0, 0, 8, 8, (i, j) => {
-    const d = Math.hypot(i - 3.5, j - 3.5);
-    if (d > 3.6) return null;
-    const t = d / 3.6;
-    return [mix(core, rim, t), Math.round(255 * (1 - t * t))];
-  });
-  return c;
-}
+const W1 = [255, 255, 255], W2 = [214, 214, 214], W3 = [164, 164, 164], W4 = [118, 118, 118];
 
-/** A six-armed pixel flake. */
-function flakeSprite(color) {
+function sprite(rows) {
   const c = new Canvas(8, 8);
-  const pts = [[3, 0], [4, 0], [3, 1], [4, 1], [3, 6], [4, 6], [3, 7], [4, 7], [0, 3], [0, 4], [1, 3], [1, 4], [6, 3], [6, 4], [7, 3], [7, 4], [1, 1], [6, 1], [1, 6], [6, 6], [2, 2], [5, 2], [2, 5], [5, 5]];
-  for (const [x, y] of pts) c.set(x, y, color, 200);
-  c.rect(3, 3, 2, 2, P.ice6);
+  const pal = { 1: W1, 2: W2, 3: W3, 4: W4 };
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (pal[ch]) c.set(x, y, pal[ch]); }));
   return c;
 }
 
 export function paintTrails(save) {
-  save('spark-trail', 'sprite.png', cellSprite(P.vio4));
-  save('spark-trail', 'trail.json', { motion: 'spark', colors: [P.vio5, P.vio4, P.vio3], life: 0.9, rate: 16, size: 0.16, cap: 28, glow: 0.35 });
-  save('ember-trail', 'sprite.png', moteSprite(P.emb6, P.emb3));
-  save('ember-trail', 'trail.json', { motion: 'drift', colors: [P.emb5, P.emb4, P.emb3], life: 1.4, rate: 14, size: 0.13, cap: 32, glow: 0.5 });
-  save('frost-trail', 'sprite.png', flakeSprite(P.ice5));
-  save('frost-trail', 'trail.json', { motion: 'settle', colors: [P.ice6, P.ice5, P.ice4], life: 1.6, rate: 10, size: 0.15, cap: 30, glow: 0.25 });
-  save('stair-trail', 'sprite.png', cellSprite(P.jade4, 6));
-  save('stair-trail', 'trail.json', { motion: 'stair', colors: [P.jade5, P.jade4, P.jade3], life: 1.1, rate: 9, size: 0.14, cap: 24, glow: 0.2 });
+  // Gilt sparks: a tiny four-point star of gold.
+  save('gilt-trail', 'sprite.png', sprite([
+    '........',
+    '...2....',
+    '...1....',
+    '.2111...',
+    '...13...',
+    '...3....',
+    '........',
+    '........',
+  ]));
+  save('gilt-trail', 'trail.json', { motion: 'spark', colors: [M.gold[4], M.gold[3], M.gold[3]], life: 0.7, rate: 12, size: 0.11, cap: 22, glow: 0.3 });
+  // Amethyst dust: a cut stone, light upper-left facets, a deep lower-right.
+  save('amethyst-trail', 'sprite.png', sprite([
+    '........',
+    '...1....',
+    '..112...',
+    '.11223..',
+    '..234...',
+    '...4....',
+    '........',
+    '........',
+  ]));
+  save('amethyst-trail', 'trail.json', { motion: 'drift', colors: [J.amethyst[3], J.amethyst[2], J.amethyst[2]], life: 1.3, rate: 10, size: 0.1, cap: 24, glow: 0.4 });
+  // Topaz frost: a long crystal facet that settles.
+  save('topaz-trail', 'sprite.png', sprite([
+    '........',
+    '...1....',
+    '...12...',
+    '..112...',
+    '..123...',
+    '...23...',
+    '...3....',
+    '........',
+  ]));
+  save('topaz-trail', 'trail.json', { motion: 'settle', colors: [J.topaz[3], J.topaz[2], J.topaz[4]], life: 1.5, rate: 9, size: 0.11, cap: 24, glow: 0.3 });
+  // Jade steps: a bevelled tile.
+  save('jade-trail', 'sprite.png', sprite([
+    '........',
+    '........',
+    '..1112..',
+    '..1223..',
+    '..1223..',
+    '..2334..',
+    '........',
+    '........',
+  ]));
+  save('jade-trail', 'trail.json', { motion: 'stair', colors: [J.jade[3], J.jade[2], J.jade[2]], life: 1.1, rate: 8, size: 0.12, cap: 22, glow: 0.2 });
 }
 
 /* ================================================================================ badges */
 
-const RING = [[2, 0], [3, 0], [4, 0], [1, 1], [5, 1], [0, 2], [6, 2], [0, 3], [6, 3], [0, 4], [6, 4], [1, 5], [5, 5], [2, 6], [3, 6], [4, 6]];
+/*
+ * Enamel pins, 9 x 9, drawn at the nametag's font scale: a metal rim lit at the upper left and
+ * shaded at the lower right, flat enamel, and one stone or glint that twinkles on a slow strip.
+ * Maps through a legend; `.` is empty.
+ */
+function pin(id, rows, legend, frames = 1, fps = 6, glow = 0) {
+  const c = new Canvas(9, 9 * frames);
+  const e = new Canvas(9, 9 * frames);
+  let lit = false;
+  for (let f = 0; f < frames; f++) {
+    rows.forEach((r, y) => [...r].forEach((ch, x) => {
+      const l = legend[ch];
+      if (!l) return;
+      c.set(x, f * 9 + y, l.c);
+      const g = typeof l.g === 'function' ? l.g(f) : l.g;
+      if (g) {
+        e.set(x, f * 9 + y, g[0], g[1]);
+        lit = true;
+      }
+    }));
+  }
+  save_(id, 'icon.png', c);
+  if (lit) save_(id, 'emissive.png', e);
+  save_(id, 'badge.json', frames > 1 ? { frames: { count: frames, fps }, glow } : { glow });
+}
+
+let save_;
+
+const gemLegend = (jr, F, phase = 0) => ({
+  A: { c: jr[4], g: (f) => [jr[4], stoneLight(f, F, phase).spark] },
+  a: { c: jr[3], g: (f) => [jr[2], stoneLight(f, F, phase).base] },
+  b: { c: jr[2] },
+  d: { c: jr[1] },
+});
 
 export function paintBadges(save) {
-  // 9x9 icons, drawn at the nametag's font scale: one texel is one font pixel. At that size a
-  // badge is a silhouette and two or three values, so each is a shape first, lit from the top
-  // left (a light texel on the upper edge, a dark one on the lower), with at most one accent.
+  save_ = save;
+  const S = M.silver, G = M.gold, R = M.brass;
+  // VOID player: the VOID ring as a silver pin, lit at the upper left.
+  pin('void-badge-player', [
+    '.........',
+    '...hhh...',
+    '..h...m..',
+    '.h.....m.',
+    '.h.....m.',
+    '.m.....l.',
+    '..m...l..',
+    '...lll...',
+    '.........',
+  ], { h: { c: S[4] }, m: { c: S[3] }, l: { c: S[2] } });
+  // Founder: a gold lozenge, charcoal enamel, the garnet set at its heart.
   {
-    // The VOID ring: bone on its upper left, mist on its lower right, so it reads as a ring of
-    // cells and not a flat glyph.
-    const c = new Canvas(9, 9);
-    for (const [x, y] of RING) c.set(x + 1, y + 1, x + y <= 5 ? P.bone : x + y <= 7 ? '#d6d8de' : P.mist);
-    save('void-badge-player', 'icon.png', c);
-    save('void-badge-player', 'badge.json', {});
-  }
-  {
-    // Founder: a cut stone in an ember ramp (lit crown, mid girdle, deep pavilion), a violet cell
-    // at its heart, and a glint that crosses the facets once a cycle.
     const F = 8;
-    const c = new Canvas(9, 9 * F);
-    const e = new Canvas(9, 9 * F);
-    const D = ['....#....', '...###...', '..#####..', '.#######.', '#########', '.#######.', '..#####..', '...###...', '....#....'];
-    const E = ['#4a1f18', '#9a3f2a', '#e0694a', '#ff9e7a', '#ffc6ab', '#fff0e6'];
-    for (let f = 0; f < F; f++) {
-      for (let y = 0; y < 9; y++) for (let x = 0; x < 9; x++) {
-        if (D[y][x] !== '#') continue;
-        const outline = D[y][x - 1] !== '#' || D[y][x + 1] !== '#' || !D[y - 1] || D[y - 1][x] !== '#' || !D[y + 1] || D[y + 1][x] !== '#';
-        let col;
-        if (y < 4) col = x + y < 6 ? E[4] : E[3];
-        else if (y === 4) col = x < 4 ? E[3] : E[2];
-        else col = x - y > -1 ? E[1] : E[2];
-        if (outline && y >= 4) col = E[0];
-        const heart = (x === 4 && Math.abs(y - 4) <= 1) || (y === 4 && Math.abs(x - 4) <= 1);
-        if (heart) col = x === 4 && y === 3 ? P.vio5 : P.vio4;
-        const glint = (f === 0 && x + y === 5) || (f === 1 && x + y === 7) ? E[5] : null;
-        c.set(x, f * 9 + y, glint ?? col);
-        if (glint) e.set(x, f * 9 + y, E[5], 230);
-        else if (heart) e.set(x, f * 9 + y, P.vio5, 110);
+    // A lozenge by distance from the centre: the rim at 4, charcoal enamel at 3, the stone
+    // inside, lit from the upper left.
+    const rows = [];
+    for (let y = 0; y < 9; y++) {
+      let r = '';
+      for (let x = 0; x < 9; x++) {
+        const d = Math.abs(x - 4) + Math.abs(y - 4), s2 = (x - 4) + (y - 4);
+        if (d > 4) r += '.';
+        else if (d === 4) r += s2 < 0 ? 'G' : s2 > 0 ? 'o' : 'g';
+        else if (d === 3) r += 'e';
+        else if (x === 3 && y === 3) r += 'A';
+        else r += s2 < 0 ? 'a' : s2 > 0 ? 'd' : 'b';
       }
+      rows.push(r);
     }
-    save('void-badge-founder', 'icon.png', c);
-    save('void-badge-founder', 'emissive.png', e);
-    save('void-badge-founder', 'badge.json', { frames: { count: F, fps: 6 }, glow: 0.35 });
+    pin('void-badge-founder', rows, { G: { c: G[3] }, o: { c: G[1] }, e: { c: N.charcoal[2] }, ...gemLegend(J.garnet, F), g: { c: G[2] } }, F, 6, 0.35);
   }
+  // Atelier pin: amethyst enamel in a polished silver rim, one glint.
   {
-    // Cell: three by three bevelled cells in a violet ramp, the light stepping down the diagonal.
-    const F = 6;
-    const c = new Canvas(9, 9 * F);
-    const e = new Canvas(9, 9 * F);
-    for (let f = 0; f < F; f++) {
-      for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) {
-        const d = x + y;
-        const on = d === (f % 5);
-        const base = d <= 1 ? P.vio4 : d <= 3 ? P.vio3 : P.vio2;
-        const ox = x * 3, oy = f * 9 + y * 3;
-        c.rect(ox, oy, 2, 2, base);
-        c.set(ox, oy, shade(base, 0.35));
-        c.set(ox + 1, oy + 1, shade(base, -0.3));
-        if (on) {
-          e.rect(ox, oy, 2, 2, P.vio5, 120);
-          e.set(ox, oy, P.vio6, 200);
-        }
-      }
-    }
-    save('cell-badge', 'icon.png', c);
-    save('cell-badge', 'emissive.png', e);
-    save('cell-badge', 'badge.json', { frames: { count: F, fps: 5 }, glow: 0.2 });
-  }
-  {
-    // Frost: three ice crystals rising left to right, each a little brighter, the top one
-    // sparkling now and then.
     const F = 8;
-    const c = new Canvas(9, 9 * F);
-    const e = new Canvas(9, 9 * F);
-    const I = [[P.ice1, P.ice2, P.ice4], [P.ice2, P.ice3, P.ice5], [P.ice3, P.ice4, P.ice6]];
-    for (let f = 0; f < F; f++) {
-      for (let i = 0; i < 3; i++) {
-        const ox = i * 3, oy = f * 9 + 6 - i * 3;
-        const [d, m, l] = I[i];
-        c.rect(ox, oy, 2, 2, m);
-        c.set(ox, oy, l);
-        c.set(ox + 1, oy + 1, d);
-      }
-      if (f === 2 || f === 3) {
-        c.set(7, f * 9, P.ice6);
-        e.set(7, f * 9, P.ice6, f === 2 ? 230 : 120);
-        e.set(6, f * 9, P.ice5, f === 2 ? 140 : 60);
-      }
-    }
-    save('frost-badge', 'icon.png', c);
-    save('frost-badge', 'emissive.png', e);
-    save('frost-badge', 'badge.json', { frames: { count: F, fps: 4 }, glow: 0.2 });
+    pin('atelier-badge', [
+      '.........',
+      '..hhhhm..',
+      '.hAabbbm.',
+      '.habbbbm.',
+      '.hbbbbdm.',
+      '.hbbbddl.',
+      '.mbbdddl.',
+      '..mllll..',
+      '.........',
+    ], { h: { c: S[4] }, m: { c: S[3] }, l: { c: S[2] }, ...gemLegend(J.amethyst, F) }, F, 6, 0.25);
+  }
+  // Laurel pin: a brass laurel round a jade.
+  {
+    const F = 8;
+    pin('laurel-badge', [
+      '.........',
+      '.h.....h.',
+      'hm..A..mh',
+      'h...b...l',
+      'mh..d..hl',
+      '.mh...hl.',
+      '..mh.hl..',
+      '....m....',
+      '.........',
+    ], { h: { c: R[4] }, m: { c: R[3] }, l: { c: R[2] }, ...gemLegend(J.jade, F) }, F, 6, 0.25);
   }
 }

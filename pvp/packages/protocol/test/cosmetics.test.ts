@@ -83,7 +83,7 @@ describe('createFakeVoid — cosmetics', () => {
     expect(payload.self.uuid).toBe('069a79f4-44e9-4726-a5be-fca90e38aaf5');
     expect(payload.owned).toContain('origin-cape');
     expect(payload.owned).toContain('void-badge-player');
-    expect(payload.owned).not.toContain('cell-cape');
+    expect(payload.owned).not.toContain('atelier-cape');
     // Catalog order, like `CosmeticState.ownedIds`.
     const order = COSMETIC_CATALOG.map((i) => i.id as string);
     expect([...payload.owned].sort((a, b) => order.indexOf(a) - order.indexOf(b))).toEqual(
@@ -97,17 +97,17 @@ describe('createFakeVoid — cosmetics', () => {
 
   it('equipCosmetic wears what is owned and refuses the rest, answering what is worn', () => {
     const fake = makeFake();
-    expect(fake.equipCosmetic('cape', 'ring-cape')).toBe('ring-cape');
+    expect(fake.equipCosmetic('cape', 'bespoke-cape')).toBe('bespoke-cape');
     // Not owned: refused, and the answer is the cape still worn.
-    expect(fake.equipCosmetic('cape', 'cell-cape')).toBe('ring-cape');
+    expect(fake.equipCosmetic('cape', 'atelier-cape')).toBe('bespoke-cape');
     // Owned but for another slot: refused.
-    expect(fake.equipCosmetic('cape', 'seraph-halo')).toBe('ring-cape');
+    expect(fake.equipCosmetic('cape', 'aureole-halo')).toBe('bespoke-cape');
     // Unknown to the catalog: refused.
-    expect(fake.equipCosmetic('cape', 'future-cape' as CosmeticId)).toBe('ring-cape');
+    expect(fake.equipCosmetic('cape', 'future-cape' as CosmeticId)).toBe('bespoke-cape');
     // Free items are owned by every account.
     expect(fake.equipCosmetic('cape', 'origin-cape')).toBe('origin-cape');
     // Null takes the slot off.
-    expect(fake.equipCosmetic('halo', 'seraph-halo')).toBe('seraph-halo');
+    expect(fake.equipCosmetic('halo', 'aureole-halo')).toBe('aureole-halo');
     expect(fake.equipCosmetic('halo', null)).toBeNull();
     expect(fake.getCosmetics().self).toMatchObject({ cape: 'origin-cape', halo: null });
   });
@@ -116,21 +116,21 @@ describe('createFakeVoid — cosmetics', () => {
     const fake = makeFake();
     const pushes: unknown[] = [];
     fake.on('cosmetics', (p) => pushes.push(p));
-    fake.equipCosmetic('cape', 'ring-cape');
+    fake.equipCosmetic('cape', 'bespoke-cape');
     fake.setCosmeticTint('cape', '#123456');
     fake.setEmoteWheel(['emote-wave']);
     expect(pushes).toEqual([]);
     // …but the launcher changing it under the game does.
-    fake.applyCosmetics({ owned: ['cell-cape'] });
+    fake.applyCosmetics({ owned: ['atelier-cape'] });
     expect(pushes).toHaveLength(1);
     expectValidEnvelope({ e: 'cosmetics', payload: pushes[0] as CosmeticsPayload });
   });
 
   it('setCosmeticTint sticks only to a tintable item, lower case', () => {
     const fake = makeFake();
-    // The default cape, void-cape, is not tintable: refused, no tint.
+    // The default cape, regent-cape, is not tintable: refused, no tint.
     expect(fake.setCosmeticTint('cape', '#9F8BFF')).toBeNull();
-    fake.equipCosmetic('cape', 'ring-cape');
+    fake.equipCosmetic('cape', 'bespoke-cape');
     expect(fake.setCosmeticTint('cape', '#9F8BFF')).toBe('#9f8bff');
     expect(fake.setCosmeticTint('cape', 'purple')).toBe('#9f8bff');
     expect(fake.getCosmetics().self.tints).toEqual({ cape: '#9f8bff' });
@@ -145,7 +145,7 @@ describe('createFakeVoid — cosmetics', () => {
         'emote-wave',
         'emote-wave',
         'emote-bow', // not owned
-        'spark-trail', // not an emote
+        'gilt-trail', // not an emote
         'emote-sit',
       ] as CosmeticId[]),
     ).toEqual(['emote-wave', 'emote-sit']);
@@ -191,8 +191,8 @@ describe('createFakeVoid — cosmetics', () => {
         face: null,
         trail: null,
         badge: null,
-        halo: 'void-cape',
-        head: 'dapper-top-hat',
+        halo: 'regent-cape',
+        head: 'atelier-fedora',
         emotes: ['emote-wave'],
         tints: { head: '#ABCDEF' },
       },
@@ -200,7 +200,7 @@ describe('createFakeVoid — cosmetics', () => {
     expect(fake.getCosmetics().self).toMatchObject({
       cape: null,
       halo: null,
-      head: 'dapper-top-hat',
+      head: 'atelier-fedora',
       emotes: ['emote-wave'],
       tints: { head: '#abcdef' },
     });
@@ -208,11 +208,11 @@ describe('createFakeVoid — cosmetics', () => {
 
   it('records every cosmetic call as a legal bridge.json envelope', () => {
     const fake = makeFake();
-    fake.equipCosmetic('cape', 'ring-cape');
+    fake.equipCosmetic('cape', 'bespoke-cape');
     fake.setCosmeticTint('cape', '#9f8bff');
     fake.setEmoteWheel(['emote-wave', 'emote-clap']);
     fake.playEmote('emote-wave');
-    expect(fake.openStore('ring-cape')).toBe(true);
+    expect(fake.openStore('bespoke-cape')).toBe(true);
     const calls = fake.getCalls();
     expect(calls.map((c) => c.c)).toEqual([
       'equipCosmetic',
@@ -267,18 +267,18 @@ describe('installVoidShim — cosmetics', () => {
     expect(emotes).toEqual([{ id: null }]);
 
     // The page binds to Java's answer — a refusal answers what is still worn.
-    expect(bridge.equipCosmetic('cape', 'cell-cape')).toBe('origin-cape');
+    expect(bridge.equipCosmetic('cape', 'atelier-cape')).toBe('origin-cape');
     // Null is a real answer here (no tint), not "no host".
     expect(bridge.setCosmeticTint('cape', '#123456')).toBeNull();
     expect(bridge.setEmoteWheel(['emote-wave', 'emote-bow'])).toEqual(['emote-wave']);
     expect(bridge.playEmote('emote-wave')).toBe(true);
-    expect(bridge.openStore('ring-cape')).toBe(true);
+    expect(bridge.openStore('bespoke-cape')).toBe(true);
     expect(sent).toEqual([
-      { c: 'equipCosmetic', params: ['cape', 'cell-cape'] },
+      { c: 'equipCosmetic', params: ['cape', 'atelier-cape'] },
       { c: 'setCosmeticTint', params: ['cape', '#123456'] },
       { c: 'setEmoteWheel', params: [['emote-wave', 'emote-bow']] },
       { c: 'playEmote', params: ['emote-wave'] },
-      { c: 'openStore', params: ['ring-cape'] },
+      { c: 'openStore', params: ['bespoke-cape'] },
     ]);
   });
 
@@ -286,7 +286,7 @@ describe('installVoidShim — cosmetics', () => {
     const bridge = installVoidShim({ native: () => '', target: null });
     expect(bridge.playEmote('emote-wave')).toBe(false);
     // No launcher was reached, so the page must not say the Store opened.
-    expect(bridge.openStore('ring-cape')).toBe(false);
+    expect(bridge.openStore('bespoke-cape')).toBe(false);
     expect(bridge.equipCosmetic('cape', 'origin-cape')).toBe('origin-cape');
   });
 });

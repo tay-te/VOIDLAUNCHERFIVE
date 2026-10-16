@@ -290,12 +290,12 @@ function clampGlobal(key: string, value: GlobalSettingValue): GlobalSettingValue
  * happy ones.
  */
 export const FAKE_OWNED_COSMETICS: readonly CosmeticId[] = Object.freeze([
-  'void-cape',
-  'ring-cape',
-  'void-wings',
-  'dapper-top-hat',
-  'seraph-halo',
-  'spark-trail',
+  'regent-cape',
+  'bespoke-cape',
+  'blade-wings',
+  'atelier-fedora',
+  'aureole-halo',
+  'gilt-trail',
   'void-badge-founder',
   'emote-wave',
   'emote-clap',
@@ -634,7 +634,7 @@ export function createFakeVoid(options: FakeVoidOptions = {}): FakeVoid {
   // to a `tintable` item; the wheel keeps owned emotes, once each, at most eight.
   let owned = new Set<string>(options.ownedCosmetics ?? FAKE_OWNED_COSMETICS);
   const worn = new Map<CosmeticSlot, CosmeticId>([
-    ['cape', 'void-cape'],
+    ['cape', 'regent-cape'],
     ['badge', 'void-badge-player'],
   ]);
   const tints = new Map<CosmeticSlot, string>();

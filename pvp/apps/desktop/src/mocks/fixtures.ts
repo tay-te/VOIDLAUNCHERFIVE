@@ -167,8 +167,8 @@ export const PREVIEW_FRIENDS = {
 
 /** The Store frame's state: Cell cape equipped, Origin cape owned (`73:211`). */
 export const PREVIEW_COSMETICS = {
-  owned: ['cell-cape', 'origin-cape', 'void-badge-player'],
-  equipped: { cape: 'cell-cape' },
+  owned: ['atelier-cape', 'origin-cape', 'void-badge-player'],
+  equipped: { cape: 'atelier-cape' },
 };
 
 /** Home's *Last session*: 48 min on Hypixel, yesterday, 142 fps, 22 ms (`69:336`…). */

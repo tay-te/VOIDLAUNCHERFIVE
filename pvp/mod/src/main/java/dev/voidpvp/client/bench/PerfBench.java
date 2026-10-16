@@ -998,11 +998,11 @@ public final class PerfBench {
     private static void wardrobe() {
         dev.voidpvp.client.cosmetic.CosmeticState cs = dev.voidpvp.client.cosmetic.CosmeticState.get();
         cs.setOwnsEverything(true);
-        cs.equip("cape", "dusk-cape");
-        cs.equip("back", "void-wings");
-        cs.equip("halo", "seraph-halo");
+        cs.equip("cape", "nocturne-cape");
+        cs.equip("back", "blade-wings");
+        cs.equip("halo", "aureole-halo");
         cs.equip("badge", "void-badge-founder");
-        cs.equip("trail", "spark-trail");
+        cs.equip("trail", "gilt-trail");
         cs.setEmotes(java.util.Arrays.asList(
                 "emote-wave", "emote-clap", "emote-bow", "emote-salute", "emote-shrug", "emote-sit"));
         if (bridge != null) {
