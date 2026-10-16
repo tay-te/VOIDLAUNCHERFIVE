@@ -104,27 +104,28 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	float side = 0.5 + 0.5 * az;
 
 	// the zenith: deeper and a little richer overhead (less while the sun is low: a golden-hour zenith stays light)
-	float zen = smoothstep(0.12, 0.92, hp);
-	vec3 rich = max(mix(vec3(y), L, 1.2), 0.0) * 0.80;
-	L = mix(L, rich, zen * 0.7 * min(k, 1.0) * (1.0 - 0.45 * f.low));
+	float zen = smoothstep(0.15, 0.95, hp);
+	vec3 rich = max(mix(vec3(y), L, 1.15), 0.0) * 0.84;
+	L = mix(L, rich, zen * 0.6 * min(k, 1.0) * (1.0 - 0.5 * f.low));
 
 	// the luminous band: broad and soft, its own hue paler and brighter; cool away from the sun, on the sun's side
-	// warming toward the sun's hue as it sinks (its brightness kept: only the hue moves)
-	float band = exp(-hp / 0.17) * (1.0 - 0.45 * smoothstep(0.0, 0.12, -d.y));
-	vec3 pale = mix(L, vec3(y), 0.26) * 1.36;
-	vec3 coolPale = pale * vec3(0.97, 1.0, 1.04);
-	float warm = f.low * f.up * side * side;
-	vec3 bandC = mix(coolPale, f.hue * skyLumLuma(pale), clamp(0.62 * warm, 0.0, 1.0));
-	L = mix(L, bandC, clamp(band * 0.72 * k, 0.0, 1.0));
+	// warming toward the sun's hue as it sinks (its brightness kept: only the hue moves), and a touch of that warmth
+	// all round the horizon while the sun is low
+	float band = exp(-hp / 0.30) * (1.0 - 0.45 * smoothstep(0.0, 0.12, -d.y));
+	vec3 pale = mix(L, vec3(y), 0.42) * 1.55;
+	vec3 coolPale = pale * vec3(0.98, 1.0, 1.03);
+	float warm = f.low * f.up * mix(0.30, 1.0, side * side);
+	vec3 bandC = mix(coolPale, f.hue * skyLumLuma(pale), clamp(0.70 * warm, 0.0, 1.0));
+	L = mix(L, bandC, clamp(band * 0.85 * k, 0.0, 1.0));
 	y = skyLumLuma(L);
 
 	// the glow round the sun: mixed toward the sun's hue at a brighter level (amber at a low sun, never white)
-	float lobe = 0.42 * skyLumHg(mu, 0.93) + 0.58 * skyLumHg(mu, 0.62);
-	float glow = (0.14 + 0.46 * f.low) * f.up;
-	vec3 target = f.hue * max(y, 0.10) * (1.15 + 1.1 * lobe);
-	L = mix(L, target, clamp(lobe * glow * k, 0.0, 0.9));
-	// the dome lit: a faint lift of the sun's half, so the whole sky feels lit by a low sun
-	L *= 1.0 + 0.10 * k * f.low * f.up * side;
+	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.55);
+	float glow = (0.22 + 0.55 * f.low) * f.up;
+	vec3 target = f.hue * max(y, 0.10) * (1.2 + 1.2 * lobe);
+	L = mix(L, target, clamp(lobe * glow * k, 0.0, 0.92));
+	// the dome lit: the whole sky a little brighter by day, the sun's half more while the sun is low
+	L *= 1.0 + k * (0.10 + 0.14 * f.low * f.up * side);
 
 	return pow(skyLumCapLin(L), vec3(1.0 / 2.2));
 #else

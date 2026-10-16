@@ -44,12 +44,12 @@
 // the walk's own extinction per block of sea-level air (only for the walk's transmittance)
 #define HV_SIGMA_MARCH 0.0006
 // the haze's extinction per block of sea-level air at strength 100 in temperate air
-#define HV_SIGMA 0.00055
+#define HV_SIGMA 0.0012
 // how far a sky ray is walked
 #define HV_SKY_END 2400.0
 #define HV_LAND_END 3000.0
 // the most the volumetric haze covers (the land always reads through)
-#define HV_MAX_OPACITY 0.62
+#define HV_MAX_OPACITY 0.70
 
 float hvDensity(float y, float ground) {
 	float sea = exp(-clamp(y - HAZE_SEA_LEVEL, -40.0, 600.0) / HV_H_SEA);
