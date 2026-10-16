@@ -200,7 +200,12 @@ public final class Rails {
 				if (feet != null && feet.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock
 					&& feet.getValue(net.minecraft.world.level.block.TrapDoorBlock.OPEN)) {
 					// a lattice or a shutter in a window someone can step up into from the floor, with a fall beyond it:
-					// its lower row glazed behind (a pane), so nobody steps out through the window
+					// its lower row glazed behind (a pane), so nobody steps out through the window. Only a leaf set in the
+					// wall's plane (wall or the next leaf either side across the opening), never a shutter beside one.
+					Direction across = feet.getValue(net.minecraft.world.level.block.TrapDoorBlock.FACING).getClockWise();
+					if (!jamb(d, x + across.getStepX(), y, z + across.getStepZ()) || !jamb(d, x - across.getStepX(), y, z - across.getStepZ())) {
+						continue;
+					}
 					for (Direction dir : Dirs.HORIZONTAL) {
 						int nx = x + Dirs.dx(dir);
 						int nz = z + Dirs.dz(dir);
@@ -346,6 +351,12 @@ public final class Rails {
 			return y - 1 < d.site().ground(x, z);
 		}
 		return dev.voidmc.hearth.build.kit.light.Spaces.standable(under) || ladder(under);
+	}
+
+	/** A window's jamb: a block nobody passes, or the next leaf of a lattice. */
+	private static boolean jamb(Draft d, int x, int y, int z) {
+		BlockState s = d.get(x, y, z);
+		return s != null && (s.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock || !dev.voidmc.hearth.build.kit.light.Spaces.passable(s));
 	}
 
 	private static boolean ladder(BlockState s) {

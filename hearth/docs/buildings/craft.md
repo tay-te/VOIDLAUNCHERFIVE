@@ -61,7 +61,11 @@ liquors tinted water over a concrete or terracotta bed, never exposed coloured b
 `yardPlan` for laying out a yard walkably: blocks occupied cells, cells over water and cells without headroom),
 `Relief` (the second wall layer by construction), `Vats` (pits, tubs, sunk round vats, kettles), `Hangs` (hides,
 cloth, paper on rails and frames), `Lofts` (open galleries, louvres, ridge vents), `ShopHouse` (the narrow row-house
-shell), `Wares` (shelves of goods, candles, stall boards, hooks, scales).
+shell), `Wares` (shelves of goods, candles, stall boards, hooks, scales), `Hatch` (a ladder through a loft hatch with a
+cell to step off, half loading doors over a drop), `Rails` (the work lanes' guards: `guard` rails the edges of a level
+over a drop of four or more, `well`/`flight` round a stairwell's head, `yard` the yard's levels and then `reached`, which
+walks the finished draft from its entrances like a person, rails every reached edge, never shutting a landing that is
+the only way through, and glazes the lower row of a window lattice someone could step up into over a fall).
 
 ## Previews
 

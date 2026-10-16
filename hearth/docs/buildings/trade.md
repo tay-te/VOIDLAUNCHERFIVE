@@ -12,7 +12,9 @@ down before the roof is flattened), grounds itself on any terrain, keeps its mai
 keeps every job site and store reachable from a door (`BlueprintChecks`). A flat-roofed building (desert, mesa, and
 anywhere the roof param asks for `flat`) makes its roof a terrace: an outside stair up a side wall to a gap in the
 parapet (VIEWPOINT at its head), a little room set back at a back corner, an awning of plain canvas on poles and pots; `Hall.crown` eases the
-parapet's corners round (no pinnacles on a workshop).
+parapet's corners round (no pinnacles on a workshop), and where the plot is too low for its coping carries the wall up a
+course round the deck instead, so a deck folk climb to is never an open edge. Over two storeys the way up is a ladder
+through a hatch, its lid laid on the deck beside it; with no way up there is no room, awning or pots on the deck.
 
 ## The catalogue
 
@@ -201,7 +203,8 @@ yard, the largest with the door.
 Front gable with the loading bay up its middle: cart doors below, a pair of half loading doors on every floor above (a
 rail at the sill, the shutters open over it, so nobody walks out four floors up), the hoist beam out of the gable peak
 (or over the parapet) with a crate on its chain. Floors budgeted under the roof (and an attic for the hoist where it
-fits); a switchback stair railed round its well on every floor above, barrel racks in two tiers and crates down the
+fits: a ladder through a hatch under the ridge climbs to it, sacks and crates under its eaves, its loading door only
+when it is climbed to); a switchback stair railed round its well on every floor above, barrel racks in two tiers and crates down the
 middle on every floor (the ground floor's too: its stair foot is kept open), a weigh beam inside the cart doors; a paved
 apron with crates and a cart; a cart shed on plots 14+ wide; a hanging sign.
 **POIs:** DOOR, STORAGE ×4–5 (several per floor).
