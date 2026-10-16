@@ -110,7 +110,7 @@ public final class HuntersLodge implements Archetype {
 		hides(d, hall, door, fz);
 
 		interior(d, hall, door, hx);
-		yard(d, hall, w, dp, side, yardLeft, fz);
+		int[] rack = yard(d, hall, w, dp, side, yardLeft, fz);
 		Yard.trodden(d, 0, 0, w - 1, fz - 1, 0);
 		if (h.snow()) {
 			Garden.snowBanks(d, r[0], r[1], r[2], r[3], 0, door);
@@ -126,6 +126,9 @@ public final class HuntersLodge implements Archetype {
 		}
 		// a rail wherever the levelled yard ends over a drop
 		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
+		if (rack != null) {
+			tend(d, rack[0], rack[1], rack[2] == 1);
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -246,8 +249,9 @@ public final class HuntersLodge implements Archetype {
 	}
 
 	/** The yard: a smoking rack over a slow fire, an archery butt, a chopping block, the woodpile. */
-	private static void yard(Draft d, Hall hall, int w, int dp, int side, boolean left, int fz) {
+	private static int[] yard(Draft d, Hall hall, int w, int dp, int side, boolean left, int fz) {
 		int[] r = hall.rect(0);
+		int[] rack = null;
 		Mat post = Hall.woodFence(d);
 		Mat beam = d.mat(Role.BEAM);
 		if (side > 0) {
@@ -282,12 +286,8 @@ public final class HuntersLodge implements Archetype {
 						}
 					}
 				}
-				// the hunter tends it from the house side, else from before the rack (the plot's edge beside it is railed
-				// where the land falls away, and a place there was shut in by the rails)
-				if (!Props.site(d, cx + (left ? 1 : -1), 0, cz + 1, left ? Dirs.LEFT : Dirs.RIGHT, JobType.HUNTER)
-					&& !Props.site(d, cx, 0, cz - 1, Dirs.BACK, JobType.HUNTER)) {
-					Props.site(d, cx - (left ? 1 : -1), 0, cz + 1, left ? Dirs.RIGHT : Dirs.LEFT, JobType.HUNTER);
-				}
+				// the hunter's place at it is chosen when the yard is railed ({@link #tend})
+				rack = new int[]{cx, cz, left ? 1 : 0};
 			}
 			// the archery butt at the back of the yard
 			int tz = dp - 1;
@@ -305,6 +305,38 @@ public final class HuntersLodge implements Archetype {
 			if (x >= 0) {
 				Garden.woodpile(d, x, 0, r[3], Dirs.FRONT, 2);
 			}
+		}
+		return rack;
+	}
+
+	/**
+	 * The hunter's place at the smoking rack (posts at (cx, cz) and (cx, cz + 2), the fire between): beside the fire on
+	 * the house side, before the rack, beside the fire on the outer side, behind it; the first one the walk from the door
+	 * reaches once the yard is railed (on a hillside the plot's edge is railed and a snow bank or a rail can shut a cell
+	 * in), else the first that is free.
+	 */
+	private static void tend(Draft d, int cx, int cz, boolean left) {
+		int in = left ? 1 : -1;
+		int[][] cells = {{cx + in, cz + 1}, {cx, cz - 1}, {cx - in, cz + 1}, {cx, cz + 3}};
+		Direction[] faces = {left ? Dirs.LEFT : Dirs.RIGHT, Dirs.BACK, left ? Dirs.RIGHT : Dirs.LEFT, Dirs.FRONT};
+		int first = -1;
+		for (int i = 0; i < cells.length; i++) {
+			int x = cells[i][0];
+			int z = cells[i][1];
+			if (x < 0 || z < 0 || x >= d.frontage() || z >= d.depth() || !d.isEmpty(x, 0, z) || !d.isEmpty(x, 1, z)) {
+				continue;
+			}
+			if (first < 0) {
+				first = i;
+			}
+			d.poi(dev.voidmc.hearth.api.PoiType.JOB_SITE, x, 0, z, faces[i], JobType.HUNTER);
+			if (!dev.voidmc.hearth.build.kit.age.Reach.unreached(d).contains(Draft.key(x, 0, z))) {
+				return;
+			}
+			d.retainPois(p -> !(p.type() == dev.voidmc.hearth.api.PoiType.JOB_SITE && p.x() == x && p.y() == 0 && p.z() == z));
+		}
+		if (first >= 0) {
+			d.poi(dev.voidmc.hearth.api.PoiType.JOB_SITE, cells[first][0], 0, cells[first][1], faces[first], JobType.HUNTER);
 		}
 	}
 }
