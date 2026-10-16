@@ -19,7 +19,7 @@ import java.util.Map;
 public final class CosmeticCatalog {
 
     /** {@code cosmetics.json#/version}. */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     /** The slots, in contract order. Emotes are not a slot. */
     public static final List<String> SLOTS = Collections.unmodifiableList(java.util.Arrays.asList(
@@ -62,9 +62,15 @@ public final class CosmeticCatalog {
         public final int defaultTint;
         /** Emotes: holds until cancelled rather than playing once. */
         public final boolean loop;
+        /**
+         * A style-test item ({@code cosmetics.json} {@code test}): bundled so the dev showcase can
+         * draw it, found by {@link CosmeticCatalog#get}, but never listed by {@link #all} or
+         * {@link #ofKind}, never owned (it is {@code grant}) and absent from the launcher's catalog.
+         */
+        public final boolean test;
 
         Item(String id, Kind kind, String name, String rarity, String availability, int priceCents,
-             boolean tintable, int defaultTint, boolean loop) {
+             boolean tintable, int defaultTint, boolean loop, boolean test) {
             this.id = id;
             this.kind = kind;
             this.name = name;
@@ -74,6 +80,7 @@ public final class CosmeticCatalog {
             this.tintable = tintable;
             this.defaultTint = defaultTint;
             this.loop = loop;
+            this.test = test;
         }
 
         public boolean free() {
@@ -84,43 +91,50 @@ public final class CosmeticCatalog {
     private static final Map<String, Item> BY_ID = new LinkedHashMap<String, Item>();
 
     private static void add(String id, Kind kind, String name, String rarity, String availability,
-                            int priceCents, boolean tintable, int defaultTint, boolean loop) {
+                            int priceCents, boolean tintable, int defaultTint, boolean loop,
+                            boolean test) {
         BY_ID.put(id, new Item(id, kind, name, rarity, availability, priceCents, tintable,
-                defaultTint, loop));
+                defaultTint, loop, test));
     }
 
     // BEGIN GENERATED DATA
     static {
-        add("cell-cape", Kind.CAPE, "Cell cape", "epic", "paid", 399, false, -1, false);
-        add("void-cape", Kind.CAPE, "Void cape", "legendary", "paid", 499, false, -1, false);
-        add("ring-cape", Kind.CAPE, "Ring cape", "rare", "paid", 299, true, 0x474A4F, false);
-        add("origin-cape", Kind.CAPE, "Origin cape", "common", "free", 0, false, -1, false);
-        add("dusk-cape", Kind.CAPE, "Dusk cape", "rare", "paid", 299, false, -1, false);
-        add("static-cape", Kind.CAPE, "Static cape", "epic", "paid", 399, false, -1, false);
-        add("ember-wings", Kind.BACK, "Ember wings", "legendary", "paid", 899, false, -1, false);
-        add("void-wings", Kind.BACK, "Void wings", "legendary", "paid", 899, false, -1, false);
-        add("orbit-ring", Kind.BACK, "Orbit", "epic", "paid", 599, false, -1, false);
-        add("monarch-crown", Kind.HEAD, "Monarch crown", "epic", "paid", 499, false, -1, false);
-        add("wool-beanie", Kind.HEAD, "Wool beanie", "common", "paid", 299, true, 0x6E5BD6, false);
-        add("dapper-top-hat", Kind.HEAD, "Top hat", "rare", "paid", 399, true, 0x9F8BFF, false);
-        add("seraph-halo", Kind.HALO, "Seraph halo", "legendary", "paid", 599, false, -1, false);
-        add("void-halo", Kind.HALO, "Void halo", "epic", "paid", 499, false, -1, false);
-        add("ice-visor", Kind.FACE, "Ice visor", "epic", "paid", 399, false, -1, false);
-        add("rift-mask", Kind.FACE, "Rift mask", "rare", "paid", 349, false, -1, false);
-        add("emote-wave", Kind.EMOTE, "Wave", "common", "paid", 199, false, -1, false);
-        add("emote-clap", Kind.EMOTE, "Clap", "common", "paid", 199, false, -1, false);
-        add("emote-bow", Kind.EMOTE, "Bow", "rare", "paid", 199, false, -1, false);
-        add("emote-salute", Kind.EMOTE, "Salute", "common", "paid", 199, false, -1, false);
-        add("emote-shrug", Kind.EMOTE, "Shrug", "common", "paid", 199, false, -1, false);
-        add("emote-sit", Kind.EMOTE, "Sit", "rare", "paid", 149, false, -1, true);
-        add("spark-trail", Kind.TRAIL, "Spark trail", "rare", "paid", 399, false, -1, false);
-        add("ember-trail", Kind.TRAIL, "Ember trail", "rare", "paid", 399, false, -1, false);
-        add("frost-trail", Kind.TRAIL, "Frost trail", "rare", "paid", 399, false, -1, false);
-        add("stair-trail", Kind.TRAIL, "Stair trail", "common", "paid", 299, false, -1, false);
-        add("void-badge-founder", Kind.BADGE, "Founder", "exclusive", "grant", 0, false, -1, false);
-        add("void-badge-player", Kind.BADGE, "VOID player", "common", "free", 0, false, -1, false);
-        add("cell-badge", Kind.BADGE, "Cell badge", "rare", "paid", 199, false, -1, false);
-        add("frost-badge", Kind.BADGE, "Frost badge", "rare", "paid", 199, false, -1, false);
+        add("cell-cape", Kind.CAPE, "Cell cape", "epic", "paid", 399, false, -1, false, false);
+        add("void-cape", Kind.CAPE, "Void cape", "legendary", "paid", 499, false, -1, false, false);
+        add("ring-cape", Kind.CAPE, "Ring cape", "rare", "paid", 299, true, 0x474A4F, false, false);
+        add("origin-cape", Kind.CAPE, "Origin cape", "common", "free", 0, false, -1, false, false);
+        add("dusk-cape", Kind.CAPE, "Dusk cape", "rare", "paid", 299, false, -1, false, false);
+        add("static-cape", Kind.CAPE, "Static cape", "epic", "paid", 399, false, -1, false, false);
+        add("ember-wings", Kind.BACK, "Ember wings", "legendary", "paid", 899, false, -1, false, false);
+        add("void-wings", Kind.BACK, "Void wings", "legendary", "paid", 899, false, -1, false, false);
+        add("orbit-ring", Kind.BACK, "Orbit", "epic", "paid", 599, false, -1, false, false);
+        add("monarch-crown", Kind.HEAD, "Monarch crown", "epic", "paid", 499, false, -1, false, false);
+        add("wool-beanie", Kind.HEAD, "Wool beanie", "common", "paid", 299, true, 0x6E5BD6, false, false);
+        add("dapper-top-hat", Kind.HEAD, "Top hat", "rare", "paid", 399, true, 0x9F8BFF, false, false);
+        add("seraph-halo", Kind.HALO, "Seraph halo", "legendary", "paid", 599, false, -1, false, false);
+        add("void-halo", Kind.HALO, "Void halo", "epic", "paid", 499, false, -1, false, false);
+        add("ice-visor", Kind.FACE, "Ice visor", "epic", "paid", 399, false, -1, false, false);
+        add("rift-mask", Kind.FACE, "Rift mask", "rare", "paid", 349, false, -1, false, false);
+        add("emote-wave", Kind.EMOTE, "Wave", "common", "paid", 199, false, -1, false, false);
+        add("emote-clap", Kind.EMOTE, "Clap", "common", "paid", 199, false, -1, false, false);
+        add("emote-bow", Kind.EMOTE, "Bow", "rare", "paid", 199, false, -1, false, false);
+        add("emote-salute", Kind.EMOTE, "Salute", "common", "paid", 199, false, -1, false, false);
+        add("emote-shrug", Kind.EMOTE, "Shrug", "common", "paid", 199, false, -1, false, false);
+        add("emote-sit", Kind.EMOTE, "Sit", "rare", "paid", 149, false, -1, true, false);
+        add("spark-trail", Kind.TRAIL, "Spark trail", "rare", "paid", 399, false, -1, false, false);
+        add("ember-trail", Kind.TRAIL, "Ember trail", "rare", "paid", 399, false, -1, false, false);
+        add("frost-trail", Kind.TRAIL, "Frost trail", "rare", "paid", 399, false, -1, false, false);
+        add("stair-trail", Kind.TRAIL, "Stair trail", "common", "paid", 299, false, -1, false, false);
+        add("void-badge-founder", Kind.BADGE, "Founder", "exclusive", "grant", 0, false, -1, false, false);
+        add("void-badge-player", Kind.BADGE, "VOID player", "common", "free", 0, false, -1, false, false);
+        add("cell-badge", Kind.BADGE, "Cell badge", "rare", "paid", 199, false, -1, false, false);
+        add("frost-badge", Kind.BADGE, "Frost badge", "rare", "paid", 199, false, -1, false, false);
+        add("style-c-cape", Kind.CAPE, "Atelier cape", "epic", "grant", 0, false, -1, false, true);
+        add("style-c-wings", Kind.BACK, "Blade wings", "epic", "grant", 0, false, -1, false, true);
+        add("style-c-hat", Kind.HEAD, "Atelier fedora", "epic", "grant", 0, false, -1, false, true);
+        add("style-d-cape", Kind.CAPE, "Hero cape", "epic", "grant", 0, false, -1, false, true);
+        add("style-d-wings", Kind.BACK, "Puff wings", "epic", "grant", 0, false, -1, false, true);
+        add("style-d-hat", Kind.HEAD, "Propeller cap", "epic", "grant", 0, false, -1, false, true);
     }
     // END GENERATED DATA
 
@@ -132,16 +146,27 @@ public final class CosmeticCatalog {
         return id == null ? null : BY_ID.get(id);
     }
 
-    /** Every item, in catalog order. */
+    /** Every item, in catalog order, without the style-test items. */
     public static List<Item> all() {
+        List<Item> out = new ArrayList<Item>();
+        for (Item i : BY_ID.values()) {
+            if (!i.test) {
+                out.add(i);
+            }
+        }
+        return Collections.unmodifiableList(out);
+    }
+
+    /** Every item including the style-test items, in catalog order (the showcase, the tests). */
+    public static List<Item> allWithTest() {
         return Collections.unmodifiableList(new ArrayList<Item>(BY_ID.values()));
     }
 
-    /** Every item of one kind, in catalog order. */
+    /** Every item of one kind, in catalog order, without the style-test items. */
     public static List<Item> ofKind(Kind kind) {
         List<Item> out = new ArrayList<Item>();
         for (Item i : BY_ID.values()) {
-            if (i.kind == kind) {
+            if (i.kind == kind && !i.test) {
                 out.add(i);
             }
         }

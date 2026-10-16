@@ -135,6 +135,9 @@ final class Procedural {
             rate += 0.5f * flare + 1.0f * flourish;
             tip *= 1f - open;
         }
+        // The model's motion personality scales the beat (CosmeticModel.motionRate/motionAmp).
+        rate *= m.motionRate;
+        amp = Math.min(1f, amp * m.motionAmp);
         spread = Math.max(0f, spread - 0.6f * flinch);
         tip = Math.min(1f, tip + 0.5f * flinch);
         float s = fx.spread.step(spread, dt);

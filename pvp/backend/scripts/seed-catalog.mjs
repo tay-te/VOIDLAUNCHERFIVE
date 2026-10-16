@@ -15,7 +15,8 @@
  * `items` / `cosmetics` / `catalog`, or — the house style of `schema/mods.json` — under
  * `examples[0]`. Each item needs `id` (kebab-case) and `kind` (a slot or `emote`; `slot` and
  * `type` are read as synonyms), and may carry `name`, `rarity`, `price_cents`, `tintable`,
- * `preview`, `active`, `stripe_price_id` and `availability`.
+ * `preview`, `active`, `stripe_price_id` and `availability`. Items flagged `test` (style-test
+ * items bundled in the mod for the dev showcase) are skipped: they are never catalog rows.
  *
  * `availability` is how an item is obtained: `free` (everyone owns it), `paid` (sold through
  * Stripe), `grant` (never sold, only granted — founder badges, event rewards). When absent it
@@ -62,6 +63,8 @@ export function loadCatalog(doc) {
   raw.forEach((it, i) => {
     const where = `item ${i}${it && typeof it.id === 'string' ? ` (${it.id})` : ''}`;
     if (!it || typeof it !== 'object') return problems.push(`${where}: not an object`);
+    // Style-test items are bundled for the dev showcase only: never a catalog row.
+    if (it.test === true) return;
     const id = it.id;
     const kind = it.kind ?? it.slot ?? it.type;
     if (typeof id !== 'string' || id.length > 64 || !ID_RE.test(id)) problems.push(`${where}: id must be kebab-case, ≤ 64 chars`);

@@ -39,7 +39,7 @@ class CosmeticAssetsTest {
         JsonObject doc = catalogJson();
         assertEquals(doc.get("version").getAsInt(), CosmeticCatalog.VERSION);
         JsonArray items = doc.getAsJsonArray("items");
-        assertEquals(items.size(), CosmeticCatalog.all().size());
+        assertEquals(items.size(), CosmeticCatalog.allWithTest().size());
         for (JsonElement e : items) {
             JsonObject o = e.getAsJsonObject();
             CosmeticCatalog.Item item = CosmeticCatalog.get(o.get("id").getAsString());
@@ -50,6 +50,24 @@ class CosmeticAssetsTest {
             assertEquals(o.has("tintable") && o.get("tintable").getAsBoolean(), item.tintable);
             assertEquals(o.get("availability").getAsString(), item.availability);
         }
+    }
+
+    @Test
+    @DisplayName("style-test items are drawable but never listed, sold or owned")
+    void testItemsHidden() {
+        int test = 0;
+        for (CosmeticCatalog.Item item : CosmeticCatalog.allWithTest()) {
+            if (!item.test) {
+                continue;
+            }
+            test++;
+            assertTrue(item.id.startsWith("style-"), item.id);
+            assertEquals("grant", item.availability, item.id);
+            assertTrue(!CosmeticCatalog.all().contains(item), item.id + " listed");
+            assertTrue(!CosmeticCatalog.ofKind(item.kind).contains(item), item.id + " listed by kind");
+            assertTrue(CosmeticCatalog.fits(item.kind.wire(), item.id), item.id + " cannot be worn");
+        }
+        assertEquals(6, test);
     }
 
     @Test
@@ -71,7 +89,7 @@ class CosmeticAssetsTest {
     @DisplayName("every item's bundled assets load through the runtime parsers")
     void everyAssetParses() {
         List<String> failures = new ArrayList<String>();
-        for (CosmeticCatalog.Item item : CosmeticCatalog.all()) {
+        for (CosmeticCatalog.Item item : CosmeticCatalog.allWithTest()) {
             try {
                 switch (item.kind) {
                     case CAPE:

@@ -192,6 +192,10 @@ for (const k of ids) {
     items.filter((i) => i.preview.style !== i.kind).map((i) => i.id).join(", "));
   check("cosmetics: emote previews carry rows, nothing else does",
     items.every((i) => (i.kind === "emote") === Array.isArray(i.preview.rows)));
+  // Style-test items ride in the jar for the showcase and nowhere else: never sold, never owned.
+  check("cosmetics: test items are grant, cost 0 and are named style-*",
+    items.every((i) => !i.test || (i.availability === "grant" && i.price_cents === 0 && i.id.startsWith("style-"))),
+    items.filter((i) => i.test && !(i.availability === "grant" && i.price_cents === 0 && i.id.startsWith("style-"))).map((i) => i.id).join(", "));
   check("cosmetics: the free VOID player marker badge exists",
     items.some((i) => i.id === "void-badge-player" && i.kind === "badge" && i.availability === "free"));
   // The wire's slot enum is the catalog's: an equip for a slot the catalog does not have, or a

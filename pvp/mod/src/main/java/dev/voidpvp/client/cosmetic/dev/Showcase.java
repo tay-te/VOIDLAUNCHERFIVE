@@ -34,7 +34,9 @@ import java.util.concurrent.TimeUnit;
  * stills and short frame sequences to {@code outdir}, then quits. It exists so the cosmetics can be
  * looked at — by a person or by an agent reading the PNGs — without anyone at the keyboard.
  *
- * <p>{@code -Dvoid.dev.showcase.only=a,b} runs only the named scenes. Every scene is a few seconds;
+ * <p>{@code -Dvoid.dev.showcase.only=a,b} runs only the named scenes ({@code st-*}: every scene
+ * whose name starts {@code st-}). The style-test scenes ({@link ShowcaseStyle}, {@code st-*}) run
+ * only when named that way. Every scene is a few seconds;
  * the whole run is about a minute and a half on a laptop. Nothing here runs unless the property is
  * set, and the mannequins never exist outside this world.</p>
  */
@@ -105,6 +107,8 @@ public final class Showcase {
         float reactive = -1f;
         /** The A/B measurement: cycles fixed-function, material shader, shader + bloom. */
         boolean ab;
+        /** Every mannequin wears the default Steve skin (the style test compares sets, not skins). */
+        boolean steve;
 
         Scene(String name) {
             this.name = name;
@@ -187,6 +191,8 @@ public final class Showcase {
         off.motion = false;
         off.reactive = 0f;
         scenes.add(off);
+        // The cosmetics style test (ShowcaseStyle): only when asked for by name (st-*).
+        ShowcaseStyle.add(scenes);
         // The same crowd, measured in alternating windows so machine load affects every mode alike.
         Scene ab = crowd("perf-ab", 6000);
         ab.ab = true;
@@ -573,6 +579,10 @@ public final class Showcase {
 
     ShowcasePlayer spawn(MinecraftClient mc, int index, JsonObject outfit, ShowcasePlayer.Script script) {
         UUID id = UUID.nameUUIDFromBytes(("void-showcase-" + scene.name + "-" + index).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        // The default skin is Alex when the uuid's hash is odd (DefaultSkinHelper): salt until Steve.
+        for (int salt = 0; scene.steve && (id.hashCode() & 1) == 1; salt++) {
+            id = UUID.nameUUIDFromBytes(("void-showcase-" + scene.name + "-" + index + "-" + salt).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
         GameProfile profile = new GameProfile(id, NAMES[index % NAMES.length]);
         ShowcasePlayer p = new ShowcasePlayer(mc.world, profile, script);
         JsonObject o = new JsonObject();
@@ -692,7 +702,7 @@ public final class Showcase {
         clearCast(mc);
         do {
             sceneIndex++;
-        } while (sceneIndex < scenes.size() && only != null && !only.contains(scenes.get(sceneIndex).name));
+        } while (sceneIndex < scenes.size() && !wanted(scenes.get(sceneIndex).name));
         if (sceneIndex >= scenes.size()) {
             scene = null;
             phase = 3;
@@ -713,9 +723,49 @@ public final class Showcase {
         mc.options.hudHidden = !scene.hud;
         dev.voidpvp.client.cosmetic.Reactive.devMotion(scene.motion, scene.reactive);
         setTime(mc, scene.time);
+        clearMobs(mc);
         scene.stage(this, mc);
         place(mc);
         say("showcase: scene " + scene.name);
+    }
+
+    /**
+     * Removes whatever the flat world spawned before mob spawning was switched off (superflat
+     * slimes wander into shots), on the server thread.
+     */
+    private static void clearMobs(MinecraftClient mc) {
+        final IntegratedServer server = mc.getServer();
+        if (server == null) {
+            return;
+        }
+        server.submit(new Runnable() {
+            @Override
+            public void run() {
+                for (ServerWorld w : server.worlds) {
+                    for (Object o : new ArrayList<Object>(w.loadedEntities)) {
+                        if (!(o instanceof net.minecraft.entity.player.PlayerEntity)) {
+                            ((net.minecraft.entity.Entity) o).remove();
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /** Whether a scene runs: every non-style scene by default, else what {@code only} names. */
+    private boolean wanted(String name) {
+        if (only == null) {
+            return !name.startsWith("st-");
+        }
+        if (only.contains(name)) {
+            return true;
+        }
+        for (String o : only) {
+            if (o.endsWith("*") && name.startsWith(o.substring(0, o.length() - 1))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void setTime(MinecraftClient mc, long time) {

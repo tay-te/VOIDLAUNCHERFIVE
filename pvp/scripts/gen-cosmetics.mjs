@@ -41,6 +41,8 @@ const ASSET_DIR = join(ROOT, 'mod', 'src', 'main', 'resources', 'assets', 'void'
 const CHECK = process.argv.includes('--check');
 const catalog = JSON.parse(readFileSync(CATALOG, 'utf8'));
 const ITEMS = catalog.items;
+/** Style-test items (`test: true`): bundled and known to the mod, invisible to everything else. */
+const SHOP_ITEMS = ITEMS.filter((i) => !i.test);
 const SLOTS = ['cape', 'back', 'head', 'face', 'halo', 'trail', 'badge'];
 
 /** path -> Buffer|string, filled by every emitter, then written or compared in one place. */
@@ -56,7 +58,7 @@ const tint = (hex) => (hex ? `0x${hex.slice(1).toUpperCase()}` : '-1');
 
 const javaRows = ITEMS.map((i) =>
   `        add(${jstr(i.id)}, Kind.${i.kind.toUpperCase()}, ${jstr(i.name)}, ${jstr(i.rarity)}, ` +
-  `${jstr(i.availability)}, ${i.price_cents}, ${!!i.tintable}, ${tint(i.default_tint)}, ${!!i.loop});`,
+  `${jstr(i.availability)}, ${i.price_cents}, ${!!i.tintable}, ${tint(i.default_tint)}, ${!!i.loop}, ${!!i.test});`,
 ).join('\n');
 
 const JAVA = `package dev.voidpvp.client.cosmetic;
@@ -123,9 +125,15 @@ public final class CosmeticCatalog {
         public final int defaultTint;
         /** Emotes: holds until cancelled rather than playing once. */
         public final boolean loop;
+        /**
+         * A style-test item ({@code cosmetics.json} {@code test}): bundled so the dev showcase can
+         * draw it, found by {@link CosmeticCatalog#get}, but never listed by {@link #all} or
+         * {@link #ofKind}, never owned (it is {@code grant}) and absent from the launcher's catalog.
+         */
+        public final boolean test;
 
         Item(String id, Kind kind, String name, String rarity, String availability, int priceCents,
-             boolean tintable, int defaultTint, boolean loop) {
+             boolean tintable, int defaultTint, boolean loop, boolean test) {
             this.id = id;
             this.kind = kind;
             this.name = name;
@@ -135,6 +143,7 @@ public final class CosmeticCatalog {
             this.tintable = tintable;
             this.defaultTint = defaultTint;
             this.loop = loop;
+            this.test = test;
         }
 
         public boolean free() {
@@ -145,9 +154,10 @@ public final class CosmeticCatalog {
     private static final Map<String, Item> BY_ID = new LinkedHashMap<String, Item>();
 
     private static void add(String id, Kind kind, String name, String rarity, String availability,
-                            int priceCents, boolean tintable, int defaultTint, boolean loop) {
+                            int priceCents, boolean tintable, int defaultTint, boolean loop,
+                            boolean test) {
         BY_ID.put(id, new Item(id, kind, name, rarity, availability, priceCents, tintable,
-                defaultTint, loop));
+                defaultTint, loop, test));
     }
 
     // BEGIN GENERATED DATA
@@ -164,16 +174,27 @@ ${javaRows}
         return id == null ? null : BY_ID.get(id);
     }
 
-    /** Every item, in catalog order. */
+    /** Every item, in catalog order, without the style-test items. */
     public static List<Item> all() {
+        List<Item> out = new ArrayList<Item>();
+        for (Item i : BY_ID.values()) {
+            if (!i.test) {
+                out.add(i);
+            }
+        }
+        return Collections.unmodifiableList(out);
+    }
+
+    /** Every item including the style-test items, in catalog order (the showcase, the tests). */
+    public static List<Item> allWithTest() {
         return Collections.unmodifiableList(new ArrayList<Item>(BY_ID.values()));
     }
 
-    /** Every item of one kind, in catalog order. */
+    /** Every item of one kind, in catalog order, without the style-test items. */
     public static List<Item> ofKind(Kind kind) {
         List<Item> out = new ArrayList<Item>();
         for (Item i : BY_ID.values()) {
-            if (i.kind == kind) {
+            if (i.kind == kind && !i.test) {
                 out.add(i);
             }
         }
@@ -198,7 +219,7 @@ outputs.set(JAVA_OUT, JAVA);
 /* 2. TypeScript                                                                               */
 /* ------------------------------------------------------------------------------------------ */
 
-const tsItems = ITEMS.map((i) => {
+const tsItems = SHOP_ITEMS.map((i) => {
   const o = {
     id: i.id, kind: i.kind, name: i.name, blurb: i.blurb, rarity: i.rarity,
     availability: i.availability, price_cents: i.price_cents, tintable: !!i.tintable,
@@ -259,7 +280,7 @@ export interface CosmeticCatalogItem {
 }
 
 export type CosmeticId =
-${ITEMS.map((i) => `  | ${jstr(i.id)}`).join('\n')};
+${SHOP_ITEMS.map((i) => `  | ${jstr(i.id)}`).join('\n')};
 
 export const COSMETIC_CATALOG_VERSION = ${catalog.version};
 
@@ -395,6 +416,13 @@ function compileModel(id, src, tex, where) {
 
   const out = { v: 1, attach: src.attach ?? 'body', tex, bones: outBones };
   if (src.procedural) out.proc = src.procedural;
+  // Motion personality for the procedural rig: how fast and how far the wings beat, as
+  // multiples of the shared defaults (a toy flutters, a blade barely stirs).
+  if (src.motion) {
+    const mo = [src.motion.rate ?? 1, src.motion.amp ?? 1];
+    if (mo.some((k) => !(k >= 0.25 && k <= 3))) problems.push(`${where}: motion rate/amp must be within 0.25..3`);
+    out.mo = mo.map(r4);
+  }
   if (src.helmet_fit !== undefined) out.fit = src.helmet_fit;
   if (glow.length) out.glow = glow;
   if (Object.keys(anims).length) out.anims = anims;

@@ -113,6 +113,11 @@ public final class CosmeticModel {
     public final int[] roots;
     public final Glow[] glow;
     public final Map<String, Anim> anims;
+    /**
+     * Motion personality ({@code model.json} {@code motion}): multiples of the procedural rig's
+     * beat rate and amplitude. 1 is the shared default.
+     */
+    public float motionRate = 1f, motionAmp = 1f;
     /** Some cube is glass (the albedo pass blends) / emissive (the outfit feeds the bloom). */
     public final boolean hasGlass, hasEmissiveMaterial;
 
@@ -246,9 +251,15 @@ public final class CosmeticModel {
                         bone, prop, keys));
             }
         }
-        return new CosmeticModel(attach, tex.get(0).getAsInt(), tex.get(1).getAsInt(), frames, fps,
+        CosmeticModel m = new CosmeticModel(attach, tex.get(0).getAsInt(), tex.get(1).getAsInt(), frames, fps,
                 o.has("proc") ? o.get("proc").getAsString() : null,
                 o.has("fit") && o.get("fit").getAsBoolean(), bones, glow.toArray(new Glow[0]), anims);
+        if (o.has("mo")) {
+            float[] mo = floats(o.getAsJsonArray("mo"));
+            m.motionRate = mo[0];
+            m.motionAmp = mo[1];
+        }
+        return m;
     }
 
     /**

@@ -78,7 +78,7 @@ export type CosmeticId =
   | "cell-badge"
   | "frost-badge";
 
-export const COSMETIC_CATALOG_VERSION = 2;
+export const COSMETIC_CATALOG_VERSION = 3;
 
 export const COSMETIC_SLOTS: readonly CosmeticSlot[] = ["cape", "back", "head", "face", "halo", "trail", "badge"];
 

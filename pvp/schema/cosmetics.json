@@ -1,6 +1,6 @@
 {
   "$schema": "./cosmetics.schema.json",
-  "version": 2,
+  "version": 3,
   "items": [
     { "id": "cell-cape", "kind": "cape", "name": "Cell cape", "blurb": "a grid of violet cells dissolving toward the hem, a wave of light running down what is left.", "rarity": "epic", "availability": "paid", "price_cents": 399, "preview": { "style": "cape", "pattern": "cell" } },
     { "id": "void-cape", "kind": "cape", "name": "Void cape", "blurb": "an eclipse in a corona of sixteen cells; one burns at a time as it circles.", "rarity": "legendary", "availability": "paid", "price_cents": 499, "preview": { "style": "cape", "pattern": "void" } },
@@ -38,6 +38,13 @@
     { "id": "void-badge-founder", "kind": "badge", "name": "Founder", "blurb": "for the players who were here first. Not for sale.", "rarity": "exclusive", "availability": "grant", "price_cents": 0, "preview": { "style": "badge", "pattern": "founder", "hue": "#ff9e7a" } },
     { "id": "void-badge-player", "kind": "badge", "name": "VOID player", "blurb": "the VOID ring before your name. Every account has one.", "rarity": "common", "availability": "free", "price_cents": 0, "preview": { "style": "badge", "pattern": "ring", "hue": "#edeeef" } },
     { "id": "cell-badge", "kind": "badge", "name": "Cell badge", "blurb": "a three-by-three mark before your name.", "rarity": "rare", "availability": "paid", "price_cents": 199, "preview": { "style": "badge", "pattern": "cell", "hue": "#9f8bff" } },
-    { "id": "frost-badge", "kind": "badge", "name": "Frost badge", "blurb": "three cold cells beside your name.", "rarity": "rare", "availability": "paid", "price_cents": 199, "preview": { "style": "badge", "pattern": "dots", "hue": "#7adfff" } }
+    { "id": "frost-badge", "kind": "badge", "name": "Frost badge", "blurb": "three cold cells beside your name.", "rarity": "rare", "availability": "paid", "price_cents": 199, "preview": { "style": "badge", "pattern": "dots", "hue": "#7adfff" } },
+
+    { "id": "style-c-cape", "kind": "cape", "name": "Atelier cape", "blurb": "style test, luxe: graphite wool, an ivory yoke, a steel bar set with one violet stone.", "rarity": "epic", "availability": "grant", "price_cents": 0, "test": true, "preview": { "style": "cape", "pattern": "style-c-cape" } },
+    { "id": "style-c-wings", "kind": "back", "name": "Blade wings", "blurb": "style test, luxe: graphite blades on an ivory spar, one in steel, a stone in the hinge.", "rarity": "epic", "availability": "grant", "price_cents": 0, "test": true, "preview": { "style": "back", "pattern": "style-c-wings" } },
+    { "id": "style-c-hat", "kind": "head", "name": "Atelier fedora", "blurb": "style test, luxe: ivory felt, an ink band, a steel pin holding a violet stone.", "rarity": "epic", "availability": "grant", "price_cents": 0, "test": true, "preview": { "style": "head", "pattern": "style-c-hat" } },
+    { "id": "style-d-cape", "kind": "cape", "name": "Hero cape", "blurb": "style test, toy: coral, a butter lightning bolt, a scalloped teal hem.", "rarity": "epic", "availability": "grant", "price_cents": 0, "test": true, "preview": { "style": "cape", "pattern": "style-d-cape" } },
+    { "id": "style-d-wings", "kind": "back", "name": "Puff wings", "blurb": "style test, toy: stubby butter plush wings, extruded like an item, feathers dipped teal.", "rarity": "epic", "availability": "grant", "price_cents": 0, "test": true, "preview": { "style": "back", "pattern": "style-d-wings" } },
+    { "id": "style-d-hat", "kind": "head", "name": "Propeller cap", "blurb": "style test, toy: four colour panels and a propeller that spins up in bursts.", "rarity": "epic", "availability": "grant", "price_cents": 0, "test": true, "preview": { "style": "head", "pattern": "style-d-hat" } }
   ]
 }

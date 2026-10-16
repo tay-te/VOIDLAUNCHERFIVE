@@ -33,6 +33,11 @@ just how the launch set was made, and an item can equally be edited by hand.
 `availability` is `paid` (sold through checkout), `free` (every account owns it) or `grant`
 (never sold: the founder badge). The launcher Store lists `paid` and `free`.
 
+An item flagged `test` is a style-test item (`style-*`, always `grant`, price 0): bundled in the jar
+so the showcase can draw it, found by `CosmeticCatalog.get`, but left out of the TypeScript catalog,
+the Supabase seed and `CosmeticCatalog.all()`/`ofKind()`. The current ones are the two candidate
+directions in `design/cosmetics-style-test/` (painted by `mod/cosmetics-art/style-test.mjs`).
+
 ## The reference board: what premium cosmetic art looks like
 
 Lunar's cosmetics are flat-textured models with canned animation: a texture of even values, lit
@@ -104,6 +109,8 @@ attachment point:
   (`uv: [u, v]`) or per-face rects (`faces: { north: [u0, v0, u1, v1], ... }`).
 - `texture_size`, optional `frames: { count, fps }` (animated strip, every layer the same),
   `helmet_fit` (head items grow to clear a helmet), `procedural` (`wings`, `halo`, `float`),
+  `motion: { rate, amp }` (the wing rig's beat rate and amplitude as multiples of the shared
+  defaults, 0.25-3: a toy flutters, a blade barely stirs),
   `glow[]` (bloom anchors: `bone`, `at`, `color`, `size`, `strength`), `animations.idle`
   (keyframes per bone: `[t, [x, y, z], ease]`, ease one of linear, step, sine, quad, cubic, back,
   elastic, bounce).
@@ -312,6 +319,11 @@ pulses already live inside the curve, so a listener is only for edge effects.
   the fixed-function way; `-Pvoid.showcase.bloomView` draws the bloom mask and its blurred quarter
   level in the lower left of every frame; `-PvoidGlDebug` logs every GL error with the Java stack
   that raised it (zero is the bar) and how far the rebuilt modelview is from GL's.
+- The style test (`ShowcaseStyle`): scenes `st-<view>-<set>` stage the v3 reference set and the two
+  candidate directions identically (line-ups front and back by day and night, at ten blocks,
+  close-ups, a running clip and a fight clip per set). They never run by default; `only` takes a
+  trailing `*`, so `-Pvoid.showcase.only=st-*` runs them all, and
+  `design/cosmetics-style-test/make-sheets.sh <out>` turns the run into the comparison sheets.
 - Scenes include `far-back` / `far-back-night` (the line-up at ten blocks, the distance an item
   has to read at in a fight) and `perf-ab`: the twenty-player crowd measured in alternating
   windows — fixed-function, material shader, shader + bloom — so whatever else the machine is

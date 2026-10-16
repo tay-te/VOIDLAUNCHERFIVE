@@ -85,6 +85,7 @@
         "tintable": { "description": "Whether the equipped set's `tints` may recolour it. The tint multiplies the texture's grey-scale tint mask.", "type": "boolean", "default": false },
         "default_tint": { "description": "The colour a tintable item wears with no tint set.", "$ref": "#/definitions/hex_color" },
         "is_new": { "description": "Flags the item as new in the Store.", "type": "boolean", "default": false },
+        "test": { "description": "A style-test item (design comparison, see pvp/design/cosmetics-style-test/): bundled in the mod jar so the dev showcase can draw it, and nothing else. It is left out of the TypeScript catalog (launcher Store, in-game wardrobe), out of the Supabase seed, and out of the mod's catalog enumeration; it must be `grant`, cost 0 and have an id starting `style-`.", "type": "boolean", "default": false },
         "loop": { "description": "Emotes only: holds and repeats until cancelled by moving or attacking (e.g. sit) rather than playing once.", "type": "boolean" },
         "preview": { "description": "Store card art.", "$ref": "#/definitions/preview" }
       }
