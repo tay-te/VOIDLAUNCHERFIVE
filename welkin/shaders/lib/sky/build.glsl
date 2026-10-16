@@ -399,8 +399,10 @@ vec3 skySprite(SkyMood m, SkyInputs s, int x) {
 	// (review round 2: a low sun's disc a solid warm white-gold from the core out, the rim only a little deeper: the
 	// saturated gold and orange rim round a pale core read as a hollow ring once the bloom whitened the core)
 	if (x == 0) return mix(vec3(1.00, 0.99, 0.92), vec3(1.00, 0.94, 0.76), lo);
-	if (x == 1) return mix(vec3(1.00, 0.94, 0.72), vec3(1.00, 0.88, 0.62), lo);
-	if (x == 2) return mix(vec3(1.00, 0.84, 0.50), vec3(1.00, 0.80, 0.52), lo);
+	// (and at every height the middle and rim only a little deeper than the core: a saturated yellow rim round the
+	// bloom-whitened core read as a ring whenever the sky round the sun was pale)
+	if (x == 1) return mix(vec3(1.00, 0.96, 0.80), vec3(1.00, 0.88, 0.62), lo);
+	if (x == 2) return mix(vec3(1.00, 0.91, 0.66), vec3(1.00, 0.80, 0.52), lo);
 	if (x == 3) return mix(vec3(1.00, 0.95, 0.80), vec3(1.00, 0.80, 0.60), lo);
 	// the moon: pale grey-white, darker maria, a slate terminator, the dark side all but black
 	if (x == 8) return vec3(0.88, 0.90, 0.94);
