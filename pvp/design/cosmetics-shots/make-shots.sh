@@ -5,6 +5,9 @@
 #   ./gradlew runShowcase -Pvoid.showcase.quality=1 -PvoidGlDebug -Pvoid.showcase.only=<scenes> -Pvoid.showcase.out=<run>
 #   bash pvp/design/cosmetics-shots/make-shots.sh <run> [ffmpeg]
 #
+# With PV=<run> (a run of the polish views, -Pvoid.showcase.only=pv-*), the six-cape run, the trail
+# clips and the close emote clips come from that run too.
+#
 # Stills are copied as the game drew them; frame sequences become MP4s; the per-item stills are
 # tiled into one sheet by day and one by night; the ten-block line-ups get a 2x nearest-neighbour
 # crop; the style test's Atelier pieces (st-*-lux) are paired with the test's C (st-*-c) in c-fix/.
@@ -26,6 +29,14 @@ clip() { # $1 scene, $2 fps
 clip hero-night 16; clip hero-dusk 16; clip night-loop 16; clip run-capes 30; clip run-dusk 30
 clip wings-glide 24; clip wings-night 24; clip emotes 20; clip emote-cam 20
 clip fight 24; clip fight-night 24; clip sprint-jump 24; clip brawl-20 24
+PV="${PV:-$RUN}"
+pvclip() { # $1 scene in the polish run, $2 output name, $3 fps
+  [ -d "$PV/$1" ] || return 0
+  "$FF" -loglevel error -y -framerate "$3" -i "$PV/$1/%03d.png" -c:v libx264 -pix_fmt yuv420p -preset slow -crf 22 "$OUT/$2.mp4"
+}
+pvclip pv-run-capes run-capes6 30; pvclip pv-run-capes-night run-capes6-night 30
+pvclip pv-trails trails 24; pvclip pv-trails-night trails-night 24
+pvclip pv-emotes-a emotes-a 20; pvclip pv-emotes-b emotes-b 20
 [ -d "$RUN/st-run-lux" ] && "$FF" -loglevel error -y -framerate 24 -i "$RUN/st-run-lux/%03d.png" -c:v libx264 -pix_fmt yuv420p -preset slow -crf 22 "$OUT/run-atelier.mp4"
 [ -d "$RUN/st-fight-lux" ] && "$FF" -loglevel error -y -framerate 24 -i "$RUN/st-fight-lux/%03d.png" -c:v libx264 -pix_fmt yuv420p -preset slow -crf 22 "$OUT/fight-atelier.mp4"
 
