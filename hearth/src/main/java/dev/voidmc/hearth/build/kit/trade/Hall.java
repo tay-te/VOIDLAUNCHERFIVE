@@ -662,6 +662,10 @@ public final class Hall {
 			dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(this.d, x0, z0, x1, z1, up, dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.SHOULDERED);
 			this.top = Math.max(this.top, up + 2);
 		}
+		if (!stair) {
+			// nobody climbs to it: no awning or pots up there either (a deck dressed for folk nobody reaches)
+			return false;
+		}
 		// an awning of cloth on poles over the front of the terrace, pots along the parapet
 		Mat pole = woodFence(this.d);
 		int ax0 = r[0] + 1;

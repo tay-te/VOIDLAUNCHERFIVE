@@ -95,24 +95,6 @@ public final class Warehouse implements Archetype {
 			}
 			wells[k] = hall.switchback(k, wellWall);
 		}
-		// the loading doors up the middle of the front, one per floor: half doors, a rail at the sill and the shutters
-		// swung open over it, so the goods come in on the hoist and nobody steps out into the street four floors up
-		Side front = hall.side(0, Dirs.FRONT);
-		for (int k = 1; k < hall.storeys(); k++) {
-			if (hall.body.height(k) < 3) {
-				continue;
-			}
-			Side s = hall.side(k, Dirs.FRONT);
-			int y = hall.floorY(k);
-			int i = s.index(door);
-			for (int c = 0; c < 2; c++) {
-				int ii = i + c;
-				if (ii <= 0 || ii >= s.last()) {
-					continue;
-				}
-				Hatch.hoistDoor(d, s.x(ii), y, s.z(ii), Dirs.FRONT);
-			}
-		}
 		Direction.Axis ridge = flat ? Direction.Axis.X : Direction.Axis.Z;
 		hall.roof(form, ridge, 1, null);
 		if (flat) {
@@ -138,7 +120,26 @@ public final class Warehouse implements Archetype {
 			Lifts.hoist(d, g, hi, beamY, 2, 3, d.mat(Role.FURNITURE).full().at(g.x(hi), 3, g.z(hi)));
 		}
 
-		interior(d, hall, door, wells);
+		boolean[] reached = interior(d, hall, door, wells, wellWall);
+		// the loading doors up the middle of the front, one per floor that is climbed to: half doors, a rail at the sill
+		// and the shutters swung open over it, so the goods come in on the hoist and nobody steps out into the street
+		// four floors up (no loading door on a floor no stair or ladder climbs to)
+		Side front = hall.side(0, Dirs.FRONT);
+		for (int k = 1; k < hall.storeys(); k++) {
+			if (hall.body.height(k) < 3 || !reached[k]) {
+				continue;
+			}
+			Side s = hall.side(k, Dirs.FRONT);
+			int y = hall.floorY(k);
+			int i = s.index(door);
+			for (int c = 0; c < 2; c++) {
+				int ii = i + c;
+				if (ii <= 0 || ii >= s.last()) {
+					continue;
+				}
+				Hatch.hoistDoor(d, s.x(ii), y, s.z(ii), Dirs.FRONT);
+			}
+		}
 		// a rail round each stairwell on the floor above
 		for (int k = 0; k < wells.length; k++) {
 			dev.voidmc.hearth.build.kit.craft.Rails.well(d, hall, k, wells[k]);
@@ -161,17 +162,34 @@ public final class Warehouse implements Archetype {
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
-	/** Racks of barrels along the walls, crates in the middle aisle, stores on every floor round the stair. */
-	private static void interior(Draft d, Hall hall, int door, int[][] wells) {
+	/**
+	 * Racks of barrels along the walls, crates in the middle aisle, stores on every floor round the stair; a low attic no
+	 * stair climbs to gets a ladder through a hatch under the ridge and sacks under its eaves. Answers which floors are
+	 * climbed to.
+	 */
+	private static boolean[] interior(Draft d, Hall hall, int door, int[][] wells, Direction wellWall) {
+		boolean[] reached = new boolean[hall.storeys()];
+		reached[0] = true;
+		int[][] ladders = new int[hall.storeys()][];
 		for (int k = 0; k < hall.storeys(); k++) {
-			boolean top = k == hall.storeys() - 1;
-			if (top && hall.roof != null && hall.body.height(k) <= 2 && k > 0) {
-				// the attic over the top floor: open to its rafters, left to the hoist
+			if (k > 0 && !reached[k]) {
+				// a floor nobody climbs to: open to its rafters, left to the hoist
 				break;
 			}
 			int[] in = hall.inner(k);
+			if (k > 0 && wells[k - 1] == null) {
+				attic(d, hall, k, door, ladders[k]);
+				break;
+			}
 			Floorplan fp = hall.floor(k).blockHoles(d);
 			int y = fp.y;
+			if (k + 1 < hall.storeys() && wells[k] != null) {
+				reached[k + 1] = true;
+			} else if (k + 1 < hall.storeys() && hall.body.height(k + 1) >= 2) {
+				// the attic over the top floor: a ladder up the gable wall under the ridge, where the head room is
+				ladders[k + 1] = Hatch.ladder(d, hall, k + 1, fp, Dirs.BACK, Dirs.FRONT, wellWall);
+				reached[k + 1] = ladders[k + 1] != null;
+			}
 			if (k == 0) {
 				fp.keep(door, in[1]);
 				fp.keep(door + 1, in[1]);
@@ -234,6 +252,41 @@ public final class Warehouse implements Archetype {
 			Rooms.furnish(d, fp.room(), Rooms.Type.STORAGE, 0, JobType.NONE);
 			if (k == 0) {
 				hall.joists(0, Direction.Axis.X);
+			}
+		}
+		return reached;
+	}
+
+	/**
+	 * The attic for the hoist, climbed to by the ladder: the hatch and the loading door's inside kept clear, sacks and
+	 * crates set where the eaves leave head room over them and a cell before them to stand in.
+	 */
+	private static void attic(Draft d, Hall hall, int k, int door, int[] ladder) {
+		Floorplan up = hall.floor(k).blockHoles(d);
+		int[] in = hall.inner(k);
+		int y = up.y;
+		if (ladder != null) {
+			Hatch.keep(up, ladder);
+		}
+		up.keep(door, in[1]);
+		up.keep(door + 1, in[1]);
+		int placed = 0;
+		for (Direction wall : new Direction[]{Dirs.BACK, Dirs.LEFT, Dirs.RIGHT}) {
+			for (int[] c : up.along(wall)) {
+				Direction user = wall.getOpposite();
+				int fx = c[0] + Dirs.dx(user);
+				int fz = c[1] + Dirs.dz(user);
+				if (placed >= 6 || !d.isEmpty(c[0], y, c[1]) || !d.isEmpty(c[0], y + 1, c[1]) || !d.isEmpty(fx, y, fz) || !d.isEmpty(fx, y + 1, fz)) {
+					continue;
+				}
+				if (up.take(c[0], c[1], user)) {
+					if (placed % 2 == 0) {
+						Props.sacks(d, c[0], y, c[1], Dirs.right(wall), 1, placed % 4 == 0);
+					} else {
+						Props.crates(d, c[0], y, c[1], Dirs.right(wall), 1);
+					}
+					placed++;
+				}
 			}
 		}
 	}

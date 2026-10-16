@@ -72,7 +72,7 @@ public final class Glassworks implements Archetype {
 
 		// the hall: all but a strip down one side and the yard in front (a cell wider beside a log wall, whose corner
 		// ends stand out across the strip's mouth)
-		int strip = d.habits().walls().kind() == dev.voidmc.hearth.build.style.Habits.WallKind.LOG && w >= 11 ? 3 : 2;
+		int strip = d.habits().walls().kind() == dev.voidmc.hearth.build.style.Habits.WallKind.LOG ? 3 : 2;
 		int hx0 = yardLeft ? strip : 0;
 		int hx1 = yardLeft ? w - 1 : w - 1 - strip;
 		int hz0 = 3;

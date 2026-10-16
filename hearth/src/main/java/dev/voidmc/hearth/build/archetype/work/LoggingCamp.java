@@ -124,6 +124,12 @@ public final class LoggingCamp implements Archetype {
 		int deckLen = Math.min(7, bz0 - 1);
 		if (houseLeft ? dx0 > bx1 + 1 : dx0 + dw - 1 < bx0 - 1) {
 			deckLen = dp - 2;
+			// a deck three high beside the smithy's low eave is a stair onto its roof: it stops short of the lean-to
+			int inner = houseLeft ? dx0 : dx0 + dw - 1;
+			int outer = houseLeft ? sx1 : sx0;
+			if (smithy && Math.abs(inner - outer) <= 2) {
+				deckLen = Math.min(deckLen, sz0 - 2);
+			}
 		}
 		int d1 = Timber.deck(d, dx0, 0, 1, Direction.Axis.Z, deckLen, dw, 3, logs);
 		top = Math.max(top, d1);
@@ -136,7 +142,8 @@ public final class LoggingCamp implements Archetype {
 			px = -1;
 		}
 		int pz0 = 2;
-		int pz1 = Math.min(bz0 - 2, pz0 + 4);
+		// its trunk stops well short of the bunkhouse's eave (standing on the trunk, folk stepped up onto the roof)
+		int pz1 = Math.min(bz0 - 4, pz0 + 4);
 		if (px >= 1 && px <= w - 2 && pz1 - pz0 >= 2) {
 			sawPit(d, pois, px, pz0, pz1, logs, toHouse);
 		}

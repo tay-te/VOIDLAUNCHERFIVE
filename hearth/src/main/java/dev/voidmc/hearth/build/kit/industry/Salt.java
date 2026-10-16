@@ -213,7 +213,13 @@ public final class Salt {
 					continue;
 				}
 				double u = Noise.unit(d.seed() ^ 0x5AC5, px, y, pz);
-				if (u < 0.4) {
+				// a tall stack never beside another (a row of them is a shelf folk would climb onto under the roof)
+				boolean tallBeside = false;
+				for (Direction n : Direction.Plane.HORIZONTAL) {
+					var b = d.get(px + n.getStepX(), y + 1, pz + n.getStepZ());
+					tallBeside |= b != null && b.getBlock() == slab;
+				}
+				if (u < 0.4 && !tallBeside) {
 					d.set(px, y, pz, wool.defaultBlockState());
 					d.set(px, y + 1, pz, States.slab(slab, SlabType.BOTTOM));
 				} else if (u < 0.75) {
