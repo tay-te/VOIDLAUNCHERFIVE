@@ -210,7 +210,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 // Underground debug: Draws the cave map from VOID Gloam on screen, with the cave state as bars. For testing only.  [underground]
 #define UG_DEBUG 0 // [0 1]
 // Water and shadow debug: Test views for water and shadows.  [water_shadows]
-#define WS_DEBUG 0 // [0 1 2 3 4]
+#define WS_DEBUG 0 // [0 1 2 3 4 5]
 
 // Iris only lists a #define as an on/off option when some file tests it with #ifdef or #ifndef.
 // These empty tests make every toggle show even before the code that uses it is merged.

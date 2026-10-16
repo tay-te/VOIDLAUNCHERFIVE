@@ -124,6 +124,13 @@ void main() {
 		if (!gl_FrontFacing && isEyeInWater != 1) {
 			discard;
 		}
+#if WS_DEBUG_VIEW == 5
+		// the faces drawn: the face's own world normal as colour, a back face (seen from under water) in stripes
+		outColor = vec4((nW * 0.5 + 0.5) * (gl_FrontFacing ? 1.0 : 0.4 + 0.6 * float((int(gl_FragCoord.y) >> 2) & 1)), 1.0);
+		outWater = vec4(0.0);
+		outInfo = vec4(0.5, 0.5, 0.0, WS_KIND_OTHER);
+		return;
+#endif
 		// the opaque surface behind the water along this pixel's ray (depthtex1 holds no translucents)
 		float d1 = texelFetch(depthtex1, ivec2(gl_FragCoord.xy), 0).r;
 		float behind = 1.0e4;
