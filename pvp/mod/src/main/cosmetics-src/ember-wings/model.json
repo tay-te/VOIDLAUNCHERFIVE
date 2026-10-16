@@ -110,7 +110,8 @@
        22,
        27
       ]
-     }
+     },
+     "material": "cloth"
     }
    ]
   },
@@ -147,7 +148,8 @@
        66,
        41
       ]
-     }
+     },
+     "material": "cloth"
     }
    ]
   },
@@ -250,7 +252,8 @@
        126,
        25
       ]
-     }
+     },
+     "material": "cloth"
     }
    ]
   },
@@ -287,7 +290,8 @@
        60,
        81
       ]
-     }
+     },
+     "material": "cloth"
     }
    ]
   },
@@ -390,7 +394,8 @@
        0,
        27
       ]
-     }
+     },
+     "material": "cloth"
     }
    ],
    "rotation": [
@@ -432,7 +437,8 @@
        44,
        41
       ]
-     }
+     },
+     "material": "cloth"
     }
    ],
    "rotation": [
@@ -540,7 +546,8 @@
        96,
        25
       ]
-     }
+     },
+     "material": "cloth"
     }
    ],
    "rotation": [
@@ -582,7 +589,8 @@
        30,
        81
       ]
-     }
+     },
+     "material": "cloth"
     }
    ],
    "rotation": [

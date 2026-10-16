@@ -6,6 +6,7 @@
   64
  ],
  "helmet_fit": true,
+ "material": "cloth",
  "bones": [
   {
    "name": "beanie",

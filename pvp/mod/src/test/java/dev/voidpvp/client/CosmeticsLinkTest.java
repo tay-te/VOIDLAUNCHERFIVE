@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import dev.voidpvp.client.bridge.BridgeHost;
 import dev.voidpvp.client.bridge.VoidBridge;
+import dev.voidpvp.client.cosmetic.CosmeticCatalog;
 import dev.voidpvp.client.cosmetic.CosmeticState;
 import dev.voidpvp.client.cosmetic.Emotes;
 import dev.voidpvp.client.cosmetic.EquippedSet;
@@ -347,7 +348,7 @@ class CosmeticsLinkTest {
                 .get("cape").getAsString());
         assertTrue(payload.getAsJsonArray("owned").toString().contains("\"origin-cape\""),
                 "free items are owned and listed");
-        assertEquals(1, payload.get("catalog_version").getAsInt());
+        assertEquals(CosmeticCatalog.VERSION, payload.get("catalog_version").getAsInt());
     }
 
     @Test
@@ -434,7 +435,7 @@ class CosmeticsLinkTest {
 
         state.setModSetting("cosmetics", "others", new com.google.gson.JsonPrimitive(false));
         state.setModSetting("cosmetics", "own_first_person", new com.google.gson.JsonPrimitive(true));
-        state.setModSetting("cosmetics", "glow", new com.google.gson.JsonPrimitive(false));
+        state.setModSetting("cosmetics", "glow_level", new com.google.gson.JsonPrimitive("off"));
         state.setModSetting("cosmetics", "emote_camera", new com.google.gson.JsonPrimitive(false));
         assertFalse(state.setGameplay("cosmetics", false), "the switch reports what it applied");
         assertFalse(state.cosmeticsOn);
