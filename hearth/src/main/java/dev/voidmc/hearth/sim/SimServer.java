@@ -220,7 +220,12 @@ public final class SimServer {
 				simulated = SettlementClock.advance(d.settlement, capped);
 			} catch (RuntimeException e) {
 				// a bug in a listener, the planner or a blueprint must not take the server down: log it, try again later
-				LOG.error("hearth: stepping settlement {} ({}) failed; retrying in a minute", d.settlement.id(), d.settlement.name(), e);
+				int n = this.failures.merge("step " + d.settlement.id(), 1, Integer::sum);
+				if (n == 1) {
+					LOG.error("hearth: stepping settlement {} ({}) failed; retrying in a minute", d.settlement.id(), d.settlement.name(), e);
+				} else if (Integer.bitCount(n) == 1) {
+					LOG.error("hearth: stepping settlement {} ({}) failed again ({} times now): {}", d.settlement.id(), d.settlement.name(), n, e.toString());
+				}
 				long retry = this.ticks + 1200;
 				this.nextDue.put(d.settlement, retry);
 				this.queue.add(new Due(retry, this.seq++, d.world, d.settlement));
