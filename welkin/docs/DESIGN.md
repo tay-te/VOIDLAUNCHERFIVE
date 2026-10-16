@@ -4,7 +4,7 @@ Status: accepted, October 2026. Built from three read-only research passes: Iris
 
 ## 0. The decision in one paragraph
 
-All world visuals move into VOID Welkin, a new shader pack for Iris, written from scratch. Gloam stops drawing anything. Instead it works out the world's state (seasons, wind, weather fronts, mist, haze, light) and hands it to the pack through a small bridge: one data texture, which needs no Iris mixin, and a set of `void_*` uniforms added by one small mixin. It keeps the whole soundscape and gains underground sound beds. Expanse is unchanged as the source of land data. LOD keeps drawing far terrain through the pack's Distant Horizons programs, and gets the bridge data with no changes. The look stays Minecraft, lightly stylized and of high quality: smooth gradients with gentle banding, directional sunlight and shadows, crisp pixel art only for the sun, moon, stars and voxel clouds, and no visible dither, TAA, bloom haze or fuzzy volumetrics (section 3.2).
+All world visuals move into VOID Welkin, a new shader pack for Iris, written from scratch. Gloam stops drawing anything. Instead it works out the world's state (seasons, wind, weather fronts, mist, haze, light) and hands it to the pack through a small bridge: one data texture, which needs no Iris mixin, and a set of `void_*` uniforms added by one small mixin. It keeps the whole soundscape and gains underground sound beds. Expanse is unchanged as the source of land data. LOD keeps drawing far terrain through the pack's Distant Horizons programs, and gets the bridge data with no changes. The look stays Minecraft, lightly stylized and of high quality: smooth gradients with gentle banding, directional sunlight and shadows, crisp pixel art only for the sun, moon, stars and voxel clouds, no visible dither and no TAA; since 2026-10-16 the heavy effects that make it beautiful (a luminous sky, a volumetric haze lit through the shadows, god rays and bloom), smooth and never a smear (section 3.2).
 
 ---
 
@@ -218,7 +218,7 @@ These come from the Expanse country `haze` hint, or from Gloam's biome table whe
 
 **Where it lives:** `welkin/` in the repo, on branch `welkin` with its worktree at `.claude/worktrees/welkin`. `welkin/tools/pack.sh` zips it into a game-test run folder's `shaderpacks/` as `Welkin.zip` and selects it.
 
-### 3.2 Look rules (set by the user on 2026-10-11, the lighting part updated on 2026-10-12)
+### 3.2 Look rules (set by the user on 2026-10-11, the lighting part updated on 2026-10-12, the heavy effects on 2026-10-16)
 
 These replace the first rules (flat colour steps and a 4×4 Bayer dither everywhere), which the user dropped on
 2026-10-11. On 2026-10-12, after three tuning rounds fell short of the reference packs, the user relaxed the
@@ -233,9 +233,10 @@ the staged wave-2 modules still describe the old rules; they are adapted as they
 - Directional sunlight and shadows are the foundation of the quality: the sun lights faces by how squarely they face it, smoothly, and the shadow map carries it near, the far shadows and the terrain's light past it.
 - Surface colours stay natural and real-world, with no glowing fantasy tints. Underground may be fantastical (glowworm light, coloured cave water).
 - Each palette is small and lives in a pack file, keyed by haze kind, season and time. Palettes are control points: the colour runs smoothly between them, and every weight on them changes smoothly with the hour and the weather.
-- **Lighting quality, kept subtle (2026-10-12):** soft shadows with natural penumbras (contact-hardening: crisp at a caster's foot, softer with its height), stronger ambient occlusion (corners, wall feet, the inside of crowns, the floor of a wood and the far land's hollows), and, still to come, subtle sun shafts through trees and haze at a low sun. None of it may read as fuzz, smear or a veil.
+- **Lighting quality (2026-10-12):** soft shadows with natural penumbras (contact-hardening: crisp at a caster's foot, softer with its height), stronger ambient occlusion (corners, wall feet, the inside of crowns, the floor of a wood and the far land's hollows). None of it may read as fuzz, smear or a veil.
+- **The heavy effects (2026-10-16, the user's pick after the depth A/B sheet):** "focus hard on the overall look, lighting, haze, bloom, all of the heavy effects that make this thing beautiful". Built properly and stronger than the prototypes: the **luminous sky** (a bright horizon band, a wide warm glow toward the sun, a deep zenith; the far land, the haze and the clouds' far fog sink into the same air), the **volumetric haze** (lit by the sun through the shadow map, the terrain's shadow line and the cloud shadows, thicker low down and toward the horizon, warm toward the sun, cool in shadow; the near 72 blocks clear, never more than 70 %), **god rays** (the shafts from that walk, bold at golden hour, a quarter at noon; the screen-space sun beams when the sun is in or near the view) and **bloom** (only light past white spreads; a core and a wide halo, energy-conserving; the open sky a fifth of the source, a cloud's body a share and its silver lining all of it, and the frame's flat mean kept off the halo, so it glows round bright things and never veils the frame). Push toward Complementary's and Euphoria's warm, luminous air while staying less gold than Complementary. Not picked, and left as they were: the prototypes SHADE, AIR, BANDS=0 and RELIEF (the open shade, the aerial perspective and the banding stay).
 - **Noise only inside a lighting term, and never on screen:** a lighting term (the shadow's reach, the occlusion, later the shafts) may be sampled with the 4×4-tiled lighting noise (`lib/noise.glsl`) only if a depth- and normal-aware resolve (`lib/denoise.glsl`; optionally temporal accumulation with reprojection and a neighbourhood clamp, `TEMPORAL_LIGHT`, off by default) smooths it until it is grain-free in a single still. Every such term must pass the grain check (`audit/grain.py`: flat land patches within +10 % of the term off, or of its noise-free reference, `SHADOW_REFERENCE` and `AO_REFERENCE`), in every bench view. Terms may be worked out at half resolution (the occlusion, the shafts) and brought back to full resolution depth-aware.
-- **Textures are never filtered:** colour and texture never pass through a resolve, a blur or a history; they stay pixel-crisp. No TAA over the whole image, no heavy bloom or blur, no fuzzy volumetrics; the pixel-crisp sun, moon, stars and voxel clouds stay.
+- **Textures are never filtered:** colour and texture never pass through a resolve, a blur or a history; they stay pixel-crisp. The bloom only adds light past white (a texel's pattern stays), the haze and the god rays are smooth air laid over the image. No TAA over the whole image, no blur, no fuzzy ray-marched volumes; the pixel-crisp sun, moon, stars and voxel clouds stay.
 - The budgets of section 3.5 hold, with the lighting set's own lines.
 
 ### 3.3 Files and programs
@@ -282,6 +283,14 @@ the staged wave-2 modules still describe the old rules; they are adapted as they
 
 ### 3.5 Performance budget (1080p, mid-range GPU, MEDIUM)
 
+**Measured after the phase 2 merge (2026-10-16, RTX 4060, 1600x900, MEDIUM, test world A, 8-second on/off sweeps in
+one run; the other game slot was in use, so about +-0.4 ms):** the heavy effects together 0.67 ms on the plain at noon,
+1.33 ms on the steppe at 17:00 and 1.51 ms facing the sun on the plain at 17:30 (their lane read 0.8, 1.09 and 0.89 ms
+on cleaner readings), so at a low sun they sit at or a little over their 1.2 ms line; the bloom alone within the noise;
+the clouds 0.73 to 1.1 ms (with their shadows on the land), over their 0.6 ms line as before the rework; the land
+reflections within the noise on these views (0.35 to 1.05 ms over water in the defects lane's sweeps). Frames: plain
+12:00 7.1 ms, steppe 17:00 7.1 ms, the plain facing the sun 8.0 ms; shore and valley views 9.3 to 10.4 ms, wmist0 11.4 ms.
+
 The lighting set the user allowed on 2026-10-12 (soft shadows on a resolved buffer, the far and terrain shadows,
 ground-truth ambient occlusion, later the sun shafts) was given to the user as about +0.8 to 1.0 ms at MEDIUM, for a
 total of about 4 to 5 ms; LOW stays cheap (no shadow map, no occlusion, no terrain pass).
@@ -300,7 +309,9 @@ total of about 4 to 5 ms; LOW stays cheap (no shadow map, no occlusion, no terra
 | Far weather composite | about 0.2 ms |
 | Sun shafts (`deferred5` at half resolution, resolved in composite2; gated to a low sun, nothing from about 37 degrees up) | 0.3 ms or less while active |
 | Sky table and final | about 0.2 ms |
-| **Total** | **about 4-5 ms MEDIUM, about 2 ms LOW** |
+| The heavy effects (2026-10-16): the luminous sky, the volumetric haze (`deferred5`'s walk, which also gives the shafts, resolved in composite2), the sun beams (`composite3`) and the bloom (`composite3` source, `composite4` halo, laid on in `final`) | 1.2 ms or less together (the sky and haze about 0.6 of it); LOW keeps only the luminous sky |
+| Water's land reflections (`WS_WATER_SSR`, on at MEDIUM since the defects pass) | 0.5 ms or less over open water |
+| **Total** | **about 5.5-6.5 ms MEDIUM, about 2 ms LOW** |
 
 **Measured after the A + B merge (2026-10-13, RTX 4060, 1600x900, MEDIUM, idle stretches only):** plain 12:00 frame
 5.1-5.2 ms, shadow chain about 1.3 ms, occlusion about 0.45 ms; valley 05:30 (the worst case) frame 7.2 ms, shadow
@@ -405,7 +416,7 @@ Each one ends with game-test screenshots taken with Welkin (and LOD's vista shot
 | Motes and seasonal crowns | Stay in Gloam (question 3). The pack lights motes. Gloam's seasonal crowns are model swaps onto existing leaves, so `block.properties` already covers them. |
 | Subagent effort | High at most (section 5). |
 | Derived uniforms | `welkin_*`, declared only under `#ifdef VOID_GLOAM` (section 2.1). |
-| Look | The rules of section 3.2 are absolute. Since 2026-10-11: Minecraft-like and lightly stylized, very high quality; smooth gradients with gentle banding; no visible dither anywhere (only invisible anti-banding); pixel-crisp sun, moon, stars and voxel clouds; directional sunlight and shadows first; no TAA, bloom haze or fuzzy volumetrics; natural surface colours. (Before: flat colour steps, Bayer dither and the 16-pixel grid for everything covering the world.) |
+| Look | The rules of section 3.2 are absolute. Since 2026-10-11: Minecraft-like and lightly stylized, very high quality; smooth gradients with gentle banding; no visible dither anywhere (only invisible anti-banding); pixel-crisp sun, moon, stars and voxel clouds; directional sunlight and shadows first; no TAA or fuzzy ray-marched volumes; natural surface colours. Since 2026-10-16 the heavy effects are wanted (a luminous sky, volumetric haze, god rays, bloom from light past white), smooth and never a veil. (Before: flat colour steps, Bayer dither and the 16-pixel grid for everything covering the world.) |
 
 ### M0 as built (the skeleton)
 
@@ -1322,3 +1333,59 @@ MEDIUM, a solid plume of mist at a fall's foot and a black hole with the eye at 
   line where the top meets the rock, no solid wall. The chunks' water has its pinholes filled as the LOD's (composite2
   `pinholeFill`): the dotted seams along a fall's steps and the shore.
 - **Particles:** none closer than a third of a block (`G_NEARCUT`, gbuffers_textured and _lit).
+
+### The luminous sky, haze, shafts and bloom (2026-10-16, branch `welkin-atmos`)
+
+The user's pick after the depth A/B sheet (section 3.2): HAZE, SHAFTS, BLOOM and the LUMINOUS SKY, stronger than the
+prototypes; SHADE, AIR, BANDS=0 and RELIEF not carried over.
+
+- **Luminous sky** (`lib/sky/luminous.glsl`, `SKY_LUMINOUS`, `SKY_GLOW`): a broad soft horizon band, cool away from the
+  sun and warming toward it, a wide glow round the sun, a deeper zenith by day; its warmth follows the sky table's golden
+  hour. The glow is mixed toward a warm gold with a shoulder rather than added, so the sun-side horizon is ivory-gold, not
+  white, and less gold than Complementary. It lies on the dome, the far fade, the haze's air and the clouds' far fog
+  (`wcFogTarget`). No daytime sky draws underground (the cave's own fog takes sky and cloud pixels seen from below), and
+  rain closes the sky to stars as cloud cover does.
+- **Volumetric haze** (`lib/haze/volume.glsl`, `HAZE_VOLUME`, `HAZE_VOLUME_STRENGTH`, `HAZE_VOLUME_STEPS` 10/14/28): one
+  walk in `deferred5` through the shadow map near, the terrain's shadow line far and the cloud shadows throughout (cloud
+  shadows stand as columns in the air); thickest low, on low ground and toward the horizon, by haze kind, Gloam's
+  haziness, rain and snow; it gives way to the valley mist and hands over to the far haze at its band; the near 72 blocks
+  clear, at most 70 %. Off on LOW.
+- **God rays:** the same walk measures the sunlit share of each view ray (finer steps near the eye), in the sun's colour
+  led toward gold through the golden hours, a strong forward lobe and a weak broad one, half-shadowed rays dimmed more
+  than in proportion; full from the horizon through the golden hours, a quarter at noon, thicker in haze and morning
+  mist, off under overcast and at night. The **sun beams** (`SHAFT_BEAMS`, `composite3`, overworld) gather the open sky
+  toward the sun's place on screen, so light streams through crowns, between clouds and over ridges when the sun is in
+  or near the view.
+- **Bloom** (`lib/bloom.glsl`, `BLOOM`, `BLOOM_STRENGTH`; `composite3`, `composite4`, `final`; every dimension): see its
+  header and section 3.2. Glowing blocks get extra headroom, so torches and lanterns show halos at night.
+- **Passes and buffers:** `composite3` and `composite4` are new (half resolution); `colortex14` is new, `colortex12` and
+  `colortex9` are reused after the light pass. LOW turns off the haze volume, beams and bloom.
+- **Cost:** see section 3.5 (the lane read 1.09 ms for all four on the steppe, 0.89 ms facing the sun, about 0.8 ms at
+  noon). Grain: none (flat-area medians 2.07-2.25 with the effects on or off, final's own anti-banding level).
+
+### The phase 2 merge: atmos and clouds on `welkin` (2026-10-16)
+
+`welkin-atmos` (the luminous sky, haze, god rays and bloom) merged first, then `welkin-clouds` (the clouds rework and
+the defects pass), both from abe2fa09.
+
+- **Conflicts:** `lib/clouds/shade.glsl` `wcFogTarget` (the clouds lane's 0.7 horizon share for a far deck over the eye,
+  with the atmos lane's luminous air over it, so far clouds and far land fade into one band) and the profiles in
+  `shaders.properties` (the atmos options on every profile, the land reflections on at MEDIUM). `lib/settings.glsl`,
+  `lang/en_US.lang` and `composite2` merged cleanly.
+- **The clouds under the bloom** (found in the first load run: from the peak over a sunlit cloud sea the whole frame was
+  source, and the peak and the shadows went milky, p5 luma 106 against 51 with the bloom off): a cloud's body now gives
+  `BLOOM_CLOUD` (0.3) of its bright share and a rim past white (the clouds lane's silver lining) all of it; a cloud lends
+  its own light out in `final` as the land does; and the frame's mean bright share (the 1x1 level of `colortex14`,
+  `composite4`'s alpha) is kept off the halo (`BLOOM_FLAT` 0.85), so a frame full of snow and sunlit cloud keeps its
+  depth (p5 87 against 76 with the bloom off) while lamps at night, the sun's glow and the silver linings still bloom.
+- **Checks:** every `live.sh` variant compiles (the merge's own variants added: the new passes in the Nether and End,
+  each new option off, the clouds and defects lanes' debug views). Load runs in both test worlds after each merge, no
+  shader errors. Shots against each lane's own after-shots: the atmos lane's vistas, sun-facing views, dusk and night
+  (world A); the clouds lane's ground and peak views fair and in rain (world B); the defects lane's shore, valley, river
+  and rain views (world B). Nothing lost: the beams through trunks, the lamp halos, the ivory sun-side sky, the lit
+  clouds, the falls' foam, the glitter (now blooming), the shore foam and the far curtains all show.
+- **Still open:** dusk bellies near the eye lean brown against the luminous dusk sky (plain 18:30, ground 18:30); a
+  thin pale line along a rain cloud's side seen edge-on from below; the land seen through gaps in the cloud sea from
+  the peak is near black in the deck's shadow; at a low sun the heavy effects sit at or over their 1.2 ms line and the
+  clouds over their 0.6 ms line; trees in test world A grew differently from the lane runs (forest and sunforest views
+  are not comparable).

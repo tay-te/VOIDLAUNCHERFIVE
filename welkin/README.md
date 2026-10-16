@@ -1,7 +1,7 @@
 # VOID Welkin
 
 Welkin is VOID's shader pack for Iris (Minecraft 26.3, Fabric, Iris 1.11 with Sodium). It draws every pixel of the
-VOID world: sky, light, water, and later haze, valley mist, voxel clouds and far rain. It reads the world's state from
+VOID world: sky, light, water, haze, valley mist, voxel clouds, far rain, the underground's air, god rays and bloom. It reads the world's state from
 VOID Gloam through a small bridge, and draws the far land of VOID LOD to 128 km through its Distant Horizons programs,
 so near and far land are lit the same way.
 
@@ -27,9 +27,12 @@ absolute; every change is checked against them on screenshots.
    texture sit on the world texel grid, like block texture.)
 5. **Voxel clouds.** Clouds are cells, opaque, with crisp edges. Never soft ray-marched volumes.
 6. **Directional sunlight and shadows first.** They are the foundation of the quality.
-7. **No TAA, no bloom haze, no fuzzy volumetrics, no blur.** Everything renders at full resolution. (Since 2026-10-16,
-   at the user's pick: a bloom from light past white only, god rays and a volumetric haze lit through the shadows, all
-   smooth and grain-free; textures never pass through any of them.)
+7. **Heavy effects that make it beautiful, never a smear (2026-10-16, the user's pick).** A luminous sky, a
+   volumetric haze lit through the shadows of trees, ridges and clouds, bold god rays at golden hour and a bloom from
+   light past white only: all smooth and grain-free, and textures never pass through any of them. The bloom spreads
+   light round bright things, never a flat veil over the frame (a sunlit cloud's body gives a share of its light, its
+   silver lining all of it). Still no TAA, no blur, no fuzzy ray-marched volumes; everything renders at full
+   resolution. Less gold than Complementary.
 8. **Natural surface colours.** The surface stays real-world: nothing glowing or fantasy-tinted. Underground may be
    fantastical.
 9. **Within budget.** The pass budgets of DESIGN.md section 3.5 hold.
@@ -71,9 +74,9 @@ welkin/
 | `deferred5` (`program/deferred_shafts.glsl`) | With `HAZE_VOLUME` (MEDIUM, HIGH): one walk per half-resolution texel along the view ray (`lib/haze/volume.glsl`), near through the shadow map, far through the terrain's shadow line, both through the clouds' shadow, into `colortex13`: the sun shafts' term (the sunlit air weighted toward the eye) and the volumetric haze's sunlit and whole in-scatter. Without it the plain shafts' walk (96 blocks, 12 shadow-map compares). Noise-offset starts; overworld only |
 | `composite` | Water fog, then valley mist from VOID Gloam's near tiles (`lib/mist.glsl`, M1); debug views. **The atmosphere goes here** (haze M2, underground fog M5), then voxel clouds (M3) and `composite1` far weather (M4) |
 | `composite1` | Far weather, overworld only (P5, `lib/far_weather/`): the water fog while the eye is under water (from above, the water's body covers its bed itself, M6), then the far air past the near haze's seam at 1912 blocks (over the land and the clouds past it), far valley mist carrying on from the near mist, and rain curtains under rainy far weather cells; a curtain over the sky or a cloud is finished here with all its air (marked by its distance negated in `colortex6`) |
-| `composite2` (the atmosphere) | Near water's reflections of terrain on HIGH (`WS_WATER_SSR`, M6, `lib/ws/ssr.glsl`); the water fog (the Nether and the End; composite1 lays it in the overworld), the haze by country with its forward scatter toward the sun (`lib/air.glsl`, `AIR_MIE`), the valley mist, the volumetric haze and the sun shafts (god rays in the sun's warm light) resolved from `colortex13` (`lib/haze/volume.glsl`, `lib/shafts.glsl`), the haze in front, the land's aerial perspective (`AERIAL_PERSPECTIVE`); then the underground air (P6, `lib/underground/ug_atmosphere.glsl`: cave fog by the space's openness in strata, cavern water by kind, mist over cave rivers and seas), which the surface air hands over to at cave mouths; debug views |
+| `composite2` (the atmosphere) | Water's reflections of the land, trees and far shores on MEDIUM and HIGH (`WS_WATER_SSR`, M6, `lib/ws/ssr.glsl`); the water fog (the Nether and the End; composite1 lays it in the overworld), the haze by country with its forward scatter toward the sun (`lib/air.glsl`, `AIR_MIE`), the valley mist, the volumetric haze and the sun shafts (god rays in the sun's warm light) resolved from `colortex13` (`lib/haze/volume.glsl`, `lib/shafts.glsl`), the haze in front, the land's aerial perspective (`AERIAL_PERSPECTIVE`); then the underground air (P6, `lib/underground/ug_atmosphere.glsl`: cave fog by the space's openness in strata, cavern water by kind, mist over cave rivers and seas), which the surface air hands over to at cave mouths; debug views |
 | `composite3` | Half resolution: the bloom's bright source into `colortex14` (`lib/bloom.glsl`: the light past white, its headroom given back; every dimension, with `BLOOM`) and the sun beams toward the sun on the screen into `colortex12` (`SHAFT_BEAMS`, overworld) |
-| `composite4` | Half resolution: the bloom's halo from six of `colortex14`'s mip levels (a tight core and a wide soft halo, weights summing to 1) into `colortex9` (with `BLOOM`) |
+| `composite4` | Half resolution: the bloom's halo from six of `colortex14`'s mip levels (a tight core and a wide soft halo, weights summing to 1) into `colortex9`, with the frame's mean bright share in its alpha for final's veil cut (with `BLOOM`) |
 | `final` | The sun beams (4x4 texels of `colortex12`) and the bloom's halo laid on in linear light with headroom, then a soft shoulder past white, then invisible anti-banding (one 8-bit step of fixed triangular noise) |
 
 ### Buffers
@@ -85,7 +88,7 @@ welkin/
 | `colortex2` | RGBA8 | x lit in deferred, y material / 255, z emission |
 | `colortex3` | RGBA8 | water in front: its lit colour (rgb) and how much of it the far fade leaves (a); the valley mist reads it |
 | `colortex4` | RGBA8 | water info (M6): its normal (rg), the sky reflection's weight (b), the kind (a: 1 near water, 0.66 far, 0.33 glass) |
-| `colortex9` | RGBA16F, half size | the ambient occlusion's raw term: visibility (r), the bent normal's tangent parts in the face's frame (g, b), view depth (a); after the light the bloom's halo (`composite4`) |
+| `colortex9` | RGBA16F, half size | the ambient occlusion's raw term: visibility (r), the bent normal's tangent parts in the face's frame (g, b), view depth (a); after the light the bloom's halo (`composite4`, rgb) and the frame's mean bright share (a) |
 | `colortex10` | RGBA16F | the shadow's raw terms: r the sun's reach, g what passes the leaves, b water travel or -1 - the canopy over the point (workstream C), a view depth |
 | `colortex11` | RGBA16F | the resolved reach and what passes, view depth; never cleared (`TEMPORAL_LIGHT`'s history) |
 | `colortex12` | RGBA16F, half size | the resolved ambient occlusion (`deferred1`): visibility (r), the bent normal's tangent parts (g, b), the view depth (a); after the light the sun beams' light (`composite3`, rgb) |
