@@ -577,6 +577,18 @@ public final class FolkBrain {
 			this.partialBest = Double.MAX_VALUE;
 		}
 		double dist = Math.sqrt(dx * dx + dz * dz + dy * dy);
+		if (this.approaches != null && this.detour == null) {
+			// standing on one of the spots the path was asked for (the far side of a bed's foot is two blocks off)
+			for (BlockPos a : this.approaches) {
+				double ax = a.getX() + 0.5 - pos.x;
+				double az = a.getZ() + 0.5 - pos.z;
+				if (ax * ax + az * az < 0.6 * 0.6 && Math.abs(a.getY() - pos.y) < 1.0) {
+					this.folk.getNavigation().stop();
+					this.walkTarget = null;
+					return true;
+				}
+			}
+		}
 		if (this.detour != null) {
 			Vec3 d = Vec3.atBottomCenterOf(this.detour);
 			if (pos.distanceToSqr(d) < 2.5 * 2.5 || now > this.detourUntil) {
