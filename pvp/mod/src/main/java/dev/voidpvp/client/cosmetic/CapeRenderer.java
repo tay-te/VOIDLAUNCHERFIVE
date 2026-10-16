@@ -82,7 +82,14 @@ final class CapeRenderer {
         @Override
         public void collide(double[] xs, double[] ys, double[] zs, int i) {
             frame.toModel(xs[i], ys[i], zs[i], m);
-            boolean moved = pushOut(body, -4.6 - armour, 4.6 + armour, -1.0, 12.4, -2.6 - armour, 2.6 + armour, m, l, true);
+            // The torso, in its own frame: first the lift limit (so a bow or a sneak tilts it with
+            // the back), then the box, which catches a point the limit swung down into the body.
+            body.toLocal(m[0], m[1], m[2], l);
+            boolean moved = liftLimit(l, armour);
+            moved |= boxOut(-4.6 - armour, 4.6 + armour, -1.0, 12.4, -2.6 - armour, 2.6 + armour, l, true);
+            if (moved) {
+                body.toModel(l[0], l[1], l[2], m);
+            }
             // Legs only matter below the hips: most of a cape never gets there.
             if (m[1] > 8) {
                 moved |= pushOut(rightLeg, -2.5, 2.5, -0.5, 12.5, -2.6, 2.6, m, l, false);
@@ -98,12 +105,49 @@ final class CapeRenderer {
     };
 
     /**
+     * Keeps the sheet from flipping over the wearer's head ({@code m} in torso-local pixels).
+     * Knockback throws the body backwards into its own cape many times a fight, and free cloth
+     * answers by folding up and over the shoulders like a hood — physically fair, and the
+     * ugliest thing a cape can do. Seen from the
+     * collar (in the body's y-z plane), cloth behind the back may rise to about 12 degrees above
+     * horizontal (a sprint streams it out flat), cloth in front of the back must hang at least 20
+     * degrees below it (over the shoulders, never over the head). A point past the limit swings
+     * down to it at the same distance from the collar.
+     */
+    static boolean liftLimit(double[] m, double armour) {
+        double dy = m[1] - 0.25, dz = m[2] - (2.35 + armour);
+        double len = Math.sqrt(dy * dy + dz * dz);
+        if (len < 1.5) {
+            return false;
+        }
+        double min = dz < 0 ? 0.34 : -0.2;
+        if (dy >= min * len) {
+            return false;
+        }
+        double ny = min * len;
+        double nz = Math.sqrt(Math.max(0, len * len - ny * ny));
+        m[1] = 0.25 + ny;
+        m[2] = (2.35 + armour) + (dz < 0 ? -nz : nz);
+        return true;
+    }
+
+    /**
      * Pushes a model-space point out of a part's box along the cheapest face. The torso prefers
      * its back face (a cape is behind the player), the legs prefer front/back, never up.
      */
     private static boolean pushOut(PartFrame p, double x0, double x1, double y0, double y1,
                                    double z0, double z1, double[] m, double[] l, boolean preferBack) {
         p.toLocal(m[0], m[1], m[2], l);
+        if (!boxOut(x0, x1, y0, y1, z0, z1, l, preferBack)) {
+            return false;
+        }
+        p.toModel(l[0], l[1], l[2], m);
+        return true;
+    }
+
+    /** {@link #pushOut} on a point already in the part's local frame ({@code l}, moved in place). */
+    private static boolean boxOut(double x0, double x1, double y0, double y1, double z0, double z1,
+                                  double[] l, boolean preferBack) {
         if (l[0] <= x0 || l[0] >= x1 || l[1] <= y0 || l[1] >= y1 || l[2] <= z0 || l[2] >= z1) {
             return false;
         }
@@ -124,7 +168,6 @@ final class CapeRenderer {
         } else {
             l[0] = x1;
         }
-        p.toModel(l[0], l[1], l[2], m);
         return true;
     }
 

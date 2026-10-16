@@ -438,6 +438,9 @@ const COSMETICS_SWITCHES: readonly { key: string; label: string }[] = [
   { key: 'own_first_person', label: 'Own trail in first person' },
 ];
 
+/** `cosmetics.reactive`: how much cosmetics answer the fight (the mod's own schema). */
+const REACTIVE_LEVELS = ['off', 'subtle', 'full'] as const;
+
 function EmoteEditor() {
   const holdKey = useModKey('cosmetics');
   const self = useCosmetics((s) => s.self);
@@ -447,6 +450,7 @@ function EmoteEditor() {
   const playing = useCosmetics((s) => s.playing);
   const settings = useModSettings('cosmetics');
   const setSetting = useVoidStore((s) => s.setSetting);
+  const reactive = typeof settings.reactive === 'string' ? settings.reactive : 'full';
   const [sel, setSel] = useState(0);
   const wheel = (self?.emotes ?? []) as CosmeticId[];
   const emotes = itemsFor('emote');
@@ -483,6 +487,16 @@ function EmoteEditor() {
             <Switch checked={settings[sw.key] === true} label={sw.label} onChange={(next) => setSetting('cosmetics', sw.key, next)} />
           </div>
         ))}
+        <div className={cx('c-row2', reactive === 'off' && 'is-off')}>
+          <span className="c-row2__label">Fight reactions</span>
+          <span className="c-prev__biomes c-cos__levels" role="radiogroup" aria-label="Fight reactions">
+            {REACTIVE_LEVELS.map((lv) => (
+              <button key={lv} type="button" role="radio" aria-checked={reactive === lv} className={cx('c-prev__biome', reactive === lv && 'is-on')} onClick={() => setSetting('cosmetics', 'reactive', lv)}>
+                {lv === 'off' ? 'Off' : lv === 'subtle' ? 'Subtle' : 'Full'}
+              </button>
+            ))}
+          </span>
+        </div>
         <span className="c-mono c-col__cap">Selected slot</span>
         <div className="c-blk c-cos__selslot">
           <span className="c-cos__wornbed c-cos__wornbed--lg">{selId ? <Sprite name={itemSprite(selId, 'emote')} size={40} /> : <span className="c-slot__plus">+</span>}</span>

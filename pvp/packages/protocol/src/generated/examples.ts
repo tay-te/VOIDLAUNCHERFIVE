@@ -963,6 +963,7 @@ export const MODS_EXAMPLES: ModRegistryDocument[] = [
           "own_first_person": false,
           "glow": true,
           "emote_camera": true,
+          "reactive": "full",
           "emote_key": "B"
         }
       }

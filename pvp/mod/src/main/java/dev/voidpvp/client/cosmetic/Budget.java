@@ -31,6 +31,9 @@ public final class Budget {
         }
     }
     private static long lastReport;
+    /** The last 512 frames' layer totals, for robust percentiles (dev logs only). */
+    private static final long[] RING = new long[512];
+    private static int ringN;
 
     private Budget() {
     }
@@ -51,6 +54,9 @@ public final class Budget {
 
     /** Once per rendered frame. */
     public static void endFrame() {
+        if (frameNanos > 0) {
+            RING[ringN++ & 511] = frameNanos;
+        }
         averageNanos = averageNanos * 0.95 + frameNanos * 0.05;
         clothAverage = clothAverage * 0.95 + clothNanos * 0.05;
         clothNanos = 0;
@@ -73,6 +79,22 @@ public final class Budget {
     /** Smoothed per-frame cost of the cosmetics layer, microseconds. */
     public static double averageMicros() {
         return averageNanos / 1000.0;
+    }
+
+    /**
+     * Median and tenth percentile of the layer's per-frame cost over the last 512 drawn frames,
+     * microseconds: on a busy machine the mean carries every preemption, the low percentiles
+     * are what the layer itself costs.
+     */
+    public static String percentiles() {
+        int n = Math.min(ringN, 512);
+        if (n == 0) {
+            return "no frames";
+        }
+        long[] c = java.util.Arrays.copyOf(RING, n);
+        java.util.Arrays.sort(c);
+        return String.format(java.util.Locale.ROOT, "p10 %.0f us, p50 %.0f us, p90 %.0f us over %d frames",
+                c[n / 10] / 1000.0, c[n / 2] / 1000.0, c[n * 9 / 10] / 1000.0, n);
     }
 
     /** Rate-limited one-line report for dev logs; null when it is not time yet. */

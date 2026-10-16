@@ -356,6 +356,7 @@ export const SETTING_SPECS: Readonly<Record<ModId, readonly SettingSpec[]>> = {
     { key: 'own_first_person', label: 'Own trail in first person', control: 'switch' },
     { key: 'glow', label: 'Glow', control: 'switch' },
     { key: 'emote_camera', label: 'Emote camera', control: 'switch' },
+    { key: 'reactive', label: 'Fight reactions', control: 'select', options: ['off', 'subtle', 'full'] },
   ],
   hitboxes: [
     { key: 'line_width', label: 'Line width', control: 'slider', min: 0.5, max: 5, step: 0.5, format: 'plain' },

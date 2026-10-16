@@ -38,6 +38,11 @@ final class PlayerFx {
     final Spring speed = new Spring(8f, 0f);
     final Spring vy = new Spring(10f, 0f);
 
+    // ---- secondary motion and fight reactions (see Secondary, Reaction)
+    final Secondary sec = new Secondary();
+    /** This player's reactions this frame, or null when nothing has happened to them. */
+    Reaction react;
+
     // ---- trails
     float trailCarry;
     double trailLastX, trailLastY, trailLastZ;

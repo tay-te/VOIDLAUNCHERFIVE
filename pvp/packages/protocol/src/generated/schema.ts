@@ -3101,7 +3101,7 @@ export interface ChatSettings {
   history_length?: number;
 }
 /**
- * Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored by the launcher against your account; these four switches are only about what this client draws. Off hides every cosmetic, yours included, and stops answering other players' emotes — but your own set is untouched, and other VOID players still see it.
+ * Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored by the launcher against your account; these settings are only about what this client draws. Off hides every cosmetic, yours included, and stops answering other players' emotes — but your own set is untouched, and other VOID players still see it.
  */
 export interface CosmeticsSettings {
   on: Enabled;
@@ -3121,6 +3121,10 @@ export interface CosmeticsSettings {
    * Whether the camera swings to third person and orbits slowly while you emote, so you can see what you are doing. On by default. Off keeps your own view where it is: other players still see the emote, you just do not watch it. The camera never moves while you move — taking a step ends the emote and gives the view straight back.
    */
   emote_camera?: boolean;
+  /**
+   * How much cosmetics react to the fight. `full` by default: your cape whips when you are hit, your wings flare and your trail thickens as a combo builds, your halo brightens a step per hit and pulses on a kill, and everything dims a little when you are low on health — and other VOID players' cosmetics flinch and flare the same way from what your client already sees of their fight (hurt flashes, swings, deaths). `subtle` plays the same reactions at under half the size. `off` keeps cosmetics on their idle motion whatever happens. Purely visual either way: nothing here tells you anything the fight on screen does not.
+   */
+  reactive?: 'off' | 'subtle' | 'full';
   emote_key?: Keybind;
 }
 /**

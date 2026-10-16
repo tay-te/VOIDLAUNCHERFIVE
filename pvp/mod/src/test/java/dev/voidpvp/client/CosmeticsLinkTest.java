@@ -431,7 +431,12 @@ class CosmeticsLinkTest {
         assertFalse(state.cosmeticsOwnFirstPerson);
         assertTrue(state.cosmeticsGlow);
         assertTrue(state.cosmeticsEmoteCamera);
+        assertEquals(1f, state.cosmeticsReactive, 0f, "reactions default to full");
 
+        state.setModSetting("cosmetics", "reactive", new com.google.gson.JsonPrimitive("subtle"));
+        assertEquals(0.45f, state.cosmeticsReactive, 1e-6f);
+        state.setModSetting("cosmetics", "reactive", new com.google.gson.JsonPrimitive("off"));
+        assertEquals(0f, state.cosmeticsReactive, 0f);
         state.setModSetting("cosmetics", "others", new com.google.gson.JsonPrimitive(false));
         state.setModSetting("cosmetics", "own_first_person", new com.google.gson.JsonPrimitive(true));
         state.setModSetting("cosmetics", "glow", new com.google.gson.JsonPrimitive(false));

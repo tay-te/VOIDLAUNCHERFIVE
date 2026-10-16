@@ -708,3 +708,13 @@
   background: rgba(8, 9, 11, 0.18);
   pointer-events: none;
 }
+/* `cosmetics.reactive`: the preview's segmented chips, laid in the row instead of floating. */
+.cart .c-cos__levels {
+  position: static;
+  padding: 3px;
+  background: var(--c-cart);
+}
+.cart .c-cos__levels .c-prev__biome {
+  height: 20px;
+  padding: 0 8px;
+}

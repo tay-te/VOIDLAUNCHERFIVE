@@ -557,6 +557,11 @@ export const SETTING_OPTIONS: Readonly<Record<string, readonly string[]>> =
   "reach.mode": [
     "last",
     "average"
+  ],
+  "cosmetics.reactive": [
+    "off",
+    "subtle",
+    "full"
   ]
 } as const;
 

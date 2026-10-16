@@ -1105,6 +1105,26 @@ pub enum ReachMode {
     Average,
 }
 
+/// How much cosmetics react to the fight. `full` by default: your cape whips when you are hit,
+/// your wings flare and your trail thickens as a combo builds, your halo brightens a step per
+/// hit and pulses on a kill, and everything dims a little when you are low on health — and
+/// other VOID players' cosmetics flinch and flare the same way from what your client already
+/// sees of their fight (hurt flashes, swings, deaths). `subtle` plays the same reactions at
+/// under half the size. `off` keeps cosmetics on their idle motion whatever happens. Purely
+/// visual either way: nothing here tells you anything the fight on screen does not.
+///
+/// `mods.json#/definitions/cosmetics_settings/properties/reactive`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CosmeticsReactive {
+    /// `off` keeps cosmetics on their idle motion whatever happens.
+    Off,
+    /// `subtle` plays the same reactions at under half the size.
+    Subtle,
+    /// `full` by default.
+    Full,
+}
+
 // ---------------------------------------------------------------------------
 // per-mod settings
 // ---------------------------------------------------------------------------
@@ -3493,9 +3513,9 @@ pub struct ChatSettings {
 /// Cosmetics settings.
 ///
 /// Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored
-/// by the launcher against your account; these four switches are only about what this client
-/// draws. Off hides every cosmetic, yours included, and stops answering other players' emotes —
-/// but your own set is untouched, and other VOID players still see it.
+/// by the launcher against your account; these settings are only about what this client draws.
+/// Off hides every cosmetic, yours included, and stops answering other players' emotes — but
+/// your own set is untouched, and other VOID players still see it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CosmeticsSettings {
@@ -3529,6 +3549,17 @@ pub struct CosmeticsSettings {
     /// move — taking a step ends the emote and gives the view straight back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub emote_camera: Option<bool>,
+
+    /// How much cosmetics react to the fight. `full` by default: your cape whips when you are
+    /// hit, your wings flare and your trail thickens as a combo builds, your halo brightens a
+    /// step per hit and pulses on a kill, and everything dims a little when you are low on
+    /// health — and other VOID players' cosmetics flinch and flare the same way from what your
+    /// client already sees of their fight (hurt flashes, swings, deaths). `subtle` plays the
+    /// same reactions at under half the size. `off` keeps cosmetics on their idle motion
+    /// whatever happens. Purely visual either way: nothing here tells you anything the fight on
+    /// screen does not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reactive: Option<CosmeticsReactive>,
 
     /// Hold to open the emote wheel in the world: the mouse picks a slot (look freezes while it
     /// is held), 1-8 pick directly, releasing plays. `B` by default — unbound in vanilla 1.8.9

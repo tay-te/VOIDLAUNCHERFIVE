@@ -279,6 +279,11 @@ public final class LiveState {
     public volatile boolean cosmeticsOwnFirstPerson;
     public volatile boolean cosmeticsGlow = true;
     public volatile boolean cosmeticsEmoteCamera = true;
+    /**
+     * {@code cosmetics.reactive} as a scale on every fight reaction: off 0, subtle 0.45, full 1.
+     * Read by {@code cosmetic.Reactive}.
+     */
+    public volatile float cosmeticsReactive = 1f;
 
     /**
      * Old input: three guards 1.8 added to {@code MinecraftClient} that 1.7.10 did not have.
@@ -636,6 +641,15 @@ public final class LiveState {
         cosmeticsOwnFirstPerson = l.boolSetting("cosmetics", "own_first_person", false);
         cosmeticsGlow = l.boolSetting("cosmetics", "glow", true);
         cosmeticsEmoteCamera = l.boolSetting("cosmetics", "emote_camera", true);
+        cosmeticsReactive = reactiveLevel(l.stringSetting("cosmetics", "reactive", "full"));
+    }
+
+    /** {@code cosmetics.reactive}: {@code off} 0, {@code subtle} 0.45, anything else full. */
+    static float reactiveLevel(String v) {
+        if ("off".equals(v)) {
+            return 0f;
+        }
+        return "subtle".equals(v) ? 0.45f : 1f;
     }
 
     /** {@code #RRGGBB} / {@code #RRGGBBAA} to packed ARGB. */

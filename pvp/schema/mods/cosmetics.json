@@ -1,5 +1,5 @@
 {
-  "$comment": "**Classified `safe`, because nothing here reads the world for an advantage.** Every pixel this mod draws hangs off a player model the game already rendered — a cape behind it, a halo above it, a trail where it walked — and none of it is visible through anything vanilla would hide. Wearables carry no information about the wearer that the model does not already carry: who is a VOID player is the one new fact, and it arrives from the launcher's own backend, not from the server. That is §6.1's \"purely aesthetic\" in its plainest form. The emote camera is the one part that moves the view, and it is exactly vanilla's third-person camera on a slow orbit, held only while the local player is standing still in an emote, and released the moment they move or attack — it cannot be used to look around a corner in a fight because using it means not fighting.\n\nWhat would move this to `grey`: a cosmetic that renders through walls or at a distance vanilla culls the model; a trail that persists long enough to track where a player has been; or an emote camera that can be held while moving.\n\nIt is `kind: gameplay` for `hitboxes`' reason: it draws into the world on other players' models, and there is no HUD chip to place.",
+  "$comment": "**Classified `safe`, because nothing here reads the world for an advantage.** Every pixel this mod draws hangs off a player model the game already rendered — a cape behind it, a halo above it, a trail where it walked — and none of it is visible through anything vanilla would hide. Wearables carry no information about the wearer that the model does not already carry: who is a VOID player is the one new fact, and it arrives from the launcher's own backend, not from the server. That is §6.1's \"purely aesthetic\" in its plainest form. The fight reactions (`reactive`) keep it there: a cape that whips when its wearer is hit, wings that flare through a combo, a halo that pulses on a kill are driven only by what every vanilla client already shows — the red hurt flash (`hurtTime`), the swing animation, a death — and, for your own cosmetics, your own clicks and your own health. They restate those facts on the cosmetics, never anything new: another player's health is never read (a dimming cape would be a health bar), nothing outlasts the hurt flash by more than a second except a combo's slow glow, and nothing is drawn away from the player model. The emote camera is the one part that moves the view, and it is exactly vanilla's third-person camera on a slow orbit, held only while the local player is standing still in an emote, and released the moment they move or attack — it cannot be used to look around a corner in a fight because using it means not fighting.\n\nWhat would move this to `grey`: a cosmetic that renders through walls or at a distance vanilla culls the model; a trail that persists long enough to track where a player has been; or an emote camera that can be held while moving.\n\nIt is `kind: gameplay` for `hitboxes`' reason: it draws into the world on other players' models, and there is no HUD chip to place.",
   "id": "cosmetics",
   "kind": "gameplay",
   "category": "visual",
@@ -10,7 +10,7 @@
   "on_description": "cosmetics are shown",
   "description": "Capes, wings, hats, halos, trails and emotes, on you and on other VOID players.",
   "settings_title": "Cosmetics settings",
-  "settings_description": "Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored by the launcher against your account; these four switches are only about what this client draws. Off hides every cosmetic, yours included, and stops answering other players' emotes — but your own set is untouched, and other VOID players still see it.",
+  "settings_description": "Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored by the launcher against your account; these settings are only about what this client draws. Off hides every cosmetic, yours included, and stops answering other players' emotes — but your own set is untouched, and other VOID players still see it.",
   "source": "the cosmetic renderer's player-model layer (cape, back, head, face, halo, badge), the trail emitter, and the emote animator",
   "enabled": true,
   "defaults": {
@@ -18,6 +18,7 @@
     "own_first_person": false,
     "glow": true,
     "emote_camera": true,
+    "reactive": "full",
     "emote_key": "B"
   },
   "settings": {
@@ -40,6 +41,16 @@
       "description": "Whether the camera swings to third person and orbits slowly while you emote, so you can see what you are doing. On by default. Off keeps your own view where it is: other players still see the emote, you just do not watch it. The camera never moves while you move — taking a step ends the emote and gives the view straight back.",
       "type": "boolean",
       "default": true
+    },
+    "reactive": {
+      "description": "How much cosmetics react to the fight. `full` by default: your cape whips when you are hit, your wings flare and your trail thickens as a combo builds, your halo brightens a step per hit and pulses on a kill, and everything dims a little when you are low on health — and other VOID players' cosmetics flinch and flare the same way from what your client already sees of their fight (hurt flashes, swings, deaths). `subtle` plays the same reactions at under half the size. `off` keeps cosmetics on their idle motion whatever happens. Purely visual either way: nothing here tells you anything the fight on screen does not.",
+      "type": "string",
+      "enum": [
+        "off",
+        "subtle",
+        "full"
+      ],
+      "default": "full"
     },
     "emote_key": {
       "description": "Hold to open the emote wheel in the world: the mouse picks a slot (look freezes while it is held), 1-8 pick directly, releasing plays. `B` by default — unbound in vanilla 1.8.9 and next to the movement keys, so the player keeps moving while they choose. `NONE` turns the wheel key off; the wheel is still reachable from the menu.",

@@ -196,8 +196,9 @@ moment is still pushed.
 
 **`cosmetics`, a `gameplay` / `visual` / `safe` mod**, on by default, with `others` (other VOID
 players' cosmetics, default on), `own_first_person` (your trail in first person, default off),
-`glow` (emissive bloom, default on) and `emote_camera` (the third-person orbit while you emote,
-default on). It is only what this client draws; what a player wears is account data. Its
+`glow` (emissive bloom, default on), `emote_camera` (the third-person orbit while you emote,
+default on) and `reactive` (`off`/`subtle`/`full`, default `full`: how much cosmetics answer the
+fight — capes whip on a hit, wings flare through a combo, halos pulse on a kill). It is only what this client draws; what a player wears is account data. Its
 `$comment` argues `safe` and names what would make it `grey`.
 
 Followed by: `@void/protocol` regenerated; `VOID_EVENTS`/`VOID_CALLS`, `installVoidShim` and the

@@ -7,7 +7,7 @@
  * module (`mods/art.tsx` states the rule).
  *
  * **What it is a picture of.** Not of an item. What a player *wears* is account data the launcher
- * owns and the wardrobe chooses; these four switches are only about what this client draws, so
+ * owns and the wardrobe chooses; these settings are only about what this client draws, so
  * the diagram holds the wardrobe still — a cape, a halo, a trail, the same set on both figures —
  * and moves only what the switches move:
  *
@@ -15,6 +15,9 @@
  *     their set is not gone, this client just does not draw it.
  *   · `glow` — the halos' bloom, as a dim ring of cells around the bright ones. Off, the same
  *     halo, flat.
+ *   · `reactive` — the fight: both capes kick out at the hem (whipped by a hit) and the halos
+ *     throw a pulse of cells to either side. `subtle` is a shorter kick and a fainter pulse;
+ *     `off` leaves the set standing still.
  *   · `own_first_person` — the frame between the two is your own view. Your trail only reaches
  *     it when this is on; your cape and halo never do, because the game does not draw your model
  *     there either.
@@ -120,6 +123,25 @@ function firstPerson(ownTrail: boolean): Cell[] {
   return out;
 }
 
+/**
+ * `reactive`: the cape's hem whipped outward and a pulse off either side of the halo. Drawn on
+ * every figure that draws its set, because reactions play on other players' cosmetics too.
+ */
+function reaction(x0: number, level: string): Cell[] {
+  if (level === 'off') return [];
+  const full = level !== 'subtle';
+  const out: Cell[] = [];
+  const kick = full ? 2 : 1;
+  for (let y = 15; y <= 18; y++) {
+    const k = Math.min(kick, y - 14);
+    out.push({ x: x0 - k, y, a: ITEM * 0.55 }, { x: x0 + 7 + k, y, a: ITEM * 0.55 });
+  }
+  const a = full ? 0.6 : 0.3;
+  out.push({ x: x0 - 1, y: 1, a }, { x: x0 + 8, y: 1, a });
+  if (full) out.push({ x: x0 - 2, y: 1, a: a * 0.5 }, { x: x0 + 9, y: 1, a: a * 0.5 });
+  return out;
+}
+
 /** The emote camera's orbit: a ring on the floor around you, and the camera on it. */
 function orbit(x0: number): Cell[] {
   const out: Cell[] = [];
@@ -150,6 +172,7 @@ export function CosmeticsPreview({ dense = false, className }: DiagramProps = {}
   const ownFirstPerson = settings.own_first_person === true;
   const glow = settings.glow !== false;
   const emoteCamera = settings.emote_camera !== false;
+  const reactive = typeof settings.reactive === 'string' ? settings.reactive : 'full';
 
   const cells: Cell[] = [
     ...(emoteCamera ? orbit(YOU) : []),
@@ -157,10 +180,12 @@ export function CosmeticsPreview({ dense = false, className }: DiagramProps = {}
     ...cape(YOU),
     ...figure(YOU),
     ...halo(YOU, glow),
+    ...reaction(YOU, reactive),
     ...firstPerson(ownFirstPerson),
     ...(others ? [...trail(OTHER), ...cape(OTHER)] : []),
     ...figure(OTHER),
     ...(others ? halo(OTHER, glow) : []),
+    ...(others ? reaction(OTHER, reactive) : []),
   ];
 
   const edge = dense ? EDGE.tile : EDGE.page;
@@ -198,6 +223,11 @@ export function CosmeticsPreview({ dense = false, className }: DiagramProps = {}
               (ownFirstPerson
                 ? 'Your trail shows in first person. '
                 : 'In first person you see nothing of your own. ') +
+              (reactive === 'off'
+                ? 'Cosmetics keep to their idle motion in a fight. '
+                : reactive === 'subtle'
+                  ? 'Cosmetics answer the fight, quietly. '
+                  : 'Capes whip, wings flare and halos pulse with the fight. ') +
               (emoteCamera
                 ? 'While you emote, the camera circles you.'
                 : 'While you emote, your view stays put.')}

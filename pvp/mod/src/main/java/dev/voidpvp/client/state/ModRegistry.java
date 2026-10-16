@@ -1574,6 +1574,16 @@ public final class ModRegistry {
                 // never moves while you move — taking a step ends the emote and gives the view
                 // straight back.
                 "emote_camera", bool(true),
+                // How much cosmetics react to the fight. `full` by default: your cape whips when
+                // you are hit, your wings flare and your trail thickens as a combo builds, your
+                // halo brightens a step per hit and pulses on a kill, and everything dims a
+                // little when you are low on health — and other VOID players' cosmetics flinch
+                // and flare the same way from what your client already sees of their fight (hurt
+                // flashes, swings, deaths). `subtle` plays the same reactions at under half the
+                // size. `off` keeps cosmetics on their idle motion whatever happens. Purely
+                // visual either way: nothing here tells you anything the fight on screen does
+                // not.
+                "reactive", enumOf("full", "off", "subtle", "full"),
                 // Hold to open the emote wheel in the world: the mouse picks a slot (look freezes
                 // while it is held), 1-8 pick directly, releasing plays. `B` by default — unbound
                 // in vanilla 1.8.9 and next to the movement keys, so the player keeps moving
