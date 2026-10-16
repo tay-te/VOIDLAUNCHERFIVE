@@ -539,16 +539,19 @@ final class TownHouses {
 				dev.voidmc.hearth.build.kit.Chimneys.stack(d, hx, hz, hy + 2, roof, Math.min(roof.ridgeY + 1, d.maxHeight() - 1));
 			}
 		} else if (deck != Integer.MIN_VALUE) {
-			if (deck + 2 >= d.maxHeight()) {
+			// the stack stands two courses over the deck and the fire on it, so its crown's corbels and cap (Chimneys) are
+			// over head height: a fire at head height had its corbels a step up from a planter on the deck, and from them
+			// one climbed the coping onto the roof over a stair head or a mirador
+			if (deck + 3 >= d.maxHeight()) {
 				return null;
 			}
 			Mat stone = d.mat(Role.CHIMNEY);
 			int x = party ? wallX : hx;
 			try (var s = d.stage(StageKind.ROOF)) {
-				for (int y = party ? b.plateY() - 1 : hy + 2; y < deck + 1; y++) {
+				for (int y = party ? b.plateY() - 1 : hy + 2; y < deck + 2; y++) {
 					d.set(x, y, hz, stone.full());
 				}
-				d.set(x, deck + 1, hz, dev.voidmc.hearth.build.draft.States.lit(Blocks.CAMPFIRE, true)
+				d.set(x, deck + 2, hz, dev.voidmc.hearth.build.draft.States.lit(Blocks.CAMPFIRE, true)
 					.trySetValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SIGNAL_FIRE, false));
 			}
 		} else {
