@@ -21,7 +21,8 @@
 #include "/lib/sky/table.glsl"
 #include "/lib/sky/uniforms.glsl"
 #include "/lib/sky/celestial.glsl"
-#include "/lib/sky/luminous.glsl" // atmos (welkin-atmos): the luminous sky
+// atmos (welkin-atmos): the luminous sky
+#include "/lib/sky/luminous.glsl"
 
 // below this elevation (about -2.3 degrees) no sun, moon or star is drawn: the land hides them
 #define SKY_BODY_CUTOFF -0.04
