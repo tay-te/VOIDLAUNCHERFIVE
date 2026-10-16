@@ -266,7 +266,10 @@ public final class FolkBrain {
 				return;
 			}
 		}
-		if (want != this.activity || (want == b.activity() && !b.equals(this.block))) {
+		if (want == Activity.SLEEP && this.activity == Activity.SLEEP && want == b.activity()) {
+			// the night goes on across a new block or a new day's schedule (at midnight): nobody gets up for it
+			this.block = b;
+		} else if (want != this.activity || (want == b.activity() && !b.equals(this.block))) {
 			switchTo(level, want, b);
 		} else if (guard && this.threat != null && this.activity == Activity.WORK && (this.task == null || !this.task.urgent())) {
 			// A guard on watch drops everything for a monster.
