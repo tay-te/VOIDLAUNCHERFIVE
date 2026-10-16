@@ -235,7 +235,7 @@ final class Qasr {
 		r.roof(d, m, man, RoofForm.FLAT, Direction.Axis.X, p.maxTop, 0, List.of());
 		int rad = Math.min(5, Math.min((p.hx1 - p.hx0) / 2, (p.bz - p.bz0) / 2) - 1);
 		Palace.dome(d, m, p.c, (p.bz0 + p.bz) / 2, r.plate() + 2, rad, p.maxTop);
-		Palace.arcade(d, m, man, p.hx0 + 1, p.bz0, p.hx1 - 1, p.bz0, p.y, Dirs.FRONT, p.c);
+		Palace.arcade(d, m, man, false, p.hx0 + 1, p.bz0, p.hx1 - 1, p.bz0, p.y, Dirs.FRONT, p.c);
 		int[] in = r.room(0);
 		Rooms.Room room = Chambers.room(in[0], in[1], in[2], in[3], in[4], new int[]{p.c - 1, in[1]}, new int[]{p.c, in[1]}, new int[]{p.c + 1, in[1]});
 		room.keepArea(p.c - 1, in[1], p.c + 1, in[1] + 1);

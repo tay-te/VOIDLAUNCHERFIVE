@@ -424,7 +424,7 @@ public final class Curtain {
 		// what is drawn wins over the ground under it (a court levelled down below the hillside it was cut from)
 		int g = d.site().ground(x, z);
 		for (int yy = y + 1; yy >= y - 4; yy--) {
-			if (d.isAbsent(x, yy, z) ? yy <= g : !d.isEmpty(x, yy, z)) {
+			if (d.isAbsent(x, yy, z) ? yy < g : !d.isEmpty(x, yy, z)) {
 				return false;
 			}
 		}

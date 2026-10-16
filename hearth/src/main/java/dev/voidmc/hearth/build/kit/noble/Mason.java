@@ -288,7 +288,7 @@ public final class Mason {
 	public static boolean lowOver(Draft d, int x, int y, int z) {
 		int g = d.site().ground(x, z);
 		for (int yy = y - 1; yy >= y - 4; yy--) {
-			boolean solid = d.isAbsent(x, yy, z) ? yy <= g : d.isSolid(x, yy, z);
+			boolean solid = d.isAbsent(x, yy, z) ? yy < g : d.isSolid(x, yy, z);
 			if (solid) {
 				return y - (yy + 1) <= 3;
 			}

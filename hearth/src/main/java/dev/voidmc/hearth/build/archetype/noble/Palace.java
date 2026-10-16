@@ -282,7 +282,7 @@ public final class Palace implements Archetype {
 			dome(d, m, c, (p.hz0 + p.hz1) / 2, r.plate() + 2, rad, p.maxTop);
 		}
 		// arcade before the hall in the south, a veranda on posts in the karst
-		arcade(d, m, man, p.hx0 + 1, p.hz0 - 1, p.hx1 - 1, p.hz0 - 1, y, Dirs.FRONT, c);
+		arcade(d, m, man, false, p.hx0 + 1, p.hz0 - 1, p.hx1 - 1, p.hz0 - 1, y, Dirs.FRONT, c);
 		// inside: the throne on its dais against the back wall, tables down the hall, lanterns, the lord's chapel niche
 		int[] in = r.room(0);
 		Rooms.Room room = Chambers.room(in[0], in[1], in[2], in[3], in[4], new int[]{c - 1, in[1]}, new int[]{c, in[1]}, new int[]{c + 1, in[1]});
@@ -323,6 +323,14 @@ public final class Palace implements Archetype {
 	 * in the karst timber posts under a lean-to of the roof covering. Leaves the cell {@code door} (on the run) open.
 	 */
 	static void arcade(Draft d, Dress m, Manner man, int x0, int z0, int x1, int z1, int y, Direction out, int... doors) {
+		arcade(d, m, man, true, x0, z0, x1, z1, y, out, doors);
+	}
+
+	/**
+	 * {@link #arcade}; {@code terrace} false where no door opens onto its roof (before a hall one storey high): then no
+	 * balustrade, the roof a plain one nobody is meant on.
+	 */
+	static void arcade(Draft d, Dress m, Manner man, boolean terrace, int x0, int z0, int x1, int z1, int y, Direction out, int... doors) {
 		boolean karst = man.culture() == Culture.KARST;
 		Direction along = x0 == x1 ? Dirs.BACK : Dirs.RIGHT;
 		int n = Math.abs(x1 - x0) + Math.abs(z1 - z0) + 1;
@@ -365,6 +373,9 @@ public final class Palace implements Archetype {
 		}
 		// a balustrade along the roof's outer edge, and across its ends where they stand free: the arcade's roof is a
 		// terrace before the upper rooms' windows, not a ledge to fall from
+		if (!terrace) {
+			return;
+		}
 		Paint rail = karst ? m.frame.fence() : m.dress.has(Form.WALL) ? m.dress.wall() : m.frame.fence();
 		try (var s = d.stage(StageKind.ROOF)) {
 			for (int k = 0; k < placed.size(); k++) {
@@ -430,7 +441,9 @@ public final class Palace implements Archetype {
 		Rooms.Room back = Chambers.room(g[0], mid + 1, g[2], g[3], g[4], new int[]{doorIn, dz2}, new int[]{left ? g[0] + 1 : g[2] - 1, mid + 1});
 		back.keepArea(Math.min(fx, land) - 1, fz, Math.max(fx, land) + 1, fz);
 		front.keep(hearth[0], g[1]);
-		Rooms.Room upFront = Chambers.room(u[0], u[1], u[2], mid - 1, u[4], new int[]{left ? u[0] + 1 : u[2] - 1, mid - 1});
+		// (a cell kept clear by the court wall over the ground door, so a bed against that wall keeps a side to get in)
+		Rooms.Room upFront = Chambers.room(u[0], u[1], u[2], mid - 1, u[4], new int[]{left ? u[0] + 1 : u[2] - 1, mid - 1},
+			new int[]{left ? u[2] : u[0], dz1});
 		Rooms.Room upBack = Chambers.room(u[0], mid + 1, u[2], u[3], u[4], new int[]{left ? u[0] + 1 : u[2] - 1, mid + 1}, new int[]{land, fz - 1});
 		upBack.keepArea(Math.min(fx, land) - 1, fz, Math.max(fx, land) + 1, fz);
 		upBack.keepArea(land, fz - 1, left ? u[0] + 1 : u[2] - 1, fz - 1);
