@@ -56,7 +56,7 @@ float shaftGate(vec3 sunW) {
 
 // ---- the resolve and the light, for composite2 (define WELKIN_SHAFTS_READ and include lib/air.glsl first)
 // atmos: the 3D shafts' gain and cap (shaftLight)
-#define SHAFT_GAIN 1.7
+#define SHAFT_GAIN 2.0
 #define SHAFT_CAP 0.40
 
 #ifdef WELKIN_SHAFTS_READ
@@ -100,7 +100,10 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, f
 	vec3 sunSide = skyHazeHorizon(kind, true);
 	float level = max(dot(sunSide, vec3(0.2126, 0.7152, 0.0722)), 0.3);
 	float gate = shaftGate(sunW) * f.clear * f.day * mix(0.75, 1.0, f.warm);
-	float x = float(SHAFT_STRENGTH) * 0.01 * SHAFT_GAIN * lobe * gate * lit * thick * (sky ? 0.2 : 1.0);
+	// (the term to the 1.25th power: a ray half in shadow keeps less than half, so the beams stand clearer against the
+	// shadows between them, and the short rays down to the near ground lift its darks less)
+	float x = float(SHAFT_STRENGTH) * 0.01 * SHAFT_GAIN * lobe * gate * pow(max(lit, 0.0), 1.25) * thick
+		* (sky ? 0.2 : 1.0);
 	// a soft cap: never more than SHAFT_CAP of the sun-side level, however long the sunlit air
 	return hue * level * (SHAFT_CAP * (1.0 - exp(-x / SHAFT_CAP)));
 }

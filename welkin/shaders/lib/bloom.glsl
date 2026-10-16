@@ -7,8 +7,8 @@
 // white does not take the sun's headroom and smear into a coloured cloud), keeps only the share past a soft threshold
 // (bloomSource), and spreads it:
 //
-//   composite3  half resolution: each texel the 2x2 pixels under it, their bright shares averaged with the weights
-//               1 / (1 + brightness) (one blazing pixel cannot flicker into a blotch) -> colortex14 (mipmapped)
+//   composite3  half resolution: each texel the 2x2 pixels under it, their bright shares averaged with the soft
+//               weights 1 / (1 + 0.15 brightness) (one blazing pixel cannot flicker into a blotch) -> colortex14 (mipmapped)
 //   composite4  half resolution: six of colortex14's mip levels, each through a 3x3 tent at its own texel size, summed
 //               with weights that add to 1 (energy-conserving: the halo spreads the bright light, never makes more of
 //               it): a tight core from the fine levels, a wide soft halo from the coarse ones -> colortex9
@@ -34,7 +34,7 @@
 #define BLOOM_SCATTER 0.5
 // the open sky's share of the source: a bright sky is a broad source, and wholly it washed the land under a grey-gold
 // veil whenever the sun stood in the view; the sun and its glow still bloom, the clouds wholly
-#define BLOOM_SKY 0.35
+#define BLOOM_SKY 0.2
 
 float bloomLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));

@@ -3,7 +3,7 @@
 //
 //   colortex14  the bloom's bright source (lib/bloom.glsl): each texel the 2x2 full-resolution pixels under it, the
 //               bright share of each (their headroom given back, a glowing texel its own light, a soft threshold),
-//               averaged with the weights 1 / (1 + brightness) so a single blazing pixel cannot flicker into a blotch.
+//               averaged with the soft weights 1 / (1 + 0.15 brightness) so a single blazing pixel cannot flicker into a blotch.
 //               Mipmapped for composite4's gather. Every dimension, with BLOOM.
 //   colortex12  the sun beams (SHAFT_BEAMS, lib/shafts.glsl), overworld: while the sun stands in or near the view,
 //               each texel walks toward the sun's place on the screen and gathers how much of the way the open sky
@@ -167,7 +167,9 @@ void main() {
 			vec3 b = bloomSource(c, emit);
 			// (the open sky only in part: lib/bloom.glsl BLOOM_SKY)
 			b *= openSkyAt(p) ? BLOOM_SKY : 1.0;
-			float w = 1.0 / (1.0 + bloomLuma(b));
+			// (a soft brightness weight: the full 1 / (1 + brightness) also swallowed a lamp's few bright pixels, so the
+			// lamps barely glowed; this one still keeps a lone glint from flickering into a blotch)
+			float w = 1.0 / (1.0 + 0.15 * bloomLuma(b));
 			sum += b * w;
 			wsum += w;
 		}
