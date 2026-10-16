@@ -170,6 +170,10 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	// light up one by one into bright edges and dark facets of glass)
 	float facing = sunFacing(mix(dot(top ? N : faceN, L), mix(dot(faceN, L), dot(N, L), 0.7), fall));
 	vec3 sunShare = w.sunShare * wsSeasonSun(sea);
+	// (review round 1) clear water scatters little of a low sun back: most of it glances off the surface or goes down
+	// to the bed. Lit as a diffuse face, the open water under a dawn sun behind the eye took the bank's long shadows as
+	// dark bars across the lake; a fall's sheet and its foam keep the full light, and the glitter its own
+	float bodySun = mix(0.3, 1.0, smoothstep(0.02, 0.35, L.y));
 
 	// opacity from the water the view crosses; rain stirs it up
 	float a = w.far ? WS_ALPHA_FAR : WS_ALPHA_MAX;
@@ -204,7 +208,8 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	a = mix(a, 0.8, spray);
 	albedo = mix(albedo, vec3(0.86, 0.91, 0.93), foam);
 	a = mix(a, 0.95, foam);
-	vec3 body = welkinLightCore(albedo, faceN, w.lm, 0.0, sunShare, wsSeasonAmbient(sea), w.reach, facing);
+	vec3 body = welkinLightCore(albedo, faceN, w.lm, 0.0, sunShare * mix(bodySun, 1.0, max(fall, foam)), wsSeasonAmbient(sea),
+		w.reach, facing);
 	// (the defects pass) clear water mostly takes light away rather than throwing it back: the body's own light is a
 	// share of the lit tint, least in the shallows (they showed the bed through a milky veil at 08:00 and noon), and
 	// whole again on a fall and its foam

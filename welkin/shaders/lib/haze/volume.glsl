@@ -240,7 +240,7 @@ vec3 hvColour(vec3 air, float fsun, float mu, SkyLum f) {
 vec3 hvComposite(vec3 color, vec3 raw, HzState st, vec3 dir, vec3 sunW, vec3 air, bool sky, float mist, SkyLum f) {
 #ifdef HAZE_VOLUME
 	float dens = hvDensityMul(st, mist, sunW);
-	float a = (1.0 - exp(-HV_SIGMA * dens * raw.b)) * (sky ? 0.30 : 1.0);
+	float a = (1.0 - exp(-HV_SIGMA * dens * raw.b)) * (sky ? 0.16 : 1.0);
 	if (a <= 0.0) {
 		return color;
 	}

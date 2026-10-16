@@ -334,7 +334,8 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 
 	// the main deck: puffs against the cover, and always under a storm
 	if (doMain) {
-		float n = wcPuffs(m, s, 384, 128, 48, e.seed + 31u);
+		// (review round 1: 480 and 160, were 384 and 128: fewer, larger clouds)
+		float n = wcPuffs(m, s, 480, 160, 48, e.seed + 31u);
 		if (lv <= 1) {
 			n += (wcU01(ch) - 0.5) * 0.08; // a ragged cell here and there at the edges
 		}

@@ -171,9 +171,9 @@ flat in vec3 beamLight;
 
 // the walk: steps, how far toward the sun it reaches (screen heights), how fast a step's weight fades from the texel,
 // how wide the glow round the sun the beams carry is (screen heights)
-#define BEAM_STEPS 24
+#define BEAM_STEPS 18 // (review round 1: 18, was 24, the decay per step matched; final gathers the noise away)
 #define BEAM_REACH 0.8
-#define BEAM_DECAY 0.955
+#define BEAM_DECAY 0.940
 #define BEAM_GLOW 0.18
 // how strong the beams are (of the sun-side horizon's light), and on the sky itself (the dome already glows there)
 #define BEAM_GAIN 0.9

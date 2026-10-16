@@ -127,7 +127,7 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// all round the horizon while the sun is low
 	float band = exp(-hp / 0.36) * (1.0 - 0.45 * smoothstep(0.0, 0.12, -d.y));
 	// (review round 1: less grey in it, so the band keeps the sky's colour instead of a near white strip)
-	vec3 pale = mix(L, vec3(y), 0.28) * 1.6;
+	vec3 pale = mix(L, vec3(y), 0.28) * 1.45;
 	vec3 coolPale = pale * vec3(0.98, 1.0, 1.03);
 	float warm = f.warm * f.up * mix(0.45, 1.0, side * side);
 	vec3 bandC = mix(coolPale, f.gold * skyLumLuma(pale), clamp(0.80 * warm, 0.0, 1.0));

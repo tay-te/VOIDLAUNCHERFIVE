@@ -30,14 +30,18 @@ uniform sampler2D colortex14;
 /* RENDERTARGETS: 9 */
 layout(location = 0) out vec4 outGlow;
 
+// (review round 1: the 3x3 tent as four bilinear taps half a texel off each way, the same 1 2 1 weights per axis:
+// 24 fetches instead of 54)
 vec3 tentAt(vec2 uv, float lod) {
-	vec2 px = 1.0 / vec2(textureSize(colortex14, int(lod)));
-	vec3 c = textureLod(colortex14, uv, lod).rgb * 4.0;
-	c += (textureLod(colortex14, uv + vec2(px.x, 0.0), lod).rgb + textureLod(colortex14, uv - vec2(px.x, 0.0), lod).rgb
-		+ textureLod(colortex14, uv + vec2(0.0, px.y), lod).rgb + textureLod(colortex14, uv - vec2(0.0, px.y), lod).rgb) * 2.0;
-	c += textureLod(colortex14, uv + px, lod).rgb + textureLod(colortex14, uv - px, lod).rgb
-		+ textureLod(colortex14, uv + vec2(px.x, -px.y), lod).rgb + textureLod(colortex14, uv + vec2(-px.x, px.y), lod).rgb;
-	return c / 16.0;
+	vec2 h = 0.5 / vec2(textureSize(colortex14, int(lod)));
+	return 0.25 * (textureLod(colortex14, uv + vec2(-h.x, -h.y), lod).rgb + textureLod(colortex14, uv + vec2(h.x, -h.y), lod).rgb
+		+ textureLod(colortex14, uv + vec2(-h.x, h.y), lod).rgb + textureLod(colortex14, uv + vec2(h.x, h.y), lod).rgb);
+}
+
+// (review round 1) the widest levels a little less saturated: a saturated light's broad halo (the amber realm's
+// crystals) spread as a red fringe round it; the core keeps the light's own colour
+vec3 wideTint(vec3 c, float k) {
+	return mix(c, vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), k);
 }
 
 void main() {
@@ -45,12 +49,13 @@ void main() {
 #ifdef BLOOM
 	vec2 uv = gl_FragCoord.xy / vec2(textureSize(colortex14, 0));
 	// the core (levels 1, 2) and the halo (3 .. 6); the weights sum to 1
-	g += tentAt(uv, 1.0) * 0.14;
-	g += tentAt(uv, 2.0) * 0.18;
-	g += tentAt(uv, 3.0) * 0.22;
-	g += tentAt(uv, 4.0) * 0.22;
-	g += tentAt(uv, 5.0) * 0.14;
-	g += tentAt(uv, 6.0) * 0.10;
+	// (review round 1: a little more in the core and less in the widest level, a tighter halo)
+	g += tentAt(uv, 1.0) * 0.16;
+	g += tentAt(uv, 2.0) * 0.20;
+	g += tentAt(uv, 3.0) * 0.23;
+	g += tentAt(uv, 4.0) * 0.21;
+	g += wideTint(tentAt(uv, 5.0), 0.25) * 0.12;
+	g += wideTint(tentAt(uv, 6.0), 0.4) * 0.08;
 	// alpha: the frame's mean bright share (the 1x1 level), its luminance, for final's flat veil (lib/bloom.glsl
 	// bloomApply; the merge of phase 2)
 	ivec2 size = textureSize(colortex14, 0);
