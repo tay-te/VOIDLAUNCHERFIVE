@@ -93,6 +93,7 @@ export function settingLabel(key: string): string {
     history_length: 'History',
     show_host: 'Show server',
     show_peak: 'Show peak',
+    reactive: 'Fight reactions',
   };
   if (overrides[key]) return overrides[key]!;
   const words = key.replace(/_/g, ' ');
@@ -128,6 +129,7 @@ export const SETTING_SUBTITLES: Record<string, string> = {
   click_to_copy: 'In open chat, without colour codes',
   background_opacity: 'The band behind the lines · 50% is vanilla',
   history_length: 'Messages kept to scroll back · vanilla keeps 100',
+  reactive: 'Capes whip, wings flare, halos pulse with the fight',
 };
 
 /** The value printed to the right of a slider. */
