@@ -285,7 +285,9 @@ void main() {
 			vec3 vol = wdVolResolve(p, s.sky ? 1e4 : length(eyePos));
 			float dens = mix(0.65, 1.45, clamp(st.haze.x, 0.0, 1.0)) * (1.0 + 1.6 * st.rain);
 #ifdef WELKIN_VALLEY_MIST
-			dens *= 1.0 + 0.6 * mistCam.y * mistCam.z;
+			// (where Gloam's valley mist already lies the haze yields to it: both together closed a misty valley's
+			// distance into a white veil)
+			dens *= 1.0 - 0.5 * clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
 #endif
 			dens *= (WD_ALL == 1 ? 0.4 : 1.0) * smoothstep(-0.08, 0.04, sunW.y);
 			float a = 1.0 - exp(-WD_HAZE_SIGMA * dens * vol.b);
