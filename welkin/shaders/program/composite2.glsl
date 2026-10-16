@@ -283,7 +283,7 @@ void main() {
 		{
 			vec3 dA = normalize(eyePos);
 			dA = dA.y < 0.0 ? normalize(vec3(dA.x, 0.0, dA.z) + vec3(1e-5, 0.0, 0.0)) : dA;
-			air = skyLuminous(air, dA, lum, 0.6);
+			air = skyLuminous(air, dA, lum, 0.8);
 		}
 		// ---- air and tone (D): the haze's forward scatter toward the sun (lib/air.glsl)
 		vec3 airPlain = air;

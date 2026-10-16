@@ -121,16 +121,18 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// the luminous band: broad and soft, its own hue paler and brighter; cool away from the sun, on the sun's side
 	// warming toward the sun's hue as it sinks (its brightness kept: only the hue moves), and a touch of that warmth
 	// all round the horizon while the sun is low
-	float band = exp(-hp / 0.30) * (1.0 - 0.45 * smoothstep(0.0, 0.12, -d.y));
-	vec3 pale = mix(L, vec3(y), 0.42) * 1.55;
+	float band = exp(-hp / 0.36) * (1.0 - 0.45 * smoothstep(0.0, 0.12, -d.y));
+	vec3 pale = mix(L, vec3(y), 0.42) * 1.72;
 	vec3 coolPale = pale * vec3(0.98, 1.0, 1.03);
-	float warm = f.warm * f.up * mix(0.25, 1.0, side * side);
+	float warm = f.warm * f.up * mix(0.45, 1.0, side * side);
 	vec3 bandC = mix(coolPale, f.gold * skyLumLuma(pale), clamp(0.80 * warm, 0.0, 1.0));
 	L = mix(L, bandC, clamp(band * 0.85 * k, 0.0, 1.0));
 	y = skyLumLuma(L);
 
+	// the golden hours warm the whole dome a little (its brightness kept), the zenith least
+	L = mix(L, f.gold * y, clamp(0.20 * f.warm * f.up * (1.0 - 0.5 * zen) * min(k, 1.0), 0.0, 1.0));
 	// the glow round the sun: mixed toward the sun's hue at a brighter level (amber at a low sun, never white)
-	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.55);
+	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.45);
 	float glow = (0.22 + 0.55 * f.low) * f.up;
 	vec3 target = f.gold * max(y, 0.10) * (1.2 + 1.2 * lobe);
 	L = mix(L, target, clamp(lobe * glow * k, 0.0, 0.92));
