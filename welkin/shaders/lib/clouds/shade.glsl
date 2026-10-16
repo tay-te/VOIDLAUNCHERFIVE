@@ -194,7 +194,8 @@ float wcLightPath(CloudBody b, vec3 l, CloudEnv e) {
 	float own = max(b.top - b.y, 0.0) / max(l.y, 0.035);
 	// (a belly's light also crosses the cloud's breadth on its way down to it: deeper inside a broad cloud, more of it;
 	// so a wide, thin deck's belly darkens toward its heart instead of hanging overhead as one white sheet)
-	own += b.hIn < 0.02 ? 14.0 * b.depth : 0.0;
+	// (review round 1: 9, was 14: the belly's heart a softer shade, not grey blotches inside a white cloud)
+	own += b.hIn < 0.02 ? 9.0 * b.depth : 0.0;
 #ifdef WC_FIELD
 	float hl = length(l.xz);
 	if (b.field && hl > 0.03) {
@@ -241,8 +242,10 @@ vec3 wcBodyLight(CloudBody b, vec3 n, float sigma, vec3 rd, vec3 l, vec3 col, Cl
 	float under = (n.y < -0.5 ? 1.0 - 0.7 * dk : 1.0) * (1.0 - 0.35 * dk);
 	float ms = exp(-tau) * (p1 - fwd) + (0.6 * exp(-0.3 * tau) * mix(1.0, p1, 0.3) + 0.45 * exp(-0.1 * tau)) * under;
 	// (a top's dome takes the light most squarely at its heart, its rims at a grazing angle: domes read from above)
+	// (review round 1: a side bright at its brow and darker toward its foot, so a cloud's sides read as a rounded,
+	// lit volume from below, not a flat band)
 	float face = n.y > 0.5 ? mix(0.72, 1.0, smoothstep(0.0, 0.7, b.depth))
-		: (n.y < -0.5 ? 1.0 : 0.8 + 0.25 * dot(n.xz, l.xz) / max(length(l.xz), 1e-3));
+		: (n.y < -0.5 ? 1.0 : (0.8 + 0.25 * dot(n.xz, l.xz) / max(length(l.xz), 1e-3)) * mix(0.84, 1.1, b.hIn));
 	// the forward lobe's single scattering apart: the silver lining, laid on past the shoulder (wcCloudLight), so a
 	// thin rim toward the sun may blaze past white and the bloom takes it
 	glint = col * (exp(-tau) * fwd * face * WC_DIRECT);
@@ -282,7 +285,8 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// less of it gets in
 	// (a top's hollows, its thin rims and the lower tiers between taller ones see a little less of it than its domes)
 	float view = n.y > 0.5 ? mix(0.5, 0.92, smoothstep(0.0, 0.8, b.depth)) : (n.y < -0.5 ? 0.62 : mix(0.68, 0.92, b.hIn));
-	float occl = 1.0 - 0.42 * b.depth * lower * mix(0.6, 1.0, tall);
+	// (review round 1: 0.3, was 0.42, the same: fewer dark blotches in a belly)
+	float occl = 1.0 - 0.3 * b.depth * lower * mix(0.6, 1.0, tall);
 	// (at night less of it: the land's night fill is lifted for play, and a cloud as bright read as a patch of day sky)
 	vec3 amb = skyAmbientLight() * (view * occl * mix(1.0, 0.55, night));
 	// round sunset the shaded parts take the dusk sky's own hue, warm toward the sun and lilac away from it
