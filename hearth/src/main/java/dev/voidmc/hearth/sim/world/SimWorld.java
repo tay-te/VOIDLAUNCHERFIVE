@@ -304,6 +304,33 @@ public final class SimWorld implements HearthWorld, SimContext {
 		return this.spatial.isPlanned(x, z) || this.atlas.isPlanned(x, z);
 	}
 
+	/**
+	 * As {@link #isPlanned}, for the server thread: it never works out a region's history here (that takes most of a
+	 * second), so a column in a region not yet planned counts as planned until the atlas worker has done it.
+	 */
+	public boolean isPlannedNow(int x, int z) {
+		if (this.spatial.isPlanned(x, z)) {
+			return true;
+		}
+		if (!this.atlas.enabled()) {
+			return false;
+		}
+		int rx = Atlas.region(x);
+		int rz = Atlas.region(z);
+		RegionPlan plan = this.atlas.planIfReady(rx, rz);
+		if (plan == null) {
+			long key = Atlas.regionKey(rx, rz);
+			if (this.planning.add(key)) {
+				this.atlas.planAsync(rx, rz).whenComplete((p, t) -> this.level.getServer().execute(() -> this.planning.remove(key)));
+			}
+			return true;
+		}
+		return plan.isPlanned(x, z);
+	}
+
+	/** Regions whose plan was asked of the atlas worker from the server thread and is not back yet. */
+	private final LongSet planning = new LongOpenHashSet();
+
 	// ---------------------------------------------------------------- SimContext
 
 	@Override
@@ -415,6 +442,14 @@ public final class SimWorld implements HearthWorld, SimContext {
 	private void saveNow(SimSettlement s) {
 		this.store.save(s, this.ops);
 		this.index.put(entry(s));
+	}
+
+	/** A loaded chunk became reachable from the server thread: write what is owed to it. */
+	public void onChunkReachable(LevelChunk chunk) {
+		long key = chunk.getPos().pack();
+		if (this.spatial.hasPlots(key)) {
+			this.applier.enqueue(key);
+		}
 	}
 
 	/** A chunk finished loading: write what is owed to it, and adopt the history it belongs to. */
@@ -954,10 +989,20 @@ public final class SimWorld implements HearthWorld, SimContext {
 
 	/** Caravans that are due, and trees owed to the world felled in loaded woods (from the server tick). */
 	public void tickLand(long fellBudgetNanos) {
+		tickCaravans();
+		tickFelling(fellBudgetNanos);
+	}
+
+	/** Caravans that are due (and, once a session, the old reputation numbers handed to the standing module). */
+	public void tickCaravans() {
 		if (!this.reputationHanded) {
 			handReputationOver();
 		}
 		this.caravans.tick(clock());
+	}
+
+	/** Trees owed to the world felled in loaded woods, under the budget. */
+	public void tickFelling(long fellBudgetNanos) {
 		this.woodcutter.tick(fellBudgetNanos);
 	}
 

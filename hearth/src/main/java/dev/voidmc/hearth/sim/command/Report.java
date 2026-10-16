@@ -50,6 +50,8 @@ public final class Report {
 		var ap = w.applier();
 		out.add(String.format(Locale.ROOT, "applier: %d chunks, %d blocks, %d cleared for rebuilds, %d refused (built over), %.1f ms total, %.1f ms max in a tick, %d queued",
 			ap.chunksApplied.sum(), ap.blocksPlaced.sum(), ap.blocksCleared.sum(), ap.conflicts.sum(), ap.nanos.sum() / 1e6, ap.maxTickNanos.get() / 1e6, ap.pending()));
+		out.add("slowest parts of a tick: " + server.slowestParts());
+		out.add("applier: slowest chunk pass " + ap.slowest + "; " + ap.failures.sum() + " passes failed, " + ap.deferred.sum() + " waited for blueprints");
 		long adoptions = st.adoptions.sum();
 		out.add(String.format(Locale.ROOT, "adoption: %d, %.2f ms avg; saves: %d settlements written, %.1f ms on the server thread", adoptions,
 			ms(st.adoptNanos.sum(), adoptions), st.saved.sum(), st.saveNanos.sum() / 1e6));

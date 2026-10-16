@@ -124,6 +124,16 @@ public final class SimModule {
 				w.onChunkLoad(chunk);
 			}
 		});
+		ServerChunkEvents.FULL_CHUNK_STATUS_CHANGE.register((level, chunk, from, to) -> {
+			// a chunk becomes reachable (getChunkNow) only after its load event: one the applier looked for too early, or
+			// a border chunk promoted later, is queued again now
+			if (to.isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL) && !from.isOrAfter(net.minecraft.server.level.FullChunkStatus.FULL)) {
+				SimWorld w = SimServer.world(level);
+				if (w != null) {
+					w.onChunkReachable(chunk);
+				}
+			}
+		});
 		ServerLifecycleEvents.BEFORE_SAVE.register((server, flush, force) -> {
 			SimServer s = SimServer.current();
 			if (s != null) {

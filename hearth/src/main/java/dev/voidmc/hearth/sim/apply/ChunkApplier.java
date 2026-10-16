@@ -74,8 +74,14 @@ public final class ChunkApplier {
 	/** Chunks waiting for blueprints being made in the background; queued again every {@link #WAIT_TICKS} ticks. */
 	private final LongLinkedOpenHashSet waiting = new LongLinkedOpenHashSet();
 	private static final int WAIT_TICKS = 10;
+	/** How often a queued chunk that is not there is looked for again (every {@link #WAIT_TICKS} ticks). */
+	private static final int MISSING_TRIES = 6;
+	private final it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap missing = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
 	private final java.util.function.BooleanSupplier defer;
 	private int ticks;
+	/** The slowest single chunk pass so far, described. */
+	public String slowest = "none";
+	private long slowestNanos;
 	/** Chunk passes that threw (and were skipped). */
 	public final LongAdder failures = new LongAdder();
 	/** Chunk passes put off because a blueprint they needed was still being made. */
@@ -154,12 +160,28 @@ public final class ChunkApplier {
 			long key = this.queue.removeFirstLong();
 			LevelChunk chunk = this.level.getChunkSource().getChunkNow(ChunkPos.getX(key), ChunkPos.getZ(key));
 			if (chunk == null) {
-				// it will be queued again when it loads
+				// not reachable yet (a chunk's load event comes before getChunkNow finds it) or unloaded: looked for again a
+				// few times, and queued again when it loads or becomes reachable
+				int tries = this.missing.addTo(key, 1);
+				if (tries < MISSING_TRIES) {
+					this.waiting.add(key);
+				} else {
+					this.missing.remove(key);
+				}
 				continue;
 			}
+			this.missing.remove(key);
 			int done;
+			long passStart = System.nanoTime();
 			try {
 				done = applyChunk(chunk, key, start, budgetNanos, maxBlocks - blocks);
+				long pass = System.nanoTime() - passStart;
+				if (pass > this.slowestNanos) {
+					// (one chunk pass cannot be cut short inside a stage: this says which chunk and how much, for /hearth sim stats)
+					this.slowestNanos = pass;
+					this.slowest = String.format(java.util.Locale.ROOT, "chunk %d,%d: %.1f ms, %d plots, %d blocks", ChunkPos.getX(key), ChunkPos.getZ(key),
+						pass / 1e6, this.index.refs(key).size(), Math.abs(done));
+				}
 			} catch (RuntimeException e) {
 				// a blueprint or block entity that will not write: this chunk waits for its next load or the plot's next
 				// progress, the rest of the queue goes on (blocks written before the failure are found in place next time)

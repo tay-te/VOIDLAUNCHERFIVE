@@ -5,7 +5,7 @@
 	"name": "VOID Hearth tour",
 	"environment": "*",
 	"entrypoints": {
-		"fabric-client-gametest": ["dev.voidmc.hearth.gametest.IntegrationTour", "dev.voidmc.hearth.gametest.npc.FolkPortraits", "dev.voidmc.hearth.gametest.render.LightTour", "dev.voidmc.hearth.gametest.homestead.HomesTour", "dev.voidmc.hearth.gametest.LivingRun", "dev.voidmc.hearth.gametest.LiveTown", "dev.voidmc.hearth.gametest.BuilderTour", "dev.voidmc.hearth.gametest.walk.WalkthroughTour"]
+		"fabric-client-gametest": ["dev.voidmc.hearth.gametest.IntegrationTour", "dev.voidmc.hearth.gametest.npc.FolkPortraits", "dev.voidmc.hearth.gametest.render.LightTour", "dev.voidmc.hearth.gametest.homestead.HomesTour", "dev.voidmc.hearth.gametest.LivingRun", "dev.voidmc.hearth.gametest.LiveTown", "dev.voidmc.hearth.gametest.BuilderTour", "dev.voidmc.hearth.gametest.walk.WalkthroughTour", "dev.voidmc.hearth.gametest.PersistTour"]
 	},
 	"depends": {"hearth": "*"}
 }

@@ -232,6 +232,7 @@ public final class SimServer {
 				continue;
 			}
 			long dt = System.nanoTime() - t0;
+			this.slowest.merge("a settlement's step", dt, Math::max);
 			if (simulated >= SimRules.DAY / 4) {
 				double measured = dt / (simulated / (double) SimRules.DAY);
 				this.nanosPerDay.put(d.settlement, perDay * 0.7 + measured * 0.3);
@@ -252,10 +253,13 @@ public final class SimServer {
 			// sites for daughter hamlets, a few candidates a tick
 			guard(w, "looking for hamlet sites", () -> w.tickHamlets(HAMLET_BUDGET));
 			// caravans arriving, and trees owed by abstract foresters felled in loaded woods
-			guard(w, "caravans and felling", () -> w.tickLand((long) (this.rules.resources.extraction().fellBudgetMs() * 1e6)));
+			guard(w, "caravans", w::tickCaravans);
+			guard(w, "felling", () -> w.tickFelling((long) (this.rules.resources.extraction().fellBudgetMs() * 1e6)));
 		}
 		if (this.ticks % 20 == 0) {
+			long p0 = System.nanoTime();
 			presence();
+			this.slowest.merge("presence", System.nanoTime() - p0, Math::max);
 		}
 		// autosaves are written a slice at a time
 		long saveStart = System.nanoTime();
@@ -264,6 +268,7 @@ public final class SimServer {
 			saved += w.saveSome(SAVE_BUDGET);
 		}
 		if (saved > 0) {
+			this.slowest.merge("autosave slice", System.nanoTime() - saveStart, Math::max);
 			this.stats.saved.add(saved);
 			this.stats.saveNanos.add(System.nanoTime() - saveStart);
 		}
@@ -282,6 +287,18 @@ public final class SimServer {
 	}
 
 	private final Map<UUID, Presence> presence = new java.util.HashMap<>();
+	/** The longest each part of the tick has taken (ns), for {@code /hearth sim stats}. */
+	private final Map<String, Long> slowest = new java.util.TreeMap<>();
+
+	/** The slowest parts of the tick so far, longest first: "caravans and felling 3.1 ms, ...". */
+	public String slowestParts() {
+		StringBuilder b = new StringBuilder();
+		this.slowest.entrySet().stream().filter(e -> !e.getKey().startsWith("embodying") && !e.getKey().startsWith("letting"))
+			.sorted(Map.Entry.<String, Long>comparingByValue().reversed()).limit(6)
+			.forEach(e -> b.append(b.isEmpty() ? "" : ", ").append(e.getKey()).append(String.format(java.util.Locale.ROOT, " %.1f ms", e.getValue() / 1e6)));
+		return b.toString();
+	}
+
 	/** Failures so far of each part of the tick in each world, so a part failing every tick logs once, then now and then. */
 	private final Map<String, Integer> failures = new java.util.HashMap<>();
 
@@ -363,8 +380,10 @@ public final class SimServer {
 	 * not take the server down. The first failure of each part is logged with its trace, later ones now and then.
 	 */
 	void guard(SimWorld w, String what, Runnable part) {
+		long t0 = System.nanoTime();
 		try {
 			part.run();
+			this.slowest.merge(what, System.nanoTime() - t0, Math::max);
 		} catch (RuntimeException | LinkageError e) {
 			String key = w.level().dimension().identifier() + " " + what;
 			int n = this.failures.merge(key, 1, Integer::sum);
