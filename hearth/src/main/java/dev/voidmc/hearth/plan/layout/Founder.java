@@ -37,6 +37,9 @@ import org.jspecify.annotations.Nullable;
  * planned (the builders' yard, the first homes, a field) and handed back in build order.
  */
 public final class Founder {
+	/** Half the side of a farmsteads village's green (a square of 17). */
+	static final int GREEN_HALF = 8;
+
 	private Founder() {
 	}
 
@@ -68,8 +71,9 @@ public final class Founder {
 		state.heartX = hx;
 		state.heartZ = hz;
 		state.heartY = g.surface(hx, hz);
-		// the square stays on dry land: smaller where the water comes close
-		int half = state.layout.plazaHalf;
+		// the square stays on dry land: smaller where the water comes close. A farmsteads village keeps a broad green at
+		// its heart (the náves, ART_REVIEW_2 item 24), round which the village gathers and the town's square later grows
+		int half = state.layout == LayoutType.FARMSTEADS ? GREEN_HALF : state.layout.plazaHalf;
 		while (half > 3 && wet(g, hx, hz, half)) {
 			half--;
 		}
@@ -279,8 +283,10 @@ public final class Founder {
 				}
 			}
 			case FARMSTEADS -> {
-				arm(ctx, heart, base, 70, 3, RoadKind.LANE, RoadEdge.Role.ARM, 20);
-				arm(ctx, heart, base + Math.PI, 70, 3, RoadKind.LANE, RoadEdge.Role.ARM, 20);
+				// the village street through the green, either way: a street, not a lane, since the village that gathers on it
+				// becomes a town with its market on it (ART_REVIEW_2 items 1, 16)
+				arm(ctx, heart, base, 110, 5, RoadKind.STREET, RoadEdge.Role.ARM, 24);
+				arm(ctx, heart, base + Math.PI, 110, 5, RoadKind.STREET, RoadEdge.Role.ARM, 24);
 				int tracks = 3 + ctx.random.nextInt(3);
 				for (int i = 0; i < tracks; i++) {
 					double ang = base + Math.PI / 4 + i * 2 * Math.PI / tracks + (ctx.random.nextDouble() - 0.5) * 0.6;

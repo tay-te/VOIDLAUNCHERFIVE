@@ -430,13 +430,18 @@ public final class Growth {
 		if ((ctx.state.signature.stacks || ctx.state.layout == LayoutType.CLIFF) && tier.ordinal() >= SettlementTier.HAMLET.ordinal()) {
 			list.add(new Need("stack", 120, Stacks::plan));
 		}
+		// a town lights its streets (ART_REVIEW_2 item 19)
+		if (Beauty.lampsWanted(ctx, needs)) {
+			list.add(new Need("lights", 95, Beauty::lights));
+		}
 		// households that outgrew their houses build on (docs/buildings/age.md)
 		Need additions = Additions.need(ctx);
 		if (additions != null) {
 			list.add(additions);
 		}
 		if (deficit <= 0 && needs.food >= mouths && tier.ordinal() >= SettlementTier.HAMLET.ordinal()) {
-			int beauty = needs.category(ArchetypeCategory.LANDSCAPE);
+			// (the street lamps a town keeps are counted apart: they light it, they do not make it fair)
+			int beauty = needs.category(ArchetypeCategory.LANDSCAPE) - needs.count(Archetypes.LAMP_POST);
 			if (beauty < 2 + pop / 15) {
 				list.add(new Need("beauty", 60, c -> Beauty.plan(c, needs)));
 			}
@@ -459,6 +464,11 @@ public final class Growth {
 		}
 		// (a working dug out counts no more while the town wants its goods: the next is opened)
 		int have = dev.voidmc.hearth.plan.resource.Extraction.counted(ctx, info.id(), needs.count(info.id()));
+		if (info.id().equals(Archetypes.CHAPEL)) {
+			// the cathedral or temple risen in the chapel's place is the town's church (a second chapel went up on a rise
+			// at the edge the day it replaced the first)
+			have += needs.count(Archetypes.CATHEDRAL) + needs.count(Archetypes.TEMPLE);
+		}
 		if (info.maxPerSettlement() > 0) {
 			want = Math.min(want, info.maxPerSettlement());
 		}
@@ -521,7 +531,9 @@ public final class Growth {
 	/** Plans one of the program's buildings, as its entry says. */
 	static boolean program(PlanContext c, Program.Entry e, ArchetypeInfo info) {
 		Identifier id = info.id();
-		Lots.release(c, e.id());
+		if (Lots.build(c, e, info)) {
+			return true;
+		}
 		if (id.equals(Archetypes.CHAPEL)) {
 			return Landmarks.chapel(c, info, "faith: the village raises its chapel on the rise");
 		}
@@ -640,7 +652,7 @@ public final class Growth {
 		boolean grew = false;
 		// in town, make room near the heart (a new lane) rather than settle far out along a main road
 		if (p != null && wantsCentre(placement) && ctx.distanceToHeart(p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2) > ctx.coreRadius() * reach(placement)
-			&& !ctx.state.layout.expansive) {
+			&& !Grid.expansive(ctx)) {
 			if (Expand.town(ctx)) {
 				grew = true;
 				Parcels.Parcel q = Parcels.best(ctx, req, null);

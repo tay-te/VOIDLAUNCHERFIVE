@@ -19,8 +19,9 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Food: fields, orchards, pastures, paddies and terrace fields just outside the built-up town, chosen by culture and
- * land; and farmsteads — a farmhouse far out along a track with its fields round it — which is how an expansive
- * settlement spreads over hundreds of blocks.
+ * land, lining the roads out of town; and farmsteads — a farmhouse far out along a track with its paddock and fields round
+ * it — which is how an expansive settlement spreads over hundreds of blocks; and the plot a cottage at the edge of town
+ * works beside it. So a town ends in a belt of worked land, not on bare grass (ART_REVIEW_2 item 4).
  */
 public final class Farms {
 	private Farms() {
@@ -114,6 +115,18 @@ public final class Farms {
 		if (field != null) {
 			int fields = 1 + ctx.random.nextInt(2);
 			int[] anchor = {p.x0 + p.sizeX / 2, p.z0 + p.sizeZ / 2};
+			// a fenced paddock by every farmstead first, where the culture keeps beasts
+			ArchetypeInfo paddock = ctx.catalogue.info(Archetypes.PASTURE);
+			if (paddock != null && dev.voidmc.hearth.plan.catalogue.Catalogue.allowed(paddock, ctx.culture, ctx.tier)) {
+				Parcels.Request pr = new Parcels.Request(paddock, Placement.EDGE, District.Kind.FARMS)
+					.withSize(paddock.minFrontage() + (paddock.maxFrontage() - paddock.minFrontage()) / 3,
+						paddock.minDepth() + (paddock.maxDepth() - paddock.minDepth()) / 3)
+					.anchoredAt(anchor[0], anchor[1]);
+				Parcels.Parcel pp = Parcels.best(ctx, pr, null);
+				if (pp != null && Math.hypot(pp.x0 - anchor[0], pp.z0 - anchor[1]) <= 30) {
+					Build.building(ctx, paddock, pp, "food: the farmstead's paddock", null);
+				}
+			}
 			for (int i = 0; i < fields; i++) {
 				Parcels.Request fr = new Parcels.Request(field, Placement.EDGE, District.Kind.FARMS).anchoredAt(anchor[0], anchor[1]);
 				Parcels.Parcel fp = Parcels.best(ctx, fr, null);
@@ -124,6 +137,29 @@ public final class Farms {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * The plot a cottage or croft at the edge of town works beside it: an orchard where the culture grows fruit, else a
+	 * small field, on the same street within a few blocks of the house (half the edge's cottages have one).
+	 */
+	static void croftPlot(PlanContext ctx, Parcels.Parcel house) {
+		if (ctx.tier.ordinal() < dev.voidmc.hearth.api.SettlementTier.HAMLET.ordinal() || ctx.random.nextDouble() >= 0.5) {
+			return;
+		}
+		boolean fruit = Growth.isCulture(ctx, Culture.TEMPERATE, Culture.MEDITERRANEAN, Culture.WISTERIA, Culture.ALPINE, Culture.KARST);
+		ArchetypeInfo info = ctx.catalogue.info(fruit ? Archetypes.ORCHARD : Archetypes.FIELD);
+		if (info == null || !dev.voidmc.hearth.plan.catalogue.Catalogue.allowed(info, ctx.culture, ctx.tier)) {
+			return;
+		}
+		int cx = house.x0 + house.sizeX / 2;
+		int cz = house.z0 + house.sizeZ / 2;
+		Parcels.Request req = new Parcels.Request(info, Placement.EDGE, District.Kind.FARMS).withSize(info.minFrontage(), info.minDepth())
+			.anchoredAt(cx, cz);
+		Parcels.Parcel p = Parcels.best(ctx, req, e -> e == house.edge);
+		if (p != null && Math.hypot(p.x0 + p.sizeX / 2.0 - cx, p.z0 + p.sizeZ / 2.0 - cz) <= Math.max(house.sizeX, house.sizeZ) + info.minFrontage() + 4) {
+			Build.building(ctx, info, p, "food: the cottage's " + Build.shortName(info), null);
+		}
 	}
 
 	/** A farmstead site at least 50 blocks from any other farmhouse. */

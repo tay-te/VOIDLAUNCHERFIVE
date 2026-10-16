@@ -40,7 +40,7 @@ varies). Expansive and dense-and-tall both come out of it.
 
 | Layout | Character | Land it needs |
 |---|---|---|
-| `farmsteads` | **expansive**: a hamlet green, 3–5 tracks running 280–420 blocks out, farmsteads (farmhouse + fields) ≥ 50 blocks apart along them | gentle, open |
+| `farmsteads` | **expansive**: a village green (17 square) on a village street, 3–5 tracks running 280–420 blocks out, farmsteads (farmhouse, paddock, fields) ≥ 50 blocks apart along them; from village tier the rest of its folk build a compact village round the green that grows into a town (§14.8) | gentle, open |
 | `crossroads` | a cross of main streets leaving a square at right angles, side lanes planned ahead into blocks | easy ground |
 | `linear` | one long main street along a river or coast (or the contour), lanes down to the water, docks | water or a ridge |
 | `hillside` | contour streets stepping up a slope every ~7 blocks of height, joined by stair streets straight up the fall line; terraces | a slope |
@@ -122,15 +122,20 @@ stable hash for variety; then examined best first within `search_budget`:
   When the whole budget finds nothing (a city's best-ranked places are all leftover gaps), a spread sample of the
   remaining places gets half a budget more, so the frontage of its newer streets is still seen.
 
-**Rows**: attachable houses in the core (and inner town of dense layouts) are laid out as rows of 2–5 along the street,
-each floor meeting the street at its own door (a row steps down a hill), with party walls between neighbours.
+**Rows**: attachable houses in the core (and inner town of dense layouts, and along the streets of a town's inner town)
+are laid out as rows of 3–5 along the street, each floor meeting the street at its own door (a row steps down a hill), with
+party walls between neighbours; a home of the town's own folk first runs an existing row on where one has an open side
+(`Housing.continueRow`), so rows meet into a street wall (§14.8).
 The **square** is held open from the founding (a green with the well), paved at village tier (its `keep` lists what
 stands in it), and furnished — market stalls round it, lamps at the corners, fountain and statue — two blocks in from
 its edge, off the mouths of streets. Its frontage is kept for hall, chapel, inn, bank and shops. **Lots** for the town
-hall, market hall and courthouse are reserved on the square (or a main street at its corner, within 34 blocks of it) at
-founding, before the side lanes are planned, smaller if the square is small, looked for again while the town is below
-town tier if none was free, and released when built.
-The **chapel** goes on the rise with a close kept round it for the cathedral or temple a city raises in its place.
+hall, market hall, chapel and courthouse are reserved on the square (or a main street at its corner, within 34 blocks of
+it) at founding, before the side lanes are planned, smaller if the square is small (on a terrace where the square's edge
+falls away, the chapel's excepted), looked for again while the town is below town tier if none was free; each building is
+then built exactly on its lot (`Lots.build`, `Lots.take`).
+The **chapel** takes its lot on the square whole, the lot being its close kept for the cathedral or temple a city raises in
+its place (the cathedral's middle size where it fitted at founding); with no lot it stands by the square (within 44
+blocks) where its close fits, and only then on the rise.
 
 **Overlaps the planner allows** (everything else is a bug, see the tests): a building on a terrace (same footprint); a
 stacked dwelling on the roof of the one below (`stacked_on`); plaza furniture inside the plaza; a gatehouse over its
@@ -162,6 +167,7 @@ few calls (`cooldowns`, saved). While more than `4 + pop/6` plots are unbuilt on
 | densify | 110–290 × vertical bias | §6 |
 | stacked dwellings (signature) | 120 | §6 |
 | beauty, once housed and fed | 60 | lamps, fountain, statue on the square; little squares where lanes meet (town and up, `junction` plazas); gardens; parks in a city |
+| lights (town and up, 4 + pop/8 lamps) | 95 | a lamp post at the junctions nearest the heart, along the main streets in town, inside the gates (§14.8) |
 
 Archetypes are taken only from what `HearthServices.blueprints().archetypes()` lists (`catalogue/Catalogue`): a
 missing one falls back to the nearest allowed one of the same category (sharing a job first, then similar size), or the
@@ -214,7 +220,7 @@ y − 1). `origin.y` of a linear plot is its lowest walking level; its footprint
 
 | Archetype | Params |
 |---|---|
-| `hearth:infra/road` | `points` (int array x,y,z,…), `width`, `kind`: `highway` (5, main roads beyond town), `street` (5, main streets), `lane` (3), `alley` (3, dense cores), `path` (1 door paths; 3 farm tracks). Graded: \|Δy\| ≤ 1 per step and ≤ `road_grade` over 8 blocks (+1 of rounding). |
+| `hearth:infra/road` | `points` (int array x,y,z,…), `width`, `kind`: `highway` (5, main roads beyond town), `street` (5, main streets; 7 for the first 14 blocks out of the square where the ground is open), `lane` (3), `alley` (3, dense cores), `path` (1 door paths; 3 farm tracks), `lamps` (blocks between street lamps on the verge; 16 on main streets, rings and the square within 1.5 core radii, 20 on a town's inner lanes; absent: none). Graded: \|Δy\| ≤ 1 per step and ≤ `road_grade` over 8 blocks (+1 of rounding). |
 | `hearth:infra/stairs` | `points`, `width`: a stair street; \|Δy\| ≤ 1 per step (≤ `stair_grade`), landings where it flattens. Issued only if the build module registers it; otherwise the run is a `road` (which builds steps where steep). |
 | `hearth:infra/bridge` | `points` abutment to abutment (first and last on the banks at the approach roads' level, the rest at `deck_y`), `width`, `deck_y` (walking level on the deck), `water_y` (the water's surface, first non-water y), `kind`: `span` (deck ≥ water + 2, never lower than the banks; rise from the banks on the deck's ends) or `boardwalk` (deck = water + 1, many segments over shallow water, may bend), `road_kind`. |
 | `hearth:infra/terrace` | footprint = the platform; `level` (walking level on top), `retain_north/south/east/west` (sides standing above the land: retaining walls), `depth` (level − lowest ground). `facing` = toward the street (steps go there). The building on it has the same footprint and `terraced: true`. |
@@ -242,6 +248,7 @@ Every building plot (not infrastructure) may carry:
 | `replaces` | id of the plot this rebuilds (also the project's `replaces`) |
 | `walkway_y` | a walkway meets its front at this walking level: a door there |
 | `on_square`, `heart` | stands in the main square (the well and furniture); `heart` also marks the main plaza |
+| `green` (heart plaza) | a village's green, not a paved square (temperate, northern, alpine, moorland, wisteria villages outside walled layouts): grass, a pond or the well, a lime tree; replaced (`replaces`) by the paved square at town tier |
 | `junction` (plaza) | a little square on the corner where lanes meet |
 | `keep` (plaza) | int array of rectangles x0,z0,x1,z1 (inclusive) inside the plaza that stand as they are |
 | `over_road`, `passage_width` (gatehouse) | the road runs through it along `facing` |
@@ -679,3 +686,69 @@ answers; `PlanModule.underground` falls back to probes paired by hand). A lift i
   five camps to day 150): on mountain flanks the streets climb as stair streets and graded lanes (a moorland town of 110
   on a ridge, 2 809 blocks of road), walled towns keep their line off the lakes, and the probe's `maxY` is the level's
   (the preview's own probe now 640); nothing in road grading or territory assumed the old relief.
+
+### 14.9 Towns with a heart (wave 7, ART_REVIEW_2 items 1–5, 16, 19, 24)
+
+The second art review judged whole towns: the farmsteads layout grew a city of 500 plots as a scatter of detached houses
+in a meadow, town homes stood alone with their blank party walls to the street, the church and the towers stood at the
+edge or alone in a field, the town stopped dead on bare grass. What the planner does now:
+
+- **Farmsteads nucleate** (`Grid.nucleated`: an expansive layout from village tier). A Bohemian village is a green with
+  farmsteads round it and grows into a town round a square. The farmsteads settlement is founded round a broad green (17)
+  on a village street (5 wide, a street, not a lane); its farmers keep spreading as farmsteads out along the tracks, but
+  from village tier its heart takes a crossroads town's core scale (`PlanContext.coreRadiusAt`), lane spacing and length,
+  gaps (1 in the core, 2 in the inner town), terraces and contour lanes (`Grid.terraces`), and its homes fill in near the
+  heart before they spread (`Grid.expansive` is false), with no farmhouses in its streets. Its lanes are not planned
+  ahead (planned at a crossroads town's spacing they covered the whole hill and the homes spread thin along them): they
+  are walked one at a time near the heart as homes need them, which keeps the heart dense.
+- **Street walls** (`Housing.terraced`, `Housing.continueRow`): rows are 3–5 long; before a home of the town's own folk
+  looks for new frontage it runs an existing row on where a row house in the terraced part of town has an open side on its
+  street, flush, its front on the same line, the party wall toward the old house; a town's inner streets are terraced too
+  (rowhouses and townhouses there instead of cottages). Artisans' homes no longer string out along the main road into the
+  country: the main-street pull applies within 1.2 core radii, and a quarter's pull on homes fades between 1.6 and 2.6.
+- **Church, hall and towers on the square** (`Lots`, `Landmarks`): the chapel's lot (with its close) is kept on the square
+  from the founding beside the hall's, the market hall's and the court's (up to 40 past the square's rim, on a main street
+  at its corner), and each is built exactly on its lot; a hall with no lot is searched nearest the square first, at its
+  least size if it must be. The first bell tower stands over the square (within 44 blocks of the heart) where it fits,
+  the second landmark on the summit; the cathedral waits for the chapel on its close rather than rising elsewhere.
+  Kilns, tanneries and pits keep 22 blocks off any landmark or chapel (`Parcels.find`: industry avoids them).
+- **The cathedral's close** (`Landmarks.chapel`, `Landmarks.great`): on a hill the square's frontage rarely holds the
+  cathedral's close (17 x 29 for the temperate one), and a close no bigger than the chapel sent the cathedral 140-190
+  blocks out to the one level field at the edge. The founding tries the cathedral's least close before the chapel's own
+  size; the chapel takes a too-small lot only when no full close is free by the square or on the rise within 68. A
+  cathedral or temple with no close to rise on, and a great hall, stand by the square where a level lot is free, else on
+  level ground within 48 of the summit or the rise, or 68 of the heart; else they wait (resting longer each time). A
+  town on rough hills may so have no cathedral at day 250 rather than one in a field. The cathedral or temple counts as
+  the town's church (`Growth.programNeed`), so no second chapel goes up the day it replaces the first, and a lighthouse
+  is chosen only where the town has a headland or the shore near (a harbour hill town grew a road toward the water at
+  every call and never raised its cathedral).
+- **A hemmed-in camp** (`Housing.plan`, `Lots.releaseForHomes`): a camp or hamlet whose homes find no frontage at all
+  builds them on the halls' and the court's lots (not the church's); the lots are kept again from village tier
+  (requests/w7-planner.md §2).
+- **Lights** (`Beauty.lights`, `Beauty.cornerLamp`): from town tier a lamp post at the junctions nearest the heart, every
+  twenty blocks along the main streets in town and just inside the gates (one place in turn, 14 apart), and on the corner
+  of a lane built in the core; road plots carry `lamps` for the build module's own street lamps.
+- **The countryside belt** (`Farms`): fields at the edge score the roads out of town (arms and tracks) higher, every
+  farmstead fences a paddock first, and half the cottages and crofts at the edge work an orchard (fruit cultures) or a
+  small field beside them on their street.
+- **The village green** (`Square`): a green culture's village plaza carries `green`; it is paved over as the town's
+  square (a plaza that `replaces` it) at town tier.
+- **Roads**: a main street opens two wider for its first 14 blocks out of the square where the ground is open.
+
+`TownFormTest` (with `HEARTH_TOWN_FORM=1`, or its `main` on the test and game classpath) grows the townPreview towns and
+prints the form: the share of the core's attachable homes sharing a wall, town homes standing alone, the mean side gap,
+where the church, hall and landmarks stand, the farm belt, the lamps, and the cost of `next`;
+`-Dhearth.townform.grep=cathedral,chapel` prints why each went where. Before and after (day 250, hills, seed 1, real
+archetypes; distances from the heart, the summit +23 at 96):
+
+| town | homes 90 % within | church | hall | cathedral (great hall) | lamps |
+|---|---|---|---|---|---|
+| temperate farmsteads | 168 → 152 | 68 → 14 | 13 → 36 | 166 → none yet | 0 → 3 |
+| northern farmsteads | 174 → 163 | 60 → (cathedral) | 13 → 36 | (203) → 66 (136) | 0 → 2 |
+| alpine farmsteads | 177 → 158 | 74 → 14 | 13 → 36 | (91) → none yet | 0 → 6 |
+| moorland farmsteads | 156 → 155 | 60 → (cathedral) | 13 → 36 | (106) → 66 (148) | 0 → 6 |
+| mediterranean crossroads | 147 → 143 | 56 → (cathedral) | 26 → 20 | none → 39 | 1 → 0 |
+| temperate walled | 134 → 130 | 57 → 19 | 87 → 46 | 140 → 143 | 0 → 1 |
+
+PlanBenchTest's cities cost about the same or less (city calls p90 3.2-4.0 ms, max 7.7-12 ms, after the planner lane's
+merge).
