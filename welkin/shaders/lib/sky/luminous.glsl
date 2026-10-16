@@ -60,9 +60,12 @@ SkyLum skyLumFrame(vec3 sunW) {
 	f.day = 1.0 - skyNightStep();
 	float overcast = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
 	f.clear = (1.0 - 0.88 * overcast) * (1.0 - 0.5 * clamp(rainStrength, 0.0, 1.0));
-	f.low = 1.0 - smoothstep(0.05, 0.55, sunW.y);
+	// the sky table's golden hour (Gloam's Twilight maths, 0..1; about 0.67 at 17:00 and 1 at 06:30) leads the warmth:
+	// by the sun's height alone 17:00 (the sun some 26 degrees up) read as a plain afternoon
+	float golden = skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r;
+	f.low = max(1.0 - smoothstep(0.05, 0.55, sunW.y), 0.75 * golden);
 	f.up = smoothstep(-0.14, 0.02, sunW.y);
-	f.warm = 1.0 - smoothstep(0.10, 0.62, sunW.y);
+	f.warm = max(1.0 - smoothstep(0.08, 0.45, sunW.y), golden);
 	// the sun's light (linear) while it is up; under the horizon the table's sun-side horizon carries the hue
 	vec3 sunL = skyLandDirect();
 	vec3 horL = pow(max(skyHorizon(true), vec3(1e-4)), vec3(2.2));
