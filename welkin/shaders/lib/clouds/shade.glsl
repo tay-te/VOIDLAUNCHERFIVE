@@ -202,8 +202,9 @@ float wcLightPath(CloudBody b, vec3 l, CloudEnv e) {
 		float extra = float(b.k == 1 ? WC_MAIN_TIERS : WC_LOW_TIERS) * WC_TIER;
 		float path = min(own, 0.15 * cs * sec);
 		float prev = 0.15 * cs;
-		for (int i = 0; i < 4; i++) {
-			float a = cs * (i == 0 ? 0.4 : (i == 1 ? 1.1 : (i == 2 ? 2.6 : 5.5)));
+		for (int i = 0; i < WC_LIGHT_SAMPLES; i++) {
+			// (two samples at LOW: farther apart)
+			float a = cs * (WC_LIGHT_SAMPLES < 4 ? (i == 0 ? 0.6 : 3.0) : (i == 0 ? 0.4 : (i == 1 ? 1.1 : (i == 2 ? 2.6 : 5.5))));
 			vec2 f = wcField(b.p.xz + dir * a, b.lv, e);
 			float m = b.k == 0 ? f.x : f.y;
 			float top = b.iv.x + WC_DECK + clamp(m * 2.0 - 1.0, 0.0, 1.0) * extra;
@@ -220,19 +221,26 @@ float wcLightPath(CloudBody b, vec3 l, CloudEnv e) {
 // The light a cloud gives back of one body's light (`col`, from direction l): Beer's law along the path through the
 // cloud with a gentle back-scatter off its lit side and a forward lobe through its thin parts, plus two softer octaves
 // of the light scattered many times; a voxel side turned from the light a little darker, as a block's.
-vec3 wcBodyLight(CloudBody b, vec3 n, float sigma, vec3 rd, vec3 l, vec3 col, CloudEnv e) {
+vec3 wcBodyLight(CloudBody b, vec3 n, float sigma, vec3 rd, vec3 l, vec3 col, CloudEnv e, out vec3 glint) {
 	float tau = sigma * wcLightPath(b, l, e);
 	float c = dot(rd, l);
 	float thin = 1.0 - b.depth;
 	// (seen from the lit side a thin part gives back less than a deep one: the powder look of a cumulus's sunlit flank)
 	float powder = mix(1.0, 0.74 + 0.26 * b.depth, clamp(0.4 - 1.4 * c, 0.0, 1.0));
 	// (the forward lobe is light come through the cloud: a top lit from above shows little of it)
-	float p1 = mix(1.0, wcHG(c, -0.3), 0.5) * powder + min(wcHG(c, 0.72), 16.0) * thin * thin * (n.y > 0.5 ? 0.06 : 0.2);
+	float fwd = min(wcHG(c, 0.72), 16.0) * thin * thin * (n.y > 0.5 ? 0.06 : 0.2);
+	float p1 = mix(1.0, wcHG(c, -0.3), 0.5) * powder + fwd;
 	// (a base takes less of the many-times-scattered light at dusk: the low sun's colour belongs on the tops and the
 	// edges, the bellies keep the dusk sky's)
-	float under = n.y < -0.5 ? 1.0 - 0.45 * wcDuskAmount(e.sun.y) : 1.0;
-	float ms = exp(-tau) * p1 + (0.6 * exp(-0.3 * tau) * mix(1.0, p1, 0.3) + 0.45 * exp(-0.1 * tau)) * under;
+	// (and through the golden hour every face takes a little less of it: the warm light stays on what the sun reaches,
+	// the shade between keeps the dusk's violet, never a brown mix of the two)
+	float dk = wcDuskAmount(e.sun.y);
+	float under = (n.y < -0.5 ? 1.0 - 0.7 * dk : 1.0) * (1.0 - 0.35 * dk);
+	float ms = exp(-tau) * (p1 - fwd) + (0.6 * exp(-0.3 * tau) * mix(1.0, p1, 0.3) + 0.45 * exp(-0.1 * tau)) * under;
 	float face = abs(n.y) > 0.5 ? 1.0 : 0.88 + 0.16 * dot(n.xz, l.xz) / max(length(l.xz), 1e-3);
+	// the forward lobe's single scattering apart: the silver lining, laid on past the shoulder (wcCloudLight), so a
+	// thin rim toward the sun may blaze past white and the bloom takes it
+	glint = col * (exp(-tau) * fwd * face * WC_DIRECT);
 	return col * (ms * face * WC_DIRECT);
 }
 
@@ -243,8 +251,8 @@ vec3 wcCloudSun(CloudEnv e) {
 	vec3 hue = s.a > 0.02 ? s.rgb / s.a : vec3(0.55, 0.30, 0.20);
 	// gold through the golden hour, a deep orange over the last degrees, rose once the sun is under the horizon
 	float low = 1.0 - smoothstep(0.03, 0.22, e.sun.y);
-	hue = mix(hue, vec3(0.56, 0.38, 0.20), 0.45 * low);
-	hue = mix(hue, vec3(0.56, 0.30, 0.17), 0.6 * (1.0 - smoothstep(-0.01, 0.09, e.sun.y)));
+	hue = mix(hue, vec3(0.58, 0.39, 0.25), 0.45 * low);
+	hue = mix(hue, vec3(0.58, 0.32, 0.24), 0.6 * (1.0 - smoothstep(-0.01, 0.09, e.sun.y)));
 	hue = mix(hue, vec3(0.50, 0.25, 0.30), smoothstep(0.0, -0.08, e.sun.y));
 	float strength = max(s.a, smoothstep(-0.10, 0.06, e.sun.y) * (1.0 - 0.85 * wcClosed()));
 	return hue * strength * (1.0 + 0.2 * wcDuskAmount(e.sun.y) * (1.0 - wcClosed()));
@@ -271,9 +279,10 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// (a base sees the dusk's lower sky and the dimming land: lilac and dusk blue, rose only toward the sun)
 	if (dusk > 0.0) {
 		float sw = wcSunward(rd, e);
+		// (a belly takes the dusk's rose and violet, rosier toward the sun: a sunset's clouds glow, never a muddy taupe)
 		vec3 hue = n.y > 0.5 ? mix(mix(WC_LILAC, WC_VIOLET, 0.4), mix(WC_ROSE, WC_GOLD, 0.3), sw)
-			: mix(mix(WC_DUSK, WC_VIOLET, 0.6), WC_ROSE, sw * sw);
-		amb = mix(amb, hue * ((n.y > 0.5 ? 0.8 : mix(0.62, 0.8, sw * sw)) * wcLuma(amb)), 0.8 * dusk * (1.0 - closed));
+			: mix(mix(WC_VIOLET, WC_ROSE, 0.35), WC_ROSE * vec3(1.06, 1.0, 0.98), sw * sw);
+		amb = mix(amb, hue * ((n.y > 0.5 ? 0.8 : mix(0.78, 0.98, sw * sw)) * wcLuma(amb)), 0.85 * dusk * (1.0 - closed));
 	}
 	// the land's bounce under a cloud: its sunlit ground's light thrown up, warmer and stronger at a low sun
 	vec3 sunC = wcCloudSun(e);
@@ -281,13 +290,16 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		* lower * (n.y > 0.5 ? 0.0 : 1.0);
 
 	vec3 light = amb + bounce;
+	vec3 glint = vec3(0.0), g;
 	if (e.sun.y > -0.12) {
-		light += wcBodyLight(b, n, sigma, rd, e.sun, sunC, e) * shadow;
+		light += wcBodyLight(b, n, sigma, rd, e.sun, sunC, e, g) * shadow;
+		glint += g * shadow;
 	}
 	if (night > 0.0) {
 		vec3 moonW = normalize(mat3(gbufferModelViewInverse) * moonPosition);
 		if (moonW.y > -0.05) {
-			light += wcBodyLight(b, n, sigma, rd, moonW, skyMoonLight() * WC_MOON_GAIN, e);
+			light += wcBodyLight(b, n, sigma, rd, moonW, skyMoonLight() * WC_MOON_GAIN, e, g);
+			glint += g;
 		}
 	}
 	// the sun just under the horizon still lights the decks from below: a rose and peach glow under them toward it,
@@ -321,7 +333,8 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	if (e.flash && tone == 2) {
 		c = mix(c, vec3(0.86, 0.86, 1.0), 0.5);
 	}
-	return wcShoulder(c);
+	// the silver lining past the shoulder, less of it under a closed cover (it has no sun to show)
+	return wcShoulder(c) + min(wcAlbedo(tone) * glint * (1.0 - 0.7 * closed), vec3(1.0));
 }
 
 // ------------------------------------------------------------------------------------------------- distance
@@ -380,7 +393,7 @@ vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 	float deck = b.k == 0 ? e.layers.x : (b.k == 2 ? e.layers.z : e.layers.y);
 	b.iv = vec2(deck, deck + WC_DECK + 0.5 * (wcDeckSpan(max(b.k, 0)) - WC_DECK));
 	b.hIn = h.n.y > 0.0 ? 1.0 : 0.0;
-	b.depth = 0.6;
+	b.depth = 0.75; // about a broad deck's average, so the band meets the cells it takes over from
 	b.lv = h.level;
 	b.field = false;
 	return wcCloudLight(b, h.n, h.tone, rd, 1.0, e);

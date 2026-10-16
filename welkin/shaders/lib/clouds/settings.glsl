@@ -19,6 +19,7 @@
 	#define WC_REACH 12000.0    // the DDA's reach; past it the decks are flat sheets
 	#define WC_FAR 64000.0      // nothing past this
 	#define WC_RIM_LEVELS 2     // rims on the rings up to this one (2: out to 4 x WC_RING0)
+	#define WC_LIGHT_SAMPLES 2  // field samples along the light (lib/clouds/shade.glsl wcLightPath)
 #elif CLOUD_QUALITY == 3
 	#define WC_STEPS 64
 	#define WC_GAP_STEPS 16
@@ -26,6 +27,7 @@
 	#define WC_REACH 32000.0
 	#define WC_FAR 120000.0
 	#define WC_RIM_LEVELS 4
+	#define WC_LIGHT_SAMPLES 4
 #else
 	#define WC_STEPS 36
 	#define WC_GAP_STEPS 8
@@ -33,6 +35,7 @@
 	#define WC_REACH 16000.0
 	#define WC_FAR 100000.0
 	#define WC_RIM_LEVELS 3
+	#define WC_LIGHT_SAMPLES 4
 #endif
 
 #endif
