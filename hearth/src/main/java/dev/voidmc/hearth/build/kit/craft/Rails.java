@@ -3,8 +3,11 @@ package dev.voidmc.hearth.build.kit.craft;
 import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
+import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.kit.trade.Hall;
+import dev.voidmc.hearth.build.style.Form;
+import dev.voidmc.hearth.build.style.Role;
 import java.util.List;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.BlockState;
@@ -193,6 +196,23 @@ public final class Rails {
 				int x = c[0];
 				int y = c[1];
 				int z = c[2];
+				BlockState feet = d.get(x, y, z);
+				if (feet != null && feet.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock
+					&& feet.getValue(net.minecraft.world.level.block.TrapDoorBlock.OPEN)) {
+					// a lattice or a shutter in a window someone can step up into from the floor, with a fall beyond it:
+					// its lower row glazed behind (a pane), so nobody steps out through the window
+					for (Direction dir : Dirs.HORIZONTAL) {
+						int nx = x + Dirs.dx(dir);
+						int nz = z + Dirs.dz(dir);
+						if (pass(d, nx, y, nz) && pass(d, nx, y + 1, nz) && drop(d, nx, y, nz) >= 4) {
+							Mat glass = d.mat(Role.GLASS);
+							d.set(x, y, z, glass.has(Form.PANE) ? glass.pane() : Paint.of(net.minecraft.world.level.block.Blocks.GLASS_PANE.defaultBlockState()));
+							n++;
+							break;
+						}
+					}
+					continue;
+				}
 				if (!d.isEmpty(x, y, z)) {
 					continue;
 				}
