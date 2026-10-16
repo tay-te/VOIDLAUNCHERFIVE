@@ -1389,3 +1389,57 @@ the defects pass), both from abe2fa09.
   the peak is near black in the deck's shadow; at a low sun the heavy effects sit at or over their 1.2 ms line and the
   clouds over their 0.6 ms line; trees in test world A grew differently from the lane runs (forest and sunforest views
   are not comparable).
+
+### Review round 1: golden hours, lit dusk clouds, god rays, the pixel sun (2026-10-16)
+
+The phase 2 review failed the golden hours: dawn and dusk decks as brown and charcoal slabs, a dull grey-blue dawn, no
+readable god rays, a bloom halo round sunlit white flowers, no sun disc at sunset. What was wrong, and what changed:
+
+- **The night step at 5 degrees of sun.** Vanilla's light ramp (the sky table's night step) is already 0.7 at 18:30
+  and 05:30 with the sun some 5 degrees up. The dome took a third of its daylight from it, and the luminous sky, the
+  sunlit haze, the god rays and the beams were all cut to a third by `SkyLum.day`. Now the dome's daylight and
+  `SkyLum.day` also follow the sun's own height (`lib/sky/build.glsl`, `lib/sky/luminous.glsl`): the zenith keeps 0.40
+  of the day's light and the horizon 0.66 while the sun is up, so a low sun's sky is luminous low down and mauve
+  overhead (about Complementary's brightness, measured on the plain and shore at 18:30 and 05:30). Over the last
+  degrees of sun and the first after it the dome turns rose low down and mauve overhead (`lowRose`), and the land's
+  fill takes the dusk sky's lilac instead of the moon's navy while the sun is still up (its brightness is the light
+  ramp's as before).
+- **Brown dusk clouds.** The low sun's hues on the clouds (`wcCloudSun`) and the dusk ambient's hues were dim palette
+  colours (about 0.4 and 0.6 luma) mixed in at face value, so they halved the light. Both now move only the hue. And a
+  cloud is never darker than the sky behind it round sunrise and sunset: a warm floor at the sky behind (the dome's
+  horizon and zenith under the luminous sky), peach toward the sun and rose away from it, over the sky by 1.3 (belly)
+  to 1.5 (top), brighter on the thin rims than in a thick heart so the forms read; the shortfall is added in the floor's
+  light (a per-channel max came out mauve-brown). Through the golden hours (the table's golden past 0.3) a gentler,
+  cream floor, so a morning cloud's belly takes the warm low sky's light, not a grey shade.
+- **God rays.** The 3D shafts' soft cap saturated every long ray toward the sun, so a half-shadowed ray kept 0.35 of
+  a lit one's 0.40 and no beam could be seen. Now the glow comes from the open ray's length (capped) and the share in
+  shadow is taken out as its square, so crowns', ridges' and clouds' shadows stand as dark lanes between bright beams;
+  on the open sky at 0.4 (was 0.2). With `SkyLum.day` fixed the shafts and beams are at full strength at golden hour.
+- **The pixel sun at sunset.** The haze laid over the sky dimmed the disc to a glow. The air now covers the disc and
+  its rim at a quarter (composite2), and the disc blooms wholly (composite3, `bloomSunDisc`).
+- **Bloom on pale texels.** A lit surface that does not glow (land, not water, lamps, sky or clouds) gets headroom
+  only for what is lit past display white (`bloomHeadroom`'s `diffuse`): a sunlit daisy or birch bark no longer blooms
+  into a square halo; glints, the glitter and water keep their bloom. The halo's gather is four bilinear taps a level
+  (was nine), a little tighter, and its two widest levels a little less saturated (the amber realm's red fringe).
+- **Water.** A fall's faces take the sun about their one shared normal (no glassy facets lit step by step) and a
+  sunlit fall's body is capped under the pale stone beside it. A low sun mostly glances off water: its light on a lake
+  bed and on open water's body falls to 0.3 at the horizon (Fresnel), so the bank's long shadows at dawn no longer lie
+  as dark bars across the lake (the glitter and a fall keep their light).
+- **Clouds by day.** Softer bellies (the belly's own path and its occlusion lighter, the lumps a smaller share of the
+  field: fewer grey blotches), cloud sides brighter at the brow than the foot, and fewer, larger clouds (the main deck's
+  puffs at 480 and 160 blocks, were 384 and 128).
+- **The cloud seam** (plain 16:30): a cloud debug view (`CLOUD_DEBUG`: 1 each face's deck and ring, 2 the height from
+  the field, 3 the light's path) showed it is the long straight side of a low-deck (stratus) slab, a world line
+  parallel to the view (north-south), not a ring boundary (the rings are arcs). With the fronts pinned at 0.38 the low
+  deck should only make small clumps, so a wide slab with a straight edge points at the W tile's data (a strip of
+  unpinned or stale front values); it showed once in about forty shots and could not be pinned down this round.
+- **Cost** (RTX 4060, 1600x900, MEDIUM, test world A, the other game slot free, 6-second on/off sweeps): frames: plain
+  12:00 7.5 ms, plain 18:30 7.7, steppe 17:00 7.1, village 12:00 8.1, shore 16:30 9.2 to 9.4, valley 05:30 9.9. The
+  clouds 1.0 to 1.3 ms by day and 0.6 to 1.1 at a low sun (shore 16:30 1.44 before the floor's cheaper sky read, 1.21
+  after); the volumetric haze 0.33 to 0.57 (shore 16:30 0.95 before its far steps read the clouds' shadow every other
+  step, 0.47 after); the beams 0.62 with the sun in view; the bloom 0.2 to 0.5; the shafts about 0.3; the shadow chain
+  1.7 to 3.0 ms, still the largest part and what keeps the low-sun shore and valley views over 8 ms.
+- **Still open:** dawn water is still navy where Complementary and Euphoria show a lilac or peach lake (the body's
+  tint dominates the reflection); the countryside's morning air is cleaner and less pink than Euphoria's; midday clouds
+  are softer but still flatter than Euphoria's; far rain curtains and the storm views were not re-checked this round;
+  the seam above; the shadow chain at a low sun.
