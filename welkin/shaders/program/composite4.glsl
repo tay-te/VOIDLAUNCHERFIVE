@@ -51,8 +51,14 @@ void main() {
 	g += tentAt(uv, 4.0) * 0.22;
 	g += tentAt(uv, 5.0) * 0.14;
 	g += tentAt(uv, 6.0) * 0.10;
+	// alpha: the frame's mean bright share (the 1x1 level), its luminance, for final's flat veil (lib/bloom.glsl
+	// bloomApply; the merge of phase 2)
+	ivec2 size = textureSize(colortex14, 0);
+	vec3 mean = textureLod(colortex14, vec2(0.5), floor(log2(float(max(size.x, size.y))))).rgb;
+	outGlow = vec4(g, dot(mean, vec3(0.2126, 0.7152, 0.0722)));
+#else
+	outGlow = vec4(g, 0.0);
 #endif
-	outGlow = vec4(g, 1.0);
 }
 
 #endif

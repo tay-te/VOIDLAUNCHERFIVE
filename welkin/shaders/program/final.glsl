@@ -104,7 +104,8 @@ void main() {
 		// it; the merge of phase 2)
 		lend = d >= 1.0 && texelFetch(colortex6, p, 0).r <= 999.0 ? 0.5 : lend;
 #endif
-		c = bloomApply(c, texture(colortex9, texcoord).rgb, emit, lend);
+		vec4 glow = texture(colortex9, texcoord); // rgb the halo, a the frame's mean bright share (composite4)
+		c = bloomApply(c, glow.rgb, emit, lend, glow.a);
 	}
 #endif
 	// ---- end atmos

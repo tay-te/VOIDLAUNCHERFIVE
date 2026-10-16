@@ -39,6 +39,8 @@
 // white over half the view, and wholly it veiled a peak over the cloud sea in milk; a cloud's body gives this share, a
 // rim past white (the silver lining, added past the clouds' shoulder) its whole light
 #define BLOOM_CLOUD 0.3
+// how much of the frame's mean bright share is kept off every pixel's halo (bloomApply's flat veil)
+#define BLOOM_FLAT 0.85
 
 float bloomLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -69,13 +71,19 @@ vec3 bloomSource(vec3 display, float emit) {
 
 // The halo `glow` (linear, with headroom) laid on display colour c; `lend` how much of the pixel's own bright share it
 // lends out (1 wholly energy-conserving; final lends half on the land, so a lamp's small flame keeps its brightness
-// beside its halo, and nothing on the sky). Display in, display out (before final's shoulder).
-vec3 bloomApply(vec3 c, vec3 glow, float emit, float lend) {
+// beside its halo, and nothing on the sky). `veil` is the frame's mean bright share (composite4, colortex9's alpha): that
+// much of what the halo brings a pixel is a flat veil over the whole frame, not a glow round anything, so BLOOM_FLAT of
+// it is kept off (the merge of phase 2: a sunlit snow peak over a sunlit cloud sea filled the frame with source and the
+// shadows went milky; the darks keep their depth, a lamp at night or the sun's glow is unchanged, as their frame's mean
+// is small beside them). Display in, display out (before final's shoulder).
+vec3 bloomApply(vec3 c, vec3 glow, float emit, float lend, float veil) {
 	float k = BLOOM_SCATTER * float(BLOOM_STRENGTH) * 0.01;
 	vec3 lin = pow(max(c, 0.0), vec3(2.2));
 	float head = bloomHeadroom(lin, emit);
 	vec3 own = bloomSource(c, emit);
-	vec3 hdr = lin * head + k * (glow - lend * own);
+	vec3 add = k * (glow - lend * own);
+	add -= min(vec3(k * BLOOM_FLAT * veil), max(add, 0.0));
+	vec3 hdr = lin * head + add;
 	lin = max(hdr / head, 0.0);
 	return pow(lin, vec3(1.0 / 2.2));
 }
