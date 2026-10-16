@@ -174,7 +174,8 @@ public final class Mason {
 			return;
 		}
 		int g = d.site().ground(x, z);
-		if (g > maxY || d.site().isWater(x, z) || !d.isAbsent(x, g, z)) {
+		// (not on made ground: a court paved over the cell is walked, and a stair course on it is a step to trip on)
+		if (g > maxY || d.site().isWater(x, z) || !d.isAbsent(x, g, z) || !d.isAbsent(x, g - 1, z)) {
 			return;
 		}
 		try (var s = d.stage(StageKind.FOUNDATION)) {
@@ -270,7 +271,7 @@ public final class Mason {
 		if (overPlaced || overGround) {
 			return;
 		}
-		if (ok(d, x, y, z) && d.isEmpty(x, y, z) && !ledge(d, x, y, z, toWall)) {
+		if (ok(d, x, y, z) && d.isEmpty(x, y, z) && !ledge(d, x, y, z, toWall) && !lowOver(d, x, y, z)) {
 			d.set(x, y, z, m.dress.stairsOrSlab(toWall, Half.TOP));
 		}
 	}
@@ -280,6 +281,21 @@ public final class Mason {
 	 * {@code toWall}) would join a floor folk stand on beside it, flush or a step down from it (a walk, a deck, a tower's
 	 * landing): then it is a ledge to walk out on along the wall's face, and is left out.
 	 */
+	/**
+	 * Whether a block at y would hang within three rows over a floor or the ground beneath it: too low to clear the head
+	 * of someone standing or stepping up there.
+	 */
+	public static boolean lowOver(Draft d, int x, int y, int z) {
+		int g = d.site().ground(x, z);
+		for (int yy = y - 1; yy >= y - 4; yy--) {
+			boolean solid = d.isAbsent(x, yy, z) ? yy <= g : d.isSolid(x, yy, z);
+			if (solid) {
+				return y - (yy + 1) <= 3;
+			}
+		}
+		return false;
+	}
+
 	/** Whether a block is a course block: an upside-down stair or a top slab, hung on a wall's face. */
 	public static boolean course(@org.jspecify.annotations.Nullable BlockState st) {
 		return st != null && (st.getBlock() instanceof StairBlock && st.getValue(StairBlock.HALF) == Half.TOP

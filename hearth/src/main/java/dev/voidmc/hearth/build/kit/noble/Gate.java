@@ -181,6 +181,9 @@ public final class Gate {
 			if (f[0] >= b.px0() - 1 && f[0] <= b.px1() + 1) {
 				t.door(d, m, toPassage, level, 1, true);
 			}
+			// a doorway at the hall's level out onto the curtain's walk where it runs into the tower's flank, so
+			// the walk on each side of the gate is joined through the tower and the gate hall
+			t.doorToward(d, m, side < 0 ? Dirs.LEFT : Dirs.RIGHT, hall, false);
 			t.loops(d, java.util.Set.of(Dirs.FRONT, side < 0 ? Dirs.LEFT : Dirs.RIGHT), level + 1, towerTop);
 			t.window(d, m, side < 0 ? Dirs.LEFT : Dirs.RIGHT, hall + 1, 2);
 			t.head(d, m, man, maxTop);

@@ -299,8 +299,9 @@ public final class Tower {
 				// only where the cell faces the wall square on (no lone corner stairs on a curve)
 				int wx = c[0] + Dirs.dx(toWall);
 				int wz = c[1] + Dirs.dz(toWall);
-				// nor where it would run on from a walk or a deck beside the tower as a ledge round it
-				if (!wall(wx, wz) || Mason.ledge(d, c[0], y, c[1], toWall)) {
+				// nor where it would run on from a walk or a deck beside the tower as a ledge round it, nor low over
+				// ground folk stand on (it would catch their heads stepping up to a door)
+				if (!wall(wx, wz) || Mason.ledge(d, c[0], y, c[1], toWall) || Mason.lowOver(d, c[0], y, c[1])) {
 					continue;
 				}
 				d.set(c[0], y, c[1], m.dress.stairsOrSlab(toWall, Half.TOP));
@@ -441,13 +442,16 @@ public final class Tower {
 		return this;
 	}
 
+	/** The spiral's ring of eight round its newel, in the order it climbs (see {@link Mason#spiral}). */
+	private static final int[][] ARRIVE_RING = {{-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}};
+
 	/**
 	 * Turns the spiral (call before {@link #stair}) so it arrives at as many of the standing {@code levels} as can be on
 	 * the side toward {@code dir}: in a round tower of seven the landing round the spiral is cut into four by the wall,
 	 * and only the quarter the spiral arrives on is reached at each floor, so doorways on a fixed side need this.
 	 */
 	public Tower arriveToward(Direction dir, int... levels) {
-		int[][] ring = {{-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}};
+		int[][] ring = ARRIVE_RING;
 		int best = 0;
 		int bestScore = -1;
 		for (int start = 0; start < 8; start++) {
@@ -732,6 +736,14 @@ public final class Tower {
 				continue;
 			}
 			int score = 100 - Math.abs(c[0] - this.cx) - Math.abs(c[1] - this.cz);
+			// in a round tower of seven the landing is cut into quarters: hang the lamp over the quarter the spiral
+			// arrives on, not over one only a door (or nothing) reaches
+			if (this.round && !this.ladder && this.stairX != Integer.MIN_VALUE && level > this.base) {
+				int[] a = ARRIVE_RING[Math.floorMod(this.stairStart + 2 * (level - this.base), 8)];
+				int ax = this.stairX + 2 * a[0];
+				int az = this.stairZ + 2 * a[1];
+				score -= 10 * (Math.abs(c[0] - ax) + Math.abs(c[1] - az));
+			}
 			if (blockedByDoor(c[0], c[1], level)) {
 				score -= 50;
 			}
