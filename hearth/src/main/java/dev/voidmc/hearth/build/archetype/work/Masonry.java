@@ -89,7 +89,8 @@ public final class Masonry implements Archetype {
 					d.set(c[0], 2, c[1], stone.has(Form.SLAB) ? stone.slab(SlabType.BOTTOM) : stone.full());
 				}
 			}
-			dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, 1, sz0 + 1, w - 2, sz1 - 1, 0);
+			// the shade's front posts in the court's open front, so none stands where a mason works at his bench
+			dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, 1, sz0, w - 2, sz1 - 1, 0);
 		} else {
 			roof = Shed.open(d, 0, sz0, w - 1, sz1, 0, 4, form == RoofForm.FLAT ? RoofForm.SHED : form, Direction.Axis.X, 1, stone,
 				Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
@@ -104,18 +105,21 @@ public final class Masonry implements Archetype {
 		// under it: stonecutters along the back wall, a chest, a rack of chisels
 		int cutters = 0;
 		boolean chest = false;
-		for (int x = 1; x <= w - 2; x++) {
+		// (in the court the shade's back posts stand in the row's end cells)
+		int xa = court ? 2 : 1;
+		int xb = court ? w - 3 : w - 2;
+		for (int x = xa; x <= xb; x++) {
 			int z = sz1 - 1;
-			if (x == w / 2 - 1 && !chest || !chest && x == w - 2) {
+			if (x == w / 2 - 1 && !chest || !chest && x == xb) {
 				Props.store(d, x, 0, z, Dirs.FRONT, true, List.of(new Object[]{"minecraft:stone_bricks", 48}, new Object[]{"minecraft:chiseled_stone_bricks", 8},
 					new Object[]{"minecraft:smooth_stone", 32}, new Object[]{"minecraft:iron_pickaxe", 1}));
 				Props.toolRack(d, x, 2, z, Dirs.FRONT, List.of(new Object[]{"minecraft:iron_pickaxe", 1, 0}, new Object[]{"minecraft:brush", 1, 1},
 					new Object[]{"minecraft:iron_shovel", 1, 2}));
 				chest = true;
-			} else if ((x - 1) % 2 == 0 && cutters < 4) {
+			} else if ((x - xa) % 2 == 0 && cutters < 4) {
 				Props.station(d, Blocks.STONECUTTER, x, 0, z, Dirs.FRONT, JobType.MASON);
 				cutters++;
-			} else if (d.isEmpty(x, 0, z) && x + 1 != w / 2 - 1 && x + 1 <= w - 3) {
+			} else if (d.isEmpty(x, 0, z) && x + 1 != w / 2 - 1 && x + 1 <= xb - 1) {
 				Props.stonePallet(d, x, 0, z, ashlar, d.mat(Role.FLOOR));
 				x++;
 			}

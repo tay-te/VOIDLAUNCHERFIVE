@@ -29,11 +29,14 @@ public final class Rails {
 	 * were set.
 	 */
 	public static int guard(Draft d, int x0, int z0, int x1, int z1, int y, List<int[]> gaps) {
-		return guard(d, x0, z0, x1, z1, y, gaps, true);
+		return guard(d, x0, z0, x1, z1, y, gaps, true, true);
 	}
 
-	/** {@link #guard}; {@code street}: also toward the street (the row before the plot). */
-	private static int guard(Draft d, int x0, int z0, int x1, int z1, int y, List<int[]> gaps, boolean street) {
+	/**
+	 * {@link #guard}; {@code street}: also toward the street (the row before the plot); {@code self}: at the plot's edge
+	 * the rail on the edge cell itself (the yard leaves those to {@link #reached}, which never shuts a way through).
+	 */
+	private static int guard(Draft d, int x0, int z0, int x1, int z1, int y, List<int[]> gaps, boolean street, boolean self) {
 		Paint rail = Hall.woodFence(d).fence();
 		int n = 0;
 		try (var s = d.stage(StageKind.EXTERIOR)) {
@@ -49,9 +52,12 @@ public final class Rails {
 							continue;
 						}
 						if (!d.allowed(nx, y, nz) || !d.allowed(nx, y - 1, nz)) {
-							// the plot ends here: the rail goes on the edge cell itself
-							d.set(x, y, z, rail);
-							n++;
+							// the plot ends here: the rail goes on the edge cell itself (never where someone stands to work,
+							// fetch or sleep)
+							if (self && !poi(d, x, y, z)) {
+								d.set(x, y, z, rail);
+								n++;
+							}
 							break;
 						}
 						BlockState deck = d.get(x, y - 1, z);
@@ -77,14 +83,14 @@ public final class Rails {
 	public static int yard(Draft d) {
 		int n = 0;
 		for (int y = -3; y <= 2; y++) {
-			n += guard(d, 0, 0, d.frontage() - 1, d.depth() - 1, y, List.of(), false);
+			n += guard(d, 0, 0, d.frontage() - 1, d.depth() - 1, y, List.of(), false, true);
 		}
 		n += reached(d);
 		// a little higher (a mound's or a bank's top) only at the plot's sides and back, where the land falls away
 		for (int y = 3; y <= 4; y++) {
 			for (int[] r : new int[][]{{0, 0, 0, d.depth() - 1}, {d.frontage() - 1, 0, d.frontage() - 1, d.depth() - 1}, {0, d.depth() - 1, d.frontage() - 1,
 				d.depth() - 1}}) {
-				n += guard(d, r[0], r[1], r[2], r[3], y, List.of(), false);
+				n += guard(d, r[0], r[1], r[2], r[3], y, List.of(), false, true);
 			}
 		}
 		return n;
@@ -234,7 +240,7 @@ public final class Rails {
 					if (nz < 0 || !d.allowed(nx, y, nz) || !d.allowed(nx, y - 1, nz)) {
 						// the rail goes on the cell itself, unless the cell is the way through (a landing at a flight's
 						// head, a one-wide walk): a fence there would cut off what lies beyond it
-						if (!through(seen, x, y, z, y0, sx, sy, sz)) {
+						if (!through(seen, x, y, z, y0, sx, sy, sz) && !poi(d, x, y, z)) {
 							d.set(x, y, z, rail);
 							n++;
 						}
@@ -397,6 +403,16 @@ public final class Rails {
 			n++;
 		}
 		return n;
+	}
+
+	/** A point of interest's cell (a job site, a store, a bed's side, a seat), where someone must be able to stand. */
+	private static boolean poi(Draft d, int x, int y, int z) {
+		for (Draft.LocalPoi p : d.pois()) {
+			if (p.x() == x && p.z() == z && Math.abs(p.y() - y) <= 1) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static boolean gap(List<int[]> gaps, int x, int z) {

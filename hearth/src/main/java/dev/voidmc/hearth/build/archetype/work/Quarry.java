@@ -246,12 +246,10 @@ public final class Quarry implements Archetype {
 			d.poi(PoiType.JOB_SITE, gate, 0, 2, Dirs.BACK, JobType.QUARRIER);
 		}
 		int hx = shedLeft ? w - 3 : 2;
-		// the spoil heap stands clear of the ramp's head, so the ramp climbs out onto the yard
+		// the spoil heap stands clear of the ramp's head, so the ramp climbs out onto the yard (where it would not, there is
+		// none: moved beside the ramp it shut off the yard's corner)
 		int rampX = px0 + rx;
-		if (Math.abs(hx - rampX) < 2) {
-			hx = rampX + 3 <= w - 2 ? rampX + 2 : rampX - 3 >= 1 ? rampX - 2 : Integer.MIN_VALUE;
-		}
-		if (hx != Integer.MIN_VALUE) {
+		if (Math.abs(hx - rampX) >= 3) {
 			Props.heap(d, hx - 1, 3, hx + 1, fz, 0, new Block[]{Blocks.GRAVEL, rock[2], Blocks.COBBLESTONE}, null);
 		}
 
@@ -277,7 +275,12 @@ public final class Quarry implements Archetype {
 				d.set(x, 0, fz, plan == Plan.FACE ? stone.has(Form.WALL) ? stone.wall() : stone.full() : fence.fence());
 			}
 		}
-		Signs.post(d, gate + 2, 0, 0, Dirs.LEFT, 3, "quarry", "Quarry");
+		// the sign's post on the gate's side away from the shed (beside the shade's corner post it shut the shed's front off)
+		if (shedLeft) {
+			Signs.post(d, gate + 2, 0, 0, Dirs.LEFT, 3, "quarry", "Quarry");
+		} else {
+			Signs.post(d, gate - 2, 0, 0, Dirs.RIGHT, 3, "quarry", "Quarry");
+		}
 		// a rail wherever the levelled yard ends over a drop
 		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, fz, Math.max(lodgeTop, roof != null ? roof.ridgeY : 4) + 3);

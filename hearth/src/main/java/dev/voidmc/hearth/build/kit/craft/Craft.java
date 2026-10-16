@@ -82,6 +82,12 @@ public final class Craft {
 				// and a flush verge left them standing out beyond the roof like scaffold poles: there the verge stays)
 				t = t.withEaves(o.eaves(), 0);
 			}
+			// the eaves never hang lower than a man's head over the ground before the wall (a steep pitch with deep eaves
+			// on a low wall brought the eave down to the garden: the alpine apiary's front was shut off by it)
+			int eaveCap = Math.max(0, (int) Math.floor((plate - 1) / Math.max(1.0, t.pitch())));
+			if (t.eaves() > eaveCap) {
+				t = t.withEaves(eaveCap, t.gableOverhang());
+			}
 			if (Hall.ridgeY(d, tr[0], tr[1], tr[2], tr[3], plate, base, axis, t, hall.body.partyLeft, hall.body.partyRight) <= limit) {
 				chosen = t;
 				break;

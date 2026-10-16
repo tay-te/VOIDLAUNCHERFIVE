@@ -288,6 +288,25 @@ public final class AlchemistTower implements Archetype {
 	/** The study: the bed with a free side, a desk, books and a chest, a reading lectern. */
 	private static void study(Draft d, Floorplan fp) {
 		int y = fp.y;
+		// his place at the study's window, looking out over the town (a window in the wall before it where there is one)
+		int[] look = null;
+		Direction lookOut = Dirs.FRONT;
+		for (int pass = 0; pass < 2 && look == null; pass++) {
+			for (Direction wall : new Direction[]{Dirs.FRONT, Dirs.LEFT, Dirs.RIGHT, Dirs.BACK}) {
+				for (int[] c : fp.along(wall)) {
+					var pane = d.get(c[0] + Dirs.dx(wall), y + 1, c[1] + Dirs.dz(wall));
+					boolean window = pane != null && !pane.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO);
+					if (look == null && fp.free(c[0], c[1]) && (window || pass == 1)) {
+						look = c;
+						lookOut = wall;
+					}
+				}
+			}
+		}
+		if (look != null) {
+			fp.keep(look[0], look[1]);
+			d.poi(PoiType.VIEWPOINT, look[0], y, look[1], lookOut);
+		}
 		Block bed = d.mat(Role.CLOTH).mainOr(Form.BED, Blocks.BED.pick(net.minecraft.world.item.DyeColor.RED));
 		boolean slept = false;
 		// the bed along a wall, its foot out, a free cell along its side
@@ -678,6 +697,11 @@ public final class AlchemistTower implements Archetype {
 		// the gate's posts and lamps
 		for (int x : new int[]{ex - 2, ex + 2}) {
 			if (Works.in(d, x, 0) && d.isSolid(x, 1, 0)) {
+				// a lantern stands on a whole block: the post's coping slab under it becomes the post's head
+				var head = d.get(x, 2, 0);
+				if (head == null || !head.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)) {
+					d.inStage(StageKind.WALLS, () -> d.set(x, 2, 0, d.mat(Role.WALL).full()));
+				}
 				Lighting.lamp(d, x, 3, 0);
 			}
 		}

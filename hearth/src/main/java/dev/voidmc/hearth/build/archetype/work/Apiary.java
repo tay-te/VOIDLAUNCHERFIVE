@@ -88,15 +88,18 @@ public final class Apiary implements Archetype {
 
 		// the garden: a path from the gate to the bee house door, rows of flowers either side, hives on posts among them
 		Floorplan yp = Craft.yardPlan(d, 1, 1, w - 2, bz0 - 1);
+		// (a cell the house's eave or a window box hangs low over is no cell to keep: kept, it left nothing placeable)
 		yp.keep(ex, 1);
-		if (bz0 - 1 >= 1) {
+		if (bz0 - 1 >= 1 && yp.open(door, bz0 - 1)) {
 			yp.keep(door, bz0 - 1);
 		}
 		List<int[]> walk = new ArrayList<>();
 		for (int z = 1; z < bz0; z++) {
 			int x = z < (bz0 + 1) / 2 ? ex : door;
 			walk.add(new int[]{x, z});
-			yp.keep(x, z);
+			if (yp.open(x, z)) {
+				yp.keep(x, z);
+			}
 		}
 		for (int x = Math.min(ex, door); x <= Math.max(ex, door); x++) {
 			int z = (bz0 + 1) / 2;

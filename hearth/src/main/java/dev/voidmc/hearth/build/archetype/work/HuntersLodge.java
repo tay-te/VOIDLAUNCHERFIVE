@@ -282,7 +282,10 @@ public final class HuntersLodge implements Archetype {
 						}
 					}
 				}
-				if (!Props.site(d, cx + (left ? 1 : -1), 0, cz + 1, left ? Dirs.LEFT : Dirs.RIGHT, JobType.HUNTER)) {
+				// the hunter tends it from the house side, else from before the rack (the plot's edge beside it is railed
+				// where the land falls away, and a place there was shut in by the rails)
+				if (!Props.site(d, cx + (left ? 1 : -1), 0, cz + 1, left ? Dirs.LEFT : Dirs.RIGHT, JobType.HUNTER)
+					&& !Props.site(d, cx, 0, cz - 1, Dirs.BACK, JobType.HUNTER)) {
 					Props.site(d, cx - (left ? 1 : -1), 0, cz + 1, left ? Dirs.RIGHT : Dirs.LEFT, JobType.HUNTER);
 				}
 			}
