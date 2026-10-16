@@ -49,7 +49,17 @@ Movement: `FolkNavigation` opens and closes doors (vanilla `OpenDoorGoal`), clim
 (`ClimbNodeEvaluator` adds straight up/down nodes on climbable blocks; not scaffolding, whose paths up a site's ring and
 over the wall top no folk could follow: builders get about the ring by hand, §6), and sneaks to drop through
 scaffolding when the path goes down. Sleeping uses the vanilla pose without touching the bed block (`Folk.sleepIn`), so a folk folded away
-in bed never leaves a bed marked occupied. Step height 1.
+in bed never leaves a bed marked occupied. Step height 1. Folk do not use portals (the entity would leave for a world
+where no settlement can take it back). A block put where a folk stands (a builder's step, the chunk applier, a player)
+does them no harm: they step out to the nearest standing room, since a resident's death is for good.
+
+Paths are asked for a place to **stand** (`FolkSpots.approaches`): the spot itself if one can stand there, else the
+standable cells beside it, beside either half of a bed, and under a roof only roofed ones (so a bed against an outside
+wall is reached from the room, not from the street through the wall). A path asked for a bed, a chest or an anvil
+itself never ends early: it runs through the whole node budget and returns wherever it got nearest, which for an
+upstairs bed was the floor beneath it. The search budget follows the distance (1.4 × the distance + 16 blocks, 48 more
+for another storey, up to 128; vanilla's follow range of 48 gave partial paths across a town), and a folk who arrives
+at the end of a partial path no nearer than before goes round by open ground 12–20 blocks on before trying again.
 
 ## 2. Looks: skins composed on the client
 
@@ -154,8 +164,8 @@ order, so nobody aims for the same bed. Residents without plots use the bed, job
 the POIs around their anchor.
 
 The brain (`FolkBrain`) thinks every 2 ticks with a player within 24 blocks, every 5 within 64, every 12 beyond;
-paths are asked for at most once per `repath_cooldown`, and a folk that makes no progress gives up (or, if no player
-is within 32 blocks to see it, is moved to where it was going). Small human touches: they look at players passing
+paths are asked for at most once per `repath_cooldown`, and a folk that makes no progress for ten seconds gives up
+(or, if no player can see it or where it is going, is moved there; a sleeper nobody sees slips into bed). Small human touches: they look at players passing
 close, wave the first time they see one, greet players they know by name in chat (reputation 25+ or met before;
 at most once per 40 s per player), turn to face each other and take turns talking when two are at leisure together
 (and sometimes become friends), children play tag round the square, elders stoop and sit, everyone breathes.
@@ -330,7 +340,10 @@ by step, nor the time miners and quarriers spent cutting).
 Right-click a folk (not while they sleep, unless sneaking). The server builds the conversation and sends it
 (`hearth:npc/conversation`): name, trade, settlement, a greeting and options. The client shows a parchment screen with
 their face drawn from their own skin and the speech written out as they say it; picking an option sends its id
-(`hearth:npc/choose`); closing sends `hearth:npc/end`. The folk stops, faces the player and gestures while talking.
+(`hearth:npc/choose`); closing sends `hearth:npc/end`, and the server closes the screen (`hearth:npc/close`) on goodbye
+or when the conversation has ended on its side. The folk stops, faces the player and gestures while talking; each
+option picked keeps them another minute; server and screen both end the talk beyond 10 blocks; a monster in sight or
+the alarm ends it too (they run). Options beyond the screen's height scroll with the mouse wheel.
 
 The greeting is composed from templates (`data/hearth/hearth_dialogue/*.json`) to fit the moment: time of day,
 weather, the player's reputation (distrust, stranger, known, friend, hero), the folk's traits and mood, trade, age and
