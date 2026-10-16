@@ -328,39 +328,53 @@ public class FolkNight implements FabricClientGameTest {
 		}
 		BlockPos spawn = level.getRespawnData().pos();
 		BlockPos best = null;
+		Culture bestCulture = null;
 		int bestRelief = Integer.MAX_VALUE;
-		for (int r = 128; r <= 1600 && (best == null || bestRelief > 3 || r < 512); r += 64) {
-			for (int k = 0; k < 16; k++) {
-				double a = k * Math.PI / 8 + r * 0.01;
-				BlockPos at = new BlockPos(spawn.getX() + (int) (Math.cos(a) * r), 0, spawn.getZ() + (int) (Math.sin(a) * r));
-				int g = w.terrain().groundY(at.getX(), at.getZ());
-				if (g <= w.terrain().seaLevel() + 2) {
-					continue;
-				}
-				int lo = g;
-				int hi = g;
-				for (int dx = -40; dx <= 40; dx += 10) {
-					for (int dz = -40; dz <= 40; dz += 10) {
-						int h = w.terrain().groundY(at.getX() + dx, at.getZ() + dz);
-						lo = Math.min(lo, h);
-						hi = Math.max(hi, h);
+		java.util.Map<String, Integer> why = new java.util.TreeMap<>();
+		// a temperate town if there is a site for one, else any culture's
+		for (int pass = 0; pass < 2 && best == null; pass++) {
+			for (int r = 128; r <= 1600 && (best == null || bestRelief > 3 || r < 512); r += 64) {
+				for (int k = 0; k < 16; k++) {
+					double a = k * Math.PI / 8 + r * 0.01;
+					BlockPos at = new BlockPos(spawn.getX() + (int) (Math.cos(a) * r), 0, spawn.getZ() + (int) (Math.sin(a) * r));
+					int g = w.terrain().groundY(at.getX(), at.getZ());
+					if (g <= w.terrain().seaLevel() + 2) {
+						why.merge("water", 1, Integer::sum);
+						continue;
 					}
+					int lo = g;
+					int hi = g;
+					for (int dx = -40; dx <= 40; dx += 10) {
+						for (int dz = -40; dz <= 40; dz += 10) {
+							int h = w.terrain().groundY(at.getX() + dx, at.getZ() + dz);
+							lo = Math.min(lo, h);
+							hi = Math.max(hi, h);
+						}
+					}
+					if (hi - lo >= bestRelief) {
+						continue;
+					}
+					Culture c = CultureVote.at(at.getX(), at.getZ(), w.probe()::biomeHolder, dev.voidmc.hearth.api.HearthServices::culture);
+					if (pass == 0 && c != Culture.TEMPERATE) {
+						why.merge("culture " + c.getSerializedName(), 1, Integer::sum);
+						continue;
+					}
+					String no = w.whyNotFound(at, SimWorld.FOUND_SPACING, true);
+					if (no != null) {
+						why.merge(no, 1, Integer::sum);
+						continue;
+					}
+					bestRelief = hi - lo;
+					best = at;
+					bestCulture = c;
 				}
-				if (hi - lo >= bestRelief) {
-					continue;
-				}
-				Culture c = CultureVote.at(at.getX(), at.getZ(), w.probe()::biomeHolder, dev.voidmc.hearth.api.HearthServices::culture);
-				if (c != Culture.TEMPERATE || w.whyNotFound(at, SimWorld.FOUND_SPACING, true) != null) {
-					continue;
-				}
-				bestRelief = hi - lo;
-				best = at;
 			}
 		}
 		if (best == null) {
+			log("no site: " + why);
 			return null;
 		}
-		SimSettlement s = w.found(best, Culture.TEMPERATE, null);
+		SimSettlement s = w.found(best, bestCulture, null);
 		for (int d = 0; d < DAYS; d += 4) {
 			for (Goods g : Goods.VALUES) {
 				int want = s.stockpile().capacity(g) * 3 / 4 - s.stockpile().get(g);
