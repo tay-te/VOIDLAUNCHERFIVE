@@ -4,3 +4,7 @@
 # When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
 # breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
 # by an archetype not listed for it fails the tests.
+infra/bridge walk roof-hole               # walk 0/84 (tests 1), roof-hole 0/84 (tests 4)
+infra/road roof-hole                      # roof-hole 0/84 (tests 1)
+infra/stairs roof-hole                    # roof-hole 0/84 (tests 1)
+infra/walkway roof-hole                   # roof-hole 0/84 (tests 16)

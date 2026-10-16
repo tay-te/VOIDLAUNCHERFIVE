@@ -563,7 +563,11 @@ composed town, where a neighbour's cut can take the ground from under a piece).
 
 Metric quirks of §2 fixed with the gate: lattice and shutter windows count; round bodies are measured per column;
 decorative cauldrons (no POI beside them, in an open space or under the sky) are not workstations; a tie beam is not a floor; the dock is measured on
-its shore and the walkway between two house fronts (`gametest/audit/Demos.java`). The audit columns `strict_reach`,
+its shore and the walkway between two house fronts (`gametest/audit/Demos.java`). `fall_edge_cells` no longer counts a ladder's
+rungs beside open air or a step from the floor's level onto the street before the plot (the synthetic slope and cliff
+fall away there; the planner lays the street at the floor). `roof-hole` reads a gap only where built blocks (not the
+hillside, not a railing) close it and open air lies under it: the gallows' drop, decks and hillside pockets were read
+as gaps in the first tally (roof-gap cases 1012 -> 814 of 11256 on the wave-7 `hearth`). The audit columns `strict_reach`,
 `floating_pieces`, `roof_gap_cells`, `gate` and `gate_text` are new and do not enter the scores; the scores' weights are
 unchanged, but the quirk fixes move some rows from §3 (karst and tropical windows, the round house, wells and the
 tavern's beams).

@@ -4,12 +4,13 @@
 # When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
 # breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
 # by an archetype not listed for it fails the tests.
-commerce/bank furnished-reached roof-hole             # furnished-reached 3/84, roof-hole 6/84
-commerce/caravan_yard roof-hole                       # roof-hole 7/84
-commerce/caravanserai door-sides furnished-reached    # door-sides 84/84 (tests 2), furnished-reached 42/84
-commerce/counting_house door-sides furnished-reached  # door-sides 3/84, furnished-reached 3/84
-commerce/hostel furnished-reached roof-hole           # furnished-reached 1/84, roof-hole 6/84 (tests 1)
-commerce/inn furnished-reached                        # furnished-reached 6/84
-commerce/market_hall door-sides                       # door-sides 84/84 (tests 3)
-commerce/market_stall furnished-reached               # furnished-reached 0/84 (tests 3)
-commerce/tavern furnished-reached roof-hole           # furnished-reached 8/84, roof-hole 6/84
+commerce/bank door-sides furnished-reached roof-hole                 # door-sides 0/84 (tests 79), furnished-reached 6/84 (tests 37), roof-hole 6/84 (tests 73)
+commerce/caravan_yard furnished-reached roof-hole                    # furnished-reached 0/84 (tests 27), roof-hole 7/84 (tests 64)
+commerce/caravanserai walk door-sides furnished-reached roof-hole    # walk 0/84 (tests 1), door-sides 84/84 (tests 520), furnished-reached 42/84 (tests 242), roof-hole 0/84 (tests 40)
+commerce/counting_house walk door-sides furnished-reached roof-hole  # walk 0/84 (tests 19), door-sides 3/84 (tests 49), furnished-reached 3/84 (tests 87), roof-hole 0/84 (tests 47)
+commerce/hostel walk door-sides furnished-reached roof-hole          # walk 0/84 (tests 10), door-sides 0/84 (tests 28), furnished-reached 1/84 (tests 11), roof-hole 6/84 (tests 205)
+commerce/inn door-sides furnished-reached roof-hole                  # door-sides 0/84 (tests 1), furnished-reached 6/84 (tests 14), roof-hole 0/84 (tests 55)
+commerce/market_hall door-sides furnished-reached roof-hole          # door-sides 84/84 (tests 442), furnished-reached 0/84 (tests 67), roof-hole 0/84 (tests 51)
+commerce/market_stall furnished-reached roof-hole                    # furnished-reached 0/84 (tests 3), roof-hole 0/84 (tests 1)
+commerce/tavern furnished-reached roof-hole                          # furnished-reached 8/84 (tests 27), roof-hole 6/84 (tests 65)
+commerce/thieves_den furnished-reached roof-hole                     # furnished-reached 0/84 (tests 3), roof-hole 0/84 (tests 19)

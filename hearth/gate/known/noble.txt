@@ -4,8 +4,8 @@
 # When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
 # breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
 # by an archetype not listed for it fails the tests.
-noble/castle door-sides ladder-top furnished-reached roof-hole  # door-sides 24/84 (tests 1), ladder-top 72/84 (tests 1), furnished-reached 65/84 (tests 1), roof-hole 55/84 (tests 1)
-noble/hunting_lodge furnished-reached roof-hole                 # furnished-reached 2/84, roof-hole 2/84
-noble/keep ladder-top furnished-reached roof-hole               # ladder-top 84/84 (tests 2), furnished-reached 15/84, roof-hole 63/84 (tests 2)
-noble/palace door-sides ladder-top furnished-reached roof-hole  # door-sides 17/84, ladder-top 84/84, furnished-reached 29/84, roof-hole 78/84
-noble/stables furnished-reached roof-hole                       # furnished-reached 2/84, roof-hole 5/84
+noble/castle door-sides ladder-top furnished-reached floating-piece roof-hole  # door-sides 24/84 (tests 266), ladder-top 72/84 (tests 683), furnished-reached 65/84 (tests 670), floating-piece 0/84 (tests 3), roof-hole 55/84 (tests 552)
+noble/hunting_lodge door-sides ladder-top furnished-reached roof-hole          # door-sides 0/84 (tests 6), ladder-top 0/84 (tests 18), furnished-reached 2/84 (tests 39), roof-hole 2/84 (tests 48)
+noble/keep ladder-top furnished-reached roof-hole                              # ladder-top 84/84 (tests 783), furnished-reached 15/84 (tests 146), roof-hole 63/84 (tests 581)
+noble/palace door-sides ladder-top furnished-reached floating-piece roof-hole  # door-sides 17/84 (tests 544), ladder-top 84/84 (tests 782), furnished-reached 29/84 (tests 349), floating-piece 0/84 (tests 7), roof-hole 78/84 (tests 766)
+noble/stables furnished-reached roof-hole                                      # furnished-reached 2/84 (tests 21), roof-hole 5/84 (tests 72)

@@ -529,7 +529,7 @@ to print a case's walk map. Add `-Pmode=all` for the contact sheets and cutaways
 | `beds_no_free_side` | 0 | a bed nobody can get into |
 | `workstations_unusable`, `chest_lids_blocked` | 0 | a job block, chest or barrel with no reachable face; a chest under a solid block |
 | `dark_room_cells` (and `light_min_room` >= 8) | 0 | room floor under light 8 |
-| `fall_edge_cells` | 0 | a walked cell beside an unguarded drop of 4+ (rail, parapet or sill it). Allowed only where the family page says the edge is the point: quarry faces, quay edges, the town side of a wall walk |
+| `fall_edge_cells` | 0 | a walked cell beside an unguarded drop of 4+ (rail, parapet or sill it). Allowed only where the family page says the edge is the point: quarry faces, quay edges, the town side of a wall walk. Not counted: a ladder's rungs beside open air (the climber holds on) and a step from the floor's level onto the street before the plot (the planner lays it at the floor) |
 | `lava`, `water_roofed` | 0 unless the page says so | stray fluids |
 | `strict_reach` | 0 | a bed, job site, store or door reached only by standing on pots, candles, lanterns, cakes or skulls (the gate's `walk` rule) |
 | `floating_pieces` | 0 | a piece standing on nothing: structure on neither the ground nor other structure (a deck on a crown, a trunk on air, a roof fragment held by a lamp) |
@@ -588,7 +588,7 @@ lantern, a pot, a cake or a skull):
 | `ladder-top` | a ladder's top has no cell to step off onto | `dead_ladders` |
 | `furnished-reached` | a furnished room (furniture, a POI, a door) is never reached by the walk | `unreached_furnished_cells` |
 | `floating-piece` | a piece stands on nothing (structure rests on the ground or on structure; leaves, plants and fixtures hang on structure; a chain carries what hangs from it) | `floating_pieces` |
-| `roof-hole` | a gap of up to six cells in a roof opens onto covered space (smoke holes over a fire and hatches down to a ladder or stair aside) | `roof_gap_cells` |
+| `roof-hole` | a gap of up to six cells in a roof opens onto covered space: closed by built blocks (not the hillside, not a railing), over open air (not a deck or a platform floor); smoke holes over a fire and hatches down to a ladder or stair aside | `roof_gap_cells` |
 
 The rules also run on planner-made specs: `TownLandGateTest` grows three towns on hills and checks every built plot on
 the town's land, and `townPreview` writes `..._floating.txt` for each town it draws (each plot's own pieces, then the
