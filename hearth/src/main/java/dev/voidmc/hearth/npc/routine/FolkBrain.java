@@ -631,6 +631,17 @@ public final class FolkBrain {
 			if (!ok) {
 				this.stuckFor += config().repathCooldown();
 			}
+			// No path at all, twice running, standing on the ground: they are somewhere no path starts from (a child up on
+			// the well's rim by way of its cauldron, a fence top). A hop down to proper ground, seen or not.
+			this.noPath = way == null && this.folk.onGround() ? this.noPath + 1 : 0;
+			if (this.noPath >= 2) {
+				this.noPath = 0;
+				BlockPos down = FolkSpots.groundNear(level, this.folk.blockPosition(), 3);
+				if (down != null) {
+					this.folk.getNavigation().stop();
+					this.folk.teleportTo(down.getX() + 0.5, down.getY(), down.getZ() + 0.5);
+				}
+			}
 		}
 		if (this.lastProgressPos != null && pos.distanceToSqr(this.lastProgressPos) > 1.0) {
 			this.lastProgressPos = pos;
@@ -660,6 +671,8 @@ public final class FolkBrain {
 	/** A spot to make for first, when the last partial path toward the goal brought the folk no nearer. */
 	private @Nullable BlockPos detour;
 	private int detourUntil;
+	/** Path searches in a row that found no path at all (not even a partial one). */
+	private int noPath;
 	/** Where one stands to use the current goal ({@link FolkSpots#approaches}), found once per goal. */
 	private java.util.@Nullable List<BlockPos> approaches;
 	/** The nearest the end of a partial path has brought the folk to the current goal. */

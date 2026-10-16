@@ -63,6 +63,36 @@ public final class FolkSpots {
 	}
 
 	/**
+	 * The nearest spot within {@code radius} (not {@code origin} itself) where one stands on a whole block with room
+	 * above: proper ground to step down to from a fence top, a wall's rim or a cauldron. Null if none is loaded.
+	 */
+	public static @Nullable BlockPos groundNear(Level level, BlockPos origin, int radius) {
+		BlockPos best = null;
+		double bestD = Double.MAX_VALUE;
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int dy = -radius; dy <= 1; dy++) {
+			for (int dx = -radius; dx <= radius; dx++) {
+				for (int dz = -radius; dz <= radius; dz++) {
+					if (dx == 0 && dz == 0 && dy == 0) {
+						continue;
+					}
+					p.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
+					double d = dx * dx + dz * dz + dy * dy * 0.5;
+					if (d >= bestD || !level.isLoaded(p)) {
+						continue;
+					}
+					BlockPos below = p.below();
+					if (level.getBlockState(below).isCollisionShapeFullBlock(level, below) && passable(level, p) && passable(level, p.above())) {
+						best = p.immutable();
+						bestD = d;
+					}
+				}
+			}
+		}
+		return best;
+	}
+
+	/**
 	 * Where a folk stands to use {@code target}: the spot itself if one can stand there, else the standable cells
 	 * beside it (level, a step up or a step down), beside either half of a bed. Under a roof only cells under a roof
 	 * count, so a bed or a bench against an outside wall is reached from the room, not from the street through the
