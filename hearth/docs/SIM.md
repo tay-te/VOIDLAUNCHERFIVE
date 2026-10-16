@@ -278,6 +278,13 @@ chunk whose blueprints are still being made waits (above).
   replaces) left there — every block above its floor still exactly as placed becomes air (containers drop their
   contents; foundations stay for the rebuild; a player's changes stay) — and sets its ledger cursor to zero.
 
+**Reachability** (wave 7): Fabric's `CHUNK_LOAD` fires before `getChunkNow` can see the chunk, so a chunk queued at its load
+could be dropped and stay unwritten until it loaded again. The applier now also queues a chunk when it becomes reachable
+(`FULL_CHUNK_STATUS_CHANGE` to `FULL` or above, which also covers a border chunk promoted later) and looks for a queued
+chunk that is not there a few more times. A chunk pass that throws is skipped; `/hearth sim stats` names the slowest
+chunk pass (chunk, time, plots, blocks) and the slowest part of a tick. Server-thread code asks `isPlannedNow`, never
+`isPlanned`: the latter works out a region's history in place when it is not cached (most of a second).
+
 ## 7. Embodiment and the construction contract (§4)
 
 Every 20 ticks each player's nearby settlements (a 256-block cell index of bounds grown by `radius + hysteresis`) are
