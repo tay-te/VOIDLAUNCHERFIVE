@@ -62,6 +62,12 @@ void main() {
 #include "/lib/shafts.glsl"
 #endif
 #include "/lib/depthfx.glsl"
+#if WD_SHAFTS
+#ifndef WU_colortex12
+#define WU_colortex12
+uniform sampler2D colortex12;
+#endif
+#endif
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 #include "/lib/haze/haze_debug.glsl"
 #endif
@@ -313,6 +319,27 @@ void main() {
 #elif SHAFT_DEBUG == 2
 			color.rgb = vec3(texelFetch(colortex13, p >> 1, 0).r); // the raw term
 #endif
+		}
+#endif
+#if WD_SHAFTS
+		// depth prototype SHAFTS, the screen-space beams (composite1, colortex12): the 4x4 half-resolution texels round
+		// the pixel averaged (each noise offset once), as light in the sun-side horizon's hue, strongest at a low sun
+		if (sunW.y > -0.04) {
+			ivec2 qc = p >> 1;
+			ivec2 hi = textureSize(colortex12, 0) - 1;
+			float rays = 0.0;
+			for (int y = -2; y < 2; y++) {
+				for (int x = -2; x < 2; x++) {
+					rays += texelFetch(colortex12, clamp(qc + ivec2(x, y), ivec2(0), hi), 0).r;
+				}
+			}
+			rays /= 16.0;
+			vec3 sunSideR = skyHazeHorizon(st.kind, true);
+			vec3 rayHue = mix(sunSideR / max(wdLuma(sunSideR), 1e-3), vec3(1.0), 0.2);
+			float h0 = sunW.y;
+			float gateR = smoothstep(-0.03, 0.05, h0) * mix(1.0, 0.3, smoothstep(0.3, 0.9, h0)) * (1.0 - skyNightStep());
+			float xr = rays * gateR * (WD_ALL == 1 ? 0.75 : 1.0) * (s.sky ? 0.55 : 1.0);
+			color.rgb += rayHue * (0.42 * (1.0 - exp(-xr / 0.42)));
 		}
 #endif
 		color.rgb = welkinHazeFront(color.rgb, h);

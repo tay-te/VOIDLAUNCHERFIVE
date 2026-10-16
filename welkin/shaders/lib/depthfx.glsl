@@ -45,12 +45,12 @@ float wdHazeDensity(float y) {
 // clouds leave the earlier passes as display values squeezed under white (lib/tone.glsl's shoulder): a near-white
 // pixel stands for much more light than it shows, so its light is given that headroom back (up to about 6x at white)
 // before the soft threshold. `emit` (0..1) adds a glowing texel's own light (a torch's flame, a lamp).
-#define WD_BLOOM_THRESHOLD 0.6
-#define WD_BLOOM_KNEE 0.35
+#define WD_BLOOM_THRESHOLD 0.95
+#define WD_BLOOM_KNEE 0.3
 float wdBloomHeadroom(vec3 lin) {
 	float y = max(lin.r, max(lin.g, lin.b));
-	float s = smoothstep(0.45, 1.0, y);
-	return 1.0 + 7.0 * s * s * s;
+	float s = smoothstep(0.5, 1.0, y);
+	return 1.0 + 8.0 * s * s * s;
 }
 
 vec3 wdBloomSource(vec3 display, float emit) {

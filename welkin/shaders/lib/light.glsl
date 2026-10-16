@@ -171,9 +171,9 @@ const float AMB_SKY_HUE = 0.5;
 // depth prototypes: SHADE's lift of the open sky's fill (1 + this, where the sky is open and the occlusion clear), and
 // RELIEF's sheen: the specular light deferred works out per pixel (linear light, added before the tone; 0 elsewhere).
 #if WD_ALL
-#define WD_SHADE_LIFT 1.8
+#define WD_SHADE_LIFT 2.4
 #else
-#define WD_SHADE_LIFT 2.2
+#define WD_SHADE_LIFT 3.0
 #endif
 vec3 lightSheen = vec3(0.0);
 
@@ -263,7 +263,7 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 		// own hue whole; crevices, contact shade, eaves and the canopy (low visibility, cut sky light, leaves above)
 		// keep their dark, so the darkness is left to occlusion and the shade between reads bright and blue.
 		float visOpen = mix(pow(aoV, LIGHT_AO_POW), pow(clamp(contact, 0.0, 1.0), AO_STRENGTH), lightAoCover);
-		float open = smoothstep(0.72, 0.96, lm.y) * mix(0.3, 1.0, smoothstep(0.2, 0.8, visOpen))
+		float open = smoothstep(0.72, 0.96, lm.y) * mix(0.5, 1.0, smoothstep(0.15, 0.7, visOpen))
 			* (1.0 - canopyShade(lm.y, sunReach)) * (1.0 - skyNightStep());
 		float lift = 1.0 + WD_SHADE_LIFT * open;
 		vec3 skyHue = skyEFull / max(lumaLin(skyEFull), 1e-4);

@@ -103,7 +103,7 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky) {
 		// (the beams carry it: where the whole ray is sunlit, open air with nothing to cut it, it is only a glow, at
 		// less than half; where the ray is partly shadowed, beams and the gaps between them, it shows whole)
 		float openAir = smoothstep(0.7, 1.0, lit);
-		float xS = (WD_ALL == 1 ? 0.75 : 1.0) * 2.2 * (sky ? 0.4 : 1.0) * lobeS * gateS * lit * mix(1.0, 0.42, openAir)
+		float xS = (WD_ALL == 1 ? 0.75 : 1.0) * 2.2 * (sky ? 0.8 : 1.0) * lobeS * gateS * lit * mix(1.0, 0.42, openAir)
 			* (1.0 - skyNightStep());
 		return colS * (0.34 * (1.0 - exp(-xS / 0.34)));
 	}
