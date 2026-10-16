@@ -24,6 +24,7 @@ public final class TalkPayloads {
 		PayloadTypeRegistry.serverboundPlay().register(Choose.TYPE, Choose.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(End.TYPE, End.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(Markers.TYPE, Markers.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(Close.TYPE, Close.CODEC);
 	}
 
 	private static void writeOptional(RegistryFriendlyByteBuf buf, @Nullable Component c) {
@@ -146,6 +147,18 @@ public final class TalkPayloads {
 		public static final Type<End> TYPE = new Type<>(Hearth.id("npc/end"));
 		public static final StreamCodec<RegistryFriendlyByteBuf, End> CODEC = StreamCodec.of((buf, p) -> buf.writeVarInt(p.entity),
 			buf -> new End(buf.readVarInt()));
+
+		@Override
+		public Type<? extends CustomPacketPayload> type() {
+			return TYPE;
+		}
+	}
+
+	/** The server ended the conversation (goodbye, the folk walked off or is gone): the client closes its screen. */
+	public record Close(int entity) implements CustomPacketPayload {
+		public static final Type<Close> TYPE = new Type<>(Hearth.id("npc/close"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Close> CODEC = StreamCodec.of((buf, p) -> buf.writeVarInt(p.entity),
+			buf -> new Close(buf.readVarInt()));
 
 		@Override
 		public Type<? extends CustomPacketPayload> type() {
