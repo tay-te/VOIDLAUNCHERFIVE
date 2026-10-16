@@ -228,7 +228,19 @@ public final class StructureAudit {
 		m.put("seed", seed(index));
 		try {
 			SyntheticTerrain probe = probe(terrain, c);
-			PlotSpec spec = BlueprintPreview.spec(e.info(), style, seed(index), index, probe, new CompoundTag());
+			// -Daudit.params=k=v;k=v: params every case is drawn with (storeys=2: the planner's village height)
+			CompoundTag params = new CompoundTag();
+			for (String kv : System.getProperty("audit.params", "").split(";")) {
+				if (kv.contains("=")) {
+					String[] p = kv.split("=", 2);
+					try {
+						params.putInt(p[0], Integer.parseInt(p[1]));
+					} catch (NumberFormatException ex) {
+						params.putString(p[0], p[1]);
+					}
+				}
+			}
+			PlotSpec spec = BlueprintPreview.spec(e.info(), style, seed(index), index, probe, params);
 			m.put("facing", spec.facing().getSerializedName());
 			m.put("frontage", spec.frontage());
 			m.put("depth", spec.depth());

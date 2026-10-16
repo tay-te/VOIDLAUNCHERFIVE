@@ -89,9 +89,10 @@ public final class ScribeHouse implements Archetype {
 		boolean flat = form == RoofForm.FLAT;
 		boolean frame = h.walls().kind(1) == WallKind.TIMBER_FRAME || h.walls().kind() == WallKind.TIMBER_FRAME;
 		boolean jetties = frame && d.chance(Math.max(0.5, h.walls().jetty()));
-		// low storeys, as the narrow houses of a crowded street have them (three garrets' worth of rooms on one plot)
+		// low storeys, as the narrow houses of a crowded street have them: three in a row, two and the garret standing
+		// alone (a narrow house of three storeys and a garret, seen whole, was a tower: art review 2 item 25)
 		int sh = 4;
-		int wanted = TownHouses.storeys(d, 3, 3, 3);
+		int wanted = TownHouses.storeys(d, 2, 3, dev.voidmc.hearth.build.kit.townhome.Proportions.detached(d) ? 2 : 3);
 
 		int door = StationHomes.townDoor(d, 0, w - 1, partyL, partyR);
 		boolean awkward = TownHouses.misfit(d, door) > 0;

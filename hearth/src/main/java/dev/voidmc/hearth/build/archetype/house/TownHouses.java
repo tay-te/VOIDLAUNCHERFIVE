@@ -60,6 +60,18 @@ final class TownHouses {
 	 * houses asked for at one height still steps its eaves, clamped to {@code [lo, hi]}.
 	 */
 	static int storeys(Draft d, int lo, int hi, int dflt) {
+		return storeys(d, lo, hi, dflt, lo);
+	}
+
+	/**
+	 * {@link #storeys(Draft, int, int, int)}, where the planner asks for fewer than {@code lo} (a village, the outskirts:
+	 * two storeys), as few as {@code floor}: the edges of a town are not three- and four-storey boxes (art review 2 item
+	 * 9). Unasked, {@code lo} holds.
+	 */
+	static int storeys(Draft d, int lo, int hi, int dflt, int floor) {
+		if (d.hasParam("storeys")) {
+			lo = Math.max(floor, Math.min(lo, d.param("storeys", dflt)));
+		}
 		int s = d.param("storeys", dflt);
 		double u = d.random().nextDouble();
 		if (u < 0.2) {

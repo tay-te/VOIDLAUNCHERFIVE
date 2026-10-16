@@ -97,7 +97,8 @@ public final class Townhouse implements Archetype {
 		boolean shop = d.param("shop", d.chance(0.4));
 		int sh = Math.max(4, h.walls().storeyHeight());
 		// three storeys and the roof, the burgher house's measure; a fourth now and then where a city street steps up
-		int wanted = TownHouses.storeys(d, 3, 4, 3);
+		// (two where the planner asks for a village's height)
+		int wanted = TownHouses.storeys(d, 3, 4, 3, 2);
 
 		// the door, where the street meets the floor; a row in front for steps when it does not
 		int bx0 = cornerL && jetties ? 1 : 0;

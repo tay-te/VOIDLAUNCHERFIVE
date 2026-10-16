@@ -106,7 +106,7 @@ public final class MerchantHouse implements Archetype {
 		boolean frame = h.walls().kind(1) == WallKind.TIMBER_FRAME || h.walls().kind() == WallKind.TIMBER_FRAME;
 		boolean jetties = frame && d.chance(Math.max(0.5, h.walls().jetty()));
 		int sh = Math.max(4, h.walls().storeyHeight());
-		int wanted = TownHouses.storeys(d, 3, 4, flat ? 4 : d.chance(0.5) ? 4 : 3);
+		int wanted = TownHouses.storeys(d, 3, 4, flat ? 4 : d.chance(0.5) ? 4 : 3, 2);
 
 		int bx0 = cornerL && jetties ? 1 : 0;
 		int bx1 = cornerR && jetties ? w - 2 : w - 1;
