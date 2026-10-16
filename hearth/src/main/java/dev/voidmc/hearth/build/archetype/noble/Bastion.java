@@ -280,6 +280,8 @@ final class Bastion {
 			x1 = p.c - 4;
 		}
 		Range r = new Range(x0, z0, x1, z1, p.y, new int[]{6}, Dirs.FRONT);
+		// (its roof stops at the wall toward the curtain: an eave there would be a step off the walk onto the roof)
+		r.eaveless(Dirs.LEFT);
 		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);
@@ -306,6 +308,7 @@ final class Bastion {
 		int z0 = p.z0 + p.thick + 2;
 		int z1 = Math.min(z0 + 7, p.z1 - 12);
 		Range r = new Range(x0, z0, x1, z1, p.y, new int[]{5}, Dirs.FRONT);
+		r.eaveless(Dirs.RIGHT);
 		r.footings(d, m, true);
 		r.walls(d, m, man);
 		r.floors(d, m);

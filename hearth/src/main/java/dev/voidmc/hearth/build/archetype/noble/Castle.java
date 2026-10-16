@@ -279,7 +279,8 @@ public final class Castle implements Archetype {
 		p.px1 = p.rx - 1;
 		// the chapel against the side curtain on the gate's side, between the cross wall and the palace
 		int chw = 7;
-		p.chz0 = p.cz + p.it + 1;
+		// (a row clear of the cross wall: the flight up to the inner walk climbs along its face under the chapel's eave)
+		p.chz0 = p.cz + p.it + 2;
 		p.chz1 = Math.min(p.pz0 - 3, p.chz0 + 9);
 		if (p.keepLeft) {
 			p.chx1 = p.rx - p.it;
@@ -724,6 +725,8 @@ public final class Castle implements Archetype {
 		int z1 = p.chz1;
 		Range r = new Range(x0, z0, x1, z1, p.li, new int[]{7}, p.keepLeft ? Dirs.LEFT : Dirs.RIGHT);
 		r.blind(p.keepLeft ? Dirs.RIGHT : Dirs.LEFT);
+		// against the side curtain: no eave over its walk (a step off the walk onto the roof)
+		r.eaveless(p.keepLeft ? Dirs.RIGHT : Dirs.LEFT);
 		r.footings(d, m);
 		r.walls(d, m, man);
 		r.floors(d, m);

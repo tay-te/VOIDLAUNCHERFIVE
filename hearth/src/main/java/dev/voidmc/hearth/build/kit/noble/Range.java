@@ -81,6 +81,15 @@ public final class Range {
 		return this;
 	}
 
+	/** The left or right sides whose roof stops at the wall, no eave (the side toward a walk a step under it). */
+	private final Set<Direction> eaveless = EnumSet.noneOf(Direction.class);
+
+	/** No eave over the left or right wall: a range beside a wall walk keeps its roof off the walk (call before {@link #roof}). */
+	public Range eaveless(Direction... sides) {
+		this.eaveless.addAll(java.util.Arrays.asList(sides));
+		return this;
+	}
+
 	public Range blind(Direction... sides) {
 		java.util.Collections.addAll(this.blind, sides);
 		return this;
@@ -583,7 +592,8 @@ public final class Range {
 		pitch = Math.max(0.5, pitch);
 		Roofs.Opts o = Roofs.Opts.of(d).withPitch(pitch).withEaves(1, man.crowSteps() ? 0 : 1);
 		RoofForm f = man.culture() == dev.voidmc.hearth.api.Culture.KARST && form != RoofForm.GABLE ? RoofForm.PAGODA : form;
-		Roofs.Plan plan = Roofs.plan(d, this.x0, this.z0, this.x1, this.z1, plate, f, axis, o, false, false);
+		Roofs.Plan plan = Roofs.plan(d, this.x0, this.z0, this.x1, this.z1, plate, f, axis, o, this.eaveless.contains(Dirs.LEFT),
+			this.eaveless.contains(Dirs.RIGHT));
 		if (dormers > 0 && f != RoofForm.PAGODA) {
 			Side cs = side(this.court);
 			if (cs.axis() == axis) {
