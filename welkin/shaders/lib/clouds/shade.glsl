@@ -192,6 +192,9 @@ float wcHG(float c, float g) {
 // far side.
 float wcLightPath(CloudBody b, vec3 l, CloudEnv e) {
 	float own = max(b.top - b.y, 0.0) / max(l.y, 0.035);
+	// (a belly's light also crosses the cloud's breadth on its way down to it: deeper inside a broad cloud, more of it;
+	// so a wide, thin deck's belly darkens toward its heart instead of hanging overhead as one white sheet)
+	own += b.hIn < 0.02 ? 14.0 * b.depth : 0.0;
 #ifdef WC_FIELD
 	float hl = length(l.xz);
 	if (b.field && hl > 0.03) {
@@ -237,7 +240,9 @@ vec3 wcBodyLight(CloudBody b, vec3 n, float sigma, vec3 rd, vec3 l, vec3 col, Cl
 	float dk = wcDuskAmount(e.sun.y);
 	float under = (n.y < -0.5 ? 1.0 - 0.7 * dk : 1.0) * (1.0 - 0.35 * dk);
 	float ms = exp(-tau) * (p1 - fwd) + (0.6 * exp(-0.3 * tau) * mix(1.0, p1, 0.3) + 0.45 * exp(-0.1 * tau)) * under;
-	float face = abs(n.y) > 0.5 ? 1.0 : 0.88 + 0.16 * dot(n.xz, l.xz) / max(length(l.xz), 1e-3);
+	// (a top's dome takes the light most squarely at its heart, its rims at a grazing angle: domes read from above)
+	float face = n.y > 0.5 ? mix(0.72, 1.0, smoothstep(0.0, 0.7, b.depth))
+		: (n.y < -0.5 ? 1.0 : 0.8 + 0.25 * dot(n.xz, l.xz) / max(length(l.xz), 1e-3));
 	// the forward lobe's single scattering apart: the silver lining, laid on past the shoulder (wcCloudLight), so a
 	// thin rim toward the sun may blaze past white and the bloom takes it
 	glint = col * (exp(-tau) * fwd * face * WC_DIRECT);
@@ -271,8 +276,8 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// the sky's light: a top sees all the dome, a base the lower half of it; deep inside a thick cloud's lower part
 	// less of it gets in
 	// (a top's hollows, its thin rims and the lower tiers between taller ones see a little less of it than its domes)
-	float view = n.y > 0.5 ? mix(0.6, 0.92, smoothstep(0.0, 0.8, b.depth)) : (n.y < -0.5 ? 0.7 : mix(0.72, 0.92, b.hIn));
-	float occl = 1.0 - 0.28 * b.depth * lower * tall;
+	float view = n.y > 0.5 ? mix(0.5, 0.92, smoothstep(0.0, 0.8, b.depth)) : (n.y < -0.5 ? 0.62 : mix(0.68, 0.92, b.hIn));
+	float occl = 1.0 - 0.42 * b.depth * lower * mix(0.6, 1.0, tall);
 	// (at night less of it: the land's night fill is lifted for play, and a cloud as bright read as a patch of day sky)
 	vec3 amb = skyAmbientLight() * (view * occl * mix(1.0, 0.55, night));
 	// round sunset the shaded parts take the dusk sky's own hue, warm toward the sun and lilac away from it
@@ -281,12 +286,12 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		float sw = wcSunward(rd, e);
 		// (a belly takes the dusk's rose and violet, rosier toward the sun: a sunset's clouds glow, never a muddy taupe)
 		vec3 hue = n.y > 0.5 ? mix(mix(WC_LILAC, WC_VIOLET, 0.4), mix(WC_ROSE, WC_GOLD, 0.3), sw)
-			: mix(mix(WC_VIOLET, WC_ROSE, 0.35), WC_ROSE * vec3(1.06, 1.0, 0.98), sw * sw);
+			: mix(mix(WC_VIOLET, WC_DUSK, 0.25), mix(WC_ROSE, WC_VIOLET, 0.25), sw * sw);
 		amb = mix(amb, hue * ((n.y > 0.5 ? 0.8 : mix(0.78, 0.98, sw * sw)) * wcLuma(amb)), 0.85 * dusk * (1.0 - closed));
 	}
 	// the land's bounce under a cloud: its sunlit ground's light thrown up, warmer and stronger at a low sun
 	vec3 sunC = wcCloudSun(e);
-	vec3 bounce = sunC * (max(e.sun.y, 0.0) * 0.45 * vec3(0.92, 1.0, 0.86) + 0.07 * dusk * vec3(1.0, 0.8, 0.75))
+	vec3 bounce = sunC * (max(e.sun.y, 0.0) * 0.28 * vec3(0.92, 1.0, 0.86) + 0.07 * dusk * vec3(1.0, 0.8, 0.75))
 		* lower * (n.y > 0.5 ? 0.0 : 1.0);
 
 	vec3 light = amb + bounce;
@@ -327,7 +332,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// streaks along every tier seen from above)
 	float baseLike = n.y < -0.5 ? 1.0 : (n.y < 0.5 ? lower * lower : 0.0);
 	if (closed > 0.0 && baseLike > 0.0) {
-		vec3 dome = wcDome(rd, e) * mix(1.02, 0.62, b.depth * lower) * (tone == 2 ? 0.78 : (tone == 1 ? 0.92 : 1.0));
+		vec3 dome = wcDome(rd, e) * mix(1.04, 0.5, b.depth * lower) * (tone == 2 ? 0.78 : (tone == 1 ? 0.92 : 1.0));
 		c = mix(c, mix(c, dome, 0.6), closed * baseLike);
 	}
 	if (e.flash && tone == 2) {

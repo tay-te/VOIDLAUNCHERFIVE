@@ -350,7 +350,7 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 		// broad deck has domes and hollows all over its top and a mottled belly, not one flat field
 		float lump = wcValue(m, 72, e.seed + 57u);
 		c.field.y = margin > 0.0 || wide > 0.5
-			? 0.5 + 0.5 * clamp(max(margin, wide > 0.5 ? 0.3 : 0.0), 0.0, 1.0) * (0.45 + 0.55 * lump)
+			? 0.5 + 0.5 * clamp(max(margin, wide > 0.5 ? 0.3 : 0.0), 0.0, 1.0) * (0.35 + 0.65 * lump)
 			: clamp(0.5 + 0.5 * margin, 0.0, 0.5);
 		if (n > thr || wide > 0.5) {
 			// thin at a cloud's ragged edge, thick inside it (the shading's body)
@@ -367,7 +367,7 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 		float n = wcPuffs(m, s, 768, 256, 96, e.seed + 7u);
 		float margin = (n - 1.0 + stratus * 0.9) / max(min(0.22 + 0.4 * wet, stratus * 0.9), 0.04);
 		float lump = wcValue(m, 96, e.seed + 61u);
-		c.field.x = stratus <= 0.05 ? 0.0 : (margin > 0.0 ? 0.5 + 0.5 * min(margin, 1.0) * (0.5 + 0.5 * lump)
+		c.field.x = stratus <= 0.05 ? 0.0 : (margin > 0.0 ? 0.5 + 0.5 * min(margin, 1.0) * (0.3 + 0.7 * lump)
 			: clamp(0.5 + 0.5 * margin, 0.0, 0.5));
 		if (stratus > 0.05 && n > 1.0 - stratus * 0.9) {
 			c.dens.x = c.field.x * 2.0 - 1.0;
