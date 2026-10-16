@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 
 import { connectBridge, getVoid, keepsEscape } from '@/bridge/connect';
 import { resetDerivedState, useVoidStore } from '@/store/store';
@@ -147,10 +147,13 @@ describe('the emote wheel editor', () => {
   it('writes the cosmetics mod’s switches', () => {
     set(() => devGo('cosmetics:emotes'));
     render(<App />);
-    const glow = screen.getByRole('switch', { name: /Glow/ });
-    const before = glow.getAttribute('aria-checked') === 'true';
-    fireEvent.click(glow);
-    expect(screen.getByRole('switch', { name: /Glow/ }).getAttribute('aria-checked')).toBe(String(!before));
+    const camera = screen.getByRole('switch', { name: /Camera orbits/ });
+    const before = camera.getAttribute('aria-checked') === 'true';
+    fireEvent.click(camera);
+    expect(screen.getByRole('switch', { name: /Camera orbits/ }).getAttribute('aria-checked')).toBe(String(!before));
+    const glow = screen.getByRole('radiogroup', { name: 'Glow' });
+    fireEvent.click(within(glow).getByRole('radio', { name: 'Low' }));
+    expect(within(screen.getByRole('radiogroup', { name: 'Glow' })).getByRole('radio', { name: 'Low' }).getAttribute('aria-checked')).toBe('true');
   });
 });
 

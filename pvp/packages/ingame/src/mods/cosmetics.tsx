@@ -7,14 +7,14 @@
  * module (`mods/art.tsx` states the rule).
  *
  * **What it is a picture of.** Not of an item. What a player *wears* is account data the launcher
- * owns and the wardrobe chooses; these four switches are only about what this client draws, so
+ * owns and the wardrobe chooses; these settings are only about what this client draws, so
  * the diagram holds the wardrobe still — a cape, a halo, a trail, the same set on both figures —
  * and moves only what the switches move:
  *
  *   · `others` — the right-hand figure is another VOID player. Off, they stand there in vanilla;
  *     their set is not gone, this client just does not draw it.
- *   · `glow` — the halos' bloom, as a dim ring of cells around the bright ones. Off, the same
- *     halo, flat.
+ *   · `glow_level` — the halos' bloom, as a dim ring of cells around the bright ones (`low` and
+ *     `high` alike; the diagram has no finer step). Off, the same halo, flat.
  *   · `own_first_person` — the frame between the two is your own view. Your trail only reaches
  *     it when this is on; your cape and halo never do, because the game does not draw your model
  *     there either.
@@ -148,7 +148,7 @@ export function CosmeticsPreview({ dense = false, className }: DiagramProps = {}
   const settings = useModSettings('cosmetics');
   const others = settings.others !== false;
   const ownFirstPerson = settings.own_first_person === true;
-  const glow = settings.glow !== false;
+  const glow = settings.glow_level !== 'off';
   const emoteCamera = settings.emote_camera !== false;
 
   const cells: Cell[] = [

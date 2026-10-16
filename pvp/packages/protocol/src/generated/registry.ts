@@ -963,7 +963,7 @@ export const MOD_REGISTRY_DOCUMENT = {
         "on": true,
         "others": true,
         "own_first_person": false,
-        "glow": true,
+        "glow_level": "high",
         "emote_camera": true,
         "emote_key": "B"
       }

@@ -1105,6 +1105,26 @@ pub enum ReachMode {
     Average,
 }
 
+/// How strongly emissive cosmetics glow — the bloom around halos, wing edges, lit trims and
+/// bright trails. `high` by default, because those items are designed around it: a soft,
+/// layered glow that is strong at night and barely there in daylight. `low` keeps a gentler,
+/// tighter glow at a little less cost. `off` draws the same shapes with their lit parts but no
+/// bloom at all, which is cheapest on a weak GPU and easiest on the eyes in a dark cave.
+/// Replaces the earlier on/off `glow` switch.
+///
+/// `mods.json#/definitions/cosmetics_settings/properties/glow_level`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CosmeticsGlowLevel {
+    /// `off` draws the same shapes with their lit parts but no bloom at all, which is cheapest
+    /// on a weak GPU and easiest on the eyes in a dark cave.
+    Off,
+    /// `low` keeps a gentler, tighter glow at a little less cost.
+    Low,
+    /// `high` by default, because those items are designed around it.
+    High,
+}
+
 // ---------------------------------------------------------------------------
 // per-mod settings
 // ---------------------------------------------------------------------------
@@ -3493,9 +3513,9 @@ pub struct ChatSettings {
 /// Cosmetics settings.
 ///
 /// Settings for the Cosmetics gameplay mod. What you wear is chosen in the wardrobe and stored
-/// by the launcher against your account; these four switches are only about what this client
-/// draws. Off hides every cosmetic, yours included, and stops answering other players' emotes —
-/// but your own set is untouched, and other VOID players still see it.
+/// by the launcher against your account; these settings are only about what this client draws.
+/// Off hides every cosmetic, yours included, and stops answering other players' emotes — but
+/// your own set is untouched, and other VOID players still see it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CosmeticsSettings {
@@ -3517,11 +3537,14 @@ pub struct CosmeticsSettings {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub own_first_person: Option<bool>,
 
-    /// Whether emissive cosmetics glow — the soft bloom around halos, wing edges and bright
-    /// trails. On by default, because those items are designed around it. Off draws the same
-    /// shapes flat, which is cheaper on a weak GPU and easier on the eyes in a dark cave.
+    /// How strongly emissive cosmetics glow — the bloom around halos, wing edges, lit trims and
+    /// bright trails. `high` by default, because those items are designed around it: a soft,
+    /// layered glow that is strong at night and barely there in daylight. `low` keeps a
+    /// gentler, tighter glow at a little less cost. `off` draws the same shapes with their lit
+    /// parts but no bloom at all, which is cheapest on a weak GPU and easiest on the eyes in a
+    /// dark cave. Replaces the earlier on/off `glow` switch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub glow: Option<bool>,
+    pub glow_level: Option<CosmeticsGlowLevel>,
 
     /// Whether the camera swings to third person and orbits slowly while you emote, so you can
     /// see what you are doing. On by default. Off keeps your own view where it is: other

@@ -431,10 +431,12 @@ function Wardrobe({ onEmotes }: { onEmotes: () => void }) {
 /* Emote wheel editor                                                         */
 /* -------------------------------------------------------------------------- */
 
+/** `cosmetics.glow_level`: the bloom on halos, wings, lit trims and trails. */
+const GLOW_LEVELS = ['off', 'low', 'high'] as const;
+
 const COSMETICS_SWITCHES: readonly { key: string; label: string }[] = [
   { key: 'others', label: 'Show other players’ cosmetics' },
   { key: 'emote_camera', label: 'Camera orbits while you emote' },
-  { key: 'glow', label: 'Glow on halos, wings and trails' },
   { key: 'own_first_person', label: 'Own trail in first person' },
 ];
 
@@ -483,6 +485,23 @@ function EmoteEditor() {
             <Switch checked={settings[sw.key] === true} label={sw.label} onChange={(next) => setSetting('cosmetics', sw.key, next)} />
           </div>
         ))}
+        <div className={cx('c-row2', settings.glow_level === 'off' && 'is-off')}>
+          <span className="c-row2__label">Glow on halos, wings and trims</span>
+          <div className="c-opts" role="radiogroup" aria-label="Glow">
+            {GLOW_LEVELS.map((level) => (
+              <button
+                key={level}
+                type="button"
+                role="radio"
+                aria-checked={(settings.glow_level ?? 'high') === level}
+                className={cx('c-opt', (settings.glow_level ?? 'high') === level && 'is-on')}
+                onClick={() => setSetting('cosmetics', 'glow_level', level)}
+              >
+                {level === 'off' ? 'Off' : level === 'low' ? 'Low' : 'High'}
+              </button>
+            ))}
+          </div>
+        </div>
         <span className="c-mono c-col__cap">Selected slot</span>
         <div className="c-blk c-cos__selslot">
           <span className="c-cos__wornbed c-cos__wornbed--lg">{selId ? <Sprite name={itemSprite(selId, 'emote')} size={40} /> : <span className="c-slot__plus">+</span>}</span>
