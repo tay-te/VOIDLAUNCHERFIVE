@@ -66,15 +66,28 @@ public final class Floors {
 		}
 	}
 
-	/** A joist run is only drawn where the ceiling above is solid all along and nothing occupies the beam's row. */
+	/**
+	 * A joist run is only drawn where the ceiling above is solid all along, nothing occupies the beam's row, and no tread
+	 * of a flight stands one or two rows under it (a beam there would take the head room folk climb through: two blocks
+	 * of air over every tread).
+	 */
 	private static boolean runOpen(Draft d, int x0, int z0, int x1, int z1, int ceilingY) {
 		for (int z = z0; z <= z1; z++) {
 			for (int x = x0; x <= x1; x++) {
-				if (!d.isSolid(x, ceilingY, z) || !d.isEmpty(x, ceilingY - 1, z)) {
+				if (!d.isSolid(x, ceilingY, z) || !d.isEmpty(x, ceilingY - 1, z) || tread(d, x, ceilingY - 2, z) || tread(d, x, ceilingY - 3, z)) {
 					return false;
 				}
 			}
 		}
 		return true;
+	}
+
+	/** A step of a flight: a bottom stair or a bottom slab. */
+	private static boolean tread(Draft d, int x, int y, int z) {
+		var s = d.get(x, y, z);
+		return s != null && (s.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+			&& s.getValue(net.minecraft.world.level.block.StairBlock.HALF) == net.minecraft.world.level.block.state.properties.Half.BOTTOM
+			|| s.getBlock() instanceof net.minecraft.world.level.block.SlabBlock
+			&& s.getValue(net.minecraft.world.level.block.SlabBlock.TYPE) == net.minecraft.world.level.block.state.properties.SlabType.BOTTOM);
 	}
 }

@@ -106,6 +106,9 @@ public final class Compiler {
 		// light what the archetype left dark (docs/LIVING_WORLD.md §1), before shapes are final and steps ordered (the pass
 		// resolves the archetype's shapes to read light through them; resolving again settles its own fixtures)
 		// (in a blueprint built in campaigns, what the pass adds goes in with what it hangs from or stands by: see campaigns)
+		// doors folk can use and guards on the edges they could step off (requests/w7-access.md), before the voids are
+		// sealed and the light pass reads where folk stand
+		dev.voidmc.hearth.build.kit.refine.Access.finish(d);
 		if (!d.lit()) {
 			// every family's sealed voids filled first (what no way of air reaches: a spire's hollow, the space between a
 			// vault and its roof), so the pass hangs no invisible light in them (requests/b-refine.md §1); idempotent for the
