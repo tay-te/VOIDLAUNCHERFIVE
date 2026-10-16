@@ -353,8 +353,10 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		float lift = (n.y > 0.5 ? 1.5 : (n.y < -0.5 ? 1.3 : 1.4 * mix(0.85, 1.1, b.hIn))) * mix(1.0, 1.25, sw * sw)
 			* mix(1.22, 0.74, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK)
 			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
-		vec3 fl = hueF * (wcLuma(behind) * lift);
-		c = mix(c, max(c, fl), glowK);
+		// (the shortfall is added in the floor's own warm light, not taken channel by channel: a per-channel max of a
+		// cool grey belly and a cream floor came out a mauve-brown mottle)
+		float fy = wcLuma(behind) * lift;
+		c += hueF * (max(fy - wcLuma(c), 0.0) * glowK);
 	}
 
 	// at night a cloud is never a black cut-out in the stars: its body takes at least the night dome's own colour
