@@ -34,6 +34,9 @@ public final class FolkHandleImpl implements NpcService.FolkHandle {
 	private @Nullable BlockPos target;
 	private int nextRepath;
 	private boolean pathFound;
+	/** Where the folk stood still since {@link #stillSince} while walking to {@link #target}. */
+	private @Nullable Vec3 stillAt;
+	private int stillSince;
 
 	public FolkHandleImpl(FolkBrain brain) {
 		this.brain = brain;
@@ -89,15 +92,37 @@ public final class FolkHandleImpl implements NpcService.FolkHandle {
 	public boolean moveTo(BlockPos target, double speed) {
 		Folk f = this.brain.folk;
 		int now = f.tickCount;
-		if (target.equals(this.target) && (now < this.nextRepath || !f.getNavigation().isDone())) {
-			// Same goal, still walking or asked again too soon: do not hammer the pathfinder.
-			return this.pathFound;
+		if (target.equals(this.target)) {
+			// Stuck on the way for ten seconds (a partial path's end, a stair the pathfinder will not take): if nobody
+			// sees the folk or where it is going, it is there, as the routine's own walks do.
+			if (this.stillAt == null || f.position().distanceToSqr(this.stillAt) > 1.0) {
+				this.stillAt = f.position();
+				this.stillSince = now;
+			} else if (now - this.stillSince > 200 && !arrived() && f.level() instanceof ServerLevel level && this.brain.unseen(level, target)) {
+				BlockPos spot = dev.voidmc.hearth.npc.entity.FolkSpots.standableNear(level, target, 3);
+				if (spot != null) {
+					f.getNavigation().stop();
+					f.teleportTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5);
+					this.stillAt = f.position();
+					this.stillSince = now;
+					return true;
+				}
+			}
+			if (now < this.nextRepath || !f.getNavigation().isDone()) {
+				// Same goal, still walking or asked again too soon: do not hammer the pathfinder.
+				return this.pathFound;
+			}
+		} else {
+			this.stillAt = f.position();
+			this.stillSince = now;
 		}
 		this.target = target.immutable();
 		this.nextRepath = now + FolkBrain.config().repathCooldown();
 		java.util.List<BlockPos> spots = f.level() instanceof net.minecraft.world.level.Level level ? dev.voidmc.hearth.npc.entity.FolkSpots.approaches(level, target)
 			: java.util.List.of();
-		f.getNavigation().setRequiredPathLength(Math.abs(target.getY() - f.getBlockY()) >= 3 ? 96.0F : 16.0F);
+		// the search budget follows the distance, as the routine's own walks do (FolkBrain.walk)
+		double far = Math.sqrt(target.distSqr(f.blockPosition())) * 1.4 + 16.0 + (Math.abs(target.getY() - f.getBlockY()) >= 3 ? 48.0 : 0.0);
+		f.getNavigation().setRequiredPathLength((float) Math.min(far, 128.0));
 		Path path = spots.isEmpty() ? f.getNavigation().createPath(target, 1) : f.getNavigation().createPath(new java.util.HashSet<>(spots), 0);
 		this.pathFound = path != null && f.getNavigation().moveTo(path, speed);
 		return this.pathFound || arrived();
