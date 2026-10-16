@@ -99,6 +99,15 @@ public final class Cemetery implements Archetype {
 		for (int z = Math.max(0, cz - 3); z <= (chapel ? dp - 1 : Math.min(dp - 1, cz + 3)); z++) {
 			level[z] = level[cz];
 		}
+		// (no flight may climb inside the lychgate's three rows, which the gate draws over afterwards and would cut it off:
+		// a rise of h at row z puts its steps on rows z-h+1..z, a fall on rows z-1..z+h-2, so the front band holds until
+		// both clear row 3)
+		for (int z = 1; z < dp; z++) {
+			int rise = Math.abs(level[z] - level[z - 1]);
+			if (rise > 0 && z < Math.max(4, rise + 2)) {
+				level[z] = level[z - 1];
+			}
+		}
 		Terraces.build(d, 0, w - 1, level);
 		Terraces.steps(d, cx - 1, 3, level);
 
