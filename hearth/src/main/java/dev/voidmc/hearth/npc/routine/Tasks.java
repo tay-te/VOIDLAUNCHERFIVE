@@ -267,8 +267,9 @@ public final class Tasks {
 			boolean there = brain.walk(level, target, this.bed != null ? 1.8 : 1.5, 0.6);
 			if (there || brain.walkFailed() || this.walkTimeout < 0) {
 				brain.resetWalk();
-				if (this.bed != null && (there || brain.nearestPlayer() > 24) && level.getBlockState(this.bed).getBlock() instanceof net.minecraft.world.level.block.AbstractBedBlock
-					&& !bedTaken(level, folk)) {
+				// in bed if they got there, or if nobody would see them slip into it (a stair the pathfinder will not take)
+				if (this.bed != null && (there || brain.nearestPlayer() > 24 || brain.unseen(level, this.bed))
+					&& level.getBlockState(this.bed).getBlock() instanceof net.minecraft.world.level.block.AbstractBedBlock && !bedTaken(level, folk)) {
 					folk.sleepIn(this.bed);
 					this.asleep = true;
 				} else {

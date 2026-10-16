@@ -449,6 +449,12 @@ public class Folk extends PathfinderMob {
 		return false;
 	}
 
+	/** Folk belong to their town: a portal would carry the entity off to where no settlement can take it back. */
+	@Override
+	public boolean canUsePortal(boolean ignorePassenger) {
+		return false;
+	}
+
 	@Override
 	public @Nullable SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, EntitySpawnReason reason,
 		@Nullable SpawnGroupData groupData) {

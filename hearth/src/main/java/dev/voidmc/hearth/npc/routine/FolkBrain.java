@@ -417,6 +417,13 @@ public final class FolkBrain {
 		this.poseUntil = this.folk.tickCount + 40;
 	}
 
+	/** The player is still talking (picked an option): the folk keeps listening for another minute. */
+	public void keepEngaged(ServerPlayer player) {
+		if (this.engagedWith == player) {
+			this.engagedUntil = this.folk.tickCount + 20 * 60;
+		}
+	}
+
 	public void disengage() {
 		this.engagedWith = null;
 		this.folk.setFolkPose(FolkPose.NONE);
@@ -428,7 +435,8 @@ public final class FolkBrain {
 
 	private void tickEngaged(ServerLevel level, int now) {
 		ServerPlayer p = this.engagedWith;
-		if (p == null || !p.isAlive() || p.level() != level || p.distanceToSqr(this.folk) > 100 || now > this.engagedUntil) {
+		if (p == null || !p.isAlive() || p.level() != level || p.distanceToSqr(this.folk) > dev.voidmc.hearth.npc.talk.Conversations.RANGE * dev.voidmc.hearth.npc.talk.Conversations.RANGE
+			|| now > this.engagedUntil) {
 			disengage();
 			return;
 		}
@@ -524,7 +532,13 @@ public final class FolkBrain {
 	/**
 	 * Walks toward {@code target}; true once within {@code within} blocks (horizontally, and about level). Paths are
 	 * asked for at most once per repath cooldown, and a folk that makes no progress for a while gives up
-	 * ({@link #walkFailed()}) — or, if nobody is near enough to see it, is moved there.
+	 * ({@link #walkFailed()}) — or, if no player is near enough to see it or can see it, is moved there.
+	 *
+	 * <p>Long walks (across a town to bed) get a path budget to match the distance, up to {@link #MAX_PATH} blocks: the
+	 * default of 48 gave partial paths that end wherever the search ran out, often on a terrace or a stair landing
+	 * nearer the goal as the crow flies, where the next search ends again. A folk who arrives at the end of a partial
+	 * path no nearer than the last time takes a detour (a spot on open ground part way toward the goal) before trying
+	 * again.
 	 */
 	public boolean walk(ServerLevel level, BlockPos target, double within, double speed) {
 		Vec3 pos = this.folk.position();
@@ -535,6 +549,7 @@ public final class FolkBrain {
 			if (this.walkTarget != null) {
 				this.folk.getNavigation().stop();
 				this.walkTarget = null;
+				this.detour = null;
 			}
 			return true;
 		}
@@ -545,9 +560,34 @@ public final class FolkBrain {
 			this.stuckFor = 0;
 			this.lastProgressPos = pos;
 			this.nextRepath = 0;
+			this.detour = null;
+			this.partialBest = Double.MAX_VALUE;
+		}
+		double dist = Math.sqrt(dx * dx + dz * dz + dy * dy);
+		if (this.detour != null) {
+			Vec3 d = Vec3.atBottomCenterOf(this.detour);
+			if (pos.distanceToSqr(d) < 2.5 * 2.5 || now > this.detourUntil) {
+				// at the detour (or it took too long): on to the goal again
+				this.detour = null;
+				this.nextRepath = 0;
+				this.folk.getNavigation().stop();
+			}
 		}
 		if (now >= this.nextRepath && (this.folk.getNavigation().isDone() || this.folk.getNavigation().getPath() == null)) {
-			boolean ok = this.folk.getNavigation().moveTo(target.getX() + 0.5, target.getY(), target.getZ() + 0.5, Math.max(0, (int) within - 1), speed);
+			net.minecraft.world.level.pathfinder.Path last = this.folk.getNavigation().getPath();
+			if (this.detour == null && last != null && !last.canReach() && last.isDone()) {
+				// the end of a partial path: if it brought them no nearer, go round
+				if (dist > this.partialBest - 2.0) {
+					this.detour = detourToward(level, target);
+					this.detourUntil = now + 20 * 15;
+				}
+				this.partialBest = Math.min(this.partialBest, dist);
+			}
+			BlockPos goal = this.detour != null ? this.detour : target;
+			double far = Math.sqrt(goal.distSqr(this.folk.blockPosition()));
+			this.folk.getNavigation().setRequiredPathLength((float) Mth.clamp(far * 1.4 + 16.0, 16.0, MAX_PATH));
+			boolean ok = this.folk.getNavigation().moveTo(goal.getX() + 0.5, goal.getY(), goal.getZ() + 0.5,
+				goal == target ? Math.max(0, (int) within - 1) : 1, speed);
 			this.nextRepath = now + config().repathCooldown() + this.random.nextInt(10);
 			if (!ok) {
 				this.stuckFor += config().repathCooldown();
@@ -560,13 +600,14 @@ public final class FolkBrain {
 			this.stuckFor += this.thinkInterval;
 		}
 		if (this.stuckFor > 200) {
-			if (this.nearestPlayer > 32) {
+			if (unseen(level, target)) {
 				// Nobody to see the shortcut: a folk out of sight is where it would have walked to.
 				BlockPos spot = FolkSpots.standableNear(level, target, 3);
 				if (spot != null) {
 					this.folk.getNavigation().stop();
 					this.folk.teleportTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5);
 					this.stuckFor = 0;
+					this.detour = null;
 					return Math.abs(spot.getY() - target.getY()) < 2 && spot.distManhattan(target) <= within + 3;
 				}
 			}
@@ -575,12 +616,71 @@ public final class FolkBrain {
 		return false;
 	}
 
+	/** Blocks of path a folk may search for in one go (the vanilla follow range is 48). */
+	private static final float MAX_PATH = 128.0F;
+	/** A spot to make for first, when the last partial path toward the goal brought the folk no nearer. */
+	private @Nullable BlockPos detour;
+	private int detourUntil;
+	/** The nearest the end of a partial path has brought the folk to the current goal. */
+	private double partialBest = Double.MAX_VALUE;
+
+	/**
+	 * Somewhere to go round by: open ground 12 to 20 blocks on, toward the goal or off to either side of the line, where
+	 * the folk has not just been. Null if none is found in loaded chunks.
+	 */
+	private @Nullable BlockPos detourToward(ServerLevel level, BlockPos target) {
+		Vec3 from = this.folk.position();
+		double ang = Math.atan2(target.getZ() + 0.5 - from.z, target.getX() + 0.5 - from.x);
+		for (int tries = 0; tries < 6; tries++) {
+			double a = ang + (this.random.nextDouble() - 0.5) * Math.PI * (tries < 3 ? 0.7 : 1.4);
+			double r = 12 + this.random.nextInt(9);
+			int x = Mth.floor(from.x + Math.cos(a) * r);
+			int z = Mth.floor(from.z + Math.sin(a) * r);
+			if (!level.isLoaded(new BlockPos(x, 0, z))) {
+				continue;
+			}
+			// the ground there, not a roof: the highest standable spot at or below the folk's own height plus a storey
+			BlockPos spot = FolkSpots.standableNear(level, new BlockPos(x, Math.min(this.folk.getBlockY() + 4,
+				level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z)), z), 3);
+			if (spot != null && level.canSeeSky(spot)) {
+				return spot;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Whether a shortcut would go unseen: no player (spectators included) within 32 blocks of the folk or of where it
+	 * is going, or none of them has a line of sight to either.
+	 */
+	public boolean unseen(ServerLevel level, BlockPos target) {
+		if (this.nearestPlayer > 32 && level.getNearestPlayer(target.getX() + 0.5, target.getY() + 1.0, target.getZ() + 0.5, 32, false) == null) {
+			return true;
+		}
+		Vec3 to = new Vec3(target.getX() + 0.5, target.getY() + 1.2, target.getZ() + 0.5);
+		for (ServerPlayer p : level.players()) {
+			if (p.distanceToSqr(this.folk) > 48 * 48 && p.distanceToSqr(to) > 48 * 48) {
+				continue;
+			}
+			if (p.hasLineOfSight(this.folk)) {
+				return false;
+			}
+			Vec3 eye = p.getEyePosition();
+			if (eye.distanceToSqr(to) < 48 * 48 && level.clip(new net.minecraft.world.level.ClipContext(eye, to, net.minecraft.world.level.ClipContext.Block.COLLIDER,
+				net.minecraft.world.level.ClipContext.Fluid.NONE, p)).getType() == net.minecraft.world.phys.HitResult.Type.MISS) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	public boolean walkFailed() {
 		return this.walkFailed;
 	}
 
 	public void resetWalk() {
 		this.walkTarget = null;
+		this.detour = null;
 		this.walkFailed = false;
 		this.stuckFor = 0;
 	}
