@@ -142,14 +142,19 @@ public final class CliffDwelling implements Archetype {
 		if (eastern || mountain) {
 			eaves(d, body);
 		}
-		if (mountain) {
-			// a timber rail round the deck instead of a stone parapet
+		{
+			// the parapet round the deck is one course under the plot's height, no room for a coping over it: a solid course
+			// would be a ledge one steps up onto from the deck and walks round over the drop. In the mountains (and wherever
+			// the wall has no wall-top form) a timber rail stands round the deck instead; else the course is laid as a wall's
+			// rounded top, which nobody stands on
 			Mat rail = d.mat(Role.RAILING);
-			try (var st = d.stage(StageKind.EXTERIOR)) {
+			Mat wall = d.mat(Role.WALL);
+			boolean masonry = !mountain && wall.has(Form.WALL);
+			try (var st = d.stage(masonry ? StageKind.ROOF : StageKind.EXTERIOR)) {
 				for (Side side : Side.of(tr[0], tr[1], tr[2], tr[3])) {
 					for (int i = 0; i < side.length(); i++) {
 						if (d.get(side.x(i), deck, side.z(i)) != null && !d.isEmpty(side.x(i), deck, side.z(i))) {
-							d.set(side.x(i), deck, side.z(i), rail.fence());
+							d.set(side.x(i), deck, side.z(i), masonry ? wall.wall() : rail.fence());
 						}
 					}
 				}
