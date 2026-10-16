@@ -116,7 +116,8 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// the zenith: deeper and a little richer overhead (less while the sun is low: a golden-hour zenith stays light)
 	float zen = smoothstep(0.15, 0.95, hp);
 	vec3 rich = max(mix(vec3(y), L, 1.15), 0.0) * 0.84;
-	L = mix(L, rich, zen * 0.6 * min(k, 1.0) * (1.0 - 0.5 * f.low));
+	// (and none at dusk and dawn: it darkened the 18:30 sky below the sunset's own light)
+	L = mix(L, rich, zen * 0.6 * min(k, 1.0) * (1.0 - 0.5 * f.low) * (1.0 - 0.85 * f.warm) * smoothstep(-0.02, 0.10, f.sunW.y));
 
 	// the luminous band: broad and soft, its own hue paler and brighter; cool away from the sun, on the sun's side
 	// warming toward the sun's hue as it sinks (its brightness kept: only the hue moves), and a touch of that warmth
