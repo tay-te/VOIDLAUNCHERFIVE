@@ -118,10 +118,10 @@ vec3 wsShoreFoam(ivec2 p, vec2 uv, vec3 color) {
 	float band = 1.0 - smoothstep(0.0, reach, max(best, 0.0));
 	vec2 wp = vec2(cameraPositionInt.xz & 1023) + cameraPositionFract.xz + w.xz;
 	vec2 fp = (floor(wp * 16.0) + 0.5) / 16.0;
-	float pix = smoothstep(0.38, 0.68, 0.65 * wsShoreValue(fp * 1.7 + frameTimeCounter * 0.06, 11)
+	float pix = smoothstep(0.42, 0.66, 0.65 * wsShoreValue(fp * 1.7 + frameTimeCounter * 0.06, 11)
 		+ 0.35 * wsShoreValue(fp * 4.3 - frameTimeCounter * 0.05, 13));
 	pix = mix(pix, 0.55, smoothstep(0.04, 0.12, bpp * 1.0));
-	float foam = band * mix(0.3, 1.0, pix) * WS_SHORE_STRENGTH;
+	float foam = band * mix(0.12, 1.0, pix) * WS_SHORE_STRENGTH;
 	// lit at the water's brightness: white by day, warm at dusk, dim at night
 	float lit = max(mark.r, max(mark.g, mark.b));
 	vec3 tint = mark.rgb / max(lit, 1e-3);

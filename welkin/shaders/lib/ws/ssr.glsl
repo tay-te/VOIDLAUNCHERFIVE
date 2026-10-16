@@ -47,6 +47,10 @@ vec3 wsWaterSSR(vec3 col, ivec2 px) {
 		return col;
 	}
 	vec3 nWorld = octDecode(info.rg);
+	// far off, the waves' tilt is mostly too fine to show in a reflection: it is calmed, else rays tilted up by the
+	// ripples found the far shore far below its mirror image, as stray dashes of sand across the open water
+	float calm = mix(1.0, 0.3, smoothstep(24.0, 160.0, dist));
+	nWorld = normalize(vec3(nWorld.x * calm, nWorld.y, nWorld.z * calm));
 	vec3 rw = reflect(mat3(gbufferModelViewInverse) * (vp / dist), nWorld);
 	vec3 rd = mat3(gbufferModelView) * rw;
 	if (rd.z > 0.25) {
