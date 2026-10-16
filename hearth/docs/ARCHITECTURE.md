@@ -93,7 +93,8 @@ Rules that keep parallel work mergeable:
 - Commands: register your own subtree under `/hearth <yourthing>` with `CommandRegistrationCallback` — Brigadier merges
   literal nodes, so every module can add children to `/hearth` independently.
 - Settings: `HearthConfig.load("<module>", CODEC, DEFAULTS)` → `config/hearth/<module>.json`. Every field
-  `optionalFieldOf(name, default)`.
+  `optionalFieldOf(name, default)`. A bad value falls back to its own default (logged by name); the rest of the file is
+  kept.
 - Saved state: per-settlement and per-world module state through `HearthDataKey.register(Hearth.id("<module>/<name>"),
   scope, codec, factory)`; per-player state through Fabric's data attachment API (`AttachmentRegistry`) under
   `hearth:<module>/<name>`.

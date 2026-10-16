@@ -153,6 +153,7 @@ public final class SimServer {
 	void removeWorld(ServerLevel level) {
 		SimWorld w = this.worlds.remove(level.dimension());
 		if (w != null) {
+			w.unload();
 			w.save(true);
 			this.embodied.remove(w);
 		}

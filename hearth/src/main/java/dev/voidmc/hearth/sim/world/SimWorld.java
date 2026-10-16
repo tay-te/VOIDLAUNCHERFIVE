@@ -658,8 +658,16 @@ public final class SimWorld implements HearthWorld, SimContext {
 			residents(), new BoundingBox(-30_000_000, -2048, -30_000_000, 30_000_000, 4096, 30_000_000));
 		s.bind(off);
 		long serverStart = System.nanoTime() - start;
-		java.util.concurrent.CompletableFuture.runAsync(() -> SettlementClock.found(s, off, settlers.isEmpty() ? founding.residents() : settlers.size(),
-			settlers, founding.goodsMap(), founding.treasury()), FOUNDING).whenComplete((v, t) -> this.level.getServer().execute(() -> {
+		// until the hamlet is registered its settlers belong to no saved record: if the world unloads first they go home
+		java.util.concurrent.CompletableFuture<Void> layout = java.util.concurrent.CompletableFuture.runAsync(() -> SettlementClock.found(s, off,
+			settlers.isEmpty() ? founding.residents() : settlers.size(), settlers, founding.goodsMap(), founding.treasury()), FOUNDING);
+		PendingFounding pending = new PendingFounding(parent, settlers, layout);
+		this.foundingsInFlight.add(pending);
+		layout.whenComplete((v, t) -> this.level.getServer().execute(() -> {
+				if (!this.foundingsInFlight.remove(pending)) {
+					// the world was unloaded meanwhile and the settlers went home
+					return;
+				}
 				if (t != null) {
 					LOG.error("hearth: laying out {} failed; its settlers go home to {}", f.name, parent.name(), t);
 					for (Resident r : settlers) {
@@ -676,6 +684,34 @@ public final class SimWorld implements HearthWorld, SimContext {
 					s.center().toShortString(), reason);
 				done.accept(s);
 			}));
+	}
+
+	/** A hamlet being laid out off the server thread: who left for it, from where. */
+	private record PendingFounding(SimSettlement parent, List<Resident> settlers, java.util.concurrent.CompletableFuture<Void> layout) {
+	}
+
+	private final List<PendingFounding> foundingsInFlight = new ArrayList<>();
+
+	/**
+	 * The level is unloading (the server stops): settlers whose hamlet is still being laid out go back to the town they
+	 * left, so the save that follows does not lose them.
+	 */
+	public void unload() {
+		for (PendingFounding f : this.foundingsInFlight) {
+			try {
+				// the layout touches the settlers' records: let it finish first (it takes 50-150 ms)
+				f.layout().get(10, java.util.concurrent.TimeUnit.SECONDS);
+			} catch (Exception e) {
+				// failed or slow: the settlers go home all the same
+			}
+			for (Resident r : f.settlers()) {
+				r.extra("sim").remove("came_from");
+				r.home = Resident.NO_PLOT;
+				r.work = Resident.NO_PLOT;
+				f.parent().addResident(r);
+			}
+		}
+		this.foundingsInFlight.clear();
 	}
 
 	/** One worker for laying out hamlets founded by settlers. */
