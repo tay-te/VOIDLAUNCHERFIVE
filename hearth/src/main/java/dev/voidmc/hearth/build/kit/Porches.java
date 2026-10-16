@@ -139,43 +139,95 @@ public final class Porches {
 	}
 
 	/**
-	 * A balcony on wall {@code side} of storey k: a deck one block out over columns {@code [c0..c1]} at the storey's
-	 * floor row, carried on stair brackets, with a railing of fences (or trapdoors in light styles) and flower boxes.
+	 * A balcony on wall {@code side} of a storey whose standing level is {@code floorY}, over columns {@code [c0..c1]}:
+	 * a deck two blocks out at the storey's floor row, carried on beams and corbels, with its railing on the outer row and
+	 * returned to the wall at both ends, so the row before the wall (before the door onto it) stays clear to stand in
+	 * (the audit's rule S1: never a rail before a door). Window dressing on that row is cleared. Where the plot leaves
+	 * room for one row only (over the street), the deck is one deep and its rail is a row of open trapdoors whose leaves
+	 * stand on the deck's outer edge. Answers how deep it was built (0: not at all).
 	 */
-	public static void balcony(Draft d, Side side, int c0, int c1, int floorY) {
+	public static int balcony(Draft d, Side side, int c0, int c1, int floorY) {
 		Mat floor = d.mat(Role.FLOOR);
 		Mat rail = d.mat(Role.RAILING);
 		Mat beam = d.mat(Role.BEAM);
 		Direction out = side.out();
 		int ia = Math.min(side.index(c0), side.index(c1));
 		int ib = Math.max(side.index(c0), side.index(c1));
+		// two deep wherever the plot allows the outer row over the whole span, its returns included
+		int depth = 2;
+		for (int i = ia - 1; i <= ib + 1 && depth == 2; i++) {
+			if (i < 0 || i > side.last()) {
+				continue;
+			}
+			int x = side.outX(i, 2);
+			int z = side.outZ(i, 2);
+			if (!allowed(d, x, floorY - 2, z) || !d.isAbsent(x, floorY - 1, z)) {
+				depth = 1;
+			}
+		}
+		int built = 0;
 		for (int i = ia; i <= ib; i++) {
 			int x = side.outX(i, 1);
 			int z = side.outZ(i, 1);
 			if (!allowed(d, x, floorY, z) || !d.isAbsent(x, floorY - 1, z)) {
 				continue;
 			}
+			built++;
 			try (var s = d.stage(StageKind.EXTERIOR)) {
 				d.set(x, floorY - 1, z, floor.slab(SlabType.TOP));
-				if (i == ia || i == ib || (i - ia) % 2 == 0) {
-					if (d.isAbsent(x, floorY - 2, z)) {
-						d.set(x, floorY - 2, z, beam.stairsOrSlab(out.getOpposite(), Half.TOP));
+				// the row before the wall is for standing in: what a window's dressing put there goes
+				for (int yy = floorY; yy <= floorY + 1; yy++) {
+					Draft.Cell c = d.cell(x, yy, z);
+					if (c != null && !c.state().isAir() && !(c.state().getBlock() instanceof net.minecraft.world.level.block.DoorBlock)
+						&& (c.stage() == StageKind.EXTERIOR || c.stage() == StageKind.OPENINGS || c.stage() == StageKind.INTERIOR)) {
+						d.remove(x, yy, z);
 					}
 				}
-				if (d.isAbsent(x, floorY, z)) {
-					d.set(x, floorY, z, rail.has(Form.FENCE) ? rail.fence() : rail.trapdoor(out.getOpposite(), Half.BOTTOM, true));
+				boolean carried = i == ia || i == ib || (i - ia) % 2 == 0;
+				if (depth == 2) {
+					int x2 = side.outX(i, 2);
+					int z2 = side.outZ(i, 2);
+					d.set(x2, floorY - 1, z2, floor.slab(SlabType.TOP));
+					if (carried && d.isAbsent(x, floorY - 2, z) && d.isAbsent(x2, floorY - 2, z2)) {
+						// a beam out of the wall under the deck, its end cut as a corbel
+						d.set(x, floorY - 2, z, beam.log(out.getAxis()));
+						d.set(x2, floorY - 2, z2, beam.stairsOrSlab(out.getOpposite(), Half.TOP));
+					}
+					if (d.isAbsent(x2, floorY, z2) || d.isEmpty(x2, floorY, z2)) {
+						d.set(x2, floorY, z2, rail.has(Form.FENCE) ? rail.fence() : Guards.rail(d));
+					}
+				} else {
+					if (carried && d.isAbsent(x, floorY - 2, z)) {
+						d.set(x, floorY - 2, z, beam.stairsOrSlab(out.getOpposite(), Half.TOP));
+					}
+					// the rail stands on the deck's outer edge: an open trapdoor facing the wall has its leaf there
+					Mat leaf = rail.has(Form.TRAPDOOR) ? rail : d.mat(Role.SHUTTER).has(Form.TRAPDOOR) ? d.mat(Role.SHUTTER) : d.mat(Role.FURNITURE);
+					d.set(x, floorY, z, leaf.trapdoor(out.getOpposite(), Half.BOTTOM, true));
 				}
 			}
 		}
-		// the railing returns to the wall at both ends
+		if (built == 0) {
+			return 0;
+		}
+		// the railing returns to the wall at both ends, on the deck carried out under it
 		for (int i : new int[]{ia - 1, ib + 1}) {
-			int x = side.outX(i, 1);
-			int z = side.outZ(i, 1);
-			if (allowed(d, x, floorY, z) && d.isAbsent(x, floorY, z) && i >= 0 && i <= side.last()) {
-				d.inStage(StageKind.EXTERIOR, () -> d.set(x, floorY, z, rail.fence()));
+			if (i < 0 || i > side.last()) {
+				continue;
+			}
+			for (int k = 1; k <= depth; k++) {
+				int x = side.outX(i, k);
+				int z = side.outZ(i, k);
+				if (!allowed(d, x, floorY, z) || !d.isAbsent(x, floorY - 1, z) || !(d.isAbsent(x, floorY, z) || d.isEmpty(x, floorY, z))) {
+					continue;
+				}
+				try (var s = d.stage(StageKind.EXTERIOR)) {
+					d.set(x, floorY - 1, z, floor.slab(SlabType.TOP));
+					d.set(x, floorY, z, rail.has(Form.FENCE) ? rail.fence() : Guards.rail(d));
+				}
 			}
 		}
 		d.poi(PoiType.VIEWPOINT, side.outX((ia + ib) / 2, 1), floorY, side.outZ((ia + ib) / 2, 1), out);
+		return depth;
 	}
 
 	/**

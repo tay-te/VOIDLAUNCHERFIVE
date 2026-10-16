@@ -126,7 +126,14 @@ workplaces offer.
 entities count) the clock asks `planner.next(settlement, terrain, random)` — up to 4 proposals in a row, while at most
 one plot is stalled — and adds each as `PLANNED`. A road (`infra/*`) does not count toward the 4: roads come first, the
 planner often queues a lane and then the houses along it, so a history or a fast-forward asks again in the same step (up
-to 4 roads in a row). A null answer backs off half a day. Live, every planner call is budgeted (`planner_calls_per_tick`,
+to 4 roads in a row). A null answer backs off half a day, unless it was nothing only because the call ran out of its
+live time limit (`SettlementPlanner.ranOutOfTime`): then the clock asks again at its next step, up to four times in a
+row (`MAX_OUT_OF_TIME_RETRIES`), before it waits as for any other null (w7: each such answer used to cost a city half a
+day; the planner rests the needs that ran out of time, so the next call tries the others). Adding a planned plot no
+longer marks the derived figures (beds, job places, store room) for recounting unless it is an excavation (only
+standing buildings and excavations count), and an excavation whose blueprint is still being made is counted again
+once it is ready rather than on every read: the planner's next call in the same step read `beds()` and recounted the
+whole town (7.6 % of `planner.next` in a city, requests/w6-plan.md §5). Live, every planner call is budgeted (`planner_calls_per_tick`,
 1), roads included (`SimContext.budgetsEveryPlannerCall`: a city's call takes tens of milliseconds, and five in one step
 made a 95 ms tick); histories and explicit fast-forwards are not. Their cost is measured
 (`SettlementClock.PlannerTimings`, with the median and p90 of the last 4096 live calls, in `/hearth sim stats`).
@@ -575,6 +582,36 @@ the single progress counter, the applier and its edit safety, abstract and embod
   the nearest of its kind) loses the cut rock. Never damage;
 - `resources.extraction.abstract_only` writes nothing of an excavation into the world (the loop runs as numbers).
 
+**Workings reopen** (w7, requests/w7-tour.md §3): a quarry pit, mine, shaft, clay or sand pit dug out (BUILT, or given
+up) no longer counts for the planner's program while the town has folk in its trade (a worked-out pit keeps its job
+sites, so its crew stays) or still draws on its goods (stone under 400 + 4 a head in store, ore, clay or sand under
+160 + 2 a head): the next working opens beside the old cut on the same site (the planner skips ground an old working
+took, and runs a short spur on from the old track to the fresh rock) or at the next site, up to three dug out at one
+site before the next site is taken; one face at a time for each work, and each working followed by one successor
+(twice the program's count dug out in all, `Extraction.GENERATIONS`), then no more: MiniSim, which digs as fast as it
+builds, pocked a city's hills with eighty pits in 300 days without that bound (twelve with it). A working cut deeper in
+place would keep a face open for good (requests/w7-planner.md §6). The stores alone were not enough: the live tour's towns sat on thousands of stone
+from their quarriers' surface work. The planner tries the four nearest sites with room (and two points of each pit's
+site, well apart) before it gives up, passing over an ore site under the town's future streets; a crew waiting for
+its next face rests its need only a few calls after a try that found no room. Workings are dug by their own trades, not
+the builders, so the program lists them even while the town is busy, and a town past twice an entry's size with none
+open wants one before its next field (priority 450). In the sim, the job sites of the workings dug out count once a
+trade (the most any one of them has), not once a pit, so ten pits worked out do not keep ten crews; and when jobs are
+handed out, a trade with a face being cut gets one hand right after the builders (and the food trades while food is
+short), so a staked-out shaft is not left for want of a miner while the other workshops take every hand; a digger is
+placed at the face being cut before a pit dug out.
+
+Measured with `sim.settlement.RealGrowthTest.aTownKeepsItsDiggersAtAFace` (the sim's harness, real archetypes, a
+temperate town under a cliff with six ore and seven stone sites): before, its first working (a quarry pit) opened on day
+225 at 340 souls and nothing was dug after it; now the first (a shaft) on day 56, 8 workings by 200 days later, a face
+cut further on 34 of those 200 days (open on 50). On a slope (`HEARTH_DIG_TERRAIN=slope`, a hamlet of 30) its shaft
+waited 200 days for a miner, now six more are dug (cut on 61 days); by a river (`river`) a town of 200 opens its first
+clay pit on day 98 and one more, cut on 5 (no plot fits by the bank track for the next: the layout of the banks). The
+gaps between faces are the planner's tries that find no room and the land's rests; in the cliff town a quarry pit on
+the cliff's foot draws with no cuts at all and is dug out the day it opens (requests/w7-planner.md).
+`plan.RealGrowthTest.workingsDugOutAreFollowedByTheNext` (MiniSim, which digs as fast as it builds) checks the next
+opens as the old are dug out.
+
 **Natural woods** without a woodlot: what abstract foresters take is owed to the world (`SimSite.fellingDebt`, capped)
 and felled where the wood's chunks are loaded (`world/Woodcutter`, `fell_budget_ms` a tick, a few random columns of a
 wood that owes): a natural tree (logs under decaying leaves, on dirt) is taken down whole, top to bottom, leaves and all,
@@ -851,6 +888,19 @@ the chapel (now a squat stone tower with a bulb cap), the cathedral, the night t
 11–14), a worked-out quarry pit and a shaft head in Bradfield, the one excavation open in the world (Herringport's
 quarry in the taiga), builders on scaffolding. No digger was caught at a face in Bradfield: every working there is
 BUILT (worked out), and diggers with no open excavation go back to their old work ("quarrying" by the pit).
+
+### 17.2 What wave 7 changed for the tour's findings (planner and sim)
+
+- **Calls past their limit** (requests/w7-tour.md §1): see PLANNING.md §14.8; the clock now asks again at its next step
+  after an out-of-time answer (§2), and `/hearth sim stats` prints the planner's reasons and where calls ran past their
+  deadline (`PlanStats.lines()`).
+- **The derived figures** are no longer recounted after every planned plot (§2).
+- **Workings reopen** (§16.3).
+- **A fast-forward's surveys** (`SimWorld.survey`, the wave 6 edit, reviewed): kept as it was (a fast-forward surveys at
+  once, a late off-thread survey never overwrites a wider one), and the synchronous surveys are now counted in the stats
+  line with the others.
+- **Castle sites**: `ExpanseProbe.site` reads Expanse's `Column.site` (the level top of a lone hill, the top of an
+  escarpment's edge) through `TerrainProbe.site`; the planner prefers them for the castle hill (PLANNING.md §14.2).
 
 ## 18. A town left alone (w6, requests/w5-tour.md §4)
 

@@ -143,6 +143,135 @@ public final class Grounds {
 	}
 
 	/**
+	 * A parapet along the plot's sides and back wherever the levelled ground stands four or more above the land beyond
+	 * (a terrace made up on a slope): a low wall in the plinth's stone (the railing's fence where it has no wall), on the
+	 * edge cell itself, so nobody walks off the made ground. Cells taken, and the front row where a way in crosses it
+	 * (where the approach comes down from the street), are left alone. Call it last, when the grounds are made.
+	 */
+	public static void edgeRails(Draft d) {
+		int w = d.frontage();
+		int dp = d.depth();
+		Paint rail = Halls.rail(d, d.mat(Role.PLINTH));
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			// (the front row's corners too, over a fall to the side: the approach comes in from the street, not the flank)
+			for (int z = 0; z < dp; z++) {
+				for (int x = 0; x < w; x++) {
+					if (x != 0 && x != w - 1 && z != dp - 1 && z != 0) {
+						continue;
+					}
+					// the front row only away from the ways in (the approach's steps come down there), and never on a way in
+					// at the sides or the back
+					if (z == 0 && x != 0 && x != w - 1 && nearEntrance(d, x) || besideEntrance(d, x, z)) {
+						continue;
+					}
+					// where one stands there: the first free cell over something solid, from the made ground up
+					int g0 = Groundwork.surface(d, x, z);
+					int g = Integer.MIN_VALUE;
+					int nat = d.site().ground(x, z);
+					for (int y = g0 - 1; y <= g0 + 4 && g == Integer.MIN_VALUE; y++) {
+						boolean under = d.isSolid(x, y - 1, z) || d.isAbsent(x, y - 1, z) && y - 1 < nat;
+						boolean free = (d.isAbsent(x, y, z) ? y >= nat : d.isEmpty(x, y, z)) && (d.isAbsent(x, y + 1, z) ? y + 1 >= nat : d.isEmpty(x, y + 1, z));
+						if (under && free) {
+							g = y;
+						}
+					}
+					if (g == Integer.MIN_VALUE) {
+						continue;
+					}
+					int low = Integer.MAX_VALUE;
+					for (int[] o : new int[][]{{x - 1, z}, {x + 1, z}, {x, z + 1}, {x, z - 1}}) {
+						if (o[0] < 0 || o[0] >= w || o[1] >= dp || o[1] < 0) {
+							low = Math.min(low, d.site().ground(o[0], o[1]));
+						}
+					}
+					// (nor on the paving of a way: the approach runs along the front row to the street)
+					Draft.Cell walked = d.cell(x, g - 1, z);
+					boolean way = z == 0 && walked != null && walked.stage() == dev.voidmc.hearth.api.StageKind.EXTERIOR;
+					// (and only where the walk along the edge goes on beside the rail: an edge strip one wide between the
+					// building and the fall is a way, kept)
+					int ix = x == 0 ? 1 : x == w - 1 ? w - 2 : x;
+					int iz = z == 0 ? 1 : z == dp - 1 ? dp - 2 : z;
+					boolean along = d.isEmpty(ix, g, iz) && d.isEmpty(ix, g + 1, iz) && (d.isSolid(ix, g - 1, iz) || d.isAbsent(ix, g - 1, iz) && g - 1 < d.site().ground(ix, iz));
+					if (low != Integer.MAX_VALUE && g - low >= 4 && !way && along) {
+						d.set(x, g, z, rail);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * A registered entrance within a cell of (x, z), the row before the plot's edge included; or, in the front row, one on
+	 * the street within four columns (its way in runs along the front row there, corners and all).
+	 */
+	private static boolean besideEntrance(Draft d, int x, int z) {
+		for (int[] e : d.entrances()) {
+			if (Math.abs(e[0] - x) <= 1 && Math.abs(e[2] - z) <= 1 || z == 0 && e[2] <= 0 && Math.abs(e[0] - x) <= 4) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * A way in over the front row at column x: a registered entrance in this column or the next (its approach comes in
+	 * there), or steps already laid in the front row or just outside it.
+	 */
+	private static boolean nearEntrance(Draft d, int x) {
+		for (int[] e : d.entrances()) {
+			if (Math.abs(e[0] - x) <= 1) {
+				return true;
+			}
+		}
+		for (int z = -1; z <= 0; z++) {
+			for (int y = -8; y <= 4; y++) {
+				net.minecraft.world.level.block.state.BlockState s = d.get(x, y, z);
+				if (s != null && (s.getBlock() instanceof net.minecraft.world.level.block.StairBlock || s.getBlock() instanceof net.minecraft.world.level.block.SlabBlock)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The space under a raised floor ({@code x0..x1 × z0..z1}, the floor's boards at {@code floorY}) put to use as the
+	 * stilt towns use it: bales of fodder and storage jars stood among the posts on the ground every few blocks, where a body can stand beside them, none at the foot of the stair ({@code keepX, keepZ}).
+	 */
+	public static void underStilts(Draft d, int x0, int z0, int x1, int z1, int floorY, int keepX, int keepZ) {
+		int k = 0;
+		for (int z = z0 + 1; z <= z1 - 1; z += 3) {
+			for (int x = x0 + 1 + (k & 1); x <= x1 - 1; x += 4) {
+				k++;
+				if (Math.abs(x - keepX) <= 1 && Math.abs(z - keepZ) <= 2) {
+					continue;
+				}
+				int g = Groundwork.surface(d, x, z);
+				if (g + 2 > floorY || !dev.voidmc.hearth.build.kit.sociallife.Venue.standable(d, x, g, z)) {
+					continue;
+				}
+				// someone can stand beside it
+				boolean side = false;
+				for (net.minecraft.core.Direction dir : Dirs.HORIZONTAL) {
+					side |= dev.voidmc.hearth.build.kit.sociallife.Venue.standable(d, x + Dirs.dx(dir), g, z + Dirs.dz(dir));
+				}
+				if (!side) {
+					continue;
+				}
+				int gy = g;
+				int cx = x;
+				int cz = z;
+				d.inStage(StageKind.INTERIOR, () -> d.set(cx, gy, cz, (k2(cx, cz) ? Blocks.HAY_BLOCK : Blocks.DECORATED_POT).defaultBlockState()));
+			}
+		}
+	}
+
+	/** Which of the two the stilt store at (x, z) is: a bale or a jar. */
+	private static boolean k2(int x, int z) {
+		return ((x * 3 + z) & 1) == 0;
+	}
+
+	/**
 	 * The way in: from the cell outside a door (x, zOut) at standing level {@code y} to the street, by the kit's approach
 	 * (steps down or up, paving, footings) when the ground does not already meet it.
 	 */

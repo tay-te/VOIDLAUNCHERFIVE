@@ -4,6 +4,7 @@ import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
+import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
@@ -14,7 +15,8 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  * Laying out open ground on a slope as a few level terraces from the street back, each a band of rows, rather than one
  * platform cut deep into the hill or banked high above it: the front terrace meets the street, the ones behind follow
  * the ground up (or down) by at most three blocks a step, each held by a retaining wall of the foundation stone with a
- * coping on top, and a flight of steps where a path climbs from one to the next.
+ * coping on top (a parapet, or a rail where the masonry is timber, where the wall stands two or more), and a flight of
+ * steps where a path climbs from one to the next.
  */
 public final class Terraces {
 	private Terraces() {
@@ -96,10 +98,14 @@ public final class Terraces {
 					}
 				}
 			}
-			// a coping course on the wall's top edge, so nobody walks off the terrace unawares
+			// a coping course on the wall's top edge, so nobody walks off the terrace unawares; over a drop of two or more a
+			// parapet (a wall of the masonry, a rail where it is timber) instead, which nobody steps up onto
+			boolean parapet = hi - lo >= 2;
+			Mat rail = d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING) : d.mat(Role.FENCE);
+			Paint guard = cap.has(Form.WALL) ? cap.wall() : rail.has(Form.FENCE) ? rail.fence() : cap.full();
 			try (var s = d.stage(StageKind.EXTERIOR)) {
 				for (int x = x0; x <= x1; x++) {
-					d.set(x, hi, wz, cap.has(Form.SLAB) ? cap.slab(SlabType.BOTTOM) : cap.full());
+					d.set(x, hi, wz, parapet ? guard : cap.has(Form.SLAB) ? cap.slab(SlabType.BOTTOM) : cap.full());
 				}
 			}
 		}

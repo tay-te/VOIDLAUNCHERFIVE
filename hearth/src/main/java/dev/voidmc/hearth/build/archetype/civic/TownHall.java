@@ -22,10 +22,11 @@ import dev.voidmc.hearth.build.kit.Floors;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
-import dev.voidmc.hearth.build.kit.Porches;
 import dev.voidmc.hearth.build.kit.Rooms;
+import dev.voidmc.hearth.build.kit.Stairs;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Walls;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Arches;
 import dev.voidmc.hearth.build.kit.civic.Bohemian;
@@ -48,12 +49,12 @@ import net.minecraft.world.level.block.Blocks;
 /**
  * {@code hearth:civic/town_hall}: the seat of a town's council on its square. An open loggia of arches along the
  * ground floor shelters the door and the notice board; over it the council chamber, tall-windowed, opens onto a balcony
- * hung with the town's banners; a tower rises from the middle of the front (timber, alpine, log and raised traditions:
- * a clock tower with a spire, an onion or a pyramid) or from a front corner (stone, mediterranean and adobe ones: a
- * campanile with battlements or a dome), its clock faces turned to the square and its bell in the open belfry. A flag
- * with the town's arms flies before it.
+ * hung with the town's banners; a tower rises from a front corner (a campanile with battlements, a helm, an onion or a
+ * dome; in the raised and karst traditions from the middle of the front), its clock faces turned to the square and its
+ * bell in the open belfry, reached by the ringer's ladder from the chamber. A flag with the town's arms flies before it.
  *
- * <p>Inside: an entrance hall with the stair and the clerk's desk and the records; upstairs the chamber with its long
+ * <p>Inside: a waiting hall with the stair and benches, the clerk's office partitioned off it (his desk, the town's map,
+ * the lectern and the rolls); upstairs the chamber with its long
  * table, the mayor's chair at its head, banners on the walls and lanterns over the table.
  *
  * <p>POIs: MEETING_POINT at the chamber's table, SEATs, NOTICE_BOARD by the door, STORAGE (the records), DOOR,
@@ -87,9 +88,11 @@ public final class TownHall implements Archetype {
 		// the timber-framing towns build their hall the Bohemian way (a radnice): white render, an arcade of round arches
 		// on the square, a corner tower with a gallery under a dark helm or onion, a red tile roof with a show gable
 		boolean boh = t == Tradition.TIMBER;
-		String tw = d.param("tower", switch (t) {
-			case MEDITERRANEAN, STONE, ADOBE, TIMBER -> "corner";
-			default -> "centre";
+		// a town hall's tower stands on a corner of its broad block (a west tower before a nave is a church's): only the
+		// raised halls of the south and the karst halls keep it in the middle of the front
+		String tw = d.param("tower", Pueblo.is(d) ? "none" : switch (t) {
+			case STILT, KARST -> "centre";
+			default -> "corner";
 		});
 		boolean corner = tw.equals("corner");
 		boolean centre = tw.equals("centre");
@@ -199,8 +202,14 @@ public final class TownHall implements Archetype {
 			int[] tr = body.topRect();
 			int deck = Adobe.roof(d, tr[0], tr[1], tr[2], tr[3], plate, true, !centre);
 			top = new Storeys.Top(null, deck, deck + 2);
-			Halls.roofTerrace(d, tr, deck, !cornerRight);
-			Adobe.screens(d, body, body.storeys() - 1);
+			if (Pueblo.is(d)) {
+				// the mesa's hall rings its bell from a pierced wall over the front, the stepped room behind
+				Side fr = body.side(body.storeys() - 1, Dirs.FRONT);
+				top = new Storeys.Top(null, deck, Math.max(deck + 2, Towers.bellWall(d, fr, fr.index(cx), deck, 2, maxH)));
+			} else {
+				Halls.roofTerrace(d, tr, deck, !cornerRight);
+				Adobe.screens(d, body, body.storeys() - 1);
+			}
 		} else if (boh && bohRoofFits(d, body)) {
 			top = bohemianRoof(d, body, corner ? (cornerRight ? 1 : -1) : 0);
 		} else {
@@ -215,7 +224,7 @@ public final class TownHall implements Archetype {
 		if (boh && corner && maxH - 1 - (plate + 3 + Bohemian.BELFRY) >= 6) {
 			skyline = Math.max(skyline, bohemianTower(d, tx0, tz0, base, plate, fy - 1, maxH, tier, cornerRight, z0));
 		} else if (centre || corner) {
-			skyline = Math.max(skyline, tower(d, t, tx0, tz0, tsz, base, plate, top, maxH, tier, centre));
+			skyline = Math.max(skyline, tower(d, t, tx0, tz0, tsz, base, plate, fy, top, maxH, tier, centre));
 		} else if (top.roof() != null) {
 			skyline = Math.max(skyline, ChapelWestern.turret(d, t, cx, (z0 + z1) / 2 - 1, plate, top.roof().ridgeY, maxH));
 		}
@@ -229,16 +238,24 @@ public final class TownHall implements Archetype {
 			// an oriel on corbels over the arcade, under the show gable
 			oriel(d, upper, bohGableCentre(body, corner ? (cornerRight ? 1 : -1) : 0), fy, h1);
 		} else if (centre) {
-			Porches.balcony(d, upper, Math.max(x0 + 1, bx0), cx - 3, fy);
-			Porches.balcony(d, upper, cx + 3, Math.min(x1 - 1, bx1), fy);
+			balcony(d, upper, Math.max(x0 + 2, bx0), cx - 3, fy);
+			balcony(d, upper, cx + 3, Math.min(x1 - 2, bx1), fy);
 		} else {
-			Porches.balcony(d, upper, bx0, bx1, fy);
+			balcony(d, upper, bx0, bx1, fy);
 		}
-		for (int x : boh ? new int[0] : centre ? new int[]{cx - 4, cx + 4} : new int[]{cx}) {
-			if (x <= x0 || x >= x1) {
+		for (int x : boh ? new int[0] : centre ? new int[]{cx - 3, cx + 3} : new int[]{cx}) {
+			if (x <= x0 + 1 || x >= x1 - 1) {
 				continue;
 			}
 			int fx = x;
+			// a sill under the door (over an arcade the wall's course may stop short of the chamber's floor) and a lintel
+			// over it (a tall light's lattice left over the door is no head to a doorway)
+			if (!d.isSolid(fx, fy - 1, z0)) {
+				d.inStage(StageKind.WALLS, () -> d.set(fx, fy - 1, z0, d.mat(Role.WALL).full()));
+			}
+			if (!d.isSolid(fx, fy + 2, z0)) {
+				d.inStage(StageKind.WALLS, () -> d.set(fx, fy + 2, z0, d.mat(Role.WALL_ACCENT).full()));
+			}
 			d.inStage(StageKind.OPENINGS, () -> d.door(fx, fy, z0, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
 				net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
 		}
@@ -264,9 +281,11 @@ public final class TownHall implements Archetype {
 			}
 		}
 		// the flag before the hall and the notice board by the loggia's mouth
-		int fz = Math.max(0, z0 - 2);
-		if (!raised && Groundwork.surface(d, cx + 3, fz) == 0 && cx + 3 < w) {
-			Towers.flagpole(d, centre ? x0 : cx + 3, 0, fz, 5, Dirs.FRONT, arms.field(), arms.layers());
+		int fz = Math.max(0, z0 - 3);
+		int fpx = centre ? x0 : cx + 3;
+		// (the pole stands on the forecourt's own ground, where it is: not over the fall of a slope)
+		if (!raised && fpx < w && Groundwork.surface(d, fpx, fz) == 0) {
+			Towers.flagpole(d, fpx, 0, fz, 5, Dirs.FRONT, arms.field(), arms.layers());
 		}
 		// the notice board in the loggia beside the door (or, failing room there, in the forecourt by the steps)
 		boolean board = false;
@@ -312,11 +331,24 @@ public final class TownHall implements Archetype {
 		int sx = stairLeft ? ix0 : ix1;
 		Direction sdir = stairLeft ? Dirs.RIGHT : Dirs.LEFT;
 		int[] land = Storeys.flight(d, body, 0, sx, iz1, sdir);
-		Rooms.Room entry = new Rooms.Room(ix0, iz0, ix1, iz1, base, h0 - 1);
+		// the clerk's office: the end of the hall away from the stair, four wide behind a partition with its own door (on a
+		// hall too narrow for it, the clerk keeps his desk in the hall)
+		boolean office = ix1 - ix0 + 1 >= rise + 8 && iz1 - iz0 + 1 >= 4;
+		int px = stairLeft ? ix1 - 4 : ix0 + 4;
+		if (office) {
+			office(d, px, ix0, ix1, iz0, iz1, base, fy - 2, stairLeft, arms);
+		}
+		int hx0 = office && !stairLeft ? px + 1 : ix0;
+		int hx1 = office && stairLeft ? px - 1 : ix1;
+		Rooms.Room entry = new Rooms.Room(hx0, iz0, hx1, iz1, base, h0 - 1);
 		entry.keep(doorX, iz0);
 		entry.keepArea(sx, iz1, sx + Dirs.dx(sdir) * (rise - 1), iz1);
 		entry.keep(sx, iz1 - 1);
-		// the clerk's lectern with the town's book, the records beside it
+		if (office) {
+			entry.keep(stairLeft ? px - 1 : px + 1, iz0 + 1);
+			entry.block(px, iz0);
+		}
+		// the clerk's lectern with the town's book, the records beside it (in his office when there is one)
 		int lx = stairLeft ? ix1 : ix0;
 		d.inStage(StageKind.INTERIOR, () -> d.set(lx, base, iz0, dev.voidmc.hearth.build.draft.States.facing(Blocks.LECTERN,
 			stairLeft ? Dirs.LEFT : Dirs.RIGHT), dev.voidmc.hearth.build.draft.BlockEntities.lectern("Town Book", "The Clerk",
@@ -338,33 +370,56 @@ public final class TownHall implements Archetype {
 			}
 		}
 		int benches = 0;
-		for (int z = iz0 + 2; z < iz1 - 1 && benches < 4; z++) {
-			for (int x : new int[]{stairLeft ? ix1 : ix0, stairLeft ? ix0 : ix1}) {
-				Direction back = x == ix0 ? Dirs.LEFT : Dirs.RIGHT;
-				if (benches < 4 && d.isEmpty(x, base, z) && d.isEmpty(x, base + 1, z) && entry.claim(x, z)) {
+		for (int z = iz0 + 2; z < iz1 - 1 && benches < 6; z++) {
+			for (int x : new int[]{stairLeft ? hx1 : hx0, stairLeft ? hx0 : hx1}) {
+				Direction back = x == hx0 ? Dirs.LEFT : Dirs.RIGHT;
+				if (benches < 6 && d.isEmpty(x, base, z) && d.isEmpty(x, base + 1, z) && entry.claim(x, z)) {
 					Furniture.chair(d, x, base, z, back);
 					benches++;
 				}
 			}
 		}
-		Rooms.furnish(d, entry, Rooms.Type.HALL, 0, JobType.NONE);
+		// the waiting hall: the town's banner over the benches (one on each wall that has them), a lantern every few blocks
+		for (int x : new int[]{hx0, hx1}) {
+			Direction into = x == hx0 ? Dirs.RIGHT : Dirs.LEFT;
+			for (int z = iz0 + 2; z < iz1 - 1; z++) {
+				var st = d.get(x, base, z);
+				if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.StairBlock && d.isEmpty(x, base + 2, z)
+					&& Openings.isWallBlock(d, x + (x == hx0 ? -1 : 1), base + 2, z)) {
+					Signs.wallBanner(d, x, base + 2, z, into, arms.field(), arms.layers());
+					break;
+				}
+			}
+		}
+		for (int x = hx0 + 2; x <= hx1 - 2; x += 4) {
+			for (int z = iz0 + 1; z <= iz1 - 1; z += 4) {
+				Halls.lanternUnder(d, x, base, z, 1);
+			}
+		}
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, entry), Rooms.Type.HALL, 0, JobType.NONE);
 		Floors.joists(d, ix0, iz0, ix1, iz1, fy - 1, Direction.Axis.Z, 3, base);
 		// the chamber: the long table down the middle, the mayor's chair at its head on a dais
 		int[] up = body.rect(1);
 		int cz0 = up[1] + 2;
 		int cz1 = up[3] - 2;
-		int tl = Math.max(3, Math.min(7, cz1 - cz0 - 1));
-		int tz = cz0 + 1;
+		// (clear of a middle tower's back wall and the arch into its room)
+		int tz = centre ? Math.max(cz0 + 1, tz0 + tsz + 1) : cz0 + 1;
+		int tl = Math.max(3, Math.min(7, cz1 - tz));
+		// (never over the stairwell or the landing: the table ends a row short of where the flight comes up)
+		while (tl > 1 && !clearOfWell(d, cx, fy, tz, tz + tl - 1, land)) {
+			tl--;
+		}
 		Furniture.longTable(d, cx, fy, tz, Dirs.BACK, tl);
-		for (int z = tz + 1; z < tz + tl - 1; z++) {
+		// (chairs down both sides; along the whole of a short table)
+		for (int z = tl < 4 ? tz : tz + 1; z < (tl < 4 ? tz + tl : tz + tl - 1); z++) {
 			for (int x : new int[]{cx - 1, cx + 1}) {
-				if (d.isEmpty(x, fy, z)) {
+				if (d.isEmpty(x, fy, z) && d.isSolid(x, fy - 1, z)) {
 					Furniture.chair(d, x, fy, z, x < cx ? Dirs.LEFT : Dirs.RIGHT);
 				}
 			}
 		}
 		int headZ = tz + tl;
-		if (headZ < up[3] - 1 && d.isEmpty(cx, fy, headZ)) {
+		if (headZ < up[3] - 1 && d.isEmpty(cx, fy, headZ) && clearOfWell(d, cx, fy, headZ, headZ, land)) {
 			Furniture.chair(d, cx, fy, headZ, Dirs.BACK);
 		}
 		d.poi(PoiType.MEETING_POINT, cx - 1 >= up[0] + 1 && d.isEmpty(cx - 2, fy, tz) ? cx - 2 : cx, fy, tz, Dirs.RIGHT);
@@ -392,8 +447,124 @@ public final class TownHall implements Archetype {
 		if (h.snow()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, entryX);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		// latticed lights of the chamber railed at their feet (no climbing out onto the eaves)
+		Halls.windowRails(d, x0, z0, x1, z1, fy + 1);
+		if (raised) {
+			// the stores among the stilts under the hall's floor
+			Grounds.underStilts(d, x0, z0, x1, z1, base - 1, doorX, z0);
+		}
+		Halls.finish(d);
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(skyline + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	/**
+	 * The clerk's office at one end of the ground-floor hall: a partition at column {@code px} from the hall's front to its
+	 * back wall, {@code base} to {@code top}, with a door near the front; inside (toward {@code right}'s end) a desk with
+	 * its chair, a cartography table with the town's map, shelves of the rolls against the end wall and a lantern. The
+	 * lectern and the chest of records go in by the caller at the office's front corner.
+	 */
+	static void office(Draft d, int px, int ix0, int ix1, int iz0, int iz1, int base, int top, boolean right, Signs.Arms arms) {
+		Mat wall = d.mat(Role.WALL);
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int z = iz0; z <= iz1; z++) {
+				for (int y = base; y <= top; y++) {
+					if (d.isEmpty(px, y, z)) {
+						d.set(px, y, z, wall.full());
+					}
+				}
+			}
+		}
+		Direction into = right ? Dirs.RIGHT : Dirs.LEFT;
+		d.inStage(StageKind.OPENINGS, () -> d.door(px, base, iz0 + 1, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), into,
+			net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+		int end = right ? ix1 : ix0;
+		int step = right ? -1 : 1;
+		// the desk under the back wall, the clerk's chair before it
+		int dx = end + 2 * step;
+		Furniture.table(d, dx, base, iz1);
+		if (d.isEmpty(dx, base, iz1 - 1)) {
+			Furniture.chair(d, dx, base, iz1 - 1, Dirs.FRONT);
+		}
+		// the map of the town's lands on its table, then shelves of the rolls along the end wall
+		int out = right ? 1 : -1;
+		if (d.isEmpty(end, base, iz0 + 2)) {
+			d.inStage(StageKind.INTERIOR, () -> d.set(end, base, iz0 + 2, Blocks.CARTOGRAPHY_TABLE.defaultBlockState()));
+		}
+		for (int z = iz0 + 3; z <= iz1; z++) {
+			if (d.isEmpty(end, base, z) && Openings.isWallBlock(d, end + out, base + 1, z)) {
+				Furniture.shelf(d, end, base, z, into.getOpposite(), "bookshelf");
+				if (d.isEmpty(end, base + 1, z) && Openings.isWallBlock(d, end + out, base + 2, z)) {
+					Furniture.bookshelf(d, end, base + 1, z);
+				}
+			}
+		}
+		// the arms over the office door, a lantern over the desk
+		if (d.isEmpty(px - step, base + 2, iz0 + 1) && arms != null) {
+			Signs.wallBanner(d, px - step, base + 2, iz0 + 1, into.getOpposite(), arms.field(), arms.layers());
+		}
+		Halls.lanternUnder(d, end + 2 * step, base, (iz0 + iz1) / 2, 1);
+	}
+
+	/**
+	 * A balcony two deep before the chamber's doors over columns {@code c0..c1} of the upper front: a floor of top slabs on
+	 * brackets, its rail on the outer row only (returned to the wall at both ends), and nothing in the doors' own bays: no
+	 * shutter, box or rail before a door. Its VIEWPOINT is on the inner row, at the middle.
+	 */
+	static void balcony(Draft d, Side side, int c0, int c1, int fy) {
+		Mat floor = d.mat(Role.FLOOR);
+		Mat beam = d.mat(Role.BEAM);
+		Paint rail = Halls.rail(d, (Mat) null);
+		Direction out = side.out();
+		int ia = Math.min(side.index(c0), side.index(c1));
+		int ib = Math.max(side.index(c0), side.index(c1));
+		if (ia < 0 || ib > side.last()) {
+			return;
+		}
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int i = ia; i <= ib; i++) {
+				for (int k = 1; k <= 2; k++) {
+					int x = side.outX(i, k);
+					int z = side.outZ(i, k);
+					if (!Walls.inPlot(d, x, z) || !d.isEmpty(x, fy - 1, z)) {
+						continue;
+					}
+					d.set(x, fy - 1, z, floor.slab(SlabType.TOP));
+					// the shutters and boxes the windows put out here give way to the walk
+					for (int y = fy; y <= fy + 2; y++) {
+						if (!d.isEmpty(x, y, z)) {
+							d.set(x, y, z, Blocks.AIR.defaultBlockState());
+						}
+					}
+					if (k == 2) {
+						d.set(x, fy, z, rail);
+					}
+				}
+				int x = side.outX(i, 1);
+				int z = side.outZ(i, 1);
+				if ((i == ia || i == ib || (i - ia) % 2 == 0) && d.isEmpty(x, fy - 2, z)) {
+					d.set(x, fy - 2, z, beam.stairsOrSlab(out.getOpposite(), Half.TOP));
+				}
+			}
+			// the rail returns to the wall at both ends
+			for (int i : new int[]{ia - 1, ib + 1}) {
+				for (int k = 1; k <= 2; k++) {
+					int x = side.outX(i, k);
+					int z = side.outZ(i, k);
+					if (i >= 0 && i <= side.last() && Walls.inPlot(d, x, z) && !(Openings.isWallBlock(d, x, fy, z) && Openings.isWallBlock(d, x, fy + 1, z))) {
+						// (over a window box, a screen's bracket or a sill too: nothing at the balcony's end to step up onto)
+						d.set(x, fy, z, rail);
+						if (!d.isEmpty(x, fy + 1, z)) {
+							d.set(x, fy + 1, z, Blocks.AIR.defaultBlockState());
+						}
+					}
+				}
+			}
+		}
+		int mi = (ia + ib) / 2;
+		d.poi(PoiType.VIEWPOINT, side.outX(mi, 1), fy, side.outZ(mi, 1), out);
 	}
 
 	// ------------------------------------------------------------------------------------------------ the Bohemian hall
@@ -581,7 +752,7 @@ public final class TownHall implements Archetype {
 	 * corner), its shaft with quoins and string courses rising through the roof, clock faces under the belfry, the bell,
 	 * and its cap. In the middle its ground floor is the arched way into the loggia. Returns the top.
 	 */
-	static int tower(Draft d, Tradition t, int x0, int z0, int size, int base, int plate, Storeys.Top roof, int maxH, int tier, boolean centre) {
+	static int tower(Draft d, Tradition t, int x0, int z0, int size, int base, int plate, int fy, Storeys.Top roof, int maxH, int tier, boolean centre) {
 		Groundwork.footings(d, x0, z0, x0 + size - 1, z0 + size - 1, base - 1);
 		int ridge = roof.ridge();
 		int bh = 4;
@@ -590,13 +761,18 @@ public final class TownHall implements Archetype {
 		if (cap == Towers.Cap.BATTLEMENT && t == Tradition.MEDITERRANEAN) {
 			cap = Towers.Cap.HIP;
 		}
+		if (cap == Towers.Cap.SPIRE) {
+			// a hall's tower wears a helm over its bell, not a church's needle
+			cap = Towers.Cap.PYRAMID;
+		}
 		int capRoom = cap == Towers.Cap.SPIRE ? 8 : cap == Towers.Cap.ONION ? 7 : cap == Towers.Cap.PAGODA ? 5 : 4;
 		int yb = Math.max(ridge + 4, plate + 6);
 		if (yb + bh + capRoom > maxH - 1) {
 			yb = Math.max(plate + 2, maxH - 1 - bh - capRoom);
 		}
 		Towers.shaft(d, x0, z0, size, base, yb - 1, t, plate + 1);
-		d.carve(x0 + 1, base, z0 + 1, x0 + size - 2, yb - 2, z0 + size - 2);
+		// hollow right up (the hall's roof drawn through the shaft goes: no stray roof stairs in the ringer's way)
+		d.clearBox(x0 + 1, base, z0 + 1, x0 + size - 2, yb - 2, z0 + size - 2);
 		Side f = Side.of(x0, z0, x0 + size - 1, z0 + size - 1, Dirs.FRONT);
 		if (centre) {
 			// the way in: an arch through the front and the back of the tower's foot
@@ -607,6 +783,12 @@ public final class TownHall implements Archetype {
 			Floors.boards(d, x0 + 1, z0 + 1, x0 + size - 2, z0 + size - 2, base + 4);
 			Halls.floor(d, x0, z0, x0 + size - 1, z0 + size - 1, base - 1, true);
 			Halls.lanternUnder(d, x0 + 2, base, z0 + 2, 1);
+			// over posts the arch stands high over the ground: rails either side of the middle, where the steps come up
+			for (int x : new int[]{x0 + 1, x0 + size - 2}) {
+				if (base - Groundwork.surface(d, x, z0 - 1) >= 3) {
+					d.inStage(StageKind.EXTERIOR, () -> d.set(x, base, z0, Halls.rail(d, (Mat) null)));
+				}
+			}
 		}
 		// lights up the shaft, the town's banner on its front, clocks under the belfry
 		for (int y = base + 7; y < yb - 3; y += 3) {
@@ -629,6 +811,35 @@ public final class TownHall implements Archetype {
 		}
 		Towers.belfry(d, x0, z0, size, yb, bh, t, true);
 		Towers.lookout(d, x0 + 1, yb, z0 + 1, Dirs.FRONT, false);
+		// the tower's room on the chamber floor: boarded, an arch into it from the chamber through its back wall, and the
+		// ringer's ladder from it up the shaft through a hatch in each landing to the belfry's floor
+		if (yb - 1 - fy >= 3) {
+			Floors.boards(d, x0 + 1, z0 + 1, x0 + size - 2, z0 + size - 2, fy - 1);
+			int ax = x0 + size / 2;
+			int az = z0 + size - 1;
+			d.clearBox(ax, fy, az, ax, fy + 2, az);
+			// (a threshold under the arch, level with both floors)
+			d.inStage(StageKind.FLOORS, () -> d.set(ax, fy - 1, az, d.mat(Role.FLOOR).full()));
+			// a second arch through the tower's inner side wall, so the room is not shut off when the council's table and
+			// the stairwell's rail close the corner of the chamber behind the first
+			int sx = x0 + size - 1 < d.frontage() / 2 + 1 && x0 < d.frontage() / 2 ? x0 + size - 1 : x0;
+			int ox = sx == x0 ? -1 : 1;
+			int sz = z0 + size / 2;
+			if (d.isEmpty(sx + ox, fy, sz) && d.isEmpty(sx + ox, fy + 1, sz) && d.isSolid(sx + ox, fy - 1, sz)) {
+				d.clearBox(sx, fy, sz, sx, fy + 2, sz);
+				d.inStage(StageKind.FLOORS, () -> d.set(sx, fy - 1, sz, d.mat(Role.FLOOR).full()));
+			}
+			int lx = x0 + size - 2;
+			int lz = z0 + 1;
+			Halls.landings(d, x0 + 1, z0 + 1, x0 + size - 2, z0 + size - 2, fy - 1, yb - 1, lx, lz, d.mat(Role.FLOOR).full());
+			Stairs.ladder(d, lx, lz, fy, yb - 1, Dirs.BACK);
+			// the town's chest of charters under the arms, kept in the tower
+			int cx = x0 + 1;
+			int cz = z0 + size - 2;
+			if (d.isEmpty(cx, fy, cz) && !(cx == ax && cz == az - 1)) {
+				Furniture.chest(d, cx, fy, cz, Dirs.RIGHT, List.of(new Object[]{"minecraft:paper", 12}, new Object[]{"minecraft:map", 1}));
+			}
+		}
 		int top = Towers.cap(d, x0, z0, size, yb + bh, cap, maxH);
 		if (cap == Towers.Cap.PAGODA && top + 4 < maxH - 1) {
 			// a second, smaller tier of the pagoda over the first
@@ -636,5 +847,23 @@ public final class TownHall implements Archetype {
 			top = Towers.cap(d, x0 + 1, z0 + 1, size - 2, top + 1, Towers.Cap.PAGODA, maxH);
 		}
 		return top;
+	}
+
+	/**
+	 * Whether the cells of column x from row z0 to z1 (and the columns either side) on the chamber floor fy stand on whole
+	 * floor (not over the stairwell, nor its top step) and clear of the landing {@code land} by a cell.
+	 */
+	private static boolean clearOfWell(Draft d, int x, int fy, int z0, int z1, int[] land) {
+		for (int z = z0; z <= z1; z++) {
+			for (int xx = x - 1; xx <= x + 1; xx++) {
+				if (!d.isSolid(xx, fy - 1, z)) {
+					return false;
+				}
+			}
+			if (land != null && Math.abs(x - land[0]) <= 1 && Math.abs(z - land[1]) <= 1) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

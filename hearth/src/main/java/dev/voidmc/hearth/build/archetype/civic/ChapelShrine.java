@@ -236,6 +236,7 @@ final class ChapelShrine {
 				Garden.garden(d, r[0], r[1], r[2], r[3], 0);
 			}
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

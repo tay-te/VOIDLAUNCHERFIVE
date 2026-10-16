@@ -347,6 +347,7 @@ class LinearWorksTest {
 		assertTrue(best < 150_000_000L, "a 48-step street took " + best / 1e6 + " ms");
 	}
 
+	/** Walkways rest on the facades and stand on posts at their ends and every fourth step (review 2 item 5), nothing else in the street. */
 	@Test
 	void walkwaysRestOnTheFacadesAndTakeNoGround() {
 		SyntheticTerrain t = SyntheticTerrain.named("flat", 1);
@@ -369,7 +370,9 @@ class LinearWorksTest {
 				}
 				for (int s = 0; s < bp.stageCount(); s++) {
 					for (int i = 0; i < bp.stepCount(s); i++) {
-						if (bp.pos(s, i).getY() < street + 3 && !bp.state(s, i).isAir()) {
+						// (the posts stand in the corridor's edge columns, off the line between the two doors)
+						boolean edge = pts[0] == pts[3] ? bp.pos(s, i).getX() != pts[0] : bp.pos(s, i).getZ() != pts[2];
+						if (bp.pos(s, i).getY() < street + 3 && !bp.state(s, i).isAir() && !edge) {
 							problems.add(tag + "stands in the street: " + bp.state(s, i) + " at " + bp.pos(s, i));
 							i = bp.stepCount(s);
 						}

@@ -40,7 +40,7 @@ import net.minecraft.world.level.block.Blocks;
  *
  * <p>Job sites (FARMER): the shed's compost bin, and a stand beside every other tree. Storage: the shed's chest.
  *
- * <p>Params (all optional): {@code shed} (boolean), {@code spacing} (int 4–7: trunk to trunk, default 5 or 6), {@code boundary}
+ * <p>Params (all optional): {@code shed} (boolean), {@code spacing} (int 4–7: trunk to trunk, default 6 or 7, palms 5), {@code boundary}
  * (string: drystone, hedge, rails, bund, none).
  */
 public final class Orchard implements Archetype {
@@ -74,7 +74,8 @@ public final class Orchard implements Archetype {
 			shed = shed(d, w, dp, left);
 		}
 		// the trees: a quincunx, trunks `spacing` apart, clear of the path, the shed and the boundary
-		int spacing = Math.clamp(d.param("spacing", kind == Trees.Kind.PALM ? 5 : w >= 16 && d.chance(0.6) ? 6 : 5), 4, 7);
+		// six or seven trunk to trunk, so each crown stands clear in its row with grass between (palms crowd closer)
+		int spacing = Math.clamp(d.param("spacing", kind == Trees.Kind.PALM ? 5 : w >= 17 && d.chance(0.6) ? 7 : 6), 4, 7);
 		List<int[]> trunks = new ArrayList<>();
 		int row = 0;
 		for (int z = 2; z <= dp - 3; z += spacing - 1, row++) {

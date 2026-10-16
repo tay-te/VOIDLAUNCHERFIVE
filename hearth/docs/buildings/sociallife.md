@@ -26,9 +26,11 @@ caravanserai.
 ## The pieces
 
 **Tavern.** The drinking house, not the inn: one lofty storey open to its tie beams, lanterns hung from them; the bar
-along the back wall with the casks racked behind the keeper's lane, the cellar stair beside it down to a cellar of casks;
-the great hearth with its stone breast and stack through the gable; the musicians' stage in a corner with the culture's
-cloth behind; dice tables of green baize; settles and a trestle. Outside the ale-stake, the painted board on a wrought
+along the back wall with the casks racked behind the keeper's lane (jugs and candle stubs on the upper casks), the cellar
+stair beside it down to a cellar of casks (sacks in the corners, where a cask would have no face); the great hearth with
+its stone breast and stack through the gable; the musicians' stage in a corner with the culture's cloth behind, the floor
+before its step kept clear; dice tables of green baize; settles and a trestle; on posts the tap room furnished to the
+walls as well (`DINING`). Outside the ale-stake, the painted board on a wrought
 bracket, a bench, and behind a garden with a shade tree. Long house or (`gable_front`) gable to the street with a yard
 beside it. POIs COUNTER, MARKET_STALL, STAGE, GAMING_TABLE, HEARTH, SEAT, TABLE, STORAGE, DOOR.
 
@@ -41,12 +43,16 @@ a candle stand between each pair). Across the back of the yard the stable: a lea
 two wide parted by rails, hay, water, the beast's HITCHING_POST in each; the woodpile before it. On posts no arcade: a
 low upper storey, the hitching rail in the strip before the house.
 
-**Caravanserai.** The walled inn of the caravan roads round a courtyard: high blank walls, corner towers standing over
-them, the portal over the gate passage; round the court two storeys of cells behind an arcade of piers and arches (two
-cells deep so the gallery on its roof has a parapet): stables (trough, hay, the beast's HITCHING_POST) and storerooms
-below, the innkeeper's and trader's counters either side of the gate, the kitchen in the back range; travellers' rooms
-above (bed, chest, rug). A fountain in the court, bales and barrels, lamp posts, stairs to the gallery at the back
-corners. Flat roofs behind parapets in the dry lands, a tiled ring roof (`Ring`) elsewhere.
+**Caravanserai.** The walled inn of the caravan roads round a courtyard: high walls dressed with pilasters where the
+cross walls meet them and a string course at the gallery floor, corner towers standing over them; before the gate the
+pishtaq, a screen of the walls' masonry seven wide standing proud of the front and four over the roof, framed in the
+dressing, its tall iwan with a stepped pointed head, a keystone, a band of trim and a coping; the gate's two leaves folded
+open under a lintel, the passage three wide and three high under the gate room (the keeper's lookout: a table under the
+window into the iwan, a stool, a chest) and the gallery. Round the court two storeys of rooms in pairs (seven long, two
+doors, two beds above) behind an arcade of piers and arches (two cells deep so the gallery on its roof has a parapet):
+stables (trough, hay, the beast's HITCHING_POST) and storerooms below, the innkeeper's and trader's counters either side
+of the gate, the kitchen in the back range; travellers' rooms above (bed, chest, rug). A fountain in the court, bales and
+barrels, lamp posts, stairs to the gallery at the back corners, walled on their courtyard side. Flat roofs behind parapets in the dry lands, a tiled ring roof (`Ring`) elsewhere.
 
 **Thieves' den.** An ordinary poor cottage in a back lane (StyleContext implies the POOR station): table, stool, fire. In
 its back corner a stair (railed, half hidden behind barrels) down to a dug cellar: the fence's counter (JOB_SITE FENCE,
@@ -96,8 +102,10 @@ graves in each culture's manner (`Graves.Manner`), the calvary where the walks c
 mortuary chapel with a bell-cote at the back; terraced on hillsides.
 
 **Festival ground.** The culture's centrepiece on a dance floor (maypole, midsummer pole, beacon, lantern poles,
-horsetail standard, vine pergola, obelisk, bonfire), the stage, booths, trestles, banner posts, bonfire pit, hay, trees,
-the garlanded arch. Booths and the stage canopy are undyed canvas with a valance of the fair's one colour
+horsetail standard, vine pergola, obelisk, bonfire), the stage, a row of booths down each side the length of the green,
+trestles, banner posts, bonfire pit, hay, trees, the garlanded arch. The Bohemian maypole is a pole: a stripped trunk
+with only its spruce tip left green, and a wreath well under it with the ribbons hanging off it on four sides. Where the
+green's terraces stand over falling ground a parapet or a rail guards them (`Terraces`, `Edges`). Booths and the stage canopy are undyed canvas with a valance of the fair's one colour
 (`Fair.houseColour`, madder, woad or weld), striped only in the mediterranean and the desert; ribbons and banners take
 the same natural dyes. The front rows meet the street; the green lies on one level within a two-blocks-a-band climb of it
 and under the plot's height.
@@ -133,6 +141,5 @@ and under the plot's height.
   the plain range. The almshouse cells are small (three by two or three) and dark timber in the Bohemian village palette.
 - The tilt yard's stands read as a solid wedge from the side; the pavilions are drum-shaped, not conical.
 - The thieves' den's stair is open, not truly hidden (a closed trapdoor would break the walkability check).
-- The caravanserai's portal is half hidden under the ring roof in the pitched cultures; the cells near the ring's corners
-  stay empty.
+- The caravanserai is one plan in its five cultures (palette only); the corner blocks are solid.
 - Bohemian looks come from the culture's palette through `Shell`; the playhouse and tilt yard are generic timber.

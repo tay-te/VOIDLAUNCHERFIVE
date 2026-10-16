@@ -168,7 +168,9 @@ public final class SettlementPreview {
 					radius = Math.max(64, Math.min(192, best.radius()));
 				}
 			}
-			int[] site = terrainName.startsWith("earthcliff") ? cliffSite(earth, cx, cz, 1200) : earth.findSite(cx, cz, radius);
+			// "earthat:x:z": founded exactly there, as a live settlement is (the tour's towns, from their "founded" lines)
+			int[] site = terrainName.startsWith("earthcliff") ? cliffSite(earth, cx, cz, 1200)
+				: terrainName.startsWith("earthat") ? new int[]{cx, cz} : earth.findSite(cx, cz, radius);
 			terrain = earth;
 			center = new BlockPos(site[0], earth.groundY(site[0], site[1]), site[1]);
 		} else {
@@ -185,6 +187,9 @@ public final class SettlementPreview {
 		long t0 = System.nanoTime();
 		MiniSim sim = new MiniSim(culture, terrain, seed, planner, center);
 		String tag = cultureSpec.replace('/', '-') + "_" + terrainName.replace(':', '_') + "_s" + seed;
+		if (System.getenv("HEARTH_PREVIEW_DUMP") != null) {
+			dump(sim, terrain);
+		}
 		for (int day : days) {
 			sim.run(day - sim.day());
 			PlanState state = sim.settlement.data(PlanModule.STATE);
@@ -244,6 +249,38 @@ public final class SettlementPreview {
 		// the growth log: every project and why, next to the images
 		java.nio.file.Files.write(new File(out, "settlement_" + tag + "_log.txt").toPath(), sim.log());
 		System.out.printf(Locale.ROOT, "  (%.1f s)%n", (System.nanoTime() - t0) / 1e9);
+	}
+
+	/**
+	 * HEARTH_PREVIEW_DUMP=1: the founded settlement's occupancy round its heart as letters (. free, r road, p plaza, b
+	 * building, f farm, t terrace, - planned road, R reserved, W wall, l landscape, d dock, s setback; ~ water), its
+	 * roads, and the ground's heights along the eight headings out of the square: why a camp's first lane will not walk.
+	 */
+	private static void dump(MiniSim sim, TerrainProbe terrain) {
+		PlanState st = sim.settlement.data(PlanModule.STATE);
+		String codes = ".rrpbft-RWlds";
+		int r = 36;
+		System.out.println("heart " + st.heartX + "," + st.heartY + "," + st.heartZ + " plaza half " + st.plazaHalf + " layout " + st.layout);
+		for (int z = st.heartZ - r; z <= st.heartZ + r; z++) {
+			StringBuilder b = new StringBuilder();
+			for (int x = st.heartX - r; x <= st.heartX + r; x++) {
+				byte c = st.occupancy == null ? 0 : st.occupancy.get(x, z);
+				b.append(terrain.isWater(x, z) && c == 0 ? '~' : c >= 0 && c < codes.length() ? codes.charAt(c) : '?');
+			}
+			System.out.println(b);
+		}
+		for (var e : st.graph.edges()) {
+			System.out.println("edge " + e.id + " " + e.role + " " + e.kind + " length " + e.length() + " built " + e.built);
+		}
+		for (int dir = 0; dir < 8; dir++) {
+			StringBuilder b = new StringBuilder("dir " + dir + ":");
+			for (int k = 0; k <= 30; k += 3) {
+				int x = st.heartX + dev.voidmc.hearth.plan.road.Roads.DX[dir] * k;
+				int z = st.heartZ + dev.voidmc.hearth.plan.road.Roads.DZ[dir] * k;
+				b.append(' ').append(terrain.groundY(x, z)).append(terrain.isWater(x, z) ? "~" : "");
+			}
+			System.out.println(b);
+		}
 	}
 
 	/**

@@ -169,7 +169,8 @@ public final class Expand {
 		double laneReach = switch (layout) {
 			case LINEAR -> 0.6;
 			case WALLED, HILLSIDE, CLIFF -> 1.5;
-			case FARMSTEADS -> 0.8;
+			// a farmsteads settlement that has nucleated fills its village in like a crossroads town
+			case FARMSTEADS -> Grid.nucleated(ctx) ? 1.2 : 0.8;
 			default -> 1.2;
 		};
 		double armReach = switch (layout) {
@@ -183,6 +184,10 @@ public final class Expand {
 			return true;
 		}
 		for (Branch b : branches) {
+			if (ctx.pastDeadline()) {
+				// a live call out of time: the walks wait for the next call (nothing is remembered of a walk not tried)
+				return false;
+			}
 			if (b.distance < core * laneReach && walkBranch(ctx, b)) {
 				return true;
 			}
@@ -195,6 +200,9 @@ public final class Expand {
 			return true;
 		}
 		for (Branch b : branches) {
+			if (ctx.pastDeadline()) {
+				return false;
+			}
 			if ((arm == null || b.distance <= armDist) && walkBranch(ctx, b)) {
 				return true;
 			}
@@ -213,9 +221,16 @@ public final class Expand {
 		// the town has filled the streets it was given: it grows a new quarter beyond them — a lane off a street out past
 		// the built-up town, else the main road runs on into the country and the houses follow it
 		for (Branch b : branches(ctx, true, 4)) {
+			if (ctx.pastDeadline()) {
+				return false;
+			}
 			if (walkBranch(ctx, b)) {
 				return true;
 			}
+		}
+		if (ctx.pastDeadline()) {
+			// (an arm's end that will not run on is closed for good: not for want of time)
+			return false;
 		}
 		if (continueArm(ctx)) {
 			return true;
@@ -225,7 +240,7 @@ public final class Expand {
 		// (every third call: a town with nothing else to grow does not pay for these walks on every call)
 		int tries = ctx.state.calls % 3 == 0 ? 0 : 3;
 		for (Branch b : fresh) {
-			if (tries >= 3) {
+			if (tries >= 3 || ctx.pastDeadline()) {
 				break;
 			}
 			if (branches.contains(b)) {
@@ -278,7 +293,7 @@ public final class Expand {
 		int n = d.length();
 		int heading = Roads.heading(d.xs()[n - 1] - d.xs()[Math.max(0, n - 5)], d.zs()[n - 1] - d.zs()[Math.max(0, n - 5)]);
 		boolean[] joined = new boolean[1];
-		int maxLen = (int) Math.round(ctx.state.layout.laneLength * (0.7 + 0.4 * ctx.hash(d.xs()[n - 1], d.zs()[n - 1], 73)));
+		int maxLen = (int) Math.round(Grid.laneLength(ctx) * (0.7 + 0.4 * ctx.hash(d.xs()[n - 1], d.zs()[n - 1], 73)));
 		int[][] path = Roads.walk(ctx, d.xs()[n - 1], d.zs()[n - 1], heading, 1, maxLen, Roads.Mode.STRAIGHT, 10, 1, joined);
 		RoadEdge next = path[0].length < 10 ? null : Roads.plan(ctx, best.to, path[0], path[1], best.role, best.kind, best.width, 8);
 		// either way the end is no longer a dead end to try again
@@ -357,6 +372,7 @@ public final class Expand {
 			return false;
 		}
 		Grid.planAhead(ctx, lane, 0, lane.length());
+		Beauty.cornerLamp(ctx, lane);
 		return true;
 	}
 
@@ -438,7 +454,7 @@ public final class Expand {
 				default -> {
 				}
 			}
-			int spacing = e.role == RoadEdge.Role.STAIR ? Grid.stairSpacing(e) : layout.laneSpacing;
+			int spacing = e.role == RoadEdge.Role.STAIR ? Grid.stairSpacing(e) : Grid.laneSpacing(ctx);
 			if (outward) {
 				spacing = Math.max(spacing, 30);
 			}
@@ -473,10 +489,10 @@ public final class Expand {
 						continue;
 					}
 					double grade = Math.abs(g.surface(mx, mz) - g.surface(d.xs()[i], d.zs()[i])) / 8.0;
-					boolean contour = layout.terraces && grade < ctx.config.roadGrade() && ctx.state.site != null && ctx.state.site.slope() > 0.12;
+					boolean contour = Grid.terraces(ctx) && grade < ctx.config.roadGrade() && ctx.state.site != null && ctx.state.site.slope() > 0.12;
 					double score = outward ? -Math.abs(dist - outwardFrom) : -dist;
-					score -= grade > ctx.config.stairGrade() ? 1000 : grade > ctx.config.roadGrade() ? (layout.terraces ? 4 : 25) : 0;
-					if (layout.terraces && e.role == RoadEdge.Role.STAIR && grade < ctx.config.roadGrade()) {
+					score -= grade > ctx.config.stairGrade() ? 1000 : grade > ctx.config.roadGrade() ? (Grid.terraces(ctx) ? 4 : 25) : 0;
+					if (Grid.terraces(ctx) && e.role == RoadEdge.Role.STAIR && grade < ctx.config.roadGrade()) {
 						score += 12;
 					}
 					if (layout == LayoutType.WALLED && ctx.state.wallRadius > 0 && dist > ctx.state.wallRadius - 6) {
@@ -625,7 +641,7 @@ public final class Expand {
 		int zone = ctx.zone(sx, sz);
 		LayoutType layout = ctx.state.layout;
 		boolean[] joined = new boolean[1];
-		int maxLen = (int) Math.round(layout.laneLength * (0.75 + 0.5 * ctx.hash(sx, sz, 13)));
+		int maxLen = (int) Math.round(Grid.laneLength(ctx) * (0.75 + 0.5 * ctx.hash(sx, sz, 13)));
 		Roads.Mode mode = b.contour ? Roads.Mode.CONTOUR : Roads.Mode.STRAIGHT;
 		int[][] path = Roads.walk(ctx, sx, sz, b.heading, parent.width / 2 + 1, maxLen, mode, 11, 1, joined);
 		if (path[0].length < parent.width / 2 + 10) {
@@ -654,6 +670,7 @@ public final class Expand {
 		}
 		Roads.build(ctx, lane, lane.length(), "road: a new " + kind.getSerializedName() + " off the " + describe(parent));
 		Grid.planAhead(ctx, lane, 0, lane.length());
+		Beauty.cornerLamp(ctx, lane);
 		return true;
 	}
 

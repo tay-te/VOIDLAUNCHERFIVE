@@ -54,7 +54,7 @@
 		{
 			"name": "masseria farmhouse",
 			"w": 5,
-			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"]}],
+			"when": [{"stations": ["poor", "peasant"]}, {"categories": ["farmstead"], "not": {"categories": ["noble"]}}],
 			"roles": {
 				"wall": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 0.16}, {"m": "minecraft:mossy_cobblestone", "w": 0.06, "low": 12}],
 				"gable": [{"m": "minecraft:stone", "w": 2}, {"m": "minecraft:cobblestone", "w": 0.16}],

@@ -40,7 +40,7 @@ Tier 0 is packed mud and calcite under brick and mud-brick tile mended with moss
 
 ## Local materials
 
-Local timber and stone blend as for every culture (README §4); light local woods go into boards and floors, never the frames.
+Local timber and stone blend as for every culture (README §4); light local woods go into boards and floors, never the frames. Working yards (category workshop) fell oak only.
 
 ## Still weak
 

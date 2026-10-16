@@ -57,6 +57,8 @@ public class BuilderTour implements FabricClientGameTest {
 	private static final int LATER = Integer.getInteger("hearth.build.later", 360);
 	private static final int STEP_TICKS = Integer.getInteger("hearth.build.step", 6);
 	private static final int CREW = Integer.getInteger("hearth.build.crew", 3);
+	/** The kind of building wanted for the site (an archetype path prefix; "" for any). */
+	private static final String KIND = System.getProperty("hearth.build.kind", "house/");
 	private static final double EYE = 1.62;
 	private static final java.nio.file.Path RAW = java.nio.file.Path.of(System.getProperty("hearth.build.out", "screenshots"));
 
@@ -154,17 +156,48 @@ public class BuilderTour implements FabricClientGameTest {
 			close(context, world, site);
 			walking(context, world, site);
 
-			// the same camera, later
-			long until = System.currentTimeMillis() + LATER * 1000L;
-			while (System.currentTimeMillis() < until) {
+			// the same camera, later; until the building is up and its scaffolding down (or the time is spent)
+			long start = System.currentTimeMillis();
+			long until = start + LATER * 1000L;
+			long[] cost0 = world.getServer().computeOnServer(server -> new long[]{Folk.SERVER_TICK_NANOS.sum(), Folk.SERVER_TICKS.sum(), server.getTickCount(), dev.voidmc.hearth.npc.work.BuildSite.CHOOSE_NANOS.sum(), dev.voidmc.hearth.npc.work.BuildSite.REFRESH_NANOS.sum(), dev.voidmc.hearth.npc.work.BuildSite.BUILD_NANOS.sum()});
+			double done0 = world.getServer().computeOnServer(server -> done(settlement(server, site.town), settlement(server, site.town).plot(site.plot)));
+			long builtAt = -1;
+			java.util.Set<String> shots = new java.util.HashSet<>();
+			while (System.currentTimeMillis() < until && (builtAt < 0 || System.currentTimeMillis() - builtAt < 60_000)) {
 				world.getServer().runOnServer(server -> patron(settlement(server, site.town)));
 				for (int k = 0; k < 20; k++) {
 					settle(context, 1_000);
 					world.getServer().runOnServer(server -> tally(server, site));
+					if (builtAt < 0 && world.getServer().computeOnServer(server -> settlement(server, site.town).plot(site.plot).state() != PlotState.BUILDING)) {
+						builtAt = System.currentTimeMillis();
+						log(String.format(Locale.ROOT, "built: %s after %d s of the later wait (from %.0f%% done)", world.getServer().computeOnServer(server -> plotLine(server, site)),
+							(builtAt - start) / 1000, done0 * 100));
+					}
+					sceneShots(context, world, site, shots);
 				}
-				log("progress: " + world.getServer().computeOnServer(server -> plotLine(server, site) + "; " + builders(server, site)));
+				log("progress: " + world.getServer().computeOnServer(server -> plotLine(server, site) + "; scaffolding " + scaffolds(server, site) + "; " + builders(server, site)));
 			}
-			log("time use (builder-seconds on the site, sampled each second): " + TALLY);
+			long[] cost1 = world.getServer().computeOnServer(server -> new long[]{Folk.SERVER_TICK_NANOS.sum(), Folk.SERVER_TICKS.sum(), server.getTickCount(), dev.voidmc.hearth.npc.work.BuildSite.CHOOSE_NANOS.sum(), dev.voidmc.hearth.npc.work.BuildSite.REFRESH_NANOS.sum(), dev.voidmc.hearth.npc.work.BuildSite.BUILD_NANOS.sum()});
+			long folkTicks = cost1[1] - cost0[1];
+			long serverTicks = Math.max(1, cost1[2] - cost0[2]);
+			log(String.format(Locale.ROOT, "builders' share: building tasks %.3f ms (choosing where to work %.3f ms, site upkeep %.3f ms) per server tick",
+				(cost1[5] - cost0[5]) / 1e6 / serverTicks, (cost1[3] - cost0[3]) / 1e6 / serverTicks, (cost1[4] - cost0[4]) / 1e6 / serverTicks));
+			log(String.format(Locale.ROOT, "folk cost over the later wait: %.1f µs per folk tick, %.3f ms per server tick (%d folk ticks, %d server ticks)",
+				folkTicks == 0 ? 0 : (cost1[0] - cost0[0]) / 1e3 / folkTicks, (cost1[0] - cost0[0]) / 1e6 / serverTicks, folkTicks, serverTicks));
+			if (builtAt < 0) {
+				log(String.format(Locale.ROOT, "not built after %d s: %s (from %.0f%% done)", (System.currentTimeMillis() - start) / 1000,
+					world.getServer().computeOnServer(server -> plotLine(server, site)), done0 * 100));
+			}
+			int total = TALLY.entrySet().stream().filter(e -> !e.getKey().equals("elsewhere")).mapToInt(java.util.Map.Entry::getValue).sum();
+			StringBuilder pct = new StringBuilder();
+			TALLY.forEach((k, v) -> {
+				if (!k.equals("elsewhere")) {
+					pct.append(String.format(Locale.ROOT, " %s %.0f%%;", k, 100.0 * v / Math.max(1, total)));
+				}
+			});
+			log("time use (builder-seconds on the site, sampled each second): " + TALLY + " =" + pct);
+			log("crew time use (the site's own crew, carriers left out): " + shares(TALLY));
+			log("crew time use while scaffolding stands: " + shares(TALLY_UP));
 			if (wide != null) {
 				double[] again = world.getServer().computeOnServer(server -> camOk(server.overworld(), wide[0], wide[1], wide[2], 0) ? wide : wideView(server, site));
 				shoot(context, world, "site_later", again != null ? again : wide);
@@ -196,12 +229,15 @@ public class BuilderTour implements FabricClientGameTest {
 		BlockPos spawn = level.getRespawnData().pos();
 		BlockPos best = null;
 		int bestRelief = Integer.MAX_VALUE;
-		for (int r = 128; r <= 1600 && (best == null || bestRelief > 3 || r < 512); r += 64) {
+		// why spots were passed over, printed when none is found (the world's climate moves with Expanse)
+		java.util.Map<String, Integer> why = new java.util.TreeMap<>();
+		for (int r = 128; r <= 4000 && (best == null || bestRelief > 3 || r < 512); r += 64) {
 			for (int k = 0; k < 16; k++) {
 				double a = k * Math.PI / 8 + r * 0.01;
 				BlockPos at = new BlockPos(spawn.getX() + (int) (Math.cos(a) * r), 0, spawn.getZ() + (int) (Math.sin(a) * r));
 				int g = w.terrain().groundY(at.getX(), at.getZ());
 				if (g <= w.terrain().seaLevel() + 2) {
+					why.merge("water", 1, Integer::sum);
 					continue;
 				}
 				int lo = g;
@@ -217,7 +253,13 @@ public class BuilderTour implements FabricClientGameTest {
 					continue;
 				}
 				Culture c = CultureVote.at(at.getX(), at.getZ(), w.probe()::biomeHolder, HearthServices::culture);
-				if (c != Culture.TEMPERATE || w.whyNotFound(at, SimWorld.FOUND_SPACING, true) != null) {
+				if (c != Culture.TEMPERATE) {
+					why.merge(c.getSerializedName(), 1, Integer::sum);
+					continue;
+				}
+				String not = w.whyNotFound(at, SimWorld.FOUND_SPACING, true);
+				if (not != null) {
+					why.merge(not, 1, Integer::sum);
 					continue;
 				}
 				bestRelief = hi - lo;
@@ -225,6 +267,7 @@ public class BuilderTour implements FabricClientGameTest {
 			}
 		}
 		if (best == null) {
+			log("spots passed over: " + why);
 			return null;
 		}
 		SimSettlement s = w.found(best, Culture.TEMPERATE, null);
@@ -238,7 +281,8 @@ public class BuilderTour implements FabricClientGameTest {
 		for (; days < 200 && pick == null; days++) {
 			patron(s);
 			w.simulate(s, 1);
-			pick = candidate(s, days < 120 ? 70 : 40);
+			// a house first (the scaffolding round a home is what the tour is for), anything from day 160
+			pick = candidate(s, days < 120 ? 70 : 40, days < 160 ? KIND : "");
 		}
 		log(String.format(Locale.ROOT, "grew %d days: %d souls, %d builders, %s, plots %s", days, s.population(),
 			s.residents().stream().filter(r -> r.job == JobType.BUILDER).count(), s.tier().getSerializedName(), s.plotCounts()));
@@ -250,12 +294,12 @@ public class BuilderTour implements FabricClientGameTest {
 	}
 
 	/** A building (house or larger) under construction with most of it still to do and its goods in hand. */
-	private static @Nullable SimPlot candidate(SimSettlement s, int minArea) {
+	private static @Nullable SimPlot candidate(SimSettlement s, int minArea, String kind) {
 		SimPlot best = null;
 		double bestScore = 0;
 		for (SimPlot p : s.plots()) {
 			String path = p.spec().archetype().getPath();
-			if (p.state() != PlotState.BUILDING || p.waitingForGoods() || path.startsWith("infra/") || path.startsWith("farm/") || path.startsWith("extract/")
+			if (p.state() != PlotState.BUILDING || p.waitingForGoods() || !path.startsWith(kind) || path.startsWith("infra/") || path.startsWith("farm/") || path.startsWith("extract/")
 				|| path.startsWith("landscape/") || p.spec().sizeX() * p.spec().sizeZ() < minArea) {
 				continue;
 			}
@@ -318,8 +362,23 @@ public class BuilderTour implements FabricClientGameTest {
 
 	/** What the site's builders were doing, one sample per builder each second of the later wait. */
 	private static final java.util.Map<String, Integer> TALLY = new java.util.TreeMap<>();
+	private static final java.util.Map<String, Integer> TALLY_UP = new java.util.TreeMap<>();
+
+	/** Percentages of the crew's own time (not elsewhere, not carrying for the crew). */
+	private static String shares(java.util.Map<String, Integer> tally) {
+		int total = tally.entrySet().stream().filter(e -> !e.getKey().equals("elsewhere") && !e.getKey().equals("carrying for the crew"))
+			.mapToInt(java.util.Map.Entry::getValue).sum();
+		StringBuilder b = new StringBuilder(total + " builder-seconds:");
+		tally.forEach((k, v) -> {
+			if (!k.equals("elsewhere") && !k.equals("carrying for the crew")) {
+				b.append(String.format(Locale.ROOT, " %s %.0f%%;", k, 100.0 * v / Math.max(1, total)));
+			}
+		});
+		return b.toString();
+	}
 
 	private static void tally(MinecraftServer server, Site site) {
+		boolean up = scaffolds(server, site) >= 8;
 		for (Folk f : NpcModule.embodiment().entities()) {
 			if (f.brain() == null || f.brain().settlement.id() != site.town || f.brain().resident.job != JobType.BUILDER) {
 				continue;
@@ -340,14 +399,115 @@ public class BuilderTour implements FabricClientGameTest {
 				k = "raising scaffolding";
 			} else if (d.contains("taking down scaffolding") || d.contains("climbing down")) {
 				k = "taking scaffolding down";
+			} else if (d.contains("along the scaffold") || d.contains("climbing the scaffold") || d.contains("onto the scaffold") || d.contains("out of the scaffold")) {
+				k = "on the scaffold (moving)";
 			} else if (d.contains("fetching") || d.contains("waiting for materials")) {
 				k = "fetching";
+			} else if (d.contains("carrying materials")) {
+				k = "carrying for the crew";
 			} else if (d.contains("walking")) {
 				k = "walking to the work";
 			} else {
 				k = "other";
 			}
 			TALLY.merge(k, 1, Integer::sum);
+			if (up) {
+				TALLY_UP.merge(k, 1, Integer::sum);
+			}
+		}
+	}
+
+	/** Scaffold blocks standing round the site (the ledger's, within four blocks of the plot). */
+	private static int scaffolds(MinecraftServer server, Site site) {
+		SimSettlement s = settlement(server, site.town);
+		BoundingBox near = s.plot(site.plot).reach().inflatedBy(4);
+		int[] n = new int[1];
+		s.data(dev.voidmc.hearth.npc.work.ScaffoldLedger.KEY).forEach(l -> {
+			if (near.isInside(BlockPos.of(l))) {
+				n[0]++;
+			}
+		});
+		return n[0];
+	}
+
+	/** Builders on the site placing a block just now, and how many of them from the scaffolding. */
+	private static int[] placing(MinecraftServer server, Site site) {
+		int n = 0;
+		int high = 0;
+		for (Folk f : NpcModule.embodiment().entities()) {
+			if (f.brain() == null || f.brain().settlement.id() != site.town || f.brain().resident.job != JobType.BUILDER) {
+				continue;
+			}
+			String d = f.brain().describe();
+			if (d.contains("(plot " + site.plot + ")") && (d.contains("placing ") || d.contains("working from the scaffold"))) {
+				n++;
+				var lvl = server.overworld();
+				if (lvl.getBlockState(f.blockPosition()).is(net.minecraft.world.level.block.Blocks.SCAFFOLDING)
+					|| lvl.getBlockState(f.blockPosition().below()).is(net.minecraft.world.level.block.Blocks.SCAFFOLDING)) {
+					high++;
+				}
+			}
+		}
+		return new int[]{n, high};
+	}
+
+	/**
+	 * The scenes of a building site, each photographed once as it comes: the scaffolding up with two or more builders placing
+	 * from it (wide, then one of them close), the house nearly finished, the scaffolding coming down, and the house built.
+	 */
+	private void sceneShots(ClientGameTestContext context, TestSingleplayerContext world, Site site, java.util.Set<String> shots) {
+		if (!shots.contains("scaffold_up")) {
+			boolean ready = world.getServer().computeOnServer(server -> {
+				int[] p = placing(server, site);
+				return scaffolds(server, site) >= 12 && p[0] >= 2 && p[1] >= 1;
+			});
+			if (ready) {
+				shots.add("scaffold_up");
+				double[] v = world.getServer().computeOnServer(server -> wideView(server, site));
+				if (v != null) {
+					shoot(context, world, "scaffold_up", v);
+					log("scaffold_up: " + world.getServer().computeOnServer(server -> plotLine(server, site) + "; scaffolding " + scaffolds(server, site) + "; " + builders(server, site)));
+				}
+				close(context, world, site, "builder_scaffold");
+			}
+		}
+		double done = world.getServer().computeOnServer(server -> {
+			SimSettlement s = settlement(server, site.town);
+			return s.plot(site.plot).state() == PlotState.BUILDING ? done(s, s.plot(site.plot)) : 1.0;
+		});
+		if (!shots.contains("finishing") && done >= 0.9 && done < 1.0) {
+			shots.add("finishing");
+			double[] v = world.getServer().computeOnServer(server -> wideView(server, site));
+			if (v != null) {
+				shoot(context, world, "finishing", v);
+				log("finishing: " + world.getServer().computeOnServer(server -> plotLine(server, site) + "; scaffolding " + scaffolds(server, site) + "; " + builders(server, site)));
+			}
+		}
+		if (!shots.contains("scaffold_down")) {
+			boolean down = world.getServer().computeOnServer(server -> {
+				for (Folk f : NpcModule.embodiment().entities()) {
+					if (f.brain() != null && f.brain().settlement.id() == site.town && f.brain().describe().contains("taking down scaffolding (plot " + site.plot + ")")) {
+						return scaffolds(server, site) >= 6;
+					}
+				}
+				return false;
+			});
+			if (down) {
+				shots.add("scaffold_down");
+				double[] v = world.getServer().computeOnServer(server -> wideView(server, site));
+				if (v != null) {
+					shoot(context, world, "scaffold_down", v);
+					log("scaffold_down: " + world.getServer().computeOnServer(server -> plotLine(server, site) + "; scaffolding " + scaffolds(server, site) + "; " + builders(server, site)));
+				}
+			}
+		}
+		if (!shots.contains("built") && done >= 1.0 && world.getServer().computeOnServer(server -> scaffolds(server, site) == 0)) {
+			shots.add("built");
+			double[] v = world.getServer().computeOnServer(server -> wideView(server, site));
+			if (v != null) {
+				shoot(context, world, "built", v);
+				log("built shot: " + world.getServer().computeOnServer(server -> plotLine(server, site)));
+			}
 		}
 	}
 
@@ -641,7 +801,8 @@ public class BuilderTour implements FabricClientGameTest {
 						continue;
 					}
 					JobType j = f.brain().resident.job;
-					if ((j == JobType.QUARRIER || j == JobType.MINER || j == JobType.CLAY_DIGGER) && f.blockPosition().distSqr(pit) < 30 * 30) {
+					if ((j == JobType.QUARRIER || j == JobType.MINER || j == JobType.CLAY_DIGGER || f.brain().describe().contains("(excavation "))
+						&& f.blockPosition().distSqr(pit) < 30 * 30) {
 						SimPlot dig = null;
 						for (SimPlot p : settlement(server, site.town).plots()) {
 							if (p.spec().archetype().getPath().startsWith("extract/") && p.reach().isInside(f.blockPosition())) {
@@ -689,7 +850,7 @@ public class BuilderTour implements FabricClientGameTest {
 		log("digger: nobody digging there; " + world.getServer().computeOnServer(server -> {
 			StringBuilder b = new StringBuilder();
 			for (Folk f : NpcModule.embodiment().entities()) {
-				if (f.brain() != null && f.brain().settlement.id() == site.town && f.brain().resident.job != JobType.BUILDER) {
+				if (f.brain() != null && f.brain().settlement.id() == site.town) {
 					b.append(f.brain().resident.job.getSerializedName()).append(": ").append(f.brain().describe()).append(" at ").append(f.blockPosition().toShortString()).append(" | ");
 				}
 			}
@@ -703,27 +864,33 @@ public class BuilderTour implements FabricClientGameTest {
 		ServerLevel level = server.overworld();
 		SimWorld w = SimServer.world(level);
 		BlockPos spawn = level.getRespawnData().pos();
-		for (int r = 1800; r <= 4000; r += 400) {
-			for (int k = 0; k < 8; k++) {
+		int tried = 0;
+		for (int r = 1800; r <= 4000 && tried < 3; r += 400) {
+			for (int k = 0; k < 8 && tried < 3; k++) {
 				double a = k * Math.PI / 4;
 				BlockPos at = new BlockPos(spawn.getX() + (int) (Math.cos(a) * r), 0, spawn.getZ() + (int) (Math.sin(a) * r));
 				if (w.terrain().groundY(at.getX(), at.getZ()) <= w.terrain().seaLevel() + 2 || w.whyNotFound(at, SimWorld.FOUND_SPACING, true) != null) {
 					continue;
 				}
+				tried++;
 				SimSettlement s = w.found(at, null, null);
-				for (int d = 0; d < 240; d += 10) {
+				// day by day: a working may open and be dug out between two looks ten days apart
+				java.util.Set<Integer> workings = new java.util.HashSet<>();
+				for (int d = 0; d < 240; d++) {
 					patron(s);
-					w.simulate(s, 10);
+					w.simulate(s, 1);
 					for (SimPlot p : s.plots()) {
 						if (p.spec().archetype().getPath().startsWith("extract/") && p.state() == PlotState.BUILDING) {
-							log("dig town " + s.name() + " (" + s.culture().getSerializedName() + ") at " + s.center().toShortString() + " after " + (d + 10) + " days: "
-								+ p.spec().archetype().getPath() + " #" + p.id());
+							log("dig town " + s.name() + " (" + s.culture().getSerializedName() + ") at " + s.center().toShortString() + " after " + (d + 1) + " days: "
+								+ p.spec().archetype().getPath() + " #" + p.id() + " cursor " + Cursor.toString(p.cursor()));
 							return s.id();
+						}
+						if (p.spec().archetype().getPath().startsWith("extract/")) {
+							workings.add(p.id());
 						}
 					}
 				}
-				log("dig town " + s.name() + ": no excavation after 240 days, " + s.plotCounts());
-				return null;
+				log("dig town " + s.name() + ": no excavation open on any day of 240 (" + workings.size() + " workings planned, none open on a day looked at), " + s.plotCounts());
 			}
 		}
 		return null;

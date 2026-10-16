@@ -288,11 +288,11 @@ public final class Pasture implements Archetype {
 			for (int[] o : new int[][]{{-1, 0}, {3, 1}, {0, 2}}) {
 				int x = px + o[0];
 				int z = pz + o[1];
-				if (d.isAbsent(x, lv, z)) {
+				if (d.isAbsent(x, lv, z) && d.allowed(x, lv, z) && d.allowed(x, lv - 1, z)) {
 					d.set(x, lv - 1, z, Blocks.GRASS_BLOCK.defaultBlockState());
 					d.set(x, lv, z, States.block("expanse:cattail", Blocks.SHORT_GRASS).defaultBlockState()
 						.trySetValue(net.minecraft.world.level.block.DoublePlantBlock.HALF, net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER));
-					if (d.get(x, lv, z).hasProperty(net.minecraft.world.level.block.DoublePlantBlock.HALF)) {
+					if (d.get(x, lv, z) != null && d.get(x, lv, z).hasProperty(net.minecraft.world.level.block.DoublePlantBlock.HALF)) {
 						d.tallPlant(x, lv, z, d.get(x, lv, z).getBlock());
 					}
 				}

@@ -40,7 +40,7 @@ varies). Expansive and dense-and-tall both come out of it.
 
 | Layout | Character | Land it needs |
 |---|---|---|
-| `farmsteads` | **expansive**: a hamlet green, 3–5 tracks running 280–420 blocks out, farmsteads (farmhouse + fields) ≥ 50 blocks apart along them | gentle, open |
+| `farmsteads` | **expansive**: a village green (17 square) on a village street, 3–5 tracks running 280–420 blocks out, farmsteads (farmhouse, paddock, fields) ≥ 50 blocks apart along them; from village tier the rest of its folk build a compact village round the green that grows into a town (§14.8) | gentle, open |
 | `crossroads` | a cross of main streets leaving a square at right angles, side lanes planned ahead into blocks | easy ground |
 | `linear` | one long main street along a river or coast (or the contour), lanes down to the water, docks | water or a ridge |
 | `hillside` | contour streets stepping up a slope every ~7 blocks of height, joined by stair streets straight up the fall line; terraces | a slope |
@@ -122,15 +122,20 @@ stable hash for variety; then examined best first within `search_budget`:
   When the whole budget finds nothing (a city's best-ranked places are all leftover gaps), a spread sample of the
   remaining places gets half a budget more, so the frontage of its newer streets is still seen.
 
-**Rows**: attachable houses in the core (and inner town of dense layouts) are laid out as rows of 2–5 along the street,
-each floor meeting the street at its own door (a row steps down a hill), with party walls between neighbours.
+**Rows**: attachable houses in the core (and inner town of dense layouts, and along the streets of a town's inner town)
+are laid out as rows of 3–5 along the street, each floor meeting the street at its own door (a row steps down a hill), with
+party walls between neighbours; a home of the town's own folk first runs an existing row on where one has an open side
+(`Housing.continueRow`), so rows meet into a street wall (§14.8).
 The **square** is held open from the founding (a green with the well), paved at village tier (its `keep` lists what
 stands in it), and furnished — market stalls round it, lamps at the corners, fountain and statue — two blocks in from
 its edge, off the mouths of streets. Its frontage is kept for hall, chapel, inn, bank and shops. **Lots** for the town
-hall, market hall and courthouse are reserved on the square (or a main street at its corner, within 34 blocks of it) at
-founding, before the side lanes are planned, smaller if the square is small, looked for again while the town is below
-town tier if none was free, and released when built.
-The **chapel** goes on the rise with a close kept round it for the cathedral or temple a city raises in its place.
+hall, market hall, chapel and courthouse are reserved on the square (or a main street at its corner, within 34 blocks of
+it) at founding, before the side lanes are planned, smaller if the square is small (on a terrace where the square's edge
+falls away, the chapel's excepted), looked for again while the town is below town tier if none was free; each building is
+then built exactly on its lot (`Lots.build`, `Lots.take`).
+The **chapel** takes its lot on the square whole, the lot being its close kept for the cathedral or temple a city raises in
+its place (the cathedral's middle size where it fitted at founding); with no lot it stands by the square (within 44
+blocks) where its close fits, and only then on the rise.
 
 **Overlaps the planner allows** (everything else is a bug, see the tests): a building on a terrace (same footprint); a
 stacked dwelling on the roof of the one below (`stacked_on`); plaza furniture inside the plaza; a gatehouse over its
@@ -162,6 +167,7 @@ few calls (`cooldowns`, saved). While more than `4 + pop/6` plots are unbuilt on
 | densify | 110–290 × vertical bias | §6 |
 | stacked dwellings (signature) | 120 | §6 |
 | beauty, once housed and fed | 60 | lamps, fountain, statue on the square; little squares where lanes meet (town and up, `junction` plazas); gardens; parks in a city |
+| lights (town and up, 4 + pop/8 lamps) | 95 | a lamp post at the junctions nearest the heart, along the main streets in town, inside the gates (§14.8) |
 
 Archetypes are taken only from what `HearthServices.blueprints().archetypes()` lists (`catalogue/Catalogue`): a
 missing one falls back to the nearest allowed one of the same category (sharing a job first, then similar size), or the
@@ -214,7 +220,7 @@ y − 1). `origin.y` of a linear plot is its lowest walking level; its footprint
 
 | Archetype | Params |
 |---|---|
-| `hearth:infra/road` | `points` (int array x,y,z,…), `width`, `kind`: `highway` (5, main roads beyond town), `street` (5, main streets), `lane` (3), `alley` (3, dense cores), `path` (1 door paths; 3 farm tracks). Graded: \|Δy\| ≤ 1 per step and ≤ `road_grade` over 8 blocks (+1 of rounding). |
+| `hearth:infra/road` | `points` (int array x,y,z,…), `width`, `kind`: `highway` (5, main roads beyond town), `street` (5, main streets; 7 for the first 14 blocks out of the square where the ground is open), `lane` (3), `alley` (3, dense cores), `path` (1 door paths; 3 farm tracks), `lamps` (blocks between street lamps on the verge; 16 on main streets, rings and the square within 1.5 core radii, 20 on a town's inner lanes; absent: none). Graded: \|Δy\| ≤ 1 per step and ≤ `road_grade` over 8 blocks (+1 of rounding). |
 | `hearth:infra/stairs` | `points`, `width`: a stair street; \|Δy\| ≤ 1 per step (≤ `stair_grade`), landings where it flattens. Issued only if the build module registers it; otherwise the run is a `road` (which builds steps where steep). |
 | `hearth:infra/bridge` | `points` abutment to abutment (first and last on the banks at the approach roads' level, the rest at `deck_y`), `width`, `deck_y` (walking level on the deck), `water_y` (the water's surface, first non-water y), `kind`: `span` (deck ≥ water + 2, never lower than the banks; rise from the banks on the deck's ends) or `boardwalk` (deck = water + 1, many segments over shallow water, may bend), `road_kind`. |
 | `hearth:infra/terrace` | footprint = the platform; `level` (walking level on top), `retain_north/south/east/west` (sides standing above the land: retaining walls), `depth` (level − lowest ground). `facing` = toward the street (steps go there). The building on it has the same footprint and `terraced: true`. |
@@ -242,6 +248,7 @@ Every building plot (not infrastructure) may carry:
 | `replaces` | id of the plot this rebuilds (also the project's `replaces`) |
 | `walkway_y` | a walkway meets its front at this walking level: a door there |
 | `on_square`, `heart` | stands in the main square (the well and furniture); `heart` also marks the main plaza |
+| `green` (heart plaza) | a village's green, not a paved square (temperate, northern, alpine, moorland, wisteria villages outside walled layouts): grass, a pond or the well, a lime tree; replaced (`replaces`) by the paved square at town tier |
 | `junction` (plaza) | a little square on the corner where lanes meet |
 | `keep` (plaza) | int array of rectangles x0,z0,x1,z1 (inclusive) inside the plaza that stand as they are |
 | `over_road`, `passage_width` (gatehouse) | the road runs through it along `facing` |
@@ -378,7 +385,7 @@ at ~330 work units a day, newcomers while beds are free, jobs from built workpla
 | `nobility` | true | the castle hill, the keep, the castle or palace, stables, gardens, the lodge |
 | `deep_towns`, `deep_share` | true, 0.25 | deep towns, and the share of the town they house |
 | `prevailing_wind` | −1 | degrees clockwise from north the wind blows from; negative: one per world from its seed |
-| `live_time_limit_ms` | 10 | a call on the server thread stops searching frontage after this long and lets the need rest (a cold terrain cache in a big town cost 250 ms once); histories, on their own threads, are never cut short, so they stay deterministic |
+| `live_time_limit_ms` | 10 | a call on the server thread stops after this long (the frontage search, the lane walks, a cart track's route, and before any need it has less than 30 % of its time left for) and lets the need rest (a cold terrain cache in a big town cost 250 ms once); the clock asks again at its next step; histories, on their own threads, are never cut short, so they stay deterministic |
 
 Debug: `/hearth plan info` near a settlement (with why its last call answered nothing); `/hearth plan stats`: live
 `planner.next` calls that answered nothing, counted by reason (`PlanStats`: "housing: no frontage, roads at their
@@ -462,7 +469,10 @@ families into homes of their station (`SettlementClock.assignHomes`, SIM.md §16
 At village tier (with the districts) the **castle hill** is chosen once and kept (`PlanState.castleHill`): the most
 commanding ground within reach of the future city (its core at 150 folk × 2.2, out of today's streets): height over the
 heart, plus 1.6 × its prominence over the land 28 blocks round, less its own unevenness, dry and still four-fifths open
-over a castle's width. It is held (`castle_hill` reservation, open ground only) until the town is a town; then the
+over a castle's width. Where the terrain marks castle sites (`TerrainProbe.site`: Expanse's level tops of lone hills
+and the tops of escarpments' edges), the 24 nearest within reach are candidates too, a hilltop with 14 added to its
+score and a rim (and the points ten blocks to each side of it, the upland behind the edge among them) with 10, so the
+castle takes the hill a builder would pick over ground merely as high. It is held (`castle_hill` reservation, open ground only) until the town is a town; then the
 **keep** (`noble/keep`, 265) goes up on it with a **close** kept round it big enough for the castle (`castle`
 reservation), its frontage reached by a cart road up the hill (stairs only if it must). At city tier (170 folk) the
 **castle** (`noble/castle`), or in the cultures that build them the **palace** (`noble/palace`), replaces the keep over
@@ -485,7 +495,15 @@ past its houses), fronting a road; if no road comes near the site, a **cart trac
 hill demands them, frontage only for what belongs out there, and a budget of its own, 360 + 6 a head, outside the
 town's road budget) runs out to it first. A mine wants a hillside: its footprint runs uphill from the portal (the
 ground rises at least five blocks to its back). A working names its `site`, `kind`, `rock`, `face`, and `depth` or
-`length`; a built (dug-out) working frees its site for the next. The job route (`job/miner` …) and the shortage route
+`length`; a built (dug-out) working frees its site for the next, and no longer counts for the program while the town
+has folk in its trade or still wants its goods (stone under 400 + 4 a head in store, ore, clay or sand under 160 + 2 a
+head): the next is opened beside the old cut (the target skips ground already taken; a short spur runs on from the old
+track when it ends at the old cut) or at the next site, at most three dug out at a site (`Extraction.counted`,
+`DUG_PER_SITE`), one face at a time a work, each working followed by one successor (`GENERATIONS`: twice the
+program's count dug out in all), so a town keeps a face open for its diggers without pocking its hills. A working tries the four nearest sites with room, and two
+points of each pit's site well apart, before it gives up (an ore site under the future streets is passed over; the
+cart track goes to the next site after one that would not route), and a crew waiting for its next face rests its need
+only a few calls after a failed try (`Extraction.faceWanted`). The job route (`job/miner` …) and the shortage route
 (builders waiting on stone) go through the same code; with no survey the phase 2 quarry and sawmill stand in.
 
 **The chains' workshops** stand by their inputs (the `SITED` placement with a `Siting`: an anchor and weights for the
@@ -624,3 +642,113 @@ answers; `PlanModule.underground` falls back to probes paired by hand). A lift i
   keep their full height: they are the skyline. A home rebuilt taller (`Upgrades`: cottages to shophouses to
   townhouses) is measured in the zone it stands in now, not the zone its first house was planned in.
 
+### 14.8 The second live tour's findings (wave 7, requests/w7-tour.md §1, §3–5, w6-plan.md §4–5, expanse.md 2026-10-07)
+
+- **Calls past their limit** (live: 20–95 ms against 10, growth every minute's worst step). `PlanStats` now charges the
+  time a live call spends past its deadline to the stage that ran it ("reconcile", "needs list", "housing",
+  "program"...: `/hearth plan stats`, `/hearth sim stats`); offline `PlanBenchTest` with `HEARTH_PLAN_BENCH_DEADLINE=10`
+  and `HEARTH_PLAN_BENCH_PROFILE=past` profiles only what runs past it. Most of it was the program's needs (a cart track's
+  route, a chapel's approach, the frontage search of a sited workshop), then housing and the needs list. Now:
+  a cart track's or approach's route stops at the deadline (`Router.DEADLINE`; nothing is remembered of a route not
+  found); the lane walks of `Expand.town` stop before the next walk; a need is not begun with less than 30 % of the
+  call's time left (`LEAVE_FOR_A_NEED`); a need cut short twice in a row rests about a day's calls (12–21) rather than be
+  tried at full cost again and again, and after three it gets one try, as a call's first need, with three times the
+  call's time (`WHOLE_AFTER`), or a search longer than a live call would never be finished; an out-of-time answer is not
+  logged (a log line costs the call's time) and the clock asks again at its next step (SIM.md §2) instead of half a
+  day later. The needs list (residents, plots, the program's entries, landmarks, the nobility, gates) is kept between
+  calls while nothing it is read from has changed (`Growth.Memo`: the same folk at the same work, the same plots in the
+  same states, the same queue and shortages, nothing issued since; at most 24 calls), and the sim no longer recounts its
+  derived figures inside the call after a planned plot (SIM.md §2). Offline, five cities' worth of calls with a 10 ms
+  limit (`PlanBenchTest`, temperate hills 1 and river 4, MiniSim, a shared machine): time past the deadline 192 and
+  240 ms before, 207 and 37 ms after; slowest call 27–40 ms before, 31–37 ms after (the three-times tries); calls over
+  15 ms 13 and 2 of ~1 500. The live server is the measure that counts (requests/w7-planner.md §5).
+- **Workings never reopened** (§14.3): a dug-out working no longer counts while the town has its trade's folk or wants
+  its goods; the next site is tried when the nearest lies under the town or has no room; SIM.md §16.3 has the sim's half
+  (one hand for a face being cut, the crews of pits dug out counted once a trade) and the numbers.
+- **Camps that never grow** ("no road could grow (no lane mouth, the main streets built out)" with no streets): a camp
+  or hamlet whose roads will not grow lays its first lane out from its square (`FirstLane`: walked from just outside the
+  square's rim along each of eight headings, straight and along the contour, the longest that grades and builds is
+  laid), and a wall line is no longer drawn in tighter than 28 blocks from the heart off water and crags (on a small
+  mesa top the line ran along the rim and boxed the camp in). On Expanse's taller world (4b138901) the tour's camps
+  founded at their own coordinates offline (`settlementPreview -Pterrain=earthat:x:z`, MiniSim) grow on: Eikholt
+  (northern) 82 souls by day 150, Heathergill (moorland) 110, Frostreach (tundra) 117. Safia (desert, a mesa top about
+  25 blocks across with 40-block cliffs) and Hochdorf (alpine, 10 souls, its square hemmed by the river and its two
+  civic lots) still do not: requests/w7-planner.md §1–3 for the layout lane.
+- **"Every need resting"** in a patron town (Thornley at 95): its housing need was gone because the town stood at its
+  land's carrying capacity (the planner builds no beds past it; settlers left for a daughter hamlet), and every other
+  need rested after failing. Rests are counted in calls, and a town whose calls all answer nothing is asked only every
+  half day, so a need resting forty calls rested twenty days. Now when every need is resting the one that wakes soonest
+  is tried, and the reason says "; beds at the land's capacity" when that is what holds the town (the number is in
+  `/hearth settlement economy`). The patron's deliveries do not raise the capacity (the sim's, from what the land regrows
+  and trade earns).
+- **Castle sites on Expanse's relief** (§14.2): the planner reads `TerrainProbe.site`.
+  On the taller world the founded camps were looked at offline (`settlementPreview -Pterrain=earthat:x:z`, the tour's
+  five camps to day 150): on mountain flanks the streets climb as stair streets and graded lanes (a moorland town of 110
+  on a ridge, 2 809 blocks of road), walled towns keep their line off the lakes, and the probe's `maxY` is the level's
+  (the preview's own probe now 640); nothing in road grading or territory assumed the old relief.
+
+### 14.9 Towns with a heart (wave 7, ART_REVIEW_2 items 1–5, 16, 19, 24)
+
+The second art review judged whole towns: the farmsteads layout grew a city of 500 plots as a scatter of detached houses
+in a meadow, town homes stood alone with their blank party walls to the street, the church and the towers stood at the
+edge or alone in a field, the town stopped dead on bare grass. What the planner does now:
+
+- **Farmsteads nucleate** (`Grid.nucleated`: an expansive layout from village tier). A Bohemian village is a green with
+  farmsteads round it and grows into a town round a square. The farmsteads settlement is founded round a broad green (17)
+  on a village street (5 wide, a street, not a lane); its farmers keep spreading as farmsteads out along the tracks, but
+  from village tier its heart takes a crossroads town's core scale (`PlanContext.coreRadiusAt`), lane spacing and length,
+  gaps (1 in the core, 2 in the inner town), terraces and contour lanes (`Grid.terraces`), and its homes fill in near the
+  heart before they spread (`Grid.expansive` is false), with no farmhouses in its streets. Its lanes are not planned
+  ahead (planned at a crossroads town's spacing they covered the whole hill and the homes spread thin along them): they
+  are walked one at a time near the heart as homes need them, which keeps the heart dense.
+- **Street walls** (`Housing.terraced`, `Housing.continueRow`): rows are 3–5 long; before a home of the town's own folk
+  looks for new frontage it runs an existing row on where a row house in the terraced part of town has an open side on its
+  street, flush, its front on the same line, the party wall toward the old house; a town's inner streets are terraced too
+  (rowhouses and townhouses there instead of cottages). Artisans' homes no longer string out along the main road into the
+  country: the main-street pull applies within 1.2 core radii, and a quarter's pull on homes fades between 1.6 and 2.6.
+- **Church, hall and towers on the square** (`Lots`, `Landmarks`): the chapel's lot (with its close) is kept on the square
+  from the founding beside the hall's, the market hall's and the court's (up to 40 past the square's rim, on a main street
+  at its corner), and each is built exactly on its lot; a hall with no lot is searched nearest the square first, at its
+  least size if it must be. The first bell tower stands over the square (within 44 blocks of the heart) where it fits,
+  the second landmark on the summit; the cathedral waits for the chapel on its close rather than rising elsewhere.
+  Kilns, tanneries and pits keep 22 blocks off any landmark or chapel (`Parcels.find`: industry avoids them).
+- **The cathedral's close** (`Landmarks.chapel`, `Landmarks.great`): on a hill the square's frontage rarely holds the
+  cathedral's close (17 x 29 for the temperate one), and a close no bigger than the chapel sent the cathedral 140-190
+  blocks out to the one level field at the edge. The founding tries the cathedral's least close before the chapel's own
+  size; the chapel takes a too-small lot only when no full close is free by the square or on the rise within 68. A
+  cathedral or temple with no close to rise on, and a great hall, stand by the square where a level lot is free, else on
+  level ground within 48 of the summit or the rise, or 68 of the heart; else they wait (resting longer each time). A
+  town on rough hills may so have no cathedral at day 250 rather than one in a field. The cathedral or temple counts as
+  the town's church (`Growth.programNeed`), so no second chapel goes up the day it replaces the first, and a lighthouse
+  is chosen only where the town has a headland or the shore near (a harbour hill town grew a road toward the water at
+  every call and never raised its cathedral).
+- **A hemmed-in camp** (`Housing.plan`, `Lots.releaseForHomes`): a camp or hamlet whose homes find no frontage at all
+  builds them on the halls' and the court's lots (not the church's); the lots are kept again from village tier
+  (requests/w7-planner.md §2).
+- **Lights** (`Beauty.lights`, `Beauty.cornerLamp`): from town tier a lamp post at the junctions nearest the heart, every
+  twenty blocks along the main streets in town and just inside the gates (one place in turn, 14 apart), and on the corner
+  of a lane built in the core; road plots carry `lamps` for the build module's own street lamps.
+- **The countryside belt** (`Farms`): fields at the edge score the roads out of town (arms and tracks) higher, every
+  farmstead fences a paddock first, and half the cottages and crofts at the edge work an orchard (fruit cultures) or a
+  small field beside them on their street.
+- **The village green** (`Square`): a green culture's village plaza carries `green`; it is paved over as the town's
+  square (a plaza that `replaces` it) at town tier.
+- **Roads**: a main street opens two wider for its first 14 blocks out of the square where the ground is open.
+
+`TownFormTest` (with `HEARTH_TOWN_FORM=1`, or its `main` on the test and game classpath) grows the townPreview towns and
+prints the form: the share of the core's attachable homes sharing a wall, town homes standing alone, the mean side gap,
+where the church, hall and landmarks stand, the farm belt, the lamps, and the cost of `next`;
+`-Dhearth.townform.grep=cathedral,chapel` prints why each went where. Before and after (day 250, hills, seed 1, real
+archetypes; distances from the heart, the summit +23 at 96):
+
+| town | homes 90 % within | church | hall | cathedral (great hall) | lamps |
+|---|---|---|---|---|---|
+| temperate farmsteads | 168 → 152 | 68 → 14 | 13 → 36 | 166 → none yet | 0 → 3 |
+| northern farmsteads | 174 → 163 | 60 → (cathedral) | 13 → 36 | (203) → 66 (136) | 0 → 2 |
+| alpine farmsteads | 177 → 158 | 74 → 14 | 13 → 36 | (91) → none yet | 0 → 6 |
+| moorland farmsteads | 156 → 155 | 60 → (cathedral) | 13 → 36 | (106) → 66 (148) | 0 → 6 |
+| mediterranean crossroads | 147 → 143 | 56 → (cathedral) | 26 → 20 | none → 39 | 1 → 0 |
+| temperate walled | 134 → 130 | 57 → 19 | 87 → 46 | 140 → 143 | 0 → 1 |
+
+PlanBenchTest's cities cost about the same or less (city calls p90 3.2-4.0 ms, max 7.7-12 ms, after the planner lane's
+merge).

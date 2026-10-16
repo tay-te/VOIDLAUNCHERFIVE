@@ -547,7 +547,9 @@ public final class Hall {
 	 * outside of wall {@code stairSide} (LEFT or RIGHT) from its front end to a gap in the parapet, where the ground
 	 * beside the wall is free; a little room set back on the deck at the back corner across from it, with its own
 	 * parapet, a door onto the terrace and a window (where the plot's height allows); a cloth awning on poles and pots
-	 * on the parapet. Returns whether the stair was built (the terrace can be walked to).
+	 * on the parapet. On a body of two storeys or more the way up is a ladder from the top storey through a hatch in the
+	 * deck (an outside stair only where the side is clear all the way up); with no way up there is no room on the deck
+	 * either (the audit's W1: a door onto a deck nobody reaches). Returns whether the terrace can be walked to.
 	 */
 	public boolean terrace(Direction stairSide, boolean room) {
 		if (this.deck == Integer.MIN_VALUE) {
@@ -558,6 +560,11 @@ public final class Hall {
 		int deckY = this.deck;
 		boolean stair = false;
 		Direction used = stairSide;
+		int[] hatch = this.body.storeys() > 1 ? hatch() : null;
+		if (hatch != null) {
+			stair = true;
+			used = hatch[0] <= (r[0] + r[2]) / 2 ? Dirs.LEFT : Dirs.RIGHT;
+		}
 		// the stair: up the outside of the side wall from the front, a landing at its head and a gap in the parapet
 		for (Direction tryside : new Direction[]{stairSide, stairSide.getOpposite()}) {
 		if (stair) {
@@ -567,12 +574,14 @@ public final class Hall {
 		int rise = deckY;
 		int len = s.length();
 		int ox = s.outX(0, 1);
-		if (this.body.storeys() == 1 && len >= rise + 2 && ox >= 0 && ox < this.d.frontage()) {
+		if (len >= rise + 2 && ox >= 0 && ox < this.d.frontage()) {
 			int[] r0 = this.body.rect(0);
 			int z0 = r0[1] + 1;
 			boolean free = true;
+			// over one storey the side must be clear to the stair's head room (the stair climbs past the upper windows)
+			int clear = this.body.storeys() == 1 ? Math.min(rise + 2, 3) : rise + 2;
 			for (int z = z0 - 1; z <= z0 + rise; z++) {
-				for (int y = 0; y <= Math.min(rise + 2, 3); y++) {
+				for (int y = 0; y <= clear; y++) {
 					if (!this.d.isEmpty(ox, y, z) && !(y == 0 && this.d.get(ox, y, z) == null)) {
 						free = false;
 					}
@@ -608,9 +617,12 @@ public final class Hall {
 		Mat wall = this.d.mat(Role.WALL);
 		int rw = Math.min(5, r[2] - r[0] - 1);
 		int rd = Math.min(4, r[3] - r[1] - 2);
-		if (room && rw >= 3 && rd >= 3 && deckY + 5 <= this.d.maxHeight() - 1) {
-			boolean left = used == Dirs.RIGHT;
-			int x0 = left ? r[0] : r[2] - rw + 1;
+		boolean left = used == Dirs.RIGHT;
+		int rx0 = left ? r[0] : r[2] - rw + 1;
+		int rz0 = r[3] - rd + 1;
+		boolean clearOfHatch = hatch == null || hatch[0] < rx0 || hatch[0] > rx0 + rw - 1 || hatch[1] < rz0;
+		if (room && stair && clearOfHatch && rw >= 3 && rd >= 3 && deckY + 5 <= this.d.maxHeight() - 1) {
+			int x0 = rx0;
 			int x1 = x0 + rw - 1;
 			int z1 = r[3];
 			int z0 = z1 - rd + 1;
@@ -623,10 +635,24 @@ public final class Hall {
 			}
 			this.d.carve(x0 + 1, deckY, z0 + 1, x1 - 1, deckY + 1, z1 - 1);
 			Roofs.flat(this.d, x0, z0, x1, z1, deckY + 2, true);
+			// the door onto the terrace where the deck before it can be stood on (nearest the middle)
 			int cx = (x0 + x1) / 2;
+			for (int o : new int[]{0, 1, -1}) {
+				int c = (x0 + x1) / 2 + o;
+				if (c > x0 && c < x1 && dev.voidmc.hearth.build.kit.Doors.standable(this.d, c, deckY, z0 - 1)) {
+					cx = c;
+					break;
+				}
+			}
+			int dcx = cx;
 			Mat door = this.d.mat(Role.DOOR);
-			this.d.inStage(StageKind.OPENINGS, () -> this.d.door(cx, deckY, z0, door.mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
+			this.d.inStage(StageKind.OPENINGS, () -> this.d.door(dcx, deckY, z0, door.mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
 				net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+			// a roof beam's end over the doorway goes (the vigas of an adobe roof poke out at head height)
+			var over = this.d.get(dcx, deckY + 1, z0 - 1);
+			if (over != null && over.getBlock() instanceof net.minecraft.world.level.block.RotatedPillarBlock) {
+				this.d.remove(dcx, deckY + 1, z0 - 1);
+			}
 			int wxx = left ? x1 : x0;
 			if (wxx > r[0] && wxx < r[2]) {
 				this.d.inStage(StageKind.OPENINGS, () -> this.d.set(wxx, deckY + 1, (z0 + z1) / 2, this.d.mat(Role.GLASS).pane()));
@@ -647,7 +673,7 @@ public final class Hall {
 				// canvas of one colour, not the house's every cloth cell by cell
 				dev.voidmc.hearth.build.kit.townhome.Life.awning(this.d, ax0, az0, ax1, az1, deckY + 2);
 				for (int[] c : new int[][]{{ax1, az1}, {ax1, az0}}) {
-					if (this.d.isEmpty(c[0], deckY, c[1])) {
+					if (this.d.isEmpty(c[0], deckY, c[1]) && this.d.isSolid(c[0], deckY - 1, c[1])) {
 						this.d.set(c[0], deckY, c[1], pole.fence());
 						this.d.set(c[0], deckY + 1, c[1], pole.fence());
 					}
@@ -660,6 +686,47 @@ public final class Hall {
 			}
 		}
 		return stair;
+	}
+
+	/**
+	 * The way up to a flat roof from the top storey: a ladder against a side wall from the storey's floor through a hatch
+	 * in the deck ({@link dev.voidmc.hearth.build.kit.refine.Lofts#ladder}), in the middle of the depth (clear of the
+	 * awning at the front and the room at the back), where the floor beside the ladder's foot is clear to step from and
+	 * nothing stands before it. Returns {x, z} of the hatch, or null where no wall cell will take one.
+	 */
+	private int @Nullable [] hatch() {
+		int k = this.body.storeys() - 1;
+		int[] in = inner(k);
+		int y0 = this.body.floorY(k);
+		int deckY = this.deck;
+		int mid = (in[1] + in[3]) / 2;
+		int span = in[3] - in[1] + 1;
+		for (int o = 0; o <= span / 2; o++) {
+			for (int z : new int[]{mid - o, mid + o + 1}) {
+				if (z < in[1] + 1 || z > in[3] - 1) {
+					continue;
+				}
+				for (Direction toWall : new Direction[]{Dirs.LEFT, Dirs.RIGHT}) {
+					int x = toWall == Dirs.LEFT ? in[0] : in[2];
+					int mx = x - Dirs.dx(toWall);
+					if (!this.d.isEmpty(mx, y0, z) || !this.d.isEmpty(mx, y0 + 1, z) || !this.d.isSolid(mx, y0 - 1, z) || !this.d.isSolid(x, y0 - 1, z)) {
+						continue;
+					}
+					boolean doorBeside = false;
+					for (Direction dir : Dirs.HORIZONTAL) {
+						var n = this.d.get(x + Dirs.dx(dir), y0, z + Dirs.dz(dir));
+						doorBeside |= n != null && n.getBlock() instanceof net.minecraft.world.level.block.DoorBlock;
+					}
+					if (!doorBeside && dev.voidmc.hearth.build.kit.refine.Lofts.ladder(this.d, x, z, y0, deckY, toWall, null)) {
+						// the hatch's lid, standing open against the parapet: it keeps the rain off and folk climb past it
+						Mat lid = this.d.mat(Role.SHUTTER).has(Form.TRAPDOOR) ? this.d.mat(Role.SHUTTER) : this.d.mat(Role.FURNITURE);
+						this.d.inStage(StageKind.ROOF, () -> this.d.set(x, deckY, z, lid.trapdoor(toWall.getOpposite(), Half.BOTTOM, true)));
+						return new int[]{x, z};
+					}
+				}
+			}
+		}
+		return null;
 	}
 
 	// ------------------------------------------------------------------------------------------------ inside
@@ -722,6 +789,8 @@ public final class Hall {
 			this.d.set(sx + Dirs.dx(dir) * i, fy, sz + Dirs.dz(dir) * i, Blocks.AIR.defaultBlockState());
 		}
 		this.d.inStage(StageKind.FLOORS, () -> this.d.set(lx, fy, lz, this.d.mat(Role.FURNITURE).stairs(dir, Half.BOTTOM)));
+		// a balustrade round the stairwell on the floor above, on the side away from the wall
+		Stairs.well(this.d, sx, y, sz, dir, rise, wall.getOpposite());
 		int fx = alongX ? footA : fixed;
 		int fz = alongX ? fixed : footA;
 		int hx = sx + Dirs.dx(dir) * rise;

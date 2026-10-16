@@ -93,6 +93,10 @@ Draft.ring(x0, z0, x1, z1)  Draft.ellipseCells(cx, cz, rx, rz, filled)  Draft.re
 Reading back: `d.get(x, y, z)` (null where nothing is drawn), `d.cell(...)` (state, tag, stage),
 `d.isAbsent`, `d.isEmpty` (nothing or air), `d.isSolid`.
 
+To take a lantern, a rug or a trial rail back out, draw air (`d.air`) or put back the `d.cell` it replaced; never
+`d.remove` a cell that was dug out: undrawn, it is natural ground again (on a hillside, a block of earth in the head
+room of a stair or in front of a bar).
+
 Two-part blocks have helpers that place both halves: `d.door(x, y, z, doorBlock, facing, hinge)`,
 `d.bed(x, y, z, bedBlock, facing)`, `d.tallPlant(x, y, z, plant)`.
 
@@ -116,6 +120,16 @@ Clearing runs top-down; earthwork digs before it fills. Where an excavation must
 from where the diggers come down, a drift slice by slice behind its props), give the cuts order keys,
 `try (var o = d.order(key)) { ... }`: in `CLEAR` and `EARTHWORK` steps go by key first (unkeyed first), then by the
 usual rule.
+
+**The site's works.** A building stalled on goods between stages must read as a building site, not a ruin. The
+compiler adds the works to every ordinary building (walls and a roof, not built in campaigns; `blueprint/SiteWorks`):
+a hurdle fence on the plot edge, open at the doors and paths, and a pile of hewn timbers and wall stone by the door
+(up in `FOUNDATION`, down in `EXTERIOR`); scaffold poles a block out from the walls at the corners and every third
+block, with putlogs and a lift of boards every three blocks up (up with `FRAME` or `WALLS`, down in `OPENINGS`), a
+flying scaffold over the street from y 3 in front of a house built to its frontage; a board deck over the wall heads
+(down as the roof goes on). They stand only where the finished building has nothing, so the finished blueprint is the
+drawing; a reader of steps takes the last step at a position. Do not draw them yourself; leave a plot's yard free if
+you want its pile and fence to show. Look with `blueprintPreview ... -Pterrain="flat;stage=floors"`.
 
 **Campaigns.** A building raised over months, or a working dug over weeks, is built in **campaigns**: sections done one
 after another, each a whole run of stages, so the work half done looks like what it is and no single stage asks for
@@ -157,6 +171,31 @@ Air drawn in stage `CLEAR` under natural water is dropped (clearing never drains
 pages)`, `banner(patterns)`, `pot(back, left, right, front)`, `container(items)`, `shelf(items)`, where items are
 `List<Object[]>` of `{"minecraft:bread", 6}`.
 
+Before the voids are sealed and the light pass runs, the **access pass** (`kit/refine/Access`, the audit's rules
+S1-S4) makes what folk use usable, touching only what is still wrong:
+
+- **doors** (`Doors.finish`): props in a door's two front cells, at feet and head height, are cleared. Props are pots,
+  flower boxes, sills, closed trapdoors, shutters lying against the door's wall, chests, barrels, counters, hay, and a
+  roof's beam end at head height. A door that faces a wall (feet and head) or opens over a fall of four or more is
+  bricked up, unless it is an entrance;
+- **chests** under a solid block become barrels (same goods);
+- **flights** (`Stairs.finish`): over every tread of a run of two or more stairs (not a roof's courses), a lamp, chain,
+  joist or shelf in the two rows of head room goes. A floor board over the second row is cut where nothing stands on it,
+  and over the top tread of a flight that turns with no landing, the board in the third row too;
+- **lofts** (`Lofts.finish`): a roofed, walled level of four cells or more the walk does not reach gets a ladder from
+  the reached floor under it (against a wall, through a hatch, with a cell to step off onto). A loft too thin to be a
+  room, or one no ladder fits, is opened to the room below if nothing in it is used and the walk reaches that room
+  (a loft over a room nobody reaches is left: mend the way into the room). Lamp brackets and litter go with the boards.
+  A furnished loft no ladder fits is left as drawn;
+- **guards** (`Guards.finish`, buildings and grounds only): a rail (a balustrade on a masonry deck) is set on the edge
+  cell of a flat floor beside a fall of four or more. It is never set on a roof's slope, where a ladder, hatch, stair
+  or door arrives, or where it would cut a way.
+
+Build it right in the archetype anyway: the pass bricks up a door it cannot save, and a rail the pass adds is plainer
+than one you design. `-Dhearth.access.off=true` turns it off to compare, `-Dhearth.access.skip=doors,stairs,lofts,guards`
+leaves single steps out, and `AccessCaseProbeTest` (`HEARTH_CASE=archetype,culture,terrain,seed,facing[,variant[,decay]]`)
+prints a case's check problems with each step left out in turn.
+
 The bill of goods per stage is computed from the steps (`MaterialBill`, processed goods as LIVING_WORLD.md §7.5 asks:
 logs → LOGS, timber → WOOD, rubble → STONE, cut stone → DRESSED_STONE, brick and terracotta → BRICK, lanterns → METAL
 + CANDLES...; the table is in §13); `work` counts non-air steps plus excavation. Before shapes are resolved the compiler
@@ -197,6 +236,16 @@ and flower box by habit; styles `DRESSED`, `PLAIN`, `ARCHED`, `LATTICE`, `SLIT`.
 width, DoorOpts.MAIN)` draws a door with its lamp and hood and registers the entrance and a DOOR POI;
 `Openings.wallLantern`, `Openings.hood`, `Openings.box` are the small parts.
 
+**A door only where both sides can be stood on.** Each side needs a floor (level, one step down, or a bottom stair or
+slab up) with two blocks of air over it and nothing in the way. `Doors.ok(d, x, y, z, out)` asks (once both rooms are
+carved). `Doors.place(d, side, column, y, width, opts)` draws the door only if it can be used, after clearing the
+window dressing in its fronts. `Doors.placeOrWindow(...)` leaves a window where it cannot. `Doors.clearFronts(d, x, y,
+z, out)` clears a door's fronts after furnishing.
+
+**A guard on every edge over a drop.** `Guards.edge(d, x, y, z, toward)` sets the culture's rail beyond a standing cell
+that falls four or more. `Guards.deck(d, x0, z0, x1, z1, y, gaps...)` rails a deck's or gallery's open edges, except at
+its gaps (a ladder's head, a stair's top, a door's front). `Guards.rail(d)` is the rail itself.
+
 ### Roofs
 
 Roofs are **height fields**: `h(x, z)` in blocks above an eave line, rasterised to stairs where the slope is a whole
@@ -224,20 +273,54 @@ Fields: `gable`, `hip`, `halfHip`, `shed`, `saltbox`, `cone`, `dome`, `flared`; 
 and `Profile.broken(steep, shallow, knee)`; `field.max(other)` merges. A `Roof` answers `covers(x, z)`,
 `surfaceY(x, z)`, `bottomY(x, z)` (what a wall fills up to) and `ridgeY`. `Roofs.flat(d, ...)` makes a deck with a
 parapet, spouts and vigas; `Roofs.terrace(d, outer, inner, deckY)` the roof of a lower storey round a set-back upper
-one. `Chimneys.stack(d, x, z, fromY, roof, minTop)` runs a chimney up through the roof with a corbel and a lit campfire
-(smoke) on top. Thatched styles (`habits.roof.thatch`) get their roof and ridge from the `thatch` role automatically.
+one. `Chimneys.stack(d, x, z, fromY, roof, minTop)` runs a chimney up through the roof to a smoking pot:
+`Chimneys.pot(d, x, y, z, stone)` puts the lit campfire in a crown of corbels (upside-down stairs of the stack's stone,
+backs to the fire) under a slab cap, so the roof smokes and shows no flame or light (a bare campfire on a stack reads as
+a roof on fire). A family that draws its own stack (a house, a kiln, a furnace's stack on its straw) may end it with a
+bare lit campfire: the compiler crowns and caps every bare fire on a stack (`Chimneys.crownBareFires`: a lit campfire
+on a full block with air over it, drawn in `ROOF`; or in any stage, three or more over the ground, open to the sky and
+on straw or on a block open on a side, so a hearth on a floor is left alone; never under a deep realm's vault, where the
+fires light the dark), and where the stack meets the plot's height it sinks the
+fire a course and caps it where it stood. A fire meant to be seen stands low or on a wall (a brazier); `SiteWorksTest`
+fails on any flame left open on a stack. Thatched styles (`habits.roof.thatch`) get their roof and ridge from the `thatch` role automatically.
 
 ### Porches, stairs, floors
 
 `Porches.porch(d, side, c0, c1, depth, y, clear, opening)` (posts never in front of the opening, railings, lean-to
-roof, a bench), `Porches.balcony(d, side, c0, c1, floorY)`, `Porches.bay(d, side, c0, c1, y)`.
+roof, a bench), `Porches.balcony(d, side, c0, c1, floorY)`, `Porches.bay(d, side, c0, c1, y)`. A balcony is two deep
+where the plot allows. Its rail stands on the outer row and returns to the wall, so the row before the wall (and the
+door onto it) is clear. Over the street, where one row fits, the rail is a row of open trapdoors on the deck's outer
+edge. It returns the depth built.
 
 `Stairs.straight(d, x, y, z, dir, rise, width)` (with a string under every step), `Stairs.switchback(d, x, y, z, dir,
-rise, across)` (two lanes, a landing), `Stairs.spiral(d, cx, cz, y0, rise, startAt)`, `Stairs.ladder(d, x, z, y0, y1,
-facing)` (last resort). Cut the stairwell in the floor above yourself and keep its foot and head free in the rooms.
+rise, across)` (two lanes, a landing at the turn), `Stairs.spiral(d, cx, cz, y0, rise, startAt)`, `Stairs.ladder(d, x,
+z, y0, y1, facing)` (last resort). Cut the stairwell in the floor above yourself and keep its foot and head free in the
+rooms. Every tread needs two blocks of air over it, or folk cannot climb it. A flight that turns gets a landing
+(`switchback`); never step across from one run to the next. `Stairs.well(d, x, y, z, dir, rise, openSide)` rails a
+stairwell on the floor it arrives at, along its open side and across its lower end. `Storeys.flight` and
+`Hall.flight` do this themselves.
+
+A loft no stair reaches gets `refine.Lofts.ladder(d, x, z, yFrom, yTo, toWall, roof)`. This is a ladder against a wall
+through a hatch, placed only where a boarded cell beside the hatch has two rows of air to step off onto
+(`Lofts.landing`). Otherwise open the loft to the room below (`Hall.openLoft`) or seal it. A flat roof that is a
+terrace (`Hall.terrace`) is reached by its outside stair or, on two storeys or more, by a ladder through a hatch from
+the top storey. With no way up, there is no room on the deck.
 
 `Floors.boards(d, x0, z0, x1, z1, y)` lays boards (over anything not built, dug-out ground included);
-`Floors.joists(...)` exposed beams under a ceiling, skipping stairwells.
+`Floors.joists(...)` exposed beams under a ceiling, skipping stairwells and never over a tread's head room.
+
+`kit/landscape/Edges.guard(d)` (last, after `Groundwork.clear`) walks the draft from its entrances as the folk do and
+guards every walked edge over a drop of three: a balustrade in a stairwell against its wall, a rail (or a low wall on
+open ground) on a floor with floor behind it, a one-wide deck carried out a board under its rail, a jug on a chest
+someone could climb beside a well, lattice windows over an eave or down to a raised floor glazed, a lattice band
+carried round a corner post given the post back, shutter leaves whose tops could be stood on over a drop taken off.
+Doorways, stair heads and feet, ladder heads and POI cells stay open (a bench seat is no stair head: a rail may stand
+behind it); beside the way in and beside an outdoor flight a board and a rail go on the open side instead, and a rail
+is set only where every door and POI walked to before is still walked to after and the way in from the street stays
+open (a street over water is waded, as the audit does). A trial rail it takes off again puts back what the cell held,
+and it never carries a board out over a flight's head room. `Edges.guard(d, y0, y1)` limits it to standing levels. It is a net under the archetype's own guards
+(a stair's rail, a balcony's balustrade), not a replacement for them: what it cannot rail (a one-wide walk along the
+plot's edge, the top of a roof) it leaves for the archetype to widen or close.
 
 ### Rooms and furniture
 
@@ -252,7 +335,10 @@ Rooms.furnish(d, room, Rooms.Type.BEDROOM, 2, JobType.NONE);   // BEDROOM, KITCH
 ```
 
 `furnish` reads what is already built: blocks on the floor are taken, holes (stairwells) cannot be stood on, cells
-under a stair can hold furniture but are not walkways, ladders and carpets are walked through. Every placement is
+under a stair can hold furniture but are not walkways, ladders and carpets are walked through. The inside cell of every
+door in the walls round the room is kept free and joined. In kitchens, living rooms, stores, halls and workshops (after
+the trade's own station), and in bedrooms after the beds, a square of three by three is kept clear in rooms of nine
+cells or more, nearest a door. Every placement is
 tried against a connectivity check, so a bed never cuts the room in two and every bed side, chest front and workstation
 front stays reachable. `room.claim(x, z)` reserves a cell for something you build yourself (a hearth). A kept cell
 taken by a ladder or the hole it climbs through counts as reached from the cell beside it, so a loft reached by a
@@ -384,8 +470,11 @@ dyke on a river bank (`BuildersYard`). Put the entrance where the street can rea
 ### The worked example: `hearth:commerce/market_stall`
 
 `archetype/commerce/MarketStall.java`, a merchant's stall as a market day puts it up: a low trestle across the front
-under a canopy two high on four poles (undyed linen or boards; now and then striped canvas in the south, one stall in five), the day's goods of
-one trade on it, stock behind. The heart of `draw` (the canopy, wares and basket helpers are in the file):
+with the day's goods of one trade on it, stock behind, and over it what the culture's market puts up (`Kind`): a planked
+booth under a shingle hood in the timber north, a souk booth of striped canvas with hangings in the dry lands, a pavilion
+stall with turned-up eaves in the karst, a barrow under a parasol in the mediterranean, a thatched gable in the tropics,
+or the plain canopy two high on four poles (undyed linen or boards; now and then striped canvas in the south). The
+heart of `draw` (the forms, wares and basket helpers are in the file):
 
 ```java
 public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("commerce/market_stall"), ArchetypeCategory.COMMERCE,
@@ -403,24 +492,38 @@ public void draw(Draft d) {
 	int x0 = 0, x1 = w - 1;
 	int zc = 1;            // the trestle row
 	int zb = dp - 1;       // the back row
-	try (var s = d.stage(StageKind.EXTERIOR)) { /* PAVING under x0..x1 × 0..zb at y = -1 */ }
-	// four poles at the corners: two high on the street edge, three at the back where the canopy is higher
+	Kind kind = kind(d);   // the culture's build, or the `form` param
+	try (var s = d.stage(StageKind.EXTERIOR)) { /* PAVING under x0..x1 × 0..zb at y = -1 (the booth: boards behind) */ }
 	Mat frame = d.mat(Role.FRAME);
 	Mat pole = frame.has(Form.FENCE) ? frame : Hall.woodFence(d);
-	try (var s = d.stage(StageKind.FRAME)) {
-		for (int[] p : new int[][]{{x0, 0}, {x1, 0}, {x0, zb}, {x1, zb}}) {
-			int top = rise(p[1], zc, zb) == 2 ? 3 : 2;
-			for (int y = 0; y < top; y++) {
-				d.set(p[0], y, p[1], pole.fence());
+	switch (kind) {
+		case BOOTH -> booth(d, x0, x1, zc, zb, pole);       // planked back and cheeks, a shingle hood
+		case SOUK -> souk(d, x0, x1, zc, zb, pole);         // striped awning, hangings, rugs
+		case PAVILION -> pavilion(d, x0, x1, zb, frame);    // lacquered posts, eaves turned up
+		case BARROW -> barrow(d, x0, x1, zc, zb, pole);     // a cart under a parasol
+		case THATCH -> thatch(d, x0, x1, zb, pole);         // a thatched gable on four poles
+		default -> {
+			// four poles at the corners: two high on the street edge, three at the back where the canopy is higher
+			try (var s = d.stage(StageKind.FRAME)) {
+				for (int[] p : new int[][]{{x0, 0}, {x1, 0}, {x0, zb}, {x1, zb}}) {
+					int top = rise(p[1], zc, zb) == 2 ? 3 : 2;
+					for (int y = 0; y < top; y++) {
+						d.set(p[0], y, p[1], pole.fence());
+					}
+				}
 			}
+			// the canopy: slabs from the street edge to the back, a half block up at a time (linen, boards or stripes)
+			canopy(d, x0, x1, zc, zb, frame);
 		}
 	}
-	// the canopy: slabs from the street edge to the back, a half block up at a time (linen, boards or striped canvas)
-	canopy(d, x0, x1, zc, zb, frame);
 	// the trestle: top slabs the width of the stall, a gap by one end to get behind it, one trade's goods on it
 	Mat wood = d.mat(Role.FURNITURE);
 	String trade = d.param("wares", WARES[(int) (Noise.unit(d.seed() ^ 0x3A7E, 0, 0, 0) * WARES.length) % WARES.length]);
 	int gap = Noise.unit(d.seed() ^ 0x6A9, 1, 0, 0) < 0.5 ? x0 + 1 : x1 - 1;
+	// (on a bank the levelling may dyke part of the front row: the gap goes to the side the customers' row reaches)
+	if (!frontOpen(d, w / 2, gap) && frontOpen(d, w / 2, gap == x0 + 1 ? x1 - 1 : x0 + 1)) {
+		gap = gap == x0 + 1 ? x1 - 1 : x0 + 1;
+	}
 	try (var s = d.stage(StageKind.INTERIOR)) {
 		for (int x = x0; x <= x1; x++) {
 			if (x != gap) {
@@ -437,18 +540,21 @@ public void draw(Draft d) {
 	Furniture.workstation(d, JobType.MERCHANT, x0 + 1, 0, zb, Dirs.FRONT);
 	Furniture.chest(d, x1 - 1, 0, zb, Dirs.FRONT, List.of(new Object[]{"minecraft:bread", 6}, new Object[]{"minecraft:apple", 4}));
 	Props.sacks(d, x0 + 2, 0, zb, Dirs.RIGHT, 1, trade.equals("bread"));
-	// a lantern hung under the high back of the canopy
+	// a lantern hung under the roof (under the high back of the plain canopy; on a booth too shallow to hang one, stood
+	// on the trestle's far end), so the way in is lit
 	Furniture.hangingLantern(d, mid, 3, rise(zb - 1, zc, zb) == 2 ? zb - 1 : zb, 0);
 	Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, 5));
+	Edges.guard(d);   // rails (or a jug on the goods) where a slope falls away behind
 }
 ```
 
-What it shows: the entrance on the street row; levelling with water handling; materials by role so every culture
-dresses it differently (dark boards in the timber cultures, white linen, red-and-white canvas in the desert and blue in
-the Mediterranean, `Fair.striped`/`Fair.houseColour`); geometry worked out once (`rise`) and read by every part that
-depends on it, so the poles meet the canopy whatever its depth; furniture and props through the kit so POIs are
-registered; params with seeded defaults (`canopy`, `wares`); clearing last. Keep it low and open: a closed booth with
-a tall striped awning turns a square of ten into a fairground.
+What it shows: the entrance on the street row; levelling with water handling; a plan per culture group (the forms
+differ in their shape, not only their palette, so `culture_likes` stays at 6 or under), materials by role so every
+culture dresses it differently (dark boards in the timber cultures, white linen, canvas striped in the culture's colour,
+`Fair.striped`/`Fair.houseColour`); geometry worked out once (`rise`) and read by every part that depends on it, so the
+poles meet the canopy whatever its depth; furniture and props through the kit so POIs are registered; params with
+seeded defaults (`form`, `canopy`, `wares`); clearing, then `Edges.guard`, last. Keep it low and open at the front: a
+closed booth with a tall striped awning turns a square of ten into a fairground.
 
 The bigger archetypes are the references for everything else: `house/Hut` (round and square, stilts),
 `house/HouseBuilder.cottage` (facade, cross gables and dormers, porch, bay, balcony, attic, lean-to outshot, garden),
@@ -521,7 +627,7 @@ the systemic causes behind them.
 | `beds_no_free_side` | 0 | a bed nobody can get into |
 | `workstations_unusable`, `chest_lids_blocked` | 0 | a job block, chest or barrel with no reachable face; a chest under a solid block |
 | `dark_room_cells` (and `light_min_room` >= 8) | 0 | room floor under light 8 |
-| `fall_edge_cells` | 0 | a walked cell beside an unguarded drop of 4+ (rail, parapet or sill it). Allowed only where the family page says the edge is the point: quarry faces, quay edges, the town side of a wall walk |
+| `fall_edge_cells` | 0 | a walked cell beside an unguarded drop of 4+ (rail, parapet or sill it; `Edges.guard` does most). Allowed only where the family page says the edge is the point: quarry faces, quay edges, the town side of a wall walk |
 | `lava`, `water_roofed` | 0 unless the page says so | stray fluids |
 
 **Soft: targets per archetype (means over suited cases).** Missing one is a reason to look again at the sheet, not
@@ -565,7 +671,9 @@ JAVA_HOME=C:/Users/bitto/VOID/.tools/jdk-25 ./gradlew blueprintPreview -Parchety
 - `terrain`: `flat`, `slope`, `hills`, `river`, `coast`, `steep` (comma list or `all`), optionally followed by params
   after semicolons, passed to the spec: `-Pterrain="steep;frontage=9;depth=11;roof=hip;outshot=true"`.
   Preview-only keys: `seed=` (first seed), `facing=` (south, east, north, west; else the facing turns per seed),
-  `frontage=`, `depth=`, `tier=`, `variant=`.
+  `frontage=`, `depth=`, `tier=`, `variant=`, `stage=` (a stage kind: the site as built through the last stage of that
+  kind, the next one waiting, as the sim leaves a plot stalled on goods: `-Pterrain="flat;stage=floors"`; the output
+  names get `_<stage>`).
 - Output in `build/previews/`: `sheet_<archetype>_<terrain>.png` (all styles × seeds, labelled with the variant) and
   per building `<archetype>/<culture>_s<n>_<terrain>.png` (views from two opposite corners, then a plan and a cutaway
   per storey) and `_front.png`.

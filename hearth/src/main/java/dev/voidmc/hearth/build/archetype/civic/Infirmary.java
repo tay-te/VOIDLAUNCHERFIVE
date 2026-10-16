@@ -17,6 +17,7 @@ import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Sacred;
 import dev.voidmc.hearth.build.kit.civic.Tradition;
@@ -254,7 +255,10 @@ public final class Infirmary implements Archetype {
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, 0, zF, w - 1, zM, base, doorCol);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, sh.skyline() + 3));
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(maxH - 1, sh.skyline() + 3), pueblo + 2));
 	}
 
 	/**

@@ -28,6 +28,60 @@ public final class Grid {
 		};
 	}
 
+	/**
+	 * Whether this settlement lays out its streets ahead: as {@link #plans(LayoutType)}. A nucleated farmsteads village
+	 * ({@link #nucleated}) still does not: planned ahead, its lanes ran out at a crossroads town's spacing over the whole
+	 * hill and the homes spread thin along them (ART_REVIEW_2 item 1); grown a lane at a time near the heart as homes
+	 * need them, it keeps a dense, organic heart.
+	 */
+	public static boolean plans(PlanContext ctx) {
+		return plans(ctx.state.layout);
+	}
+
+	/**
+	 * Whether an expansive settlement has grown a town at its heart (ART_REVIEW_2 item 1). A Bohemian village is a green
+	 * (a <i>náves</i>) with farmsteads round it, and a town grows round a square (a <i>náměstí</i>): from village tier a
+	 * farmsteads settlement keeps spreading its farmers' homes as farmsteads out along its tracks, but the rest of its
+	 * folk build a compact village round the green, lanes planned ahead, homes filling in near the heart before they
+	 * spread, town homes in rows on the village street.
+	 */
+	public static boolean nucleated(PlanContext ctx) {
+		return ctx.state.layout.expansive && ctx.tier.ordinal() >= dev.voidmc.hearth.api.SettlementTier.VILLAGE.ordinal();
+	}
+
+	/** Whether the settlement still grows as an expansive one: an expansive layout that has not nucleated. */
+	public static boolean expansive(PlanContext ctx) {
+		return ctx.state.layout.expansive && !nucleated(ctx);
+	}
+
+	/** Whether the town terraces its plots and runs its lanes along the contour: the layout's habit, and a nucleated village's on its hill. */
+	public static boolean terraces(PlanContext ctx) {
+		return ctx.state.layout.terraces || nucleated(ctx);
+	}
+
+	/** How readily the town builds up: the layout's bias, a crossroads town's in a nucleated village. */
+	public static double verticalBias(PlanContext ctx) {
+		return nucleated(ctx) ? Math.max(ctx.state.layout.verticalBias, LayoutType.CROSSROADS.verticalBias) : ctx.state.layout.verticalBias;
+	}
+
+	/** How far apart the side lanes leave a street: the layout's spacing, a crossroads town's in a nucleated village. */
+	public static int laneSpacing(PlanContext ctx) {
+		return nucleated(ctx) ? LayoutType.CROSSROADS.laneSpacing : ctx.state.layout.laneSpacing;
+	}
+
+	/** How far a side lane runs: the layout's length, a crossroads town's in a nucleated village. */
+	public static int laneLength(PlanContext ctx) {
+		return nucleated(ctx) ? LayoutType.CROSSROADS.laneLength : ctx.state.layout.laneLength;
+	}
+
+	/** The side gap between detached buildings in a zone: the layout's, closer in a nucleated farmsteads village. */
+	public static int gap(PlanContext ctx, int zone) {
+		if (nucleated(ctx) && zone <= 1) {
+			return zone == 0 ? 1 : 2;
+		}
+		return ctx.state.layout.gap(zone);
+	}
+
 	/** How far from the heart streets are planned ahead. */
 	public static double reach(PlanContext ctx) {
 		return Math.max(44, ctx.coreRadius() * 1.5 + 18);
@@ -35,7 +89,7 @@ public final class Grid {
 
 	/** Plans side lanes along the stretch {@code [from, to)} of a built street. */
 	public static void planAhead(PlanContext ctx, RoadEdge e, int from, int to) {
-		if (!plans(ctx.state.layout) || !e.emits()) {
+		if (!plans(ctx) || !e.emits()) {
 			return;
 		}
 		switch (e.role) {
@@ -46,7 +100,7 @@ public final class Grid {
 			}
 		}
 		LayoutType layout = ctx.state.layout;
-		int spacing = e.role == RoadEdge.Role.STAIR ? stairSpacing(e) : layout.laneSpacing;
+		int spacing = e.role == RoadEdge.Role.STAIR ? stairSpacing(e) : laneSpacing(ctx);
 		Polyline.Dense d = e.dense();
 		int lim = Math.min(to, d.length() - 6);
 		int start = Math.max(Math.max(10, spacing / 2), from);
@@ -104,8 +158,8 @@ public final class Grid {
 		int mx = sx + Roads.DX[heading] * 10;
 		int mz = sz + Roads.DZ[heading] * 10;
 		double grade = Math.abs(ctx.ground.smooth(mx, mz) - ctx.ground.smooth(sx, sz)) / 10.0;
-		boolean contour = layout.terraces && grade < ctx.config.roadGrade() * 0.7 && ctx.state.site != null && ctx.state.site.slope() > 0.12;
-		int maxLen = stub ? parent.width / 2 + 16 : (int) Math.round(layout.laneLength * (0.8 + 0.4 * ctx.hash(sx, sz, 13)));
+		boolean contour = terraces(ctx) && grade < ctx.config.roadGrade() * 0.7 && ctx.state.site != null && ctx.state.site.slope() > 0.12;
+		int maxLen = stub ? parent.width / 2 + 16 : (int) Math.round(laneLength(ctx) * (0.8 + 0.4 * ctx.hash(sx, sz, 13)));
 		boolean[] joined = new boolean[1];
 		ctx.joinPlanned = true;
 		int[][] path;

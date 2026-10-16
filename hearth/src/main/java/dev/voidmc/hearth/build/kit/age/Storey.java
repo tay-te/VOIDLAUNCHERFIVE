@@ -86,6 +86,20 @@ public final class Storey {
 			}
 			lifted.put(k, e.getValue());
 		}
+		// a piece of furniture stays whole: what stands on a piece left where it is (a table's top on its leg) stays too
+		for (int y = h.eave - 2; y <= h.eave + 1; y++) {
+			for (int x = ax; x <= bx; x++) {
+				for (int z = az; z <= bz; z++) {
+					long k = Draft.key(x, y, z);
+					Draft.Cell c = lifted.get(k);
+					Draft.Cell under = d.cell(x, y - 1, z);
+					if (c != null && c.stage() == StageKind.INTERIOR && under != null && under.stage() == StageKind.INTERIOR && !under.state().isAir()
+						&& !lifted.containsKey(Draft.key(x, y - 1, z))) {
+						lifted.remove(k);
+					}
+				}
+			}
+		}
 		// what ran up through the eave (a chimney, a post) keeps running
 		List<long[]> through = new ArrayList<>();
 		for (int x = ax; x <= bx; x++) {
