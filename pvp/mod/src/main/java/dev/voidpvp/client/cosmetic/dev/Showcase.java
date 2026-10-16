@@ -107,6 +107,8 @@ public final class Showcase {
         float reactive = -1f;
         /** The A/B measurement: cycles fixed-function, material shader, shader + bloom. */
         boolean ab;
+        /** The art A/B: alternates the cast between {@link #OUTFITS} and the alternative outfits. */
+        boolean artAb;
         /** Every mannequin wears the default Steve skin (the style test compares sets, not skins). */
         boolean steve;
 
@@ -222,6 +224,14 @@ public final class Showcase {
         ab.ab = true;
         ab.settle = AB_START + AB_WINDOWS * AB_WINDOW;
         scenes.add(ab);
+        // The art A/B: the same crowd, shader and bloom on, alternating windows between the launch
+        // outfits and another set of outfits (-Dvoid.dev.showcase.altOutfits=<json>, an array of
+        // equipped sets; by default the style test's sets), so a new lineup is measured against
+        // an old one under the same load.
+        Scene art = crowd("perf-art", 18000);
+        art.artAb = true;
+        art.settle = AB_START + AB_WINDOWS * AB_WINDOW;
+        scenes.add(art);
     }
 
     /** A row of the six outfits, facing {@code faceYaw}, the camera at {@code camZ} looking {@code camYaw}. */
@@ -467,6 +477,67 @@ public final class Showcase {
     private static final String[] AB_MODES = {"fixed-function", "material shader", "shader + bloom high"};
     private final double[] abSum = new double[3];
     private final int[] abN = new int[3];
+
+    private final double[] artSum = new double[2];
+    private final int[] artN = new int[2];
+
+    /** The alternative outfits for perf-art. */
+    private static JsonObject[] altOutfits() {
+        String path = System.getProperty("void.dev.showcase.altOutfits");
+        if (path != null) {
+            try {
+                com.google.gson.JsonArray a = new com.google.gson.JsonParser().parse(new String(
+                        java.nio.file.Files.readAllBytes(new File(path).toPath()),
+                        java.nio.charset.StandardCharsets.UTF_8)).getAsJsonArray();
+                JsonObject[] out = new JsonObject[a.size()];
+                for (int i = 0; i < out.length; i++) {
+                    out[i] = a.get(i).getAsJsonObject();
+                }
+                return out;
+            } catch (Exception e) {
+                VoidLog.info("showcase: could not read altOutfits " + path + ": " + e);
+            }
+        }
+        return new JsonObject[] {
+            set("style-c-cape", "style-c-wings", "style-c-hat", null, null, null, null),
+            set("style-d-cape", "style-d-wings", "style-d-hat", null, null, null, null),
+        };
+    }
+
+    /** One tick of the art A/B (perf-art): swaps every mannequin's outfit at each window. */
+    private void artTick() {
+        int t = sceneTick - AB_START;
+        if (t < 0 || t >= AB_WINDOWS * AB_WINDOW) {
+            return;
+        }
+        int w = t / AB_WINDOW, k = t % AB_WINDOW, mode = w % 2;
+        if (k == 0) {
+            JsonObject[] alt = altOutfits();
+            for (int i = 0; i < cast.size(); i++) {
+                JsonObject o = new JsonObject();
+                o.addProperty("uuid", cast.get(i).getUuid().toString());
+                JsonObject src = mode == 0 ? OUTFITS[i % OUTFITS.length] : alt[i % alt.length];
+                for (java.util.Map.Entry<String, com.google.gson.JsonElement> e : src.entrySet()) {
+                    o.add(e.getKey(), e.getValue());
+                }
+                CosmeticState.get().putPlayer(EquippedSet.fromJson(o));
+            }
+        } else if (k == 10) {
+            dev.voidpvp.client.cosmetic.Budget.window();
+        } else if (k == AB_WINDOW - 1) {
+            double us = dev.voidpvp.client.cosmetic.Budget.window();
+            artSum[mode] += us;
+            artN[mode]++;
+            String[] names = {"launch outfits", "alternative outfits"};
+            say(String.format(java.util.Locale.ROOT, "showcase: perf-art window %d %s %.0f us/frame", w, names[mode], us));
+            if (w == AB_WINDOWS - 1) {
+                for (int m = 0; m < 2; m++) {
+                    say(String.format(java.util.Locale.ROOT, "showcase: perf-art mean %s %.0f us/frame over %d windows",
+                            names[m], artSum[m] / Math.max(1, artN[m]), artN[m]));
+                }
+            }
+        }
+    }
 
     /** One tick of the A/B measurement (perf-ab). */
     private void abTick() {
@@ -735,6 +806,9 @@ public final class Showcase {
                 place(mc);
                 if (scene.ab) {
                     abTick();
+                }
+                if (scene.artAb) {
+                    artTick();
                 }
                 if (sceneTick == scene.emoteAt && selfEmote != null) {
                     say("showcase: local emote " + selfEmote + " started=" + Emotes.get().playLocal(selfEmote));

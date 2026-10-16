@@ -20,7 +20,7 @@ export const DOLL_PLACEMENT: Readonly<Record<string, DollPlacement>> = {
   "vesper-sheath": { x: 9.5, y: -2.9, size: 16 },
   "atelier-fedora": { x: 8, y: -4.45, size: 8 },
   "sovereign-crown": { x: 8.167, y: -3.3, size: 5.333 },
-  "cloister-hood": { x: 8, y: -2.2, size: 8 },
+  "cloister-hood": { x: 8, y: -1.95, size: 8 },
   "aureole-halo": { x: 8, y: -3.633, size: 5.333 },
   "lumen-halo": { x: 8, y: -3.8, size: 5.333 },
   "porcelain-mask": { x: 8, y: -0.633, size: 5.333 },

@@ -82,7 +82,6 @@ function atelierFedora(save) {
   const felt = (face, i, j, w, h) => {
     if (face === 'up') return B[3];
     if (face === 'down') return B[0];
-    if (j === 0) return B[3];
     if ((face === 'north' || face === 'south') && i === 1) return B[3]; // the felt's sheen
     return face === 'east' || face === 'west' ? B[1] : B[2];
   };
@@ -95,7 +94,7 @@ function atelierFedora(save) {
       return B[3];
     }
     if (face === 'down') return B[0];
-    if (j === 0) return B[3];
+    if ((face === 'north' || face === 'south') && i === 1) return B[3];
     return face === 'east' || face === 'west' ? B[1] : B[2];
   };
   const brimTop = (face, i, j, w, h) => {
@@ -276,33 +275,35 @@ function cloisterHood(save) {
     if (j === 0) return B[3];
     return face === 'east' || face === 'west' ? B[2] : B[2];
   };
-  // The shell, its top corners stepped round; the front of the top pulled forward over the brow
-  // so the face sits in the hood's shadow; the opening arched by a brass edge.
+  // A close shell over the head, its top corners stepped round, and a cowl that comes forward
+  // over the brow to a point: the face sits in its shadow (the shader's contact occlusion) and
+  // the silhouette says hood from any side. Behind, the cowl's tail falls to a point; below, the
+  // wool drapes on the shoulders.
   const cubes = [
-    b.box([-4.6, -9.3, -5.5], [4.6, -8.5, 5.2], wool(['down']), 'cloth'),
-    b.box([4.6, -8.7, -5.2], [5.0, -8.1, 5.2], wool(['west', 'down']), 'cloth'),
-    b.box([-5.0, -8.7, -5.2], [-4.6, -8.1, 5.2], wool(['east', 'down']), 'cloth'),
-    b.box([4.6, -8.1, -4.9], [5.2, -4.4, 5.2], wool(['west']), 'cloth'),
-    b.box([-5.2, -8.1, -4.9], [-4.6, -4.4, 5.2], wool(['east']), 'cloth'),
-    b.box([4.6, -4.4, -4.9], [5.8, -0.8, 5.6], wool(['west']), 'cloth'),
-    b.box([-5.8, -4.4, -4.9], [-4.6, -0.8, 5.6], wool(['east']), 'cloth'),
-    b.box([-4.6, -8.5, 4.6], [4.6, -4.4, 5.3], wool(['north']), 'cloth'),
-    b.box([-4.6, -4.4, 4.6], [4.6, -0.8, 5.9], wool(['north']), 'cloth'),
+    b.box([-4.6, -9.2, -4.6], [4.6, -8.5, 5.1], wool(['down']), 'cloth'),
+    b.box([4.6, -8.7, -4.6], [5.0, -8.1, 5.1], wool(['west', 'down']), 'cloth'),
+    b.box([-5.0, -8.7, -4.6], [-4.6, -8.1, 5.1], wool(['east', 'down']), 'cloth'),
+    b.box([4.6, -8.1, -4.6], [5.2, -0.8, 5.1], wool(['west']), 'cloth'),
+    b.box([-5.2, -8.1, -4.6], [-4.6, -0.8, 5.1], wool(['east']), 'cloth'),
+    b.box([-4.6, -8.5, 4.6], [4.6, -0.8, 5.2], wool(['north']), 'cloth'),
+    // The cowl's brow, stepping forward to a point over the face.
+    b.box([-4.0, -9.4, -5.4], [4.0, -8.4, -4.6], wool(['down']), 'cloth'),
+    b.box([-2.6, -9.6, -6.1], [2.6, -8.5, -5.4], wool(['down']), 'cloth'),
+    b.box([-1.1, -9.7, -6.7], [1.1, -8.7, -6.1], wool(['down']), 'cloth'),
+    // The tail, falling back from the crown to a point.
+    b.box([-2.0, -9.5, 3.4], [2.0, -8.2, 6.2], wool([]), 'cloth'),
+    b.box([-1.2, -9.0, 6.2], [1.2, -7.6, 7.6], wool([]), 'cloth'),
+    b.box([-0.5, -8.4, 7.6], [0.5, -7.2, 8.8], wool([]), 'cloth'),
     // The drape over the shoulders, behind the jaw.
-    b.box([-6.4, -0.8, -2.8], [6.4, 0.6, 6.4], wool([]), 'cloth'),
-    // A ridge down the crown, rising to the cowl's point, which falls back behind.
-    b.box([-1.3, -9.9, -3.6], [1.3, -9.3, 5.2], wool([]), 'cloth'),
-    b.box([-1.9, -10.3, 2.6], [1.9, -8.4, 6.2], wool([]), 'cloth'),
-    b.box([-1.2, -9.8, 6.2], [1.2, -7.9, 7.6], wool([]), 'cloth'),
-    b.box([-0.5, -9.1, 7.6], [0.5, -7.4, 8.8], wool([]), 'cloth'),
+    b.box([-6.2, -0.8, -2.8], [6.2, 0.6, 6.2], wool([]), 'cloth'),
     // The collar under the chin.
     b.box([-5.3, 0.0, -4.4], [5.3, 0.6, -2.8], wool([]), 'cloth'),
-    // Brass round the opening: the brow edge, the arch's shoulders, the sides.
-    b.box([-3.6, -9.35, -5.75], [3.6, -8.75, -5.5], metal(R), 'metal'),
-    b.box([-4.65, -8.8, -5.45], [-3.6, -8.1, -5.2], metal(R), 'metal'),
-    b.box([3.6, -8.8, -5.45], [4.65, -8.1, -5.2], metal(R), 'metal'),
-    b.box([4.6, -8.1, -5.15], [5.35, 0.6, -4.9], metal(R), 'metal'),
-    b.box([-5.35, -8.1, -5.15], [-4.6, 0.6, -4.9], metal(R), 'metal'),
+    // Brass along the cowl's edge and down the sides of the opening.
+    b.box([-1.15, -8.75, -6.8], [1.15, -8.45, -6.1], metal(R), 'metal'),
+    b.box([-2.65, -8.55, -6.15], [-1.1, -8.25, -5.4], metal(R), 'metal'),
+    b.box([1.1, -8.55, -6.15], [2.65, -8.25, -5.4], metal(R), 'metal'),
+    b.box([4.6, -8.1, -4.85], [5.3, 0.6, -4.6], metal(R), 'metal'),
+    b.box([-5.3, -8.1, -4.85], [-4.6, 0.6, -4.6], metal(R), 'metal'),
     // The clasp and its jade.
     b.box([-1.0, -0.3, -4.7], [1.0, 1.3, -4.4], metal(R), 'metal'),
     b.gem([-0.5, 0.1, -5.05], [0.5, 0.9, -4.7], J.jade),

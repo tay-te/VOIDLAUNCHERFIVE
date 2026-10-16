@@ -41,3 +41,13 @@ cd pvp/mod   # take the game-test lock first
 ./gradlew runShowcase -Pvoid.showcase.quality=1 -Pvoid.showcase.only='st-*' -Pvoid.showcase.out=<out>
 bash ../design/cosmetics-style-test/make-sheets.sh <out>
 ```
+
+## Outcome
+
+The user chose **C · VOID luxe**. It shipped as the whole launch line (catalog v4, the art bible in
+`docs/cosmetics.md`, "The collection"), with the review's fixes: warmer, lighter neutrals and more
+metal so silhouettes hold at night, a brighter jewel that glows and flares with the fight, and
+stronger silhouettes (the fedora got a tapered, creased crown and a snapped brim). The sheets and
+clips above are the test as it was judged; `ShowcaseStyle` now stages the shipped Atelier pieces
+(`atelier-cape`, `blade-wings`, `atelier-fedora`, set `lux`) in the first column instead of v3, so a
+re-run compares the final against the test's C and D (`make-sheets.sh` labels it "C final").

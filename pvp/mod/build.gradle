@@ -183,6 +183,10 @@ loom {
             if (project.hasProperty('void.showcase.glow')) {
                 vmArg "-Dvoid.dev.cosmetics.glow=${project.property('void.showcase.glow')}"
             }
+            // perf-art's alternative outfits: a JSON array of equipped sets (default: the style test).
+            if (project.hasProperty('void.showcase.altOutfits')) {
+                vmArg "-Dvoid.dev.showcase.altOutfits=${project.property('void.showcase.altOutfits')}"
+            }
             // -PvoidGlDebug: log every GL error with the Java stack that raised it (render/GlDebug).
             if (project.hasProperty('voidGlDebug')) {
                 vmArg '-Dvoid.dev.gldebug=true'
