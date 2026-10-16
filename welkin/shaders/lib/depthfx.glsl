@@ -48,7 +48,9 @@ float wdHazeDensity(float y) {
 #define WD_BLOOM_THRESHOLD 0.95
 #define WD_BLOOM_KNEE 0.3
 float wdBloomHeadroom(vec3 lin) {
-	float y = max(lin.r, max(lin.g, lin.b));
+	// (mostly by luminance: by the brightest channel alone a sunlit pink or yellow flower, one channel at white,
+	// took the sun's headroom and bloomed in a coloured cloud)
+	float y = mix(wdLuma(lin), max(lin.r, max(lin.g, lin.b)), 0.25);
 	float s = smoothstep(0.5, 1.0, y);
 	return 1.0 + 8.0 * s * s * s;
 }
