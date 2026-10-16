@@ -269,9 +269,9 @@ vec3 wcLit(vec3 n, float up, float interior, float dens, int tone, vec3 rd, vec3
 	if (top) {
 		diffuse = clamp((ndl + 0.12) / 1.12, 0.0, 1.0) * 1.22;
 	} else if (under) {
-		diffuse = 0.10;
-		ao *= 0.80;
-		skyView = 0.78;
+		diffuse = 0.16;
+		ao *= 0.90;
+		skyView = 0.86;
 	} else {
 		diffuse = clamp((ndl + 0.25) / 1.25, 0.0, 1.0) * 1.18;
 		ao = mix(0.70, 1.0, up);
@@ -365,6 +365,10 @@ float wcBaseDay(CloudEnv e) {
 
 // A base by day: a neutral grey body (less of the sky's blue), a little deeper.
 vec3 wcBaseNeutral(vec3 c, float day) {
+#if WD_SKY
+	// depth prototype SKY: a base keeps the sky's blue it is lit by (a cool, luminous shade, not a grey slab)
+	return mix(c, mix(vec3(wcLuma(c)), c, 0.9) * 0.9, day);
+#endif
 	return mix(c, mix(vec3(wcLuma(c)), c, 0.55) * 0.86, day);
 }
 
@@ -451,7 +455,7 @@ vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) 
 		if (ue > 0.0) {
 			vec3 topLit = wcLit(vec3(0.0, 1.0, 0.0), 0.5, 1.0, dens, h.tone, rd, lightDirWorld(), 1.0, wcThick());
 			vec3 rimC = mix(wcShoulder(topLit) * 0.96, c * 1.28, 1.0 - day);
-			c = mix(c, max(c, rimC), 0.7 * ue);
+			c = mix(c, max(c, rimC), (WD_SKY == 1 ? 0.95 : 0.7) * ue);
 		}
 	}
 	if (side) {

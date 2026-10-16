@@ -34,9 +34,9 @@ float wdHgPeak(float mu, float g) {
 // the haze lies thick in valleys and the low ground and thins over the ridges; the rays toward the horizon, which stay
 // low the longest, gather the most. Blocks of world height y.
 #define WD_HAZE_SEA 62.0
-#define WD_HAZE_SCALE_H 64.0
+#define WD_HAZE_SCALE_H 48.0
 // the haze's extinction per block of sea-level air (composite2 scales it by Gloam's air: haziness, mist, rain)
-#define WD_HAZE_SIGMA 0.0009
+#define WD_HAZE_SIGMA 0.0015
 float wdHazeDensity(float y) {
 	return exp(-max(y - WD_HAZE_SEA, -20.0) / WD_HAZE_SCALE_H);
 }
@@ -45,11 +45,11 @@ float wdHazeDensity(float y) {
 // clouds leave the earlier passes as display values squeezed under white (lib/tone.glsl's shoulder): a near-white
 // pixel stands for much more light than it shows, so its light is given that headroom back (up to about 6x at white)
 // before the soft threshold. `emit` (0..1) adds a glowing texel's own light (a torch's flame, a lamp).
-#define WD_BLOOM_THRESHOLD 0.8
-#define WD_BLOOM_KNEE 0.4
+#define WD_BLOOM_THRESHOLD 0.6
+#define WD_BLOOM_KNEE 0.35
 float wdBloomHeadroom(vec3 lin) {
 	float y = max(lin.r, max(lin.g, lin.b));
-	float s = smoothstep(0.6, 1.0, y);
+	float s = smoothstep(0.45, 1.0, y);
 	return 1.0 + 7.0 * s * s * s;
 }
 

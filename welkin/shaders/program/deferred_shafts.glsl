@@ -62,7 +62,7 @@ layout(location = 0) out vec4 outShaft;
 // it depth-aware over the 4x4 texels (lib/shafts.glsl wdVolResolve), so no grain shows.
 #define WD_NEAR_STEPS 14
 #define WD_FAR_STEPS 10
-#define WD_SHAFT_FALLOFF 320.0
+#define WD_SHAFT_FALLOFF 600.0
 #define WD_HAZE_SIGMA_MARCH 0.0009
 
 float wdFarVis(vec3 pp) {

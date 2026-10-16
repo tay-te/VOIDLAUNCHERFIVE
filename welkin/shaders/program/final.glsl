@@ -38,9 +38,9 @@ uniform sampler2D colortex2;
 #endif
 // depth prototype BLOOM: how much of the bright light scatters into the halo (the rest stays where it is)
 #if WD_ALL
-#define WD_BLOOM_STRENGTH 0.20
+#define WD_BLOOM_STRENGTH 0.28
 #else
-#define WD_BLOOM_STRENGTH 0.24
+#define WD_BLOOM_STRENGTH 0.34
 #endif
 #endif
 

@@ -280,7 +280,7 @@ void main() {
 #ifdef WELKIN_VALLEY_MIST
 			dens *= 1.0 + 1.2 * mistCam.y * mistCam.z;
 #endif
-			dens *= (WD_ALL == 1 ? 0.75 : 1.0) * smoothstep(-0.08, 0.04, sunW.y);
+			dens *= (WD_ALL == 1 ? 0.55 : 1.0) * smoothstep(-0.08, 0.04, sunW.y);
 			float a = 1.0 - exp(-WD_HAZE_SIGMA * dens * vol.b);
 			if (a > 0.0) {
 				vec3 dV = normalize(eyePos);
