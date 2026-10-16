@@ -32,6 +32,12 @@ struct WfLayer {
 	float od;     // optical depth (debug views)
 };
 
+#if WF_DEBUG == 5
+// what the walk met, for WF_DEBUG 5: 0 no stretch to walk, 1 walked dry cells, 2 a rainy cell, 3 its column hidden or
+// missed, 4 a column hit with no depth, 5 a curtain
+int wfDbgState = 0;
+#endif
+
 WfLayer wfNoLayer() {
 	return WfLayer(vec3(0.0), 0.0, 1e9, 0.0);
 }
@@ -125,6 +131,9 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 	if (tB <= tA) {
 		return layer;
 	}
+#if WF_DEBUG == 5
+	wfDbgState = 1;
+#endif
 
 	// the 2D DDA over W1's cells, relative to the camera's own weather cell c0
 	ivec2 c0;
@@ -153,6 +162,9 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 		vec4 w = wfW1Cell(wc, e);
 		float rain = w.b;
 		if (rain > WF_MIN_RAIN && tExit > tEnter) {
+#if WF_DEBUG == 5
+			wfDbgState = max(wfDbgState, 2);
+#endif
 			float storm = w.a;
 			float h1 = wcU01(wcHash(wc, e.seed + 0x5F1u)), h2 = wcU01(wcHash(wc, e.seed + 0x5F2u));
 			float h3 = wcU01(wcHash(wc, e.seed + 0x5F3u)), h4 = wcU01(wcHash(wc, e.seed + 0x5F4u));
@@ -179,6 +191,9 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 			float tOut = min(min(tf.x, tf.y), min(ty2, tExit));
 			// seen from above, a column's top is under its own deck: the clouds cover it
 			bool hidden = ty1 >= max(sideIn, tEnter) && dy < 0.0;
+#if WF_DEBUG == 5
+			wfDbgState = max(wfDbgState, tOut > tIn && !hidden ? 4 : 3);
+#endif
 			if (tOut > tIn && !hidden) {
 				float tm = 0.5 * (tIn + tOut);
 				float vr = clamp((camY + dy * tm - bottom) / max(top - bottom, 1.0), 0.0, 1.0);
@@ -221,6 +236,9 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 
 	layer.od = od;
 	layer.t = tFirst;
+#if WF_DEBUG == 5
+	if (od > 0.0) wfDbgState = 5;
+#endif
 	if (od <= 0.0) {
 		return layer;
 	}

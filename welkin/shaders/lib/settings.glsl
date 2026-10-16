@@ -206,7 +206,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 // Sky debug: Sky test views: the sky colour table, or the sky's bands and rings.  [sky]
 #define SKY_DEBUG 0 // [0 1 2]
 // Far weather debug: Test views for far weather.  [far_weather]
-#define WF_DEBUG 0 // [0 1 2 3 4]
+#define WF_DEBUG 0 // [0 1 2 3 4 5]
 // Underground debug: Draws the cave map from VOID Gloam on screen, with the cave state as bars. For testing only.  [underground]
 #define UG_DEBUG 0 // [0 1]
 // Water and shadow debug: Test views for water and shadows.  [water_shadows]

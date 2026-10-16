@@ -6,6 +6,7 @@
 //  2  the curtains' optical depth over a darkened scene: red to 1, yellow to 2, white to 3.
 //  3  the far mist's optical depth (cyan) over a darkened scene, the near tiles' fade band (where the near mist hands
 //     over) a dark ring on the land.
+//  5  why a ray has no curtain (see the colours in wfDebug)
 //  4  the far air's opacity on the land as grey (black inside the seam); sky pixels whose curtain hazed itself blue.
 
 #ifndef WELKIN_WF_DEBUG
@@ -54,6 +55,11 @@ vec3 wfDebug(vec3 scene, ivec2 px, bool sky, bool cloud, vec3 dir, float L, Clou
 #elif WF_DEBUG == 4
 	if (sky || cloud) return rain.alpha > 0.0 && sky ? vec3(0.1, 0.3, 1.0) * rain.alpha : scene * 0.25;
 	return vec3(a.on ? wfAirAlpha(a, L) : 0.0);
+#elif WF_DEBUG == 5
+	// why a ray has no curtain: black no stretch to walk, blue dry cells only, green a rainy cell, yellow its column
+	// hidden or missed, magenta a column with no depth, red a curtain (brighter the thicker)
+	vec3 k[6] = vec3[6](vec3(0.0), vec3(0.0, 0.0, 0.5), vec3(0.0, 0.6, 0.0), vec3(0.8, 0.8, 0.0), vec3(0.8, 0.0, 0.8), vec3(1.0, 0.0, 0.0));
+	return wfDbgState == 5 ? vec3(0.3 + 0.7 * clamp(rain.od, 0.0, 1.0), 0.0, 0.0) : k[wfDbgState];
 #else
 	return scene;
 #endif
