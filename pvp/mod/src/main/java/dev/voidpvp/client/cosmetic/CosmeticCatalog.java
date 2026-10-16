@@ -100,7 +100,7 @@ public final class CosmeticCatalog {
     // BEGIN GENERATED DATA
     static {
         add("origin-cape", Kind.CAPE, "Origin cape", "common", "free", 0, false, -1, false, false);
-        add("bespoke-cape", Kind.CAPE, "Bespoke cape", "rare", "paid", 299, true, 0x827A77, false, false);
+        add("bespoke-cape", Kind.CAPE, "Bespoke cape", "rare", "paid", 299, true, 0x76202F, false, false);
         add("meridian-cape", Kind.CAPE, "Meridian cape", "rare", "paid", 349, false, -1, false, false);
         add("atelier-cape", Kind.CAPE, "Atelier cape", "epic", "paid", 449, false, -1, false, false);
         add("nocturne-cape", Kind.CAPE, "Nocturne cape", "epic", "paid", 449, false, -1, false, false);

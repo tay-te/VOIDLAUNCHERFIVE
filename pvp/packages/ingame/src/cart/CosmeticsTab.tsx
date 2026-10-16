@@ -198,7 +198,10 @@ function ItemCard({
   );
 }
 
-const TINTS: readonly string[] = ['#eceef1', '#e8d9b0', '#c9d6e6', '#b8a8ff', '#ffb3c1', '#a8e6c6', '#7a7f88', '#2a2d33'];
+// The house's cloths (docs/cosmetics.md, "Fabrics"): a tint lands exactly on a tintable field, so
+// the swatches are the collection's fabric bases — oxblood, navy, bottle green, aubergine, camel,
+// cream, dove and charcoal — never colours the line is not dyed in.
+const TINTS: readonly string[] = ['#76202f', '#24346a', '#1e5643', '#552550', '#ad7e4c', '#e8dfcd', '#bab2c0', '#28252e'];
 
 function SlotPicker({ slot }: { slot: CosmeticSlot }) {
   const self = useCosmetics((s) => s.self);

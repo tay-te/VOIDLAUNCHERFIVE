@@ -9,7 +9,7 @@
  * cape's cloth), `g` an emissive [colour, alpha] or a function of the frame. `.` is a cut: no cloth.
  */
 
-import { CW, CH, J, M, N, cape, saveCape, stoneLight } from './collection.mjs';
+import { CW, CH, FAB, J, M, N, cape, saveCape, stoneLight } from './collection.mjs';
 
 /**
  * Builds a cape from an outer map and a lining rule. `legend[ch]` is { c, m?, g?(f) }. The hem
@@ -72,13 +72,13 @@ const metal = (r, k) => ({ c: r[k], m: 'metal' });
 
 /* ============================================================================== Atelier */
 
-/* Atelier (silver · amethyst): a taupe wool cape with an ivory V-yoke piped in polished silver,
- * the amethyst set as a brooch where the V closes, and a bias-cut hem — short on the left, long on
- * the right — finished in silver. A charcoal lining, like a good jacket's. */
+/* Atelier (silver · amethyst): aubergine wool with an ivory V-yoke piped in polished silver, the
+ * amethyst set as a brooch where the V closes, and a bias-cut hem — short on the left, long on the
+ * right — finished in silver. A dove-grey silk lining, so the dark plum flashes light as it moves. */
 function atelier() {
   const F = 8;
   const st = stone(J.amethyst, F);
-  const I = N.ivory, T = N.taupe, S = M.silver;
+  const I = N.ivory, T = FAB.aubergine, S = M.silver;
   saveIt('atelier-cape', {
     frames: F,
     rows: [
@@ -105,7 +105,7 @@ function atelier() {
       t: { c: T[2] }, T: { c: T[3] },
       A: st.sparkle, a: st.base, d: st.deep,
     },
-    lining: (x, y) => (y === 0 ? N.charcoal[3] : N.charcoal[2]),
+    lining: (x, y) => (y === 0 ? FAB.dove[4] : FAB.dove[3]),
     edge: (y, col) => (y <= 2 ? I[2] : y >= 12 ? S[1] : T[2]),
     top: () => I[3],
     meta: { stiffness: 0.95, weight: 1.3, frames: { count: F, fps: 5 } },
@@ -159,14 +159,14 @@ function regent() {
 
 /* ============================================================================= Nocturne */
 
-/* Nocturne (silver · ice-topaz): taupe wool under a darker yoke piped in silver, Cassiopeia
- * stitched in silver thread, and a glint of light that runs along the thread from star to star
- * to the one ice-topaz; silver scallops at the hem. An ivory lining. */
+/* Nocturne (silver · ice-topaz): midnight-navy wool under a deeper yoke piped in silver,
+ * Cassiopeia stitched in silver thread, and a glint of light that runs along the thread from star
+ * to star to the one ice-topaz; silver scallops at the hem. An ivory lining. */
 function nocturne() {
   const F = 12;
   // The glint's path along the thread, ending on the topaz.
   const PATH = [[1, 7], [2, 8], [3, 9], [4, 8], [5, 7], [6, 8], [7, 9], [8, 8], [8, 7]];
-  const T = N.taupe, S = M.silver, Z = J.topaz;
+  const T = FAB.navy, S = M.silver, Z = J.topaz;
   saveIt('nocturne-cape', {
     frames: F,
     rows: [
@@ -209,12 +209,13 @@ function nocturne() {
 
 /* ============================================================================= Meridian */
 
-/* Meridian (brass · jade): ivory and taupe halves meeting at a brass seam, a bone yoke with a
- * brass yoke line, the jade set at the seam's head, cut to a swallowtail and hemmed in brass. */
+/* Meridian (brass · jade): bottle-green wool cut in two tones, a lighter half and a deeper half
+ * meeting at a brass seam, a cream yoke with a brass yoke line, the jade set at the seam's head,
+ * cut to a swallowtail and hemmed in brass. A cream lining. */
 function meridian() {
   const F = 8;
   const st = stone(J.jade, F);
-  const I = N.ivory, T = N.taupe, B = N.bone, R = M.brass;
+  const G = FAB.bottle, B = N.bone, R = M.brass;
   saveIt('meridian-cape', {
     frames: F,
     rows: [
@@ -237,12 +238,12 @@ function meridian() {
     ],
     legend: {
       B: { c: B[4] }, b: { c: B[3] },
-      I: { c: I[3] }, i: { c: I[2] }, T: { c: T[3] }, t: { c: T[2] },
+      I: { c: G[3] }, i: { c: G[2] }, T: { c: G[2] }, t: { c: G[1] },
       M: metal(R, 3), m: metal(R, 2), h: metal(R, 2),
       A: st.sparkle, a: st.base, d: st.deep,
     },
     lining: (x, y) => (y === 0 ? B[3] : B[2]),
-    edge: (y, col) => (y <= 2 ? B[2] : y === 3 ? R[2] : col === 0 ? I[2] : T[2]),
+    edge: (y, col) => (y <= 2 ? B[2] : y === 3 ? R[2] : col === 0 ? G[2] : G[1]),
     top: () => B[3],
     meta: { stiffness: 0.92, weight: 1.15, frames: { count: F, fps: 5 } },
   });
@@ -250,12 +251,13 @@ function meridian() {
 
 /* ============================================================================== Bespoke */
 
-/* Bespoke (silver · pearl): wool in any colour (the field is tintable, taupe by default), an
- * ivory yoke piped in silver with a pearl at the clasp, a silver hem line, rounded corners. */
+/* Bespoke (silver · pearl): wool in the colour you choose from the house's cloths (the field is
+ * tintable; oxblood by default, `default_tint` in the catalog is its base), an ivory yoke piped in
+ * silver with a pearl at the clasp, a silver hem line, rounded corners. An ivory lining. */
 function bespoke() {
   const F = 8;
   const st = stone(J.pearl, F);
-  const I = N.ivory, T = N.taupe, S = M.silver;
+  const I = N.ivory, T = FAB.oxblood, S = M.silver;
   const rows = [
     'IIIIIIIIII',
     'iiiiiiiiii',
@@ -280,11 +282,13 @@ function bespoke() {
     legend: {
       I: { c: I[4] }, i: { c: I[3] },
       s: metal(S, 3), q: metal(S, 2), h: metal(S, 2),
-      F: { c: T[3] }, f: { c: T[2] },
+      F: { c: T[2] }, f: { c: T[1] },
       P: st.sparkle, p: st.base,
     },
-    // The tint mask: the field only, light grey so the default tint lands on the taupe it shows.
-    tint: (x, y) => (rows[y][x] === 'F' ? [255, 255, 255] : rows[y][x] === 'f' ? [212, 212, 212] : null),
+    // The tint mask: the field only. White lands the tint exactly — the default tint is the
+    // field's base, so the tinted cape is the painted one — and the shadow row under the yoke
+    // at about the painted ramp's ratio.
+    tint: (x, y) => (rows[y][x] === 'F' ? [255, 255, 255] : rows[y][x] === 'f' ? [178, 178, 178] : null),
     lining: (x, y) => (y === 0 ? I[4] : I[3]),
     edge: (y) => (y <= 2 ? I[2] : y === 3 || y === 14 ? S[1] : T[2]),
     top: () => I[3],
@@ -294,12 +298,12 @@ function bespoke() {
 
 /* =============================================================================== Origin */
 
-/* Origin (steel · pearl glint), every account's: taupe herringbone wool, a brushed steel collar
- * band, a weighted charcoal hem under a steel line, and one silver thread down the right with a
- * glint of light running down it: the first thread. */
+/* Origin (steel · pearl glint), every account's: camel herringbone wool, a brushed steel collar
+ * band, a weighted hem of deeper camel under a steel line, and one silver thread down the right
+ * with a glint of light running down it: the first thread. A cream lining. */
 function origin() {
   const F = 16;
-  const T = N.taupe, E = M.steel, S = M.silver;
+  const C = FAB.camel, E = M.steel, S = M.silver;
   const TH = 6; // the thread's column
   saveIt('origin-cape', {
     frames: F,
@@ -322,13 +326,13 @@ function origin() {
       'WWWWWWWWWW',
     ],
     legend: {
-      U: { c: T[4] },
-      F: { c: T[3] }, f: { c: T[2] },
+      U: { c: C[3] },
+      F: { c: C[2] }, f: { c: C[1] },
       e: metal(E, 3), E: metal(E, 2),
-      l: metal(S, 2), W: { c: N.charcoal[3] },
+      l: metal(S, 3), W: { c: C[1] },
     },
     // Herringbone under 3% value: it reads as cloth up close and is gone at range.
-    vary: (x, y, ch) => (ch === 'F' && (((x & 1) ? y + x : y - x + 32) % 4 === 0) ? '#878079' : null),
+    vary: (x, y, ch) => (ch === 'F' && (((x & 1) ? y + x : y - x + 32) % 4 === 0) ? '#a87a49' : null),
     glowAt: (x, y, f) => {
       if (x !== TH || y < 3 || y > 13) return null;
       const k = y - 3;
@@ -336,9 +340,9 @@ function origin() {
       if (k === f - 1) return [J.pearl[3], 80];
       return null;
     },
-    lining: (x, y) => (y === 0 ? N.bone[3] : N.bone[2]),
-    edge: (y) => (y === 2 || y === 14 ? E[1] : y === 15 ? N.charcoal[2] : T[2]),
-    top: () => T[3],
+    lining: (x, y) => (y === 0 ? N.ivory[4] : N.ivory[3]),
+    edge: (y) => (y === 2 || y === 14 ? E[1] : y === 15 ? C[0] : C[1]),
+    top: () => C[3],
     meta: { stiffness: 0.92, weight: 1.15, frames: { count: F, fps: 6 } },
   });
 }

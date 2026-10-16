@@ -18,6 +18,23 @@ export const N = {
   ink: '#0d0c12',
 };
 
+/**
+ * Fabrics: the cloth a cape (or a set's hood or hat band) is cut from — deep, rich wool and felt
+ * under the metal and the jewel, the way a house dyes its cloth: one per set, chosen to sit with
+ * the set's metal and jewel. Hue-shifted like every ramp (shadows cool toward violet-blue, lights
+ * warm and a little paler); the base (index 2) is the field's colour, dark enough to stay quiet
+ * behind trim and jewel and saturated enough to read as colour, not grey, at ten blocks.
+ */
+export const FAB = {
+  oxblood: ['#2b0d1d', '#521829', '#76202f', '#983536', '#bd6049'],
+  navy: ['#0d1229', '#182448', '#24346a', '#374c88', '#5f70a0'],
+  aubergine: ['#1d0e22', '#38173d', '#552550', '#713866', '#94587a'],
+  bottle: ['#0b2224', '#123a33', '#1e5643', '#2f7352', '#5b9061'],
+  camel: ['#4a2f24', '#7d5535', '#ad7e4c', '#cfa068', '#ead09c'],
+  /** Linings: a cool pale silk for the dark fabrics, so a lining flashes light when it moves. */
+  dove: ['#5e5868', '#8f8796', '#bab2c0', '#d8d2dc', '#f0ecf2'],
+};
+
 /** Metals: trim, clasps, bands, settings, spars. */
 export const M = {
   gold: ['#3d2410', '#7a4f1c', '#c08a35', '#eec064', '#fff1bf'],
