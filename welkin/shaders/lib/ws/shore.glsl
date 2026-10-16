@@ -2,8 +2,8 @@
 //
 // The water's own pass sees one fragment and the depth behind it: it finds the shore only where the water thins over
 // a sloping bed. At a bank (a grass edge over water a block or more deep, the commonest shore in Minecraft) the bed
-// does not rise, and no foam showed anywhere. So the shore is looked for on screen: round each near water pixel, two
-// rings of eight probes about a block and half a block out (in world size, so the band keeps its width with distance)
+// does not rise, and no foam showed anywhere. So the shore is looked for on screen: round each near water pixel, three
+// rings of eight probes 0.2, 0.5 and 0.9 blocks out (in world size, so the band keeps its width with distance)
 // look for land standing at the water's own level (a bank, a beach, a rock: from a little under the surface to two
 // blocks over it); the nearest one found, in blocks across the water, sets the band. The band breathes in and out
 // with a slow swell, its foam in the water's own 1/16-block pixels (crisp, drifting slowly), lit at the water's own
@@ -82,11 +82,14 @@ vec3 wsShoreFoam(ivec2 p, vec2 uv, vec3 color) {
 	float bpp = blocksPerPixelAt(dist, gbufferProjection[1][1], viewHeight);
 	float swell = 0.5 + 0.5 * sin(frameTimeCounter * 0.9 + wsShoreValue((w.xz + vec2(cameraPositionInt.xz & 1023) + cameraPositionFract.xz) * 0.11, 9) * 6.2832);
 	float reach = mix(WS_SHORE_NEAR, WS_SHORE_FAR, swell);
+	// three rings of eight probes, 0.2, 0.5 and 0.9 blocks out: the nearest ring that meets the bank says how far off
+	// its edge is (between that ring and the one inside it)
 	float best = 1e9;
-	for (int ring = 0; ring < 2; ring++) {
-		float rpx = clamp((ring == 0 ? 1.1 : 0.55) / bpp, 1.5, 48.0);
+	const float radii[3] = float[3](0.2, 0.5, 0.9);
+	for (int ring = 0; ring < 3; ring++) {
+		float rpx = clamp(radii[ring] / bpp, 1.0, 48.0);
 		for (int i = 0; i < 8; i++) {
-			float ang = (float(i) + 0.5 * float(ring)) * 0.785398;
+			float ang = (float(i) + 0.5 * float(ring & 1)) * 0.785398;
 			ivec2 q = p + ivec2(round(vec2(cos(ang), sin(ang)) * rpx));
 			if (any(lessThan(q, ivec2(0))) || any(greaterThanEqual(q, ivec2(res)))) {
 				continue;
@@ -103,13 +106,16 @@ vec3 wsShoreFoam(ivec2 p, vec2 uv, vec3 color) {
 			if (dy < -0.7 || dy > 2.0) {
 				continue;
 			}
-			best = min(best, length(e.xz - w.xz));
+			best = min(best, min(length(e.xz - w.xz), radii[ring]) - (ring == 0 ? 0.15 : 0.5 * (radii[ring] - radii[ring - 1])));
+		}
+		if (best < 1e8) {
+			break;
 		}
 	}
 	if (best > reach) {
 		return color;
 	}
-	float band = 1.0 - smoothstep(0.1, reach, best);
+	float band = 1.0 - smoothstep(0.0, reach, max(best, 0.0));
 	vec2 wp = vec2(cameraPositionInt.xz & 1023) + cameraPositionFract.xz + w.xz;
 	vec2 fp = (floor(wp * 16.0) + 0.5) / 16.0;
 	float pix = smoothstep(0.38, 0.68, 0.65 * wsShoreValue(fp * 1.7 + frameTimeCounter * 0.06, 11)
