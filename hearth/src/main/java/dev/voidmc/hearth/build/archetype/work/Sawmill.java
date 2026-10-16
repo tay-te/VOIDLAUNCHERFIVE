@@ -134,8 +134,13 @@ public final class Sawmill implements Archetype {
 		Mat log = d.mat(Role.FRAME);
 		Mat boards = d.mat(Role.FLOOR);
 		int blade = (x0 + x1) / 2;
+		// the bench stops a cell short of the far end: the way round it to the aisle and the back wall
+		int pass = x1 - 1;
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			for (int x = x0 + 1; x <= x1 - 1; x++) {
+				if (x == pass && pass > blade + 1) {
+					continue;
+				}
 				if (x == blade) {
 					d.set(x, 0, z, States.facing(Blocks.STONECUTTER, Dirs.FRONT));
 				} else if (x < blade) {
@@ -149,7 +154,7 @@ public final class Sawmill implements Archetype {
 				d.set(x, 1, z, log.log(Direction.Axis.X));
 			}
 			// sawn boards beyond
-			for (int x = blade + 1; x <= Math.min(x1 - 1, blade + 2); x++) {
+			for (int x = blade + 1; x <= Math.min(pass - 1, blade + 2); x++) {
 				d.set(x, 1, z, boards.slab(SlabType.BOTTOM));
 			}
 		}

@@ -246,7 +246,14 @@ public final class Quarry implements Archetype {
 			d.poi(PoiType.JOB_SITE, gate, 0, 2, Dirs.BACK, JobType.QUARRIER);
 		}
 		int hx = shedLeft ? w - 3 : 2;
-		Props.heap(d, hx - 1, 3, hx + 1, fz, 0, new Block[]{Blocks.GRAVEL, rock[2], Blocks.COBBLESTONE}, null);
+		// the spoil heap stands clear of the ramp's head, so the ramp climbs out onto the yard
+		int rampX = px0 + rx;
+		if (Math.abs(hx - rampX) < 2) {
+			hx = rampX + 3 <= w - 2 ? rampX + 2 : rampX - 3 >= 1 ? rampX - 2 : Integer.MIN_VALUE;
+		}
+		if (hx != Integer.MIN_VALUE) {
+			Props.heap(d, hx - 1, 3, hx + 1, fz, 0, new Block[]{Blocks.GRAVEL, rock[2], Blocks.COBBLESTONE}, null);
+		}
 
 		// the fence round the plot, open at the gate (the face plan's rim a dry-stone wall, the plot otherwise open)
 		int head = px0 + rx;
