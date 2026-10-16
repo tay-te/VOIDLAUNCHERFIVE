@@ -166,7 +166,9 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	float spray = fall * (1.0 - smoothstep(1.5, 5.0, dist));
 	vec3 albedo = waterTone(w.tint) * mix(vec3(0.75), w.tex, WS_TEXTURE_SHARE * (1.0 - spray)) * wsSeasonWater(sea);
 	vec3 faceN = welkinWaterNormal(w.geoNormal);
-	float facing = sunFacing(mix(dot(top ? N : faceN, L), dot(faceN, L), fall));
+	// (review round 1: a fall's faces take the sun mostly about its one shared normal, so the steps of a cascade do not
+	// light up one by one into bright edges and dark facets of glass)
+	float facing = sunFacing(mix(dot(top ? N : faceN, L), mix(dot(faceN, L), dot(N, L), 0.7), fall));
 	vec3 sunShare = w.sunShare * wsSeasonSun(sea);
 
 	// opacity from the water the view crosses; rain stirs it up
@@ -207,6 +209,10 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	// share of the lit tint, least in the shallows (they showed the bed through a milky veil at 08:00 and noon), and
 	// whole again on a fall and its foam
 	body *= mix(mix(WS_SCATTER_SHALLOW, WS_SCATTER_DEEP, smoothstep(WS_ALPHA_MIN, WS_ALPHA_MAX, a)), 1.0, max(fall, foam));
+	// (review round 1) a sunlit fall is bright, never blown out: its white foam in the full sun stays under the
+	// sunlit pale stone beside it, so its streaks keep their texture
+	float bodyY = dot(body, vec3(0.2126, 0.7152, 0.0722));
+	body *= mix(1.0, min(1.0, 0.74 / max(bodyY, 1e-3)), fall);
 
 	if (fromBelow) {
 		// from under water: the Snell window (about 49 degrees) shows the world above; outside it the surface mirrors

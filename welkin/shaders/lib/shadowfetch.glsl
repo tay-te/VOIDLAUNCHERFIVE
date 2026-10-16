@@ -81,6 +81,10 @@ float lightShadowFetch(ivec2 p, Surface s, vec3 playerPos, vec3 n, float sky, in
 				lr.y = sqrt(max(1.0 - dot(lr.xz, lr.xz), 0.0));
 				tint *= clamp(sunFacing(dot(n, lr)) / facing, 1.0, 4.0);
 			}
+			// (review round 1) but a low sun mostly glances off the surface (Fresnel: at 5 degrees above the water
+			// about half of it is thrown back, at 2 degrees most): its light on a bed is weaker, so the bank's long
+			// shadows across a lake bed at dawn and dusk read as soft lanes, not dark bars over the water
+			tint *= mix(0.3, 1.0, smoothstep(0.02, 0.35, l.y));
 		} else if (reach > 0.0) {
 			tint = shadowGlassTint(shadowSpotDry(playerPos, n, l, matThin(m)));
 		}

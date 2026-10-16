@@ -339,9 +339,11 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		float sw = wcSunward(rd, e);
 		vec3 behind = skyDomeOnly(rd, skyFrame());
 		// (rose away from the sun, peach toward it; their own colour, the clouds glow in the low sun's light)
-		vec3 hueF = mix(vec3(0.95, 0.60, 0.68), vec3(1.0, 0.68, 0.48), sw);
+		vec3 hueF = mix(vec3(0.97, 0.72, 0.70), vec3(1.0, 0.70, 0.50), sw);
 		hueF /= wcLuma(hueF);
-		float lift = (n.y > 0.5 ? 1.5 : (n.y < -0.5 ? 1.3 : 1.4)) * mix(1.0, 1.25, sw * sw) * mix(1.12, 0.82, b.depth * lower)
+		// (thin rims and ragged edges brightest, the thick heart of a belly a soft shade under them: the forms read)
+		float lift = (n.y > 0.5 ? 1.5 : (n.y < -0.5 ? 1.3 : 1.4 * mix(0.85, 1.1, b.hIn))) * mix(1.0, 1.25, sw * sw)
+			* mix(1.22, 0.74, b.depth * mix(0.6, 1.0, lower))
 			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
 		vec3 fl = hueF * (wcLuma(behind) * lift);
 		c = mix(c, max(c, fl), glowK);

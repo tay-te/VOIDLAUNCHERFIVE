@@ -167,7 +167,12 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	// the night's fill a little less blue than the moon's own light: the shade reads as dark, not as blue paint
 	vec3 nightAmb = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
 	nightAmb = mix(nightAmb, vec3(dot(nightAmb, vec3(0.2126, 0.7152, 0.0722))), 0.3);
-	m.ambient = mix(dayAmb, nightAmb, m.nightStep) * m.ambientFactor * (1.0 - s.blind);
+	// (review round 1) while the sun is still up the fill is the dusk sky's, not yet the moon's: lilac-blue from the
+	// rose and mauve dome, at the same brightness (the night step's light ramp stays), so a dawn lake and the shade at
+	// dusk are not moonlit navy with the sun still five degrees up
+	float sunUpA = skySmooth(-0.10, 0.10, sunW.y);
+	dayAmb = mix(dayAmb, vec3(0.66, 0.62, 0.76), 0.4 * lowRose);
+	m.ambient = mix(dayAmb, nightAmb, m.nightStep * (1.0 - 0.75 * sunUpA)) * m.ambientFactor * (1.0 - s.blind);
 	return m;
 }
 
