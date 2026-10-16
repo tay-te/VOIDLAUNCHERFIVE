@@ -92,7 +92,7 @@ float shaftResolve(ivec2 p, float dist) {
 vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, float thick) {
 	float mu = dot(dirW, sunW);
 	// a strong forward lobe (the beams toward the sun) and a broad one (side-on, a soft directional glow)
-	float lobe = 0.62 * airHg(mu, 0.86) + 0.38 * airHg(mu, 0.45);
+	float lobe = 0.75 * airHg(mu, 0.88) + 0.25 * airHg(mu, 0.5);
 	// the sun's light: its own hue, led toward the warm gold through the golden hours (display, luma 1)
 	vec3 hue = pow(mix(f.hue, f.gold, 0.55) * 0.4, vec3(1.0 / 2.2));
 	hue /= max(dot(hue, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
@@ -100,7 +100,7 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, f
 	vec3 sunSide = skyHazeHorizon(kind, true);
 	float level = max(dot(sunSide, vec3(0.2126, 0.7152, 0.0722)), 0.3);
 	float gate = shaftGate(sunW) * f.clear * f.day * mix(0.75, 1.0, f.warm);
-	float x = float(SHAFT_STRENGTH) * 0.01 * SHAFT_GAIN * lobe * gate * lit * thick * (sky ? 0.3 : 1.0);
+	float x = float(SHAFT_STRENGTH) * 0.01 * SHAFT_GAIN * lobe * gate * lit * thick * (sky ? 0.2 : 1.0);
 	// a soft cap: never more than SHAFT_CAP of the sun-side level, however long the sunlit air
 	return hue * level * (SHAFT_CAP * (1.0 - exp(-x / SHAFT_CAP)));
 }

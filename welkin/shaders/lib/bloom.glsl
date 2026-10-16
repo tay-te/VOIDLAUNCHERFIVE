@@ -31,7 +31,7 @@
 #define BLOOM_THRESHOLD 0.85
 #define BLOOM_KNEE 0.35
 // how much of the bright share scatters into the halo at strength 100
-#define BLOOM_SCATTER 0.46
+#define BLOOM_SCATTER 0.55
 
 float bloomLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -41,7 +41,7 @@ float bloomLuma(vec3 c) {
 float bloomHeadroom(vec3 lin, float emit) {
 	float y = mix(bloomLuma(lin), max(lin.r, max(lin.g, lin.b)), 0.25);
 	float s = smoothstep(0.5, 1.0, y);
-	return (1.0 + 8.0 * s * s * s) * (1.0 + 4.0 * emit);
+	return (1.0 + 8.0 * s * s * s) * (1.0 + 8.0 * emit);
 }
 
 // The bright share of display colour `display` (linear, with headroom). emit 0..1 a glowing texel's own light.
@@ -55,8 +55,9 @@ vec3 bloomSource(vec3 display, float emit) {
 	return lin * clamp(share, 0.0, 1.0);
 }
 
-// The halo `glow` (linear, with headroom) laid on display colour c; `lend` 1 lends the pixel's own bright share out
-// (energy-conserving), 0 only adds (the sky). Display in, display out (before final's shoulder).
+// The halo `glow` (linear, with headroom) laid on display colour c; `lend` how much of the pixel's own bright share it
+// lends out (1 wholly energy-conserving; final lends half on the land, so a lamp's small flame keeps its brightness
+// beside its halo, and nothing on the sky). Display in, display out (before final's shoulder).
 vec3 bloomApply(vec3 c, vec3 glow, float emit, float lend) {
 	float k = BLOOM_SCATTER * float(BLOOM_STRENGTH) * 0.01;
 	vec3 lin = pow(max(c, 0.0), vec3(2.2));

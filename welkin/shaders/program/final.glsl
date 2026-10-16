@@ -91,8 +91,8 @@ void main() {
 #ifdef DISTANT_HORIZONS
 		d = min(d, texelFetch(dhDepthTex0, p, 0).r);
 #endif
-		// (the sky lends nothing out: the pixel sun, moon and stars keep their whole brightness)
-		c = bloomApply(c, texture(colortex9, texcoord).rgb, emit, d >= 1.0 ? 0.0 : 1.0);
+		// (the sky lends nothing out: the pixel sun, moon and stars keep their whole brightness; the land half)
+		c = bloomApply(c, texture(colortex9, texcoord).rgb, emit, d >= 1.0 ? 0.0 : 0.5);
 	}
 #endif
 	// ---- end atmos
