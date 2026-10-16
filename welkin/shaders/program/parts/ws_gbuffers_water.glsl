@@ -139,6 +139,12 @@ void main() {
 		// a cascade over the eye, a fall's lip from its foot): it is the view from under water, split along the other
 		// diagonal, and stood over the sheet as dark and pale triangles (and a black one with the eye in a fall). Only a
 		// real underside stays: a level face at a block's foot (water over air).
+		// The copy can also arrive front-facing with the top's own upward normal (its winding turned, its normal not):
+		// a top seen from under its plane with the eye in the air is that copy too, and was shaded as the view from
+		// under water, near black (the black triangle with the eye at a fall, dark triangles up a cascade).
+		if (isEyeInWater != 1 && nW.y > 0.1 && dot(eyePos, nW) > 0.0) {
+			discard;
+		}
 		if (isEyeInWater != 1 && nW.y < -0.5) {
 			float yIn = fract(eyePos.y + cameraPositionFract.y + 1e-3);
 			if (nW.y > -0.999 || yIn > 0.01) {
