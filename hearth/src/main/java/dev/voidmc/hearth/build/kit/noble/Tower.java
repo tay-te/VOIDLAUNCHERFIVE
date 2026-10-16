@@ -299,7 +299,8 @@ public final class Tower {
 				// only where the cell faces the wall square on (no lone corner stairs on a curve)
 				int wx = c[0] + Dirs.dx(toWall);
 				int wz = c[1] + Dirs.dz(toWall);
-				if (!wall(wx, wz)) {
+				// nor where it would run on from a walk or a deck beside the tower as a ledge round it
+				if (!wall(wx, wz) || Mason.ledge(d, c[0], y, c[1], toWall)) {
 					continue;
 				}
 				d.set(c[0], y, c[1], m.dress.stairsOrSlab(toWall, Half.TOP));
@@ -609,6 +610,14 @@ public final class Tower {
 				}
 				try (var s = d.stage(StageKind.FLOORS)) {
 					d.set(px, level - 1, pz, m.paving.full());
+				}
+				// the drip course beside the threshold outside goes: it would be a ledge out of the doorway
+				for (Direction side : Dirs.HORIZONTAL) {
+					int nx = px + Dirs.dx(side);
+					int nz = pz + Dirs.dz(side);
+					if (!in(nx, nz) && Mason.course(d.get(nx, level - 1, nz)) && d.isEmpty(nx, level, nz)) {
+						d.set(nx, level - 1, nz, air);
+					}
 				}
 			}
 			this.doorways.add(new int[]{x, z, level});

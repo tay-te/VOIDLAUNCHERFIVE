@@ -331,7 +331,7 @@ public final class Range {
 		return this;
 	}
 
-	/** Lays the treads of every planned flight, a rail of the furniture's fence along the open side of each well. */
+	/** Lays the treads of every planned flight, a rail of the furniture's fence over the low end of each well. */
 	public Range flights(Draft d, Dress m) {
 		BlockState air = Blocks.AIR.defaultBlockState();
 		try (var s = d.stage(StageKind.FLOORS)) {
@@ -350,6 +350,16 @@ public final class Range {
 					d.set(x, y, z, m.furniture.stairsOrSlab(dir, Half.BOTTOM));
 					for (int yy = y + 1; yy <= y + 3 && yy < floorY(k + 1) + 3; yy++) {
 						d.set(x, yy, z, air);
+					}
+				}
+				// the rail: over the well's low end, where it drops more than three from the floor above, a fence
+				// at the upper floor's standing level (a full row clear over every climber's head below it)
+				int up = floorY(k + 1);
+				for (int i = 0; i <= len - 3; i++) {
+					int x = w[0] + Dirs.dx(dir) * i;
+					int z = w[1] + Dirs.dz(dir) * i;
+					if (d.isEmpty(x, up, z) && f + i + 3 < up) {
+						d.set(x, up, z, m.furniture.fence());
 					}
 				}
 			}

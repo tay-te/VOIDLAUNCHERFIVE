@@ -13,6 +13,8 @@ import java.util.List;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
@@ -158,7 +160,7 @@ public final class Mason {
 	 * oversailing parapet, a turret, a hoarding).
 	 */
 	public static void corbel(Draft d, Stone st, int x, int y, int z, Direction toWall) {
-		if (ok(d, x, y, z) && d.isEmpty(x, y, z)) {
+		if (ok(d, x, y, z) && d.isEmpty(x, y, z) && !ledge(d, x, y, z, toWall)) {
 			d.set(x, y, z, st.stairsOrSlab(toWall, Half.TOP));
 		}
 	}
@@ -268,9 +270,41 @@ public final class Mason {
 		if (overPlaced || overGround) {
 			return;
 		}
-		if (ok(d, x, y, z) && d.isEmpty(x, y, z)) {
+		if (ok(d, x, y, z) && d.isEmpty(x, y, z) && !ledge(d, x, y, z, toWall)) {
 			d.set(x, y, z, m.dress.stairsOrSlab(toWall, Half.TOP));
 		}
+	}
+
+	/**
+	 * Whether a course block (a sill, a corbel, a string course: an upside-down stair at y against the wall toward
+	 * {@code toWall}) would join a floor folk stand on beside it, flush or a step down from it (a walk, a deck, a tower's
+	 * landing): then it is a ledge to walk out on along the wall's face, and is left out.
+	 */
+	/** Whether a block is a course block: an upside-down stair or a top slab, hung on a wall's face. */
+	public static boolean course(@org.jspecify.annotations.Nullable BlockState st) {
+		return st != null && (st.getBlock() instanceof StairBlock && st.getValue(StairBlock.HALF) == Half.TOP
+			|| st.getBlock() instanceof SlabBlock && st.getValue(SlabBlock.TYPE) == SlabType.TOP);
+	}
+
+	public static boolean ledge(Draft d, int x, int y, int z, Direction toWall) {
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (dir == toWall) {
+				continue;
+			}
+			int nx = x + Dirs.dx(dir);
+			int nz = z + Dirs.dz(dir);
+			for (int top = y; top <= y + 1; top++) {
+				BlockState st = d.get(nx, top, nz);
+				if (st == null || !d.isSolid(nx, top, nz) || !d.isEmpty(nx, top + 1, nz) || !d.isEmpty(nx, top + 2, nz)) {
+					continue;
+				}
+				// another course block beside it is the course running on, not a floor
+				if (!course(st)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** A vertical log of a mat, or its full block where it has no logs. */
