@@ -151,9 +151,10 @@ public class FolkNight implements FabricClientGameTest {
 				}
 				SimPlot home = r.home == Resident.NO_PLOT ? null : s.plot(r.home);
 				if (detail.length() < 6000) {
-					detail.append(String.format(Locale.ROOT, "%n    - %s (%s, %s) home %s: at %s, bed %s (%.0f away, dy %d), %s; %s", f.folkName(),
+					detail.append(String.format(Locale.ROOT, "%n    - %s (%s, %s) home %s: at %s (in %s, on %s), bed %s (%.0f away, dy %d), %s; %s", f.folkName(),
 						r.job.getSerializedName(), r.age.getSerializedName(), home == null ? "none" : home.spec().archetype().getPath() + " #" + home.id(),
-						f.blockPosition().toShortString(), bed == null ? "-" : bed.toShortString(), bed == null ? 0.0 : Math.sqrt(bed.distSqr(f.blockPosition())),
+						f.blockPosition().toShortString(), f.getInBlockState().getBlock().getName().getString(), f.getBlockStateOn().getBlock().getName().getString(),
+						bed == null ? "-" : bed.toShortString(), bed == null ? 0.0 : Math.sqrt(bed.distSqr(f.blockPosition())),
 						bed == null ? 0 : bed.getY() - f.getBlockY(), what, path));
 				}
 			}
