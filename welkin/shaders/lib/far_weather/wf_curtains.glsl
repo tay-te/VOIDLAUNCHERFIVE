@@ -206,7 +206,7 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 				float hm = tm * hk;
 				float fade = smoothstep(WF_CURTAIN_START, WF_CURTAIN_START + WF_CURTAIN_FADE_IN, hm)
 					* (1.0 - smoothstep(0.8 * reach, reach, hm));
-				float odi = (tOut - tIn) * WF_CURTAIN_DENSITY * rain * mix(1.0, 1.6, storm) * profile * fade;
+				float odi = (tOut - tIn) * WF_CURTAIN_DENSITY * sqrt(rain) * mix(1.0, 1.6, storm) * profile * fade;
 				if (first && odi > 0.0) {
 					// soft streaks on the nearest column, across its face in the weather's own frame (they travel with
 					// it), drifting slowly down
@@ -259,7 +259,7 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 	float lowSun = 1.0 - smoothstep(0.10, 0.45, l.y);
 	float forward = pow(clamp(dot(dir, l), 0.0, 1.0), 5.0) * mix(0.25, 0.7, lowSun) * (1.0 - 0.6 * storm);
 	vec3 base = mix(skyCloud(SKY_CLOUD_BASE), skyCloud(SKY_CLOUD_STORM), smoothstep(0.1, 0.7, storm));
-	vec3 c = base * mix(0.86, 0.62, storm);
+	vec3 c = base * mix(0.74, 0.5, storm);
 	c += skyHorizon(true) * forward * (1.0 - skyNightStep());
 	c += skyFlashLight() * (0.25 + 0.75 * storm) * 0.6;
 	layer.color = c;
