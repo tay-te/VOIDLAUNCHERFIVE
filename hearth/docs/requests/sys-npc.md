@@ -44,3 +44,11 @@ no step); the desert townhouse's bed alcove (a one-block step up a folk takes bu
 and stood there. The npc side now sends someone with no home to doze on an inn bench (or rests them at the centre
 when there is no inn), but a city whose plots are all built should have housed its lord (the keep's or a manor's
 beds) and its people: worth a look in the sim's housing assignment.
+
+## 5. Build: civic/cemetery fails the walkability invariant (full build red, not from this lane)
+
+The full build on this branch (cut from `hearth` at dc19d9ad; this lane changed nothing under `build/` or `plan/`)
+ran 2 238 tests with 4 failures, all `civic/cemetery`: `BlueprintInvariantsTest.everyVariantHoldsTheInvariants` and
+three `SocialLifeTest` cases (flat steppe seed 41462 west; northern seed 28140 west on slope and steep, 25×13). Each
+time one `JOB_SITE` (the priest's, at x -2, the plot's west edge) cannot be walked to from a door. For the civic /
+social-life lane that owns the cemetery.

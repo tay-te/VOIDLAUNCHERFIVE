@@ -4,7 +4,8 @@ Wave 7, systems track, lane `hearth-sys-npc`. Scope: `dev.voidmc.hearth.npc` and
 buildings are other lanes'; where folk meet building geometry the finding goes to `docs/requests/sys-npc.md`.
 
 How it was checked: the code read end to end along the flows a player meets; unit tests (`./gradlew test --tests
-'dev.voidmc.hearth.npc.*'`, 82 tests, all pass); and a new client tour, **`FolkNight`** (`-Dhearth.tour=folknight`),
+'dev.voidmc.hearth.npc.*'`, 82 tests, all pass; the full build ran 2 238 tests, the only 4 failures being the
+`civic/cemetery` walkability invariant, not this lane's: `docs/requests/sys-npc.md` §5); and a new client tour, **`FolkNight`** (`-Dhearth.tour=folknight`),
 which grows a real town with the sim (100 days), has the applier write it, and then checks rather than photographs:
 who is in bed at night (and, for anyone who is not, where they stand, what they are doing, and whether a path to
 their bed exists from there), a fold and re-embody round trip (walk 600 blocks away and back), who is at work in the
