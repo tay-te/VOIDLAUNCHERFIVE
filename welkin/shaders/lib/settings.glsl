@@ -113,6 +113,18 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define MIST_THICKNESS 1.0 // [0.5 0.75 1.0 1.5 2.0]
 // Mist detail: How many points across the land the mist looks at to find the hollows it fills. More gives the mist a truer shape.  [mist]
 #define MIST_SAMPLES 3 // [2 3 4]
+// ---- atmos (welkin-atmos, 2026-10-16): the luminous sky and the volumetric haze (lib/sky/luminous.glsl, lib/haze/volume.glsl)
+// Luminous sky: The whole dome feels lit: a bright, soft band along the horizon, a wide glow toward the sun that warms to amber at a low sun, and a deeper, clearer blue overhead. The far land and the clouds fade into the same bright air.  [sky]
+#define SKY_LUMINOUS
+// Sky glow: How bright the horizon band and the glow toward the sun are.  [sky]
+#define SKY_GLOW 100 // [50 75 100 125 150]
+// Volumetric haze: Haze lit by the sun through the shadows of trees, ridges and clouds, so light and shadow show in the air: thicker in valleys, low ground and toward the horizon, warm toward the sun and cool away from it, by country, humidity, mist and weather. Smooth, with no grain.  [haze]
+#define HAZE_VOLUME
+// Volumetric haze strength: How thick the volumetric haze is.  [haze]
+#define HAZE_VOLUME_STRENGTH 100 // [50 75 100 125 150 200]
+// Volumetric haze detail: How many points along each view the volumetric haze looks at. More gives cleaner light and shadow in the air.  [haze]
+#define HAZE_VOLUME_STEPS 20 // [12 16 20 28]
+// ---- end atmos
 // ---- Clouds
 // Block clouds: Solid clouds made of blocks, drawn by the shader and shaped by the weather. Off brings back the normal Minecraft clouds.  [clouds]
 #define CLOUDS
@@ -288,5 +300,11 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #endif
 #ifdef DEBUG_JOIN
 #endif
+// ---- atmos (welkin-atmos)
+#ifdef SKY_LUMINOUS
+#endif
+#ifdef HAZE_VOLUME
+#endif
+// ---- end atmos
 
 #endif

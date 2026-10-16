@@ -67,6 +67,13 @@ void main() {
 #define WELKIN_SHAFTS_READ
 #include "/lib/shafts.glsl"
 #endif
+// ---- atmos (welkin-atmos): the luminous sky's air and the volumetric haze (lib/sky/luminous.glsl, lib/haze/volume.glsl)
+#include "/lib/sky/luminous.glsl"
+#ifdef HAZE_VOLUME
+#define HV_READ
+#include "/lib/haze/volume.glsl"
+#endif
+// ---- end atmos
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 #include "/lib/haze/haze_debug.glsl"
 #endif
@@ -270,9 +277,18 @@ void main() {
 		HzState st = hzState();
 		vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
 		vec3 air = skyHazeAir(st.kind, normalize(eyePos), sunW);
+		// ---- atmos (welkin-atmos): the haze's air is the luminous sky's horizon too, so the far land fades into the
+		// same bright band the sky shows over it (below the horizon: the horizon's own light in that direction)
+		SkyLum lum = skyLumFrame(sunW);
+		{
+			vec3 dA = normalize(eyePos);
+			dA = dA.y < 0.0 ? normalize(vec3(dA.x, 0.0, dA.z) + vec3(1e-5, 0.0, 0.0)) : dA;
+			air = skyLuminous(air, dA, lum, 0.6);
+		}
 		// ---- air and tone (D): the haze's forward scatter toward the sun (lib/air.glsl)
 		vec3 airPlain = air;
 		air = airMie(air, normalize(eyePos), sunW, st.kind);
+		air = skyLumCap(air); // atmos: the forward scatter's added glow keeps its hue under white
 		vec3 n = s.sky ? vec3(0.0, 1.0, 0.0) : hzScreenNormal(eyePos);
 		WelkinHaze h;
 		if (finished) {
@@ -313,10 +329,28 @@ void main() {
 			color.rgb = valleyMistWith(p, uv, color.rgb, mt, ma);
 		}
 #endif
+		// ---- atmos (welkin-atmos): the volumetric haze (lib/haze/volume.glsl), its light and shadow in the air
+		vec3 hvRaw = vec3(0.0);
+#ifdef HV_READ
+		if (!cloud && !finished) {
+			hvRaw = hvResolve(p, s.sky ? 1e4 : length(eyePos));
+			float hvMist = 0.0;
+#if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
+			hvMist = clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
+#endif
+			color.rgb = mix(hvComposite(color.rgb, hvRaw, st, normalize(eyePos), sunW, airPlain, s.sky, hvMist, lum),
+				color.rgb, ug.amount);
+		}
+#endif
+		// ---- end atmos
 		// ---- air and tone (D): the sun shafts (lib/shafts.glsl), in the near air, before the haze in front of it
 #ifdef WELKIN_SHAFTS_READ
 		if (shaftGate(sunW) > 0.0 && sunAngle < 0.5) {
+#ifdef HV_READ
+			float lit = hvRaw.r; // atmos: the haze's walk gives the shafts' term (resolved above)
+#else
 			float lit = shaftResolve(p, s.sky ? 1e4 : length(eyePos));
+#endif
 			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky) * (cloud ? 0.0 : 1.0);
 #if SHAFT_DEBUG == 1
 			color.rgb = vec3(lit); // the resolved sunlit share of the near air

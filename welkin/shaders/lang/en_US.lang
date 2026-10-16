@@ -407,3 +407,18 @@ value.WS_DEBUG.1=Water normals
 value.WS_DEBUG.2=Sun visibility
 value.WS_DEBUG.3=Wet shores
 value.WS_DEBUG.4=Season factors
+
+# ---- atmos (welkin-atmos): the luminous sky and the volumetric haze
+option.SKY_LUMINOUS=Luminous sky
+option.SKY_LUMINOUS.comment=The whole dome feels lit: a bright, soft band along the horizon, a wide glow toward the sun that warms to amber at a low sun, and a deeper, clearer blue overhead. The far land and the clouds fade into the same bright air.
+option.SKY_GLOW=Sky glow
+option.SKY_GLOW.comment=How bright the horizon band and the glow toward the sun are.
+suffix.SKY_GLOW=%
+option.HAZE_VOLUME=Volumetric haze
+option.HAZE_VOLUME.comment=Haze lit by the sun through the shadows of trees, ridges and clouds, so light and shadow show in the air: thicker in valleys, low ground and toward the horizon, warm toward the sun and cool away from it, by country, humidity, mist and weather. Smooth, with no grain.
+option.HAZE_VOLUME_STRENGTH=Volumetric haze strength
+option.HAZE_VOLUME_STRENGTH.comment=How thick the volumetric haze is.
+suffix.HAZE_VOLUME_STRENGTH=%
+option.HAZE_VOLUME_STEPS=Volumetric haze detail
+option.HAZE_VOLUME_STEPS.comment=How many points along each view the volumetric haze looks at. More gives cleaner light and shadow in the air.
+# ---- end atmos

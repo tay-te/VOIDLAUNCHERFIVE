@@ -21,6 +21,7 @@
 #include "/lib/sky/table.glsl"
 #include "/lib/sky/uniforms.glsl"
 #include "/lib/sky/celestial.glsl"
+#include "/lib/sky/luminous.glsl" // atmos (welkin-atmos): the luminous sky
 
 // below this elevation (about -2.3 degrees) no sun, moon or star is drawn: the land hides them
 #define SKY_BODY_CUTOFF -0.04
@@ -131,7 +132,8 @@ vec3 skyLowSunBandOver(vec3 col, vec3 d, SkyFrame f) {
 
 vec3 skyDomeOnly(vec3 dirW, SkyFrame f) {
 	vec3 d = normalize(dirW);
-	return skyLowSunBandOver(skyDomeColour(skyDomePos(d, f)), d, f);
+	// atmos (welkin-atmos): the luminous sky (lib/sky/luminous.glsl)
+	return skyLuminous(skyLowSunBandOver(skyDomeColour(skyDomePos(d, f)), d, f), d, skyLumFrame(f.sunW), 1.0);
 }
 
 vec3 skyFull(vec3 dirW, SkyFrame f) {
@@ -141,6 +143,7 @@ vec3 skyFull(vec3 dirW, SkyFrame f) {
 	return vec3(q.x / 5.0, q.y / 4.0, q.z / 3.0);
 #endif
 	vec3 col = skyLowSunBandOver(skyDomeColour(q), d, f);
+	col = skyLuminous(col, d, skyLumFrame(f.sunW), 1.0); // atmos (welkin-atmos): the luminous sky
 	if (d.y < SKY_BODY_CUTOFF) {
 		return col;
 	}
@@ -192,7 +195,8 @@ vec3 skyHorizonFor(vec3 eyeDir, SkyFrame f, float dither) {
 	vec2 n2 = normalize(flat2);
 	vec3 q = skyDomePos(normalize(vec3(n2.x, 0.02, n2.y)), f);
 	q.x = 1.0;
-	return skyDomeColour(q);
+	// atmos (welkin-atmos): the same luminous band the dome shows there
+	return skyLuminous(skyDomeColour(q), normalize(vec3(n2.x, 0.0, n2.y)), skyLumFrame(f.sunW), 1.0);
 }
 
 #endif

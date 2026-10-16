@@ -260,6 +260,12 @@ vec3 ugAtmosphere(UgState s, vec3 color, vec3 eyeFront, vec3 eyeBack, bool sky, 
 	float f = 1.0 - exp(-dist * density * UG_FOG_DENSITY * (1.0 - 0.7 * emission));
 	c = mix(c, fogColor, f);
 #endif
+	// atmos (welkin-atmos): nothing drawn here while the eye is underground (past the vault, a gap in the roof, land not
+	// loaded yet) is the cave's own air, never the overworld's sky and clouds (DEFECTS item 1: a daytime sky showed past
+	// the vault in the realms and the buried sea, as a sky pixel only took the fog of UG_SKY_DIST blocks)
+	if (sky) {
+		c = fogColor;
+	}
 
 #ifdef UG_WATER_MIST
 	if (s.mode == UG_MODE_TILE) {

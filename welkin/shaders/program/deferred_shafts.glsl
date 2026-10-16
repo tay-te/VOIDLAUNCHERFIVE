@@ -23,6 +23,17 @@ void main() {
 #include "/lib/shadow.glsl"
 #include "/lib/noise.glsl"
 #include "/lib/shafts.glsl"
+// ---- atmos (welkin-atmos): the volumetric haze's walk (lib/haze/volume.glsl), which also gives the shafts' term
+#ifdef HAZE_VOLUME
+#ifndef WU_cameraPosition
+#define WU_cameraPosition
+uniform vec3 cameraPosition;
+#endif
+#include "/lib/terrain.glsl"
+#define HV_WALK
+#include "/lib/haze/volume.glsl"
+#endif
+// ---- end atmos
 
 in vec2 texcoord;
 
@@ -41,6 +52,29 @@ layout(location = 0) out vec4 outShaft;
 void main() {
 	ivec2 q = ivec2(gl_FragCoord.xy); // the half-resolution texel
 	outShaft = vec4(0.0, 0.0, 0.0, 1e4);
+#ifdef HAZE_VOLUME
+	// atmos (welkin-atmos): one walk for the volumetric haze and the plain shafts (their term within SHAFT_REACH)
+	{
+		vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
+		if (sunW.y < -0.10) {
+			return; // night: the moon's air is the country haze's (a uniform branch)
+		}
+		ivec2 full = clamp(q * 2 + 1, ivec2(0), ivec2(viewWidth, viewHeight) - 1);
+		vec2 uv = (vec2(full) + 0.5) / vec2(viewWidth, viewHeight);
+		Surface s = surfaceAt(full, uv);
+		vec3 view = s.sky ? viewFromDepth(uv, 1.0, gbufferProjectionInverse) : s.view;
+		float dist = s.sky ? 1e4 : length(view);
+		vec3 dirP = mat3(gbufferModelViewInverse) * (view / max(length(view), 1e-4));
+		float shaftLen = 0.0;
+#if defined SUN_SHAFTS && defined WELKIN_SHADOWS_LIVE
+		if (shaftGate(sunW) > 0.0 && sunAngle < 0.5) {
+			shaftLen = min(min(dist, SHAFT_REACH), 0.98 * shadowReach());
+		}
+#endif
+		outShaft = hvWalk(q, dirP, dist, s.sky, shaftLen, SHAFT_REACH);
+		return;
+	}
+#endif
 #if defined SUN_SHAFTS && defined WELKIN_SHADOWS_LIVE
 	vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
 	if (shaftGate(sunW) <= 0.0 || sunAngle > 0.5) {
