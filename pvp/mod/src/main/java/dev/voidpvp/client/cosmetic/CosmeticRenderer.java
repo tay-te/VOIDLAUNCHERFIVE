@@ -60,6 +60,8 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
     private final float[] root = new float[3];
     private final double[] d3 = new double[3];
     private float emissive = 1f;
+    /** Distance to the player being drawn, for the model passes' LOD. */
+    private double modelDist;
 
     public CosmeticRenderer(PlayerEntityRenderer owner) {
         this.owner = owner;
@@ -102,6 +104,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         Entity cam = mc.getCameraEntity();
         double dist = cam == null ? 0 : Math.sqrt(p.squaredDistanceTo(cam));
         float q = Budget.quality();
+        modelDist = dist;
         if (dist > FAR * q * 1.15 && !self) {
             return;
         }
@@ -157,6 +160,10 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         }
         long tg = System.nanoTime();
         Budget.split(1, tg - tm);
+        if (glow.poolStrength > 0 && p.onGround && glowK > 0.6f) {
+            EmotePose.root(uuid, root);
+            pool(glow.poolRgb, Math.min(0.38f, glow.poolStrength * 0.45f * (glowK - 0.45f)), root[1]);
+        }
         glow.flush();
         Budget.split(2, System.nanoTime() - tg);
         Gl.lightmap(light);
@@ -343,31 +350,45 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             if (!cloth.placed()) {
                 return;
             }
-        } else if (dist < FAR * q || !cloth.placed()) {
+        }
+        boolean stepped = false;
+        if (!gui && (dist < FAR * q || !cloth.placed())) {
             cape.anchors(cloth, fx.ax, fx.ay, fx.az);
             cape.back(d3);
             boolean simulate = dist < MID * q || !cloth.placed();
             if (simulate) {
-                cloth.iterations = fx.clothHi ? 4 : (dist < MID * q * 0.5 ? 3 : 2);
+                cloth.iterations = fx.clothHi ? 4 : 2;
                 // A breath of wind, so a cape at rest is never perfectly dead.
-                cloth.windX = Math.sin(time * 0.7) * 0.6 + Math.sin(time * 1.9) * 0.25;
-                cloth.windZ = Math.cos(time * 0.5) * 0.5;
+                // An idle breeze with slow gusts, so a cape at rest sways and never hangs dead.
+                double gust = Math.max(0, Math.sin(time * 0.31)) * Math.max(0, Math.sin(time * 1.13));
+                cloth.windX = Math.sin(time * 0.7) * 0.9 + Math.sin(time * 1.9) * 0.35 + gust * 1.2;
+                cloth.windZ = Math.cos(time * 0.5) * 0.8 + gust * 1.6;
                 cloth.windY = 0;
-                // Low-resolution capes step every other frame (the time carries over), which
-                // halves their cost and is invisible at the distance they are used.
+                // Low-resolution capes step at 60 Hz (Cloth.step) and only on alternate frames;
+                // the time carries over, and the mesh is reused between steps.
                 fx.clothCarry += dt;
                 if (fx.clothHi || ((++fx.clothFrame) & 1) == 0) {
                     long c0 = System.nanoTime();
                     cloth.advance(fx.clothCarry, fx.ax, fx.ay, fx.az, cape.collider, d3[0], d3[2]);
                     Budget.cloth(System.nanoTime() - c0);
                     fx.clothCarry = 0;
+                    stepped = true;
                 }
             }
         }
         long q1 = System.nanoTime();
-        cape.prepare(cloth);
-        cape.mesh(cloth);
-        cape.upload(cloth);
+        // Re-mesh only when the sheet moved. On a frame a low-resolution cape skips its step, or
+        // while a distant one is frozen, the last mesh is drawn again: it is in the body's own
+        // space, so it rides along rigidly instead of lagging behind for a frame.
+        boolean glowWanted = glowK > 0 && style != null && style.glow.length > 0;
+        if (stepped || cloth.vbo < 0 || gui || fx.clothHi) {
+            cape.prepare(cloth);
+            cape.mesh(cloth);
+            cape.upload(cloth);
+            if (glowWanted) {
+                cape.storeGlow(cloth, style.glow);
+            }
+        }
         long q2 = System.nanoTime();
         Budget.split(3, q1 - q0);
         Budget.split(4, q2 - q1);
@@ -378,7 +399,8 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         // Albedo, lit.
         GlStateManager.bindTexture(tex.glId);
         Gl.selectFrame(frame, tex.frames);
-        cape.draw(cloth, false);
+        // Fold shading where it can be seen: the high-resolution sheets close to the camera.
+        cape.draw(cloth, false, fx.clothHi);
         Gl.resetFrame(tex.frames);
         // Tint mask.
         {
@@ -390,7 +412,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 GlStateManager.depthFunc(GL11.GL_LEQUAL);
                 GlStateManager.bindTexture(tm.glId);
                 GlStateManager.color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 1);
-                cape.draw(cloth, false);
+                cape.draw(cloth, false, false);
                 GlStateManager.color(1, 1, 1, 1);
                 GlStateManager.disableBlend();
             }
@@ -402,18 +424,18 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 emissiveBegin();
                 GlStateManager.bindTexture(em.glId);
                 Gl.selectFrame(frame, em.frames);
-                cape.draw(cloth, true);
+                cape.draw(cloth, true, false);
                 Gl.resetFrame(em.frames);
                 emissiveEnd(light);
             }
         }
         // Glow anchors on the outer face.
-        if (glowK > 0 && style != null && style.glow.length > 0) {
+        if (glowWanted && cloth.glowAt != null && cloth.glowAt.length == style.glow.length * 3) {
             Mat4.copy(modelview, scratch);
             Mat4.scale(scratch, 0.0625f, 0.0625f, 0.0625f);
-            for (float[] g : style.glow) {
-                cape.pointOnOuter(cloth, g[0], g[1], d3);
-                Mat4.transform(scratch, (float) d3[0], (float) d3[1], (float) d3[2], eye);
+            for (int k = 0; k < style.glow.length; k++) {
+                float[] g = style.glow[k];
+                Mat4.transform(scratch, cloth.glowAt[k * 3], cloth.glowAt[k * 3 + 1], cloth.glowAt[k * 3 + 2], eye);
                 glow.add(eye[0], eye[1], eye[2], g[3] * Mat4.scaleOf(scratch), (int) g[2], g[4] * glowK);
             }
         }
@@ -434,6 +456,40 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             deg += 360f;
         }
         return deg;
+    }
+
+    /**
+     * A faint pool of the item's light on the ground under the player: an additive soft disc in
+     * model space at the feet, drawn only at night and only when standing on something. It is
+     * what makes a glowing item look like it gives off light rather than being painted bright.
+     */
+    private static void pool(int rgb, float alpha, float rootY) {
+        if (alpha <= 0.01f) {
+            return;
+        }
+        float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
+        float y = (23.9f - rootY) * 0.0625f, s = 1.25f;
+        GlStateManager.bindTexture(Gl.bloomTexture());
+        GlStateManager.enableBlend();
+        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
+        GlStateManager.depthMask(false);
+        GlStateManager.disableLighting();
+        GlStateManager.alphaFunc(GL11.GL_GREATER, 0.0f);
+        Gl.fullBright();
+        net.minecraft.client.render.Tessellator t = net.minecraft.client.render.Tessellator.getInstance();
+        net.minecraft.client.render.BufferBuilder buf = t.getBuffer();
+        buf.begin(GL11.GL_QUADS, net.minecraft.client.render.VertexFormats.POSITION_TEXTURE_COLOR);
+        buf.vertex(-s, y, -s).texture(0, 0).color(r, g, b, alpha).next();
+        buf.vertex(-s, y, s).texture(0, 1).color(r, g, b, alpha).next();
+        buf.vertex(s, y, s).texture(1, 1).color(r, g, b, alpha).next();
+        buf.vertex(s, y, -s).texture(1, 0).color(r, g, b, alpha).next();
+        t.draw();
+        GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1f);
+        GlStateManager.enableLighting();
+        GlStateManager.depthMask(true);
+        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager.disableBlend();
+        GlStateManager.color(1, 1, 1, 1);
     }
 
     private static int defaultTint(String id) {
@@ -481,6 +537,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         Procedural.apply(m, pose, fx, p, time, dt);
 
         boolean wantGlow = glowK > 0 && m.glow.length > 0;
+        boolean emissiveFor = modelDist < MID * Budget.quality() * 0.7 || glowK > 0.9f;
         if (wantGlow) {
             Mat4.copy(modelview, itemMv);
         }
@@ -549,7 +606,10 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             }
         }
         {
-            CosmeticAssets.Tex em = bundle.emissive();
+            // The emissive pass doubles a model's draw calls; past the mid band it is a few
+            // pixels of light on a dark sky, so only near players (or any player at night,
+            // when it is the point) get it.
+            CosmeticAssets.Tex em = emissiveFor ? bundle.emissive() : null;
             if (em != null) {
                 emissiveBegin();
                 GlStateManager.bindTexture(em.glId);

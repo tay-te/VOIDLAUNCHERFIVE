@@ -1,8 +1,19 @@
 {
  "frames": {
-  "count": 8,
-  "fps": 3
+  "count": 12,
+  "fps": 4
  },
  "stiffness": 0.88,
- "weight": 0.95
+ "weight": 0.95,
+ "glow": [
+  {
+   "at": [
+    2.6,
+    3.4
+   ],
+   "color": "#ffc2a8",
+   "size": 4,
+   "strength": 0.16
+  }
+ ]
 }

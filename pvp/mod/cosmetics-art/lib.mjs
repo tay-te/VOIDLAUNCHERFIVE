@@ -188,9 +188,11 @@ export function encodePng(w, h, rgba) {
  * e: u along +z; w: u along -z. u/d faces: u along +x, v along -z.
  */
 export class Atlas {
-  constructor(w, h) {
+  /** @param d texels per model pixel: 1 is the skin's density, 2 is HD. */
+  constructor(w, h, d = 1) {
     this.w = w;
     this.h = h;
+    this.d = d;
     this.x = 0;
     this.y = 0;
     this.row = 0;
@@ -227,7 +229,7 @@ export class Atlas {
     for (const f of faces) {
       const [a, b] = dims[f];
       if (a <= 0 || b <= 0) continue;
-      rects[names[f]] = this.alloc(a, b);
+      rects[names[f]] = this.alloc(Math.max(1, Math.round(a * this.d)), Math.max(1, Math.round(b * this.d)));
     }
     const out = { from, to, faces: { ...rects }, ...extra };
     return { cube: out, rects };

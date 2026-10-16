@@ -96,9 +96,12 @@ out of the head into a slow third-person orbit and back, restoring the player's 
 `dev.voidpvp.client.cosmetic`:
 
 - `CosmeticRenderer` — a feature layer on both player renderers. Capes are cloth (`Cloth`, a
-  world-space position-based grid at a fixed 120 Hz with an accumulator, so it moves the same at
+  world-space position-based grid at a fixed step with an accumulator, so it moves the same at
   every frame rate; collides with the posed torso and legs; aerodynamic drag lifts it when you
-  run). Models are display lists per bone with albedo, tint-mask and full-bright additive emissive
+  run). The sheet is a quarter wider at the hem than at the collar and gathered into pleats at
+  the top, so it hangs as a bell with soft folds; an idle breeze with gusts keeps it moving; it is
+  shaded per vertex from its own curvature (folds read in daylight), with a darker lining and lit
+  edge strips. Capes are painted at 4x density, models at 2x. Models are display lists per bone with albedo, tint-mask and full-bright additive emissive
   layers; `GlowBatch` adds soft additive bloom sprites in eye space, depth-tested, scaled down in
   daylight.
 - `Trails` — a fixed particle pool drawn after vanilla particles; density by speed, nothing when
@@ -108,8 +111,10 @@ out of the head into a slow third-person orbit and back, restoring the player's 
 - `CosmeticsHub` — per-tick queries (`cosmetics_query`, batched, 10 min TTL, no v2 NPC uuids),
   emote housekeeping, the dev hooks.
 - Cost: the twenty-player showcase scene (every player in a full outfit, all within 14 blocks)
-  measures about 0.32 ms a frame for the whole layer at 120 fps (cloth 0.12, cape meshes 0.10,
-  cape draws 0.02, models 0.05, glow 0.02); `Budget.report()` prints the same split. Capes draw
+  measures about 0.33 ms a frame for the whole layer at 120 fps with the adaptive budget, and about
+  0.46 ms with the LOD pinned at full quality (`-Pvoid.showcase.quality=1`); `Budget.report()`
+  prints the split (cape sim, mesh, draw; models; glow). Distant low-resolution capes integrate at
+  60 Hz and reuse their mesh between steps; model emissive passes drop past the mid band by day. Capes draw
   from a per-sheet vertex buffer uploaded once a frame; glow is placed from the camera view matrix
   the game already holds, never a `glGetFloat`.
 - Respects invisibility (nothing drawn), spectators (no layer), sleeping (head items only),

@@ -24,6 +24,7 @@ final class GlowBatch {
 
     void clear() {
         n = 0;
+        poolStrength = 0;
     }
 
     boolean isEmpty() {
@@ -31,9 +32,22 @@ final class GlowBatch {
     }
 
     /** Adds a sprite centred at eye-space ({@code ex}, {@code ey}, {@code ez}), {@code half} wide. */
+    /** Overall bloom gain and size: tuned against the night showcase so glow reads as light. */
+    static final float GAIN = 2.0f, SIZE = 1.6f;
+
+    /** The strongest colour added this pass, for the light pool under the player. */
+    int poolRgb;
+    float poolStrength;
+
     void add(float ex, float ey, float ez, float half, int rgb, float alpha) {
+        alpha *= GAIN;
+        half *= SIZE;
         if (n >= MAX || alpha <= 0.004f || half <= 0) {
             return;
+        }
+        if (alpha > poolStrength) {
+            poolStrength = alpha;
+            poolRgb = rgb;
         }
         x[n] = ex;
         y[n] = ey;

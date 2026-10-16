@@ -32,8 +32,10 @@ final class CapeRenderer {
     static Cloth newCloth(boolean hi, CapeStyle style) {
         int cols = hi ? HI_COLS : LO_COLS, rows = hi ? HI_ROWS : LO_ROWS;
         double spacingBlocks = 16.0 / rows / 16.0 * 0.9375;
-        Cloth c = new Cloth(cols, rows, spacingBlocks, style == null ? 0.9 : style.stiffness);
-        c.iterations = hi ? 4 : 3;
+        // A quarter wider at the hem than at the collar: the sheet hangs as a gentle bell.
+        Cloth c = new Cloth(cols, rows, spacingBlocks, style == null ? 0.9 : style.stiffness, 0.24);
+        c.iterations = hi ? 4 : 2;
+        c.step = hi ? Cloth.STEP : Cloth.STEP * 2;
         if (style != null) {
             c.gravity = 16.0 * style.weight;
             c.drag = 7.0 / Math.max(0.5, style.weight);
@@ -45,9 +47,15 @@ final class CapeRenderer {
 
     /** The top row's anchor for column {@code c} of {@code cols}, in body-local pixels. */
     void anchorLocal(int c, int cols, double[] out) {
-        out[0] = 5.0 - 10.0 * c / cols;
+        // Gathered at the collar: the top row spans a little less than the cloth's rest width and
+        // alternate anchors sit a fraction further back, so the excess falls into soft pleats
+        // that run down the cape. The ends wrap slightly forward round the shoulders.
+        double t = (double) c / cols;
+        double x = 4.7 - 9.4 * t;
+        double pleat = (cols >= HI_COLS && (c % 2 == 1)) ? 0.4 : 0;
+        out[0] = x;
         out[1] = 0.25;
-        out[2] = 2.35 + armour;
+        out[2] = 2.35 + armour + pleat - 0.35 * (x / 4.7) * (x / 4.7);
     }
 
     /** World positions of the top row this frame. */
@@ -165,6 +173,57 @@ final class CapeRenderer {
                 nz[i] = oz / len;
             }
         }
+        // Soft occlusion from curvature: a vertex whose neighbours stand out in front of it (along
+        // its normal) sits in a fold and gets less light. Folds read even in flat daylight, where
+        // the game's two directional lights alone would wash them out.
+        if (ao.length < n) {
+            ao = new float[n];
+        }
+        if (cloth.cols < HI_COLS) {
+            return; // low-resolution sheets are drawn unshaded
+        }
+        for (int r = 0; r <= cloth.rows; r++) {
+            for (int c = 0; c <= cloth.cols; c++) {
+                int i = r * w + c;
+                int l = r * w + Math.max(0, c - 1), rr = r * w + Math.min(cloth.cols, c + 1);
+                int u = Math.max(0, r - 1) * w + c, d = Math.min(cloth.rows, r + 1) * w + c;
+                double cx = (mx[l] + mx[rr] + mx[u] + mx[d]) * 0.25 - mx[i];
+                double cy = (my[l] + my[rr] + my[u] + my[d]) * 0.25 - my[i];
+                double cz = (mz[l] + mz[rr] + mz[u] + mz[d]) * 0.25 - mz[i];
+                // Concavity in pixels, normalised by the grid step so both resolutions agree.
+                double k = (cx * nx[i] + cy * ny[i] + cz * nz[i]) / (16.0 / cloth.rows);
+                ao[i] = (float) k;
+            }
+        }
+    }
+
+    /** Per-vertex curvature from {@link #prepare}: > 0 in a fold seen from outside. */
+    private float[] ao = new float[0];
+
+    private static int rgba(double shade) {
+        int v = (int) Math.round(Math.max(0, Math.min(1, shade)) * 255);
+        return v | v << 8 | v << 16 | 0xFF << 24;
+    }
+
+    private int outerShade(int i) {
+        return rgba(1.0 - Math.max(0, ao[i]) * 1.6 + Math.max(0, -ao[i]) * 0.25 - 0.06);
+    }
+
+    private int innerShade(int i) {
+        return rgba((1.0 - Math.max(0, -ao[i]) * 1.6) * 0.72);
+    }
+
+    /** Stores the model-space glow anchor positions with the cloth's mesh, for frames that reuse it. */
+    void storeGlow(Cloth cloth, float[][] glow) {
+        if (cloth.glowAt == null || cloth.glowAt.length != glow.length * 3) {
+            cloth.glowAt = new float[glow.length * 3];
+        }
+        for (int k = 0; k < glow.length; k++) {
+            pointOnOuter(cloth, glow[k][0], glow[k][1], tmp);
+            cloth.glowAt[k * 3] = (float) tmp[0];
+            cloth.glowAt[k * 3 + 1] = (float) tmp[1];
+            cloth.glowAt[k * 3 + 2] = (float) tmp[2];
+        }
     }
 
     /** Model-pixel position of a point on the outer face at cape pixel (u, v), into out. */
@@ -184,8 +243,8 @@ final class CapeRenderer {
         }
     }
 
-    // Packed vertex data, 6 ints per vertex (3 floats position, 2 floats uv, 3 normal bytes and a
-    // pad), built once per frame by mesh() and uploaded once by upload(); the albedo, tint and
+    // Packed vertex data, 7 ints per vertex (3 floats position, 2 floats uv, RGBA colour, 3 normal
+    // bytes and a pad), built once per frame by mesh() and uploaded once by upload(); the albedo, tint and
     // emissive passes all draw from the same vertex buffer.
     private int[] outer;
     private int[] rest;
@@ -198,8 +257,8 @@ final class CapeRenderer {
         // Exactly sized and owned by the cloth, so a frame drawing capes of two resolutions
         // allocates nothing.
         if (cloth.meshOuter == null) {
-            cloth.meshOuter = new int[quads * 4 * 6];
-            cloth.meshRest = new int[(quads + 2 * cloth.rows + 2 * cloth.cols) * 4 * 6];
+            cloth.meshOuter = new int[quads * 4 * 7];
+            cloth.meshRest = new int[(quads + 2 * cloth.rows + 2 * cloth.cols) * 4 * 7];
         }
         outer = cloth.meshOuter;
         rest = cloth.meshRest;
@@ -245,8 +304,9 @@ final class CapeRenderer {
         buf[o + 2] = Float.floatToRawIntBits((float) (mz[i] + nz[i] * off));
         buf[o + 3] = Float.floatToRawIntBits((float) u);
         buf[o + 4] = Float.floatToRawIntBits((float) v);
-        buf[o + 5] = normal(nx[i] * sign, ny[i] * sign, nz[i] * sign);
-        return o + 6;
+        buf[o + 5] = sign > 0 ? outerShade(i) : innerShade(i);
+        buf[o + 6] = normal(nx[i] * sign, ny[i] * sign, nz[i] * sign);
+        return o + 7;
     }
 
     /** A strip across the sheet's thickness between particles i and j (an edge or the hem). */
@@ -259,14 +319,17 @@ final class CapeRenderer {
         return put(buf, o, mx[j] + nx[j] * half, my[j] + ny[j] * half, mz[j] + nz[j] * half, uj, vj, n);
     }
 
+    private static final int EDGE_SHADE = rgba(1.0);
+
     private static int put(int[] buf, int o, double x, double y, double z, double u, double v, int n) {
         buf[o] = Float.floatToRawIntBits((float) x);
         buf[o + 1] = Float.floatToRawIntBits((float) y);
         buf[o + 2] = Float.floatToRawIntBits((float) z);
         buf[o + 3] = Float.floatToRawIntBits((float) u);
         buf[o + 4] = Float.floatToRawIntBits((float) v);
-        buf[o + 5] = n;
-        return o + 6;
+        buf[o + 5] = EDGE_SHADE;
+        buf[o + 6] = n;
+        return o + 7;
     }
 
     /** Three signed normal bytes and a padding byte, in the buffer's native (little-endian) order. */
@@ -279,19 +342,34 @@ final class CapeRenderer {
      * Draws the mesh built by {@link #mesh}: the whole sheet, or with {@code outerOnly} just the
      * outer face (the emissive pass: nothing on the lining glows). Current matrix: model pixels.
      */
-    void draw(Cloth cloth, boolean outerOnly) {
-        int verts = (outerOnly ? cloth.meshOuter.length : cloth.meshOuter.length + cloth.meshRest.length) / 6;
+    /**
+     * @param shaded use the per-vertex fold shading (the albedo pass). The tint and emissive
+     *               passes leave it off so their own colour applies as set.
+     */
+    void draw(Cloth cloth, boolean outerOnly, boolean shaded) {
+        int verts = (outerOnly ? cloth.meshOuter.length : cloth.meshOuter.length + cloth.meshRest.length) / 7;
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, cloth.vbo);
-        GL11.glVertexPointer(3, GL11.GL_FLOAT, 24, 0L);
-        GL11.glTexCoordPointer(2, GL11.GL_FLOAT, 24, 12L);
-        GL11.glNormalPointer(GL11.GL_BYTE, 24, 20L);
+        GL11.glVertexPointer(3, GL11.GL_FLOAT, 28, 0L);
+        GL11.glTexCoordPointer(2, GL11.GL_FLOAT, 28, 12L);
+        GL11.glNormalPointer(GL11.GL_BYTE, 28, 24L);
         GL11.glEnableClientState(GL11.GL_VERTEX_ARRAY);
         GL11.glEnableClientState(GL11.GL_TEXTURE_COORD_ARRAY);
         GL11.glEnableClientState(GL11.GL_NORMAL_ARRAY);
+        if (shaded) {
+            GL11.glColorPointer(4, GL11.GL_UNSIGNED_BYTE, 28, 20L);
+            GL11.glEnableClientState(GL11.GL_COLOR_ARRAY);
+        }
         GL11.glDrawArrays(GL11.GL_QUADS, 0, verts);
         GL11.glDisableClientState(GL11.GL_VERTEX_ARRAY);
         GL11.glDisableClientState(GL11.GL_TEXTURE_COORD_ARRAY);
         GL11.glDisableClientState(GL11.GL_NORMAL_ARRAY);
+        if (shaded) {
+            GL11.glDisableClientState(GL11.GL_COLOR_ARRAY);
+            // A colour array leaves GL's current colour at its last value behind
+            // GlStateManager's cache: force a real reset so later draws are not tinted.
+            com.mojang.blaze3d.platform.GlStateManager.color(0, 0, 0, 0);
+            com.mojang.blaze3d.platform.GlStateManager.color(1, 1, 1, 1);
+        }
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
     }
 

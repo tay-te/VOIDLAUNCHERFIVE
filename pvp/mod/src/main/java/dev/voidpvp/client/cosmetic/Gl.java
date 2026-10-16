@@ -71,7 +71,7 @@ final class Gl {
                 double dx = (x + 0.5) / n * 2 - 1, dy = (y + 0.5) / n * 2 - 1;
                 double r = Math.sqrt(dx * dx + dy * dy);
                 // A tight core and a long, faint shoulder: reads as light, not as a disc.
-                double a = r >= 1 ? 0 : Math.pow(1 - r, 2.4) * 0.75 + Math.pow(Math.max(0, 1 - r * 2.2), 2) * 0.25;
+                double a = r >= 1 ? 0 : Math.pow(1 - r, 1.7) * 0.7 + Math.pow(Math.max(0, 1 - r * 2.2), 2) * 0.3;
                 int al = (int) Math.round(Math.max(0, Math.min(1, a)) * 255);
                 img.setRGB(x, y, (al << 24) | 0xFFFFFF);
             }
