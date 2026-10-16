@@ -95,7 +95,7 @@ uniform float frameTimeCounter;
 #define MIST_OPACITY 0.72
 // (the defects pass, 2026-10-16) the slab's soft crown (blocks over which it thins to nothing at its top), and the most
 // of the last stretch of a ray counted as inside it (blocks)
-#define MIST_SOFT_TOP 4.0
+#define MIST_SOFT_TOP 8.0
 #define MIST_LAST_MAX 40.0
 
 struct MistTiles {
@@ -267,14 +267,14 @@ MistPoint mistAt(vec2 eyeXZ, MistTiles t) {
 	m.density = mist * pool * floorCut * edge * fill;
 	// (the defects pass) soft billows: the density swells and thins over a few dozen blocks, drifting slowly, so a deep
 	// pool of mist reads as drifts and not one even wall (smooth, sampled with the slab: no grain)
-	vec2 wpos = (vec2(cameraPositionInt.xz & 4095) + cameraPositionFract.xz + eyeXZ) / 36.0 + vec2(frameTimeCounter * 0.012, frameTimeCounter * 0.005);
+	vec2 wpos = (vec2(cameraPositionInt.xz & 4095) + cameraPositionFract.xz + eyeXZ) / 22.0 + vec2(frameTimeCounter * 0.02, frameTimeCounter * 0.008);
 	vec2 bi = floor(wpos);
 	vec2 bf = wpos - bi;
 	bf = bf * bf * (3.0 - 2.0 * bf);
 	ivec2 bc = ivec2(bi);
 	float h00 = mistHash(bc), h10 = mistHash(bc + ivec2(1, 0)), h01 = mistHash(bc + ivec2(0, 1)), h11 = mistHash(bc + ivec2(1, 1));
 	float billow = mix(mix(h00, h10, bf.x), mix(h01, h11, bf.x), bf.y);
-	m.density *= 0.45 + 1.1 * billow;
+	m.density *= 0.2 + 1.5 * billow * billow;
 	return m;
 }
 

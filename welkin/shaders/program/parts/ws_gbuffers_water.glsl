@@ -96,6 +96,10 @@ uniform float viewHeight;
 #define WU_isEyeInWater
 uniform int isEyeInWater;
 #endif
+#ifndef WU_eyeBrightnessSmooth
+#define WU_eyeBrightnessSmooth
+uniform ivec2 eyeBrightnessSmooth;
+#endif
 
 // 0 the scene (premultiplied), 3 the water marks, 4 the water info: blend lines in shaders.properties
 /* RENDERTARGETS: 0,3,4 */
@@ -141,6 +145,10 @@ void main() {
 				discard;
 			}
 		}
+		// (the defects pass) water at the eye (in a fall's block, a step tucked under the rock beside it) can have every
+		// corner against stone and no sky light at all, a black hole over the view: within a few blocks it takes at
+		// least the eye's own sky light
+		lm.y = max(lm.y, float(eyeBrightnessSmooth.y) / 240.0 * (1.0 - smoothstep(1.0, 4.0, dist)));
 		// a fall's light: smooth lighting gives each corner of a sloped or upright water face its own sky light, which
 		// shaded the halves of each step's quad apart (light and dark triangles); on the move, water takes the open sky's
 		// light wherever a corner sees some of it
