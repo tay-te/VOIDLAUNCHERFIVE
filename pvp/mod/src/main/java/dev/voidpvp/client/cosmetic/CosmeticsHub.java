@@ -80,6 +80,7 @@ public final class CosmeticsHub {
         }
         Emotes.get().sweep();
         EmoteCamera.tick(mc);
+        FightWatch.tick(mc);
         if (mc.world != null) {
             cancelMovingRemotes(mc);
             if (tickCount % 20 == 0) {
@@ -106,6 +107,7 @@ public final class CosmeticsHub {
     public static void worldChanged() {
         Trails.clear();
         CosmeticRenderer.clear();
+        FightWatch.clear();
         LAST_POS.clear();
         // Ask again on the new server; the sets may have changed while we were away.
         ASKED.clear();
@@ -114,6 +116,7 @@ public final class CosmeticsHub {
     /** Start of {@code GameRenderer.render}. */
     public static void frameStart() {
         EmoteCamera.frame();
+        Secondary.frame();
     }
 
     /** End of {@code GameRenderer.render}. */

@@ -9,7 +9,8 @@ import net.minecraft.client.network.AbstractClientPlayerEntity;
  *   <li>{@code wings} — breathe at rest; sweep back and tuck in at a sprint; spread wide and glide
  *       with a tip flutter while falling; beat while rising or flying; fold tight while sneaking.
  *       Every target eases through a {@link Spring}, so a jump is a gesture, not a cut.</li>
- *   <li>{@code halo} — rises and settles slowly, and trails a little when the wearer runs.</li>
+ *   <li>{@code halo} — floats on its own spring ({@link Secondary}): trails the head, tilts
+ *       against the lag, wobbles on a hit, spins up with a combo, pulses on a kill.</li>
  *   <li>{@code float} — a back item hovering behind the wearer: bobs, and lags out behind at
  *       speed.</li>
  * </ul>
@@ -33,19 +34,63 @@ final class Procedural {
             wings(m, pose, fx, p, time, dt);
         } else if ("halo".equals(m.procedural)) {
             float bob = (float) Math.sin(time * 1.3) * 0.55f;
-            float lag = Math.min(1f, fx.speed.value / 6f);
-            for (int r : m.roots) {
-                pose.pos[r * 3 + 1] += bob;
-                pose.pos[r * 3 + 2] += lag * 0.8f;
-                pose.rot[r * 3] += -lag * 0.12f;
+            Secondary sec = fx.sec;
+            if (sec.on) {
+                // Floating on its own spring (Secondary): trails the head, tilts against the lag,
+                // wobbles, spins up with a combo and pulses on a kill.
+                for (int r : m.roots) {
+                    pose.pos[r * 3] += sec.haloOx;
+                    pose.pos[r * 3 + 1] += bob + sec.haloOy;
+                    pose.pos[r * 3 + 2] += sec.haloOz;
+                    pose.rot[r * 3] += sec.haloTiltX;
+                    pose.rot[r * 3 + 2] += sec.haloTiltZ;
+                    pose.scale[r * 3] *= sec.haloScale;
+                    pose.scale[r * 3 + 1] *= sec.haloScale;
+                    pose.scale[r * 3 + 2] *= sec.haloScale;
+                }
+                int ring = m.boneIndex("ring");
+                if (ring >= 0) {
+                    pose.rot[ring * 3 + 1] += sec.haloSpin;
+                }
+                int motes = m.boneIndex("motes");
+                if (motes >= 0) {
+                    pose.rot[motes * 3 + 1] -= sec.haloSpin * 0.6f;
+                }
+            } else {
+                float lag = Math.min(1f, fx.speed.value / 6f);
+                for (int r : m.roots) {
+                    pose.pos[r * 3 + 1] += bob;
+                    pose.pos[r * 3 + 2] += lag * 0.8f;
+                    pose.rot[r * 3] += -lag * 0.12f;
+                }
             }
         } else if ("float".equals(m.procedural)) {
             float bob = (float) Math.sin(time * 1.1) * 0.5f;
+            Secondary sec = fx.sec;
             float lag = Math.min(1f, fx.speed.value / 6f);
             for (int r : m.roots) {
-                pose.pos[r * 3 + 1] += bob + lag * 0.6f;
-                pose.pos[r * 3 + 2] += lag * 1.6f;
-                pose.rot[r * 3] += lag * 0.18f;
+                if (sec.on) {
+                    // The halo's follower, a little looser: it hangs further from the body.
+                    pose.pos[r * 3] += sec.haloOx * 1.2f;
+                    pose.pos[r * 3 + 1] += bob + sec.haloOy * 1.2f + lag * 0.6f;
+                    pose.pos[r * 3 + 2] += sec.haloOz * 0.5f + lag * 1.2f;
+                    pose.rot[r * 3] += lag * 0.18f + sec.haloTiltX * 0.8f;
+                    pose.rot[r * 3 + 2] += sec.haloTiltZ * 0.8f;
+                    float k = sec.haloScale;
+                    pose.scale[r * 3] *= k;
+                    pose.scale[r * 3 + 1] *= k;
+                    pose.scale[r * 3 + 2] *= k;
+                } else {
+                    pose.pos[r * 3 + 1] += bob + lag * 0.6f;
+                    pose.pos[r * 3 + 2] += lag * 1.6f;
+                    pose.rot[r * 3] += lag * 0.18f;
+                }
+            }
+            if (sec.on) {
+                int g = m.boneIndex("gimbal");
+                if (g >= 0) {
+                    pose.rot[g * 3 + 1] += sec.haloSpin;
+                }
             }
         }
     }
@@ -72,6 +117,23 @@ final class Procedural {
             // At rest the wings stay half open and breathe: they were bought to be seen.
             spread = 0.8f; sweep = 0.15f; amp = 0.06f; rate = 0.42f; tip = 0.12f;
         }
+        // Reactions (Reaction): a combo flares the wings open and quickens the beat, a kill gives
+        // one big full-spread beat, being hit flinches them inward and folds the tips.
+        Reaction rx = fx.react;
+        Secondary sec = fx.sec;
+        float flinch = rx == null ? 0 : rx.flinch;
+        float flare = rx == null ? 0 : rx.flare;
+        float hit = rx == null ? 0 : rx.step;
+        float flourish = rx == null ? 0 : rx.flourish;
+        if (!p.isSneaking()) {
+            spread = Math.min(1f, spread + 0.3f * flare + 0.12f * hit + 0.6f * flourish);
+            sweep *= 1f - 0.6f * Math.max(flare, flourish);
+            amp += 0.1f * flare + 0.4f * flourish;
+            rate += 0.5f * flare + 1.0f * flourish;
+            tip = Math.max(0f, tip - 0.35f * flare - 0.6f * flourish);
+        }
+        spread = Math.max(0f, spread - 0.6f * flinch);
+        tip = Math.min(1f, tip + 0.5f * flinch);
         float s = fx.spread.step(spread, dt);
         float w = fx.sweep.step(sweep, dt);
         float a = fx.flapAmp.step(amp, dt);
@@ -84,11 +146,36 @@ final class Procedural {
         float flap = a * (float) Math.sin(fx.flapPhase) * 55f;
         float tipFlap = a * (float) Math.sin(fx.flapPhase - 0.9f) * 35f;
         float rootY = (15f + 60f * w) * DEG;
-        float rootZ = (-55f + 70f * s + flap) * DEG;
+        float squash = sec.on ? sec.squash : 0f;
+        float beat = sec.on ? sec.beat : 0f;
+        float rootZDeg = -55f + 70f * s + flap
+                + 16f * hit - 24f * squash - 34f * beat
+                + (flinch > 0.02f ? (float) Math.sin(time * 47f) * 6f * flinch : 0f);
+        float rootZ = rootZDeg * DEG;
         float rootX = (-6f * s) * DEG;
         float tipY = 85f * t * DEG;
         // Folding brings the hand down along the arm rather than leaving it raised.
         float tipZ = (8f * s - 46f * (1 - s) * t + tipFlap) * DEG;
+        // Follow-through: the hand and each feather layer chase the arm on their own looser,
+        // later springs, so a beat or a sudden flinch rolls out along the wing and overshoots a
+        // touch before it settles. Same frame time for everyone (Secondary.frameDt).
+        float[] ft = FOLLOW;
+        if (sec.on) {
+            float fdt = Secondary.frameDt;
+            if (sec.wingsFresh) {
+                for (DampedSpring l : sec.layers) {
+                    l.snap(rootZDeg);
+                }
+                sec.tip.snap(rootZDeg);
+                sec.wingsFresh = false;
+            }
+            for (int k = 0; k < 4; k++) {
+                ft[k] = (sec.layers[k].step(rootZDeg, fdt) - rootZDeg) * FOLLOW_GAIN[k] * DEG;
+            }
+            tipZ += (sec.tip.step(rootZDeg, fdt) - rootZDeg) * 0.75f * DEG;
+        } else {
+            ft[0] = ft[1] = ft[2] = ft[3] = 0f;
+        }
         set(m, pose, "wing_r", rootX, rootY, rootZ);
         set(m, pose, "wing_l", rootX, -rootY, -rootZ);
         set(m, pose, "wing_r_tip", 0, tipY, tipZ);
@@ -100,8 +187,8 @@ final class Procedural {
         for (int k = 0; k < LAYERS.length; k++) {
             float lagged = a * (float) Math.sin(fx.flapPhase - LAG[k]) * GAIN[k];
             float twist = LAYER_TWIST[k] * (s - 0.5f) * DEG;
-            add(pose, idx[k * 2], twist, 0, lagged * DEG);
-            add(pose, idx[k * 2 + 1], twist, 0, -lagged * DEG);
+            add(pose, idx[k * 2], twist, 0, lagged * DEG + ft[k]);
+            add(pose, idx[k * 2 + 1], twist, 0, -lagged * DEG - ft[k]);
         }
         // Void fingers fan open as the wing spreads and close as it folds.
         for (int k = 1; k <= 3; k++) {
@@ -142,6 +229,10 @@ final class Procedural {
         pose.rot[b * 3 + 2] += z;
     }
     private static final float[] LAG = {0.35f, 0.7f, 0.9f, 1.25f};
+    /** How much of each layer's lag behind the arm shows: the primaries trail the most. */
+    private static final float[] FOLLOW_GAIN = {0.5f, 0.8f, 0.8f, 1.15f};
+    /** Scratch for the follow-through per layer (render thread only). */
+    private static final float[] FOLLOW = new float[4];
     private static final float[] GAIN = {8f, 14f, 10f, 20f};
     private static final float[] LAYER_TWIST = {0f, 4f, 0f, 9f};
 

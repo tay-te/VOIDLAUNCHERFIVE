@@ -85,6 +85,11 @@ public final class Cloth {
     public int iterations = 4;
     /** Wind velocity, blocks/s. */
     public double windX, windY, windZ;
+    /** A travelling ripple down the sheet (a kill flourish): strength, and seconds since it began. */
+    private double waveAmp, waveT;
+    private double[] waveRow;
+    /** How long a ripple runs, seconds. */
+    public static final double WAVE_LENGTH = 0.9;
 
     /**
      * @param cols    quads across (particles = cols + 1)
@@ -200,6 +205,7 @@ public final class Cloth {
         placed = true;
         acc = 0;
         alpha = 0;
+        waveAmp = 0;
     }
 
     /**
@@ -268,9 +274,68 @@ public final class Cloth {
         return true;
     }
 
+    /**
+     * Adds a velocity change (blocks/s, world space) to every free particle, weighted by how far
+     * down the sheet it hangs, {@code (row / rows)^power}: the hem takes all of it, the collar
+     * none. Verlet keeps velocity as the step's displacement, so this moves the previous
+     * positions. Safe to call between steps; non-finite input is ignored.
+     */
+    public void kick(double vx, double vy, double vz, double power) {
+        if (!placed || !(Math.abs(vx) + Math.abs(vy) + Math.abs(vz) < 1e3)) {
+            return;
+        }
+        int w = cols + 1;
+        for (int r = 1; r <= rows; r++) {
+            double k = Math.pow((double) r / rows, power) * step;
+            double dx = vx * k, dy = vy * k, dz = vz * k;
+            for (int c = 0; c <= cols; c++) {
+                int i = r * w + c;
+                px[i] -= dx;
+                py[i] -= dy;
+                pz[i] -= dz;
+            }
+        }
+    }
+
+    /**
+     * Starts a ripple that runs from the collar to the hem over {@link #WAVE_LENGTH} seconds, a
+     * push along the sheet's normal that travels down it: a cape rippling outward. {@code amp}
+     * is the peak force, blocks/s^2 (about 60 reads clearly).
+     */
+    public void wave(double amp) {
+        if (amp > waveAmp * Math.max(0, 1 - waveT / WAVE_LENGTH)) {
+            waveAmp = amp;
+            waveT = 0;
+        }
+    }
+
+    /** The ripple's push on each row this step, or null when none is running. */
+    private double[] waveForces(double h) {
+        if (waveAmp <= 0) {
+            return null;
+        }
+        if (waveT >= WAVE_LENGTH) {
+            waveAmp = 0;
+            return null;
+        }
+        if (waveRow == null) {
+            waveRow = new double[rows + 1];
+        }
+        double env = Math.sin(Math.PI * waveT / WAVE_LENGTH);
+        env *= env;
+        for (int r = 0; r <= rows; r++) {
+            double u = (double) r / rows;
+            // One and a bit wavelengths on the sheet, travelling hem-ward.
+            waveRow[r] = waveAmp * env * Math.sin(u * 7.5 - waveT * 18.0) * (0.35 + 0.65 * u);
+        }
+        waveT += h;
+        return waveRow;
+    }
+
     private void integrate(double h, double keep) {
         int w = cols + 1;
         double h2 = h * h;
+        double[] wave = waveForces(h);
         for (int r = 1; r <= rows; r++) {
             for (int c = 0; c <= cols; c++) {
                 int i = r * w + c;
@@ -295,6 +360,12 @@ public final class Cloth {
                     fx -= drag * vn * nx;
                     fy -= drag * vn * ny;
                     fz -= drag * vn * nz;
+                    if (wave != null) {
+                        double f = wave[r];
+                        fx += f * nx;
+                        fy += f * ny;
+                        fz += f * nz;
+                    }
                 }
                 double mx = vx + fx * h2, my = vy + fy * h2, mz = vz + fz * h2;
                 double m2 = mx * mx + my * my + mz * mz;

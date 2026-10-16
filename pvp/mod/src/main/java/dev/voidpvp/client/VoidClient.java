@@ -1350,6 +1350,8 @@ public final class VoidClient implements ClientModInitializer, BridgeHost, VoidS
      */
     public void onAttackedEntity(int entityId) {
         ownHits.swungAt(entityId, System.currentTimeMillis());
+        // The same click credits the hit flash it causes to the local player's cosmetics.
+        dev.voidpvp.client.cosmetic.FightWatch.ownAttack(entityId);
     }
 
     /** Whether the hurt flash now on this entity is plausibly one this player caused. */

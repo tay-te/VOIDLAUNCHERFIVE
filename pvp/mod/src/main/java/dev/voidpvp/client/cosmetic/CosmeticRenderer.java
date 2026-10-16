@@ -59,6 +59,9 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
     private final float[] scratch = new float[16];
     private final float[] root = new float[3];
     private final double[] d3 = new double[3];
+    private final double[] kick = new double[3];
+    /** The renderer's model slots as the reactions name them. */
+    private static final int[] REACT_SLOT = {Reaction.BACK, Reaction.HEAD, Reaction.FACE, Reaction.HALO};
     private float emissive = 1f;
     /** Distance to the player being drawn, for the model passes' LOD. */
     private double modelDist;
@@ -124,6 +127,14 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         emissive = 0.42f + 0.58f * (1 - Math.max(0, Math.min(1, p.getBrightnessAtEyes(td))));
 
         motion(fx, p, td, dt, gui);
+        // Fight reactions and secondary motion (Reactive, Secondary). The springs rest on the body
+        // past the mid band (the LOD) and in the inventory preview.
+        Reaction react = gui ? null : Reactive.peek(uuid);
+        if (react != null) {
+            react.update(Reactive.now(), Reactive.level());
+        }
+        fx.react = react;
+        fx.sec.update(p, td, Secondary.frameDt, !gui && (self || dist < MID * q), react);
 
         if (glowOn) {
             playerModelview(mc, p, fx.uuid, td);
@@ -174,8 +185,18 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             double x = p.prevX + (p.x - p.prevX) * td;
             double y = p.prevY + (p.y - p.prevY) * td;
             double z = p.prevZ + (p.z - p.prevZ) * td;
-            Trails.emit(fx, trailId, p, x, y, z, dt, p.onGround);
+            Trails.emit(fx, trailId, p, x, y, z, dt, p.onGround, slotIntensity(fx, Reaction.TRAIL));
         }
+    }
+
+    /** The reactive emissive multiplier for one slot of this player (1 at rest). */
+    private static float slotIntensity(PlayerFx fx, int slot) {
+        return fx.react == null ? 1f : fx.react.intensity(slot);
+    }
+
+    /** Albedo shade for low health: at most 15% darker, so the item never reads as a different one. */
+    private static float albedoShade(PlayerFx fx) {
+        return fx.react == null ? 1f : 1f - 0.5f * fx.react.dim;
     }
 
     /**
@@ -221,8 +242,14 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         }
         float dt = fx.lastNanos == 0 ? 0 : Math.min(0.1f, (now - fx.lastNanos) / 1e9f);
         fx.lastNanos = now;
+        Reaction react = Reactive.peek(fx.uuid);
+        float boost = 1f;
+        if (react != null) {
+            react.update(Reactive.now(), Reactive.level());
+            boost = react.intensity(Reaction.TRAIL);
+        }
         Trails.emit(fx, trail, p, p.prevX + (p.x - p.prevX) * td, p.prevY + (p.y - p.prevY) * td,
-                p.prevZ + (p.z - p.prevZ) * td, dt, p.onGround);
+                p.prevZ + (p.z - p.prevZ) * td, dt, p.onGround, boost);
     }
 
     private static PlayerFx fx(Entity p, long now) {
@@ -366,6 +393,17 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 cloth.windY = 0;
                 // Low-resolution capes step at 60 Hz (Cloth.step) and only on alternate frames;
                 // the time carries over, and the mesh is reused between steps.
+                // Secondary motion and reactions push the sheet: the body's acceleration
+                // exaggerated (a whip on every change of direction), and one-shot kicks for a
+                // hit taken or landed, a landing, a sprint-jump, and a kill's ripple.
+                Secondary sc = fx.sec;
+                if (sc.on) {
+                    cape.frame.dirToWorld(sc.capeShotX, sc.capeShotY, sc.capeShotZ, kick);
+                    cloth.kick(kick[0] + sc.capeKickX, kick[1] + sc.capeKickY, kick[2] + sc.capeKickZ, 1.0);
+                    if (sc.capeWave > 0) {
+                        cloth.wave(75.0 * sc.capeWave);
+                    }
+                }
                 fx.clothCarry += dt;
                 if (fx.clothHi || ((++fx.clothFrame) & 1) == 0) {
                     long c0 = System.nanoTime();
@@ -400,7 +438,11 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         GlStateManager.bindTexture(tex.glId);
         Gl.selectFrame(frame, tex.frames);
         // Fold shading where it can be seen: the high-resolution sheets close to the camera.
+        float shade = albedoShade(fx);
+        float ik = slotIntensity(fx, Reaction.CAPE);
+        GlStateManager.color(shade, shade, shade, 1);
         cape.draw(cloth, false, fx.clothHi);
+        GlStateManager.color(1, 1, 1, 1);
         Gl.resetFrame(tex.frames);
         // Tint mask.
         {
@@ -421,10 +463,16 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         {
             CosmeticAssets.Tex em = bundle.emissive();
             if (em != null) {
-                emissiveBegin();
+                float e = emissive * ik;
+                emissiveBegin(Math.min(1f, e));
                 GlStateManager.bindTexture(em.glId);
                 Gl.selectFrame(frame, em.frames);
                 cape.draw(cloth, true, false);
+                if (e > 1.02f) {
+                    // Brighter than one additive pass can add: the remainder, once more.
+                    GlStateManager.color(e - 1f, e - 1f, e - 1f, 1);
+                    cape.draw(cloth, true, false);
+                }
                 Gl.resetFrame(em.frames);
                 emissiveEnd(light);
             }
@@ -436,7 +484,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             for (int k = 0; k < style.glow.length; k++) {
                 float[] g = style.glow[k];
                 Mat4.transform(scratch, cloth.glowAt[k * 3], cloth.glowAt[k * 3 + 1], cloth.glowAt[k * 3 + 2], eye);
-                glow.add(eye[0], eye[1], eye[2], g[3] * Mat4.scaleOf(scratch), (int) g[2], g[4] * glowK);
+                glow.add(eye[0], eye[1], eye[2], g[3] * Mat4.scaleOf(scratch), (int) g[2], g[4] * glowK * ik);
             }
         }
         Budget.split(5, System.nanoTime() - q2);
@@ -497,8 +545,8 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         return item == null || item.defaultTint < 0 ? 0xFFFFFF : item.defaultTint;
     }
 
-    private void emissiveBegin() {
-        GlStateManager.color(emissive, emissive, emissive, 1);
+    private void emissiveBegin(float k) {
+        GlStateManager.color(k, k, k, 1);
         GlStateManager.enableBlend();
         GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         GlStateManager.disableLighting();
@@ -536,6 +584,8 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         m.animate("idle", time, pose);
         Procedural.apply(m, pose, fx, p, time, dt);
 
+        float ik = slotIntensity(fx, REACT_SLOT[slot]);
+        float shade = albedoShade(fx);
         boolean wantGlow = glowK > 0 && m.glow.length > 0;
         boolean emissiveFor = modelDist < MID * Budget.quality() * 0.7 || glowK > 0.9f;
         if (wantGlow) {
@@ -583,10 +633,29 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 Mat4.translate(itemMv, 0, -0.8f, 0);
             }
         }
+        Secondary sc = fx.sec;
+        if (sc.on && slot == SLOT_HEAD) {
+            // A hat rides the head on a spring (Secondary): it rocks about the crown after a snap
+            // turn, presses down on a landing and lifts a touch at the top of a jump.
+            GlStateManager.translate(0, -8 + sc.hatLift, 0);
+            GlStateManager.rotate(sc.hatRoll * 57.29578f, 0, 0, 1);
+            GlStateManager.rotate(sc.hatPitchOut * 57.29578f, 1, 0, 0);
+            GlStateManager.scale(1 + sc.hatSquash * 0.5f, 1 - sc.hatSquash, 1 + sc.hatSquash * 0.5f);
+            GlStateManager.translate(0, 8, 0);
+            if (wantGlow) {
+                Mat4.translate(itemMv, 0, -8 + sc.hatLift, 0);
+                Mat4.rotate(itemMv, sc.hatRoll, 0, 0, 1);
+                Mat4.rotate(itemMv, sc.hatPitchOut, 1, 0, 0);
+                Mat4.scale(itemMv, 1 + sc.hatSquash * 0.5f, 1 - sc.hatSquash, 1 + sc.hatSquash * 0.5f);
+                Mat4.translate(itemMv, 0, 8, 0);
+            }
+        }
         int frame = tex.frame(time);
         GlStateManager.bindTexture(tex.glId);
         Gl.selectFrame(frame, tex.frames);
+        GlStateManager.color(shade, shade, shade, 1);
         ModelDraw.draw(m, pose);
+        GlStateManager.color(1, 1, 1, 1);
         Gl.resetFrame(tex.frames);
 
         {
@@ -611,16 +680,21 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             // when it is the point) get it.
             CosmeticAssets.Tex em = emissiveFor ? bundle.emissive() : null;
             if (em != null) {
-                emissiveBegin();
+                float e = emissive * ik;
+                emissiveBegin(Math.min(1f, e));
                 GlStateManager.bindTexture(em.glId);
                 Gl.selectFrame(frame, em.frames);
                 ModelDraw.draw(m, pose);
+                if (e > 1.02f) {
+                    GlStateManager.color(e - 1f, e - 1f, e - 1f, 1);
+                    ModelDraw.draw(m, pose);
+                }
                 Gl.resetFrame(em.frames);
                 emissiveEnd(light);
             }
         }
         if (wantGlow) {
-            ModelDraw.glow(m, pose, itemMv, glow, glowK, scratch);
+            ModelDraw.glow(m, pose, itemMv, glow, glowK * ik, scratch);
         }
         GlStateManager.popMatrix();
     }

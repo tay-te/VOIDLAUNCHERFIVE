@@ -38,6 +38,8 @@ public final class Trails {
     private static long lastNanos;
     private static final float[] MV = new float[16];
     private static final String[] BATCH = new String[16];
+    /** Size factor for particles spawned by the current emit (reactive boost). */
+    private static float sizeBoost = 1f;
 
     private Trails() {
     }
@@ -47,7 +49,7 @@ public final class Trails {
      * caller has already decided the player is visible and wears {@code id}.
      */
     static void emit(PlayerFx fx, String id, Entity e, double x, double y, double z, float dt,
-                     boolean onGround) {
+                     boolean onGround, float boost) {
         TrailStyle s = CosmeticAssets.trail(id);
         if (s == null || dt <= 0) {
             return;
@@ -70,7 +72,10 @@ public final class Trails {
             return;
         }
         float density = (float) Math.min(1.25, horiz / 5.6);
-        fx.trailCarry += s.rate * density * dt;
+        // A combo thickens the trail (Reactive): more particles, a little larger, same cap.
+        float more = Math.max(0.5f, Math.min(2.2f, boost));
+        fx.trailCarry += s.rate * density * more * dt;
+        sizeBoost = 1f + 0.3f * Math.max(0f, more - 1f);
         int[] count = COUNTS.get(Integer.valueOf(fx.entityId));
         if (count == null) {
             count = new int[1];
@@ -97,7 +102,7 @@ public final class Trails {
         float jitter = (RNG.nextFloat() - 0.5f);
         life[i] = s.life * (0.75f + RNG.nextFloat() * 0.5f);
         color[i] = s.colors[RNG.nextInt(s.colors.length)];
-        size[i] = s.size * (0.8f + RNG.nextFloat() * 0.4f);
+        size[i] = s.size * (0.8f + RNG.nextFloat() * 0.4f) * sizeBoost;
         // Spawn a little behind the feet, spread across the body's width.
         double sideX = -dirZ, sideZ = dirX;
         double back = 0.25 + RNG.nextFloat() * 0.2;
