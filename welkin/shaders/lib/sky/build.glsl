@@ -105,6 +105,10 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	// by 16 degrees; none by day whatever the clock says, and none under a closed overcast
 	float starDark = skySmooth(0.105, 0.276, -sunW.y);
 	m.stars = clamp(s.light.y, 0.0, 1.0) * starDark * (1.0 - m.overcast) * (1.0 - s.blind);
+	// atmos (welkin-atmos): no star through a closed sky (DEFECTS item 6: under a front of 0.8, cloud 1.00 and rain 0.57,
+	// the stars still sparkled, since the cover the overcast reads can lag the fronts' own cloud and rain). Rain, the
+	// fronts' cloud and Gloam's own star count each close the sky: half the stars go by cover 0.45, all of them by 0.7
+	m.stars *= 1.0 - skySmooth(0.3, 0.7, max(max(s.cover, s.cloudCover), 1.4 * s.rain));
 
 	// ---- sun and moon discs ----
 	m.sunVis = skyLevel(1.0 - skySmooth(0.55, 1.0, s.cover)) * (1.0 - s.blind);

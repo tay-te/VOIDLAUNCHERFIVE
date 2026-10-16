@@ -365,7 +365,8 @@ vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 vec3 wcFogTarget(vec3 rd, CloudEnv e) {
 	vec3 hor = wcHorizon(rd, e);
 	if (rd.y <= 0.0) {
-		return hor;
+		// atmos (welkin-atmos): far clouds sink into the same luminous air as the land (lib/sky/luminous.glsl)
+		return skyLuminous(hor, normalize(vec3(rd.x, 0.0, rd.z) + vec3(1e-5, 0.0, 0.0)), skyLumFrame(e.sun), 0.6);
 	}
 	// the dome's plain band at this height (two texels, the dome's own band mapping), with the sun's glow of the
 	// horizon fading out upward
@@ -374,7 +375,7 @@ vec3 wcFogTarget(vec3 rd, CloudEnv e) {
 	// (air and tone (D): by day a far cloud pales into the bright air between it and the eye, half the horizon's colour,
 	// rather than taking the deeper blue of the sky behind it: sunk into that blue a far deck read as a see-through grey
 	// slab; paled, it reads as a far white cloud in the haze)
-	return mix(band, hor, 0.5 * wcBaseDay(e));
+	return skyLuminous(mix(band, hor, 0.5 * wcBaseDay(e)), rd, skyLumFrame(e.sun), 0.6); // atmos (welkin-atmos)
 }
 
 // How far a hit sinks into the horizon colour: a little from a few hundred blocks out, then smoothly more with each

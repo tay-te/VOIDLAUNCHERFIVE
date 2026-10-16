@@ -67,10 +67,10 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define AIR_MIE 100 // [0 50 75 100 125 150]
 // Aerial perspective: Past the near land, the land's colours lean toward the air's hue with distance and give up a little contrast (more toward a low sun), so hills and woods stand in layers. Not a veil: the land keeps its brightness.  [air]
 #define AERIAL_PERSPECTIVE 50 // [0 25 50 75 100]
-// Sun shafts: At a low sun, beams of sunlit air between trunks and through gaps in the woods, and the long shadows of hills streaking the air. Subtle and smooth, never a fog; nearly nothing at noon. Needs Sun and moon shadows.  [air]
+// Sun shafts: God rays: beams of sunlit air between trunks, through gaps in the woods and the clouds and over ridges, in the sun's warm light, boldest at a low sun and in morning haze; side-on a soft glow toward the sun. Smooth, never a fog. Needs Sun and moon shadows.  [air]
 #define SUN_SHAFTS
 // Sun shaft strength: How bright the sun shafts are.  [air]
-#define SHAFT_STRENGTH 100 // [50 75 100 150 200]
+#define SHAFT_STRENGTH 100 // [50 75 100 125 150 200]
 // Sun shaft debug: 1 the resolved sunlit share of the near air, 2 the raw (noisy) term. For testing only; on no screen.  [air]
 #define SHAFT_DEBUG 0 // [0 1 2]
 // ---- Sky
@@ -113,6 +113,25 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define MIST_THICKNESS 1.0 // [0.5 0.75 1.0 1.5 2.0]
 // Mist detail: How many points across the land the mist looks at to find the hollows it fills. More gives the mist a truer shape.  [mist]
 #define MIST_SAMPLES 3 // [2 3 4]
+// ---- atmos (welkin-atmos, 2026-10-16): the luminous sky and the volumetric haze (lib/sky/luminous.glsl, lib/haze/volume.glsl)
+// Luminous sky: The whole dome feels lit: a bright, soft band along the horizon, a wide glow toward the sun that warms to amber at a low sun, and a deeper, clearer blue overhead. The far land and the clouds fade into the same bright air.  [sky]
+#define SKY_LUMINOUS
+// Sky glow: How bright the horizon band and the glow toward the sun are.  [sky]
+#define SKY_GLOW 100 // [50 75 100 125 150]
+// Volumetric haze: Haze lit by the sun through the shadows of trees, ridges and clouds, so light and shadow show in the air: thicker in valleys, low ground and toward the horizon, warm toward the sun and cool away from it, by country, humidity, mist and weather. Smooth, with no grain.  [haze]
+#define HAZE_VOLUME
+// Volumetric haze strength: How thick the volumetric haze is.  [haze]
+#define HAZE_VOLUME_STRENGTH 100 // [50 75 100 125 150 200]
+// Volumetric haze detail: How many points along each view the volumetric haze looks at. More gives cleaner light and shadow in the air.  [haze]
+#define HAZE_VOLUME_STEPS 14 // [10 14 20 28]
+// ---- atmos (welkin-atmos, shafts and bloom): the god rays toward the sun and the bloom (lib/shafts.glsl, lib/bloom.glsl)
+// Sun beams: When the sun stands in or near the view, beams of its light stream from gaps in the crowns, between the clouds and over ridges toward the eye. Smooth, no grain.  [air]
+#define SHAFT_BEAMS
+// Bloom: A wide soft halo and a tighter core round the brightest light: the sun and the sky near it, sunlit clouds, pale stone and snow, glints on water, torches and lamps. Only light past white spreads; textures stay crisp.  [look]
+#define BLOOM
+// Bloom strength: How much of the brightest light spreads into the halo.  [look]
+#define BLOOM_STRENGTH 100 // [50 75 100 125 150 200]
+// ---- end atmos
 // ---- Clouds
 // Block clouds: Solid clouds made of blocks, drawn by the shader and shaped by the weather. Off brings back the normal Minecraft clouds.  [clouds]
 #define CLOUDS
@@ -288,5 +307,15 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #endif
 #ifdef DEBUG_JOIN
 #endif
+// ---- atmos (welkin-atmos)
+#ifdef SKY_LUMINOUS
+#endif
+#ifdef HAZE_VOLUME
+#endif
+#ifdef SHAFT_BEAMS
+#endif
+#ifdef BLOOM
+#endif
+// ---- end atmos
 
 #endif
