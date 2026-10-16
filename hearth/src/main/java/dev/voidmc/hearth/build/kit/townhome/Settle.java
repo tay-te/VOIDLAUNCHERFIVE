@@ -243,13 +243,20 @@ public final class Settle {
 		}
 	}
 
-	/** Takes a thing away and whatever rests on it (a carpet hung over a rail, a pot or a lamp on a table, a candle). */
+	/**
+	 * Takes a thing away and whatever rests on it (a carpet hung over a rail, a pot or a lamp on a table, a candle, a
+	 * table's top on its leg, a crate or barrel stacked on it: left, they hung in the air at head height).
+	 */
 	public static void lift(Draft d, int x, int y, int z) {
 		d.inStage(StageKind.INTERIOR, () -> {
 			d.set(x, y, z, Blocks.AIR.defaultBlockState());
 			for (int yy = y + 1; yy <= y + 2; yy++) {
 				BlockState up = d.get(x, yy, z);
-				if (up == null || !rests(up)) {
+				Draft.Cell upCell = d.cell(x, yy, z);
+				boolean stacked = up != null && upCell != null && upCell.stage() == StageKind.INTERIOR
+					&& (up.getBlock() instanceof net.minecraft.world.level.block.BarrelBlock || up.getBlock() instanceof net.minecraft.world.level.block.ChestBlock
+					|| up.getBlock() instanceof net.minecraft.world.level.block.BasePressurePlateBlock);
+				if (up == null || !rests(up) && !stacked) {
 					break;
 				}
 				d.set(x, yy, z, Blocks.AIR.defaultBlockState());

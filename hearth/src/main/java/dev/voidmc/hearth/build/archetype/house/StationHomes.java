@@ -353,14 +353,21 @@ final class StationHomes {
 	}
 
 	/**
-	 * Room to turn round in: a small home's one room keeps six cells someone can stand in (the bed and the fire are its
-	 * own; a chest, a barrel or the trade's things beyond that crowd it). What crowds it goes: the stores into a niche in
-	 * the wall (a barrel set in the wall's thickness, opened from inside), the rest out. Beds, fires, ladders, doors and
-	 * job sites stay. Answers how many cells were freed.
+	 * Room to turn round in: a small home's one room keeps six cells someone can stand in, all of a piece (the bed and the
+	 * fire are its own; a chest, a barrel or the trade's things beyond that crowd it), and no corner of its floor shut off
+	 * behind them. What crowds it goes, first what stands between the open floor and a shut-off corner: the stores into a
+	 * niche in the wall (a barrel set in the wall's thickness, opened from inside), the rest out. Beds, fires, ladders,
+	 * doors and job sites stay. Answers how many cells were freed.
 	 */
 	static int roomToTurn(Draft d, dev.voidmc.hearth.build.kit.Rooms.Room room) {
 		int freed = 0;
-		for (int round = 0; round < 12 && standing(d, room) < 6; round++) {
+		for (int round = 0; round < 12; round++) {
+			it.unimi.dsi.fastutil.longs.LongOpenHashSet main = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+			it.unimi.dsi.fastutil.longs.LongOpenHashSet pockets = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+			floor(d, room, main, pockets);
+			if (main.size() >= 6 && pockets.isEmpty()) {
+				break;
+			}
 			int[] pick = null;
 			int best = Integer.MAX_VALUE;
 			for (int z = room.z0; z <= room.z1; z++) {
@@ -370,8 +377,20 @@ final class StationHomes {
 					if (rank < 0 || jobAt(d, x, room.y, z)) {
 						continue;
 					}
-					if (rank < best) {
-						best = rank;
+					boolean byMain = false;
+					boolean byPocket = false;
+					for (Direction dir : Dirs.HORIZONTAL) {
+						long n = dev.voidmc.hearth.build.draft.Draft.key(x + Dirs.dx(dir), room.y, z + Dirs.dz(dir));
+						byMain |= main.contains(n);
+						byPocket |= pockets.contains(n);
+					}
+					// (what opens a shut-off corner onto the floor first, then what stands on the floor's edge)
+					int score = (byMain && byPocket ? 0 : byMain ? 10 : 20) + rank;
+					if (main.size() >= 6 && !(byMain && byPocket)) {
+						continue;
+					}
+					if (score < best) {
+						best = score;
 						pick = new int[]{x, z};
 					}
 				}
@@ -393,17 +412,48 @@ final class StationHomes {
 		return freed;
 	}
 
-	/** The cells of a room someone can stand in (feet and head free, a floor under them). */
-	private static int standing(Draft d, dev.voidmc.hearth.build.kit.Rooms.Room room) {
-		int n = 0;
+	/**
+	 * The cells of a room someone can stand in (feet and head free, a floor under them): the biggest piece of them in
+	 * {@code main}, the rest (corners shut off behind the furniture) in {@code pockets}.
+	 */
+	private static void floor(Draft d, dev.voidmc.hearth.build.kit.Rooms.Room room, it.unimi.dsi.fastutil.longs.LongOpenHashSet main,
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet pockets) {
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet all = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 		for (int z = room.z0; z <= room.z1; z++) {
 			for (int x = room.x0; x <= room.x1; x++) {
 				if (dev.voidmc.hearth.build.kit.townhome.Settle.walkable(d, x, room.y, z)) {
-					n++;
+					all.add(dev.voidmc.hearth.build.draft.Draft.key(x, room.y, z));
 				}
 			}
 		}
-		return n;
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet seen = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+		for (long start : all) {
+			if (seen.contains(start)) {
+				continue;
+			}
+			it.unimi.dsi.fastutil.longs.LongOpenHashSet comp = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+			it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue q = new it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue();
+			q.enqueue(start);
+			seen.add(start);
+			while (!q.isEmpty()) {
+				long k = q.dequeueLong();
+				comp.add(k);
+				for (Direction dir : Dirs.HORIZONTAL) {
+					long n = dev.voidmc.hearth.build.draft.Draft.key(dev.voidmc.hearth.build.draft.Draft.keyX(k) + Dirs.dx(dir), room.y,
+						dev.voidmc.hearth.build.draft.Draft.keyZ(k) + Dirs.dz(dir));
+					if (all.contains(n) && seen.add(n)) {
+						q.enqueue(n);
+					}
+				}
+			}
+			if (comp.size() > main.size()) {
+				pockets.addAll(main);
+				main.clear();
+				main.addAll(comp);
+			} else {
+				pockets.addAll(comp);
+			}
+		}
 	}
 
 	/** How readily a thing on a small room's floor makes way (lower first), or -1 if it stays (beds, fires, ladders). */
