@@ -24,6 +24,8 @@ Status: **works** (seen working this wave, in game or by test), **fixed** (broke
 | Long walks across a town (§1) | path budget 48 | distance budget to 128, detours | FolkNight | **fixed** |
 | Stuck folk: shortcut when unseen (§5) | only if no player in 32 | any player's line of sight | FolkNight | **fixed** |
 | Portals, suffocation (permanent death by a wall) | no | `canUsePortal`, IN_WALL step-out | code | **fixed** |
+| Folk carried up a site's scaffold column, stranded on the ring | yes (bug) | non-builders sneak down | FolkNight | **fixed** |
+| Homeless residents at night | stood at the town centre | inn bench | FolkNight | **fixed** |
 | Skins composed from genome, culture, trade, station, office (§2) | yes | client `FolkSkins` | SkinComposerTest, FolkPortraits | works |
 | Names, traits, families (§3) | yes | resident factory | ResidentFactoryTest | works |
 | Embodiment: spawn/fold by distance, caps, stickiness (§4) | yes | manager tick | EmbodimentSelectorTest, FolkNight census | works |
@@ -59,7 +61,7 @@ Status: **works** (seen working this wave, in game or by test), **fixed** (broke
 | Dev commands, permission level 2 (§11) | yes | `/hearth npc` | — | works |
 | Dedicated server: no client classes in main | yes | — | full build | works |
 
-Counts: 38 rows; **16 fixed**, 14 working as seen this wave, 8 implemented but not re-run (ok?), 1 gap (corpses, not
+Counts: 40 rows; **18 fixed**, 14 working as seen this wave, 7 implemented but not re-run (ok?), 1 gap (corpses, not
 designed).
 
 ## 2. What was fixed
@@ -93,6 +95,11 @@ designed).
 9. **Other modules' behaviours walked only 48 blocks and never got unstuck** (`FolkHandle.moveTo`).
 10. **Every embodiment pass made a full schedule for every record in town**; kept per resident per day now.
 11. The conversation title's hard-coded English " of " is a lang key; `NpcLangTest` keeps every npc key defined.
+12. **A child stranded 22 blocks above the square at midnight** (FolkNight, third run), with no path from where she
+    stood: walking into a building site's scaffold column carries a mob up it (a climbable block and a push against
+    it), and the pathfinder knows no way off the ring. Non-builders in or on scaffolding now keep low and come down.
+13. **Residents with no home** (the sim had not housed them) walked to the town's centre at night and stood there; they
+    doze on an inn bench now.
 
 ## 3. Verified in game
 
@@ -108,6 +115,18 @@ back:           48 folk entities, 48 managed, 48 flagged embodied, 0 flag mismat
 morning: time 2800: 24 with a work plot, 23 at it, 1 still asleep
 conversation: opened true, closed on goodbye true
 ```
+
+Three runs (each grows its own town; the sim is not deterministic across runs):
+
+| run | town | 23:06 abed | 0:00 abed | left up at midnight | fold round trip | morning at work |
+|---|---|---|---|---|---|---|
+| 1 | 193 souls | 45/48 | 47/48 | the reeve (the crier) | 48/0/48, 0 dup | 23/24 |
+| 2 | 225 souls | 43/48 | 44/48 | 3 homeless at the centre (fixed since) | 48/0/48, 0 dup | 15/18 (lord at breakfast, a priest at another altar, a quarrier at another face) |
+| 3 | 192 souls | 44/48 | 47/48 | a child up a scaffold ring (fixed since) | 48/0/48, 0 dup | 20/23 |
+
+In every run the conversation opened, answered "Tell me about yourself" and closed on goodbye. The towns had no plot
+in building when the builders were sampled (all four or five at the yard), so the builders were not seen at a site
+here; the builder lane's `BuilderTour` covers that.
 
 Screenshots (`scratchpad/w7/sys-npc/`): `folknight_sleepers.png` (two folk asleep in their beds at midnight),
 `folknight_conversation.png` (the parchment with the translatable title, "Child of Sigskog").

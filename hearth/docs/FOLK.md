@@ -51,7 +51,9 @@ over the wall top no folk could follow: builders get about the ring by hand, §6
 scaffolding when the path goes down. Sleeping uses the vanilla pose without touching the bed block (`Folk.sleepIn`), so a folk folded away
 in bed never leaves a bed marked occupied. Step height 1. Folk do not use portals (the entity would leave for a world
 where no settlement can take it back). A block put where a folk stands (a builder's step, the chunk applier, a player)
-does them no harm: they step out to the nearest standing room, since a resident's death is for good.
+does them no harm: they step out to the nearest standing room, since a resident's death is for good. Anyone but a
+builder who walks into a site's scaffold column (which carries a mob up it) or stands on the ring keeps low and comes
+back down through it: no path leads off the ring.
 
 Paths are asked for a place to **stand** (`FolkSpots.approaches`): the spot itself if one can stand there, else the
 standable cells beside it, beside either half of a bed, and under a roof only roofed ones (so a bed against an outside
@@ -149,6 +151,9 @@ about the domain in the afternoon and sits up late; the reeve keeps office hours
 jailers keep the night watch like a third of the guards; entertainers rise late and play into the night; stablemasters
 and butchers start before dawn; the charcoal burner tends the clamp until 19:00; miners, haulers, diggers, salters and
 beekeepers lunch at work.
+
+Someone the sim has not housed yet (no home plot, no bed) dozes on a bench at the inn at night rather than standing
+about the town's centre.
 
 Overrides, checked once a second: a monster in sight → flee (and if there are several, or raiders, the town alarm:
 one folk runs to ring the nearest bell, everyone else goes home and cowers); rain on outdoor activities → shelter
