@@ -110,7 +110,7 @@ function luxeCape(save) {
   save('style-c-cape', 'material.png', mat);
   // The stone's glint is the only light: small, faint, and mostly a night thing.
   const emi = new Canvas(64, 32);
-  emi.set(1 + STONE, 1 + BAR, J[3], 210);
+  emi.set(1 + STONE, 1 + BAR, J[2], 200);
   save('style-c-cape', 'emissive.png', emi);
   save('style-c-cape', 'cape.json', { stiffness: 0.96, weight: 1.3 });
 }
@@ -244,7 +244,7 @@ const block = (r, { hi = true } = {}) => (face, i, j, w, h) => {
 
 /* C · luxe wings: "Blade". A clean ivory spar from a brushed-steel hinge, graphite blades hung
  * from it like the slats of a fan, stepping darker inward, the outermost primary in steel; the
- * violet stone is set in the hinge. They barely stir: a blade does not flutter. */
+ * violet stone is set near the steel blade's tip. They barely stir: a blade does not flutter. */
 function luxeWings(save) {
   const I = C.ivory, G = C.graphite, S = C.steel, J = C.jewel;
   const W = 64, H = 64;
@@ -271,11 +271,7 @@ function luxeWings(save) {
   ];
   const steelTone = [S[0], S[1], S[2], S[3]];
 
-  // Hinge with the stone on its back face.
-  const hinge = b.box([-2.2, 0.0, 2.4], [-0.9, 2.0, 3.6], (face, i, j, w, h) => {
-    if (face === 'south' && i === 0 && j === 1) return J[2];
-    return steel(face, i, j, w, h);
-  }, 'metal', (face, i, j) => (face === 'south' && i === 0 && j === 1 ? [J[3], 210] : null));
+  const hinge = b.box([-2.0, 0.2, 2.5], [-0.9, 1.8, 3.5], steel, 'metal');
   const arm = b.box([WRIST[0], 0.4, 2.6], [ROOT[0] - 0.9, 1.4, 3.4], spar, 'matte');
   const hand = b.box([WRIST[0] - HAND, 0.5, 2.65], [WRIST[0], 1.3, 3.35], spar, 'matte');
   const cap = b.box([WRIST[0] - HAND - 0.8, 0.35, 2.55], [WRIST[0] - HAND, 1.45, 3.45], steel, 'metal');
@@ -287,8 +283,14 @@ function luxeWings(save) {
   ];
   // Primaries: four blades under the hand, longest outermost, the last in steel.
   const xs = [[-8.8, -7.3, 8], [-10.6, -9.0, 9], [-12.4, -10.8, 10], [-14.4, -12.6, 10]];
-  const pri = xs.map(([x0, x1, len], k) => b.box([x0, 1.3, 2.8], [x1, 1.3 + len, 3.3],
-    blade(k === 3 ? steelTone : tones[Math.min(2, k)], true), k === 3 ? 'metal' : 'cloth'));
+  // The outermost primary is steel, and the stone is set near its tip: at night, two violet
+  // points at the wingtips are the only light.
+  const stoneAt = (face, i, j, w, h) => face === 'south' && i === 0 && j === h - 2;
+  const steelBlade = blade(steelTone, true);
+  const pri = xs.map(([x0, x1, len], k) => (k === 3
+    ? b.box([x0, 1.3, 2.8], [x1, 1.3 + len, 3.3], (...a) => (stoneAt(...a) ? J[2] : steelBlade(...a)), 'metal',
+      (...a) => (stoneAt(...a) ? [J[2], 200] : null))
+    : b.box([x0, 1.3, 2.8], [x1, 1.3 + len, 3.3], blade(tones[Math.min(2, k)], true), 'cloth')));
   const right = [
     { name: 'wing_r', parent: null, pivot: ROOT, rotation: [0, 0, 16], cubes: [hinge, arm] },
     { name: 'wing_r_sec', parent: 'wing_r', pivot: [ROOT[0], 1.4, 3.0], cubes: sec },
@@ -436,8 +438,8 @@ function luxeHat(save) {
     b.box([-3.5, -12.4, -3.3], [3.5, -11.6, 3.3], felt, 'cloth'),
     b.box([-4.25, -9.6, -4.25], [4.25, -8.6, 4.25], band, 'cloth'),
     // The pin, on the band at the front left: brushed steel, the stone set in its inner end.
-    b.box([-3.4, -9.6, -4.45], [-1.4, -8.6, -4.25], (face, i) => (face === 'north' && i === 1 ? J[2] : face === 'north' ? S[3] : S[1]), 'metal',
-      (face, i) => (face === 'north' && i === 1 ? [J[3], 210] : null)),
+    b.box([-3.4, -9.6, -4.45], [-1.4, -8.6, -4.25], (face, i) => (face === 'north' && i === 1 ? J[2] : face === 'north' ? S[1] : S[0]), 'metal',
+      (face, i) => (face === 'north' && i === 1 ? [J[2], 200] : null)),
   ];
   save('style-c-hat', 'texture.png', b.alb);
   save('style-c-hat', 'emissive.png', b.emi);
