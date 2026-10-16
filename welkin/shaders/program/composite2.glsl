@@ -240,7 +240,8 @@ void main() {
 			if (dA.y < 0.0) {
 				dA = normalize(vec3(dA.x, 0.0, dA.z) + vec3(1e-5, 0.0, 0.0));
 			}
-			air = wdSkyLum(air, dA, sunW);
+			// (half of it: the whole of the brighter band as the haze's colour paled every far ridge toward white)
+			air = mix(air, wdSkyLum(air, dA, sunW), 0.5);
 		}
 		vec3 airPlain = air;
 		air = airMie(air, normalize(eyePos), sunW, st.kind);
@@ -284,9 +285,9 @@ void main() {
 			vec3 vol = wdVolResolve(p, s.sky ? 1e4 : length(eyePos));
 			float dens = mix(0.65, 1.45, clamp(st.haze.x, 0.0, 1.0)) * (1.0 + 1.6 * st.rain);
 #ifdef WELKIN_VALLEY_MIST
-			dens *= 1.0 + 1.2 * mistCam.y * mistCam.z;
+			dens *= 1.0 + 0.6 * mistCam.y * mistCam.z;
 #endif
-			dens *= (WD_ALL == 1 ? 0.55 : 1.0) * smoothstep(-0.08, 0.04, sunW.y);
+			dens *= (WD_ALL == 1 ? 0.4 : 1.0) * smoothstep(-0.08, 0.04, sunW.y);
 			float a = 1.0 - exp(-WD_HAZE_SIGMA * dens * vol.b);
 			if (a > 0.0) {
 				vec3 dV = normalize(eyePos);
@@ -338,7 +339,7 @@ void main() {
 			vec3 rayHue = mix(sunSideR / max(wdLuma(sunSideR), 1e-3), vec3(1.0), 0.2);
 			float h0 = sunW.y;
 			float gateR = smoothstep(-0.03, 0.05, h0) * mix(1.0, 0.3, smoothstep(0.3, 0.9, h0)) * (1.0 - skyNightStep());
-			float xr = rays * gateR * (WD_ALL == 1 ? 0.75 : 1.0) * (s.sky ? 0.55 : 1.0);
+			float xr = rays * gateR * (WD_ALL == 1 ? 0.7 : 1.0) * (s.sky ? 0.55 : 1.0);
 			color.rgb += rayHue * (0.42 * (1.0 - exp(-xr / 0.42)));
 		}
 #endif

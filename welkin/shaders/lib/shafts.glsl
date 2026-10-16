@@ -95,7 +95,7 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky) {
 		// the eye by a strong forward lobe plus a broad one, so looking toward a low sun the beams between trunks, under
 		// cloud gaps and over ridges stand out bright and warm, and side-on they still streak the air. The gate is open
 		// from the horizon to the mid afternoon (a trace at noon); a soft cap keeps the brightest beams under white.
-		float lobeS = 0.45 * airHg(mu, 0.86) + 0.4 * airHg(mu, 0.5) + 0.15;
+		float lobeS = 0.55 * airHg(mu, 0.86) + 0.45 * airHg(mu, 0.55);
 		vec3 sunSideS = skyHazeHorizon(kind, true);
 		vec3 colS = mix(sunSideS / max(dot(sunSideS, vec3(0.2126, 0.7152, 0.0722)), 1e-3), vec3(1.0), 0.15);
 		float h = sunW.y;
@@ -103,7 +103,7 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky) {
 		// (the beams carry it: where the whole ray is sunlit, open air with nothing to cut it, it is only a glow, at
 		// less than half; where the ray is partly shadowed, beams and the gaps between them, it shows whole)
 		float openAir = smoothstep(0.7, 1.0, lit);
-		float xS = (WD_ALL == 1 ? 0.75 : 1.0) * 2.2 * (sky ? 0.8 : 1.0) * lobeS * gateS * lit * mix(1.0, 0.42, openAir)
+		float xS = (WD_ALL == 1 ? 0.55 : 1.0) * 2.4 * (sky ? 0.8 : 1.0) * lobeS * gateS * lit * mix(1.0, 0.42, openAir)
 			* (1.0 - skyNightStep());
 		return colS * (0.34 * (1.0 - exp(-xS / 0.34)));
 	}

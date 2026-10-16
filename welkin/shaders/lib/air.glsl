@@ -68,7 +68,7 @@ vec3 airPerspective(vec3 c, vec3 air, vec3 mie, float dist, vec3 dir, vec3 sunW)
 		float lc = dot(c, Y), la = max(dot(air, Y), 1e-3);
 		c = mix(c, air * (lc / la), 0.55 * g);
 		float darks = 1.0 - smoothstep(0.0, la, lc) * 0.45;
-		return mix(c, air, g * (WD_ALL == 1 ? 0.17 : 0.30) * darks * mix(1.0, 1.35, lowSide));
+		return mix(c, air, g * (WD_ALL == 1 ? 0.12 : 0.30) * darks * mix(1.0, 1.35, lowSide));
 	}
 #endif
 #if AERIAL_PERSPECTIVE > 0

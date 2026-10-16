@@ -171,7 +171,7 @@ const float AMB_SKY_HUE = 0.5;
 // depth prototypes: SHADE's lift of the open sky's fill (1 + this, where the sky is open and the occlusion clear), and
 // RELIEF's sheen: the specular light deferred works out per pixel (linear light, added before the tone; 0 elsewhere).
 #if WD_ALL
-#define WD_SHADE_LIFT 2.4
+#define WD_SHADE_LIFT 1.9
 #else
 #define WD_SHADE_LIFT 3.0
 #endif
