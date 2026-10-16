@@ -19,6 +19,22 @@
 
 #include "/lib/clouds/map.glsl"
 
+#ifndef WU_colortex7
+#define WU_colortex7
+uniform sampler2D colortex7; // the raw cloud map: its smooth fields (review round 2: the far shadows)
+#endif
+
+// (review round 2) The raw map's smooth margin field of deck k (0 low, 1 main) at camera-relative q in ring lv, through
+// the bilinear filter (as lib/clouds/map.glsl wcField): 0.5 at a cloud's outline, 1 deep inside.
+float wcShadowField(vec2 q, int k, int lv, CloudEnv e) {
+	int s = WC_CELL << lv;
+	ivec2 cell = wcCellOf(q, lv, e);
+	vec2 f = (q - wcCellCorner(cell, s, e)) / float(s);
+	vec2 local = clamp(vec2(cell - wcMapAnchor(lv, e) + WC_MAP_HALF) + f, vec2(0.5), vec2(float(WC_MAP) - 0.5));
+	vec4 t = texture(colortex7, (local + vec2(0.0, float(lv * WC_MAP))) / vec2(float(WC_MAP), float(WC_MAP * 8)));
+	return k == 0 ? t.b : t.a;
+}
+
 // How far the shadow's edge spreads into a cell from each of its open sides, in blocks.
 #define WC_SHADOW_SOFT 5.0
 // The sun's share under one, two and three decks.
@@ -37,15 +53,25 @@
 // inside a cloud, easing to a third at an open side of its cell, 0 in a gap.
 float wcShadowCover(vec2 q, int k, float mid, CloudEnv e) {
 	int lv = wcLevel(length(q));
+	// (review round 2) past the first rings a deck's shadow follows its smooth field, not its cells: the far cells are
+	// 48 to 1536 blocks wide and their shadows lay on the far land and sea as stepped, jagged dark bands (far0, storm0)
+	float smoothK = k <= 1 ? smoothstep(1.4 * WC_RING0, 2.6 * WC_RING0, length(q)) : 0.0;
+	float soft = 0.0;
+	if (smoothK > 0.0) {
+		soft = smoothstep(0.4, 0.62, wcShadowField(q, k, lv, e));
+		if (smoothK >= 1.0) {
+			return soft;
+		}
+	}
 	ivec2 cell = wcCellOf(q, lv, e);
 	ivec4 tx = wcMapCell(cell, lv, e);
 	CloudCol c = wcMapDecode(tx.x, tx.y, e);
 	if (!wcInside(c, mid)) {
-		return 0.0;
+		return mix(0.0, soft, smoothK);
 	}
 	int edges = (wcIn(c.tower, mid) || wcIn(c.anvil, mid) ? tx.w : tx.z >> (4 * k)) & 15;
 	if (edges == 0) {
-		return 1.0;
+		return mix(1.0, soft, smoothK);
 	}
 	int s = WC_CELL << lv;
 	float size = float(s);
@@ -55,7 +81,7 @@ float wcShadowCover(vec2 q, int k, float mid, CloudEnv e) {
 	// is a soft-edged patch like a near one's, not a hard square)
 	vec4 f = mix(vec4(0.33), vec4(1.0), smoothstep(vec4(0.0), vec4(max(WC_SHADOW_SOFT, 0.3 * size)), dist));
 	f = mix(vec4(1.0), f, vec4(ivec4(edges, edges >> 1, edges >> 2, edges >> 3) & 1));
-	return min(min(f.x, f.y), min(f.z, f.w));
+	return mix(min(min(f.x, f.y), min(f.z, f.w)), soft, smoothK);
 }
 
 // `eyePos`: the surface minus cameraPosition (deferred's eyePos), or any camera-relative point.

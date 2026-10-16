@@ -20,13 +20,21 @@
 #ifndef WELKIN_TONE
 #define WELKIN_TONE
 
+#include "/lib/settings.glsl"
+
 // ---- the light model (linear irradiance on a face square to the light; mid grey albedo is 0.18)
 // the noon sun (round 1 of the lighting review: a tenth stronger, so the sun clearly leads)
 // (round 3: 2.7, paying for the fill's cut: the noon field's median stays, its sun-to-shade grows past 5:1)
 #define LAND_SUN 2.7
 // how much stronger the sun stands through the morning and the afternoon (about 15 to 45 degrees up) than its curve
 // (the balance step: 0.14, was 0.1: 16:30's field back toward the 120..140 band as its shade deepened)
+#if R2_LIGHT == 0
 #define LAND_SUN_SHOULDER_HOURS 0.14
+#elif R2_LIGHT == 1
+#define LAND_SUN_SHOULDER_HOURS 0.24
+#else
+#define LAND_SUN_SHOULDER_HOURS 0.3
+#endif
 // the open sky's fill on an upward face at noon (round 1: about a quarter less, so the shade is deeper and the sun's
 // side carries the form; lib/sky/build.glsl skyLandFillLevel takes it down faster as the sun sinks)
 // (round 3: 0.126: open ground's shade about a fifth deeper and a clearer blue)
@@ -34,10 +42,20 @@
 // takes back a brighter, sky-blue fill; lib/light.glsl looks it up along each face's bent normal)
 // (the balance step, 2026-10-13: 0.14, with the AO and the contrast together: noon's open shade p5 back inside 25..35
 // and 16:30's sun to shade past 7:1, the occlusion keeping the corners)
+#if R2_LIGHT == 0
 #define LAND_FILL 0.14
+#elif R2_LIGHT == 1
+#define LAND_FILL 0.165
+#else
+#define LAND_FILL 0.19
+#endif
 // (ambient (B): while the sun is low the fill keeps round 3's level, so the golden hour's long shadows stay deep and cool
 // against the amber, and the fill rises to LAND_FILL as the sun climbs past about 17 degrees)
+#if R2_LIGHT == 0
 #define LAND_FILL_LOW 0.126
+#else
+#define LAND_FILL_LOW 0.14
+#endif
 // The open sky's fill on an upward face at noon for the sun's height h (lib/sky/build.glsl skyLand).
 float landFillAt(float h) {
 	return mix(LAND_FILL_LOW, LAND_FILL, smoothstep(0.08, 0.3, h));
@@ -45,7 +63,13 @@ float landFillAt(float h) {
 
 // the ground's bounce: the share of the sunlit ground's light that reaches a downward face (round 1: less, so a wall's
 // shade side reads the sky's cool blue, warmed a little by the ground, not an olive grey)
+#if R2_LIGHT == 0
 #define LAND_BOUNCE 0.2
+#elif R2_LIGHT == 1
+#define LAND_BOUNCE 0.27
+#else
+#define LAND_BOUNCE 0.32
+#endif
 // the light a sunlit surface throws back onto its own shaded faces and its neighbours' (a cheap short-range bounce),
 // as a share of the sun on level ground: pale stone in shade reads a light grey, grass and dirt stay deep
 // (round 2: 0.3 on walls, a fifth of it on tops: a shaded wall of pale stone among sunlit stone reads a light cool
@@ -75,7 +99,13 @@ float landFillAt(float h) {
 #define LAND_EXPOSURE 1.0
 // the S round mid grey: 1 is none
 // (the balance step: 1.32, the sunlit half a little brighter and the shade a little deeper round the same mid grey)
+#if R2_LIGHT == 0
 #define LAND_CONTRAST 1.32
+#elif R2_LIGHT == 1
+#define LAND_CONTRAST 1.2
+#else
+#define LAND_CONTRAST 1.12
+#endif
 // where the shoulder starts (linear, about sRGB 177) and how much of it keeps the hue
 #define LAND_KNEE 0.45
 // (round 2: 0.92, so a face in the amber low sun keeps its amber: the per-channel roll greyed it toward cream)

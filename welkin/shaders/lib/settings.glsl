@@ -232,6 +232,10 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define WS_DEBUG 0 // [0 1 2 3 4 5 6 7]
 // Cloud debug: 1 the deck of each cloud face (low red, main green, high blue, tower white; sides bright, bases dim, tops mid) with its ring in stripes, 2 the cloud's height over its base from the field (b.top), 3 the light path toward the sun.  [review round 1]
 #define CLOUD_DEBUG 0 // [0 1 2 3]
+// Review round 2 test switches (temporary): the land's light level (0 round 1's, 1 and 2 brighter afternoons and shade), the sky's horizon by day.
+#define R2_LIGHT 1 // [0 1 2]
+#define R2_SKY 1 // [0 1 2]
+#define R2_WATER 1 // [0 1]
 
 // Iris only lists a #define as an on/off option when some file tests it with #ifdef or #ifndef.
 // These empty tests make every toggle show even before the code that uses it is merged.

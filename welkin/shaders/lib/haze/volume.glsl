@@ -227,11 +227,23 @@ vec3 hvColour(vec3 air, float fsun, float mu, SkyLum f) {
 	float y = skyLumLuma(A);
 	// in shadow: the sky's light only, cooler and dimmer
 	vec3 shade = A * vec3(0.80, 0.90, 1.06) * 0.50;
+#if R2_SKY != 0
+	// (review round 2) from mid-afternoon into the golden hours the air warms sooner and more (a warm cream at 16:30
+	// to 17:00, rose-peach on a clear morning), and its shaded part keeps a little of that warmth instead of a cool grey
+	float warmK = smoothstep(0.0, 0.6, f.warm) * f.up;
+	shade = mix(shade, A * vec3(0.96, 0.90, 0.92) * 0.52, 0.5 * warmK);
+#else
+	float warmK = f.warm * f.up;
+#endif
 	// in the sun: brighter, and in the sun's own light: the sunlit share of the in-scatter takes the sun's hue (amber
 	// through the golden hours, plain at noon), most toward the sun (the forward scatter), less side-on
 	float fwd = (0.30 + 0.70 * f.low) * (0.55 * skyLumHg(mu, 0.80) + 0.45 * skyLumHg(mu, 0.40)) * f.up;
 	vec3 lit = A * (1.12 + 0.55 * fwd);
-	float sunShare = clamp((0.30 + 0.45 * fwd) * f.warm * f.up, 0.0, 0.8);
+#if R2_SKY != 0
+	float sunShare = clamp((0.42 + 0.45 * fwd) * warmK, 0.0, 0.85);
+#else
+	float sunShare = clamp((0.30 + 0.45 * fwd) * warmK, 0.0, 0.8);
+#endif
 	lit = mix(lit, f.gold * skyLumLuma(lit), sunShare);
 	vec3 L = mix(shade, lit, fsun);
 	// (at night and in a closed sky the light is the plain air's)

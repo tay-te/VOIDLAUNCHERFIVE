@@ -88,7 +88,15 @@ SkyLum skyLumFrame(vec3 sunW) {
 	// air of a clear dawn; the land's own dawn sun is rose-gold too)
 	const vec3 ROSE_GOLD = vec3(1.0, 0.70, 0.58) / 0.7559;
 	float morning = sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0;
+#if R2_SKY == 0
 	vec3 g = mix(f.hue, mix(GOLD, ROSE_GOLD, morning), 0.6 * f.warm);
+#else
+	// (review round 2) over the evening's last degrees the gold turns peach and rose, so a sunset over water reads
+	// peach-rose with a lilac sky above, not a cream-yellow frame (less gold than Complementary)
+	const vec3 PEACH = vec3(1.0, 0.66, 0.54) / 0.7343;
+	vec3 eve = mix(GOLD, PEACH, 1.0 - smoothstep(0.03, 0.2, sunW.y));
+	vec3 g = mix(f.hue, mix(eve, ROSE_GOLD, morning), 0.6 * f.warm);
+#endif
 	f.gold = g / max(skyLumLuma(g), 1e-4);
 	return f;
 }
@@ -133,13 +141,25 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// the luminous band: broad and soft, its own hue paler and brighter; cool away from the sun, on the sun's side
 	// warming toward the sun's hue as it sinks (its brightness kept: only the hue moves), and a touch of that warmth
 	// all round the horizon while the sun is low
-	float band = exp(-hp / 0.36) * (1.0 - 0.45 * smoothstep(0.0, 0.12, -d.y));
+	// (review round 2: by day, away from the golden hours, the band is wider and whiter, the luminous haze over a midday
+	// horizon both reference packs show; the golden hours keep round 1's coloured band)
+#if R2_SKY == 0
+	float mid = 0.0;
+	const vec4 BAND_DAY = vec4(0.36, 0.28, 1.45, 0.85);
+#elif R2_SKY == 1
+	float mid = (1.0 - f.warm) * f.up;
+	const vec4 BAND_DAY = vec4(0.46, 0.46, 1.62, 0.9);
+#else
+	float mid = (1.0 - f.warm) * f.up;
+	const vec4 BAND_DAY = vec4(0.54, 0.56, 1.75, 0.93);
+#endif
+	float band = exp(-hp / mix(0.36, BAND_DAY.x, mid)) * (1.0 - 0.45 * smoothstep(0.0, 0.12, -d.y));
 	// (review round 1: less grey in it, so the band keeps the sky's colour instead of a near white strip)
-	vec3 pale = mix(L, vec3(y), 0.28) * 1.45;
+	vec3 pale = mix(L, vec3(y), mix(0.28, BAND_DAY.y, mid)) * mix(1.45, BAND_DAY.z, mid);
 	vec3 coolPale = pale * vec3(0.98, 1.0, 1.03);
 	float warm = f.warm * f.up * mix(0.45, 1.0, side * side);
 	vec3 bandC = mix(coolPale, f.gold * skyLumLuma(pale), clamp(0.80 * warm, 0.0, 1.0));
-	L = mix(L, bandC, clamp(band * 0.85 * k, 0.0, 1.0));
+	L = mix(L, bandC, clamp(band * mix(0.85, BAND_DAY.w, mid) * k, 0.0, 1.0));
 	y = skyLumLuma(L);
 
 	// the golden hours warm the whole dome a little (its brightness kept), the zenith least

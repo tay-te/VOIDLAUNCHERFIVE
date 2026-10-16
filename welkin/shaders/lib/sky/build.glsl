@@ -251,7 +251,13 @@ float skyLandFillLevel(float h) {
 	// takes the walls' share down instead (sideW), so the shade there sinks cool and deep while the sun stays strong)
 	float low = 0.31 * (1.0 - smoothstep(0.05, 0.3, h));
 	// (round 3: the afternoon's fill falls a little faster, pow 2, so 16:30's shade is deeper against its sun)
+#if R2_LIGHT == 0
 	return h > 0.0 ? 0.53 + 0.47 * pow(smoothstep(0.1, 0.92, h), 2.0) + low : 0.84 * exp(h * 15.0);
+#elif R2_LIGHT == 1
+	return h > 0.0 ? 0.64 + 0.36 * smoothstep(0.1, 0.92, h) + 0.65 * low : 0.84 * exp(h * 15.0);
+#else
+	return h > 0.0 ? 0.72 + 0.28 * smoothstep(0.1, 0.92, h) + 0.39 * low : 0.84 * exp(h * 15.0);
+#endif
 }
 
 struct SkyLand {
@@ -395,10 +401,12 @@ vec3 skyCloudFace(SkyMood m, SkyInputs s, int face) {
 vec3 skySprite(SkyMood m, SkyInputs s, int x) {
 	float lo = m.sunLow;
 	// the sun: a white-gold core, a gold middle, an orange rim; all warmer as it sinks
-	if (x == 0) return mix(vec3(1.00, 0.99, 0.92), vec3(1.00, 0.90, 0.62), lo);
-	if (x == 1) return mix(vec3(1.00, 0.94, 0.72), SKY_GOLD, lo);
-	if (x == 2) return mix(vec3(1.00, 0.84, 0.50), SKY_ORANGE, lo);
-	if (x == 3) return mix(vec3(1.00, 0.95, 0.80), mix(SKY_GOLD, SKY_ORANGE, 0.5), lo);
+	// (review round 2: a low sun's disc a solid warm white-gold from the core out, the rim only a little deeper: the
+	// saturated gold and orange rim round a pale core read as a hollow ring once the bloom whitened the core)
+	if (x == 0) return mix(vec3(1.00, 0.99, 0.92), vec3(1.00, 0.94, 0.76), lo);
+	if (x == 1) return mix(vec3(1.00, 0.94, 0.72), vec3(1.00, 0.88, 0.62), lo);
+	if (x == 2) return mix(vec3(1.00, 0.84, 0.50), vec3(1.00, 0.80, 0.52), lo);
+	if (x == 3) return mix(vec3(1.00, 0.95, 0.80), vec3(1.00, 0.80, 0.60), lo);
 	// the moon: pale grey-white, darker maria, a slate terminator, the dark side all but black
 	if (x == 8) return vec3(0.88, 0.90, 0.94);
 	if (x == 9) return vec3(0.68, 0.71, 0.78);
