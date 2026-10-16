@@ -6,7 +6,7 @@
  * skin's density, from the collection's ramps only: neutrals, one metal family, one jewel.
  */
 
-import { J, M, N, block, builder, metal, mirror, saveModel } from './collection.mjs';
+import { FAB, J, M, N, block, builder, metal, mirror, saveModel } from './collection.mjs';
 
 /** Jewel strips twinkle on this many frames at 6 fps. */
 const TW = 8;
@@ -71,102 +71,138 @@ function bladeWings(save) {
 
 /* ================================================================================== head */
 
-/* Atelier fedora (silver · amethyst). Bone felt, worn low on the head: a tall crown pinched at the
- * front into a teardrop with a centre crease, a charcoal grosgrain band with a silver pin holding
- * the amethyst, and a brim snapped down in front and turned up behind. */
+/* Atelier fedora (silver · amethyst). Dove-grey felt, worn low on the head: a crown taller in
+ * its lines than its brim, pinched at the front into a teardrop with a centre crease, an aubergine
+ * grosgrain band (the Atelier cloth) with a silver pin holding the amethyst, and a short brim with
+ * rounded corners, snapped down in front and turned up behind. A fedora, never a stetson: the brim
+ * stands about two pixels off the crown. */
 function atelierFedora(save) {
-  const B = N.bone, C = N.charcoal, S = M.silver;
-  const b = builder(64, 64, { frames: TW });
-  const Y0 = -6.9, BAND = -8.4, TOP = -11.2; // brim line, band top, crown shoulder
+  const D = FAB.dove, A = FAB.aubergine, S = M.silver;
+  const b = builder(128, 64, { frames: TW });
+  const Y0 = -6.9, BAND = -8.3, TOP = -11.3; // brim line, band top, crown shoulder
   const R = 4.65; // crown wall: clears the skin's hat layer (4.5)
   const felt = (face, i, j, w, h) => {
-    if (face === 'up') return B[3];
-    if (face === 'down') return B[0];
-    if ((face === 'north' || face === 'south') && i === 1) return B[3]; // the felt's sheen
-    return face === 'east' || face === 'west' ? B[1] : B[2];
+    if (face === 'up') return D[3];
+    if (face === 'down') return D[0];
+    if ((face === 'north' || face === 'south') && i === 1) return D[3]; // the felt's sheen
+    return face === 'east' || face === 'west' ? D[1] : D[2];
   };
-  const upper = (front) => (face, i, j, w, h) => {
+  const upper = (face, i, j, w, h) => {
     if (face === 'up') {
       // The crease: a shaded valley front to back, lit on its left wall.
       const mid = (w - 1) / 2;
-      if (Math.abs(i - mid) < 0.6) return B[1];
-      if (Math.abs(i - mid + 1) < 0.6) return B[4];
-      return B[3];
+      if (Math.abs(i - mid) < 0.6) return D[1];
+      if (Math.abs(i - mid + 1) < 0.6) return D[4];
+      return D[3];
     }
-    if (face === 'down') return B[0];
-    if ((face === 'north' || face === 'south') && i === 1) return B[3];
-    return face === 'east' || face === 'west' ? B[1] : B[2];
+    if (face === 'down') return D[0];
+    if ((face === 'north' || face === 'south') && i === 1) return D[3];
+    return face === 'east' || face === 'west' ? D[1] : D[2];
   };
+  // The pinch: the front of the upper crown, narrower, its two sides in shadow where the felt is
+  // pressed in.
+  const pinch = (face, i, j, w, h) => {
+    if (face === 'north' && (i === 0 || i === w - 1)) return D[1];
+    return upper(face, i, j, w, h);
+  };
+  // The brim's top catches the sun more than any other face: painted a step darker than the
+  // crown's top so it reads as the same felt, not a pale disc.
   const brimTop = (face, i, j, w, h) => {
-    if (face === 'up') return i === 0 || j === 0 || i === w - 1 || j === h - 1 ? B[4] : B[3];
-    if (face === 'down') return B[1];
-    return B[2];
+    if (face === 'up') return D[2];
+    if (face === 'down') return D[0];
+    return D[1];
   };
-  const band = (face, i, j, w, h) => (face === 'up' ? C[3] : face === 'down' ? C[0] : j === 0 ? C[3] : C[2]);
-  // The crown tapers in three steps — straight walls, a narrower shoulder pinched at the front,
-  // and two lobes either side of the crease — so from the front it is a trapezoid with a dip in
-  // the top: the fedora's outline, not a box.
-  const MID = TOP - 1.3, CAP = MID - 0.6;
+  const band = (face, i, j, w, h) => (face === 'up' ? A[3] : face === 'down' ? A[0] : j === 0 ? A[3] : A[2]);
+  const MID = TOP - 1.1, CAP = MID - 0.45;
   const BR = [Y0, Y0 + 0.6]; // the brim hangs from under the band
+  // A cuboid with its four vertical edges chamfered by `c` (two crossed boxes): in plan an
+  // octagon, so the crown reads round from every side instead of as a box.
+  const round = (r, c, y0, y1, look, z0 = -r, z1 = r) => [
+    b.box([-r, y0, z0 + c], [r, y1, z1 - c], look, 'cloth'),
+    b.box([-r + c, y0, z0], [r - c, y1, z1], look, 'cloth'),
+  ];
   const crown = [
-    b.box([-R, TOP, -R], [R, Y0, R], felt, 'cloth'),
-    b.box([-3.95, MID, -3.6], [3.95, TOP, 4.2], upper(true), 'cloth'),
-    b.box([-3.3, CAP, -2.8], [-0.6, MID, 3.7], upper(false), 'cloth'),
-    b.box([0.6, CAP, -2.8], [3.3, MID, 3.7], upper(false), 'cloth'),
-    b.box([-0.6, CAP + 0.35, -2.3], [0.6, MID, 3.4], upper(false), 'cloth'),
-    b.box([-R - 0.1, BAND, -R - 0.1], [R + 0.1, Y0, R + 0.1], band, 'cloth'),
+    // The walls: a course under the band, then one stepped in a little above it (the step hides
+    // under the band's top edge, so no ledge of felt catches the light): the crown tapers.
+    ...round(R, 0.7, BAND, Y0, felt),
+    ...round(R - 0.3, 0.8, TOP, BAND, felt),
+    // The upper crown in plan is a teardrop: full behind, pinched narrower at the front.
+    ...round(3.75, 0.7, MID, TOP, upper, -1.0, 4.05),
+    ...round(2.7, 0.5, MID, TOP, pinch, -3.55, -0.6),
+    // Two low lobes either side of the crease, and the crease's floor between them.
+    b.box([-2.6, CAP, -2.5], [-0.55, MID, 3.4], upper, 'cloth'),
+    b.box([0.55, CAP, -2.5], [2.6, MID, 3.4], upper, 'cloth'),
+    b.box([-0.55, CAP + 0.35, -2.0], [0.55, MID, 3.0], upper, 'cloth'),
+    ...round(R + 0.1, 0.8, BAND, Y0, band),
     // The pin, on the band at the front, the wearer's left: polished silver, the stone in it.
     b.box([1.0, BAND + 0.05, -R - 0.35], [3.0, Y0 - 0.05, -R - 0.1], (face, i, j, w) =>
       (face === 'north' ? (i === 0 || j === 0 ? S[4] : S[2]) : S[1]), 'metal'),
-    b.gem([1.5, BAND + 0.25, -R - 0.75], [2.5, Y0 - 0.25, -R - 0.35], J.amethyst),
+    b.gem([1.5, BAND + 0.2, -R - 0.75], [2.5, Y0 - 0.2, -R - 0.35], J.amethyst),
   ];
-  // A generous brim: about 1.6 times the crown's width.
-  const W = 7.4;
-  const right = [b.box([-W, BR[0], -R], [-R, BR[1], R], brimTop, 'cloth')];
-  const left = [b.box([R, BR[0], -R], [W, BR[1], R], brimTop, 'cloth')];
-  const front = [b.box([-W, BR[0], -W + 0.8], [W, BR[1], -R], brimTop, 'cloth')];
-  const back = [b.box([-W, BR[0], R], [W, BR[1], W - 0.8], brimTop, 'cloth')];
+  // The brim: about two pixels off the crown, its corners rounded in one step.
+  const W = 6.6, C = W - 0.9;
+  const sideR = [b.box([-W, BR[0], -R + 0.2], [-R, BR[1], R - 0.2], brimTop, 'cloth')];
+  const sideL = [b.box([R, BR[0], -R + 0.2], [W, BR[1], R - 0.2], brimTop, 'cloth')];
+  const front = [
+    b.box([-R + 0.2, BR[0], -W], [R - 0.2, BR[1], -R], brimTop, 'cloth'),
+    b.box([-C, BR[0], -C], [-R + 0.2, BR[1], -R], brimTop, 'cloth'),
+    b.box([R - 0.2, BR[0], -C], [C, BR[1], -R], brimTop, 'cloth'),
+  ];
+  const back = [
+    b.box([-R + 0.2, BR[0], R], [R - 0.2, BR[1], W], brimTop, 'cloth'),
+    b.box([-C, BR[0], R], [-R + 0.2, BR[1], C], brimTop, 'cloth'),
+    b.box([R - 0.2, BR[0], R], [C, BR[1], C], brimTop, 'cloth'),
+  ];
   saveModel(save, 'atelier-fedora', b, {
     attach: 'head', helmet_fit: true,
     bones: [
       { name: 'hat', pivot: [0, -8, 0], rotation: [-4, 0, -5], cubes: crown },
       // Snapped down in front, up behind; the sides level.
-      { name: 'brim', parent: 'hat', pivot: [0, Y0 + 0.3, 0], cubes: [...right, ...left] },
-      { name: 'brim_front', parent: 'hat', pivot: [0, Y0 + 0.3, -R], rotation: [15, 0, 0], cubes: front },
-      { name: 'brim_back', parent: 'hat', pivot: [0, Y0 + 0.3, R], rotation: [13, 0, 0], cubes: back },
+      { name: 'brim', parent: 'hat', pivot: [0, Y0 + 0.3, 0], cubes: [...sideR, ...sideL] },
+      { name: 'brim_front', parent: 'hat', pivot: [0, Y0 + 0.3, -R], rotation: [18, 0, 0], cubes: front },
+      { name: 'brim_back', parent: 'hat', pivot: [0, Y0 + 0.3, R], rotation: [15, 0, 0], cubes: back },
     ],
   });
 }
 
-/* Halcyon ring (Nocturne: silver · ice-topaz). A ring of polished silver that floats behind the
- * shoulders and frames the head from either side, four steel spokes to a silver bezel holding the
- * topaz at its heart. The ring turns once in half a minute; the stone stays put. */
+/* Halcyon ring (Nocturne: silver · ice-topaz). One perfect ring of polished silver that floats
+ * behind the shoulders and frames the head from either side: a bold band (its cells overlap, so
+ * it reads as one line at ten blocks, never a string of beads) with a raised boss at each quarter,
+ * a fine steel line inside it, and the topaz in a silver setting at its crown. The ring turns once
+ * in half a minute (the bosses travel round); the setting and the stone stay put. */
 function halcyonRing(save) {
   const S = M.silver, E = M.steel;
   const b = builder(64, 64, { frames: TW });
-  const C = [0, 2.2, 6.0], R = 5.8, N0 = 26;
+  const C = [0, 0.4, 6.0], R = 6.6, N0 = 36;
   const ring = [];
   for (let k = 0; k < N0; k++) {
     const a = (k / N0) * Math.PI * 2;
     const x = C[0] + Math.cos(a) * R, y = C[1] + Math.sin(a) * R;
-    const boss = k % 7 === 0;
-    const s = boss ? 1.5 : 1.15, d = boss ? 1.1 : 0.8;
+    const boss = k % 9 === 4;
+    const s = boss ? 1.8 : 1.3, d = boss ? 1.2 : 0.85;
     ring.push(b.box([x - s / 2, y - s / 2, C[2] - d / 2], [x + s / 2, y + s / 2, C[2] + d / 2],
       boss ? metal([S[1], S[2], S[3], S[4], S[4]]) : metal(S), 'metal'));
   }
-  const spokes = [0, 1, 2, 3].map((k) => ({
-    name: `spoke${k}`, parent: 'ring', pivot: C, rotation: [0, 0, 45 + k * 90],
-    cubes: [b.box([C[0] + 1.4, C[1] - 0.2, C[2] - 0.2], [C[0] + R - 0.5, C[1] + 0.2, C[2] + 0.2], metal(E), 'metal')],
-  }));
-  const bezel = b.box([C[0] - 1.3, C[1] - 1.3, C[2] - 0.6], [C[0] + 1.3, C[1] + 1.3, C[2] + 0.6], metal(S), 'metal');
-  const gem = b.gem([C[0] - 0.8, C[1] - 0.8, C[2] + 0.6], [C[0] + 0.8, C[1] + 0.8, C[2] + 1.3], J.topaz);
-  const gemF = b.gem([C[0] - 0.8, C[1] - 0.8, C[2] - 1.3], [C[0] + 0.8, C[1] + 0.8, C[2] - 0.6], J.topaz, 4);
+  // The fine inner line, steel: a second edge that makes the band read as a worked ring.
+  const inner = [];
+  // Cells overlap (chord under the cell's width), so the line is continuous, not beaded.
+  const R2 = 5.3, N2 = 40;
+  for (let k = 0; k < N2; k++) {
+    const a = (k / N2) * Math.PI * 2;
+    const x = C[0] + Math.cos(a) * R2, y = C[1] + Math.sin(a) * R2;
+    inner.push(b.box([x - 0.45, y - 0.45, C[2] - 0.3], [x + 0.45, y + 0.45, C[2] + 0.3], metal(E), 'metal'));
+  }
+  // The setting at the crown of the ring (-y is up), the stone facing back and, smaller, forward.
+  const top = C[1] - R;
+  const setting = b.box([-1.4, top - 1.4, C[2] - 0.75], [1.4, top + 1.4, C[2] + 0.75], (face, i, j, w, h) =>
+    (face === 'south' || face === 'north' ? (i === 0 || j === 0 ? S[4] : i === w - 1 || j === h - 1 ? S[1] : S[2]) : metal(S)(face, i, j, w, h)), 'metal');
+  const gem = b.gem([-0.85, top - 0.85, C[2] + 0.75], [0.85, top + 0.85, C[2] + 1.45], J.topaz);
+  const gemF = b.gem([-0.6, top - 0.6, C[2] - 1.25], [0.6, top + 0.6, C[2] - 0.75], J.topaz, 4);
   saveModel(save, 'halcyon-ring', b, {
     attach: 'body', procedural: 'float',
     bones: [
-      { name: 'frame', pivot: C, cubes: [bezel, gem, gemF] },
+      { name: 'frame', pivot: C, cubes: [setting, gem, gemF, ...inner] },
       { name: 'ring', parent: 'frame', pivot: C, cubes: ring },
-      ...spokes,
     ],
     animations: { idle: { length: 30, loop: true, bones: { ring: { rotation: [[0, [0, 0, 0], 'linear'], [30, [0, 0, 360], 'linear']] } } } },
   });
@@ -261,59 +297,116 @@ function sovereignCrown(save) {
   });
 }
 
-/* Cloister hood (Meridian: brass · jade). A bone wool hood with a charcoal inside, a peaked cowl
- * that rises to a point behind, a brass edge round the opening and a collar fastened under the
- * chin with a jade in a brass clasp. */
+/* Cloister hood (Meridian: brass · jade). Bottle-green wool, cut to drape rather than sit: a
+ * domed crown that steps in toward the top, a soft beak over the brow, the opening rounded into an
+ * arch and turned back to show the cream lining (the set's cream, as on the Meridian cape's yoke)
+ * edged in brass, so the face is framed in light by day and the hood keeps a light value at
+ * night; walls that flare like a bell as they fall, a roomy back that swells behind the head and
+ * tapers to the nape, folds where the cloth falls free, and a short mantle that falls onto the
+ * shoulders and closes at the throat with the jade in a brass clasp. Deeper inside, the wool is
+ * in shadow (the shader's contact occlusion deepens it round the face). */
 function cloisterHood(save) {
-  const B = N.bone, C = N.charcoal, R = M.brass;
-  const b = builder(128, 64, { frames: TW });
-  // Outside bone wool, inside (the faces toward the head) charcoal.
-  const wool = (inside) => (face, i, j, w, h) => {
-    if (inside.includes(face)) return C[2];
-    if (face === 'up') return B[3];
-    if (face === 'down') return B[1];
-    if (j === 0) return B[3];
-    return face === 'east' || face === 'west' ? B[2] : B[2];
-  };
-  // A close shell over the head, its top corners stepped round, and a cowl that comes forward
-  // over the brow to a point: the face sits in its shadow (the shader's contact occlusion) and
-  // the silhouette says hood from any side. Behind, the cowl's tail falls to a point; below, the
-  // wool drapes on the shoulders.
-  const cubes = [
-    b.box([-4.6, -9.2, -4.6], [4.6, -8.5, 5.1], wool(['down']), 'cloth'),
-    b.box([4.6, -8.7, -4.6], [5.0, -8.1, 5.1], wool(['west', 'down']), 'cloth'),
-    b.box([-5.0, -8.7, -4.6], [-4.6, -8.1, 5.1], wool(['east', 'down']), 'cloth'),
-    b.box([4.6, -8.1, -4.6], [5.2, -0.8, 5.1], wool(['west']), 'cloth'),
-    b.box([-5.2, -8.1, -4.6], [-4.6, -0.8, 5.1], wool(['east']), 'cloth'),
-    b.box([-4.6, -8.5, 4.6], [4.6, -0.8, 5.2], wool(['north']), 'cloth'),
-    // The cowl's brow, stepping forward to a point over the face.
-    b.box([-4.0, -9.4, -5.4], [4.0, -8.4, -4.6], wool(['down']), 'cloth'),
-    b.box([-2.6, -9.6, -6.1], [2.6, -8.5, -5.4], wool(['down']), 'cloth'),
-    b.box([-1.1, -9.7, -6.7], [1.1, -8.7, -6.1], wool(['down']), 'cloth'),
-    // The tail, falling back from the crown to a point.
-    b.box([-2.0, -9.5, 3.4], [2.0, -8.2, 6.2], wool([]), 'cloth'),
-    b.box([-1.2, -9.0, 6.2], [1.2, -7.6, 7.6], wool([]), 'cloth'),
-    b.box([-0.5, -8.4, 7.6], [0.5, -7.2, 8.8], wool([]), 'cloth'),
-    // The drape over the shoulders, behind the jaw.
-    b.box([-6.2, -0.8, -2.8], [6.2, 0.6, 6.2], wool([]), 'cloth'),
-    // The collar under the chin.
-    b.box([-5.3, 0.0, -4.4], [5.3, 0.6, -2.8], wool([]), 'cloth'),
-    // Brass along the cowl's edge and down the sides of the opening.
-    b.box([-1.15, -8.75, -6.8], [1.15, -8.45, -6.1], metal(R), 'metal'),
-    b.box([-2.65, -8.55, -6.15], [-1.1, -8.25, -5.4], metal(R), 'metal'),
-    b.box([1.1, -8.55, -6.15], [2.65, -8.25, -5.4], metal(R), 'metal'),
-    b.box([4.6, -8.1, -4.85], [5.3, 0.6, -4.6], metal(R), 'metal'),
-    b.box([-5.3, -8.1, -4.85], [-4.6, 0.6, -4.6], metal(R), 'metal'),
-    // The clasp and its jade.
-    b.box([-1.0, -0.3, -4.7], [1.0, 1.3, -4.4], metal(R), 'metal'),
-    b.gem([-0.5, 0.1, -5.05], [0.5, 0.9, -4.7], J.jade),
+  const G = FAB.bottle, L = N.bone, R = M.brass;
+  const b = builder(128, 128, { frames: TW });
+  // The folds, in model pixels: down the side walls at these z, down the back at these x. Placed
+  // in model space rather than per face, so a fold runs on from one step of a wall to the next.
+  const FOLD_Z = [0.6, 3.6], FOLD_X = [-1.9, 1.4];
+  /**
+   * A wool cuboid: lit tops, dark undersides, walls at the base with a lit first row; `inside`
+   * faces (toward the head) in the hood's shadow; with `folds`, a shadow texel down the wall
+   * wherever a fold line crosses it, a lit texel on its upper side, starting a row down.
+   * `rim`: a rolled edge, a step lighter; `cream`: the lining turned back round the opening.
+   */
+  const wool = (from, to, inside = [], { folds = false, rim = false, cream = false } = {}) => b.box(from, to, (face, i, j, w, h) => {
+    if (cream) {
+      if (face === 'up') return L[4];
+      if (face === 'down' || inside.includes(face)) return L[1];
+      return j === 0 ? L[4] : L[3];
+    }
+    if (inside.includes(face)) return j === 0 ? G[1] : G[0];
+    if (face === 'up') return rim ? G[4] : G[3];
+    if (face === 'down') return G[1];
+    // Folds only where the cloth falls free, below the temples: smooth where it lies over the head.
+    const y = from[1] + j + 0.5;
+    if (folds && y > -4.6) {
+      let at = null, lines = null;
+      if (face === 'east') { at = from[2] + i + 0.5; lines = FOLD_Z; }
+      if (face === 'west') { at = to[2] - i - 0.5; lines = FOLD_Z; }
+      if (face === 'south') { at = to[0] - i - 0.5; lines = FOLD_X; }
+      if (lines) {
+        for (const l of lines) {
+          if (Math.abs(at - l) < 0.5) return G[1];
+          // The lit side: toward the light, the upper left as seen.
+          const lit = face === 'west' || face === 'south' ? at - l : l - at;
+          if (lit >= 0.5 && lit < 1.5 && y > -2.6) return G[3];
+        }
+      }
+    }
+    if (j === 0 && rim) return G[4];
+    return rim ? G[3] : G[2];
+  }, 'cloth');
+  const fold = { folds: true };
+  const rim = { rim: true };
+  const cream = { cream: true };
+  // The walls hang from the crown and swing out a little as they fall: a bell from the front.
+  const wallR = [
+    wool([-5.25, -7.7, -4.45], [-4.6, -3.6, 5.6], ['east'], fold),
+    wool([-5.5, -3.6, -4.35], [-4.65, -0.3, 5.6], ['east', 'up'], fold),
+  ];
+  const right = [
+    // The rim of the opening: a rolled edge, lit, standing just proud of the face.
+    wool([-5.35, -7.75, -4.95], [-3.95, -0.3, -4.4], ['east'], cream),
+    // The arch: the opening's top corners rounded in, two steps, over the brow's corners.
+    wool([-3.95, -7.45, -4.9], [-2.6, -6.65, -4.4], ['down'], cream),
+    wool([-3.95, -6.65, -4.85], [-3.25, -5.9, -4.4], ['down', 'east'], cream),
+    // Brass along the opening's edge, following the arch.
+    b.box([-4.25, -5.95, -5.05], [-3.9, -0.3, -4.9], metal(R), 'metal'),
+    b.box([-3.3, -6.7, -5.0], [-2.55, -6.45, -4.85], metal(R), 'metal'),
+    b.box([-3.95, -6.45, -5.0], [-3.2, -5.9, -4.85], metal(R), 'metal'),
+  ];
+  const centre = [
+    // The crown, domed: three layers, each stepped in.
+    wool([-4.75, -8.8, -4.45], [4.75, -7.7, 5.2], ['down']),
+    wool([-3.9, -9.45, -3.8], [3.9, -8.8, 4.9], ['down']),
+    wool([-2.6, -9.85, -2.7], [2.6, -9.45, 3.9], ['down']),
+    // The back: the room behind the head, a curve in steps — rounded over from the crown, full
+    // at the middle, tapering in to the nape — each step narrower toward the ends, so it is round
+    // from behind as well as from the side.
+    wool([-4.6, -7.7, 4.55], [4.6, -0.3, 5.3], ['north'], fold),
+    wool([-3.4, -8.9, 4.9], [3.4, -8.4, 6.0], ['north', 'down']),
+    wool([-3.9, -8.4, 5.2], [3.9, -7.2, 6.8], ['north']),
+    wool([-4.1, -7.2, 5.2], [4.1, -5.0, 7.1], ['north'], fold),
+    wool([-3.9, -5.0, 5.2], [3.9, -3.4, 6.7], ['north', 'up'], fold),
+    wool([-3.6, -3.4, 5.2], [3.6, -1.8, 6.2], ['north', 'up'], fold),
+    wool([-3.3, -1.8, 5.2], [3.3, -0.3, 5.7], ['north', 'up'], fold),
+    // The brow, rolled, and the beak: a soft point over the face.
+    wool([-4.6, -8.75, -5.0], [4.6, -7.45, -4.4], ['down'], cream),
+    wool([-1.5, -9.0, -5.6], [1.5, -7.8, -5.0], ['down'], rim),
+    wool([-0.65, -9.2, -6.05], [0.65, -8.15, -5.6], ['down'], rim),
+    b.box([-2.6, -7.5, -5.0], [2.6, -7.3, -4.85], metal(R), 'metal'),
+    // The mantle: under the chin, and behind the neck down onto the upper back.
+    wool([-4.4, -0.45, -4.8], [4.4, 1.0, -2.6], ['up']),
+    wool([-4.5, -0.3, 3.4], [4.5, 1.6, 5.5], ['up'], fold),
+    wool([-3.6, 1.6, 2.4], [3.6, 3.0, 4.4], ['up'], fold),
+    // The clasp at the throat and its jade.
+    b.box([-1.0, -0.25, -4.95], [1.0, 1.3, -4.8], metal(R), 'metal'),
+    b.gem([-0.5, 0.15, -5.3], [0.5, 0.95, -4.95], J.jade),
+  ];
+  // Where the mantle falls onto the shoulder, sloping away from the neck.
+  const shoulderR = [wool([-7.3, -0.6, -3.4], [-4.3, 0.5, 4.8], ['down'])];
+  const sides = [
+    { name: 'side_r', parent: 'hood', pivot: [0, -4, 0], cubes: right },
+    { name: 'wall_r', parent: 'hood', pivot: [-4.9, -7.7, 0], rotation: [0, 0, 6], cubes: wallR },
+    { name: 'mantle_r', parent: 'hood', pivot: [-4.4, -0.2, 0.6], rotation: [0, 0, -15], cubes: shoulderR },
   ];
   saveModel(save, 'cloister-hood', b, {
     attach: 'head', helmet_fit: true,
-    bones: [{ name: 'hood', pivot: [0, -4, 0], cubes }],
+    bones: [
+      { name: 'hood', pivot: [0, -4, 0], cubes: centre },
+      ...sides, ...mirror(sides),
+    ],
   });
 }
-
 /* ================================================================================= halos */
 
 /* Aureole (Regent: gold · pearl). A fine band of polished gold, a raised boss every sixth cell,

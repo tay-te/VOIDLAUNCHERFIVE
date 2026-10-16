@@ -16,7 +16,7 @@ export const DOLL_PLACEMENT: Readonly<Record<string, DollPlacement>> = {
   "nocturne-cape": { x: 8, y: 4, size: 8 },
   "regent-cape": { x: 8, y: 4, size: 8 },
   "blade-wings": { x: 8, y: -6.007, size: 20.267 },
-  "halcyon-ring": { x: 8, y: 1.3, size: 8 },
+  "halcyon-ring": { x: 8, y: 0.05, size: 8 },
   "vesper-sheath": { x: 9.5, y: -2.9, size: 16 },
   "atelier-fedora": { x: 8, y: -4.45, size: 8 },
   "sovereign-crown": { x: 8.167, y: -3.3, size: 5.333 },

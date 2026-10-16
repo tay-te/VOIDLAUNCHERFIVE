@@ -1,13 +1,13 @@
 {
  "motion": "spark",
  "colors": [
-  "#fff1bf",
   "#eec064",
-  "#eec064"
+  "#eec064",
+  "#fff1bf"
  ],
- "life": 0.7,
- "rate": 12,
- "size": 0.11,
- "cap": 22,
- "glow": 0.3
+ "life": 0.75,
+ "rate": 14,
+ "size": 0.14,
+ "cap": 24,
+ "glow": 0.35
 }

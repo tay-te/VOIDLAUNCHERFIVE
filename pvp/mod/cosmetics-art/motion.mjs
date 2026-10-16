@@ -68,11 +68,13 @@ const EMOTES = {
       left_leg: { rotation: [k(0, Z), k(0.6, [-6, 0, 0], 'cubic'), k(2.1, [-6, 0, 0]), k(2.9, Z, 'cubic')] },
     },
   },
-  // Salute: up crisply to the brow, held still, a small nod, lowered with control.
+  // Salute: up crisply to the brow, held still, a small nod, lowered with control. The hand comes
+  // to the right temple, the elbow out, so the face stays clear (further in, it reads as a palm
+  // over the eyes).
   'emote-salute': {
     length: 2.4, blend: 0.16,
     parts: {
-      right_arm: { rotation: [k(0, Z), k(0.28, [-134, -56, 12], 'cubic'), k(1.55, [-134, -56, 12]), k(1.75, [-130, -52, 13]), k(2.35, Z, 'cubic')] },
+      right_arm: { rotation: [k(0, Z), k(0.28, [-142, -27, 26], 'cubic'), k(1.55, [-142, -27, 26]), k(1.75, [-138, -25, 27]), k(2.35, Z, 'cubic')] },
       head: { rotation: [k(0, Z), k(0.28, [-4, 0, 0], 'cubic'), k(1.45, [-4, 0, 0]), k(1.65, [4, 0, 0]), k(1.85, [-2, 0, 0]), k(2.35, Z)] },
       body: { rotation: [k(0, Z), k(0.28, [0, -5, 0], 'cubic'), k(1.75, [0, -5, 0]), k(2.35, Z)] },
       root: { position: [k(0, Z), k(0.28, [0, -0.4, 0], 'cubic'), k(1.75, [0, -0.4, 0]), k(2.35, Z)] },
@@ -136,7 +138,7 @@ export function paintTrails(save) {
     '........',
     '........',
   ]));
-  save('gilt-trail', 'trail.json', { motion: 'spark', colors: [M.gold[4], M.gold[3], M.gold[3]], life: 0.7, rate: 12, size: 0.11, cap: 22, glow: 0.3 });
+  save('gilt-trail', 'trail.json', { motion: 'spark', colors: [M.gold[3], M.gold[3], M.gold[4]], life: 0.75, rate: 14, size: 0.14, cap: 24, glow: 0.35 });
   // Amethyst dust: a cut stone, light upper-left facets, a deep lower-right.
   save('amethyst-trail', 'sprite.png', sprite([
     '........',
@@ -148,7 +150,7 @@ export function paintTrails(save) {
     '........',
     '........',
   ]));
-  save('amethyst-trail', 'trail.json', { motion: 'drift', colors: [J.amethyst[3], J.amethyst[2], J.amethyst[2]], life: 1.3, rate: 10, size: 0.1, cap: 24, glow: 0.4 });
+  save('amethyst-trail', 'trail.json', { motion: 'drift', colors: [J.amethyst[3], J.amethyst[2], J.amethyst[2]], life: 1.3, rate: 12, size: 0.13, cap: 26, glow: 0.4 });
   // Topaz frost: a long crystal facet that settles.
   save('topaz-trail', 'sprite.png', sprite([
     '........',
@@ -160,7 +162,7 @@ export function paintTrails(save) {
     '...3....',
     '........',
   ]));
-  save('topaz-trail', 'trail.json', { motion: 'settle', colors: [J.topaz[3], J.topaz[2], J.topaz[4]], life: 1.5, rate: 9, size: 0.11, cap: 24, glow: 0.3 });
+  save('topaz-trail', 'trail.json', { motion: 'settle', colors: [J.topaz[3], J.topaz[2], J.topaz[4]], life: 1.5, rate: 11, size: 0.13, cap: 26, glow: 0.35 });
   // Jade steps: a bevelled tile.
   save('jade-trail', 'sprite.png', sprite([
     '........',
@@ -172,7 +174,7 @@ export function paintTrails(save) {
     '........',
     '........',
   ]));
-  save('jade-trail', 'trail.json', { motion: 'stair', colors: [J.jade[3], J.jade[2], J.jade[2]], life: 1.1, rate: 8, size: 0.12, cap: 22, glow: 0.2 });
+  save('jade-trail', 'trail.json', { motion: 'stair', colors: [J.jade[3], J.jade[3], J.jade[2]], life: 1.1, rate: 10, size: 0.14, cap: 24, glow: 0.25 });
 }
 
 /* ================================================================================ badges */

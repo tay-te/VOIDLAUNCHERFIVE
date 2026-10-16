@@ -2,12 +2,12 @@
  "motion": "stair",
  "colors": [
   "#c0f4da",
-  "#7ae0b0",
+  "#c0f4da",
   "#7ae0b0"
  ],
  "life": 1.1,
- "rate": 8,
- "size": 0.12,
- "cap": 22,
- "glow": 0.2
+ "rate": 10,
+ "size": 0.14,
+ "cap": 24,
+ "glow": 0.25
 }
