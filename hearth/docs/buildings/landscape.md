@@ -106,19 +106,31 @@ each run at its highest walk step and broken at half bays, so a sloping wall's c
 column by column into a saw-tooth (`TownWall.crest`; a run's walk never sits more than two below its coping); a low parapet on the town side with lanterns; flights of steps cut into the town face near the
 ends (a niche at the foot), two on long stretches; on straight runs a blind arcade of round-headed niches along the
 town face, a lantern hung in every other one; square piers closing the walk where the stretch ends, unless it runs
-on (`join_*`, or into a `keep` rectangle). Bayou and tropical walls are timber ramparts (two rows of logs, earth
-between, a boarded walk, a railing, sharpened tops).
+on (`join_*`, or into a `keep` rectangle). Crenels carry a chest-high sill, and a stretch's open end takes no walk
+step to fall from. By culture: in Bohemia and its mountains (temperate, wisteria, alpine) a covered walk under a pent
+roof on timber posts along the town parapet; in the desert and on the mesa plain adobe with a smooth coping; on the
+steppe a log crib on an earth bank, in the north a log crib; bayou and tropical walls are timber ramparts (two rows of
+logs, earth between, a boarded walk, a railing, sharpened tops); crenellated masonry with its corbel table elsewhere.
 
 **Gatehouse.** Over the road (local z runs from the field in front to the town behind): round-shouldered arches front
-and back, a raised portcullis in the front arch, gate leaves folded back, a lantern in the vault, a corbelled
-crenellated band over the front arch (one row out over the road) and the town's banner (`Towers.banner`: the culture's
-cloth colours, the same device on every banner of the culture). The gallery over the passage is the wall walk's level,
-with the portcullis windlass on it. The left tower holds a guard room and the switchback stair to the gallery and rises
-two higher under a saddle roof (gables to the flanks; a curved roof in the karst; battlements in the south); the right
-tower holds the store room with the guards' grindstone and chest and a stair on up to its battlemented platform. With
-`over_road`, doorways in both flanks at the walk let the wall walk in.
+and back, a raised portcullis in the front arch, gate leaves folded back, a lantern in the vault and the town's banner
+(`Towers.banner`: the culture's cloth colours, the same device on every banner of the culture); the gate hall over the
+passage is at the wall walk's level, its guards' furniture in it, a switchback stair from the ground. Four plans by
+culture (param `plan`):
+- **Tower gate** (temperate, wisteria, alpine, moorland, maritime): the Bohemian gate tower, set a block in from the
+  flanks over the hall so its eaves stand out over the walks that meet it, a guards' room over the hall where the sky
+  allows, string courses, a moulded cornice and a steep hip with deep eaves and a finial.
+- **Timber hall** (northern, tundra): the stone gate under a timbered gate hall jettied a block out front and back on
+  its beams, posts every third, shutters in the bays, a steep saddle roof.
+- **Drums** (desert, mesa, mediterranean): two towers with their corners struck off, open and battlemented, a fighting
+  gallery corbelled out between them over the road with the portcullis windlass.
+- **Lookouts** (steppe, tropical, bayou, karst): two towers each carrying a roofed lookout whose eaves stand out round
+  it, a gallery between them.
+With `over_road`, doorways in both flanks at the walk let the wall walk in.
 
-**Watchtower.** Standing alone: a square shaft on a battered skirt with clasping buttresses at its corners, string
+**Watchtower.** Four plans by culture (param `plan`): square (the default, described here), round (maritime,
+wisteria, steppe), a hoarded northern watch room on a log shaft with landings (northern, tundra), a stilt hut over the
+wet reached by an enclosed ladder (bayou, tropical); every storey furnished. Standing alone: a square shaft on a battered skirt with clasping buttresses at its corners, string
 courses, a door with its lamp, slits climbing with the spiral stair (on 9-wide plots a guard room and floors, the
 stair in a corner), the banner, a platform oversailing on a corbel ring, and a lookout under a pyramid roof on posts set
 in a block from the parapet (a curved roof in the karst) or open battlements (desert, mesa, mediterranean, some

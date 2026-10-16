@@ -79,7 +79,20 @@ differ in silhouette, not only in stone:
 
 Curtains are footed wherever the ground lies and show their full height to the field. The polygon wards
 (`kit/noble/Outline`) cut a bailey's corners back along the hill; `Curtain.enclose` walls any outline, `Court.fill` and
-`Court.lamps` pave and light it. The keep (any culture) and the palace (desert, mediterranean, karst) share the castle's
+`Court.lamps` pave and light it. Where a curtain runs at a slant its walk is stitched (`Curtain.stitches`: a fillet
+on the court side wherever two walk cells would touch only at a corner), and the bayou fort's bastions are filled to
+the walk as terrepleins with a parapet along the gorge, the garita open on its inward corner.
+
+What keeps the walks and heads playable (the audit's walk, `structureAudit`): every crenel has a chest-high sill;
+course blocks (sills, corbels, string and drip courses) are left out where they would run on flush with a walk or a
+deck, or hang within three rows over a floor or the ground (`Mason.ledge`, `Mason.lowOver`), and a tower's doorway
+clears the course beside its threshold; the parados rails the court edge of a walk wherever the drop is four or more,
+judged on what is drawn (a court levelled below its hillside); a range's stair well is railed over its low end; a talus
+is never laid on a paved court; the twin-towered gatehouse's flanks open onto the walk on both sides, and wards
+castles have a flight up to the outer walk each side of the gate; the gate tower's ladder lands through a hatch on its
+head under every cap; directions are walked in a fixed order (`Tower.ordered`), so a blueprint is the same on every
+server. Yards a court leaves closed (the rocca's corner before its tower, the qasr's before the burj) get a door from
+the range or hall beside them. The keep (any culture) and the palace (desert, mediterranean, karst) share the castle's
 dress and manner: the palace's karst tower takes the compound tower's stacked eaves (`Range.skirt`), its dome, arcades,
 fountain and planters are the qasr's and rocca's.
 
@@ -89,11 +102,17 @@ them), the audience hall across the back with the throne, the lord's tower at a 
 desert, the torre with machicolated battlements in the Mediterranean, stacked eaves in the karst), towers at the other
 corners.
 
-**Hunting lodge** — a hall house of two storeys (the upper half-timbered where the culture frames in timber): the hall
+**Hunting lodge** — three plans by culture (param `plan`): a framed hall house (temperate, wisteria, moorland,
+maritime), a gabled log lodge for the north and the mountains (northern, tundra, alpine), a hipped lodge with its tower
+on the front's middle (the rest); set in from the plot so its eaves stand out, posts every other cell and corner
+braces in the framed storey, furs and arms in the chambers. The hall house: a hall house of two storeys (the upper half-timbered where the culture frames in timber): the hall
 with the hearth and the long table, chambers over it; a slender lookout tower at a front corner with a ladder through
 its floors, its head and flag over the ridge; the kennel lean-to against the front.
 
-**Stables** — a stable yard: the stable range across the back (stalls with hay and troughs along its back wall,
+**Stables** — five plans by culture (param `plan`): the Bohemian range (temperate and the rest), a northern log
+stable with its paddock (northern, tundra), a caravan court under a flat roof (desert, mesa, steppe), an open stable
+for the heat with wide bays (tropical, bayou), a range with a grooms' wing (karst, mediterranean); long walls broken
+into bays of piers and vents (`Range.bays`). The Bohemian range: a stable yard: the stable range across the back (stalls with hay and troughs along its back wall,
 lanterns on the stall posts, the hay loft and the stable master's chamber over them, a louvred lantern on the ridge),
 an open shed with more stalls along one side, the hitching rail and trough along the other, a low wall round the front
 with gate piers.
