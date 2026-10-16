@@ -336,11 +336,14 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// the thin parts and the tops, so the forms still read; the lit tops and the silver lining go on over it.
 	// (and through the golden hours, more gently: a morning or late-afternoon cloud's belly takes the warm low sky's
 	// light rather than a grey shade under it)
-	float goldenK = skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r * (1.0 - dusk);
+	// (only once the hour is well golden: the floor costs a look at the sky, which a mid-afternoon need not pay)
+	float goldenK = smoothstep(0.3, 0.9, skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r) * (1.0 - dusk);
 	float glowK = max(dusk, 0.75 * goldenK) * (1.0 - closed) * (1.0 - 0.7 * smoothstep(0.2, 0.8, rainStrength));
 	if (glowK > 0.0) {
 		float sw = wcSunward(rd, e);
-		vec3 behind = skyDomeOnly(rd, skyFrame());
+		// (the dome's horizon and zenith under the luminous sky: the sky behind, near enough for a floor and a third of
+		// skyDomeOnly's table reads)
+		vec3 behind = skyLuminous(wcDome(rd, e), rd, skyLumFrame(e.sun), 1.0);
 		// (rose away from the sun, peach toward it; their own colour, the clouds glow in the low sun's light)
 		vec3 hueF = mix(vec3(0.97, 0.72, 0.70), vec3(1.0, 0.70, 0.50), sw);
 		// (in the golden hours with the sun still high, a warm cream: the light of a bright low sky, not a sunset's)

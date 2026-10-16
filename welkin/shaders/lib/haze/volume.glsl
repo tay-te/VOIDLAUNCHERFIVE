@@ -161,7 +161,11 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 			vis = hvLineVis(max(y, g), tc.line.xy, tc.w);
 #endif
 #ifdef HV_CLOUDS
-			vis *= welkinCloudShadow(pp, ce);
+			// (review round 1: every other far step, as the near ones: a cloud's shadow is broad out here)
+			if ((i & 1) == 0) {
+				cloudVis = welkinCloudShadow(pp, ce);
+			}
+			vis *= cloudVis;
 #endif
 			shaft += vis * exp(-t / SHAFT_FALLOFF) * dt;
 			float rho = hvDensity(y, g) * (t * t / (t * t + HV_NEAR_CLEAR * HV_NEAR_CLEAR));
