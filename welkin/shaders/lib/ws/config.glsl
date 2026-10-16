@@ -35,11 +35,7 @@
 // when rain stirs it up. The shallowest film still tints a little; deep water is almost opaque.
 // (review round 2: 0.17, was 0.30: a shore's shallows show their bed by dawn, night and noon as the reference packs'
 // do; a dawn lake was an opaque navy)
-#if R2_WATER == 0
-const float WS_ABSORB = 0.30;
-#else
 const float WS_ABSORB = 0.17;
-#endif
 const float WS_ALPHA_MIN = 0.20;
 const float WS_ALPHA_MAX = 0.94;
 // Water running down a slope or a fall: churned with air, nearly opaque (merged onto the lighting, 2026-10-16).

@@ -231,11 +231,9 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 
 	// the sky in the reflected direction, by Fresnel, dimmed where the sky is hidden
 	float F = wsFresnel(dot(-V, N), WS_F0_WATER) * (1.0 - 0.8 * foam);
-#if R2_WATER != 0
 	// (review round 2) a little more of the sky's mirror at a glance than Schlick's water gives (stylized, as both
 	// reference packs): a dawn lake reads the lilac sky, not its own navy body; steep views keep their clear bed
 	F = min(F * 1.5, 1.0);
-#endif
 	vec3 R = reflect(V, N);
 	R.y = abs(R.y);
 	float seen = wsSkySeen(w.lm.y);

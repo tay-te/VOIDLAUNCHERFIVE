@@ -251,13 +251,7 @@ float skyLandFillLevel(float h) {
 	// takes the walls' share down instead (sideW), so the shade there sinks cool and deep while the sun stays strong)
 	float low = 0.31 * (1.0 - smoothstep(0.05, 0.3, h));
 	// (round 3: the afternoon's fill falls a little faster, pow 2, so 16:30's shade is deeper against its sun)
-#if R2_LIGHT == 0
-	return h > 0.0 ? 0.53 + 0.47 * pow(smoothstep(0.1, 0.92, h), 2.0) + low : 0.84 * exp(h * 15.0);
-#elif R2_LIGHT == 1
-	return h > 0.0 ? 0.64 + 0.36 * smoothstep(0.1, 0.92, h) + 0.65 * low : 0.84 * exp(h * 15.0);
-#else
 	return h > 0.0 ? 0.72 + 0.28 * smoothstep(0.1, 0.92, h) + 0.39 * low : 0.84 * exp(h * 15.0);
-#endif
 }
 
 struct SkyLand {
@@ -279,11 +273,7 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 	// the sun
 	// (air and tone (D): the dawn sun a quarter softer than the evening's in its low degrees)
 	// (review round 2: an eighth, was a quarter: the dawn crowns of a wood take the sun, as Complementary's glow)
-#if R2_LIGHT == 0
-	float dawnSoft = 1.0 - 0.25 * morning * (1.0 - smoothstep(0.04, 0.3, h));
-#else
 	float dawnSoft = 1.0 - 0.12 * morning * (1.0 - smoothstep(0.04, 0.3, h));
-#endif
 	vec3 sunLin = skyLandSunColour(h, morning) * skyLandSunStrength(h) * dawnSoft * weatherSun * (1.0 - s.blind);
 
 	// the sky's fill: clear blue, cooler as the sun sinks and bluer still in the blue hour; grey under cloud
