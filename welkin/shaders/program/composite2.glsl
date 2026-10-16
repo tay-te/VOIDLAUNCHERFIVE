@@ -283,7 +283,9 @@ void main() {
 		// the rain.
 		if (sunW.y > -0.08 && !cloud) {
 			vec3 vol = wdVolResolve(p, s.sky ? 1e4 : length(eyePos));
-			float dens = mix(0.65, 1.45, clamp(st.haze.x, 0.0, 1.0)) * (1.0 + 1.6 * st.rain);
+			// (gently with the land's haziness: the country haze already thickens the air of a hazy land, and the two
+			// together closed a jungle's distance into a white veil)
+			float dens = mix(0.7, 1.1, clamp(st.haze.x, 0.0, 1.0)) * (1.0 + 1.6 * st.rain);
 #ifdef WELKIN_VALLEY_MIST
 			// (where Gloam's valley mist already lies the haze yields to it: both together closed a misty valley's
 			// distance into a white veil)
