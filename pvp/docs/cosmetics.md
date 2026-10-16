@@ -50,9 +50,9 @@ same renders for looking at art without a game.
 ## The collection: VOID luxe (the art bible)
 
 The launch line is one collection in one style, **VOID luxe**: tailored, restrained, expensive.
-Every item is warm light neutrals and worked metal, with **one jewel** that is the only colour and
-the only light. It replaced the v3 line (a rainbow of glowing patterns) after the style test in
-`design/cosmetics-style-test/`; the palettes below live in code in
+Every item is rich cloth or warm light neutrals and worked metal, with **one jewel** that is the
+only bright colour and the only light. It replaced the v3 line (a rainbow of glowing patterns)
+after the style test in `design/cosmetics-style-test/`; the palettes below live in code in
 `mod/cosmetics-art/collection.mjs`, and nothing is painted outside them.
 
 ### Scale and form (non-negotiable)
@@ -64,8 +64,10 @@ the only light. It replaced the v3 line (a rainbow of glowing patterns) after th
   edge, a shaded lower-right, and the material shader does the rest.
 - **Proportion.** Wings span 1.6-2.2 blocks; hats sit on the head, not over it; nothing hides the
   player's silhouette.
-- **Restraint.** Neutrals, one metal family (two at most, e.g. silver with steel), and ONE accent:
-  the jewel. A second colour is a mistake, not variety.
+- **Restraint.** One cloth (the set's fabric, or a neutral), one metal family (two at most, e.g.
+  silver with steel), and ONE accent: the jewel. The fabric is a ground, never an accent — deep,
+  saturated only as far as a dyed wool is — so the jewel stays the only bright colour. A second
+  bright colour is a mistake, not variety.
 
 ### Neutrals (cloth, felt, porcelain, lacquer)
 
@@ -81,6 +83,42 @@ night sky and a dark field. Every item carries at least one value of 60% or more
 
 Charcoal is never the whole item: when a field is charcoal it is framed in metal or ivory so the
 shape survives at night.
+
+### Fabrics (the cloth under the metal and the jewel)
+
+The first luxe capes were cut from the neutrals alone — taupe, bone, ivory — and the review was
+blunt: tasteful, but grey and beige, no appeal; at a glance each read as plain cloth, and nothing
+in a lobby made anyone want one. Luxury houses do not sell grey: they put the colour **into the
+cloth** — an oxblood coat, a bottle-green cashmere, a navy with silver buttons, a camel overcoat —
+and keep the metal and the stone for the light. So every cape (and its set's other cloth: the hood,
+the hat band) is cut from one rich fabric, chosen to sit with its set's metal and jewel.
+
+| fabric | dark → light | set | why it sits with the metal and jewel |
+|---|---|---|---|
+| oxblood | `#2b0d1d #521829 #76202f #983536 #bd6049` | House (Bespoke, the default tint) | the house red; cool silver piping and a pearl read cleanest on it |
+| navy | `#0d1229 #182448 #24346a #374c88 #5f70a0` | Nocturne | the night sky the silver stars and the ice-topaz are stitched into |
+| aubergine | `#1d0e22 #38173d #552550 #713866 #94587a` | Atelier | a plum beneath the amethyst: one family, the stone two values brighter |
+| bottle | `#0b2224 #123a33 #1e5643 #2f7352 #5b9061` | Meridian | green with warm brass and a jade: the English country house |
+| camel | `#4a2f24 #7d5535 #ad7e4c #cfa068 #ead09c` | House (Origin, free) | the camel overcoat: the one light fabric, quiet with steel |
+| dove | `#5e5868 #8f8796 #bab2c0 #d8d2dc #f0ecf2` | linings, the Atelier fedora's felt | a cool pale silk: flashes light from under a dark cloth |
+
+Regent keeps charcoal framed in gold — black and gold is its own luxury, and one dark cape in the
+line makes the coloured ones read as colour.
+
+- **Hue-shifted like everything else.** Shadows cool toward violet-blue and a little more
+  saturated, lights warm and paler (the oxblood's light end is a brick, the bottle's an olive).
+  The base (index 2) is the field; 1 is the shadow row under a yoke, 3 the lit collar.
+- **Deep, not loud.** A dark fabric's base sits at about 4-7% relative luminance (camel, the one
+  light fabric, near 25%): dark enough that trim and jewel stay the light, saturated enough to
+  read as colour, not grey, at ten blocks in daylight under the cloth shader.
+- **It must read at night.** At night a dark fabric falls toward black, so the shape is carried
+  by value contrast against it: light metal trim and piping, an ivory or cream yoke, a pale lining
+  (ivory, cream or dove) that flashes when the cape moves — each 30%+ lighter than the field.
+- **One fabric per cape.** Meridian's two halves are two tones of the same green, not two colours.
+- **The free cape is simpler, not drabber.** Origin has the same quality of cloth (camel, cream
+  lining, steel collar, the silver thread) and less craft: no yoke, no brooch, no cut hem.
+- **Tints are cloths.** Bespoke's field is tintable; the wardrobe's swatches are the fabric bases
+  above plus cream and charcoal, never a colour the line is not dyed in.
 
 ### Metals (trim, clasps, bands, settings, spars)
 
@@ -123,7 +161,7 @@ at 5-6 fps, one bright frame): light catching a facet, never a flash.
 
 | part | material | ramps |
 |---|---|---|
-| cape field, felt, wool, hood | `cloth` | ivory, bone, taupe, charcoal |
+| cape field, felt, wool, hood | `cloth` | the set's fabric; ivory, bone, taupe, charcoal |
 | porcelain, lacquer, wood, bone | `matte` | ivory, bone, charcoal |
 | trim, piping, embroidery thread, clasps, crowns, halos, spars, hardware | `metal` | one metal family |
 | the jewel, visor glass | `glass` + emissive layer | one jewel |
@@ -142,27 +180,40 @@ Fill the item black at ten blocks: it must still say what it is.
   and weighted, swallowtail, a centre point, an asymmetric bias cut, rounded corners. The cut is
   the cape's silhouette and differs on every cape.
 - **Hats are iconic shapes**: a crown's points, a fedora's teardrop crown and snapped brim (taller
-  than wide at the crown, pinched at the front, brim down in front and up behind), a hood's
-  peak. A hat that reads as a box is not done.
-- **Back items are one strong line**: a fan of blades, a perfect ring, a diagonal sheath.
+  in its lines than its brim, pinched at the front, brim down in front and up behind), a hood's
+  arch. A hat that reads as a box is not done. Cuboids lie: round them on purpose — chamfer a
+  crown's vertical edges (two crossed boxes make an octagon in plan), taper it in courses, cut a
+  brim's corners. **A fedora's brim stands about two pixels off the crown** with rounded corners
+  and is painted a step darker than the crown's top (the top face catches the most sun); a
+  square brim, a wide one or a pale one reads as a stetson. **A hood drapes**: a domed crown
+  stepped in toward the top, the opening rounded into an arch over the brow's corners, a soft
+  beak, walls that hang from the crown and swing out like a bell, a roomy back that swells behind
+  the head and tapers to the nape, folds only where the cloth falls free (smooth over the skull,
+  pleated below the temples — folds all the way up read as hair), and a mantle onto the
+  shoulders.
+- **Back items are one strong line**: a fan of blades, a perfect ring, a diagonal sheath. A ring
+  is a continuous band (cells overlapping, never a string of beads) big enough to frame the head
+  from either side, its one jewel at the crown — spokes to a centre stone read as a crosshair.
 - **Halos are a thin true ellipse** of metal with the jewel at the front; **masks** a clean
   face plane with the eyes cut out.
-- **Trails** are fine metal sparks or jewel motes, two or three texels, sparse; **badges** are
+- **Trails** are fine metal sparks or jewel motes, two or three texels, sparse, drawn at about
+  0.13-0.14 of a block so they read behind a runner at five to eight blocks by day; **badges** are
   enamel pins: a metal rim lit at the top left, flat enamel, a one-texel jewel or glint.
 
 ### Variety without noise
 
-Variety comes from **material, cut and silhouette**, not from colour. Two capes differ by their
-hem, their yoke, their metal and their motif; two hats by their shape. The line is organised in
-sets, each one metal and one jewel, so pieces belong together in a lobby:
+Variety comes from **cloth, material, cut and silhouette**, never from bright colour. Two capes
+differ by their fabric, their hem, their yoke, their metal and their motif; two hats by their
+shape. The line is organised in sets, each one fabric, one metal and one jewel, so pieces belong
+together in a lobby and a lineup reads as six distinct houses at a glance:
 
-| set | metal | jewel | pieces |
-|---|---|---|---|
-| House | steel, silver | pearl | Origin cape (free), Bespoke cape, VOID player pin (free) |
-| Atelier | silver | amethyst | Atelier cape, Blade wings, Atelier fedora, Lumen halo, Amethyst dust, Atelier pin |
-| Regent | gold | ember-garnet | Regent cape, Sovereign crown, Vesper sheath, Aureole halo (pearl), Gilt sparks, Founder pin |
-| Nocturne | silver, steel | ice-topaz | Nocturne cape, Halcyon ring, Aegis visor, Topaz frost |
-| Meridian | brass | jade | Meridian cape, Cloister hood, Porcelain mask, Jade steps, Laurel pin |
+| set | fabric | metal | jewel | pieces |
+|---|---|---|---|---|
+| House | camel (Origin), oxblood (Bespoke, tintable) | steel, silver | pearl | Origin cape (free), Bespoke cape, VOID player pin (free) |
+| Atelier | aubergine (cape, fedora band), dove (fedora felt, lining) | silver | amethyst | Atelier cape, Blade wings, Atelier fedora, Lumen halo, Amethyst dust, Atelier pin |
+| Regent | charcoal | gold | ember-garnet | Regent cape, Sovereign crown, Vesper sheath, Aureole halo (pearl), Gilt sparks, Founder pin |
+| Nocturne | navy | silver, steel | ice-topaz | Nocturne cape, Halcyon ring, Aegis visor, Topaz frost |
+| Meridian | bottle green (cape, hood), cream (yoke, the hood's turned-back lining) | brass | jade | Meridian cape, Cloister hood, Porcelain mask, Jade steps, Laurel pin |
 
 Names are an atelier's: a house name and the garment (Regent cape, Cloister hood), never a
 gamer adjective.
@@ -212,9 +263,9 @@ Every item in the launch set was repainted against this list; a new item is held
    halos metal, jewels and visors glass, lit parts emissive, everything else matte or cloth
    (the table under "The collection"). The art paints *colour and form*; the shader adds the view-dependent part, so a
    highlight is never painted where a material will put one.
-10. **The collection's palette, never a rainbow.** The neutrals, metals and jewels under "The
-    collection", nothing else; a hue goes to full strength only in the jewel, where it gives off
-    light.
+10. **The collection's palette, never a rainbow.** The fabrics, neutrals, metals and jewels under
+    "The collection", nothing else; a fabric is deep and dyed, never bright, and a hue goes to full
+    strength only in the jewel, where it gives off light.
 
 ## Adding a cosmetic
 
@@ -377,6 +428,11 @@ out of the head into a slow third-person orbit and back, restoring the player's 
   alternating windows each on a heavily loaded machine): 998 us/frame for the luxe outfits against
   1065 us/frame for v3 (about 6% less: fewer emissive texels and bloom anchors, 1x textures); the
   same run's `perf-ab` gave 740 / 709 / 883 us/frame for fixed-function / shader / shader + bloom.
+  The polish round (the fabric capes, the draped hood on a 128 x 128 atlas, the chamfered fedora,
+  the one-ring Halcyon at 69 cubes, slightly larger trails) was measured the same way against the
+  pre-polish pieces bundled temporarily as test items, in three runs: 1153 / 1138, 1101 / 1117 and
+  981 / 1022 us/frame (polish / pre-polish), 1078 against 1092 averaged — inside the noise; the
+  same runs' `perf-ab` gave 926 / 844 / 1112, 1019 / 1016 / 1218 and 870 / 814 / 999.
 - Respects invisibility (nothing drawn), spectators (no layer), sleeping (head items only),
   riding (no trail), the inventory preview (the cape holds its shape), the `cosmetics` mod
   switches, and LOD by distance scaled by `Budget.quality`, which shrinks the bands when the layer
@@ -475,13 +531,22 @@ pulses already live inside the curve, so a listener is only for edge effects.
   test's): a new lineup measured against an old one under the same load.
 - The item sheet: `item-<id>` / `item-night-<id>`, one still per worn item alone on a mannequin,
   framed for its slot.
+- The polish views (`ShowcasePolish`, scenes `pv-*`, only when named): every worn item alone on a
+  Steve mannequin in fixed views — `pv-<id>-day`, `-night`, `-far` and `-farnight` (ten blocks),
+  `-close`, `-side`, and `-back` for head items — plus `pv-run-capes(-night)` (the six capes running
+  with their sets' trails), `pv-trails(-night)` (sprinters side on), `pv-emotes-a`/`-b` (three
+  emotes each, close, captured from their first frame) and `pv-badges-close`/`-far`. Run them once
+  before an art change and once after (`-Pvoid.showcase.only=pv-*`, or `pv-cloister-hood-*` for
+  one item), then `design/cosmetics-shots/make-compare.sh <before> <after> <out> <id ...>` lays
+  each item's views side by side, before over after.
 
 ### The shots in `design/cosmetics-shots/`
 
-- the top level: the VOID luxe line (catalog v4) — line-ups front and back by day and night, at ten
-  blocks, close-ups per slot, the item sheets, hero, run, fight and emote clips (see its README);
-  `before-v3/` keeps the v3 set's shots, `before-v2/` and `before/` the earlier sets, `compare/`
-  the before/after sheets;
+- the top level: the VOID luxe line (catalog v4, after the polish round: the fabrics, the draped
+  hood, the short-brimmed fedora, the one-ring Halcyon) — line-ups front and back by day and night,
+  at ten blocks, close-ups per slot, the item sheets, hero, run, trail, fight and emote clips (see
+  its README); `before-v4/` keeps the luxe shots from before the polish round, `before-v3/` the v3
+  set's, `before-v2/` and `before/` the earlier sets, `compare/` the before/after sheets;
 - `motion/`: the secondary-motion and fight-reaction clips and stills, rendered on the v2 art
   before the shader landed;
 - `before-v3/combined/`: both together — `fight-night` and `hero-night` on the merged build, with
