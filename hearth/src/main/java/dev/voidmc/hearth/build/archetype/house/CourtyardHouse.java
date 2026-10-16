@@ -401,8 +401,13 @@ public final class CourtyardHouse implements Archetype {
 			Partitions.alongX(d, cz1 + 1, cx1 + 2, w - 2, 0, h, Integer.MIN_VALUE, Dirs.BACK);
 		}
 		// doors from the front corner rooms into the side wings, so they are reached through them
-		Partitions.door(d, 2, 0, wd - 1, Dirs.FRONT);
-		Partitions.door(d, w - 3, 0, wd - 1, Dirs.FRONT);
+		// (inside the room: where the vestibule's wall stands at x 2, the room is one wide and its door goes beside it)
+		if (va - 1 >= 1) {
+			Partitions.door(d, Math.min(2, va - 1), 0, wd - 1, Dirs.FRONT);
+		}
+		if (vb + 1 <= w - 2) {
+			Partitions.door(d, Math.max(w - 3, vb + 1), 0, wd - 1, Dirs.FRONT);
+		}
 		Partitions.door(d, 2, 0, cz1 + 1, Dirs.BACK);
 		Partitions.door(d, w - 3, 0, cz1 + 1, Dirs.BACK);
 	}
