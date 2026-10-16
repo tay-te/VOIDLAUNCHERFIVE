@@ -124,6 +124,22 @@ void main() {
 		if (!gl_FrontFacing && isEyeInWater != 1) {
 			discard;
 		}
+		// (the defects pass, 2026-10-16) and the turned-down copy itself, seen from the air below its plane (the steps of
+		// a cascade over the eye, a fall's lip from its foot): it is the view from under water, split along the other
+		// diagonal, and stood over the sheet as dark and pale triangles (and a black one with the eye in a fall). Only a
+		// real underside stays: a level face at a block's foot (water over air).
+		if (isEyeInWater != 1 && nW.y < -0.5) {
+			float yIn = fract(eyePos.y + cameraPositionFract.y + 1e-3);
+			if (nW.y > -0.999 || yIn > 0.01) {
+				discard;
+			}
+		}
+		// a fall's light: smooth lighting gives each corner of a sloped or upright water face its own sky light, which
+		// shaded the halves of each step's quad apart (light and dark triangles); on the move, water takes the open sky's
+		// light wherever a corner sees some of it
+		if (nW.y < 0.985 && nW.y > -0.5) {
+			lm.y = mix(lm.y, smoothstep(0.15, 0.6, lm.y), 1.0 - smoothstep(0.93, 0.985, nW.y));
+		}
 #if WS_DEBUG_VIEW == 5
 		// the faces drawn: the face's own world normal as colour, a back face (seen from under water) in stripes
 		outColor = vec4((nW * 0.5 + 0.5) * (gl_FrontFacing ? 1.0 : 0.4 + 0.6 * float((int(gl_FragCoord.y) >> 2) & 1)), 1.0);

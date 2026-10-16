@@ -168,8 +168,8 @@ suffix.WS_WATER_TEXTURE=%
 option.WS_CAUSTICS=Light under water
 option.WS_CAUSTICS.comment=Rippling lines of sunlight on the ground under water, moving with the waves. Needs sun and moon shadows.
 
-option.WS_WATER_SSR=Near reflections
-option.WS_WATER_SSR.comment=Water close to you also reflects nearby land and trees, not just the sky. Costs about 0.3 ms.
+option.WS_WATER_SSR=Land reflections
+option.WS_WATER_SSR.comment=Water reflects the land, trees and far shores on screen, not just the sky.
 
 option.WET_ENABLED=Wet ground
 option.WET_ENABLED.comment=Rain darkens the ground and it dries out slowly afterwards. Sand and soil soak up more than stone.

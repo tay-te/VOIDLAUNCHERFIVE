@@ -129,8 +129,8 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define WS_WATER_TEXTURE 50 // [0 25 50 75 100]
 // Light under water: Rippling lines of sunlight on the ground under water, moving with the waves. Needs sun and moon shadows.  [water_shadows]
 #define WS_CAUSTICS
-// Near reflections: Water close to you also reflects nearby land and trees, not just the sky. Costs about 0.3 ms.  [water_shadows]
-//#define WS_WATER_SSR
+// Land reflections: Water reflects the land, trees and far shores on screen, not just the sky.  [water_shadows]
+#define WS_WATER_SSR
 // ---- Weather and seasons
 // Wet ground: Rain darkens the ground and it dries out slowly afterwards. Sand and soil soak up more than stone.  [haze]
 #define WET_ENABLED

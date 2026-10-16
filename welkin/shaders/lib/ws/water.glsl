@@ -61,6 +61,73 @@ float wsGlint(vec3 R, vec3 L, float var) {
 	return exp(-x * x) * (r2 / spread2) * smoothstep(-0.02, 0.05, L.y);
 }
 
+// ---- falling water (the defects pass, 2026-10-16)
+// A fall's sheet and a cascade's steep steps: translucent white-blue water with streaks of foam pouring down it in the
+// block's own pixels (each 1/16-block column its own speed, the streaks stepping a pixel at a time, as vanilla's
+// textures move), reflecting the sky about one normal that faces the eye for every face of the fall, so its sides and
+// its sloped steps read as one sheet (they took their Fresnel each about its own face before: the steps seen edge-on
+// mirrored the bright sky, pale triangles on a darker sheet).
+
+uint wsHashU(uint x) {
+	x ^= x >> 16;
+	x *= 0x7feb352du;
+	x ^= x >> 15;
+	x *= 0x846ca68bu;
+	x ^= x >> 16;
+	return x;
+}
+
+float wsHash1(int a, int b) {
+	return float(wsHashU(uint(a) * 0x9E3779B1u + uint(b) * 0x85EBCA77u + 0x5EEDu) >> 8) / 16777216.0;
+}
+
+// Smooth 1D value noise along x for column `c` (lattice of whole units).
+float wsNoise1(float x, int c) {
+	float i = floor(x);
+	float f = x - i;
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(wsHash1(int(i), c), wsHash1(int(i) + 1, c), f);
+}
+
+// Smooth 2D value noise on a lattice of whole units.
+float wsNoise2(vec2 p, int salt) {
+	vec2 i = floor(p);
+	vec2 f = p - i;
+	f = f * f * (3.0 - 2.0 * f);
+	ivec2 c = ivec2(i);
+	float a = wsHash1(c.x + salt * 7919, c.y), b = wsHash1(c.x + 1 + salt * 7919, c.y);
+	float d = wsHash1(c.x + salt * 7919, c.y + 1), e = wsHash1(c.x + 1 + salt * 7919, c.y + 1);
+	return mix(mix(a, b, f.x), mix(d, e, f.x), f.y);
+}
+
+// The world position wrapped to 1024 blocks (exact anywhere), for patterns on the block grid.
+vec3 wsWorldWrapped(vec3 playerPos) {
+	return vec3(cameraPositionInt & 1023) + cameraPositionFract + playerPos;
+}
+
+// The foam pouring down a fall's face (0..1), in 1/16-block pixels. n: the face's world normal (its horizontal part
+// sets which way runs across the fall), t: the clock.
+float wsFallFoam(vec3 wp, vec3 n, float t) {
+	vec2 hz = n.xz / max(length(n.xz), 1e-4);
+	int col = int(floor(dot(wp.xz, vec2(-hz.y, hz.x)) * 16.0));
+	float h = wsHash1(col, 77);
+	// each pixel column pours at its own speed, 5 to 9 blocks a second, stepping a pixel at a time
+	float v = floor((wp.y + t * (5.0 + 4.0 * h)) * 16.0) / 16.0;
+	float s = 0.6 * wsNoise1(v * 0.8 + h * 41.0, col) + 0.4 * wsNoise1(v * 2.1 + h * 13.0, col + 4099);
+	// wider bands of white across a few columns, so the foam forms ropes rather than pixel rain
+	float rope = wsNoise1(float(col) * 0.22, 9001);
+	return smoothstep(0.50, 0.80, s * (0.75 + 0.5 * rope));
+}
+
+// Foam on water that is still running (a fall's foot, eddies below a cascade): drifting patches in 1/16-block pixels,
+// carried down the slope `down` (horizontal, unit or zero).
+float wsRunFoam(vec3 wp, vec2 down, float t) {
+	vec2 p = (floor(wp.xz * 16.0) + 0.5) / 16.0 - down * t * 1.2;
+	float a = wsNoise2(p * 0.9, 3);
+	float b = wsNoise2(p * 2.3 + 17.0, 5);
+	return smoothstep(0.55, 0.85, 0.6 * a + 0.4 * b);
+}
+
 vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info) {
 	float dist = length(w.playerPos);
 	vec3 V = w.playerPos / max(dist, 1e-4); // camera to surface
@@ -77,18 +144,27 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	if (top) {
 		N = wsWaterNormal(w.playerPos.xz, w.footprint, inp.wind, inp.rain, shelter, frameTimeCounter, var, energy);
 	}
-	// (merged onto the lighting) water running down a slope or a fall is churned white with air: it reflects and
-	// takes its light as level water whatever its facets' tilt (else each half of a step's uneven quad took its own
-	// Fresnel, pale sky beside dark body in triangles), is nearly opaque and paler, and has no bank band. A river's
-	// gently sloped surface is not a fall: it takes this only from about 15 degrees of slope.
-	float fall = fromBelow ? 0.0 : 1.0 - smoothstep(0.8, 0.97, w.geoNormal.y);
-	N = normalize(mix(N, vec3(0.0, 1.0, 0.0), fall));
+	// (the defects pass) water on the move: a fall's sheet and a cascade's steep steps (fall 1), and below it the
+	// gently sloped water still running off (run, a river's own slope is under it). One value per face: the faces'
+	// normals are per quad, so neither splits a quad into triangles.
+	float fall = fromBelow ? 0.0 : 1.0 - smoothstep(0.93, 0.985, w.geoNormal.y);
+	float run = top && !fromBelow ? (1.0 - smoothstep(0.985, 0.9993, w.geoNormal.y)) * (1.0 - fall) : 0.0;
+	vec3 wp = wsWorldWrapped(w.playerPos);
+	float foam = fall > 0.0 ? wsFallFoam(wp, w.geoNormal, frameTimeCounter) * fall : 0.0;
+	if (run > 0.0) {
+		vec2 down = w.geoNormal.xz / max(length(w.geoNormal.xz), 1e-4);
+		foam = max(foam, wsRunFoam(wp, down, frameTimeCounter) * run * 0.85);
+	}
+	// a fall reflects about one normal facing the eye and leaning up, the same for all its faces
+	vec3 toEye = vec3(-V.x, 0.0, -V.z);
+	toEye = dot(toEye, toEye) > 1e-6 ? normalize(toEye) : vec3(0.0, 0.0, 1.0);
+	N = normalize(mix(N, normalize(toEye + vec3(0.0, 1.3, 0.0)), fall));
 
 	// the body: the biome tint (the cobalt taken out) over a calmed vanilla texture, lit in the light pass's linear
 	// light and tone as level water; the waves' tilt toward the light shows as gentle light and shade
 	vec3 albedo = waterTone(w.tint) * mix(vec3(0.75), w.tex, WS_TEXTURE_SHARE) * wsSeasonWater(sea);
 	vec3 faceN = welkinWaterNormal(w.geoNormal);
-	float facing = sunFacing(dot(top ? N : faceN, L));
+	float facing = sunFacing(mix(dot(top ? N : faceN, L), dot(faceN, L), fall));
 	vec3 sunShare = w.sunShare * wsSeasonSun(sea);
 
 	// opacity from the water the view crosses; rain stirs it up
@@ -98,15 +174,32 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 		float k = WS_ABSORB * (1.0 + 1.5 * inp.rain * shelter);
 		a = mix(WS_ALPHA_MIN, WS_ALPHA_MAX, 1.0 - exp(-thick * k));
 		if (top && !fromBelow) {
-			// a pale band where the water thins out over the bank
-			float bank = (1.0 - smoothstep(0.0, WS_BANK_DEPTH, thick * abs(V.y))) * WS_BANK_STRENGTH * (1.0 - fall);
-			albedo = mix(albedo, vec3(0.80, 0.86, 0.88), bank);
-			a = max(a, mix(a, 0.6, bank));
+			// (the defects pass, 2026-10-16) foam where the water laps the shore, in the block's pixels: a band that
+			// breathes in and out with a slow swell, wider and whiter in the wind (it was a pale band that only
+			// milked the shallows over)
+			float depthV = thick * abs(V.y);
+			float swell = 0.5 + 0.5 * sin(frameTimeCounter * 0.9 + wsNoise2(wp.xz * 0.11, 9) * 6.2832);
+			float reachV = mix(0.10, 0.34, swell) * mix(0.7, 1.4, clamp(energy, 0.0, 1.0));
+			float edge = 1.0 - smoothstep(0.0, reachV, depthV);
+			vec2 fp = (floor(wp.xz * 16.0) + 0.5) / 16.0;
+			float pix = smoothstep(0.42, 0.72, 0.65 * wsNoise2(fp * 1.7 + frameTimeCounter * 0.07, 11)
+				+ 0.35 * wsNoise2(fp * 4.3 - frameTimeCounter * 0.05, 13));
+			pix = mix(pix, 0.5, smoothstep(0.04, 0.12, w.footprint));
+			float shoreFoam = edge * mix(0.25, 1.0, pix) * WS_SHORE_FOAM * (1.0 - fall) * mix(0.5, 1.0, shelter);
+			foam = max(foam, shoreFoam);
 		}
 	}
-	a = max(a, mix(a, WS_ALPHA_FALL, fall));
-	albedo = mix(albedo, vec3(0.80, 0.88, 0.92), 0.35 * fall);
+	// a fall: a clear sheet, a little lighter than still water (air in it), the foam white and nearly opaque; foam
+	// lies on running water below it too
+	albedo = mix(albedo, albedo * 1.15 + vec3(0.04, 0.06, 0.07), fall);
+	a = mix(a, max(a, WS_ALPHA_FALL), fall);
+	albedo = mix(albedo, vec3(0.86, 0.91, 0.93), foam);
+	a = mix(a, 0.95, foam);
 	vec3 body = welkinLightCore(albedo, faceN, w.lm, 0.0, sunShare, wsSeasonAmbient(sea), w.reach, facing);
+	// (the defects pass) clear water mostly takes light away rather than throwing it back: the body's own light is a
+	// share of the lit tint, least in the shallows (they showed the bed through a milky veil at 08:00 and noon), and
+	// whole again on a fall and its foam
+	body *= mix(mix(WS_SCATTER_SHALLOW, WS_SCATTER_DEEP, smoothstep(WS_ALPHA_MIN, WS_ALPHA_MAX, a)), 1.0, max(fall, foam));
 
 	if (fromBelow) {
 		// from under water: the Snell window (about 49 degrees) shows the world above; outside it the surface mirrors
@@ -119,7 +212,7 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	}
 
 	// the sky in the reflected direction, by Fresnel, dimmed where the sky is hidden
-	float F = wsFresnel(dot(-V, N), WS_F0_WATER);
+	float F = wsFresnel(dot(-V, N), WS_F0_WATER) * (1.0 - 0.8 * foam);
 	vec3 R = reflect(V, N);
 	R.y = abs(R.y);
 	float seen = wsSkySeen(w.lm.y);
@@ -128,7 +221,22 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	// the sun's or the moon's image, where its light reaches the water
 	vec3 glint = vec3(0.0);
 	if (top) {
-		glint = skyDirectLight() * sunShare * (w.reach * wsGlint(R, L, var) * WS_GLINT_GAIN * mix(0.35, 1.0, F));
+		float g = wsGlint(R, L, var) * WS_GLINT_GAIN * mix(0.35, 1.0, F);
+		// (the defects pass) the glitter path: the light thrown back by the waves too small to draw, a wide lobe about
+		// the sun's image (wider in the wind and with distance), broken near the eye into sparkles on the water's own
+		// 1/8-block grid, each redrawn a few times a second at its own moment; far off the sparkles average out smooth
+		float th2 = 2.0 * max(1.0 - dot(R, L), 0.0);
+		float wide = WS_GLITTER_SPREAD * mix(0.5, 1.6, clamp(energy, 0.0, 1.3)) + 4.0 * var;
+		float lobe = exp(-th2 / wide) * smoothstep(-0.02, 0.06, L.y);
+		vec2 gc = floor(wp.xz * 8.0);
+		ivec2 gi = ivec2(gc);
+		float slot = floor(frameTimeCounter * 4.0 + wsHash1(gi.x, gi.y) * 8.0);
+		float h = wsHash1(gi.x * 31 + int(slot), gi.y * 17 - int(slot));
+		float share = WS_GLITTER_SHARE * lobe;
+		float spark = smoothstep(1.0 - share, 1.0 - share + 0.015, h);
+		float near = 1.0 - smoothstep(0.05, 0.16, w.footprint);
+		g += mix(share, spark, near) * WS_GLITTER_GAIN * mix(0.5, 1.0, F);
+		glint = skyDirectLight() * sunShare * (w.reach * g) * (1.0 - fall) * (1.0 - foam);
 	}
 
 	vec3 rgb = body * a * (1.0 - F) + refl * F + glint;
