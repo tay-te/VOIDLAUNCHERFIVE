@@ -41,6 +41,21 @@ Findings the rules surfaced that §4 of the audit did not list (for the owning l
 | L6 | farm/orchard | floating-piece | on town land: single cobblestone and plank blocks (the picking ladder's foot) over the slope |
 | L4b | commerce/market_stall | furnished-reached | on town land (mediterranean): 13 furnished cells the walk never reaches (the merchant's spot, M7) |
 
+Found on the merged batch 1 (`hearth` at dc19d9ad, re-tallied in `gate/known/`):
+
+| lane | archetype | rule | what |
+|---|---|---|---|
+| L4a | civic/school (84/84), civic/cemetery (42/84), civic/orphanage | floating-piece | a guard wall stood on a tree's crown: the yard oak's leaves are walkable to the walk, so the fall guard rails their edge (school temperate flat seed 31344 east: `0/4/5` and `0/4/9` stone brick wall on oak leaves). Guards belong on built edges, never on leaves |
+| L4b, access | landscape/garden, landscape/park, festival_ground, commerce/caravan_yard (wisteria, hills) | floating-piece | rails (dark oak fence) on air or crowns over the slope (`Edges.guard`) |
+| L2 | house/farmhouse | floating-piece | desert: a single spruce rail at `7/6/3` on nothing |
+| age | (every archetype, decayed) | all six | `age/decay` in `gate/known/age.txt`: rails left on rotted boards (241 cases), roof gaps (3483), ladders whose landing rotted (199). Decay should take what it leaves hanging with the boards |
+
+**Done here for the full build (outside L0, tiny, please keep or redo in your lane):** `civic/cemetery` failed
+`BlueprintInvariantsTest` and `SocialLifeTest` on `hearth` itself (the priest's desk out of reach, shallow plots on a
+slope): commerce's terrace parapets (8be6be0d) took away the slab coping folk used to hop up beside the flight, and
+the flight itself had started in the lychgate's back row, which the gate levels, under its tie beam. `Cemetery.draw` now
+lays that flight on the high side after `Halls.finish` (commit 0a9d8221). L4a: fold it into the lychgate if you prefer.
+
 ## 3. T11 (sites and smoke): site dressing that the preview can draw
 
 `townPreview` draws each plot's stages as far as the plot is built, as the game places them. Review 2 item 8 asks for

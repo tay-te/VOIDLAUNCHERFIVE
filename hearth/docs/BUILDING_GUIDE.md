@@ -711,7 +711,9 @@ in `hearth/gate/known/` is then a test failure, with a `gate <rule>: ...` line n
 own) lists today's failures, one line per archetype: its path, the rules it still breaks, and a comment with the audit's
 count. When your fix lands, delete the rule from the line (the report's stale entries and `-Pmode=gate` show what no
 longer breaks), and delete the line when none is left. The list only shrinks: adding to it needs the coordinator. The
-audit gate does not excuse known failures; it marks them `known` and still says FAIL.
+audit gate does not excuse known failures; it marks them `known` and still says FAIL. A decayed building (any decay
+param) is tallied and looked up as `age/decay` in `age.txt`, whatever its archetype: what rot does to rails, steps and
+roofs is the decay pass's to answer, and an archetype's line speaks only of the building as built.
 
 ## 9. Previews
 

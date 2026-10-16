@@ -571,3 +571,16 @@ as gaps in the first tally (roof-gap cases 1012 -> 814 of 11256 on the wave-7 `h
 `floating_pieces`, `roof_gap_cells`, `gate` and `gate_text` are new and do not enter the scores; the scores' weights are
 unchanged, but the quirk fixes move some rows from §3 (karst and tropical windows, the round house, wells and the
 tavern's beams).
+
+**The gate's tally** (`structureAudit -Pmode=gate`, 134 archetypes, sum over archetypes of cases over a hard column):
+
+| run | PASS | blocked_doors | fall_edge_cells | unreached_furnished_cells | dead_ladders | strict_reach | floating_pieces | roof_gap_cells |
+|---|---|---|---|---|---|---|---|---|
+| first tally, wave-7 `hearth` before the fix lanes | 11 | 1214 | 3950 | 460 | 255 | 54 | 21 | 878 |
+| with the metric quirks fixed | 14 | 1198 | 3663 | 448 | 190 | 32 | 31 | 694 |
+| batch 1 merged (planner, land, styles, npc, access, sites, civic, commerce, town) | 34 | 216 | 2380 | 185 | 142 | 28 | 194 | 727 |
+
+The rise in `floating_pieces` after batch 1 is real: guards set on tree crowns (walls and rails on leaves: the school
+yard's oak, looked at block by block; by the pieces' blocks and places also the churchyard's yews, the orphanage, the
+wisteria gardens and parks), single rails on air (farmhouse, chapel); the gate catches them (`docs/requests/w7-gate.md`). The known lists in `hearth/gate/known/` were re-tallied on that merge; decayed buildings
+are tallied apart as `age/decay` (`age.txt`), so an archetype's line speaks only of the building as built.
