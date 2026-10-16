@@ -229,7 +229,7 @@ the staged wave-2 modules still describe the old rules; they are adapted as they
 - Light, fog, haze, mist and sky are smooth gradients with gentle banding: a ramp may gather softly at a few levels (`softBands`, the `SOFT_BANDS` option), but never in flat steps with edges.
 - No heavy or visible dither or checkerboard anywhere. The image's only screen noise is final's anti-banding: one 8-bit step of fixed triangular noise, which cannot be seen.
 - Pixel-crisp detail only where it looks good: the sun, the moon, the stars and the voxel clouds. Everything that covers the world (haze, mist, water fog, wet ground) is smooth and is worked out at the pixel's own point, not snapped to a texel grid. Puddle outlines sit on the block textures' own texel grid, like texture.
-- Clouds are voxel cells (12×12×4 near, doubling with distance), opaque, with hard edges and no dithered rims. No ray-marched soft volumes.
+- Clouds are voxel cells (12×12 near, doubling with distance, 4 blocks tall at a rim and up to 16 in 4-block tiers over a cloud's heart since the clouds rework), opaque, with hard edges and no dithered rims, lit as volumes inside that outline. No ray-marched soft volumes.
 - Directional sunlight and shadows are the foundation of the quality: the sun lights faces by how squarely they face it, smoothly, and the shadow map carries it near, the far shadows and the terrain's light past it.
 - Surface colours stay natural and real-world, with no glowing fantasy tints. Underground may be fantastical (glowworm light, coloured cave water).
 - Each palette is small and lives in a pack file, keyed by haze kind, season and time. Palettes are control points: the colour runs smoothly between them, and every weight on them changes smoothly with the hour and the weather.
@@ -1240,3 +1240,85 @@ the lighting's own water fixes are carried into it.
   branches; P6's was not measured); the curtains themselves were not caught on screen (storm0 aims at a storm 7 km off
   from the summit, where it hangs under the decks the summit looks down on); the options' generator table
   (`options.py`) still lacks every option since wave 1.
+
+### The clouds rework (2026-10-16, branch `welkin-clouds`)
+
+The voxel clouds were the biggest beauty gap in every sheet: grey stepped slabs, the low deck flat white slabs, the rain
+deck sawtooth grey bands. Their light is rebuilt as a lit volume inside the crisp voxel outline (lib/clouds/shade.glsl,
+its header has the whole model); Gloam's data (cover, fronts, decks, wind, the W tiles) is read as before.
+
+- **Shape:** a deck cell's base stays flat; its top rises in 4-block tiers (`WC_TIER`) with how deep inside its cloud
+  it lies, with a lumpy swell over a cloud's heart: the main deck 4 to 16 blocks (`WC_MAIN_TIERS` 3), the low stratus 4
+  to 8, the high sheet 4. A cumulus is a voxel dome; a sea of clouds seen from a peak has relief and, at a low sun,
+  long tier shadows. The march, the band, the slab fog and the deck tests use each deck's full span (`wcDeckSpan`).
+- **The body field:** the raw cloud map's B and A hold the low and main decks' smooth margin fields (0.5 at the outline,
+  1 deep inside, normalised by the puffs' headroom so a thin cover's clouds are not all rim); the clouds pass reads them
+  through the bilinear filter (`wcField`, `WC_FIELD`). The tiers ride in the raw map's spare bits and the finished
+  map's G (rise bits 0..6, low tier 7, main tiers 8..9). The high sheet and towers take a smooth value-noise mottle.
+- **Light:** the length of cloud toward the sun or moon from the hit's own column and `WC_LIGHT_SAMPLES` (4, LOW 2)
+  field samples along the light, each read as a soft height field (taller tiers shade lower ones, a cloud's body its
+  far side, a belly its thickness and breadth); Beer's law with two multiple-scattering octaves; back-scatter and
+  powder off the lit side; a forward lobe through the thin parts whose single scattering (the silver lining) is laid on
+  past the soft shoulder, so a rim toward the sun may pass white and bloom; the sky's light by how much dome a face
+  sees, less in a deep belly; the land's bounce under a cloud.
+- **Hours:** the clouds' sun is held on longer round the horizon and turns gold, then rose (they stand high); the
+  under-light once the sun is down; through the golden hour the warm light stays on what the sun reaches and the
+  bellies keep the dusk's violet and rose. At night the moon (`WC_MOON_GAIN`) and the night dome's floor. Under a closed
+  overcast the bellies keep near the dome's brightness and darken under their thick parts (rain decks mottled and
+  layered, no pale slabs); the far band takes its cells' tone from the weather (a fair band beyond rain cells drew the
+  sawtooth line). Far cells sink into the horizon's own light, its glow toward the sun.
+- **Cost** (RTX 4060, 1600x900, MEDIUM, test world B, `CLOUDS=false:true` sweeps, 6 s readings): the clouds stay at
+  about 0.7 to 1.0 ms with their shadows on the land (about 0.3 ms of it, `CLOUD_SHADOWS`), the same as before the
+  rework within the readings' noise (before: 0.7 to 1.0 ms); the extra field reads cost no more than the per-face work
+  they replaced. Over the 0.6 ms budget as before; the march, not the light, is most of it.
+- **Shots:** ground (the plain, looking up) and peak (y 498 over the main deck) at 08:00, 12:00, 16:30, 18:30 and night,
+  fair (front 0.45) and rain (0.8), and the steppe and countryside vistas beside Complementary and Euphoria, before and
+  after. Clouds drift between runs, so the cells differ from shot to shot.
+- **Still open:** a big low-deck belly straight overhead at noon is a soft, light grey with little structure; the rain
+  deck seen from above is flat under the haze; dusk bellies near the eye lean taupe where the sky behind them is dark;
+  the vistas' afternoon clouds are cooler and greyer than Complementary's cream (the sky and haze lane's warmth will
+  shift them).
+
+### The defects pass: far rain, falls, water by day, the valley mist (2026-10-16, branch `welkin-clouds`)
+
+After the post-merge showcase (its report listed the far rain curtains never showing, falls as light and dark
+triangles of pale ice, the shallows under a milky veil, no glitter at 16:30, no shore foam, no land in the water at
+MEDIUM, a solid plume of mist at a fall's foot and a black hole with the eye at a fall).
+
+- **Far rain curtains (lib/far_weather/).** A debug view of why a ray meets none (`WF_DEBUG` 5: black no stretch to
+  walk, blue dry cells, green a rainy cell, yellow its column missed, magenta no depth, red a curtain) and the W1 panel
+  (`WF_DEBUG` 1, checked against Gloam's own front table: the tile lines up with the world) showed the data reaching
+  the pass and the walk finding rainy cells. Three things lost them: the reach was cut to `dhRenderDistance` (VOID LOD
+  reports it small: everything past 4 to 8 km went, where the fronts hang their showers and storms), a column's top
+  was always "under its deck" from above (the peak views saw none, even through gaps), and the rain was lit with the
+  land's linear light and came out the haze's own pale grey, then took the whole air for its distance. Now the reach
+  is `WF_CURTAIN_REACH` (16 km without far land), a top the ray reaches is seen, the rain takes the deck's underside
+  colour (the sky table's cloud base, slate under a storm) a little darker inside the shaft and glows toward a low
+  sun, keeps a third of its own colour through the air (`WF_CURTAIN_KEEP`), is denser in light rain (`sqrt(rain)`), and
+  each column is a soft shaft: densest down its middle, thinning to its sides and up into the deck, streaked on every
+  column. Gloam's showers only fall where a front passes about 0.74, so a curtain in view still needs weather there.
+- **Falls (lib/ws/water.glsl, program/parts/ws_gbuffers_water.glsl).** The triangles were three things: smooth
+  lighting's sky light differing at each corner of a step's uneven quad (shaded halves), each face's own Fresnel (the
+  steps seen edge-on mirrored the bright sky), and the turned-down copy of a top, which also arrives front-facing with
+  the top's upward normal and was shaded as the view from under water (the dark triangles up a cascade, the black one
+  with the eye at a fall, `WS_DEBUG` 5 to 7 found it). Now a top seen from under its plane, and any downward copy that
+  is not a real underside, is left out with the eye in the air; moving water takes the open sky's light wherever a
+  corner sees some, and water within a few blocks at least the eye's own; a fall's faces reflect about one normal facing
+  the eye. The look: a clear sheet (`WS_ALPHA_FALL` 0.62), a little whiter than still water, with foam pouring down it
+  in the block's own 1/16 pixels (each pixel column its own speed, stepping a pixel at a time, gathered into ropes),
+  foam on the water still running off below it, and a soft bright spray veil when a fall is at the eye. A fall's mark
+  in colortex3 is 0.5 (level water 1), so the valley mist takes it as the rock behind and not as open water.
+- **Water by day.** The body throws back only a share of its lit tint (`WS_SCATTER_SHALLOW` 0.42 to `_DEEP` 0.82): the
+  shallows show their bed tinted and darker, not through a milky veil. The glitter path: a wide lobe about the sun's
+  image (`WS_GLITTER_SPREAD`, wider in the wind) with a soft glow, broken where a cell is 1.5 to 14 pixels into
+  sparkles on the water's 1/16-block grid, each redrawn a few times a second. Foam along the shore: on screen
+  (lib/ws/shore.glsl, composite1), three rings of probes round each near water pixel find land at the water's level and
+  how far off its edge is; a breathing band in the water's pixels, lit at the water's brightness. Land reflections are
+  on at MEDIUM now: 18 steps growing 1.45x reach about 1.5 km, the LOD's land met as the chunks' is (surfaceBehind), far
+  water reflecting too, a hit checked against the scene and above the water, far ripples calmed; about 0.3 to 0.5 ms
+  (`WS_WATER_SSR` sweeps, noisy).
+- **Valley mist (lib/mist.glsl).** The slab thins over its top 8 blocks (`MIST_SOFT_TOP`), the last stretch of a ray
+  counts at most 40 blocks (`MIST_LAST_MAX`), and the density drifts in soft billows 22 blocks across: no hard white
+  line where the top meets the rock, no solid wall. The chunks' water has its pinholes filled as the LOD's (composite2
+  `pinholeFill`): the dotted seams along a fall's steps and the shore.
+- **Particles:** none closer than a third of a block (`G_NEARCUT`, gbuffers_textured and _lit).

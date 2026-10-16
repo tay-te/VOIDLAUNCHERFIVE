@@ -148,8 +148,8 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define WS_WATER_TEXTURE 50 // [0 25 50 75 100]
 // Light under water: Rippling lines of sunlight on the ground under water, moving with the waves. Needs sun and moon shadows.  [water_shadows]
 #define WS_CAUSTICS
-// Near reflections: Water close to you also reflects nearby land and trees, not just the sky. Costs about 0.3 ms.  [water_shadows]
-//#define WS_WATER_SSR
+// Land reflections: Water reflects the land, trees and far shores on screen, not just the sky.  [water_shadows]
+#define WS_WATER_SSR
 // ---- Weather and seasons
 // Wet ground: Rain darkens the ground and it dries out slowly afterwards. Sand and soil soak up more than stone.  [haze]
 #define WET_ENABLED
@@ -225,11 +225,11 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 // Sky debug: Sky test views: the sky colour table, or the sky's bands and rings.  [sky]
 #define SKY_DEBUG 0 // [0 1 2]
 // Far weather debug: Test views for far weather.  [far_weather]
-#define WF_DEBUG 0 // [0 1 2 3 4]
+#define WF_DEBUG 0 // [0 1 2 3 4 5]
 // Underground debug: Draws the cave map from VOID Gloam on screen, with the cave state as bars. For testing only.  [underground]
 #define UG_DEBUG 0 // [0 1]
 // Water and shadow debug: Test views for water and shadows.  [water_shadows]
-#define WS_DEBUG 0 // [0 1 2 3 4]
+#define WS_DEBUG 0 // [0 1 2 3 4 5 6 7]
 
 // Iris only lists a #define as an on/off option when some file tests it with #ifdef or #ifndef.
 // These empty tests make every toggle show even before the code that uses it is merged.

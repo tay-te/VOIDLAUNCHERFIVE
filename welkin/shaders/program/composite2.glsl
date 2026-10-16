@@ -211,8 +211,10 @@ ivec2 pinholeFill(ivec2 p, vec2 uv) {
 		bool up = !surfaceAt(p + ivec2(0, 1), uv + vec2(0.0, px.y)).sky;
 		return dn && up ? p + ivec2(0, 1) : p;
 	}
-	// the far water's seams: a pixel with no water on it, water on both sides, and itself farther than the water there
-	if (!s.fromLod || pinholeWater(p)) {
+	// the water's seams: a pixel with no water on it, water on both sides, and itself farther than the water there.
+	// (the defects pass, 2026-10-16: the chunks' water too, whose quads leave the same cracks along a fall's steps and
+	// a shore's edge, dotted dark or bright with the rock or the bed behind)
+	if (pinholeWater(p)) {
 		return p;
 	}
 	float dist = length(s.view);

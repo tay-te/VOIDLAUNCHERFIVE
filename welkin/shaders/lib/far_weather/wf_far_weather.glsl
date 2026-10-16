@@ -108,6 +108,10 @@ vec3 welkinFarWeather(ivec2 p, vec2 uv, vec3 scene, inout float km) {
 #ifdef WF_CURTAINS
 	rain = wfCurtains(dir, tLand, tCloud, e, storm);
 	if (rain.alpha > 0.0) {
+		// (the defects pass, 2026-10-16: a shower 5-15 km out took the full air for its distance and came out the
+		// horizon's own pale grey. A rain shaft is a dark, tall body the eye picks out of the haze long after the land
+		// behind it is gone, so it keeps a third of its own colour through the air: WF_CURTAIN_KEEP)
+		vec3 rainRaw = rain.color;
 		if (land) {
 			rain.color = wfAirOver(a, rain.color, rain.t);
 		} else {
@@ -127,6 +131,7 @@ vec3 welkinFarWeather(ivec2 p, vec2 uv, vec3 scene, inout float km) {
 			scene = welkinHazeAll(scene, hb);
 			km = -clamp(rain.t / 1000.0, 0.001, 998.0);
 		}
+		rain.color = mix(rain.color, rainRaw, WF_CURTAIN_KEEP * (1.0 - smoothstep(0.5, 1.0, rain.t * max(length(dir.xz), 1e-4) / WF_CURTAIN_REACH)));
 	}
 #endif
 

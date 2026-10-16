@@ -96,6 +96,10 @@ uniform float viewHeight;
 #define WU_isEyeInWater
 uniform int isEyeInWater;
 #endif
+#ifndef WU_eyeBrightnessSmooth
+#define WU_eyeBrightnessSmooth
+uniform ivec2 eyeBrightnessSmooth;
+#endif
 
 // 0 the scene (premultiplied), 3 the water marks, 4 the water info: blend lines in shaders.properties
 /* RENDERTARGETS: 0,3,4 */
@@ -107,7 +111,14 @@ void main() {
 	// texture and derivatives before any branch
 	vec4 tex = texture(gtexture, texcoord);
 	float footprint = max(length(dFdx(eyePos)), length(dFdy(eyePos)));
-	vec3 nW = normalize(normalW);
+	// (the defects pass, 2026-10-16) a flowing-water quad folded to a triangle (two corners meeting) arrives with no
+	// normal, and lit as NaN it drew a black triangle (the eye in a fall saw one): it takes the face's own from the
+	// screen derivatives, turned toward the eye
+	vec3 nW = normalW;
+	vec3 nFace = cross(dFdx(eyePos), dFdy(eyePos));
+	nFace = dot(nFace, nFace) > 1e-20 ? normalize(nFace) : vec3(0.0, 1.0, 0.0);
+	nFace = dot(nFace, eyePos) > 0.0 ? -nFace : nFace;
+	nW = dot(nW, nW) > 0.25 && !any(isnan(nW)) ? normalize(nW) : nFace;
 	float dist = length(eyePos);
 	vec2 lm = lmcoord;
 	lm.x = welkinHandBlockLight(lm.x, dist);
@@ -124,6 +135,39 @@ void main() {
 		if (!gl_FrontFacing && isEyeInWater != 1) {
 			discard;
 		}
+		// (the defects pass, 2026-10-16) and the turned-down copy itself, seen from the air below its plane (the steps of
+		// a cascade over the eye, a fall's lip from its foot): it is the view from under water, split along the other
+		// diagonal, and stood over the sheet as dark and pale triangles (and a black one with the eye in a fall). Only a
+		// real underside stays: a level face at a block's foot (water over air).
+		// The copy can also arrive front-facing with the top's own upward normal (its winding turned, its normal not):
+		// a top seen from under its plane with the eye in the air is that copy too, and was shaded as the view from
+		// under water, near black (the black triangle with the eye at a fall, dark triangles up a cascade).
+		if (isEyeInWater != 1 && nW.y > 0.1 && dot(eyePos, nW) > 0.0) {
+			discard;
+		}
+		if (isEyeInWater != 1 && nW.y < -0.5) {
+			float yIn = fract(eyePos.y + cameraPositionFract.y + 1e-3);
+			if (nW.y > -0.999 || yIn > 0.01) {
+				discard;
+			}
+		}
+		// (the defects pass) water at the eye (in a fall's block, a step tucked under the rock beside it) can have every
+		// corner against stone and no sky light at all, a black hole over the view: within a few blocks it takes at
+		// least the eye's own sky light
+		lm.y = max(lm.y, float(eyeBrightnessSmooth.y) / 240.0 * (1.0 - smoothstep(1.0, 4.0, dist)));
+		// a fall's light: smooth lighting gives each corner of a sloped or upright water face its own sky light, which
+		// shaded the halves of each step's quad apart (light and dark triangles); on the move, water takes the open sky's
+		// light wherever a corner sees some of it
+		if (nW.y < 0.985 && nW.y > -0.5) {
+			lm.y = mix(lm.y, smoothstep(0.15, 0.6, lm.y), 1.0 - smoothstep(0.93, 0.985, nW.y));
+		}
+#if WS_DEBUG_VIEW == 5
+		// the faces drawn: the face's own world normal as colour, a back face (seen from under water) in stripes
+		outColor = vec4((nW * 0.5 + 0.5) * (gl_FrontFacing ? 1.0 : 0.4 + 0.6 * float((int(gl_FragCoord.y) >> 2) & 1)), 1.0);
+		outWater = vec4(0.0);
+		outInfo = vec4(0.5, 0.5, 0.0, WS_KIND_OTHER);
+		return;
+#endif
 		// the opaque surface behind the water along this pixel's ray (depthtex1 holds no translucents)
 		float d1 = texelFetch(depthtex1, ivec2(gl_FragCoord.xy), 0).r;
 		float behind = 1.0e4;
@@ -154,7 +198,9 @@ void main() {
 		}
 #endif
 		outColor = wsShadeWater(w, inp, sea, sf, outInfo);
-		outWater = vec4(outColor.rgb / max(outColor.a, 1e-3), 1.0);
+		// (the defects pass) the mark's alpha: 1 level water, 0.5 a fall's sheet or a cascade's steep step (the valley
+		// mist takes a fall as the rock behind it, not as open water)
+		outWater = vec4(outColor.rgb / max(outColor.a, 1e-3), nW.y < 0.96 && nW.y > -0.5 ? 0.5 : 1.0);
 		return;
 	}
 

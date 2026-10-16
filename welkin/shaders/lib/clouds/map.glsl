@@ -11,6 +11,11 @@
 // hold every ring (ring k reaches WC_RING0 * 2^k, which is WC_RING0 / 12 cells of 12 * 2^k: 32 at MEDIUM, 43 at
 // HIGH), with room for the rims' neighbours, the tower cells, and the sheets out to 80 cells of 1536 m (123 km).
 //
+// (the clouds rework, 2026-10-16) The raw map's B and A are no longer bits: they hold the low and main decks' smooth
+// margin fields (CloudCol.field), which the clouds pass samples with the GPU's bilinear filter (wcField) for the light
+// inside each cloud; the raw R carries the main deck's tiers in bits 6..7 and the raw G the low deck's tier in bit 7.
+// In the finished map G is the tower's rise (bits 0..6), the low deck's tier (7) and the main deck's tiers (8..9).
+//
 //   R  bit 0 low deck, 1 main deck, 2 high deck, 3 anvil, 4..5 tone (0 fair, 1 showers, 2 storm); in the finished
 //      map also bits 8..11: bits 0..3 ORed over the cell's block (its 4 x 4 tower cell), so with G (one tower per
 //      block) the march crosses a block with nothing at the ray's height in one step; and (finished) each deck
@@ -33,12 +38,13 @@
 #define WC_MAP 160
 #define WC_MAP_HALF 80
 
-#if defined WC_STAGE_FINISH
+#if defined WC_STAGE_FINISH || defined WC_FIELD
 #ifndef WU_colortex7
 #define WU_colortex7
-uniform sampler2D colortex7; // the raw map, read by prepare2 only
+uniform sampler2D colortex7; // the raw map, read by prepare2 (and its fields by the clouds pass, WC_FIELD)
 #endif
-#elif !defined WC_STAGE_RAW
+#endif
+#if !defined WC_STAGE_RAW && !defined WC_STAGE_FINISH
 #ifndef WU_colortex8
 #define WU_colortex8
 uniform sampler2D colortex8; // the finished map, read by everything after
@@ -73,15 +79,16 @@ ivec2 wcMapTexel(ivec2 cell, int lv, CloudEnv e) {
 // The column as the raw map stores it.
 vec4 wcMapEncode(CloudCol c, CloudEnv e) {
 	int bits = (c.low.x <= c.low.y ? 1 : 0) | (c.main.x <= c.main.y ? 2 : 0) | (c.high.x <= c.high.y ? 4 : 0)
-		| (c.anvil.x <= c.anvil.y ? 8 : 0) | (c.tone << 4);
-	float rise = c.tower.x <= c.tower.y ? clamp(floor((c.tower.y - c.tower.x) / 4.0 + 0.5), 1.0, 255.0) : 0.0;
-	ivec3 q = min(ivec3(sqrt(clamp(c.dens, 0.0, 1.0)) * 4.0), ivec3(3));
-	return vec4(float(bits) / 255.0, rise / 255.0, float(q.x | (q.y << 2) | (q.z << 4)) / 255.0, 0.0);
+		| (c.anvil.x <= c.anvil.y ? 8 : 0) | (c.tone << 4) | (c.tiers.y << 6);
+	int rise = c.tower.x <= c.tower.y ? int(clamp(floor((c.tower.y - c.tower.x) / 4.0 + 0.5), 1.0, 127.0)) : 0;
+	return vec4(float(bits) / 255.0, float(rise | (c.tiers.x << 7)) / 255.0, c.field.x, c.field.y);
 }
 
-// The raw map's B (2 bits of thickness a deck) as the finished map's R bits 6..7, 12..15.
-int wcMapDensityBits(int raw) {
-	return ((raw & 3) << 6) | (((raw >> 2) & 3) << 12) | (((raw >> 4) & 3) << 14);
+// The finished map's thickness bits (R bits 6..7 low, 12..13 main, 14..15 high) from the raw map's fields (B low, A
+// main; the high deck's sheet is taken as of middling thickness).
+int wcMapDensityBits(vec2 field) {
+	ivec2 q = min(ivec2(sqrt(clamp(field * 2.0 - 1.0, 0.0, 1.0)) * 4.0), ivec2(3));
+	return (q.x << 6) | (q.y << 12) | (2 << 14);
 }
 
 // Each deck cell's thickness (low, main, high), 0..1 in four steps, from the finished map's R.
@@ -89,10 +96,19 @@ vec3 wcMapDensity(int r) {
 	return vec3((r >> 6) & 3, (r >> 12) & 3, (r >> 14) & 3) / 3.0;
 }
 
-CloudCol wcMapDecode(int bits, int rise, CloudEnv e) {
+// The finished map's G: (rise, low tier, main tiers).
+ivec3 wcMapRise(int g) {
+	return ivec3(g & 127, (g >> 7) & 1, (g >> 8) & 3);
+}
+
+CloudCol wcMapDecode(int bits, int g, CloudEnv e) {
 	CloudCol c;
-	c.low = (bits & 1) != 0 ? vec2(e.layers.x, e.layers.x + WC_DECK) : WC_EMPTY;
-	c.main = (bits & 2) != 0 ? vec2(e.layers.y, e.layers.y + WC_DECK) : WC_EMPTY;
+	ivec3 r = wcMapRise(g);
+	int rise = r.x;
+	c.tiers = r.yz;
+	c.field = vec2(0.0);
+	c.low = (bits & 1) != 0 ? vec2(e.layers.x, e.layers.x + WC_DECK + float(r.y) * WC_TIER) : WC_EMPTY;
+	c.main = (bits & 2) != 0 ? vec2(e.layers.y, e.layers.y + WC_DECK + float(r.z) * WC_TIER) : WC_EMPTY;
 	c.high = (bits & 4) != 0 ? vec2(e.layers.z, e.layers.z + WC_DECK) : WC_EMPTY;
 	c.anvil = (bits & 8) != 0 ? vec2(e.layers.w - WC_TOWER_STEP, e.layers.w + WC_DECK) : WC_EMPTY;
 	c.tone = (bits >> 4) & 3;
@@ -103,12 +119,13 @@ CloudCol wcMapDecode(int bits, int rise, CloudEnv e) {
 }
 
 #if defined WC_STAGE_FINISH
-// A raw map cell (prepare2) as (bits, rise): zero outside the map.
+// A raw map cell (prepare2) as (bits and main tiers, rise and low tier): zero outside the map.
 ivec2 wcRawCell(ivec2 cell, int lv, CloudEnv e) {
 	ivec2 p = wcMapTexel(cell, lv, e);
 	return p.x < 0 ? ivec2(0) : ivec2(texelFetch(colortex7, p, 0).rg * 255.0 + 0.5);
 }
-#elif !defined WC_STAGE_RAW
+#endif
+#if !defined WC_STAGE_RAW && !defined WC_STAGE_FINISH
 // A finished map cell as (bits | block bits << 8, rise, deck edges, tower edges): zero (nothing) outside the map.
 ivec4 wcMapCell(ivec2 cell, int lv, CloudEnv e) {
 	ivec2 p = wcMapTexel(cell, lv, e);
@@ -119,6 +136,19 @@ ivec4 wcMapCell(ivec2 cell, int lv, CloudEnv e) {
 CloudCol wcMapColumn(ivec2 cell, int lv, CloudEnv e) {
 	ivec4 m = wcMapCell(cell, lv, e);
 	return wcMapDecode(m.x, m.y, e);
+}
+#endif
+
+#ifdef WC_FIELD
+// The low and main decks' margin fields (x low, y main) at camera-relative point q, read at ring lv through the GPU's
+// bilinear filter: 0.5 on a cloud's outline, rising smoothly to 1 deep inside it and falling to 0 out in the open, so
+// the light inside a voxel cloud runs in soft gradients with no cell steps (the outline itself stays the cells').
+vec2 wcField(vec2 q, int lv, CloudEnv e) {
+	int s = WC_CELL << lv;
+	ivec2 cell = wcCellOf(q, lv, e);
+	vec2 f = (q - wcCellCorner(cell, s, e)) / float(s);
+	vec2 local = clamp(vec2(cell - wcMapAnchor(lv, e) + WC_MAP_HALF) + f, vec2(0.5), vec2(float(WC_MAP) - 0.5));
+	return texture(colortex7, (local + vec2(0.0, float(lv * WC_MAP))) / vec2(float(WC_MAP), float(WC_MAP * 8))).ba;
 }
 #endif
 

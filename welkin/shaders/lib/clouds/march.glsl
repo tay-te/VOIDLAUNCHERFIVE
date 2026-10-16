@@ -60,9 +60,9 @@ CloudHit wcNoHit() {
 
 // Whether altitudes lo..hi touch any deck's slab.
 bool wcDeckBand(float lo, float hi, CloudEnv e) {
-	return wcOverlaps(vec2(e.layers.y, e.layers.y + WC_DECK), lo, hi)
-		|| (wcPresent(e.layers.x) && wcOverlaps(vec2(e.layers.x, e.layers.x + WC_DECK), lo, hi))
-		|| (wcPresent(e.layers.z) && wcOverlaps(vec2(e.layers.z, e.layers.z + WC_DECK), lo, hi));
+	return wcOverlaps(vec2(e.layers.y, e.layers.y + wcDeckSpan(1)), lo, hi)
+		|| (wcPresent(e.layers.x) && wcOverlaps(vec2(e.layers.x, e.layers.x + wcDeckSpan(0)), lo, hi))
+		|| (wcPresent(e.layers.z) && wcOverlaps(vec2(e.layers.z, e.layers.z + wcDeckSpan(2)), lo, hi));
 }
 
 // The t at which the ray, at altitude y now, next enters a deck's slab (1e30 if it never does).
@@ -73,7 +73,7 @@ float wcNextDeck(float y0, float dy, float invDy, float y, CloudEnv e) {
 	float best = 1e30;
 	for (int k = 0; k < 3; k++) {
 		float deck = k == 0 ? e.layers.x : (k == 1 ? e.layers.y : e.layers.z);
-		float plane = dy > 0.0 ? deck : deck + WC_DECK;
+		float plane = dy > 0.0 ? deck : deck + wcDeckSpan(k);
 		if (wcPresent(deck) && ((dy > 0.0 && plane >= y) || (dy < 0.0 && plane <= y))) {
 			best = min(best, (plane - y0) * invDy);
 		}
@@ -250,10 +250,10 @@ CloudHit welkinCloudMarch(vec3 ro, vec3 rd, float tScene, float pixAngle, CloudE
 				float yB = y0 + rd.y * min(tB2, tReach);
 				float blo = min(ya, yB), bhi = max(ya, yB);
 				int bits = raw.x >> 8;
-				float rise = float(raw.y) * 4.0;
-				bool held = ((bits & 1) != 0 && wcOverlaps(vec2(e.layers.x, e.layers.x + WC_DECK), blo, bhi))
-					|| ((bits & 2) != 0 && wcOverlaps(vec2(e.layers.y, e.layers.y + WC_DECK), blo, bhi))
-					|| ((bits & 4) != 0 && wcOverlaps(vec2(e.layers.z, e.layers.z + WC_DECK), blo, bhi))
+				float rise = float(raw.y & 127) * 4.0;
+				bool held = ((bits & 1) != 0 && wcOverlaps(vec2(e.layers.x, e.layers.x + wcDeckSpan(0)), blo, bhi))
+					|| ((bits & 2) != 0 && wcOverlaps(vec2(e.layers.y, e.layers.y + wcDeckSpan(1)), blo, bhi))
+					|| ((bits & 4) != 0 && wcOverlaps(vec2(e.layers.z, e.layers.z + wcDeckSpan(2)), blo, bhi))
 					|| ((bits & 8) != 0 && wcOverlaps(anvilBand, blo, bhi))
 					|| (rise > 0.0 && wcOverlaps(vec2(base, base + rise), blo, bhi));
 				if (!held) {
@@ -339,7 +339,7 @@ CloudHit welkinCloudMarch(vec3 ro, vec3 rd, float tScene, float pixAngle, CloudE
 			raw = wcMapCell(cell, lv, e);
 		}
 		CloudCol c = wcMapDecode(raw.x, raw.y, e);
-		float th = (raw.x & 15) + raw.y > 0 ? wcColumnEnterInv(c, y0, invDy, t, t1) : 1e30;
+		float th = (raw.x & 15) + (raw.y & 127) > 0 ? wcColumnEnterInv(c, y0, invDy, t, t1) : 1e30;
 		if (th < 1e29) {
 			bool atEntry = th <= t * (1.0 + 1e-5) + 1e-4;
 			if ((first && t == 0.0 && th == 0.0) || (insideRun && atEntry)) {

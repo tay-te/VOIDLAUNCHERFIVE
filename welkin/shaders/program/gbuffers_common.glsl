@@ -237,6 +237,13 @@ void main() {
 	if (albedo.a < alphaTestRef) {
 		discard;
 	}
+#ifdef G_NEARCUT
+	// (the defects pass, 2026-10-16) a particle at the eye (a fall's spray drifting through it) is cut by the near plane
+	// into a dark triangle over half the screen: none closer than a third of a block
+	if (dot(eyePos, eyePos) < 0.11) {
+		discard;
+	}
+#endif
 #if defined G_WATERFLAG && !defined G_DEFERRED && !defined G_UNLIT
 	// Minecraft draws water's top twice, once turned down for the view from under it. On a slope or a fall the quad's
 	// corners are not in one plane, and the reversed copy splits it along the other diagonal, so seen from above half

@@ -24,6 +24,15 @@
 #include "/lib/clouds/uniforms.glsl"
 
 #define WC_ABSENT -100000.0  // a deck the world does not have
+#define WC_DECK 4.0          // a deck's first tier: its thickness at a cloud's rim (vanilla's)
+// (the clouds rework, 2026-10-16: a deck cell is no longer one 4-block slab. Its base stays flat at the deck's height,
+// as a real cumulus's does, and its top rises in tiers with how deep inside its cloud the cell lies (the puffs'
+// margin over the cover's threshold, plus a hashed nudge so the tops are lumpy, not terraced rings): a fair-weather
+// cumulus is a voxel dome, thin at its ragged rim, three or four tiers over its heart. The low stratus takes one
+// tier at most; the high deck stays one thin sheet.)
+#define WC_TIER 4.0          // each tier over the first 4 blocks
+#define WC_MAIN_TIERS 3      // the main deck: up to 4 + 3 x 4 = 16 blocks
+#define WC_LOW_TIERS 1       // the low stratus: up to 8
 
 // Gloam's Contract.Slot ordinals: the texel column of each uniform in the header mirror (rows 1..3).
 #define WC_SLOT_SEED 2
@@ -194,7 +203,7 @@ CloudEnv welkinCloudEnv() {
 	e.frameRem = e.frameInt - e.frame12 * 12;
 
 	e.yLo = e.layers.x > WC_ABSENT * 0.5 ? e.layers.x : e.layers.y;
-	e.yHi = max(e.layers.w, e.layers.z) + 4.0;
+	e.yHi = max(max(e.layers.w, e.layers.z) + 4.0, e.layers.y + WC_DECK + float(WC_MAIN_TIERS) * WC_TIER);
 
 	e.sun = normalize(mat3(gbufferModelViewInverse) * sunPosition);
 	e.lightDir = e.sun.y > -0.06 ? e.sun : -e.sun;

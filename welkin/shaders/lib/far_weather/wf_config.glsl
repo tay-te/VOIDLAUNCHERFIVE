@@ -23,8 +23,10 @@
 #define WF_CURTAIN_START 384.0
 #define WF_CURTAIN_FADE_IN 640.0
 #define WF_MIN_RAIN 0.12
-#define WF_CURTAIN_DENSITY 0.0011
-#define WF_CURTAIN_ALPHA 0.82
+#define WF_CURTAIN_DENSITY 0.0026
+#define WF_CURTAIN_ALPHA 0.9
+// How much of a curtain's own colour shows through the air in front of it (it reads as a dark body in the haze).
+#define WF_CURTAIN_KEEP 0.35
 // How far up into the deck a curtain reaches (blocks over the deck's base), so no sky shows between rain and cloud.
 #define WF_CURTAIN_INTO_DECK 2.0
 // The lowest a curtain's foot reaches under the far ground (it ends at the land in the depth buffer anyway).

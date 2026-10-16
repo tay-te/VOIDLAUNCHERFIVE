@@ -28,8 +28,9 @@
 #include "/lib/clouds/env.glsl"
 
 #define WC_CELL 12           // vanilla's cell, blocks
-#define WC_DECK 4.0          // a deck's thickness
+// (WC_DECK, a deck's first 4 blocks: lib/clouds/env.glsl)
 #define WC_TOWER_STEP 20.0   // towers rise in steps this tall
+// (WC_TIER, WC_MAIN_TIERS, WC_LOW_TIERS: the decks' tiers, in lib/clouds/env.glsl)
 #define WC_ANVIL 0.55        // the storm at which an anvil spreads (CloudGrid)
 #define WC_MAX_LEVEL 7       // the coarsest ring: 12 << 7 = 1536 m cells
 #define WC_W0_REACH 10000.0  // decks read W0 this far, then W1 across 2 km
@@ -44,7 +45,16 @@ struct CloudCol {
 	vec2 anvil;            // the anvil's interval
 	int tone;              // 0 fair, 1 showers, 2 storm
 	vec3 dens;             // how thick each deck's cell is (low, main, high), 0 a ragged edge cell .. 1 deep inside
+	vec2 field;            // the puffs' margin over the threshold (low, main): 0.5 at the outline, 1 deep inside, 0 far
+	                       // out in the open; written smooth into the raw map for the shading (wcField)
+	ivec2 tiers;           // the tiers over the first 4 blocks (low, main)
 };
+
+// The extra height of a deck's top over its first WC_DECK blocks, at most.
+float wcDeckSpan(int k) {
+	return WC_DECK + (k == 1 ? float(WC_MAIN_TIERS) : (k == 0 ? float(WC_LOW_TIERS) : 0.0)) * WC_TIER;
+}
+
 
 // The last tower cell asked about: a tower cell spans 4 x 4 deck columns, so most asks repeat.
 struct TCache {
@@ -77,6 +87,12 @@ uint wcHash(ivec2 c, uint salt) {
 
 float wcU01(uint h) {
 	return float(h >> 8u) * (1.0 / 16777216.0);
+}
+
+// A cell's tiers from its thickness `dens` and its hash: none at a ragged rim, `most` deep inside.
+int wcTiersOf(float dens, uint h, int most) {
+	float f = dens * (float(most) + 0.7) + (wcU01(h * 0x2C1B3C6Du + 11u) - 0.5) * 0.4 - 0.1;
+	return clamp(int(floor(f)), 0, most);
 }
 
 // Value noise with its lattice every `w` blocks (a constant at every call, so the division is cheap), at whole frame
@@ -271,6 +287,8 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 	c.anvil = WC_EMPTY;
 	c.tone = 0;
 	c.dens = vec3(0.0);
+	c.field = vec2(0.0);
+	c.tiers = ivec2(0);
 
 	float base = wcTowerBase(e);
 	if (wcOverlaps(vec2(base, e.layers.w + WC_DECK), lo, hi)) {
@@ -284,8 +302,8 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 	vec2 mainIv = vec2(e.layers.y, e.layers.y + WC_DECK);
 	vec2 lowIv = vec2(e.layers.x, e.layers.x + WC_DECK);
 	vec2 highIv = vec2(e.layers.z, e.layers.z + WC_DECK);
-	bool doMain = wcOverlaps(mainIv, lo, hi);
-	bool doLow = wcPresent(e.layers.x) && wcOverlaps(lowIv, lo, hi);
+	bool doMain = wcOverlaps(vec2(mainIv.x, mainIv.x + wcDeckSpan(1)), lo, hi);
+	bool doLow = wcPresent(e.layers.x) && wcOverlaps(vec2(lowIv.x, lowIv.x + wcDeckSpan(0)), lo, hi);
 	bool doHigh = wcPresent(e.layers.z) && wcOverlaps(highIv, lo, hi);
 	if (!(doMain || doLow || doHigh)) {
 		return c;
@@ -322,10 +340,24 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 		}
 		float cover = max(w.g, e.fair);
 		float thr = (1.0 - cover) * 0.92 + 0.04;
+		// the margin field: how far the puffs clear the threshold, over a wider span the fuller the cover, so an
+		// overcast's deck still has thick and thin parts (its belly mottled, its top lumpy) instead of one even sheet
+		// (over the headroom the puffs have above the threshold, at most: a thin cover's clouds are the puffs' saturated
+		// cores, which would all read as ragged rims)
+		float span = max(min(0.22 + 0.5 * cover, 1.0 - thr), 0.04);
+		float margin = (n - thr) / span;
+		// deep inside, the puffs saturate: the cloud's heart is lumpy instead (a finer swell 6 cells across), so a
+		// broad deck has domes and hollows all over its top and a mottled belly, not one flat field
+		float lump = wcValue(m, 72, e.seed + 57u);
+		c.field.y = margin > 0.0 || wide > 0.5
+			? 0.5 + 0.5 * clamp(max(margin, wide > 0.5 ? 0.3 : 0.0), 0.0, 1.0) * (0.35 + 0.65 * lump)
+			: clamp(0.5 + 0.5 * margin, 0.0, 0.5);
 		if (n > thr || wide > 0.5) {
-			c.main = mainIv;
-			// how far the puffs clear the threshold: thin at a cloud's ragged edge, thick inside it (the shading's body)
-			c.dens.y = wide > 0.5 ? 1.0 : clamp((n - thr) / 0.22, 0.0, 1.0);
+			// thin at a cloud's ragged edge, thick inside it (the shading's body)
+			c.dens.y = c.field.y * 2.0 - 1.0;
+			// a storm's sheet stands a tier taller
+			c.tiers.y = min(wcTiersOf(c.dens.y, ch, WC_MAIN_TIERS) + (wide > 0.5 ? 1 : 0), WC_MAIN_TIERS);
+			c.main = vec2(mainIv.x, mainIv.y + float(c.tiers.y) * WC_TIER);
 		}
 	}
 	// the low stratus: wide grey sheets under wet fronts
@@ -333,9 +365,14 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 		float wet = max(rain, wcSmooth(0.45, 0.82, w.r));
 		float stratus = min(0.95, (0.1 + 0.9 * wet) * 0.6);
 		float n = wcPuffs(m, s, 768, 256, 96, e.seed + 7u);
+		float margin = (n - 1.0 + stratus * 0.9) / max(min(0.22 + 0.4 * wet, stratus * 0.9), 0.04);
+		float lump = wcValue(m, 96, e.seed + 61u);
+		c.field.x = stratus <= 0.05 ? 0.0 : (margin > 0.0 ? 0.5 + 0.5 * min(margin, 1.0) * (0.3 + 0.7 * lump)
+			: clamp(0.5 + 0.5 * margin, 0.0, 0.5));
 		if (stratus > 0.05 && n > 1.0 - stratus * 0.9) {
-			c.low = lowIv;
-			c.dens.x = clamp((n - 1.0 + stratus * 0.9) / 0.22, 0.0, 1.0);
+			c.dens.x = c.field.x * 2.0 - 1.0;
+			c.tiers.x = wcTiersOf(c.dens.x, ch ^ 0x5bd1e995u, WC_LOW_TIERS);
+			c.low = vec2(lowIv.x, lowIv.y + float(c.tiers.x) * WC_TIER);
 		}
 	}
 	// the high deck: thin wide sheets, more ahead of a front

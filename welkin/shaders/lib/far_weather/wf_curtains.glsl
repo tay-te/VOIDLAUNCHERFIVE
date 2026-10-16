@@ -32,6 +32,12 @@ struct WfLayer {
 	float od;     // optical depth (debug views)
 };
 
+#if WF_DEBUG == 5
+// what the walk met, for WF_DEBUG 5: 0 no stretch to walk, 1 walked dry cells, 2 a rainy cell, 3 its column hidden or
+// missed, 4 a column hit with no depth, 5 a curtain
+int wfDbgState = 0;
+#endif
+
 WfLayer wfNoLayer() {
 	return WfLayer(vec3(0.0), 0.0, 1e9, 0.0);
 }
@@ -105,11 +111,13 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 	float camY = e.camY;
 	float dy = dir.y;
 	float ceiling = wfCurtainCeiling(e);
+	// (the defects pass, 2026-10-16: the reach was held to DH's render distance, which VOID LOD reports small, so every
+	// curtain past about 4-8 km was cut, and the storms the fronts hang 7-20 km out never showed. A curtain stands
+	// under the clouds, which are drawn far past the land, and the walk stops at the land anyway: only a world drawn
+	// without far land keeps a shorter reach, so curtains do not stand on the void.)
 	float reach = WF_CURTAIN_REACH;
-#ifdef DISTANT_HORIZONS
-	reach = min(reach, max(float(dhRenderDistance), 4096.0));
-#else
-	reach = min(reach, 8192.0);
+#ifndef DISTANT_HORIZONS
+	reach = min(reach, 16384.0);
 #endif
 
 	// the stretch of ray between the floor and the ceiling, past the curtains' start, before the land and the clouds
@@ -125,6 +133,9 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 	if (tB <= tA) {
 		return layer;
 	}
+#if WF_DEBUG == 5
+	wfDbgState = 1;
+#endif
 
 	// the 2D DDA over W1's cells, relative to the camera's own weather cell c0
 	ivec2 c0;
@@ -153,6 +164,9 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 		vec4 w = wfW1Cell(wc, e);
 		float rain = w.b;
 		if (rain > WF_MIN_RAIN && tExit > tEnter) {
+#if WF_DEBUG == 5
+			wfDbgState = max(wfDbgState, 2);
+#endif
 			float storm = w.a;
 			float h1 = wcU01(wcHash(wc, e.seed + 0x5F1u)), h2 = wcU01(wcHash(wc, e.seed + 0x5F2u));
 			float h3 = wcU01(wcHash(wc, e.seed + 0x5F3u)), h4 = wcU01(wcHash(wc, e.seed + 0x5F4u));
@@ -177,8 +191,13 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 			float sideIn = max(tn.x, tn.y);
 			float tIn = max(sideIn, max(ty1, tEnter));
 			float tOut = min(min(tf.x, tf.y), min(ty2, tExit));
-			// seen from above, a column's top is under its own deck: the clouds cover it
-			bool hidden = ty1 >= max(sideIn, tEnter) && dy < 0.0;
+			// (seen from above through a gap in the deck, a column's top shows: the walk has already stopped at any cloud
+			// in front, so a top the ray reaches is not under a cloud. It was hidden here, which kept every curtain off
+			// the views from the peaks.)
+			bool hidden = false;
+#if WF_DEBUG == 5
+			wfDbgState = max(wfDbgState, tOut > tIn && !hidden ? 4 : 3);
+#endif
 			if (tOut > tIn && !hidden) {
 				float tm = 0.5 * (tIn + tOut);
 				float vr = clamp((camY + dy * tm - bottom) / max(top - bottom, 1.0), 0.0, 1.0);
@@ -187,19 +206,26 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 				float hm = tm * hk;
 				float fade = smoothstep(WF_CURTAIN_START, WF_CURTAIN_START + WF_CURTAIN_FADE_IN, hm)
 					* (1.0 - smoothstep(0.8 * reach, reach, hm));
-				float odi = (tOut - tIn) * WF_CURTAIN_DENSITY * rain * mix(1.0, 1.6, storm) * profile * fade;
-				if (first && odi > 0.0) {
-					// soft streaks on the nearest column, across its face in the weather's own frame (they travel with
-					// it), drifting slowly down
-					first = false;
-					tFirst = tIn;
+				// (the defects pass, 2026-10-16) a shaft, not a box: densest down its middle, thinning to nothing at its
+				// sides and fading up into the deck, so no hard vertical edge or flat top shows
+				vec2 rel = ((lo + d * tm) - 0.5 * (bmin + bmax)) / (0.5 * size);
+				float body = 1.0 - smoothstep(0.3, 1.0, length(rel));
+				profile *= 1.0 - smoothstep(0.82, 1.0, vr);
+				float odi = (tOut - tIn) * WF_CURTAIN_DENSITY * sqrt(rain) * mix(1.0, 1.6, storm) * profile * fade * body;
+				if (odi > 0.0) {
+					// soft streaks on every column, across its face in the weather's own frame (they travel with it),
+					// drifting slowly down; finer on the nearest
+					if (first) {
+						first = false;
+						tFirst = tIn;
+					}
 					// (the frame wrapped to W1's own 256 cells, so the floats stay exact anywhere in the world)
 					vec2 hw = (vec2(c0 & 255) + lo + d * tIn) * 1024.0;
 					float u = abs(tn.x - sideIn) < 1e-3 ? hw.y : hw.x;
 					float yh = camY + dy * tIn;
 					float streak = 0.65 * wfNoise2(vec2(u / 40.0, (yh + fall) / 160.0), e.seed + 0x5F5u)
 						+ 0.35 * wfNoise2(vec2(u / 14.0, (yh + fall) / 70.0), e.seed + 0x5F6u);
-					odi *= 0.55 + 0.9 * streak;
+					odi *= 0.45 + 1.1 * streak;
 				}
 				od += odi;
 				stormSum += storm * odi;
@@ -221,21 +247,29 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 
 	layer.od = od;
 	layer.t = tFirst;
+#if WF_DEBUG == 5
+	if (od > 0.0) wfDbgState = 5;
+#endif
 	if (od <= 0.0) {
 		return layer;
 	}
 	float storm = stormSum / od;
 	stormOut = storm;
-	layer.alpha = WF_CURTAIN_ALPHA * (1.0 - exp(-od * mix(1.2, 1.6, storm)));
+	layer.alpha = WF_CURTAIN_ALPHA * (1.0 - exp(-od * mix(1.3, 1.9, storm)));
 
-	// rain lit like a cloud's underside: the dome's light, a share of the direct light where a low sun or moon gets
-	// under the deck (little under a storm), brighter looking toward it; lightning through the sky table's flash
+	// (the defects pass, 2026-10-16) the rain takes the colour of the deck's underside it falls from (the sky table's
+	// cloud base, slate under a storm), a little darker inside the shaft, so a curtain reads as the cloud's own grey
+	// reaching down to the land and a storm as a dark wall against the bright horizon. It was lit with the land's
+	// linear light, which came out the haze's own pale grey and vanished into it. Toward a low sun the rain glows (the
+	// light gets under the deck and scatters forward through the drops); lightning lights it from inside.
 	vec3 l = lightDirWorld();
-	float under = mix(0.18, 0.55, 1.0 - smoothstep(0.12, 0.45, l.y)) * (1.0 - 0.7 * storm);
-	float forward = pow(clamp(dot(dir, l), 0.0, 1.0), 6.0) * 0.6 * (1.0 - 0.5 * storm);
-	vec3 albedo = mix(vec3(0.66, 0.68, 0.72), vec3(0.46, 0.48, 0.54), storm);
-	vec3 light = skyAmbientLight() * 0.85 + skyDirectLight() * (under + forward) + skyFlashLight() * (0.3 + 0.7 * storm);
-	layer.color = albedo * light;
+	float lowSun = 1.0 - smoothstep(0.10, 0.45, l.y);
+	float forward = pow(clamp(dot(dir, l), 0.0, 1.0), 5.0) * mix(0.25, 0.7, lowSun) * (1.0 - 0.6 * storm);
+	vec3 base = mix(skyCloud(SKY_CLOUD_BASE), skyCloud(SKY_CLOUD_STORM), smoothstep(0.1, 0.7, storm));
+	vec3 c = base * mix(0.74, 0.5, storm);
+	c += skyHorizon(true) * forward * (1.0 - skyNightStep());
+	c += skyFlashLight() * (0.25 + 0.75 * storm) * 0.6;
+	layer.color = c;
 	return layer;
 }
 

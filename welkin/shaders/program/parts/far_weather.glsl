@@ -33,6 +33,8 @@ void main() {
 #include "/lib/clouds/map.glsl"
 #include "/lib/far_weather/wf_far_weather.glsl"
 #include "/lib/underground/ug_common.glsl"
+// the defects pass: foam along the shore
+#include "/lib/ws/shore.glsl"
 
 in vec2 texcoord;
 
@@ -58,6 +60,7 @@ void main() {
 	bool cloud = isEyeInWater == 0 && km < 999.0;
 	if (!cloud) {
 		color.rgb = waterFog(p, texcoord, color.rgb);
+		color.rgb = wsShoreFoam(p, texcoord, color.rgb); // (the defects pass) foam along the shore
 	}
 	// 2. far weather; at cave mouths it hands over to the cave air (M5) as composite2's near air does, by ug.amount
 	vec3 fogged = color.rgb;

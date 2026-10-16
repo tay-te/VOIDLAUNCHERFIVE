@@ -46,6 +46,11 @@ uniform sampler2D colortex2;
 #endif
 #endif
 
+#ifndef WU_frameTimeCounter
+#define WU_frameTimeCounter
+uniform float frameTimeCounter;
+#endif
+
 // How sharply the soft minimum of the ground round a place leans to the lowest of its four cells (per block).
 #define MIST_POOL_SHARPNESS 0.2
 // The basin floor: the lowest ground among the four nodes round a place of a coarser lattice (every MIST_BASIN cells,
@@ -88,6 +93,19 @@ uniform sampler2D colortex2;
 // The opacity of the thickest mist (a full cover): it leaves the land under it readable (a river still shows through
 // a full canyon). Thinner mist runs smoothly down from it.
 #define MIST_OPACITY 0.72
+// (the defects pass, 2026-10-16) the slab's soft crown (blocks over which it thins to nothing at its top), and the most
+// of the last stretch of a ray counted as inside it (blocks)
+#define MIST_SOFT_TOP 8.0
+#define MIST_LAST_MAX 40.0
+
+// (the defects pass, 2026-10-16) in composite2 the mist knows which of the near air the low sun lights (the sun
+// shafts' resolved term, lib/shafts.glsl): mist in a gorge's shade takes the shade's cool light instead of glowing as
+// if sunlit (it stood as a bright white plume at a fall's foot at dawn).
+#if defined WELKIN_VALLEY_MIST && defined SUN_SHAFTS && defined SHADOWS && defined WORLD_OVERWORLD
+float shaftResolve(ivec2 p, float dist);
+float shaftGate(vec3 sunW);
+#define MIST_SHADE_FROM_SHAFTS
+#endif
 
 struct MistTiles {
 	bool data;      // the near tiles hold Gloam's data
@@ -120,6 +138,15 @@ float mistCameraY() {
 // The camera's position in cells, from the corner of cell `base`.
 vec2 mistCells(vec2 eyeXZ, ivec2 camCell, ivec2 base) {
 	return (vec2(cameraPositionInt.xz & 15) + cameraPositionFract.xz + eyeXZ) / 16.0 + vec2(camCell - base);
+}
+
+// (the defects pass) a cell hash for the mist's billows, 0..1
+float mistHash(ivec2 c) {
+	uint h = uint(c.x) * 0x8DA6B343u ^ uint(c.y) * 0xD8163841u;
+	h ^= h >> 13;
+	h *= 0x5bd1e995u;
+	h ^= h >> 15;
+	return float(h >> 8) / 16777216.0;
 }
 
 struct MistPoint {
@@ -247,6 +274,16 @@ MistPoint mistAt(vec2 eyeXZ, MistTiles t) {
 	vec2 rel = cells + vec2(base - t.centre) - 0.5;
 	float edge = clamp((127.0 - max(abs(rel.x), abs(rel.y))) / 15.0, 0.0, 1.0);
 	m.density = mist * pool * floorCut * edge * fill;
+	// (the defects pass) soft billows: the density swells and thins over a few dozen blocks, drifting slowly, so a deep
+	// pool of mist reads as drifts and not one even wall (smooth, sampled with the slab: no grain)
+	vec2 wpos = (vec2(cameraPositionInt.xz & 4095) + cameraPositionFract.xz + eyeXZ) / 22.0 + vec2(frameTimeCounter * 0.02, frameTimeCounter * 0.008);
+	vec2 bi = floor(wpos);
+	vec2 bf = wpos - bi;
+	bf = bf * bf * (3.0 - 2.0 * bf);
+	ivec2 bc = ivec2(bi);
+	float h00 = mistHash(bc), h10 = mistHash(bc + ivec2(1, 0)), h01 = mistHash(bc + ivec2(0, 1)), h11 = mistHash(bc + ivec2(1, 1));
+	float billow = mix(mix(h00, h10, bf.x), mix(h01, h11, bf.x), bf.y);
+	m.density *= 0.2 + 1.5 * billow * billow;
 	return m;
 }
 
@@ -279,7 +316,11 @@ void mistSegment(inout MistRay r, float ta, float tb, MistPoint a, MistPoint b, 
 	float k = 1.0 / (tb - ta);
 	float m0 = mix(a.density, b.density, (u0 - ta) * k);
 	float m1 = mix(a.density, b.density, (u1 - ta) * k);
-	r.depth += (u1 - u0) * 0.5 * (m0 + m1);
+	// (the defects pass, 2026-10-16) the slab thins over its top few blocks instead of ending in a lid: a ray that only
+	// grazes the top (along a cliff at the water's level, over the pool at a fall's foot) takes little, so the mist
+	// has a soft crown and no hard white line or solid-looking wall where its top meets the rock
+	float under = 0.5 * (max(ga, 0.0) + max(gb, 0.0));
+	r.depth += (u1 - u0) * 0.5 * (m0 + m1) * smoothstep(0.0, MIST_SOFT_TOP, under);
 	r.enter = min(r.enter, u0);
 	r.exit = max(r.exit, u1);
 }
@@ -359,7 +400,9 @@ vec3 valleyMistWith(ivec2 p, vec2 uv, vec3 scene, MistTiles t, MistPoint a) {
 
 	// Only where the sky reaches: land the sky light does not reach (caves, under overhangs) gets none. Water and the
 	// sky are open by definition (a deep lake's bed has little sky light under the water).
-	bool water = texelFetch(colortex3, p, 0).a > 0.0;
+	// (the defects pass, 2026-10-16) only level water: a fall (its mark's alpha 0.5) is open as far as the rock behind
+	// it is, else under the pool's mist its whole sheet stood out as a bright plume against the shaded gorge
+	bool water = texelFetch(colortex3, p, 0).a > 0.75;
 	vec4 flags = texelFetch(colortex2, p, 0);
 	vec4 g = texelFetch(colortex1, p, 0);
 	// Vanilla's clouds stand far over any slab: the ray to one is treated as a ray to the sky, ending at the cloud.
@@ -415,7 +458,9 @@ vec3 valleyMistWith(ivec2 p, vec2 uv, vec3 scene, MistTiles t, MistPoint a) {
 	float below = e.top - dir.y * end;
 	if (below > 0.0 && e.density > 0.0) {
 		float inside = dir.y < -1e-4 ? below / -dir.y : end;
-		r.depth = max(r.depth, min(inside, end - t1) * e.density);
+		// (the defects pass) with its soft crown, and no more than a few dozen blocks of it: a level ray to a fall's
+		// foot counted its whole length and drew the pool's mist as a solid white plume
+		r.depth = max(r.depth, min(min(inside, end - t1), MIST_LAST_MAX) * e.density * smoothstep(0.0, MIST_SOFT_TOP, below));
 	}
 	if (r.depth <= 0.0) {
 		return scene;
@@ -423,7 +468,18 @@ vec3 valleyMistWith(ivec2 p, vec2 uv, vec3 scene, MistTiles t, MistPoint a) {
 	float cover = 1.0 - exp(-r.depth * MIST_EXTINCTION * MIST_THICKNESS * open);
 	// at night a thinner veil, so the land's moonlit shapes still read through it
 	float day = clamp(sunHeight() * 5.0 + 0.6, 0.0, 1.0);
-	return mix(scene, mistColor(dir, cover), MIST_OPACITY * mix(0.5, 1.0, day) * cover);
+	vec3 mc = mistColor(dir, cover);
+#ifdef MIST_SHADE_FROM_SHAFTS
+	{
+		vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
+		float gate = shaftGate(sunW);
+		if (gate > 0.0) {
+			float sunLit = clamp(shaftResolve(p, s.sky ? 1e4 : min(dist, 1e4)), 0.0, 1.0);
+			mc = mix(mc, mc * vec3(0.62, 0.68, 0.80), gate * (1.0 - sunLit));
+		}
+	}
+#endif
+	return mix(scene, mc, MIST_OPACITY * mix(0.5, 1.0, day) * cover);
 }
 
 // DEBUG_VIEW 7: the near tiles projected onto the land. Red: mist potential; green: the pool weight the mist uses
