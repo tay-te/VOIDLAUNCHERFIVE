@@ -98,6 +98,15 @@ uniform float frameTimeCounter;
 #define MIST_SOFT_TOP 8.0
 #define MIST_LAST_MAX 40.0
 
+// (the defects pass, 2026-10-16) in composite2 the mist knows which of the near air the low sun lights (the sun
+// shafts' resolved term, lib/shafts.glsl): mist in a gorge's shade takes the shade's cool light instead of glowing as
+// if sunlit (it stood as a bright white plume at a fall's foot at dawn).
+#if defined WELKIN_VALLEY_MIST && defined SUN_SHAFTS && defined SHADOWS && defined WORLD_OVERWORLD
+float shaftResolve(ivec2 p, float dist);
+float shaftGate(vec3 sunW);
+#define MIST_SHADE_FROM_SHAFTS
+#endif
+
 struct MistTiles {
 	bool data;      // the near tiles hold Gloam's data
 	bool on;        // and there is mist this hour
@@ -459,7 +468,18 @@ vec3 valleyMistWith(ivec2 p, vec2 uv, vec3 scene, MistTiles t, MistPoint a) {
 	float cover = 1.0 - exp(-r.depth * MIST_EXTINCTION * MIST_THICKNESS * open);
 	// at night a thinner veil, so the land's moonlit shapes still read through it
 	float day = clamp(sunHeight() * 5.0 + 0.6, 0.0, 1.0);
-	return mix(scene, mistColor(dir, cover), MIST_OPACITY * mix(0.5, 1.0, day) * cover);
+	vec3 mc = mistColor(dir, cover);
+#ifdef MIST_SHADE_FROM_SHAFTS
+	{
+		vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
+		float gate = shaftGate(sunW);
+		if (gate > 0.0) {
+			float sunLit = clamp(shaftResolve(p, s.sky ? 1e4 : min(dist, 1e4)), 0.0, 1.0);
+			mc = mix(mc, mc * vec3(0.62, 0.68, 0.80), gate * (1.0 - sunLit));
+		}
+	}
+#endif
+	return mix(scene, mc, MIST_OPACITY * mix(0.5, 1.0, day) * cover);
 }
 
 // DEBUG_VIEW 7: the near tiles projected onto the land. Red: mist potential; green: the pool weight the mist uses
