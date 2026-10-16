@@ -14,7 +14,7 @@ in `build/kit/landmark/`.
 | `hearth:landmark/clock_tower` | `ClockTower` | 7–11 × 7–11 | 28–44 | city | all | VERTICAL, CENTRAL | — |
 | `hearth:landmark/cathedral` | `Cathedral` (+ `StaveCathedral`) | 17–25 × 29–41 | 26–56 | city | temperate, wisteria, maritime, alpine, moorland, mediterranean, northern | VERTICAL | PRIEST |
 | `hearth:landmark/temple` | `Temple` | 15–21 × 17–25 | 16–30 | city | desert, mediterranean, mesa, steppe, karst, tropical, bayou | — | PRIEST |
-| `hearth:landmark/pagoda` | `Pagoda` | 15–21 × 17–25 | 28–40 | town | karst, wisteria | VERTICAL | — |
+| `hearth:landmark/pagoda` | `Pagoda` | 15–21 × 17–25 | 28–40 | town | karst | VERTICAL | — |
 | `hearth:landmark/great_hall` | `GreatHall` | 15–23 × 21–31 | 14–22 | town | northern, tundra, moorland, alpine | — | — |
 | `hearth:landmark/lighthouse` | `Lighthouse` | 11–15 × 13–21 | 26–40 | town | maritime, tropical, mediterranean, northern | VERTICAL, WATERFRONT | 1 bed (the keeper) |
 
@@ -32,8 +32,10 @@ the belfry in dressed stone. Crowns by culture: needle, octagonal or broach spir
 a brick campanile (mediterranean), onion domes (alpine), curved hips (karst). Timber cultures (northern, tundra, bayou,
 tropical) raise a stone base under a pent skirt and, on a seven-wide core, step the framed shaft in a block behind it
 (braces, lights) before the louvred belfry flares out two blocks on raking brackets under stacked shingle caps or a tin
-pyramid, as a northern klockstapel does. Spires and domes take copper where the roof is shingle, and on
-a share of the rest, except in temperate towns: the Bohemian town tower is lime render to its cornice (no clasping piers,
+pyramid, as a northern klockstapel does. Spires and domes are sheathed in dark slate (deepslate tiles) where the town
+roofs in timber, shingle or thatch, and in copper only on the maritime coast and in the alpine mountains
+(`Crowns.Mats.coppered`); pinnacles stand only on the Hanseatic coast. Every open belfry light high on a tower stands
+on a balustrade (a rail or a sill, never a ledge to step out on), and the alpine tower takes its onion. In temperate towns: the Bohemian town tower is lime render to its cornice (no clasping piers,
 no rustication, its corner stones alone), a course over the door stage and under the belfry, lights up the shaft and a
 clock on a share, a belfry of paired lights, and the gallery and cap of `kit/civic/Bohemian`: a timber balustrade on
 corbels before a white attic, under a dark shingle or slate helm (or an onion on a share). The cathedral's spires in a
@@ -43,8 +45,9 @@ Params: `crown` (a `Crowns.Kind` name), `clock` (boolean).
 
 ### Clock tower
 Raised in the culture's own manner (art review item 16: one Big Ben with 3 × 3 gold faces everywhere read as a theme
-park). Every dial is one block (gilded blackstone on a light wall, chiseled quartz on a dark one) in a round frame of
-four dressed stones: the clock a town reads from its square.
+park). On a face seven or more wide the dial is three across in a frame of the dressing with its hands; on a narrow
+face one block (gilded blackstone on a light wall, chiseled quartz on a dark one) in a round frame of four dressed
+stones: the clock a town reads from its square. The bell tower's clock is drawn the same way.
 - **Town hall tower** (temperate, wisteria, alpine): a square shaft in the white render (lime, calcite, where the
   variant walls in stone) between whole corner stones, one course over the door and one under the clock (the render runs
   unbroken between them), a dial on each face under a gallery corbelled out on the belfry's floor (walkable, VIEWPOINTs
@@ -53,7 +56,9 @@ four dressed stones: the clock a town reads from its square.
 - **Campanile** (mediterranean, mesa): a slender brick (where the town roofs in brick) or rendered shaft between clasping
   piers, Lombard bands under its courses, a dial on each face under the open belfry, a low tiled pyramid; the mesa's
   mission tower takes a little lime dome.
-- **Minaret** (desert, steppe: no clock tower; the timekeeper keeps the hours from the minaret): a square base with the
+- **Sahel tower** (steppe): a tower of mud stepping in as it climbs, torons (scaffold beams) in rows through its
+  walls, a lantern under a flat roof at the head (VIEWPOINT); no bell, no dials.
+- **Minaret** (desert: no clock tower; the timekeeper keeps the hours from the minaret): a square base with the
   keeper's room, a round shaft banded flush in the dressing, a corbelled balcony with a balustrade, an arcaded lantern
   at the head where the stair comes out (VIEWPOINT: the hours are called from it), a small lime dome and a gilded
   finial, a sundial in the forecourt. No bell, no dials.
@@ -107,9 +112,11 @@ Five forms, by culture (param `form` overrides):
 - **dome** (desert): a walled court with arcades and a basin, a minaret with courses, slits, a corbelled balcony
   (VIEWPOINT) and a domed upper stage; the sanctuary under a great dome on a windowed drum (copper gone turquoise on 85 %,
   else the roof stone), corner turrets, a tall portal framing a deep arch, rugs and lanterns, a niche in the far wall.
-- **pyramid** (mesa, tropical): banded terraces, a stair up the front between sloped balustrades (with a landing in the
+- **church** (mesa, bayou): the great church of the culture's own tradition, `civic/chapel` raised as a town's church:
+  the mesa's adobe mission, the bayou's raised board church with its gallery and belfry.
+- **pyramid** (tropical): banded terraces, a stair up the front between sloped balustrades (with a landing in the
   plot at its foot), a shrine on the summit (flat roof with vigas, or a thatched hip), braziers at the corners, stelae.
-- **hall** (karst, bayou; wisteria in previews): a hall on a stone podium (or piles and a deck where the style's
+- **hall** (karst; wisteria in previews): a hall on a stone podium (or piles and a deck where the style's
   foundations are wood) behind a gateway and stone lanterns: posts and lattices, a veranda, a double eave (curved and
   lifted where the style flares), an altar with its figure, cushions, a bell.
 - **round** (steppe): a sun sanctuary in the manner of the Sahel's adobe: a low ring wall banded with glazed tile at its
@@ -120,17 +127,19 @@ Five forms, by culture (param `form` overrides):
 Every form: ALTAR, PRIEST job site, SEAT, MEETING_POINT, DOOR.
 
 ### Pagoda
-A temple court and its pagoda: a roofed gateway at the street, a paved way between stone lanterns and blossom trees, a
+The karst's landmark only (its wisteria form was the bell tower again; the catalogue matches). A temple court and its
+pagoda: a roofed gateway at the street, a paved way between stone lanterns and blossom trees, a
 pond under a three-wide moon bridge where the court is deep enough, a podium with a balustrade and steps, then five tiers
 (seven where the sky allows: param `tiers`) of posts and lattice lights, each ringed by a curved eave lifted at the
-corners with lanterns hung under the tips and brackets under it; tiers step in behind little balustrades; the top roof
+corners with lanterns hung under the tips and brackets under it; tiers step in behind little balustrades, lattice
+lights on a rail sill, the podium's corner piers capped; the top roof
 rises to a gilded boss and a spire of rings. Inside, a spiral stair from the shrine (figure, candles, cushions: ALTAR,
 SEAT) past a scroll room (LECTERN) and a bell to the lookout (VIEWPOINT).
 
 ### Great hall
 A long hall under a vast roof, gable to the street. Northern and tundra: log walls notched at the corners, raking braces
 leaning on them, boarded gables boarded with vertical battens and a sun-wheel light, whose barge boards cross over the apex
-and curl outward into carved dragon heads, smoke vents on the ridge, a porch on posts, banners either side of it; the
+and curl outward into carved dragon heads (one block of neck, the head over it), smoke vents on the ridge, a porch on posts, banners either side of it; the
 roof, vents and porch shingled in the culture's own timber (the gable boards), so the hall reads warm brown over its dark
 logs rather than a black mass. Moorland: rubble walls with quoins and buttresses, crow-stepped gables. Alpine: two
 storeys, a whitewashed stone hall with arched lights and quoins under a boarded upper storey with shuttered windows and
@@ -160,7 +169,7 @@ then its roofs and spires. Goods per stage at the largest sizes stay under about
 ## The landmark kit (`build/kit/landmark/`)
 | class | what |
 |---|---|
-| `Stone` | a material with the cuts masonry needs; `masonry`, `ashlar`, `dressing` (crisp: main material only), `panel`, `footing` pick the style's best stone; `sheet` (roof stone, or copper over shingle towns), `copper`, `fixed`; a weathered stone-brick fallback for styles without stone |
+| `Stone` | a material with the cuts masonry needs; `masonry`, `ashlar`, `dressing` (crisp: main material only), `panel`, `footing` pick the style's best stone; `sheet` (the roof stone, or dark slate where the town roofs in timber or thatch; never patinated copper there), `copper`, `fixed`; a weathered stone-brick fallback for styles without stone |
 | `Tower` | a square tower raised stage by stage: plinth with chamfer, shaft with clasping piers or alternating quoins (corner stones alone on a five-wide core, so its render reads), courses round any outline, Lombard bands, deep blind arches (`recess`), openings (slit, single, bifora, trifora, arch, louvre), floors, cornice and deck, spiral stair, bells |
 | `Crowns` | spire, octagon, broach (with lucarnes and pinnacles), pyramid on brackets, onion (drum, a waist, a bulb of round octagons held two rows that swells out on upside-down stairs and draws in on stairs, a shoulder, a slender point, a lantern of post, little bulb, gilded ball and rod), `helm` (the bell-cast cap of a small tower), dome (drum, lantern), open cupola, crenellated parapet with a flag, stave caps, curved hip with lifted tips; `bulbSkin` sheets onions and helms in one material laid crisp (blackened sheet, polished deepslate, in Bohemia, copper only on a tier-4 town's odd onion; copper or the roof's shingle in the Alps; a mottled sheet reads as moss or a tree crown); `rows` estimates a crown's height for laying out stages |
 | `Details` | string courses, corbel tables, corbels, round-headed arches with voussoirs and jambs, paired and triple lights, slits, pinnacles, finials and rods, bells, clock dials, stone lanterns, banners, candles, ring courses |

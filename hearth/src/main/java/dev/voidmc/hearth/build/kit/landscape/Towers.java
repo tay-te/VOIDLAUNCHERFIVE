@@ -125,6 +125,27 @@ public final class Towers {
 		}
 	}
 
+	/**
+	 * The top course of a rectangle's walls at y turned into a moulded cornice: upside-down stairs of the accent (or the
+	 * walling where the accent has no stairs) round the faces, the quoins kept at the corners: the line the eaves spring
+	 * from. Masonry only.
+	 */
+	public static void cornice(Draft d, Look l, int x0, int z0, int x1, int z1, int y) {
+		Mat m = l.quoin.has(Form.STAIRS) ? l.quoin : l.body;
+		if (l.timber || !m.has(Form.STAIRS)) {
+			return;
+		}
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (Side side : Side.of(x0, z0, x1, z1)) {
+				for (int i = 1; i < side.length() - 1; i++) {
+					if (d.isSolid(side.x(i), y, side.z(i))) {
+						d.set(side.x(i), y, side.z(i), m.stairs(side.out().getOpposite(), net.minecraft.world.level.block.state.properties.Half.TOP));
+					}
+				}
+			}
+		}
+	}
+
 	/** A parapet round a rectangle at y and merlons on it at y + 1 (corners always, then every other block). */
 	public static void battlements(Draft d, Look l, int x0, int z0, int x1, int z1, int y) {
 		try (var s = d.stage(StageKind.WALLS)) {

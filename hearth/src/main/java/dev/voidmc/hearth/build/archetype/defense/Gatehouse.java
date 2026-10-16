@@ -272,6 +272,8 @@ public final class Gatehouse implements Archetype {
 			Furniture.table(d, g.c(), hall + 4, b - 1);
 			Lighting.room(d, 2, 1, w - 3, b - 1, hall + 4);
 		}
+		// a moulded cornice under the eaves, the hip's line drawn on the tower's head
+		Towers.cornice(d, l, 1, 0, w - 2, b, plate);
 		// the hip, its eaves a block out over the field and the town
 		int half = Math.max(1, (b + 1) / 2 + 1);
 		double pitch = Math.clamp((g.top() - 1 - plate) / (double) half, 0.6, 1.4);
