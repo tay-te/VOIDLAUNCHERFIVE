@@ -77,6 +77,12 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	if (top) {
 		N = wsWaterNormal(w.playerPos.xz, w.footprint, inp.wind, inp.rain, shelter, frameTimeCounter, var, energy);
 	}
+	// (merged onto the lighting) water running down a slope or a fall is churned white with air: it reflects and
+	// takes its light as level water whatever its facets' tilt (else each half of a step's uneven quad took its own
+	// Fresnel, pale sky beside dark body in triangles), is nearly opaque and paler, and has no bank band. A river's
+	// gently sloped surface is not a fall: it takes this only from about 15 degrees of slope.
+	float fall = fromBelow ? 0.0 : 1.0 - smoothstep(0.8, 0.97, w.geoNormal.y);
+	N = normalize(mix(N, vec3(0.0, 1.0, 0.0), fall));
 
 	// the body: the biome tint (the cobalt taken out) over a calmed vanilla texture, lit in the light pass's linear
 	// light and tone as level water; the waves' tilt toward the light shows as gentle light and shade
@@ -86,11 +92,6 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	vec3 sunShare = w.sunShare * wsSeasonSun(sea);
 
 	// opacity from the water the view crosses; rain stirs it up
-	// (merged onto the lighting: water running down a slope or a fall is churned white with air, so it keeps a high
-	// opacity and no bank band. Read through by the depth behind it, a cascade's thin film showed the rock and the
-	// band in triangles, each half of a step's uneven quad meeting the rock at its own depth. A river's gently sloped
-	// surface is not a fall: it takes this only from about 15 degrees of slope.)
-	float fall = 1.0 - smoothstep(0.8, 0.97, w.geoNormal.y);
 	float a = w.far ? WS_ALPHA_FAR : WS_ALPHA_MAX;
 	if (w.behind > 0.0) {
 		float thick = max(w.behind - dist, 0.0);
@@ -103,10 +104,8 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 			a = max(a, mix(a, 0.6, bank));
 		}
 	}
-	if (!fromBelow) {
-		a = max(a, mix(a, WS_ALPHA_FALL, fall));
-		albedo = mix(albedo, vec3(0.80, 0.88, 0.92), 0.15 * fall);
-	}
+	a = max(a, mix(a, WS_ALPHA_FALL, fall));
+	albedo = mix(albedo, vec3(0.80, 0.88, 0.92), 0.35 * fall);
 	vec3 body = welkinLightCore(albedo, faceN, w.lm, 0.0, sunShare, wsSeasonAmbient(sea), w.reach, facing);
 
 	if (fromBelow) {
