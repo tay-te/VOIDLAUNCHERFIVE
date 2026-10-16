@@ -63,7 +63,10 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	m.overcast = skyLevel(skySmooth(0.45, 0.95, s.cover));
 
 	// ---- the dome ----
-	float day = 1.0 - 0.97 * m.nightStep;
+	// (review round 1: the dome's daylight also by the sun's own height. The night step follows vanilla's light ramp,
+	// 0.7 at 18:30 and 05:30 with the sun still 5 degrees up, and the dome stood at a third of its light: a dull grey
+	// dawn and dusk where a real low sun keeps the sky luminous, rose and gold; past sunset it dims with the sun)
+	float day = max(1.0 - 0.97 * m.nightStep, 0.95 * skySmooth(-0.14, 0.12, sunW.y));
 	vec3 z = SKY_DAY_ZENITH * day;
 	vec3 h = SKY_DAY_HORIZON * day;
 	// the blue hour: a deep clear blue overhead, the land cool

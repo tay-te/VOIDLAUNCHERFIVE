@@ -335,8 +335,8 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		float sw = wcSunward(rd, e);
 		vec3 behind = skyDomeOnly(rd, skyFrame());
 		vec3 hueF = mix(mix(WC_LILAC, WC_ROSE, 0.6), mix(WC_ROSE, vec3(1.0, 0.76, 0.58), 0.65), sw);
-		hueF = mix(hueF / wcLuma(hueF), behind / max(wcLuma(behind), 1e-4), 0.3);
-		float lift = (n.y > 0.5 ? 1.16 : (n.y < -0.5 ? 1.05 : 1.10)) * mix(1.0, 1.14, sw * sw) * mix(1.06, 0.92, b.depth * lower)
+		hueF = mix(hueF / wcLuma(hueF), behind / max(wcLuma(behind), 1e-4), 0.15);
+		float lift = (n.y > 0.5 ? 1.24 : (n.y < -0.5 ? 1.12 : 1.18)) * mix(1.0, 1.22, sw * sw) * mix(1.12, 0.86, b.depth * lower)
 			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
 		vec3 fl = hueF * (wcLuma(behind) * lift);
 		c = mix(c, max(c, fl), glowK);
