@@ -432,3 +432,5 @@ option.BLOOM_STRENGTH=Bloom strength
 option.BLOOM_STRENGTH.comment=How much of the brightest light spreads into the halo.
 suffix.BLOOM_STRENGTH=%
 # ---- end atmos
+option.CLOUD_DEBUG=Cloud debug
+option.CLOUD_DEBUG.comment=Testing only. 1: each cloud face by its deck (low red, main green, high blue, towers white), sides bright, bases dim, its ring in stripes. 2: the cloud's height over its base. 3: the light's path through the cloud.

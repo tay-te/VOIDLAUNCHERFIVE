@@ -450,6 +450,14 @@ vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) 
 	}
 	float sun = wcSelfShadow(n, b.p - h.n * 0.05, e);
 	vec3 c = wcCloudLight(b, n, h.tone, rd, sun, e);
+#if CLOUD_DEBUG == 1
+	vec3 dk = b.k == 0 ? vec3(1.0, 0.2, 0.2) : (b.k == 1 ? vec3(0.2, 1.0, 0.2) : (b.k == 2 ? vec3(0.3, 0.4, 1.0) : vec3(1.0)));
+	return dk * (h.n.y > 0.5 ? 0.6 : (h.n.y < -0.5 ? 0.3 : 1.0)) * ((h.level & 1) == 0 ? 1.0 : 0.75);
+#elif CLOUD_DEBUG == 2
+	return vec3((b.top - b.iv.x) / 24.0, b.depth, b.field ? 1.0 : 0.0);
+#elif CLOUD_DEBUG == 3
+	return vec3(wcLightPath(b, e.sun, e) / 64.0);
+#endif
 	return mix(c, wcFogTarget(rd, e), wcFog(h));
 }
 
