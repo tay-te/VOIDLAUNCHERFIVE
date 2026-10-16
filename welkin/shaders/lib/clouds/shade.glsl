@@ -539,7 +539,7 @@ float wcDeckShare(int k, vec4 w, CloudEnv e) {
 		float stratus = min(0.95, (0.1 + 0.9 * wet) * 0.6);
 		return stratus > 0.05 ? clamp(stratus * 0.9, 0.0, 1.0) : 0.0;
 	}
-	return 0.06 + 0.6 * wcSmooth(0.35, 0.8, w.r);
+	return 0.66 * wcSmooth(0.4, 0.8, w.r); // (review round 2: as wcColumn's high deck)
 }
 
 // The weather over camera-relative point q (frame blocks): W0 when `near` and it holds data, else W1, else the

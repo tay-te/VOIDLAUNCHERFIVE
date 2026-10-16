@@ -345,7 +345,10 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 		// overcast's deck still has thick and thin parts (its belly mottled, its top lumpy) instead of one even sheet
 		// (over the headroom the puffs have above the threshold, at most: a thin cover's clouds are the puffs' saturated
 		// cores, which would all read as ragged rims)
-		float span = max(min(0.22 + 0.5 * cover, 1.0 - thr), 0.04);
+		// (review round 2: over 0.55 of that headroom, so a fair cumulus is deep in its heart (taller tiers, a thick belly
+		// that shades toward its middle) and thin only at its rims: at 0.38 front the fair clouds were all rim, flat
+		// slabs four to eight blocks thick with one even belly)
+		float span = max(min(0.22 + 0.5 * cover, 1.0 - thr) * 0.55, 0.04);
 		float margin = (n - thr) / span;
 		// deep inside, the puffs saturate: the cloud's heart is lumpy instead (a finer swell 6 cells across), so a
 		// broad deck has domes and hollows all over its top and a mottled belly, not one flat field
@@ -379,9 +382,11 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 	}
 	// the high deck: thin wide sheets, more ahead of a front
 	if (doHigh) {
-		float sheets = 0.06 + 0.6 * wcSmooth(0.35, 0.8, w.r);
+		// (review round 2: none under a fair sky, 0.06 was: the high deck's saturated puffs still laid big, thin,
+		// grey slabs over a clear sky, sheared long in perspective; it spreads ahead of a front as before)
+		float sheets = 0.66 * wcSmooth(0.4, 0.8, w.r);
 		float n = wcPuffs(m, s, 1536, 512, 192, e.seed + 13u);
-		if (n > 1.0 - sheets) {
+		if (sheets > 0.02 && n > 1.0 - sheets) {
 			c.high = highIv;
 			c.dens.z = clamp((n - 1.0 + sheets) / 0.22, 0.0, 1.0);
 		}

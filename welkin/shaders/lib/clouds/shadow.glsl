@@ -45,9 +45,11 @@ float wcShadowField(vec2 q, int k, int lv, CloudEnv e) {
 // the vistas as a clear patch of shade between sunlit fields, the strongest cue a wide land has for its depth; the
 // sky's fill is untouched, so the patches stay sky-blue and readable, and a clear sky with a few clouds has a few
 // patches, never a veil)
-#define WC_SHADOW_ONE 0.42
-#define WC_SHADOW_TWO 0.34
-#define WC_SHADOW_THREE 0.28
+// (review round 2: 0.52 / 0.44 / 0.38: one fair cloud over a view dimmed the whole of it to a grey-green dusk at 16:30,
+// against the reference packs' lighter cloud shade; the patches still read on the vistas)
+#define WC_SHADOW_ONE 0.52
+#define WC_SHADOW_TWO 0.44
+#define WC_SHADOW_THREE 0.38
 
 // How much of deck k's (0 low, 1 main, 2 high) cloud stands over camera-relative point q at altitude `mid`, 0..1: 1
 // inside a cloud, easing to a third at an open side of its cell, 0 in a gap.
