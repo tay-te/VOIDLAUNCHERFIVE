@@ -163,7 +163,13 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	y = skyLumLuma(L);
 
 	// the golden hours warm the whole dome a little (its brightness kept), the zenith least
-	L = mix(L, f.gold * y, clamp(0.20 * f.warm * f.up * (1.0 - 0.5 * zen) * min(k, 1.0), 0.0, 1.0));
+#if R2_SKY != 0
+	// (review round 2: a clear morning a little more: its rose-gold reads as a warm rose-peach air, not a neutral cream)
+	float dawnAir = sunAngle < 0.25 || sunAngle > 0.75 ? 0.28 : 0.20;
+#else
+	float dawnAir = 0.20;
+#endif
+	L = mix(L, f.gold * y, clamp(dawnAir * f.warm * f.up * (1.0 - 0.5 * zen) * min(k, 1.0), 0.0, 1.0));
 	// the glow round the sun: mixed toward the sun's hue at a brighter level (amber at a low sun, never white)
 	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.45);
 	float glow = (0.22 + 0.55 * f.low) * f.up;

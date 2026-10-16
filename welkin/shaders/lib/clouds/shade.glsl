@@ -153,12 +153,14 @@ float wcValueAt(vec2 q, int w, uint salt, CloudEnv e) {
 }
 
 // (review round 2) The billows of a deck's body at camera-relative point q: two octaves of smooth value noise (about
-// 56 and 22 blocks), -0.5..0.5. They shade a cloud inside its crisp outline (a belly's thick and thin lobes, a top's
-// domes and hollows), so a big cloud's heart is never one flat grey sheet; the finer octave fades out far off.
+// 96 and 40 blocks, the scale of a cumulus's own lobes), -0.5..0.5. They shade a cloud inside its crisp outline (a
+// belly's thick and thin lobes, a top's domes and hollows), so a big cloud's heart is never one flat grey sheet; the
+// finer octave fades out far off, and the whole far off (a far cloud's lobes would be a smudged texture).
 float wcBillow(vec2 q, CloudEnv e) {
-	float v = wcValueAt(q, 56, e.seed + 301u, e);
-	float fine = mix(0.5, wcValueAt(q + vec2(17.0, -9.0), 22, e.seed + 307u, e), 1.0 - smoothstep(1.5 * WC_RING0, 5.0 * WC_RING0, length(q)));
-	return clamp((0.62 * v + 0.38 * fine - 0.5) * 1.6, -0.5, 0.5);
+	float d = length(q);
+	float v = wcValueAt(q, 96, e.seed + 301u, e);
+	float fine = mix(0.5, wcValueAt(q + vec2(17.0, -9.0), 40, e.seed + 307u, e), 1.0 - smoothstep(1.5 * WC_RING0, 4.0 * WC_RING0, d));
+	return clamp((0.65 * v + 0.35 * fine - 0.5) * 1.6, -0.5, 0.5) * (1.0 - 0.6 * smoothstep(2.0 * WC_RING0, 8.0 * WC_RING0, d));
 }
 
 // The body of a hit. `useField`: read the smooth field (the clouds pass), else the cell's own thickness.
@@ -203,7 +205,7 @@ CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField) {
 		// far flank in its own shade, so the lobes read as rounded volumes, not as blotches)
 		if (abs(h.n.y) > 0.5 && length(e.sun.xz) > 0.05) {
 			vec2 sd = normalize(e.sun.xz);
-			b.relief = clamp((b.bill - wcBillow(b.p.xz + sd * 6.0, e)) * 3.6, -1.0, 1.0);
+			b.relief = clamp((b.bill - wcBillow(b.p.xz + sd * 10.0, e)) * 4.0, -1.0, 1.0);
 		}
 	}
 #endif
@@ -342,7 +344,8 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// the sky's light: a top sees all the dome, a base the lower half of it; deep inside a thick cloud's lower part
 	// less of it gets in
 	// (a top's hollows, its thin rims and the lower tiers between taller ones see a little less of it than its domes)
-	float view = n.y > 0.5 ? mix(0.5, 0.92, smoothstep(0.0, 0.8, b.depth)) : (n.y < -0.5 ? 0.62 : mix(0.68, 0.92, b.hIn));
+	// (review round 2: a base 0.72, was 0.62: a fair cloud's belly a light, soft grey, not a mid grey)
+	float view = n.y > 0.5 ? mix(0.5, 0.92, smoothstep(0.0, 0.8, b.depth)) : (n.y < -0.5 ? 0.72 : mix(0.68, 0.92, b.hIn));
 	// (review round 1: 0.3, was 0.42, the same: fewer dark blotches in a belly)
 	float occl = (1.0 - 0.3 * b.depth * lower * mix(0.6, 1.0, tall)) * (1.0 - 0.08 * b.bill * lower);
 	// (at night less of it: the land's night fill is lifted for play, and a cloud as bright read as a patch of day sky)
@@ -410,8 +413,11 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		hueF = mix(hueF, mix(vec3(0.96, 0.90, 0.88), vec3(1.0, 0.88, 0.74), sw), goldenK);
 		hueF /= wcLuma(hueF);
 		// (thin rims and ragged edges brightest, the thick heart of a belly a soft shade under them: the forms read)
-		float lift = (n.y > 0.5 ? 1.5 : (n.y < -0.5 ? 1.3 : 1.4 * mix(0.85, 1.1, b.hIn))) * mix(1.0, 1.25, sw * sw)
-			* mix(1.22, 0.74, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.15 * b.bill) * (1.0 + 0.22 * b.relief)
+		// (review round 2: brighter than the sky behind by more, the bellies most: a sunset's clouds glow pink and peach
+		// over a lilac sky, away from the sun too (the low sun lights them from the side), as both reference packs' do;
+		// and their billows' relief shows)
+		float lift = (n.y > 0.5 ? 1.65 : (n.y < -0.5 ? 1.5 : 1.55 * mix(0.85, 1.1, b.hIn))) * mix(1.0, 1.2, sw * sw)
+			* mix(1.25, 0.78, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.15 * b.bill) * (1.0 + 0.35 * b.relief)
 			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
 		// (the shortfall is added in the floor's own warm light, not taken channel by channel: a per-channel max of a
 		// cool grey belly and a cream floor came out a mauve-brown mottle)
