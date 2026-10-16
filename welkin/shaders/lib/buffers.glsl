@@ -18,7 +18,9 @@
 //                     visibility, yz the bent normal's tangent parts in the face's frame, a view depth (lib/ao.glsl)
 // colortex13 RGBA16F  half size: the sun shafts' raw term (deferred_shafts, run as deferred5; workstream D): r the sunlit
 //                     share of the near air along the view ray (noisy; composite2 resolves it), a the view distance
-// colortex14          reserved: the exposure (workstream D)
+// colortex14 RGBA16F  half size: the depth prototype BLOOM's bright source (composite3; mipmapped for composite4, whose
+//                     gather goes into colortex9, free by then); colortex4 (RGBA8) holds RELIEF's texel normals
+//                     (gbuffers_terrain, read in deferred)
 //
 // Programs that light themselves (entities, hand, particles, lines) write colortex2.x = 0 (blending off for
 // colortex2 in shaders.properties), so whichever order Iris draws them in, deferred never lights a pixel twice.
@@ -47,4 +49,6 @@ const int colortex12Format = RGBA16F;
 const bool colortex12Clear = false;
 const int colortex13Format = RGBA16F;
 const bool colortex13Clear = false;
+const int colortex14Format = RGBA16F;
+const bool colortex14Clear = true;
 */

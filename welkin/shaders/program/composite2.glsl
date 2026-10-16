@@ -57,10 +57,11 @@ void main() {
 #include "/lib/sky/table.glsl"
 #include "/lib/haze/haze.glsl"
 #include "/lib/air.glsl"
-#if defined SUN_SHAFTS && defined SHADOWS
+#if (defined SUN_SHAFTS || WD_SHAFTS || WD_HAZE) && defined SHADOWS
 #define WELKIN_SHAFTS_READ
 #include "/lib/shafts.glsl"
 #endif
+#include "/lib/depthfx.glsl"
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 #include "/lib/haze/haze_debug.glsl"
 #endif
@@ -226,6 +227,15 @@ void main() {
 		vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
 		vec3 air = skyHazeAir(st.kind, normalize(eyePos), sunW);
 		// ---- air and tone (D): the haze's forward scatter toward the sun (lib/air.glsl)
+		// depth prototype SKY: the haze's air is the dome's luminous horizon too, so the far land fades into the same
+		// bright band the sky shows over it (below the horizon: the horizon's own colour in that direction)
+		{
+			vec3 dA = normalize(eyePos);
+			if (dA.y < 0.0) {
+				dA = normalize(vec3(dA.x, 0.0, dA.z) + vec3(1e-5, 0.0, 0.0));
+			}
+			air = wdSkyLum(air, dA, sunW);
+		}
 		vec3 airPlain = air;
 		air = airMie(air, normalize(eyePos), sunW, st.kind);
 		vec3 n = s.sky ? vec3(0.0, 1.0, 0.0) : hzScreenNormal(eyePos);
@@ -257,9 +267,45 @@ void main() {
 			color.rgb = valleyMistWith(p, uv, color.rgb, mt, ma);
 		}
 #endif
+#if WD_HAZE && defined WELKIN_SHAFTS_READ
+		// depth prototype HAZE: the volumetric haze (deferred_shafts wdVolume): the air along the ray, lit by the sun
+		// where the shadow map, the terrain and the clouds let it through, by the sky elsewhere. Its colour is the
+		// luminous air itself (the horizon the far land fades into): darker and cooler where the air lies in shadow,
+		// warmer and brighter toward a low sun (forward scatter). Its thickness follows the height profile (thick low
+		// down, in the valleys and toward the horizon) and Gloam's air: the haziness of the land, the valley mist,
+		// the rain.
+		if (sunW.y > -0.08 && !cloud) {
+			vec3 vol = wdVolResolve(p, s.sky ? 1e4 : length(eyePos));
+			float dens = mix(0.65, 1.45, clamp(st.haze.x, 0.0, 1.0)) * (1.0 + 1.6 * st.rain);
+#ifdef WELKIN_VALLEY_MIST
+			dens *= 1.0 + 1.2 * mistCam.y * mistCam.z;
+#endif
+			dens *= (WD_ALL == 1 ? 0.75 : 1.0) * smoothstep(-0.08, 0.04, sunW.y);
+			float a = 1.0 - exp(-WD_HAZE_SIGMA * dens * vol.b);
+			if (a > 0.0) {
+				vec3 dV = normalize(eyePos);
+				float fsun = clamp(vol.g / max(vol.b, 1e-4), 0.0, 1.0);
+				float mu = dot(dV, sunW);
+				float lowS = 1.0 - smoothstep(0.1, 0.55, sunW.y);
+				// the air's own colour: plain away from the sun, a cooler blue where it lies in shadow
+				vec3 base = airPlain;
+				vec3 cool = mix(base, base * vec3(0.80, 0.90, 1.08), 0.6) * 0.62;
+				vec3 sunSide = skyHazeHorizon(st.kind, true);
+				vec3 sunHue = sunSide / max(wdLuma(sunSide), 1e-3);
+				float fwd = (0.35 + 0.65 * lowS) * (0.6 * wdHgPeak(mu, 0.82) + 0.4 * wdHgPeak(mu, 0.45));
+				vec3 lit = base * 1.08 + sunHue * wdLuma(base) * fwd * 0.9;
+				vec3 hz = mix(cool, lit, fsun);
+				color.rgb = mix(color.rgb, hz, a * (s.sky ? 0.35 : 1.0));
+			}
+		}
+#endif
 		// ---- air and tone (D): the sun shafts (lib/shafts.glsl), in the near air, before the haze in front of it
 #ifdef WELKIN_SHAFTS_READ
-		if (shaftGate(sunW) > 0.0 && sunAngle < 0.5) {
+		if ((WD_SHAFTS == 1 || (shaftGate(sunW) > 0.0 && sunAngle < 0.5)) && sunW.y > -0.04
+#if !defined SUN_SHAFTS && !WD_SHAFTS
+				&& false
+#endif
+				) {
 			float lit = shaftResolve(p, s.sky ? 1e4 : length(eyePos));
 			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky) * (cloud ? 0.0 : 1.0);
 #if SHAFT_DEBUG == 1

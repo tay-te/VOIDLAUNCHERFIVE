@@ -53,6 +53,24 @@ vec3 airMie(vec3 air, vec3 dir, vec3 sunW, int kind) {
 // a hundred blocks or so out, so the middle land toward the sun takes the warm light over about a kilometre.
 vec3 airPerspective(vec3 c, vec3 air, vec3 mie, float dist, vec3 dir, vec3 sunW) {
 	c += mie * (1.0 - exp(-max(dist - 96.0, 0.0) / 1400.0));
+#if WD_AIR
+	{
+		// depth prototype AIR: graded aerial perspective. It starts a few dozen blocks out and builds steadily over the
+		// first kilometre, so each ridge and wood stands a little lighter and bluer than the one in front of it: the
+		// land's hue leans to the air's at its own brightness, then a share of the air itself comes in (a lift of the
+		// darks toward the air, more than of the lights: the far land's shade is the first to fill with air). Graded
+		// by distance, never one flat veil; less at night.
+		float g = 1.0 - exp(-max(dist - 28.0, 0.0) / 650.0);
+		g *= 1.0 - 0.6 * skyNightStep();
+		float toward = max(dot(dir, sunW), 0.0);
+		float lowSide = airLowSun(sunW) * toward * toward;
+		vec3 Y = vec3(0.2126, 0.7152, 0.0722);
+		float lc = dot(c, Y), la = max(dot(air, Y), 1e-3);
+		c = mix(c, air * (lc / la), 0.55 * g);
+		float darks = 1.0 - smoothstep(0.0, la, lc) * 0.45;
+		return mix(c, air, g * (WD_ALL == 1 ? 0.26 : 0.32) * darks * mix(1.0, 1.35, lowSide));
+	}
+#endif
 #if AERIAL_PERSPECTIVE > 0
 	float w = float(AERIAL_PERSPECTIVE) * 0.01 * (1.0 - exp(-max(dist - 120.0, 0.0) / 1800.0));
 	w *= 1.0 - 0.6 * skyNightStep();

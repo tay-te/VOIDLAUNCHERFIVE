@@ -148,6 +148,24 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 // ---- Colour and finish
 // Soft bands: How much light, the sky and the glow round the sun gather into gentle bands. 0 is a plain smooth gradient. There is never a hard edge or a dither pattern.  [skeleton]
 #define SOFT_BANDS 50 // [0 25 50 75 100]
+// ---- Depth prototypes (the depth A/B sheet, branch welkin-depth, 2026-10-16). Each is off by default, so the pack's
+// look is unchanged until one is switched on; ALL switches every one on (and Soft bands to 0) balanced as one look.
+// Open shade: Open shade (sky light, nothing over it) takes a brighter, bluer fill from the sky; crevices, contact and the canopy keep their dark.  [depth]
+//#define DEPTH_SHADE
+// Graded air: Aerial perspective that starts near and builds with distance, so each ridge and wood reads a little lighter and bluer than the one in front.  [depth]
+//#define DEPTH_AIR
+// Luminous sky: A brighter, softer horizon, a glow round the sun across the dome, a deeper zenith, and clouds with sunlit tops and edges over shaded bellies.  [depth]
+//#define DEPTH_SKY
+// Texel relief: Normals from each texture's own pixels, so stone, bark, grass tops and leaves catch the sun texel by texel, with a slight sheen by material.  [depth]
+//#define DEPTH_RELIEF
+// Bloom: A wide soft halo and a tighter core round the brightest light (the sun and its sky, sunlit clouds and pale stone, glints, lamps).  [depth]
+//#define DEPTH_BLOOM
+// Volumetric haze: Haze in the air lit by the sun through the shadow map, the terrain's shadows and the clouds', thicker low down and toward the horizon, warm toward a low sun and cool away from it.  [depth]
+//#define DEPTH_HAZE
+// Strong sun shafts: Real god rays from the shadow map, the terrain's shadows and the gaps in the clouds, strongest at a low sun.  [depth]
+//#define DEPTH_SHAFTS
+// All depth prototypes: Every prototype above on together, balanced as one look (and Soft bands at 0).  [depth]
+//#define DEPTH_ALL
 // ---- Debug
 // Debug view: Shows one of the shader's inner pictures instead of the world. For testing only.  [skeleton]
 #define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22]
@@ -211,6 +229,64 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #ifdef FAR_FADE
 #endif
 #ifdef DEBUG_JOIN
+#endif
+#ifdef DEPTH_SHADE
+#endif
+#ifdef DEPTH_AIR
+#endif
+#ifdef DEPTH_SKY
+#endif
+#ifdef DEPTH_RELIEF
+#endif
+#ifdef DEPTH_BLOOM
+#endif
+#ifdef DEPTH_HAZE
+#endif
+#ifdef DEPTH_SHAFTS
+#endif
+#ifdef DEPTH_ALL
+#endif
+
+// The depth prototypes as 0/1 switches (value defines, not options): each alone, or all of them with DEPTH_ALL.
+#ifdef DEPTH_ALL
+#define WD_ALL 1
+#else
+#define WD_ALL 0
+#endif
+#if defined DEPTH_SHADE || defined DEPTH_ALL
+#define WD_SHADE 1
+#else
+#define WD_SHADE 0
+#endif
+#if defined DEPTH_AIR || defined DEPTH_ALL
+#define WD_AIR 1
+#else
+#define WD_AIR 0
+#endif
+#if defined DEPTH_SKY || defined DEPTH_ALL
+#define WD_SKY 1
+#else
+#define WD_SKY 0
+#endif
+#if defined DEPTH_RELIEF || defined DEPTH_ALL
+#define WD_RELIEF 1
+#else
+#define WD_RELIEF 0
+#endif
+#if defined DEPTH_BLOOM || defined DEPTH_ALL
+#define WD_BLOOM 1
+#else
+#define WD_BLOOM 0
+#endif
+#if defined DEPTH_HAZE || defined DEPTH_ALL
+#define WD_HAZE 1
+#else
+#define WD_HAZE 0
+#endif
+#if defined DEPTH_SHAFTS || defined DEPTH_ALL
+#define WD_SHAFTS 1
+#else
+#define WD_SHAFTS 0
 #endif
 
 #endif

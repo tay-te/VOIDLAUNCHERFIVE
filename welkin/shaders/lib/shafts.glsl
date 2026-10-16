@@ -64,11 +64,46 @@ float shaftResolve(ivec2 p, float dist) {
 	return wsum > 1e-3 ? sum / wsum : texelFetch(colortex13, clamp(qc, ivec2(0), hi), 0).r;
 }
 
+// The depth prototypes (HAZE, SHAFTS): the whole raw term (r shafts, g the haze's sunlit in-scatter, b its whole
+// in-scatter) gathered as shaftResolve gathers r.
+vec3 wdVolResolve(ivec2 p, float dist) {
+	ivec2 qc = p >> 1;
+	ivec2 hi = textureSize(colortex13, 0) - 1;
+	vec3 sum = vec3(0.0);
+	float wsum = 0.0;
+	for (int y = -2; y < 2; y++) {
+		for (int x = -2; x < 2; x++) {
+			vec4 r = texelFetch(colortex13, clamp(qc + ivec2(x, y), ivec2(0), hi), 0);
+			float tol = 0.06 * min(dist, r.a) + 0.4;
+			float w = exp(-abs(r.a - dist) / tol);
+			sum += r.rgb * w;
+			wsum += w;
+		}
+	}
+	return wsum > 1e-3 ? sum / wsum : texelFetch(colortex13, clamp(qc, ivec2(0), hi), 0).rgb;
+}
+
 // The shafts' light for view direction dirW (world, unit), `lit` the resolved sunlit share, in display values to add.
 // On the sky (`sky`) a fraction: there the sunlit air only brightens the glow round the sun the dome and the forward
 // scatter already draw; the beams show against the land, the trunks and the crowns.
 vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky) {
 	float mu = dot(dirW, sunW);
+#if WD_SHAFTS
+	{
+		// depth prototype SHAFTS: real god rays. The air's sunlit share along the ray (near: the shadow map, far: the
+		// terrain's shadow line, both: the clouds' shadow; deferred_shafts wdVolume) scatters the sun's light toward
+		// the eye by a strong forward lobe plus a broad one, so looking toward a low sun the beams between trunks, under
+		// cloud gaps and over ridges stand out bright and warm, and side-on they still streak the air. The gate is open
+		// from the horizon to the mid afternoon (a trace at noon); a soft cap keeps the brightest beams under white.
+		float lobeS = 0.5 * airHg(mu, 0.86) + 0.3 * airHg(mu, 0.55) + 0.2;
+		vec3 sunSideS = skyHazeHorizon(kind, true);
+		vec3 colS = mix(sunSideS / max(dot(sunSideS, vec3(0.2126, 0.7152, 0.0722)), 1e-3), vec3(1.0), 0.15);
+		float h = sunW.y;
+		float gateS = smoothstep(-0.02, 0.06, h) * mix(1.0, 0.18, smoothstep(0.25, 0.85, h));
+		float xS = (WD_ALL == 1 ? 0.75 : 1.0) * 0.55 * (sky ? 0.35 : 1.0) * lobeS * gateS * lit * (1.0 - skyNightStep());
+		return colS * (0.26 * (1.0 - exp(-xS / 0.26)));
+	}
+#endif
 	float lobe = 0.55 * airHg(mu, 0.8) + 0.45 * airHg(mu, 0.35);
 	vec3 sunSide = skyHazeHorizon(kind, true);
 	vec3 col = sunSide / max(dot(sunSide, vec3(0.2126, 0.7152, 0.0722)), 1e-3);

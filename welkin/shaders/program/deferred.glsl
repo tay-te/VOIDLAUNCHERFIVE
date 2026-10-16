@@ -52,6 +52,12 @@ uniform sampler2D colortex1;
 #define WU_colortex2
 uniform sampler2D colortex2;
 #endif
+#if WD_RELIEF
+#ifndef WU_colortex4
+#define WU_colortex4
+uniform sampler2D colortex4;
+#endif
+#endif
 #ifndef WU_gbufferProjection
 #define WU_gbufferProjection
 uniform mat4 gbufferProjection;
@@ -105,6 +111,20 @@ void main() {
 		}
 		vec3 lightDir = lightDirWorld();
 		float facing = sunFacingMat(n, lightDir, material);
+#if WD_RELIEF
+		// depth prototype RELIEF: the texel's own normal (gbuffers_common wdRelief) takes the sun texel by texel: the
+		// face's facing scaled by how its texel turns to the sun against the face itself; its cavity on the fill
+		vec4 wdRel = texelFetch(colortex4, p, 0);
+		bool wdHasRel = wdRel.w > 0.01 && !s.fromLod;
+		vec3 wdN = n;
+		float wdCav = 1.0;
+		if (wdHasRel) {
+			wdN = octDecode(wdRel.xy);
+			float fg = sunFacing(dot(n, lightDir)), fr = sunFacing(dot(wdN, lightDir));
+			facing *= clamp(fr / max(fg, 0.08), 0.0, 1.7);
+			wdCav = clamp(1.0 + (wdRel.w - 0.5) * 0.8, 0.72, 1.18);
+		}
+#endif
 		vec3 sunShare = vec3(1.0);
 #if defined WORLD_OVERWORLD && defined CLOUDS && CLOUD_SHADOWS > 0
 		// the decks' shadow, only where the light could reach
@@ -208,6 +228,35 @@ void main() {
 			contact *= aoMc;
 			aoMc = 1.0;
 		}
+#if WD_RELIEF
+		if (wdHasRel) {
+			fill *= wdCav;
+			// a slight sheen by material: a normalized Blinn-Phong lobe off the texel's normal, with Schlick's Fresnel
+			// rising at grazing angles; stone and ore read wet-ish, leaves waxy, wood and soil nearly matte. Only where
+			// the sun reaches (the shadow, the clouds' shadow and the facing), in the sun's colour
+			vec3 V = -normalize(eyePos);
+			vec3 H = normalize(lightDir + V);
+			float nh = max(dot(wdN, H), 0.0);
+			float vh = max(dot(V, H), 0.0);
+			int rough = matRough(material);
+			float shin, ks;
+			if (matIsLeaves(material)) {
+				shin = 40.0; ks = 0.05;
+			} else if (material == M_STONE || material == M_ORE || material == M_MASONRY || material == M_SPELEOTHEM
+					|| material == M_ICE || material == M_CLAY) {
+				shin = 26.0; ks = 0.045;
+			} else if (material == M_SNOW || material == M_SAND) {
+				shin = 14.0; ks = 0.025;
+			} else {
+				shin = 12.0; ks = 0.012;
+			}
+			shin *= 1.0 + float(rough);
+			ks *= 1.0 + 0.6 * float(rough);
+			float fres = 1.0 + 2.5 * pow(1.0 - vh, 5.0);
+			float spec = min(ks * fres * (shin + 8.0) / 8.0 * pow(nh, shin), 0.3) * step(0.0, dot(wdN, lightDir));
+			lightSheen = skyLandDirect() * sunShare * (spec * reach * min(facing * 4.0, 1.0)) * (1.0 - skyNightStep() * 0.7);
+		}
+#endif
 		color.rgb = welkinLightGlow(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, aoMc, glow,
 			contact);
 #ifdef WELKIN_WET

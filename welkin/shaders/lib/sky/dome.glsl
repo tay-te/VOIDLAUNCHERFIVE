@@ -21,6 +21,7 @@
 #include "/lib/sky/table.glsl"
 #include "/lib/sky/uniforms.glsl"
 #include "/lib/sky/celestial.glsl"
+#include "/lib/depthfx.glsl"
 
 // below this elevation (about -2.3 degrees) no sun, moon or star is drawn: the land hides them
 #define SKY_BODY_CUTOFF -0.04
@@ -131,7 +132,7 @@ vec3 skyLowSunBandOver(vec3 col, vec3 d, SkyFrame f) {
 
 vec3 skyDomeOnly(vec3 dirW, SkyFrame f) {
 	vec3 d = normalize(dirW);
-	return skyLowSunBandOver(skyDomeColour(skyDomePos(d, f)), d, f);
+	return wdSkyLum(skyLowSunBandOver(skyDomeColour(skyDomePos(d, f)), d, f), d, f.sunW);
 }
 
 vec3 skyFull(vec3 dirW, SkyFrame f) {
@@ -140,7 +141,7 @@ vec3 skyFull(vec3 dirW, SkyFrame f) {
 #if SKY_DEBUG == 2
 	return vec3(q.x / 5.0, q.y / 4.0, q.z / 3.0);
 #endif
-	vec3 col = skyLowSunBandOver(skyDomeColour(q), d, f);
+	vec3 col = wdSkyLum(skyLowSunBandOver(skyDomeColour(q), d, f), d, f.sunW); // depth prototype SKY (lib/depthfx.glsl)
 	if (d.y < SKY_BODY_CUTOFF) {
 		return col;
 	}

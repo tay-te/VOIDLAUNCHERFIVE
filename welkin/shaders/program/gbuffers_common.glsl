@@ -36,6 +36,12 @@ flat out float blockEmit;
 #ifdef G_BLOCKID
 out float plantH; // workstream C: how high up its plant a vertex stands, 0 root .. 1 tip
 #endif
+#if WD_RELIEF && defined G_DEFERRED
+// depth prototype RELIEF: the sprite's rectangle in the atlas (its centre, and half its size from this vertex)
+out vec2 wdMidTex;
+flat out vec2 wdSpriteHalf;
+in vec2 mc_midTexCoord;
+#endif
 
 #ifndef WU_gbufferModelViewInverse
 #define WU_gbufferModelViewInverse
@@ -124,6 +130,10 @@ void main() {
 #endif
 	material = welkinMat(id);
 	lightClass = welkinLight(id);
+#if WD_RELIEF && defined G_DEFERRED
+	wdMidTex = mc_midTexCoord;
+	wdSpriteHalf = abs(texcoord - mc_midTexCoord);
+#endif
 #ifdef G_BLOCKID
 	blockEmit = welkinEmission(at_midBlock.w);
 	// workstream C: the vertex's height in its block (at_midBlock: to the block's centre, 1/64 blocks); a two-block
@@ -159,6 +169,14 @@ flat in int lightClass;
 flat in float blockEmit;
 #ifdef G_BLOCKID
 in float plantH;
+#endif
+#if WD_RELIEF && defined G_DEFERRED
+in vec2 wdMidTex;
+flat in vec2 wdSpriteHalf;
+#ifndef WU_atlasSize
+#define WU_atlasSize
+uniform ivec2 atlasSize;
+#endif
 #endif
 
 #ifndef WU_gtexture
@@ -197,7 +215,13 @@ uniform int isEyeInWater;
 #endif
 #endif
 
-#if defined G_DEFERRED
+#if defined G_DEFERRED && WD_RELIEF
+/* RENDERTARGETS: 0,1,2,4 */
+layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outNormal;
+layout(location = 2) out vec4 outFlags;
+layout(location = 3) out vec4 outRelief;
+#elif defined G_DEFERRED
 /* RENDERTARGETS: 0,1,2 */
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outNormal;
@@ -213,6 +237,55 @@ layout(location = 1) out vec4 outWater;
 #else
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
+#endif
+
+#if WD_RELIEF && defined G_DEFERRED
+// depth prototype RELIEF: a texel's height, read from the sprite's own pixels (wrapped inside the sprite, so a tile
+// never reads its atlas neighbour): its brightness, a hole (a cut-out leaf gap) lying lowest.
+float wdTexHeight(ivec2 q, vec2 lo, vec2 sz) {
+	vec2 r = lo + mod(vec2(q) - lo, sz);
+	vec4 t = texelFetch(gtexture, ivec2(r), 0);
+	return dot(t.rgb, vec3(0.2126, 0.7152, 0.0722)) * step(0.1, t.a);
+}
+
+// The relief: the world normal bent by the texture's own pixels, one normal per texel (crisp: nothing is smoothed and
+// the texture itself is never filtered), and the texel's cavity (lower than its neighbours: a crack, a gap between
+// leaves), as colortex4: xy the normal (octahedral), z unused, w 0.5 + cavity (0 where no relief was made). Fades out
+// where a texel shrinks under a screen pixel (far land, so the relief never shimmers).
+vec4 wdRelief(vec3 nGeo, int m) {
+	if ((matHas(m, MATF_SSS) && !matIsLeaves(m)) || matIsWater(m)) {
+		return vec4(0.0);
+	}
+	vec2 asz = vec2(atlasSize);
+	vec2 texel = texcoord * asz;
+	float texPx = max(length(dFdx(texel)), length(dFdy(texel)));
+	float keep = 1.0 - smoothstep(0.7, 1.6, texPx);
+	if (keep <= 0.0) {
+		return vec4(octEncode(nGeo), 0.0, 0.5);
+	}
+	vec2 lo = floor((wdMidTex - wdSpriteHalf) * asz + 0.5);
+	vec2 sz = max(floor(2.0 * wdSpriteHalf * asz + 0.5), vec2(1.0));
+	ivec2 c = ivec2(floor(texel));
+	float h0 = wdTexHeight(c, lo, sz);
+	float hx1 = wdTexHeight(c + ivec2(1, 0), lo, sz), hx0 = wdTexHeight(c - ivec2(1, 0), lo, sz);
+	float hy1 = wdTexHeight(c + ivec2(0, 1), lo, sz), hy0 = wdTexHeight(c - ivec2(0, 1), lo, sz);
+	vec2 grad = vec2(hx1 - hx0, hy1 - hy0) * 0.5;
+	float gl = length(grad);
+	grad *= min(gl, 0.32) / max(gl, 1e-5); // a hard edge (a leaf's gap) bends the normal no further than a slope
+	// the face's frame in texel units, from the screen derivatives (exact on a block's flat face)
+	vec3 dp1 = dFdx(eyePos), dp2 = dFdy(eyePos);
+	vec2 du1 = dFdx(texel), du2 = dFdy(texel);
+	vec3 p2 = cross(dp2, nGeo), p1 = cross(nGeo, dp1);
+	vec3 T = p2 * du1.x + p1 * du2.x;
+	vec3 B = p2 * du1.y + p1 * du2.y;
+	float inv = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-12));
+	T *= inv;
+	B *= inv;
+	float k = 2.2 * keep * (matIsLeaves(m) ? 0.8 : 1.0);
+	vec3 nr = normalize(nGeo - k * (grad.x * T + grad.y * B));
+	float cav = h0 - 0.25 * (hx1 + hx0 + hy1 + hy0);
+	return vec4(octEncode(nr), 0.0, 0.5 + clamp(cav * 2.0 * keep, -0.45, 0.45));
+}
 #endif
 
 void main() {
@@ -268,6 +341,9 @@ void main() {
 	outColor = vec4(albedo.rgb, 1.0);
 	outNormal = vec4(octEncode(normalize(normalW)), lmcoord);
 	outFlags = vec4(1.0, float(material) / 255.0, packEmitClass(emission, lightClass), ao);
+#if WD_RELIEF
+	outRelief = wdRelief(normalize(normalW), material);
+#endif
 #else
 #ifdef G_UNLIT
 	vec3 lit = albedo.rgb;

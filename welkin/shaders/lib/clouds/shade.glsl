@@ -262,6 +262,22 @@ vec3 wcLit(vec3 n, float up, float interior, float dens, int tone, vec3 rd, vec3
 	}
 	// forward scatter: looking toward the light, the sides and undersides glow at the edges
 	float forward = pow(clamp(dot(rd, l), 0.0, 1.0), 8.0) * (top ? 0.10 : (under ? 0.15 : 0.30));
+#if WD_SKY
+	// depth prototype SKY: sunlit tops and edges over shaded bellies. A top takes the sun squarely (a brighter, whiter
+	// cap), a side by how it faces the sun (its sunlit edge bright, its far side in the cloud's own shade), a base only
+	// the sky's light through the body (deeper, cooler), and toward the sun the thin edges glow (silver lining)
+	if (top) {
+		diffuse = clamp((ndl + 0.12) / 1.12, 0.0, 1.0) * 1.22;
+	} else if (under) {
+		diffuse = 0.10;
+		ao *= 0.80;
+		skyView = 0.78;
+	} else {
+		diffuse = clamp((ndl + 0.25) / 1.25, 0.0, 1.0) * 1.18;
+		ao = mix(0.70, 1.0, up);
+	}
+	forward = pow(clamp(dot(rd, l), 0.0, 1.0), 5.0) * (top ? 0.22 : (under ? 0.30 : 0.65));
+#endif
 	vec3 light = skyAmbientLight() * skyView + skyDirectLight() * (diffuse + forward) * sun;
 	if (under) {
 		// (air and tone (D): a base is lit through the cloud by the light's side of the sky: brighter seen toward the
@@ -365,7 +381,7 @@ vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 vec3 wcFogTarget(vec3 rd, CloudEnv e) {
 	vec3 hor = wcHorizon(rd, e);
 	if (rd.y <= 0.0) {
-		return hor;
+		return wdSkyLum(hor, normalize(vec3(rd.x, 0.0, rd.z) + vec3(1e-5, 0.0, 0.0)), e.sun);
 	}
 	// the dome's plain band at this height (two texels, the dome's own band mapping), with the sun's glow of the
 	// horizon fading out upward
@@ -374,7 +390,7 @@ vec3 wcFogTarget(vec3 rd, CloudEnv e) {
 	// (air and tone (D): by day a far cloud pales into the bright air between it and the eye, half the horizon's colour,
 	// rather than taking the deeper blue of the sky behind it: sunk into that blue a far deck read as a see-through grey
 	// slab; paled, it reads as a far white cloud in the haze)
-	return mix(band, hor, 0.5 * wcBaseDay(e));
+	return wdSkyLum(mix(band, hor, 0.5 * wcBaseDay(e)), rd, e.sun); // depth prototype SKY: the same luminous air
 }
 
 // How far a hit sinks into the horizon colour: a little from a few hundred blocks out, then smoothly more with each
@@ -445,7 +461,7 @@ vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) 
 		// a side is never brighter than that body in a diffuse light (an overcast, the dusk, the night): only in a
 		// strong direct sun may a sunlit side seen from below stand out over its darker base, and then by a quarter; and
 		// it leans to the body's hue, so a dusk side is no olive strip along a rose base
-		float allow = rd.y > 0.0 ? mix(1.0, 1.25, smoothstep(0.25, 0.5, wcDirectShare()) * smoothstep(0.05, 0.2, e.sun.y)) : 1.0;
+		float allow = rd.y > 0.0 ? mix(1.0, WD_SKY == 1 ? 1.7 : 1.25, smoothstep(0.25, 0.5, wcDirectShare()) * smoothstep(0.05, 0.2, e.sun.y)) : 1.0;
 		c *= min(1.0, allow * wcLuma(cap) / max(wcLuma(c), 1e-4));
 		c = mix(c, cap * (wcLuma(c) / max(wcLuma(cap), 1e-4)), 0.6);
 		c = mix(c, cap, wcSideThin(h, rd, pixAngle));

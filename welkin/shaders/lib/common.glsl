@@ -31,6 +31,9 @@ int materialFromBlockId(int id) {
 
 // The share of the terrace softBands() applies, from SOFT_BANDS (0..100 %).
 float softBandsAmount() {
+#if WD_ALL
+	return 0.0; // the depth prototypes' ALL: the plain smooth gradient (as SOFT_BANDS=0)
+#endif
 	return float(SOFT_BANDS) * 0.01;
 }
 

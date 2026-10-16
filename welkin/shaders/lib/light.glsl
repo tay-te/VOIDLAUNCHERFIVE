@@ -168,6 +168,15 @@ const float AMB_FACE_SHADE_NIGHT = 0.3;
 // warmer one; half of that keeps the shade on walls a clear, cool sky-blue while dusk's faces still warm and cool.
 const float AMB_SKY_HUE = 0.5;
 
+// depth prototypes: SHADE's lift of the open sky's fill (1 + this, where the sky is open and the occlusion clear), and
+// RELIEF's sheen: the specular light deferred works out per pixel (linear light, added before the tone; 0 elsewhere).
+#if WD_ALL
+#define WD_SHADE_LIFT 1.6
+#else
+#define WD_SHADE_LIFT 1.9
+#endif
+vec3 lightSheen = vec3(0.0);
+
 // Set by deferred for each pixel before it lights it (forward programs leave them): how far the occlusion covers the
 // pixel (0 none .. 1 full; it fades out by AO_FAR), and the bend it gives the normal the sky's light is looked up along
 // (the bent normal, the direction of least occlusion, minus the normal the occlusion pass worked with), world space.
@@ -238,6 +247,7 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	vec3 nf = lightFillUp > 0.0 ? normalize(mix(n, vec3(0.0, 1.0, 0.0), lightFillUp)) : n;
 	vec3 ns = normalize(nf + lightAoBend);
 	vec3 skyE = skyIrradiance(ns);
+	vec3 skyEFull = skyE;
 	skyE = mix(vec3(lumaLin(skyE)), skyE, AMB_SKY_HUE);
 	vec3 hemi = fill.rgb * skyE + skyLandBounce() * (0.5 - 0.5 * nf.y);
 	// (a plant's thin blades take the sky on both their faces and pass some through: up to 1.45x a top's fill, so in the
@@ -246,6 +256,21 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	// (round 3: the fill under a canopy cut by 0.8, not 0.68; workstream C: lib/foliage.glsl's CANOPY_FILL_CUT, keyed on
 	// the map's leaves above the point)
 	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - CANOPY_FILL_CUT * canopyShade(lm.y, sunReach));
+#if WD_SHADE
+	{
+		// depth prototype SHADE: open shade reads luminous and sky-tinted. Where the sky is open over a point (full sky
+		// light, nothing over it) and the occlusion finds it unoccluded, the sky's fill is lifted and takes the sky's
+		// own hue whole; crevices, contact shade, eaves and the canopy (low visibility, cut sky light, leaves above)
+		// keep their dark, so the darkness is left to occlusion and the shade between reads bright and blue.
+		float visOpen = mix(pow(aoV, LIGHT_AO_POW), pow(clamp(contact, 0.0, 1.0), AO_STRENGTH), lightAoCover);
+		float open = smoothstep(0.78, 0.97, lm.y) * smoothstep(0.45, 0.92, visOpen)
+			* (1.0 - canopyShade(lm.y, sunReach)) * (1.0 - skyNightStep());
+		float lift = 1.0 + WD_SHADE_LIFT * open;
+		vec3 skyHue = skyEFull / max(lumaLin(skyEFull), 1e-4);
+		skyHue = max(mix(vec3(1.0), skyHue, 1.25), 0.0); // a little bluer than the dome's own fill
+		ambient = mix(ambient, skyHue * lumaLin(ambient), 0.6 * open) * lift;
+	}
+#endif
 	// the short-range bounce (round 1): a shaded face among sunlit surfaces like itself takes back a share of the sun
 	// in its own colour, more on walls than on tops, so its light follows its albedo: the shade side of pale stone or
 	// sand reads a soft light grey (its colour half desaturated, so the bounce does not saturate the shade) instead of a near-black square beside a sunlit face, while grass and dirt (dark,
@@ -278,7 +303,7 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 #if defined WORLD_NETHER || defined WORLD_END
 	vec3 lin = a * light;
 #else
-	vec3 lin = a * light + through;
+	vec3 lin = a * light + through + lightSheen;
 #endif
 	// the highlights' pull toward white only while the sun stands high (a face in the low sun keeps its amber)
 	toneHighlightDesat = LAND_HIGHLIGHT_DESAT * smoothstep(0.15, 0.4, sunHeight());
