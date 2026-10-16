@@ -127,7 +127,7 @@ public final class HuntersLodge implements Archetype {
 		// a rail wherever the levelled yard ends over a drop
 		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		if (rack != null) {
-			tend(d, rack[0], rack[1], rack[2] == 1);
+			tend(d, rack[0], rack[1], rack[2] == 1, fz);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
@@ -311,32 +311,36 @@ public final class HuntersLodge implements Archetype {
 
 	/**
 	 * The hunter's place at the smoking rack (posts at (cx, cz) and (cx, cz + 2), the fire between): beside the fire on
-	 * the house side, before the rack, beside the fire on the outer side, behind it; the first one the walk from the door
-	 * reaches once the yard is railed (on a hillside the plot's edge is railed and a snow bank or a rail can shut a cell
-	 * in), else the first that is free.
+	 * the house side, before the rack, beside the fire on the outer side, behind it; the first one folk can walk to from
+	 * the street once the yard is railed (on a hillside the plot's edge is railed, a snow bank or the porch's corner can
+	 * shut the side yard off). Where none can be, his place is the free cell of the front yard nearest the side yard's
+	 * mouth, where he hangs the game before it goes to the rack.
 	 */
-	private static void tend(Draft d, int cx, int cz, boolean left) {
+	private static void tend(Draft d, int cx, int cz, boolean left, int fz) {
+		dev.voidmc.hearth.build.kit.light.Spaces walk = dev.voidmc.hearth.build.kit.light.Spaces.of(d, false);
 		int in = left ? 1 : -1;
 		int[][] cells = {{cx + in, cz + 1}, {cx, cz - 1}, {cx - in, cz + 1}, {cx, cz + 3}};
 		Direction[] faces = {left ? Dirs.LEFT : Dirs.RIGHT, Dirs.BACK, left ? Dirs.RIGHT : Dirs.LEFT, Dirs.FRONT};
-		int first = -1;
 		for (int i = 0; i < cells.length; i++) {
 			int x = cells[i][0];
 			int z = cells[i][1];
-			if (x < 0 || z < 0 || x >= d.frontage() || z >= d.depth() || !d.isEmpty(x, 0, z) || !d.isEmpty(x, 1, z)) {
-				continue;
-			}
-			if (first < 0) {
-				first = i;
-			}
-			d.poi(dev.voidmc.hearth.api.PoiType.JOB_SITE, x, 0, z, faces[i], JobType.HUNTER);
-			if (!dev.voidmc.hearth.build.kit.age.Reach.unreached(d).contains(Draft.key(x, 0, z))) {
+			if (free(d, x, z) && walk.reached(x, 0, z)) {
+				d.poi(dev.voidmc.hearth.api.PoiType.JOB_SITE, x, 0, z, faces[i], JobType.HUNTER);
 				return;
 			}
-			d.retainPois(p -> !(p.type() == dev.voidmc.hearth.api.PoiType.JOB_SITE && p.x() == x && p.y() == 0 && p.z() == z));
 		}
-		if (first >= 0) {
-			d.poi(dev.voidmc.hearth.api.PoiType.JOB_SITE, cells[first][0], 0, cells[first][1], faces[first], JobType.HUNTER);
+		for (int z = fz - 1; z >= 0; z--) {
+			for (int o = 0; o < d.frontage(); o++) {
+				int x = left ? o : d.frontage() - 1 - o;
+				if (free(d, x, z) && walk.reached(x, 0, z)) {
+					d.poi(dev.voidmc.hearth.api.PoiType.JOB_SITE, x, 0, z, Dirs.BACK, JobType.HUNTER);
+					return;
+				}
+			}
 		}
+	}
+
+	private static boolean free(Draft d, int x, int z) {
+		return x >= 0 && z >= 0 && x < d.frontage() && z < d.depth() && d.isEmpty(x, 0, z) && d.isEmpty(x, 1, z);
 	}
 }
