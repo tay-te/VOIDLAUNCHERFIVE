@@ -19,6 +19,8 @@
     "ChatHudMixin",
     "ChatScreenMixin",
     "ClearGlassMixin",
+    "CosmeticsFogMixin",
+    "CosmeticsFramebufferMixin",
     "CosmeticsGameRendererMixin",
     "CosmeticsHooksMixin",
     "CullingBlockEntityRenderDispatcherMixin",

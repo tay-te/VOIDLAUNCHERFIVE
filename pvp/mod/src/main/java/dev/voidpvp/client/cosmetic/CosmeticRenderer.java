@@ -28,6 +28,12 @@ import java.util.Map;
  * The inventory preview of yourself draws a resting cape and never advances the simulation, so the
  * world's cloth is not dragged round by the preview's fake body yaw.
  *
+ * <h2>How it is lit</h2>
+ * Every pass runs through {@link CosmeticShader}: the game's own entity lighting and lightmap,
+ * contact occlusion against the torso or head, a rim of sky light and a material per part. An
+ * outfit with an emissive part also writes the {@link Bloom} mask while it draws. The inventory
+ * preview, a sleeping or dying player, and a context without GLSL draw the fixed-function way.
+ *
  * <h2>What it costs</h2>
  * Display lists for models, one tessellated sheet per cape, a fixed particle pool. Distance LOD
  * (scaled by {@link Budget#quality}): within {@link #NEAR} blocks the cape is simulated at one
@@ -60,6 +66,14 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
     private final float[] root = new float[3];
     private final double[] d3 = new double[3];
     private float emissive = 1f;
+    /** This player's passes run through {@link CosmeticShader} / write the bloom mask. */
+    private boolean shaded, mrt;
+    /** The bloom pass does the glow: anchors only feed the light pool, never get placed. */
+    private boolean bloomGlow;
+    private final float[] partMv = new float[16];
+    private final float[] eyeToBody = new float[16];
+    private final float[] eyeToHead = new float[16];
+    private static int matrixCheck;
     /** Distance to the player being drawn, for the model passes' LOD. */
     private double modelDist;
 
@@ -125,7 +139,14 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
 
         motion(fx, p, td, dt, gui);
 
-        if (glowOn) {
+        // Light and material (CosmeticShader) everywhere but the inventory preview, whose
+        // matrices are the screen's; the bloom mask (Bloom) only for an outfit that glows.
+        Bloom.level(live.cosmeticsGlowLevel);
+        // A sleeping or dying player is turned in ways the rebuilt modelview does not follow.
+        shaded = !gui && !sleeping && p.deathTime == 0 && CosmeticShader.ready();
+        boolean bloom = shaded && Bloom.usable();
+        bloomGlow = bloom;
+        if (glowOn || shaded) {
             playerModelview(mc, p, fx.uuid, td);
         }
         glow.clear();
@@ -135,36 +156,58 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         // culling on one of the pair vanishes depending on which side it is seen from.
         GlStateManager.disableCull();
 
-        long tc = System.nanoTime();
-        String capeId = set.get("cape");
-        if (capeId != null && !sleeping) {
-            drawCape(p, uuid, fx, capeId, set.tint("cape"), td, dt, dist, q, gui, model, time, glowK, light);
+        if (shaded) {
+            if (dev.voidpvp.client.render.GlDebug.ON && (++matrixCheck % 240) == 1) {
+                checkModelview();
+            }
+            partInverse(model.body, eyeToBody);
+            partInverse(model.head, eyeToHead);
+            // The mask first: setting it up the first time binds the bloom's own programs.
+            mrt = bloom && glowOn && glows(set, sleeping) && Bloom.beginPlayer(mc);
+            CosmeticShader.begin();
+            CosmeticShader.parts(eyeToBody, eyeToHead);
+            CosmeticShader.rim(0.4f);
+            CosmeticShader.bloom(mrt ? bloomStrength(p, td, live.cosmeticsGlowLevel) : 0);
         }
-        long tm = System.nanoTime();
-        Budget.split(0, tm - tc);
-        String backId = set.get("back");
-        if (backId != null && !sleeping) {
-            drawModel(fx, SLOT_BACK, backId, set.tint("back"), model.body, null, model, p, time, dt, glowK, light, false);
-        }
-        String headId = set.get("head");
-        if (headId != null) {
-            drawModel(fx, SLOT_HEAD, headId, set.tint("head"), model.head, null, model, p, time, dt, glowK, light, helmet(p));
-        }
-        String faceId = set.get("face");
-        if (faceId != null) {
-            drawModel(fx, SLOT_FACE, faceId, set.tint("face"), model.head, null, model, p, time, dt, glowK, light, helmet(p));
-        }
-        String haloId = set.get("halo");
-        if (haloId != null) {
-            drawModel(fx, SLOT_HALO, haloId, set.tint("halo"), model.head, "halo", model, p, time, dt, glowK, light, helmet(p));
+        try {
+            long tc = System.nanoTime();
+            String capeId = set.get("cape");
+            if (capeId != null && !sleeping) {
+                drawCape(p, uuid, fx, capeId, set.tint("cape"), td, dt, dist, q, gui, model, time, glowK, light);
+            }
+            long tm = System.nanoTime();
+            Budget.split(0, tm - tc);
+            String backId = set.get("back");
+            if (backId != null && !sleeping) {
+                drawModel(fx, SLOT_BACK, backId, set.tint("back"), model.body, null, model, p, time, dt, glowK, light, false);
+            }
+            String headId = set.get("head");
+            if (headId != null) {
+                drawModel(fx, SLOT_HEAD, headId, set.tint("head"), model.head, null, model, p, time, dt, glowK, light, helmet(p));
+            }
+            String faceId = set.get("face");
+            if (faceId != null) {
+                drawModel(fx, SLOT_FACE, faceId, set.tint("face"), model.head, null, model, p, time, dt, glowK, light, helmet(p));
+            }
+            String haloId = set.get("halo");
+            if (haloId != null) {
+                drawModel(fx, SLOT_HALO, haloId, set.tint("halo"), model.head, "halo", model, p, time, dt, glowK, light, helmet(p));
+            }
+            Budget.split(1, System.nanoTime() - tm);
+        } finally {
+            if (shaded) {
+                Bloom.endPlayer();
+                CosmeticShader.end();
+                mrt = false;
+            }
         }
         long tg = System.nanoTime();
-        Budget.split(1, tg - tm);
         if (glow.poolStrength > 0 && p.onGround && glowK > 0.6f) {
             EmotePose.root(uuid, root);
             pool(glow.poolRgb, Math.min(0.38f, glow.poolStrength * 0.45f * (glowK - 0.45f)), root[1]);
         }
-        glow.flush();
+        // With the bloom pass the anchors only size the light pool; the sprites are its fallback.
+        glow.flush(!bloom);
         Budget.split(2, System.nanoTime() - tg);
         Gl.lightmap(light);
         GlStateManager.color(1, 1, 1, 1);
@@ -269,6 +312,56 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
     private static float glowStrength(Entity p, float td) {
         float dark = 1 - Math.max(0, Math.min(1, p.getBrightnessAtEyes(td)));
         return 0.3f + 1.7f * (float) Math.pow(dark, 1.3);
+    }
+
+    /**
+     * The bloom's gain for this player, written into the mask: subtle in daylight (under a tenth),
+     * full on a dark night; {@code low} is a little over half of {@code high}.
+     */
+    private static float bloomStrength(Entity p, float td, int level) {
+        float dark = 1 - Math.max(0, Math.min(1, p.getBrightnessAtEyes(td)));
+        return (0.08f + 0.92f * (float) Math.pow(dark, 1.3)) * (level >= 2 ? 1f : 0.6f);
+    }
+
+    /** Whether anything this player wears and is drawn now has an emissive part. */
+    private static boolean glows(EquippedSet set, boolean sleeping) {
+        for (int i = 0; i < GLOW_SLOTS.length; i++) {
+            String id = set.get(GLOW_SLOTS[i]);
+            if (id != null && (!sleeping || i >= 2) && CosmeticAssets.bundle(id).glows) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final String[] GLOW_SLOTS = {"cape", "back", "head", "face", "halo"};
+
+    /**
+     * Eye space to {@code part}'s own pixel space: the inverse of the player's modelview followed
+     * by the part's {@code ModelPart.preRender} and the 1/16 pixel scale. The shader's contact
+     * occlusion measures each vertex against the torso or head box in that space.
+     */
+    private void partInverse(ModelPart part, float[] out) {
+        Mat4.copy(modelview, partMv);
+        Mat4.translate(partMv, part.pivotX * 0.0625f, part.pivotY * 0.0625f, part.pivotZ * 0.0625f);
+        Mat4.rotate(partMv, part.posZ, 0, 0, 1);
+        Mat4.rotate(partMv, part.posY, 0, 1, 0);
+        Mat4.rotate(partMv, part.posX, 1, 0, 0);
+        Mat4.scale(partMv, 0.0625f, 0.0625f, 0.0625f);
+        if (!Mat4.invertAffine(partMv, out)) {
+            Mat4.identity(out);
+        }
+    }
+
+    /** -PvoidGlDebug: how far the rebuilt player modelview is from GL's (one read-back, rarely). */
+    private void checkModelview() {
+        java.nio.FloatBuffer b = org.lwjgl.BufferUtils.createFloatBuffer(16);
+        GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, b);
+        float worst = 0;
+        for (int i = 0; i < 16; i++) {
+            worst = Math.max(worst, Math.abs(b.get(i) - modelview[i]));
+        }
+        dev.voidpvp.client.VoidLog.info("cosmetics: rebuilt modelview differs from GL's by " + worst);
     }
 
     // ------------------------------------------------------------------------- motion
@@ -381,6 +474,12 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         // while a distant one is frozen, the last mesh is drawn again: it is in the body's own
         // space, so it rides along rigidly instead of lagging behind for a frame.
         boolean glowWanted = glowK > 0 && style != null && style.glow.length > 0;
+        if (glowWanted && bloomGlow) {
+            for (float[] g : style.glow) {
+                glow.note((int) g[2], g[4] * glowK);
+            }
+            glowWanted = false;
+        }
         if (stepped || cloth.vbo < 0 || gui || fx.clothHi) {
             cape.prepare(cloth);
             cape.mesh(cloth);
@@ -396,14 +495,30 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         GlStateManager.pushMatrix();
         GlStateManager.scale(0.0625f, 0.0625f, 0.0625f);
         int frame = tex.frame(time);
-        // Albedo, lit.
-        GlStateManager.bindTexture(tex.glId);
-        Gl.selectFrame(frame, tex.frames);
-        // Fold shading where it can be seen: the high-resolution sheets close to the camera.
-        cape.draw(cloth, false, fx.clothHi);
-        Gl.resetFrame(tex.frames);
-        // Tint mask.
-        {
+        if (shaded) {
+            // One pass: albedo, tint and emissive layers together through the material shader —
+            // cloth (or the cape's material), per-texel materials from the mask, contact occlusion
+            // against the torso (the lining darkens where it lies on the back), fold shading.
+            CosmeticAssets.Tex tm = bundle.tint();
+            CosmeticAssets.Tex em = bundle.emissive();
+            layersOn(tm, em, tint, id);
+            GlStateManager.bindTexture(tex.glId);
+            Gl.selectFrame(frame, tex.frames);
+            CosmeticShader.lit(false, style == null ? CosmeticShader.CLOTH : style.material, bundle.materialMask);
+            CosmeticShader.occluder(CosmeticShader.TORSO);
+            cape.draw(cloth, false, true);
+            Gl.resetFrame(tex.frames);
+            if (em != null) {
+                Bloom.drew();
+            }
+        } else {
+            // Albedo, lit; fold shading where it can be seen: the high-resolution sheets close to
+            // the camera.
+            GlStateManager.bindTexture(tex.glId);
+            Gl.selectFrame(frame, tex.frames);
+            cape.draw(cloth, false, fx.clothHi);
+            Gl.resetFrame(tex.frames);
+            // Tint mask.
             CosmeticAssets.Tex tm = bundle.tint();
             if (tm != null) {
                 int rgb = tint >= 0 ? tint : defaultTint(id);
@@ -416,9 +531,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 GlStateManager.color(1, 1, 1, 1);
                 GlStateManager.disableBlend();
             }
-        }
-        // Emissive, full-bright and additive.
-        {
+            // Emissive, full-bright and additive.
             CosmeticAssets.Tex em = bundle.emissive();
             if (em != null) {
                 emissiveBegin();
@@ -497,6 +610,33 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         return item == null || item.defaultTint < 0 ? 0xFFFFFF : item.defaultTint;
     }
 
+    private final float[] tintRgb = new float[3];
+
+    /**
+     * Binds an item's tint mask (unit 3) and emissive layer (unit 2) for the material shader's one
+     * combined pass, and tells it which it has. Leaves unit 0 active for the albedo. Both bindings
+     * go through {@code GlStateManager} so its cache stays true.
+     */
+    private void layersOn(CosmeticAssets.Tex tm, CosmeticAssets.Tex em, int tint, String id) {
+        if (em != null) {
+            GlStateManager.activeTexture(com.mojang.blaze3d.platform.GLX.textureUnit + 2);
+            GlStateManager.bindTexture(em.glId);
+        }
+        if (tm != null) {
+            GlStateManager.activeTexture(com.mojang.blaze3d.platform.GLX.textureUnit + 3);
+            GlStateManager.bindTexture(tm.glId);
+            int rgb = tint >= 0 ? tint : defaultTint(id);
+            tintRgb[0] = ((rgb >> 16) & 255) / 255f;
+            tintRgb[1] = ((rgb >> 8) & 255) / 255f;
+            tintRgb[2] = (rgb & 255) / 255f;
+        }
+        if (em != null || tm != null) {
+            GlStateManager.activeTexture(com.mojang.blaze3d.platform.GLX.textureUnit);
+        }
+        CosmeticShader.layers(em != null ? emissive : 0, tm != null ? tintRgb : null);
+    }
+
+    /** The fixed-function emissive pass (the material shader draws the layer in its one pass). */
     private void emissiveBegin() {
         GlStateManager.color(emissive, emissive, emissive, 1);
         GlStateManager.enableBlend();
@@ -537,6 +677,12 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         Procedural.apply(m, pose, fx, p, time, dt);
 
         boolean wantGlow = glowK > 0 && m.glow.length > 0;
+        if (wantGlow && bloomGlow) {
+            for (CosmeticModel.Glow g : m.glow) {
+                glow.note(g.rgb, g.strength * glowK);
+            }
+            wantGlow = false;
+        }
         boolean emissiveFor = modelDist < MID * Budget.quality() * 0.7 || glowK > 0.9f;
         if (wantGlow) {
             Mat4.copy(modelview, itemMv);
@@ -584,12 +730,36 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             }
         }
         int frame = tex.frame(time);
-        GlStateManager.bindTexture(tex.glId);
-        Gl.selectFrame(frame, tex.frames);
-        ModelDraw.draw(m, pose);
-        Gl.resetFrame(tex.frames);
-
-        {
+        if (shaded) {
+            // One pass for every layer, materials per cube, contact occlusion against the part the
+            // item is worn on.
+            CosmeticAssets.Tex tm = bundle.tint();
+            // The emissive layer doubles nothing here, but past the mid band by day it is a few
+            // pixels of light on a bright sky: left off there, as in the fixed-function path.
+            CosmeticAssets.Tex em = emissiveFor ? bundle.emissive() : null;
+            layersOn(tm, em, tint, id);
+            GlStateManager.bindTexture(tex.glId);
+            Gl.selectFrame(frame, tex.frames);
+            CosmeticShader.lit(true, CosmeticShader.MATTE, bundle.materialMask);
+            CosmeticShader.occluder("halo".equals(mode) ? CosmeticShader.NONE
+                    : attach == model.head ? CosmeticShader.HEAD : CosmeticShader.TORSO);
+            if (m.hasGlass) {
+                GlStateManager.enableBlend();
+                GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            }
+            ModelDraw.draw(m, pose);
+            if (m.hasGlass) {
+                GlStateManager.disableBlend();
+            }
+            Gl.resetFrame(tex.frames);
+            if (em != null || m.hasEmissiveMaterial) {
+                Bloom.drew();
+            }
+        } else {
+            GlStateManager.bindTexture(tex.glId);
+            Gl.selectFrame(frame, tex.frames);
+            ModelDraw.draw(m, pose);
+            Gl.resetFrame(tex.frames);
             CosmeticAssets.Tex tm = bundle.tint();
             if (tm != null) {
                 int rgb = tint >= 0 ? tint : defaultTint(id);
@@ -604,8 +774,6 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
                 GlStateManager.color(1, 1, 1, 1);
                 GlStateManager.disableBlend();
             }
-        }
-        {
             // The emissive pass doubles a model's draw calls; past the mid band it is a few
             // pixels of light on a dark sky, so only near players (or any player at night,
             // when it is the point) get it.

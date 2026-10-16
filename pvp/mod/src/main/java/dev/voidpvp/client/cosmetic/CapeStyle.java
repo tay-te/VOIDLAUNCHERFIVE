@@ -18,8 +18,11 @@ public final class CapeStyle {
     public final float weight;
     /** Glow anchors on the outer face: [u, v (cape pixels), rgb, size, strength]. */
     public final float[][] glow;
+    /** The sheet's material where {@code material.png} says nothing: cloth unless set. */
+    public final int material;
 
-    private CapeStyle(int frames, float fps, float stiffness, float weight, float[][] glow) {
+    private CapeStyle(int frames, float fps, float stiffness, float weight, float[][] glow, int material) {
+        this.material = material;
         this.frames = frames;
         this.fps = fps;
         this.stiffness = stiffness;
@@ -36,6 +39,7 @@ public final class CapeStyle {
             glow[i++] = CosmeticModel.floats(e.getAsJsonArray());
         }
         return new CapeStyle(fr.get(0).getAsInt(), fr.get(1).getAsFloat(),
-                o.get("stiffness").getAsFloat(), o.get("weight").getAsFloat(), glow);
+                o.get("stiffness").getAsFloat(), o.get("weight").getAsFloat(), glow,
+                o.has("m") ? o.get("m").getAsInt() : CosmeticShader.CLOTH);
     }
 }

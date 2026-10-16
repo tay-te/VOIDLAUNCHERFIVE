@@ -99,6 +99,8 @@ public final class Showcase {
         boolean hud;
         /** Scene tick at which the local player's emote (if any) starts. */
         int emoteAt = 8;
+        /** The A/B measurement: cycles fixed-function, material shader, shader + bloom. */
+        boolean ab;
 
         Scene(String name) {
             this.name = name;
@@ -148,6 +150,9 @@ public final class Showcase {
         seq.frames = 48;
         seq.fps = 16;
         scenes.add(seq);
+        // At ten blocks, the distance a cosmetic has to read at in a fight.
+        scenes.add(lineup("far-back", 6000, 180, 180, 2.0, 10.5, 6));
+        scenes.add(lineup("far-back-night", 18000, 180, 180, 2.0, 10.5, 6));
         scenes.add(closeups("capes-close", 6000, new String[] {"cell-cape", "void-cape", "dusk-cape"}, true));
         scenes.add(closeups("capes-close-2", 6000, new String[] {"static-cape", "ring-cape", "origin-cape"}, true));
         scenes.add(closeups("back-close", 6000, new String[] {"ember-wings", "void-wings", "orbit-ring"}, false));
@@ -163,6 +168,11 @@ public final class Showcase {
         scenes.add(badges("badges", 6000));
         scenes.add(emoteCamera("emote-cam", 6000));
         scenes.add(crowd("perf-20", 6000));
+        // The same crowd, measured in alternating windows so machine load affects every mode alike.
+        Scene ab = crowd("perf-ab", 6000);
+        ab.ab = true;
+        ab.settle = AB_START + AB_WINDOWS * AB_WINDOW;
+        scenes.add(ab);
     }
 
     /** A row of the six outfits, facing {@code faceYaw}, the camera at {@code camZ} looking {@code camYaw}. */
@@ -353,6 +363,42 @@ public final class Showcase {
                 o[7] = sneak ? 1 : 0;
             }
         };
+    }
+
+    private static final int AB_START = 60, AB_WINDOW = 50, AB_WINDOWS = 12;
+    private static final String[] AB_MODES = {"fixed-function", "material shader", "shader + bloom high"};
+    private final double[] abSum = new double[3];
+    private final int[] abN = new int[3];
+
+    /** One tick of the A/B measurement (perf-ab). */
+    private void abTick() {
+        int t = sceneTick - AB_START;
+        if (t < 0 || t >= AB_WINDOWS * AB_WINDOW) {
+            return;
+        }
+        int w = t / AB_WINDOW, k = t % AB_WINDOW, mode = w % 3;
+        dev.voidpvp.client.state.LiveState live = dev.voidpvp.client.state.LiveState.get();
+        if (k == 0) {
+            dev.voidpvp.client.cosmetic.CosmeticsHub.devFixedFunction(mode == 0);
+            live.cosmeticsGlowLevel = mode == 2 ? 2 : 0;
+            live.cosmeticsGlow = mode == 2;
+        } else if (k == 10) {
+            dev.voidpvp.client.cosmetic.Budget.window();
+        } else if (k == AB_WINDOW - 1) {
+            double us = dev.voidpvp.client.cosmetic.Budget.window();
+            abSum[mode] += us;
+            abN[mode]++;
+            say(String.format(java.util.Locale.ROOT, "showcase: perf-ab window %d %s %.0f us/frame", w, AB_MODES[mode], us));
+            if (w == AB_WINDOWS - 1) {
+                for (int m = 0; m < 3; m++) {
+                    say(String.format(java.util.Locale.ROOT, "showcase: perf-ab mean %s %.0f us/frame over %d windows",
+                            AB_MODES[m], abSum[m] / Math.max(1, abN[m]), abN[m]));
+                }
+                dev.voidpvp.client.cosmetic.CosmeticsHub.devFixedFunction(false);
+                live.cosmeticsGlowLevel = 2;
+                live.cosmeticsGlow = true;
+            }
+        }
     }
 
     private static final String[] EMOTE_IDS = {"emote-wave", "emote-clap", "emote-bow", "emote-salute", "emote-shrug", "emote-sit"};
@@ -585,6 +631,9 @@ public final class Showcase {
                 }
                 sceneTick++;
                 place(mc);
+                if (scene.ab) {
+                    abTick();
+                }
                 if (sceneTick == scene.emoteAt && selfEmote != null) {
                     say("showcase: local emote " + selfEmote + " started=" + Emotes.get().playLocal(selfEmote));
                     selfEmote = null;

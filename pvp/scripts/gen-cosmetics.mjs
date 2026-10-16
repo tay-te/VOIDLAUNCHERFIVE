@@ -314,11 +314,26 @@ function boxUv(u, v, w, h, d) {
 
 const FACE_ALIASES = { north: 'n', south: 's', east: 'e', west: 'w', up: 'u', down: 'd' };
 
+/**
+ * Materials, in the runtime's index order (`CosmeticShader.MATERIALS`): how the material shader
+ * lights a part. A cube takes its own `material`, else its bone's, else the model's, else matte.
+ */
+const MATERIALS = ['matte', 'cloth', 'metal', 'glass', 'emissive'];
+
+function materialIndex(name, where) {
+  if (name == null) return null;
+  const i = MATERIALS.indexOf(name);
+  if (i < 0) problems.push(`${where}: unknown material ${name} (one of ${MATERIALS.join(', ')})`);
+  return i < 0 ? 0 : i;
+}
+
 function compileModel(id, src, tex, where) {
   const bones = src.bones ?? [];
   const index = new Map(bones.map((b, i) => [b.name, i]));
   if (index.size !== bones.length) problems.push(`${where}: duplicate bone names`);
+  const modelMat = materialIndex(src.material, where) ?? 0;
   const outBones = bones.map((b) => {
+    const boneMat = materialIndex(b.material, `${where}: ${b.name}`) ?? modelMat;
     const parent = b.parent == null ? -1 : index.get(b.parent);
     if (parent === undefined) problems.push(`${where}: bone ${b.name} has unknown parent ${b.parent}`);
     const cubes = (b.cubes ?? []).map((c, ci) => {
@@ -348,6 +363,8 @@ function compileModel(id, src, tex, where) {
       const out = { f: [x0, y0, z0, x1, y1, z1].map(r4), uv: f };
       if (c.inflate) out.i = r4(c.inflate);
       if (c.layer) out.l = c.layer; // "albedo" (default) or "emissive-only"
+      const m = materialIndex(c.material, `${where}: ${b.name} cube ${ci}`) ?? boneMat;
+      if (m) out.m = m;
       return out;
     });
     const o = { n: b.name, p: parent, pv: (b.pivot ?? [0, 0, 0]).map(r4), r: (b.rotation ?? [0, 0, 0]).map((d) => r4(d * DEG)) };
@@ -450,11 +467,18 @@ for (const item of ITEMS) {
   let frames = 1;
   const meta = files.includes('cape.json') ? JSON.parse(readFileSync(join(dir, 'cape.json'), 'utf8'))
     : files.includes('badge.json') ? JSON.parse(readFileSync(join(dir, 'badge.json'), 'utf8')) : null;
+  const pngSizes = {};
   for (const f of files.filter((f) => f.endsWith('.png'))) {
     const buf = readFileSync(join(dir, f));
     const [w, h] = pngSize(buf, `${where}/${f}`);
+    pngSizes[f] = [w, h];
     if (f === 'texture.png' || f === 'icon.png') texSize = [w, h];
     outputs.set(join(out, f), buf);
+  }
+  // A material mask is the texture's width and either one frame or the whole strip tall.
+  if (pngSizes['material.png'] && texSize) {
+    const [mw, mh] = pngSizes['material.png'];
+    if (mw !== texSize[0] || texSize[1] % mh !== 0) problems.push(`${where}/material.png: ${mw}x${mh} does not match texture.png ${texSize}`);
   }
   if (files.includes('model.json')) {
     const src = JSON.parse(readFileSync(join(dir, 'model.json'), 'utf8'));
@@ -474,10 +498,14 @@ for (const item of ITEMS) {
       const k = texSize[0] / 64;
       if (!Number.isInteger(k) || texSize[1] !== 32 * k * frames) problems.push(`${where}: cape texture ${texSize} is not 64x32 x ${frames} frames at an integer scale`);
     }
-    outputs.set(join(out, 'cape.json'), JSON.stringify({
+    const capeOut = {
       v: 1, frames: [frames, c.frames?.fps ?? 8], stiffness: c.stiffness ?? 0.9, weight: c.weight ?? 1,
       glow: (c.glow ?? []).map((g) => [r4(g.at[0]), r4(g.at[1]), parseInt(g.color.slice(1), 16), r4(g.size ?? 3), r4(g.strength ?? 0.4)]),
-    }));
+    };
+    // The sheet's material where material.png says nothing; cloth unless the cape says otherwise.
+    const cm = materialIndex(c.material ?? 'cloth', `${where}/cape.json`);
+    if (cm !== 1) capeOut.m = cm;
+    outputs.set(join(out, 'cape.json'), JSON.stringify(capeOut));
   }
   if (files.includes('badge.json')) {
     outputs.set(join(out, 'badge.json'), JSON.stringify({ v: 1, frames: [meta.frames?.count ?? 1, meta.frames?.fps ?? 4], glow: meta.glow ?? 0 }));

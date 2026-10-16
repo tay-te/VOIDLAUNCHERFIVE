@@ -179,8 +179,12 @@ final class CapeRenderer {
         if (ao.length < n) {
             ao = new float[n];
         }
+        aoCols = cloth.cols;
+        aoRows = cloth.rows;
         if (cloth.cols < HI_COLS) {
-            return; // low-resolution sheets are drawn unshaded
+            // Low-resolution sheets get no fold shading: clear what the last sheet left here.
+            java.util.Arrays.fill(ao, 0, n, 0f);
+            return;
         }
         for (int r = 0; r <= cloth.rows; r++) {
             for (int c = 0; c <= cloth.cols; c++) {
@@ -199,18 +203,36 @@ final class CapeRenderer {
 
     /** Per-vertex curvature from {@link #prepare}: > 0 in a fold seen from outside. */
     private float[] ao = new float[0];
+    private int aoCols = 1, aoRows = 1;
 
     private static int rgba(double shade) {
-        int v = (int) Math.round(Math.max(0, Math.min(1, shade)) * 255);
-        return v | v << 8 | v << 16 | 0xFF << 24;
+        return rgba(shade, shade, shade);
     }
 
+    private static int rgba(double r, double g, double b) {
+        int R = (int) Math.round(Math.max(0, Math.min(1, r)) * 255);
+        int G = (int) Math.round(Math.max(0, Math.min(1, g)) * 255);
+        int B = (int) Math.round(Math.max(0, Math.min(1, b)) * 255);
+        return R | G << 8 | B << 16 | 0xFF << 24;
+    }
+
+    /**
+     * The face: darker in its folds, and under the collar, where the head and shoulders shade it
+     * — so even a cape hanging still has a light-to-shadow structure instead of one flat value.
+     */
     private int outerShade(int i) {
-        return rgba(1.0 - Math.max(0, ao[i]) * 1.6 + Math.max(0, -ao[i]) * 0.25 - 0.06);
+        double v = (double) (i / (aoCols + 1)) / Math.max(1, aoRows);
+        double collar = 0.8 + 0.2 * Math.min(1, v / 0.28);
+        return rgba((1.0 - Math.max(0, ao[i]) * 1.6 + Math.max(0, -ao[i]) * 0.25 - 0.04) * collar);
     }
 
+    /**
+     * The lining: in the cape's own shadow, so darker than the face and shifted cool — a shadow
+     * takes the sky's colour, not grey — and darker still in its folds.
+     */
     private int innerShade(int i) {
-        return rgba((1.0 - Math.max(0, -ao[i]) * 1.6) * 0.72);
+        double v = (1.0 - Math.max(0, -ao[i]) * 1.6) * 0.7;
+        return rgba(v * 0.93, v * 0.9, v * 1.08);
     }
 
     /** Stores the model-space glow anchor positions with the cloth's mesh, for frames that reuse it. */

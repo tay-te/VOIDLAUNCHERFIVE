@@ -64,4 +64,36 @@ final class Mat4 {
     static float scaleOf(float[] m) {
         return (float) Math.sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
     }
+
+    /** dst = inverse of an affine m (upper 3x3 invertible, last row 0 0 0 1). False if singular. */
+    static boolean invertAffine(float[] m, float[] dst) {
+        float a = m[0], b = m[4], c = m[8], d = m[1], e = m[5], f = m[9], g = m[2], h = m[6], k = m[10];
+        float A = e * k - f * h, B = -(d * k - f * g), C = d * h - e * g;
+        float det = a * A + b * B + c * C;
+        if (Math.abs(det) < 1e-12f) {
+            return false;
+        }
+        float id = 1f / det;
+        float i00 = A * id, i01 = -(b * k - c * h) * id, i02 = (b * f - c * e) * id;
+        float i10 = B * id, i11 = (a * k - c * g) * id, i12 = -(a * f - c * d) * id;
+        float i20 = C * id, i21 = -(a * h - b * g) * id, i22 = (a * e - b * d) * id;
+        float tx = m[12], ty = m[13], tz = m[14];
+        dst[0] = i00;
+        dst[1] = i10;
+        dst[2] = i20;
+        dst[3] = 0;
+        dst[4] = i01;
+        dst[5] = i11;
+        dst[6] = i21;
+        dst[7] = 0;
+        dst[8] = i02;
+        dst[9] = i12;
+        dst[10] = i22;
+        dst[11] = 0;
+        dst[12] = -(i00 * tx + i01 * ty + i02 * tz);
+        dst[13] = -(i10 * tx + i11 * ty + i12 * tz);
+        dst[14] = -(i20 * tx + i21 * ty + i22 * tz);
+        dst[15] = 1;
+        return true;
+    }
 }

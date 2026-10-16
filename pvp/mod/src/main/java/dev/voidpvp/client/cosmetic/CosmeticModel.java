@@ -28,8 +28,11 @@ public final class CosmeticModel {
         /** Per face [u0, v0, u1, v1] in texels, or null for an undrawn face. */
         public final float[][] uv = new float[6][];
         public final boolean emissiveOnly;
+        /** {@link CosmeticShader} material index (matte, cloth, metal, glass, emissive). */
+        public final int material;
 
-        Cube(float[] f, float inflate, boolean emissiveOnly) {
+        Cube(float[] f, float inflate, boolean emissiveOnly, int material) {
+            this.material = material;
             x0 = f[0] - inflate;
             y0 = f[1] - inflate;
             z0 = f[2] - inflate;
@@ -110,6 +113,8 @@ public final class CosmeticModel {
     public final int[] roots;
     public final Glow[] glow;
     public final Map<String, Anim> anims;
+    /** Some cube is glass (the albedo pass blends) / emissive (the outfit feeds the bloom). */
+    public final boolean hasGlass, hasEmissiveMaterial;
 
     private CosmeticModel(String attach, int texW, int texH, int frames, float fps, String proc,
                           boolean helmetFit, Bone[] bones, Glow[] glow, Map<String, Anim> anims) {
@@ -123,6 +128,15 @@ public final class CosmeticModel {
         this.bones = bones;
         this.glow = glow;
         this.anims = anims;
+        boolean glass = false, emi = false;
+        for (Bone b : bones) {
+            for (Cube c : b.cubes) {
+                glass |= c.material == CosmeticShader.GLASS;
+                emi |= c.material == CosmeticShader.EMISSIVE;
+            }
+        }
+        this.hasGlass = glass;
+        this.hasEmissiveMaterial = emi;
         List<Integer> r = new ArrayList<Integer>();
         List<List<Integer>> kids = new ArrayList<List<Integer>>();
         for (int i = 0; i < bones.length; i++) {
@@ -189,7 +203,8 @@ public final class CosmeticModel {
                     JsonObject c = ce.getAsJsonObject();
                     Cube cube = new Cube(floats(c.getAsJsonArray("f")),
                             c.has("i") ? c.get("i").getAsFloat() : 0,
-                            c.has("l") && "emissive-only".equals(c.get("l").getAsString()));
+                            c.has("l") && "emissive-only".equals(c.get("l").getAsString()),
+                            c.has("m") ? c.get("m").getAsInt() : CosmeticShader.MATTE);
                     JsonObject uv = c.getAsJsonObject("uv");
                     for (int f = 0; f < 6; f++) {
                         if (uv.has(FACES[f])) {
