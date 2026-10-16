@@ -372,7 +372,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	if (e.sun.y > -0.12) {
 		// (review round 2: the billows' relief, strongest with the sun low and to the side)
 		float lat = 1.0 - smoothstep(0.35, 0.95, e.sun.y);
-		light += wcBodyLight(b, n, sigma, rd, e.sun, sunC, e, g) * shadow * (1.0 + 0.5 * clamp(b.relief, -0.6, 1.0) * lat);
+		light += wcBodyLight(b, n, sigma, rd, e.sun, sunC, e, g) * shadow * (1.0 + 0.5 * clamp(b.relief, -0.3, 1.0) * lat);
 		glint += g * shadow;
 	}
 	if (night > 0.0) {
@@ -417,7 +417,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		// over a lilac sky, away from the sun too (the low sun lights them from the side), as both reference packs' do;
 		// and their billows' relief shows)
 		float lift = (n.y > 0.5 ? 1.65 : (n.y < -0.5 ? 1.5 : 1.55 * mix(0.85, 1.1, b.hIn))) * mix(1.0, 1.2, sw * sw)
-			* mix(1.25, 0.78, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.15 * b.bill) * (1.0 + 0.35 * b.relief)
+			* mix(1.25, 0.78, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.15 * b.bill) * (1.0 + 0.35 * clamp(b.relief, -0.3, 1.0))
 			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
 		// (the shortfall is added in the floor's own warm light, not taken channel by channel: a per-channel max of a
 		// cool grey belly and a cream floor came out a mauve-brown mottle)

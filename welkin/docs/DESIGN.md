@@ -229,7 +229,7 @@ the staged wave-2 modules still describe the old rules; they are adapted as they
 - Light, fog, haze, mist and sky are smooth gradients with gentle banding: a ramp may gather softly at a few levels (`softBands`, the `SOFT_BANDS` option), but never in flat steps with edges.
 - No heavy or visible dither or checkerboard anywhere. The image's only screen noise is final's anti-banding: one 8-bit step of fixed triangular noise, which cannot be seen.
 - Pixel-crisp detail only where it looks good: the sun, the moon, the stars and the voxel clouds. Everything that covers the world (haze, mist, water fog, wet ground) is smooth and is worked out at the pixel's own point, not snapped to a texel grid. Puddle outlines sit on the block textures' own texel grid, like texture.
-- Clouds are voxel cells (12×12 near, doubling with distance, 4 blocks tall at a rim and up to 16 in 4-block tiers over a cloud's heart since the clouds rework), opaque, with hard edges and no dithered rims, lit as volumes inside that outline. No ray-marched soft volumes.
+- Clouds are voxel cells (12×12 near, doubling with distance, 4 blocks tall at a rim and up to 22 in 6-block tiers over a cloud's heart since review round 2), opaque, with hard edges and no dithered rims, lit as volumes inside that outline. No ray-marched soft volumes.
 - Directional sunlight and shadows are the foundation of the quality: the sun lights faces by how squarely they face it, smoothly, and the shadow map carries it near, the far shadows and the terrain's light past it.
 - Surface colours stay natural and real-world, with no glowing fantasy tints. Underground may be fantastical (glowworm light, coloured cave water).
 - Each palette is small and lives in a pack file, keyed by haze kind, season and time. Palettes are control points: the colour runs smoothly between them, and every weight on them changes smoothly with the hour and the weather.
@@ -1443,3 +1443,59 @@ readable god rays, a bloom halo round sunlit white flowers, no sun disc at sunse
   tint dominates the reflection); the countryside's morning air is cleaner and less pink than Euphoria's; midday clouds
   are softer but still flatter than Euphoria's; far rain curtains and the storm views were not re-checked this round;
   the seam above; the shadow chain at a low sun.
+
+### Review round 2: lit cloud bodies, brighter afternoons, a luminous midday, a peach sunset (2026-10-16)
+
+Review round 1 failed on the clouds (flat, grey-cored, sheared slabs), a dim 16:30, harsh shade, a too-clear midday air,
+a too-gold shore sunset, a hollow-ring pixel sun, navy water at dawn and night, an overdone rim streak by the sun and
+stepped far cloud shadows in storms. Test world A was held by a hung game for the whole round, so every run was in
+world B (gloam 677914b4), where the reference packs' plain, village and forest shots were taken too.
+
+- **Clouds (lib/clouds/shade.glsl, cells.glsl, env.glsl).** Debug views showed why the fair clouds read as slabs: at a
+  0.38 front the main deck's margin field barely left 0.5 (the puffs' span was their whole headroom), so every fair
+  cloud was all rim, four to eight blocks thick, its belly one even tone. The span is now 0.55 of the headroom, so a
+  cumulus is deep in its heart (its tiers rise, its belly shades toward its middle), and a tier is 6 blocks (`WC_TIER`,
+  was 4: up to 22 blocks). The high sheet no longer forms under a fair sky (its saturated puffs laid big, thin, grey
+  slabs over a clear sky, sheared long in perspective; it spreads ahead of a front as before). Inside the outline:
+  billows (`wcBillow`, smooth value noise at 96 and 40 blocks on the drifting frame, fading far off) thin and thicken a
+  belly a little, and as relief toward a sun from the side (`relief`: a lobe's sunward flank lit, its far flank a little
+  shaded, never a dark smudge) give the lobes form; a third, softest scattering octave and a lighter base view keep a
+  thick heart a light, soft grey; the many-times-scattered light leans forward (`msPhase`); toward the sun a sunset
+  belly keeps the low sun's scattered light, so it glows peach from its thin sunward edges into a darker heart; the
+  golden-hour floor sits further over the sky behind (bellies 1.5, tops 1.65), so sunset clouds glow pink and peach over
+  a lilac sky away from the sun too. A side's brow gradient runs by its height in the deck, not its column (no stacked
+  bands). The silver lining is a wider, gentler lobe capped at 0.55 past the shoulder (the hard white streak beside the
+  sun at forest 18:30). Far cloud shadows past about 1.4 rings follow the raw map's smooth field (lib/clouds/shadow.glsl
+  `wcShadowField`): no stepped, jagged bands on the far land and sea in storms. One cloud's shadow takes 0.48 of the sun,
+  not 0.58 (0.52 / 0.44 / 0.38 under one, two, three decks).
+- **Land light (lib/tone.glsl, lib/sky/build.glsl).** `LAND_FILL` 0.19 (was 0.14), `LAND_FILL_LOW` 0.14, the
+  afternoon's fill level falling linearly (0.72 + 0.28 s, was 0.53 + 0.47 s squared), the sunlit ground's warm bounce
+  0.32 (was 0.2), the morning and afternoon sun shoulder 0.3 (was 0.14), `LAND_CONTRAST` 1.12 (was 1.32), the brightest
+  faces eased 14 % under the shoulder's top (valley 08:00's diorite keeps its relief) and the dawn sun an eighth softer
+  than the evening's (was a quarter: dawn crowns take the sun). The open shade's colour and the aerial perspective are as
+  they were (not the SHADE or AIR prototypes). World B, cloud shadow apart: plain 16:30 land luma 103 (was 85; the
+  references 106 and 118), village 16:30 128 (was 84; 114), plain 12:00 p5 38 (was 32) with p95/p5 4.8 (was 6.0).
+- **Sky and air (lib/sky/luminous.glsl, lib/haze/volume.glsl, composite2).** Away from the golden hours the horizon band
+  is wider, paler and brighter (a luminous midday horizon; the golden hours keep round 1's coloured band). Over the
+  evening's last degrees the glow's gold turns peach (`PEACH`), so a shore sunset reads peach-rose under a lilac sky,
+  not cream-yellow. Round a low sun the glow stays under about 0.8 on screen, and the pixel sun's core and middle stand
+  past white (1.45 and 1.25 of their colour) in a solid warm white-gold, the rim only a little deeper, so the disc reads
+  as a solid sun in its glow and blooms from its heart (it was a saturated ring round a core the glow had matched). A
+  clear morning's dome takes a little more rose-gold; the volumetric haze warms sooner and its shaded part keeps some
+  warmth; the far haze takes a little cream (afternoon) or rose-peach (morning) whatever its kind's cool tint, least at
+  a full sunset.
+- **Water (lib/ws).** `WS_ABSORB` 0.17 (was 0.30): the shallows show their bed at dawn, noon and night (a bluish bed by
+  moonlight); the sky's mirror at a glance is Schlick's times 1.5, so a dawn lake takes more of the sky.
+- **Underground, the amber realm's "opening":** the before-phase-2 shot's grey-blue there is sky drawn where no
+  geometry was (the far side of the cavern not loaded), not an opening; since phase 2 sky pixels underground take the
+  cave's fog, so it is dark. Not a pack fault; a world or loading one.
+- **Cost** (RTX 4060, 1600x900, MEDIUM, world B; the other slot held by a hung game that used no GPU; 6-second
+  readings, the base the mean of two no-op reloads): plain 12:00 frame 7.2 ms, the clouds 0.66 ms, the heavy effects
+  0.62 ms; plain 18:30 7.7 ms, clouds 1.26, heavy effects 1.10; shore 16:30 9.1 ms, clouds 1.12, heavy effects 1.36 (was
+  1.66). The clouds stay over their 0.6 ms line at a low sun; the billows' two noise reads cost about what the deeper
+  hearts saved.
+- **Still open:** the clouds seen from 240 blocks under the main deck are mostly bellies, and still read flatter than
+  Euphoria's lit billows (the deck's height is Gloam's); a dawn lake's far water is bluer than the references' lilac;
+  the countryside's morning air is warmer but still far from Euphoria's pink fog (by intent less); the pale wedge at the
+  right of rain0 is the spray veil of a fall at the eye (by design); the clouds and, at a low sun facing it, the heavy
+  effects are over their lines.
