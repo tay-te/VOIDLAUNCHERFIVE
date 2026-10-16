@@ -342,7 +342,9 @@ public final class Settle {
 				int iz = z - Dirs.dz(out);
 				for (int y = lost[1] - 1; y <= lost[1] + 1 && !done; y++) {
 					if (!reached.contains(Draft.key(ix, y, iz)) || !wallOrPane(d, x, y, z) || !wallOrPane(d, x, y + 1, z) || d.isEmpty(x, y + 2, z)
-						|| !d.isEmpty(ix, y, iz) || !d.allowed(x + Dirs.dx(out), y, z + Dirs.dz(out))) {
+						|| !d.isEmpty(ix, y, iz) || !d.allowed(x + Dirs.dx(out), y, z + Dirs.dz(out))
+						|| used(at(d, x + Dirs.dx(out), y - 1, z + Dirs.dz(out))) || used(at(d, x + Dirs.dx(out), y, z + Dirs.dz(out)))) {
+						// (nor a door that lets out onto the top of a butt or a composter, or straight into one)
 						continue;
 					}
 					BlockState was0 = d.get(x, y, z);
@@ -1029,6 +1031,15 @@ public final class Settle {
 								things.add(new int[]{tx, ty, tz});
 							}
 						}
+					}
+					// (or the thing under it: a composter or a butt stood on to reach in)
+					BlockState under = d.get(Draft.keyX(n), Draft.keyY(n) - 1, Draft.keyZ(n));
+					int ux = Draft.keyX(n);
+					int uz = Draft.keyZ(n);
+					if (under != null && used(under) && !(under.getBlock() instanceof BedBlock) && (ux < body[0] || ux > body[2] || uz < body[1] || uz > body[3])
+						&& !reachedThing(d, after, new int[]{ux, Draft.keyY(n) - 1, uz})) {
+						any = true;
+						things.add(new int[]{ux, Draft.keyY(n) - 1, uz});
 					}
 					Block here = at(d, Draft.keyX(n), Draft.keyY(n), Draft.keyZ(n)).getBlock();
 					if (!any || here instanceof DoorBlock || here instanceof LadderBlock || here instanceof FenceGateBlock) {
