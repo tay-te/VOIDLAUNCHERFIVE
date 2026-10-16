@@ -83,6 +83,11 @@ public final class Adobe {
 		if (y + 3 >= d.maxHeight() && !lived) {
 			return;
 		}
+		// a rounded coping is a stair a full block high on the deck's side: over one course it stands two high, which
+		// nobody climbs from a bed at its foot, so a lived deck under it needs no second course (with it the parapet
+		// stood three high over the deck: the dry cottage's top storey read as a hollow cube, art review 2 item 7)
+		Mat roundStair = wall.has(Form.STAIRS) ? wall : accent.has(Form.STAIRS) ? accent : d.mat(Role.ROOF_TRIM).has(Form.STAIRS) ? d.mat(Role.ROOF_TRIM) : null;
+		boolean second = lived && !(kind == Parapet.ROUNDED && roundStair != null);
 		try (var s = d.stage(StageKind.ROOF)) {
 			for (Side side : Side.of(x0, z0, x1, z1)) {
 				for (int i = 0; i < side.length(); i++) {
@@ -94,7 +99,7 @@ public final class Adobe {
 					net.minecraft.world.level.block.state.BlockState laid = d.get(x, y + 1, z0w);
 					boolean coping = laid != null && (laid.getBlock() instanceof net.minecraft.world.level.block.SlabBlock
 						|| laid.getBlock() instanceof net.minecraft.world.level.block.StairBlock);
-					if (lived && (d.isAbsent(x, y + 1, z0w) || coping) && !ladderBeside(d, x, y, z0w)) {
+					if (second && (d.isAbsent(x, y + 1, z0w) || coping) && !ladderBeside(d, x, y, z0w)) {
 						// (a coping laid already by the roof is lifted a course)
 						// the second course, of the wall's own stuff
 						net.minecraft.world.level.block.state.BlockState under = d.get(x, y, z0w);
@@ -103,18 +108,18 @@ public final class Adobe {
 					}
 				}
 			}
-			int top = lived ? y + 1 : y;
+			int top = second ? y + 1 : y;
 			for (Side side : Side.of(x0, z0, x1, z1)) {
 				int mid = side.middle();
 				for (int i = 0; i < side.length(); i++) {
 					int x = side.x(i);
 					int z = side.z(i);
-					if (lived && !d.isSolid(x, top, z) && d.isSolid(x, y, z) && ladderBeside(d, x, y, z)) {
+					if (lived && (!second || !d.isSolid(x, top, z)) && d.isSolid(x, y, z) && ladderBeside(d, x, y, z)) {
 						// where a ladder comes up past the parapet it stays one course high, so one steps off over it
 						d.set(x, y + 1, z, cap.slab(SlabType.BOTTOM));
 						continue;
 					}
-					if (!d.isSolid(x, top, z) || lived && !d.isSolid(x, y, z)) {
+					if (!d.isSolid(x, top, z) || second && !d.isSolid(x, y, z)) {
 						continue;
 					}
 					boolean corner = side.isCorner(i);
