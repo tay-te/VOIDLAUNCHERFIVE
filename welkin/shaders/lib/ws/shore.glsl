@@ -82,12 +82,14 @@ vec3 wsShoreFoam(ivec2 p, vec2 uv, vec3 color) {
 	float bpp = blocksPerPixelAt(dist, gbufferProjection[1][1], viewHeight);
 	float swell = 0.5 + 0.5 * sin(frameTimeCounter * 0.9 + wsShoreValue((w.xz + vec2(cameraPositionInt.xz & 1023) + cameraPositionFract.xz) * 0.11, 9) * 6.2832);
 	float reach = mix(WS_SHORE_NEAR, WS_SHORE_FAR, swell);
-	// three rings of eight probes, 0.2, 0.5 and 0.9 blocks out: the nearest ring that meets the bank says how far off
-	// its edge is (between that ring and the one inside it)
-	float best = 1e9;
+	// three rings of eight probes, 0.2, 0.5 and 0.9 blocks out: the outer ring first (open water, most of it, stops
+	// there), then the inner ones; the nearest ring that meets the bank says how far off its edge is
 	const float radii[3] = float[3](0.2, 0.5, 0.9);
-	for (int ring = 0; ring < 3; ring++) {
+	float best = 1e9;
+	for (int k = 0; k < 3; k++) {
+		int ring = k == 0 ? 2 : k - 1;
 		float rpx = clamp(radii[ring] / bpp, 1.0, 48.0);
+		bool found = false;
 		for (int i = 0; i < 8; i++) {
 			float ang = (float(i) + 0.5 * float(ring & 1)) * 0.785398;
 			ivec2 q = p + ivec2(round(vec2(cos(ang), sin(ang)) * rpx));
@@ -106,10 +108,15 @@ vec3 wsShoreFoam(ivec2 p, vec2 uv, vec3 color) {
 			if (dy < -0.7 || dy > 2.0) {
 				continue;
 			}
+			found = true;
 			best = min(best, min(length(e.xz - w.xz), radii[ring]) - (ring == 0 ? 0.15 : 0.5 * (radii[ring] - radii[ring - 1])));
-		}
-		if (best < 1e8) {
 			break;
+		}
+		if (k == 0 && !found) {
+			return color; // no bank within the outer ring
+		}
+		if (k > 0 && found) {
+			break; // the innermost ring that meets it
 		}
 	}
 	if (best > reach) {
