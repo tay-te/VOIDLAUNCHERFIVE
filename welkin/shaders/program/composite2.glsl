@@ -336,7 +336,8 @@ void main() {
 			}
 			rays /= 16.0;
 			vec3 sunSideR = skyHazeHorizon(st.kind, true);
-			vec3 rayHue = mix(sunSideR / max(wdLuma(sunSideR), 1e-3), vec3(1.0), 0.2);
+			vec3 sunLR = skyLandDirect();
+			vec3 rayHue = mix(sunLR / max(wdLuma(sunLR), 1e-3), sunSideR / max(wdLuma(sunSideR), 1e-3), 0.3);
 			float h0 = sunW.y;
 			float gateR = smoothstep(-0.03, 0.05, h0) * mix(1.0, 0.3, smoothstep(0.3, 0.9, h0)) * (1.0 - skyNightStep());
 			float xr = rays * gateR * (WD_ALL == 1 ? 0.7 : 1.0) * (s.sky ? 0.55 : 1.0);

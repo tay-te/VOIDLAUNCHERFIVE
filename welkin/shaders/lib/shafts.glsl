@@ -97,13 +97,16 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky) {
 		// from the horizon to the mid afternoon (a trace at noon); a soft cap keeps the brightest beams under white.
 		float lobeS = 0.55 * airHg(mu, 0.86) + 0.45 * airHg(mu, 0.55);
 		vec3 sunSideS = skyHazeHorizon(kind, true);
-		vec3 colS = mix(sunSideS / max(dot(sunSideS, vec3(0.2126, 0.7152, 0.0722)), 1e-3), vec3(1.0), 0.15);
+		// (in the sun's own colour, amber at a low sun, a little of the sun-side horizon's)
+		vec3 sunL = skyLandDirect();
+		vec3 colS = mix(sunL / max(dot(sunL, vec3(0.2126, 0.7152, 0.0722)), 1e-3),
+			sunSideS / max(dot(sunSideS, vec3(0.2126, 0.7152, 0.0722)), 1e-3), 0.3);
 		float h = sunW.y;
 		float gateS = smoothstep(-0.02, 0.06, h) * mix(1.0, 0.18, smoothstep(0.25, 0.85, h));
 		// (the beams carry it: where the whole ray is sunlit, open air with nothing to cut it, it is only a glow, at
 		// less than half; where the ray is partly shadowed, beams and the gaps between them, it shows whole)
 		float openAir = smoothstep(0.7, 1.0, lit);
-		float xS = (WD_ALL == 1 ? 0.55 : 1.0) * 2.4 * (sky ? 0.8 : 1.0) * lobeS * gateS * lit * mix(1.0, 0.42, openAir)
+		float xS = (WD_ALL == 1 ? 0.55 : 1.0) * 2.4 * (sky ? 0.6 : 1.0) * lobeS * gateS * lit * mix(1.0, 0.3, openAir)
 			* (1.0 - skyNightStep());
 		return colS * (0.34 * (1.0 - exp(-xS / 0.34)));
 	}
