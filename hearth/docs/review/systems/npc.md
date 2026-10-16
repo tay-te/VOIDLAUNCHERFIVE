@@ -101,7 +101,8 @@ designed).
     stood: walking into a building site's scaffold column carries a mob up it (a climbable block and a push against
     it), and the pathfinder knows no way off the ring. Non-builders in or on scaffolding now keep low and come down.
 13. **Residents with no home** (the sim had not housed them) walked to the town's centre at night and stood there; they
-    doze on an inn bench now.
+    doze on a bench at an inn, tavern or hostel now (taverns and hostels did not count as inns at all), else on any
+    public bench.
 14. **Everyone got up at midnight.** The schedule's block changes at midnight (the evening's sleep to the morning's, or
     a new day's schedule), and the brain switched tasks: each sleeper stood up beside the bed and lay down again, and
     those resting without a bed set off "going to bed" anew. A night that goes on is no longer a change.
@@ -133,6 +134,7 @@ Runs after each round of fixes (each grows its own town; the sim is not determin
 | 3 | 192 souls | 44/48 | 47/48 | a child up a scaffold ring (fixed since) | 48/0/48, 0 dup | 20/23 |
 | 4 | 190 souls | 41/48 | 42/48 + 1 resting | the reeve (crier); two without a bed of their own (a shack and a cottage short of beds) set off again at midnight (fixed since); innkeepers and the jailer at work | 48/0/48, 0 dup | 21/23 |
 | 5 | 203 souls | 44/48 | 46/48 + 1 resting | two orphans on the town well (fixed since) | 48/0/48, 0 dup | 17/20 |
+| 6 | 223 souls | 44/48 | 46/48 | the reeve (crier); a homeless builder at the centre: the town's drinking places were a tavern and a hostel, which did not count as inns (fixed since) | 48/0/48, 0 dup | 16/16 |
 
 In every run the conversation opened, answered "Tell me about yourself" and closed on goodbye. In runs 2 and 3 the builders
 were at the yard (no site needed them when sampled); in runs 4 and 5 a builder was carrying scaffolding to a site
