@@ -210,6 +210,7 @@ public class FolkNight implements FabricClientGameTest {
 			int atWork = 0;
 			int asleep = 0;
 			StringBuilder detail = new StringBuilder();
+			StringBuilder builders = new StringBuilder();
 			for (Resident r : s.residents()) {
 				Folk f = NpcModule.embodiment().entityOf(r.id);
 				if (f == null || f.brain() == null) {
@@ -217,6 +218,9 @@ public class FolkNight implements FabricClientGameTest {
 				}
 				if (f.isSleeping()) {
 					asleep++;
+				}
+				if (r.job == dev.voidmc.hearth.api.JobType.BUILDER && builders.length() < 1500) {
+					builders.append(String.format(Locale.ROOT, "%n    - builder %s at %s: %s", f.folkName(), f.blockPosition().toShortString(), f.brain().describe()));
 				}
 				SimPlot p = r.work == Resident.NO_PLOT ? null : s.plot(r.work);
 				if (p == null) {
@@ -232,8 +236,8 @@ public class FolkNight implements FabricClientGameTest {
 						Math.sqrt(f.blockPosition().distSqr(p.spec().origin())), f.brain().describe()));
 				}
 			}
-			return String.format(Locale.ROOT, "time %d: %d with a work plot, %d at it, %d still asleep%s", server.overworld().getOverworldClockTime() % 24000,
-				workers, atWork, asleep, detail);
+			return String.format(Locale.ROOT, "time %d: %d with a work plot, %d at it, %d still asleep%s%s", server.overworld().getOverworldClockTime() % 24000,
+				workers, atWork, asleep, detail, builders);
 		});
 	}
 
