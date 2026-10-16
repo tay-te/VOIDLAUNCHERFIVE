@@ -50,6 +50,10 @@ uniform sampler2D colortex2;
 #define WU_depthtex0
 uniform sampler2D depthtex0;
 #endif
+#ifndef WU_colortex3
+#define WU_colortex3
+uniform sampler2D colortex3; // the water marks (> 0: water in front)
+#endif
 #ifdef DISTANT_HORIZONS
 #ifndef WU_dhDepthTex0
 #define WU_dhDepthTex0
@@ -106,7 +110,8 @@ void main() {
 #endif
 		vec4 glow = texture(colortex9, texcoord); // rgb the halo, a the frame's mean bright share (composite4)
 		// (review round 1: a lit surface that does not glow keeps its pale texels out of the halo, lib/bloom.glsl)
-		c = bloomApply(c, glow.rgb, emit, lend, glow.a, d < 1.0 && emit <= 0.0 ? 1.0 : 0.0);
+		c = bloomApply(c, glow.rgb, emit, lend, glow.a,
+			d < 1.0 && emit <= 0.0 && texelFetch(colortex3, p, 0).a <= 0.25 ? 1.0 : 0.0);
 	}
 #endif
 	// ---- end atmos

@@ -106,6 +106,10 @@ uniform sampler2D dhDepthTex0;
 #define WU_colortex6
 uniform sampler2D colortex6;
 #endif
+#ifndef WU_colortex3
+#define WU_colortex3
+uniform sampler2D colortex3; // the water marks (> 0: water in front)
+#endif
 #ifndef WU_gbufferProjectionInverse
 #define WU_gbufferProjectionInverse
 uniform mat4 gbufferProjectionInverse;
@@ -154,13 +158,14 @@ float bloomShareAt(ivec2 p, vec3 c) {
 }
 
 // Whether pixel p is a lit surface that does not glow (lib/bloom.glsl bloomHeadroom's `diffuse`): land, the far land,
-// water, creatures; not the sky, a cloud, or a glowing texel.
+// creatures; not the sky, a cloud, a glowing texel, or water (its glints, glitter and sky reflections are light, and
+// bloom as they did).
 float bloomDiffuseAt(ivec2 p, float emit) {
 	float d = texelFetch(depthtex0, p, 0).r;
 #ifdef DISTANT_HORIZONS
 	d = min(d, texelFetch(dhDepthTex0, p, 0).r);
 #endif
-	return d < 1.0 && emit <= 0.0 ? 1.0 : 0.0;
+	return d < 1.0 && emit <= 0.0 && texelFetch(colortex3, p, 0).a <= 0.25 ? 1.0 : 0.0;
 }
 #endif
 
