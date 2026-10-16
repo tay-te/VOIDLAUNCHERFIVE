@@ -24,6 +24,8 @@ void main() {
 #ifdef FRAGMENT_SHADER
 
 #include "/lib/depth.glsl"
+// the clouds rework (2026-10-16): this pass reads the raw map's smooth fields for the light inside the clouds
+#define WC_FIELD
 #include "/lib/clouds/shade.glsl"
 
 in vec2 texcoord;

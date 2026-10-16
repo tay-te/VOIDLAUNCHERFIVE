@@ -33,8 +33,11 @@ void main() {
 	}
 	CloudEnv e = welkinCloudEnv();
 	ivec2 cell = wcMapAnchor(lv, e) + ivec2(p.x, p.y - lv * WC_MAP) - WC_MAP_HALF;
-	ivec3 own = ivec3(texelFetch(colortex7, p, 0).rgb * 255.0 + 0.5);
-	int bits = own.x, rise = own.y;
+	vec4 rawOwn = texelFetch(colortex7, p, 0);
+	ivec2 own = ivec2(rawOwn.rg * 255.0 + 0.5);
+	// (the clouds rework: the raw R's bits 6..7 are the main deck's tiers, the raw G's bit 7 the low deck's tier)
+	int bits = own.x & 63, rise = own.y & 127;
+	int tiers = (own.y >> 7) | ((own.x >> 6) << 1);
 
 	// the edges, toward -x, +x, -z, +z
 	int deckEdges = 0, towerEdges = 0;
@@ -43,7 +46,7 @@ void main() {
 		ivec2 n = wcRawCell(cell + off, lv, e);
 		int missing = bits & 7 & ~n.x;
 		deckEdges |= ((missing & 1) << d) | (((missing >> 1) & 1) << (4 + d)) | (((missing >> 2) & 1) << (8 + d));
-		if (((bits & 8) != 0 && (n.x & 8) == 0) || rise > n.y) {
+		if (((bits & 8) != 0 && (n.x & 8) == 0) || rise > (n.y & 127)) {
 			towerEdges |= 1 << d;
 		}
 	}
@@ -56,7 +59,8 @@ void main() {
 			block |= wcRawCell(b0 + ivec2(i, j), lv, e).x & 15;
 		}
 	}
-	outMap = vec4(float(bits | (block << 8) | wcMapDensityBits(own.z)), float(rise), float(deckEdges), float(towerEdges)) / 65535.0;
+	outMap = vec4(float(bits | (block << 8) | wcMapDensityBits(rawOwn.ba)), float(rise | (tiers << 7)), float(deckEdges),
+		float(towerEdges)) / 65535.0;
 }
 
 #endif
