@@ -371,10 +371,13 @@ public final class Castle implements Archetype {
 		Curtain.run(d, m, man, p.lx, p.fz, p.rx, p.fz, Dirs.FRONT, p.ot, p.walkO, o);
 		Curtain.run(d, m, man, p.lx, p.fz, p.lx, p.cz, Dirs.LEFT, p.ot, p.walkO, o);
 		Curtain.run(d, m, man, p.rx, p.fz, p.rx, p.cz, Dirs.RIGHT, p.ot, p.walkO, o);
-		// steps up to the outer walk along the front curtain's court face
-		int sx = p.keepLeft ? p.gx1 + 2 : p.gx0 - 2;
-		Direction up = p.keepLeft ? Dirs.RIGHT : Dirs.LEFT;
-		Curtain.flight(d, m, sx, p.fz + p.ot, up, p.lo, p.walkO);
+		// steps up to the outer walk along the front curtain's court face, one each side of the gatehouse (its hall
+		// does not always join the two halves of the walk, and each half carries a corner tower reached only from it)
+		for (boolean keepSide : new boolean[]{false, true}) {
+			boolean right = p.keepLeft != keepSide;
+			int sx = right ? p.gx1 + 2 : p.gx0 - 2;
+			Curtain.flight(d, m, sx, p.fz + p.ot, right ? Dirs.RIGHT : Dirs.LEFT, p.lo, p.walkO);
+		}
 		Curtain.posts(d, p.lx, p.fz, p.rx, p.fz, Dirs.FRONT, p.ot, p.walkO, 7);
 	}
 
@@ -438,8 +441,10 @@ public final class Castle implements Archetype {
 			int cx = side < 0 ? p.lx : p.rx;
 			int top = Math.min(p.walkI + (tall ? 4 : 7), p.maxTop - 8);
 			boolean thisRound = round && !tall || man.round() >= 0.99;
+			// the palace runs across the back between them: their ground doors open into it, their walk doorways only
+			// onto the side walks (toward the palace they would open into its roof)
 			wallTower(d, m, man, cx, p.bz, 7, p.li, p.walkI, top, thisRound, cap(man, Role.INNER, !thisRound),
-				Set.of(side < 0 ? Dirs.RIGHT : Dirs.LEFT, Dirs.FRONT), Set.of(Dirs.BACK, side < 0 ? Dirs.LEFT : Dirs.RIGHT));
+				Set.of(Dirs.FRONT), Set.of(side < 0 ? Dirs.RIGHT : Dirs.LEFT, Dirs.FRONT), Set.of(Dirs.BACK, side < 0 ? Dirs.LEFT : Dirs.RIGHT));
 		}
 		// where the cross wall meets the side away from the keep
 		int cx = p.keepLeft ? p.rx : p.lx;
@@ -454,6 +459,16 @@ public final class Castle implements Archetype {
 	 */
 	static Tower wallTower(Draft d, Dress m, Manner man, int cx, int cz, int diam, int court, int walk, int top, boolean round, Manner.Cap cap,
 		Set<Direction> walkDoors, Set<Direction> field) {
+		return wallTower(d, m, man, cx, cz, diam, court, walk, top, round, cap, walkDoors, walkDoors, field);
+	}
+
+	/**
+	 * {@link #wallTower}, its doorways onto the walk toward {@code walkDoors} and its ground door toward one of
+	 * {@code courtDoors} (a tower whose side meets a range under the range's roof takes its ground door into the range
+	 * but no doorway at the walk's level, which would open into the range's roof space).
+	 */
+	static Tower wallTower(Draft d, Dress m, Manner man, int cx, int cz, int diam, int court, int walk, int top, boolean round, Manner.Cap cap,
+		Set<Direction> walkDoors, Set<Direction> courtDoors, Set<Direction> field) {
 		int r = diam / 2;
 		Tower t = round ? Tower.round(cx, cz, diam, court, top, cap) : Tower.square(cx - r, cz - r, cx + r, cz + r, court, top, cap);
 		t.footings(d, m);
@@ -469,7 +484,7 @@ public final class Castle implements Archetype {
 			t.doorToward(d, m, dir, walk, false);
 		}
 		// the ground floor's door on the court, in the angle of the walls
-		for (Direction courtSide : Tower.ordered(walkDoors)) {
+		for (Direction courtSide : Tower.ordered(courtDoors)) {
 			if (t.doorToward(d, m, courtSide, court, true) != null) {
 				break;
 			}

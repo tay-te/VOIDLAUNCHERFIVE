@@ -5,6 +5,7 @@ import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
+import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.civic.Sacred;
 import dev.voidmc.hearth.build.kit.light.Lighting;
@@ -19,11 +20,13 @@ import dev.voidmc.hearth.build.kit.noble.Mason;
 import dev.voidmc.hearth.build.kit.noble.Outline;
 import dev.voidmc.hearth.build.kit.noble.Range;
 import dev.voidmc.hearth.build.kit.noble.Turret;
+import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.terrain.Groundwork;
 import java.util.List;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * The castle of the warm coasts and the bayou: a fort of the gunpowder age (San Felipe, Fort de Chartres): a square of
@@ -69,6 +72,7 @@ final class Bastion {
 		}
 		Curtain.encloseInCampaigns(d, m, man, p.trace, p.thick, p.walk, Curtain.Opts.of(man), null, 0, 3);
 		try (var ph = d.campaign(3)) {
+			terrepleins(d, m, man, p);
 			gate(d, m, man, p);
 			garitas(d, m, man, p);
 		}
@@ -133,6 +137,51 @@ final class Bastion {
 		d.poi(PoiType.GUARD_POST, p.c + 2, p.y, p.z0 - 3, Dirs.FRONT);
 	}
 
+	/**
+	 * Each bastion filled to the walk as a terreplein, as the engineers built them: earth and rubble behind the faces, a
+	 * paved platform at the walk's level where the guns stood and the garita stands, joined to the flanks' walks; a
+	 * parapet along its edge where it falls to the parade ground in the gorge.
+	 */
+	private static void terrepleins(Draft d, Dress m, Manner man, Plan p) {
+		Paint rail = man.merlon() == Manner.Merlon.TIMBER || !m.dress.has(Form.WALL) ? m.frame.fence() : m.dress.wall();
+		BlockState air = Blocks.AIR.defaultBlockState();
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int z = p.trace.z0; z <= p.trace.z1; z++) {
+				for (int x = p.trace.x0; x <= p.trace.x1; x++) {
+					if (!terreplein(d, p, x, z)) {
+						continue;
+					}
+					for (int y = Math.min(d.site().ground(x, z), p.y - 1) - 1; y < p.walk - 1; y++) {
+						d.set(x, y, z, m.wall.full());
+					}
+					d.set(x, p.walk - 1, z, m.paving.full());
+					d.set(x, p.walk, z, air);
+					d.set(x, p.walk + 1, z, air);
+				}
+			}
+			for (int z = p.trace.z0; z <= p.trace.z1; z++) {
+				for (int x = p.trace.x0; x <= p.trace.x1; x++) {
+					if (!terreplein(d, p, x, z)) {
+						continue;
+					}
+					for (Direction dir : Dirs.HORIZONTAL) {
+						int nx = x + Dirs.dx(dir);
+						int nz = z + Dirs.dz(dir);
+						if (p.trace.inside(nx, nz) && !p.trace.wall(nx, nz, p.thick) && !terreplein(d, p, nx, nz)) {
+							d.set(x, p.walk, z, rail);
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/** Whether the cell is in a bastion behind its faces: inside the trace, off the wall, beyond the curtains' square. */
+	private static boolean terreplein(Draft d, Plan p, int x, int z) {
+		return p.trace.inside(x, z) && !p.trace.wall(x, z, p.thick) && Mason.inPlot(d, x, z) && (x < p.x0 || x > p.x1 || z < p.z0 || z > p.z1);
+	}
+
 	/** A garita on each bastion's point: a sentry box three across on the walk, slits out, open behind, its cap over it. */
 	private static void garitas(Draft d, Dress m, Manner man, Plan p) {
 		int[][] points = {{p.x0 - p.b, p.z0 - p.b, 1, 1}, {p.x1 + p.b, p.z0 - p.b, -1, 1}, {p.x0 - p.b, p.z1 + p.b, 1, -1},
@@ -149,8 +198,9 @@ final class Bastion {
 					for (int dz = -1; dz <= 1; dz++) {
 						d.set(cx + dx, y - 1, cz + dz, m.paving.full());
 						boolean ring = dx != 0 || dz != 0;
-						// open toward the bastion's gorge, the inward side
-						boolean open = dx == pt[2] && dz == 0 || dz == pt[3] && dx == 0;
+						// open toward the bastion's gorge, the inward side and its corner, so the box opens onto the
+						// terreplein however sharp the point leaves the walk beside it
+						boolean open = (dx == pt[2] || dx == 0) && (dz == pt[3] || dz == 0);
 						for (int yy = y; yy <= y + 1; yy++) {
 							if (!ring || open) {
 								d.set(cx + dx, yy, cz + dz, Blocks.AIR.defaultBlockState());

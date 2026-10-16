@@ -18,12 +18,14 @@ import dev.voidmc.hearth.build.kit.noble.Manner;
 import dev.voidmc.hearth.build.kit.noble.Mason;
 import dev.voidmc.hearth.build.kit.noble.Range;
 import dev.voidmc.hearth.build.kit.noble.Tower;
+import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.terrain.Groundwork;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.properties.Half;
+import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * The castle of the south, a rocca (Sirmione, Fénis, the Este castles; the Spanish alcázares and the Provençal castra
@@ -154,8 +156,12 @@ final class Rocca {
 								d.set(x, yy, z, m.footing.full());
 							}
 						}
+						// the outer course a slab, the inner a sloping stair: a batter of two, never a flight of two
+						// that climbs into the wall
 						if (d.isAbsent(x, topY, z)) {
-							d.set(x, topY, z, m.footing.stairsOrSlab(out.getOpposite(), Half.BOTTOM));
+							d.set(x, topY, z, k == 2 && m.footing.has(Form.SLAB)
+								? m.footing.slab(SlabType.BOTTOM)
+								: m.footing.stairsOrSlab(out.getOpposite(), Half.BOTTOM));
 						}
 					}
 				}
@@ -278,6 +284,11 @@ final class Rocca {
 		int d2 = (xm + x1) / 2;
 		r.door(d, m, Dirs.FRONT, d1, 0, 1, false);
 		r.door(d, m, Dirs.FRONT, d2, 0, 1, false);
+		// a door through the end wall on the corner tower's side, into the yard the side range leaves between the
+		// range, the curtain and the tower (the tower's ground door opens onto it)
+		Direction end = p.towerLeft ? Dirs.RIGHT : Dirs.LEFT;
+		int ez = p.bz0 + 2;
+		r.door(d, m, end, ez, 0, 1, false);
 		r.windows(d, m, man, 0, 2, 3, Dirs.BACK);
 		r.windows(d, m, man, 1, 3, 3, null);
 		int[] hearth = r.hearth(d, p.towerLeft ? x0 + 2 : x1 - 2, p.bz, 1, Dirs.FRONT);
@@ -289,7 +300,7 @@ final class Rocca {
 		Rooms.Room kitchen = Chambers.room(p.towerLeft ? g[0] : xm + 1, g[1], p.towerLeft ? xm - 1 : g[2], g[3], g[4], new int[]{d1, g[1]},
 			new int[]{p.towerLeft ? xm - 1 : xm + 1, g[1] + 1});
 		Rooms.Room stores = Chambers.room(p.towerLeft ? xm + 1 : g[0], g[1], p.towerLeft ? g[2] : xm - 1, g[3], g[4], new int[]{d2, g[1]},
-			new int[]{p.towerLeft ? xm + 1 : xm - 1, g[1] + 1}, new int[]{fx, p.bz - 2});
+			new int[]{p.towerLeft ? xm + 1 : xm - 1, g[1] + 1}, new int[]{fx, p.bz - 2}, new int[]{p.towerLeft ? g[2] : g[0], ez});
 		stores.keepArea(Math.min(fx, land), p.bz - 1, Math.max(fx, land), p.bz - 1);
 		kitchen.keepArea(Math.min(fx, land), p.bz - 1, Math.max(fx, land), p.bz - 1);
 		Chambers.furnish(d, kitchen, Rooms.Type.KITCHEN, 0);
