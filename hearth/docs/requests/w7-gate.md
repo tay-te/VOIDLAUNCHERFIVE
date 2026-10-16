@@ -10,6 +10,8 @@ folk-reach summary. See BUILDING_GUIDE.md §8 ("The audit gate", "The gate in th
 1. Merge the fix lanes; each has deleted its fixed entries from `hearth/gate/known/<category>.txt`.
 2. `./gradlew test -Phearth.gate=hard` (in a slot). Every failure is a `gate <rule>: ...` line on an archetype not
    listed for that rule: a regression of a lane, or an entry a lane deleted too early. Fix or restore the line.
+   (On this branch after the batch-1 merge and the re-tally: `test -Phearth.gate=hard` passes, 255 archetype/rule
+   failures all listed, 0 new, 0 stale.)
 3. Set `Gate.DEFAULT = Mode.HARD` in `hearth/src/main/java/dev/voidmc/hearth/build/check/Gate.java` and run the full
    build. From then on the lists only shrink.
 4. `structureAudit -Pmode=gate` for the wave's table (`build/audit/gate.md`); it exits 1 while any archetype fails a
