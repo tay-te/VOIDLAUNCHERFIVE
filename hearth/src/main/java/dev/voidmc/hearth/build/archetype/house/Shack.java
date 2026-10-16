@@ -84,7 +84,9 @@ public final class Shack implements Archetype {
 		boolean pl = d.partyLocalLeft();
 		boolean pr = d.partyLocalRight();
 		boolean flat = t.flat();
-		int front = dp >= 7 ? 1 : 0;
+		// (a mud shack keeps a row before its door for the reed shade even on a shallow plot: without it a dry lane's
+		// shack was a blank cube)
+		int front = dp >= 7 || flat && dp >= 6 ? 1 : 0;
 		int back = dp >= 8 ? 1 : 0;
 		int bz0 = front;
 		int bz1 = dp - 1 - back;
@@ -154,6 +156,16 @@ public final class Shack implements Archetype {
 			int deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], plate, false);
 			Adobe.parapet(d, tr[0], tr[1], tr[2], tr[3], deck - 1, Adobe.Parapet.ROUNDED);
 			top = deck + 2;
+			// a shade of poles and reed mats over the door, a jar beside it, a sill stone at the step (art review 2 item 7)
+			if (bz0 >= 1 && !raised) {
+				Adobe.doorShade(d, door, bz0, base);
+				for (int x : new int[]{door - 2, door + 2}) {
+					if (x >= 0 && x < w) {
+						Adobe.jar(d, x, base, bz0 - 1);
+					}
+				}
+				Adobe.threshold(d, door, base, bz0 - 1);
+			}
 		} else {
 			roof = roof(d, body, t);
 			Paint boards = StationHomes.boardAndBatten(d, d.mat(Role.DOOR), d.mat(Role.FRAME), Direction.Axis.X);
