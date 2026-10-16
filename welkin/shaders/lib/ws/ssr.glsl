@@ -80,7 +80,14 @@ vec3 wsWaterSSR(vec3 col, ivec2 px) {
 					lo = mid;
 				}
 			}
-			hit = wsScreenFromView(hi);
+			// a hit must be on the scene (not a step past an edge onto the land far behind) and above the water
+			// (nothing under the surface is mirrored)
+			vec3 hs = wsScreenFromView(hi);
+			float err = abs(wsSceneZ(hs.xy, res) - hi.z);
+			vec3 hw = mat3(gbufferModelViewInverse) * (hi - vp);
+			if (err < 0.6 + 0.015 * length(hi) && hw.y > -0.3) {
+				hit = hs;
+			}
 			break;
 		}
 		stepLen *= 1.45;

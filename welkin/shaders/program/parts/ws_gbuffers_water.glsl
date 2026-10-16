@@ -107,7 +107,14 @@ void main() {
 	// texture and derivatives before any branch
 	vec4 tex = texture(gtexture, texcoord);
 	float footprint = max(length(dFdx(eyePos)), length(dFdy(eyePos)));
-	vec3 nW = normalize(normalW);
+	// (the defects pass, 2026-10-16) a flowing-water quad folded to a triangle (two corners meeting) arrives with no
+	// normal, and lit as NaN it drew a black triangle (the eye in a fall saw one): it takes the face's own from the
+	// screen derivatives, turned toward the eye
+	vec3 nW = normalW;
+	vec3 nFace = cross(dFdx(eyePos), dFdy(eyePos));
+	nFace = dot(nFace, nFace) > 1e-20 ? normalize(nFace) : vec3(0.0, 1.0, 0.0);
+	nFace = dot(nFace, eyePos) > 0.0 ? -nFace : nFace;
+	nW = dot(nW, nW) > 0.25 && !any(isnan(nW)) ? normalize(nW) : nFace;
 	float dist = length(eyePos);
 	vec2 lm = lmcoord;
 	lm.x = welkinHandBlockLight(lm.x, dist);

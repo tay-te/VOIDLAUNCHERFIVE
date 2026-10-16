@@ -51,8 +51,10 @@ const float WS_SCATTER_SHALLOW = 0.42;
 const float WS_SCATTER_DEEP = 0.82;
 const float WS_SHORE_FOAM = 0.8;
 const float WS_GLITTER_SPREAD = 0.018;
-const float WS_GLITTER_SHARE = 0.32;
-const float WS_GLITTER_GAIN = 1.6;
+const float WS_GLITTER_SHARE = 0.22;
+const float WS_GLITTER_GAIN = 2.4;
+// and the soft glow the path lies in (times the direct light at its heart)
+const float WS_GLITTER_GLOW = 0.10;
 // Fresnel at normal incidence for water, glass and ice.
 const float WS_F0_WATER = 0.02;
 const float WS_F0_GLASS = 0.04;

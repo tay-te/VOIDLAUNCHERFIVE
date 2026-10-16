@@ -116,7 +116,7 @@ float wsFallFoam(vec3 wp, vec3 n, float t) {
 	float s = 0.6 * wsNoise1(v * 0.8 + h * 41.0, col) + 0.4 * wsNoise1(v * 2.1 + h * 13.0, col + 4099);
 	// wider bands of white across a few columns, so the foam forms ropes rather than pixel rain
 	float rope = wsNoise1(float(col) * 0.22, 9001);
-	return smoothstep(0.50, 0.80, s * (0.75 + 0.5 * rope));
+	return smoothstep(0.40, 0.72, s * (0.75 + 0.5 * rope));
 }
 
 // Foam on water that is still running (a fall's foot, eddies below a cascade): drifting patches in 1/16-block pixels,
@@ -150,7 +150,7 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	float fall = fromBelow ? 0.0 : 1.0 - smoothstep(0.93, 0.985, w.geoNormal.y);
 	float run = top && !fromBelow ? (1.0 - smoothstep(0.985, 0.9993, w.geoNormal.y)) * (1.0 - fall) : 0.0;
 	vec3 wp = wsWorldWrapped(w.playerPos);
-	float foam = fall > 0.0 ? wsFallFoam(wp, w.geoNormal, frameTimeCounter) * fall : 0.0;
+	float foam = fall > 0.0 ? max(wsFallFoam(wp, w.geoNormal, frameTimeCounter), 0.18) * fall : 0.0;
 	if (run > 0.0) {
 		vec2 down = w.geoNormal.xz / max(length(w.geoNormal.xz), 1e-4);
 		foam = max(foam, wsRunFoam(wp, down, frameTimeCounter) * run * 0.85);
@@ -180,7 +180,8 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 			float depthV = thick * abs(V.y);
 			float swell = 0.5 + 0.5 * sin(frameTimeCounter * 0.9 + wsNoise2(wp.xz * 0.11, 9) * 6.2832);
 			float reachV = mix(0.10, 0.34, swell) * mix(0.7, 1.4, clamp(energy, 0.0, 1.0));
-			float edge = 1.0 - smoothstep(0.0, reachV, depthV);
+			// (by the water's depth, and by the path through it at a steep bank, where the depth falls off at once)
+			float edge = max(1.0 - smoothstep(0.0, reachV, depthV), 1.0 - smoothstep(0.0, reachV * 3.0, thick));
 			vec2 fp = (floor(wp.xz * 16.0) + 0.5) / 16.0;
 			float pix = smoothstep(0.42, 0.72, 0.65 * wsNoise2(fp * 1.7 + frameTimeCounter * 0.07, 11)
 				+ 0.35 * wsNoise2(fp * 4.3 - frameTimeCounter * 0.05, 13));
@@ -191,8 +192,13 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	}
 	// a fall: a clear sheet, a little lighter than still water (air in it), the foam white and nearly opaque; foam
 	// lies on running water below it too
-	albedo = mix(albedo, albedo * 1.15 + vec3(0.04, 0.06, 0.07), fall);
+	albedo = mix(albedo, mix(albedo, vec3(0.70, 0.80, 0.86), 0.45), fall);
 	a = mix(a, max(a, WS_ALPHA_FALL), fall);
+	// a fall right at the eye (looking through it from behind, or standing in its spray): its pixels would be blocks
+	// wider than the screen's tenth, so the sheet goes over to a soft, bright veil of spray, the world dim behind it
+	float spray = fall * (1.0 - smoothstep(0.8, 3.0, dist));
+	foam = mix(foam, 0.45, spray);
+	a = mix(a, 0.8, spray);
 	albedo = mix(albedo, vec3(0.86, 0.91, 0.93), foam);
 	a = mix(a, 0.95, foam);
 	vec3 body = welkinLightCore(albedo, faceN, w.lm, 0.0, sunShare, wsSeasonAmbient(sea), w.reach, facing);
@@ -228,14 +234,17 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 		float th2 = 2.0 * max(1.0 - dot(R, L), 0.0);
 		float wide = WS_GLITTER_SPREAD * mix(0.5, 1.6, clamp(energy, 0.0, 1.3)) + 4.0 * var;
 		float lobe = exp(-th2 / wide) * smoothstep(-0.02, 0.06, L.y);
-		vec2 gc = floor(wp.xz * 8.0);
+		vec2 gc = floor(wp.xz * 16.0);
 		ivec2 gi = ivec2(gc);
 		float slot = floor(frameTimeCounter * 4.0 + wsHash1(gi.x, gi.y) * 8.0);
 		float h = wsHash1(gi.x * 31 + int(slot), gi.y * 17 - int(slot));
-		float share = WS_GLITTER_SHARE * lobe;
-		float spark = smoothstep(1.0 - share, 1.0 - share + 0.015, h);
-		float near = 1.0 - smoothstep(0.05, 0.16, w.footprint);
-		g += mix(share, spark, near) * WS_GLITTER_GAIN * mix(0.5, 1.0, F);
+		float share = WS_GLITTER_SHARE * lobe * lobe;
+		float spark = smoothstep(1.0 - share, 1.0 - share + 0.01, h) * lobe;
+		// sparkles where a cell is 1.5 to 6 screen pixels: nearer they would be blocks of white, farther they shimmer
+		float cellPx = 0.0625 / max(w.footprint, 1e-5);
+		float sparkle = smoothstep(1.2, 2.0, cellPx) * (1.0 - smoothstep(5.0, 9.0, cellPx));
+		float mean = share * lobe;
+		g += (mix(mean, spark, sparkle) * WS_GLITTER_GAIN + lobe * WS_GLITTER_GLOW) * mix(0.5, 1.0, F);
 		glint = skyDirectLight() * sunShare * (w.reach * g) * (1.0 - fall) * (1.0 - foam);
 	}
 
