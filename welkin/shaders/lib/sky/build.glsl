@@ -77,6 +77,13 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	// the golden hour: paler gold toward the low sun
 	z = mix(z, skyTone(SKY_GOLDEN_HAZE, z, 1.05), 0.20 * s.golden);
 	h = mix(h, skyTone(SKY_GOLDEN_HAZE, h, 1.0), 0.40 * s.golden);
+	// (review round 1) the last degrees of the sun and the first after it: the sky round the dome turns mauve
+	// overhead and rose low down (the light through the most air), so dawn and dusk read as rose and lilac, not as a
+	// greyed blue; the sun's own side keeps the dusk palette's glow over it
+	float lowRose = (1.0 - skySmooth(0.04, 0.24, sunW.y)) * skySmooth(-0.16, -0.02, sunW.y) * (1.0 - 0.8 * m.cloudStep)
+		* (1.0 - m.rainStep);
+	z = mix(z, skyTone(vec3(0.60, 0.50, 0.72), z, 1.0), 0.55 * lowRose);
+	h = mix(h, skyTone(vec3(0.96, 0.68, 0.70), h, 1.04), 0.45 * lowRose);
 	// the night: a moonlit navy under a clear moon, near black without one
 	float moonlit = skyLevel(m.night * s.moon * m.clear);
 	z = max(z, SKY_MOONLIT * moonlit);
