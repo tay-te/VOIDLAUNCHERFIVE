@@ -87,29 +87,42 @@ public final class Compiler {
 	}
 
 	private record Step(int x, int y, int z, BlockState state, @Nullable CompoundTag tag, StageKind stage, double support, int rank, int dist,
-		int sequence, int order) {
+		int sequence, int order, boolean works) {
 	}
 
 	public static BlueprintImpl compile(Draft d) {
+		return compile(d, true);
+	}
+
+	/** {@link #compile}, with or without the building site's works ({@link SiteWorks}; without: for tests and tools). */
+	public static BlueprintImpl compile(Draft d, boolean works) {
 		long t0 = System.nanoTime();
 		try {
-			return compileTimed(d, t0);
+			return compileTimed(d, t0, works);
 		} finally {
 			Timings.TOTAL.add(System.nanoTime() - t0);
 			Timings.COUNT.increment();
 		}
 	}
 
-	private static BlueprintImpl compileTimed(Draft d, long t0) {
+	private static BlueprintImpl compileTimed(Draft d, long t0, boolean works) {
 		Site site = d.site();
 		LocalFrame frame = d.frame();
 		// light what the archetype left dark (docs/LIVING_WORLD.md §1), before shapes are final and steps ordered (the pass
 		// resolves the archetype's shapes to read light through them; resolving again settles its own fixtures)
 		// (in a blueprint built in campaigns, what the pass adds goes in with what it hangs from or stands by: see campaigns)
+		// doors folk can use and guards on the edges they could step off (requests/w7-access.md), before the voids are
+		// sealed and the light pass reads where folk stand
+		dev.voidmc.hearth.build.kit.refine.Access.finish(d);
 		if (!d.lit()) {
 			// every family's sealed voids filled first (what no way of air reaches: a spire's hollow, the space between a
 			// vault and its roof), so the pass hangs no invisible light in them (requests/b-refine.md §1); idempotent for the
 			// archetypes that already end their drawing with it
+			dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+		}
+		// every bare chimney fire crowned, so a roof smokes and shows no flame (art review 2 §8 item 18)
+		// (a corbel may close a pocket of air against the roof: the voids are sealed again where any fire was crowned)
+		if (dev.voidmc.hearth.build.kit.Chimneys.crownBareFires(d) > 0) {
 			dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 		}
 		dev.voidmc.hearth.build.kit.light.AutoLighter.light(d);
@@ -134,12 +147,25 @@ public final class Compiler {
 			int dz = z - main[2];
 			int campaign = campaignOf == null ? 0 : campaignOf.get(Draft.key(x, y, z));
 			byCampaign.computeIfAbsent(campaign, k -> new EnumMap<>(StageKind.class)).computeIfAbsent(c.stage(), k -> new ArrayList<>())
-				.add(new Step(x, y, z, s, c.tag(), c.stage(), support, rank, dx * dx + dz * dz, c.sequence(), d.order(x, y, z)));
+				.add(new Step(x, y, z, s, c.tag(), c.stage(), support, rank, dx * dx + dz * dz, c.sequence(), d.order(x, y, z), false));
 			if (s.getBlock() instanceof BedBlock && s.getValue(BedBlock.PART) == BedPart.HEAD) {
 				beds[0]++;
 				pois.add(new Poi(PoiType.BED, frame.toWorld(x, y, z), frame.toWorld(s.getValue(BedBlock.FACING).getOpposite()), null));
 			}
 		});
+		// the building site's works (scaffolding, a fence, a pile of materials, a board roof): put up in an early stage and
+		// taken down in a later one, so the finished blueprint is the drawing (SiteWorks); taking down goes first in its
+		// stage, from the top
+		if (works && campaignOf == null) {
+			for (SiteWorks.Work w : SiteWorks.plan(d)) {
+				int dx = w.x() - main[0];
+				int dz = w.z() - main[2];
+				boolean down = w.state().isAir();
+				byCampaign.computeIfAbsent(0, k -> new EnumMap<>(StageKind.class)).computeIfAbsent(w.stage(), k -> new ArrayList<>())
+					.add(new Step(w.x(), w.y(), w.z(), w.state(), null, w.stage(), down ? -10000 - w.y() : w.y(), down ? 0 : rank(w.state()),
+						dx * dx + dz * dz, Integer.MAX_VALUE, Integer.MIN_VALUE, true));
+			}
+		}
 		for (Draft.LocalPoi p : d.pois()) {
 			pois.add(new Poi(p.type(), frame.toWorld(p.x(), p.y(), p.z()), frame.toWorld(p.facing()), p.job()));
 		}
@@ -233,8 +259,8 @@ public final class Compiler {
 					}
 				} else {
 					work[si]++;
-					// fill moved about the site costs work, not goods
-					if (s.stage != StageKind.EARTHWORK || !MaterialBill.earth(world.getBlock())) {
+					// fill moved about the site costs work, not goods; so do the site's works (the builder's own poles and boards)
+					if (!s.works && (s.stage != StageKind.EARTHWORK || !MaterialBill.earth(world.getBlock()))) {
 						MaterialBill.add(world, goods[si]);
 					}
 				}

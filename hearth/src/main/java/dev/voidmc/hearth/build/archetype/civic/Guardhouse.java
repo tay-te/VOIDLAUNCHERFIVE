@@ -20,6 +20,7 @@ import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Adobe;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
@@ -112,7 +113,16 @@ public final class Guardhouse implements Archetype {
 		Side front = body.side(0, Dirs.FRONT);
 		Integer door = fac.openings(Dirs.FRONT).stream().filter(o -> o.kind() == Facade.Kind.DOOR).map(Facade.Opening::at).findFirst().orElse(cx);
 		Openings.door(d, front, door, base, 1, new Openings.DoorOpts(true, true, true));
-		d.poi(PoiType.GUARD_POST, door + (door > x0 + 1 ? -1 : 1), base, z0 - 1, Dirs.FRONT);
+		// the mesa's guard: a portal on posts along the front
+		if (dev.voidmc.hearth.build.kit.civic.Pueblo.is(d)) {
+			dev.voidmc.hearth.build.kit.civic.Pueblo.portal(d, x0, x1, z0, base, Math.min(2, z0));
+		}
+		// (the guard stands by the door; on stilts, inside it, not on the landing's edge over the drop)
+		if (raised) {
+			d.poi(PoiType.GUARD_POST, door, base, z0 + 1, Dirs.FRONT);
+		} else {
+			d.poi(PoiType.GUARD_POST, door + (door > x0 + 1 ? -1 : 1), base, z0 - 1, Dirs.FRONT);
+		}
 		Signs.Arms arms = Signs.arms(d);
 		if (Openings.isWallBlock(d, door, fy + 1, body.rect(1)[1]) && body.rect(1)[1] - 1 >= -1) {
 			int bz = body.rect(1)[1] - 1;
@@ -147,6 +157,10 @@ public final class Guardhouse implements Archetype {
 				d.poi(PoiType.GUARD_POST, ix0, top.deck(), z0 + 1, Dirs.FRONT);
 				d.poi(PoiType.GUARD_POST, ix1, top.deck(), z0 + 1, Dirs.FRONT);
 				d.poi(PoiType.VIEWPOINT, cx, top.deck(), z1 - 1, Dirs.BACK);
+				// the watch's shade on the deck: an awning on four posts over a bench, at the back away from the hatch
+				if (!dev.voidmc.hearth.build.kit.civic.Pueblo.is(d)) {
+					Halls.roofTerrace(d, new int[]{x0, z1 - 4, x1, z1}, top.deck(), !stairLeft);
+				}
 			}
 		} else {
 			RoofForm form = t == Tradition.KARST ? RoofForm.PAGODA : h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HIP, RoofForm.HALF_HIP);
@@ -186,7 +200,7 @@ public final class Guardhouse implements Archetype {
 			room.keep(s0x, iz1 - 1);
 		}
 		// the grindstone, chests and barrels where the room allows; racks of arms set into the side walls
-		Rooms.furnish(d, room, Rooms.Type.WORKSHOP, 0, JobType.GUARD);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, room), Rooms.Type.WORKSHOP, 0, JobType.GUARD);
 		List<List<Object[]>> racks = List.of(
 			List.of(new Object[]{"minecraft:iron_sword", 1, 0}, new Object[]{"minecraft:crossbow", 1, 1}, new Object[]{"minecraft:shield", 1, 2}),
 			List.of(new Object[]{"minecraft:iron_helmet", 1, 0}, new Object[]{"minecraft:iron_chestplate", 1, 1}, new Object[]{"minecraft:iron_helmet", 1, 2}),
@@ -201,7 +215,7 @@ public final class Guardhouse implements Archetype {
 				}
 			}
 		}
-		Rooms.furnish(d, room, Rooms.Type.LIVING, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, room), Rooms.Type.LIVING, 0, JobType.NONE);
 		if (room.width() >= 3 && room.length() >= 3) {
 			Halls.lanternUnder(d, cx, base, (iz0 + iz1) / 2, 0);
 		}
@@ -223,7 +237,7 @@ public final class Guardhouse implements Archetype {
 				bunks.keep(rx + (rx == ix0 ? 1 : -1), iz0);
 			}
 		}
-		Rooms.furnish(d, bunks, Rooms.Type.BEDROOM, (up[2] - up[0] - 1) * (up[3] - up[1] - 1) >= 20 ? 3 : 2, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, bunks), Rooms.Type.BEDROOM, (up[2] - up[0] - 1) * (up[3] - up[1] - 1) >= 20 ? 3 : 2, JobType.NONE);
 
 		// --- the yard: a training dummy, a target, a butt of arrows
 		if (yard) {
@@ -258,7 +272,10 @@ public final class Guardhouse implements Archetype {
 		if (h.snow()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, door);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, skyline + 2);
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(skyline + 2, pueblo + 2));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 

@@ -471,10 +471,15 @@ public final class SimSettlement implements Settlement {
 	@Override
 	public void advanceConstruction(int plotId, int steps) {
 		SimPlot p = this.plots.get(plotId);
-		if (p == null || !p.isActive() || steps <= 0) {
+		if (p == null || !p.isActive() || steps < 0) {
 			return;
 		}
 		SimContext c = ctx();
+		if (steps == 0) {
+			// builders at work on it with no step finished just now (putting up scaffolding): abstract labour stays off it
+			p.lastEmbodiedAdvance = c.gameTime();
+			return;
+		}
 		PlotFacts f = facts(p);
 		long from = p.cursor();
 		int remaining = steps;

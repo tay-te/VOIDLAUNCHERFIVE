@@ -23,6 +23,7 @@ import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.List;
 import java.util.Set;
 import net.minecraft.core.Direction;
@@ -34,11 +35,11 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:landscape/well}: the village well, where folk meet. A stone curb round a deep shaft of water on a paved
- * square, and over it the culture's well head: posts carrying a little roof (a gable, a hip, a half-hip, a curved
- * karst roof) with a windlass and its crank, the bucket on a chain; a well sweep in the north and on the steppe (a tall
- * post, a long pole with a stone on its short arm and the bucket on its long one); a wrought-iron arch with a lantern
- * on its crown in the south; a domed kiosk on arched piers in the desert. Round it benches facing the curb, a trough,
- * flowers in pots and lanterns on posts at the corners.
+ * square, and over it the culture's well head: posts carrying a little roof (a gable, a hip, a half-hip, a curved karst
+ * roof) with a windlass and its crank; a well sweep in the north and on the steppe (a tall post, a long pole with a
+ * stone on its short arm); a wrought-iron arch with a lantern on its crown in the south; a domed kiosk on arched piers
+ * in the desert. The rope (a chain) hangs down the shaft, the bucket stands full on the paving by the curb. Round it
+ * benches facing the curb, a trough, flowers in pots and lanterns on posts at the corners.
  *
  * <p>Registers a MEETING_POINT at the curb and an entrance at the middle of the street front. Params: {@code head}
  * ({@code windlass}, {@code sweep}, {@code arch}, {@code kiosk}; default by culture).
@@ -110,11 +111,24 @@ public final class Well implements Archetype {
 			default -> windlass(d, h, cx, cz, r);
 		};
 		d.poi(PoiType.MEETING_POINT, cx, 0, cz - r - 1, Dirs.BACK);
+		// the rope hangs down the shaft; the bucket stands on the paving by the curb, where a hand can take it up
+		for (int[] b : new int[][]{{cx - r - 1, cz}, {cx + r + 1, cz}, {cx, cz + r + 1}}) {
+			if (b[0] >= 0 && b[0] < w && b[1] < dp && d.isEmpty(b[0], 0, b[1]) && d.isEmpty(b[0], 1, b[1]) && d.get(b[0], -1, b[1]) != null) {
+				int bx = b[0];
+				int bz = b[1];
+				d.inStage(StageKind.EXTERIOR, () -> d.set(bx, 0, bz, Blocks.WATER_CAULDRON.defaultBlockState()
+					.setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.LEVEL_CAULDRON, 2)));
+				break;
+			}
+		}
 		// benches facing the well, a trough, pots and a lamp
 		if (big) {
 			Furniture.chair(d, cx - 1, 0, 0 == cz - r - 2 ? 0 : cz - r - 2, Dirs.FRONT);
 			Furniture.chair(d, cx + 1, 0, cz - r - 2 < 0 ? 0 : cz - r - 2, Dirs.FRONT);
-			Furniture.chair(d, cx, 0, Math.min(dp - 1, cz + r + 2), Dirs.BACK);
+			if (cz + r + 2 < dp - 1) {
+				// (never on the plot's back row, where the ground may fall away behind it)
+				Furniture.chair(d, cx, 0, cz + r + 2, Dirs.BACK);
+			}
 			Garden.waterButt(d, Math.min(w - 1, cx + r + 2), 0, cz);
 			Garden.lampPost(d, 0, 0, 0, 2, null);
 			Garden.lampPost(d, w - 1, 0, dp - 1, 2, null);
@@ -127,6 +141,7 @@ public final class Well implements Archetype {
 			}
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roofY + 4));
+		Edges.guard(d);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
@@ -150,7 +165,7 @@ public final class Well implements Archetype {
 		};
 	}
 
-	/** Posts carrying a little roof in the culture's form, a windlass with its crank, the bucket on its chain. Returns the top. */
+	/** Posts carrying a little roof in the culture's form, a windlass with its crank, its rope down the shaft. Returns the top. */
 	private static int windlass(Draft d, Habits h, int cx, int cz, int r) {
 		RoofForm form = h.roof().pick(d.random(), RoofForm.GABLE, RoofForm.HIP, RoofForm.PAGODA, RoofForm.HALF_HIP);
 		int postH = 3;
@@ -172,15 +187,16 @@ public final class Well implements Archetype {
 					}
 				}
 			}
-			// the windlass: a beam across with a crank handle out past one post, the chain and the bucket
+			// the windlass: a beam across with a crank handle out past one post, the rope down the shaft
 			for (int x = cx - r; x <= cx + r; x++) {
 				d.set(x, postH, cz, d.mat(Role.BEAM).log(Direction.Axis.X));
 			}
 			if (cx + r + 1 < d.frontage()) {
 				d.set(cx + r + 1, postH, cz, Lamps.post(d));
 			}
-			d.set(cx, postH - 1, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
-			d.set(cx, postH - 2, cz, Blocks.CAULDRON.defaultBlockState());
+			for (int y = postH - 1; y >= 1; y--) {
+				d.set(cx, y, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
+			}
 		}
 		Roofs.Opts o = Roofs.Opts.of(d).withEaves(1, 1);
 		Roofs.Built b = Roofs.build(d, cx - r, cz - r, cx + r, cz + r, postH + 1, form, Direction.Axis.X, o, false, false);
@@ -212,15 +228,14 @@ public final class Well implements Archetype {
 				d.set(px + 1, pivot, pz, beam.log(Direction.Axis.X).orElse(beam.full()));
 				d.set(px + 1, pivot - 1, pz, Blocks.COBBLESTONE.defaultBlockState());
 			}
-			for (int y = pivot - 2; y >= 2; y--) {
+			for (int y = pivot - 2; y >= 1; y--) {
 				d.set(cx, y, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
 			}
-			d.set(cx, 1, cz, Blocks.CAULDRON.defaultBlockState());
 		}
 		return top + 1;
 	}
 
-	/** A wrought-iron arch over the curb with a lantern on its crown, the bucket on its chain. Returns the top. */
+	/** A wrought-iron arch over the curb with a lantern on its crown, the rope down the shaft. Returns the top. */
 	private static int arch(Draft d, int cx, int cz, int r) {
 		Mat stone = d.mat(Role.WALL_ACCENT);
 		try (var s = d.stage(StageKind.FRAME)) {
@@ -232,8 +247,9 @@ public final class Well implements Archetype {
 				d.set(x, 4, cz, Blocks.IRON_BARS.defaultBlockState());
 			}
 			d.set(cx, 5, cz, States.lantern(Lamps.lantern(d), false));
-			d.set(cx, 3, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
-			d.set(cx, 2, cz, Blocks.CAULDRON.defaultBlockState());
+			for (int y = 3; y >= 1; y--) {
+				d.set(cx, y, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
+			}
 		}
 		return 5;
 	}
@@ -242,7 +258,6 @@ public final class Well implements Archetype {
 	private static int kiosk(Draft d, int cx, int cz, int r) {
 		Mat stone = Manner.masonry(d);
 		Mat roof = d.mat(Role.ROOF);
-		Mat accent = Paving.inlay(d);
 		int x0 = cx - r - 1;
 		int x1 = cx + r + 1;
 		int z0 = cz - r - 1;
@@ -291,11 +306,13 @@ public final class Well implements Archetype {
 					}
 				}
 			}
-			d.set(cx, plate + 2, cz, accent.full());
+			// a finial of the stone itself (a glazed block alone on a crown reads as a gem)
+			d.set(cx, plate + 2, cz, stone.has(Form.WALL) ? stone.wall() : stone.slab(SlabType.BOTTOM));
 		}
 		try (var s = d.stage(StageKind.FRAME)) {
-			d.set(cx, plate - 1, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
-			d.set(cx, plate - 2, cz, Blocks.CAULDRON.defaultBlockState());
+			for (int y = plate - 1; y >= 1; y--) {
+				d.set(cx, y, cz, States.axis(Blocks.IRON_CHAIN, Direction.Axis.Y));
+			}
 		}
 		return plate + 2;
 	}

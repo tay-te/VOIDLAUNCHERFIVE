@@ -182,9 +182,15 @@ public final class Roads {
 				continue;
 			}
 			Identifier archetype = type == RoadEdge.STAIRS && ctx.catalogue.has(Archetypes.STAIRS) ? Archetypes.STAIRS : Archetypes.ROAD;
+			// a main street opens out as it comes into the square: its first stretch two wider (ART_REVIEW_2 item 16)
+			int wide = archetype == Archetypes.ROAD && e.role == RoadEdge.Role.ARM && e.kind == RoadKind.STREET && opensOut(ctx)
+				&& ctx.state.graph.node(e.from).kind() == RoadGraph.NodeKind.HEART ? MOUTH : 0;
 			int c = s;
 			while (true) {
 				int cEnd = Math.min(t - 1, c + maxLen);
+				if (c < wide && cEnd > wide) {
+					cEnd = wide;
+				}
 				if (cEnd <= c) {
 					// a single column between two other runs: the bridge or stair beside it already takes it in
 					boolean alone = e.runCount() == 1;
@@ -207,7 +213,11 @@ public final class Roads {
 				if (e.role == RoadEdge.Role.ARM && kind == RoadKind.STREET && ctx.distanceToHeart(d.xs()[c], d.zs()[c]) > ctx.coreRadius() * 1.9) {
 					kind = RoadKind.HIGHWAY;
 				}
-				out.add(Specs.road(ctx, archetype, pts, e.width, kind));
+				int width = e.width;
+				if (c < wide && e.width + 2 <= 7 && clear(ctx, pts, e.width + 2)) {
+					width = e.width + 2;
+				}
+				out.add(Specs.road(ctx, archetype, pts, width, kind, lamps(ctx, e, d.xs()[c], d.zs()[c])));
 				if (cEnd >= t - 1) {
 					break;
 				}
@@ -215,6 +225,47 @@ public final class Roads {
 			}
 		}
 		return upTo;
+	}
+
+	/** How far into a main street from the square its mouth runs wider. */
+	private static final int MOUTH = 14;
+
+	/**
+	 * Whether the town's main streets open out into its square: not a walled town's (its gates and wall line are laid
+	 * to the streets' width), nor a cliff, mountain or stilt town's (the face quarter and the boardwalks are laid round
+	 * the square's own streets).
+	 */
+	private static boolean opensOut(PlanContext ctx) {
+		return switch (ctx.state.layout) {
+			case CROSSROADS, LINEAR, RING, FARMSTEADS, HILLSIDE -> true;
+			default -> false;
+		};
+	}
+
+	/** Whether a corridor of this width along the points takes only open ground or road. */
+	private static boolean clear(PlanContext ctx, int[] pts, int width) {
+		boolean[] ok = {true};
+		Polyline.corridor(pts, width, (x, z) -> {
+			byte c = ctx.occ.get(x, z);
+			if (!(c == Cell.FREE || c == Cell.PLANNED_ROAD || Cell.isAccess(c)) || ctx.ground.isWater(x, z)) {
+				ok[0] = false;
+			}
+		});
+		return ok[0];
+	}
+
+	/**
+	 * How far apart the street lamps of a road plot stand ({@code lamps} param, 0 for none): the main streets in town and
+	 * the square every sixteen blocks, the lanes and alleys of a town's inner streets every twenty (ART_REVIEW_2 item 19).
+	 */
+	static int lamps(PlanContext ctx, RoadEdge e, int x, int z) {
+		double d = ctx.distanceToHeart(x, z);
+		double core = ctx.coreRadius();
+		return switch (e.role) {
+			case ARM, RING, SQUARE -> d < core * 1.5 ? 16 : 0;
+			case LANE, STAIR -> ctx.tier.ordinal() >= dev.voidmc.hearth.api.SettlementTier.TOWN.ordinal() && d < core ? 20 : 0;
+			default -> 0;
+		};
 	}
 
 	/** The first dense index of the edge where one of these plots' corridors takes a column something stands on, or -1. */

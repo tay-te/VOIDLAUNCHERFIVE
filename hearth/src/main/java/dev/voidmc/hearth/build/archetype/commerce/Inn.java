@@ -39,6 +39,7 @@ import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Habits.WallKind;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -52,16 +53,16 @@ import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
  * {@code hearth:commerce/inn}: the coaching inn on the main road, the broadest front in the street. Its range runs the
- * whole width of the plot, two storeys over a lofty ground floor (three where the plot is broad and the sky allows), the
- * ground floor in stone wherever the culture builds in timber, the upper storeys jettied over the street in the timber
- * towns; its long roof carries a cross gable over the tap-room door, dormers and a stack at each gable end. Through one
- * side of the ground floor runs the carriage arch (voussoirs and keystone, guard stones at its foot, the yard gates
- * folded back against the passage walls, a lantern in the vault) to the stable yard behind. Beside it the tap room shows
- * itself to the street: tall windows, a bay, the door under the inn's painted sign hung from a wrought bracket, its name
- * on a board along the front, a settle, casks of the house's ale and a barrel table outside; within, the bar with its
- * kegs racked behind, tables and chairs, the great hearth, lanterns overhead. Upstairs the guest rooms open off a
- * corridor along the back, the gallery looks over the yard, and the stable stands across the yard with its stalls,
- * hay, trough and loft.
+ * whole width of the plot, two storeys over a lofty ground floor (three where the plot is broad and the sky allows),
+ * the ground floor in stone wherever the culture builds in timber, the upper storeys jettied over the street in the
+ * timber towns; its long roof carries a cross gable over the tap-room door, dormers and a stack at each gable end.
+ * Through one side of the ground floor runs the carriage arch (voussoirs and keystone, guard stones at its foot, the
+ * yard gates folded back against the passage walls, a lantern in the vault) to the stable yard behind. Beside it the
+ * tap room shows itself to the street: tall windows, a bay, the door under the inn's painted sign hung from a wrought
+ * bracket, its name on a board along the front, a settle, casks of the house's ale and a barrel table outside; within,
+ * the bar with its kegs racked behind, tables and chairs, the great hearth, lanterns overhead. Upstairs the guest rooms
+ * open off a corridor along the back, the gallery looks over the yard, and the stable stands across the yard with its
+ * stalls, hay, trough and loft.
  *
  * <p>By culture: alpine and karst inns carry a balcony across the upper front; the dry south a flat roof with a shaded
  * terrace, latticed screens, a striped awning and a palm in the yard; the mediterranean a vine pergola over the front
@@ -361,12 +362,20 @@ public final class Inn implements Archetype {
 					DoorHingeSide.LEFT));
 				Rooms.Room room = new Rooms.Room(r[0], up[1] + 1, r[1], wallZ - 1, fk, 3);
 				room.keep(dx, wallZ - 1);
-				int want = r[1] - r[0] + 1 >= 3 ? 2 : 1;
+				// one bed to a guest room (two in a wide one), a clear floor before the door
+				int want = r[1] - r[0] + 1 >= 6 ? 2 : 1;
+				room.keepArea(dx, wallZ - 2, dx, wallZ - 1);
 				Rooms.furnish(d, room, Rooms.Type.BEDROOM, want, JobType.NONE);
+				clearBedsides(d, r[0], up[1] + 1, r[1], wallZ - 1, fk);
 				beds += want;
 				// a lantern hung inside the front window, so the guest rooms glow over the street at night
 				Halls.lanternUnder(d, dx, fk, up[1] + 1, 0);
 				}
+			// under a pitched roof the top floor gets a ceiling of boards over its rooms and corridor, the attic above it
+			// left as roof space (the partitions stop at three high: nothing to stand on up there)
+			if (k == top && roof != null) {
+				dev.voidmc.hearth.build.kit.Floors.boards(d, up[0] + 1, up[1] + 1, up[2] - 1, zM - 1, fk + 3);
+			}
 			// the corridor: a runner, lanterns
 			try (var s = d.stage(StageKind.INTERIOR)) {
 				for (int x = Math.min(rx0, sx); x <= Math.max(rx1, sx); x++) {
@@ -431,15 +440,40 @@ public final class Inn implements Archetype {
 		}
 
 		int yz0 = zM + 1;
-		if (arch && dp - 1 - yz0 >= 3) {
-			// a gallery along the yard side of the first floor, a door out to it from the corridor's end
+		boolean galleried = false;
+		if (arch && dp - 1 - yz0 >= 6) {
+			// a gallery along the yard side of the first floor, two boards deep with its rail on the outer one, over a yard
+			// deep enough to keep it clear of the stable's eave; a door out to it from the corridor (from its end, else the
+			// first free cell along it): no door, no gallery
 			Side upBack = body.side(1, Dirs.BACK);
-			Porches.balcony(d, upBack, upBack.column(1), upBack.column(upBack.last() - 1), fy);
 			int[] up = body.rect(1);
-			int gx = archRight ? up[2] - 1 : up[0] + 1;
-			if (Openings.isWallBlock(d, gx, fy, zM) && d.isEmpty(gx, fy, zM - 1)) {
-				d.inStage(StageKind.OPENINGS, () -> d.door(gx, fy, zM, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.BACK,
+			int gx = Integer.MIN_VALUE;
+			for (int k = 0; k <= up[2] - up[0] - 2 && gx == Integer.MIN_VALUE; k++) {
+				int x = archRight ? up[2] - 1 - k : up[0] + 1 + k;
+				if (Openings.isWallBlock(d, x, fy, zM) && Openings.isWallBlock(d, x, fy + 1, zM) && d.isEmpty(x, fy, zM - 1) && d.isEmpty(x, fy + 1, zM - 1)
+					&& d.isSolid(x, fy - 1, zM - 1)) {
+					gx = x;
+				}
+			}
+			if (gx != Integer.MIN_VALUE && gallery(d, upBack, fy)) {
+				galleried = true;
+				int galleryDoor = gx;
+				d.inStage(StageKind.OPENINGS, () -> d.door(galleryDoor, fy, zM, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.BACK,
 					DoorHingeSide.LEFT));
+			}
+		}
+		if (arch && !galleried && dp - 1 - yz0 >= 1) {
+			// no gallery: a pentice of the roof's stairs along the yard wall over the ground floor's windows
+			Side upBack = body.side(1, Dirs.BACK);
+			Mat pent = d.mat(Role.ROOF);
+			try (var s = d.stage(StageKind.ROOF)) {
+				for (int i = 1; i <= upBack.last() - 1; i++) {
+					int x = upBack.outX(i, 1);
+					int z = upBack.outZ(i, 1);
+					if (d.allowed(x, fy - 1, z) && d.isAbsent(x, fy - 1, z) && pent.has(Form.STAIRS)) {
+						d.set(x, fy - 1, z, pent.stairs(upBack.out().getOpposite(), Half.BOTTOM));
+					}
+				}
 			}
 		}
 		if (arch && dp - 1 - yz0 >= 1) {
@@ -457,7 +491,27 @@ public final class Inn implements Archetype {
 			Garden.snowBanks(d, x0, zF, x1, zM, base, doorX);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 3));
+		// rails on the balconies and the galleries, round the stairwells
+		Edges.guard(d);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	/** No rug beside a bed: the floor at a bed's sides stays bare boards, so the bed is got into from the floor. */
+	private static void clearBedsides(Draft d, int x0, int z0, int x1, int z1, int y) {
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				var st = d.get(x, y, z);
+				if (st == null || !(st.getBlock() instanceof net.minecraft.world.level.block.BedBlock)) {
+					continue;
+				}
+				for (Direction dir : Dirs.HORIZONTAL) {
+					var n = d.get(x + Dirs.dx(dir), y, z + Dirs.dz(dir));
+					if (n != null && n.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock) {
+						d.air(x + Dirs.dx(dir), y, z + Dirs.dz(dir));
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -709,11 +763,13 @@ public final class Inn implements Archetype {
 	static List<int[]> rooms(int x0, int x1) {
 		List<int[]> out = new ArrayList<>();
 		int n = x1 - x0 + 1;
-		int count = Math.max(1, (n + 1) / 4);
+		// rooms four wide where the range allows (a bed, a chest and a chair with room to turn round), the width shared
+		// out between them, a partition between each
+		int count = Math.max(1, (n + 1) / 5);
+		int inner = n - (count - 1);
 		int x = x0;
 		for (int k = 0; k < count; k++) {
-			int left = x1 - x + 1 - (count - k - 1) * 4;
-			int width = k == count - 1 ? x1 - x + 1 : Math.min(3, left);
+			int width = inner / count + (k < inner % count ? 1 : 0);
 			if (width < 2) {
 				break;
 			}
@@ -782,10 +838,56 @@ public final class Inn implements Archetype {
 			Garden.woodpile(d, farX, base, z0, Dirs.BACK, Math.min(2, depth - 3));
 		}
 		int ax = archRight ? px0 - 1 : px1 + 1;
-		if (d.isEmpty(ax, base, z0) && Groundwork.surface(d, ax, z0) == base) {
+		// (not where the stable leaves the yard one row wide: the butt would shut the way along it to the stalls)
+		boolean narrow = depth >= 4 && sx1 - sx0 >= 4 && Math.max(z0 + 1, z1 - 3) <= z0 + 1;
+		if (!narrow && d.isEmpty(ax, base, z0) && Groundwork.surface(d, ax, z0) == base) {
 			Garden.waterButt(d, ax, base, z0);
 		}
 		Garden.barrels(d, archRight ? x0 + 1 : x1 - 1, base, z0, archRight ? Dirs.RIGHT : Dirs.LEFT, 1);
+	}
+
+	/**
+	 * A gallery along {@code side} of an upper storey at floor {@code floorY}: a deck of boards two deep on brackets, a
+	 * railing along its outer edge and back to the wall at both ends, the VIEWPOINT on its inner row. Answers whether it
+	 * was built (every cell of it free).
+	 */
+	private static boolean gallery(Draft d, Side side, int floorY) {
+		Mat floor = d.mat(Role.FLOOR);
+		Mat rail = d.mat(Role.RAILING);
+		Mat beam = d.mat(Role.BEAM);
+		Paint railing = rail.has(Form.FENCE) ? rail.fence() : d.mat(Role.FENCE).fence();
+		int ia = 1;
+		int ib = side.last() - 1;
+		for (int i = ia - 1; i <= ib + 1; i++) {
+			for (int k = 1; k <= 2; k++) {
+				int x = side.outX(i, k);
+				int z = side.outZ(i, k);
+				if (!d.allowed(x, floorY, z) || !d.allowed(x, floorY - 1, z) || !d.isAbsent(x, floorY - 1, z) || !d.isAbsent(x, floorY, z)
+					|| !d.isAbsent(x, floorY + 1, z)) {
+					return false;
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int i = ia; i <= ib; i++) {
+				for (int k = 1; k <= 2; k++) {
+					d.set(side.outX(i, k), floorY - 1, side.outZ(i, k), floor.slab(SlabType.TOP));
+				}
+				d.set(side.outX(i, 2), floorY, side.outZ(i, 2), railing);
+				if (i == ia || i == ib || (i - ia) % 3 == 0) {
+					// a bracket under the outer board, back to the wall
+					d.set(side.outX(i, 1), floorY - 2, side.outZ(i, 1), beam.stairsOrSlab(side.out().getOpposite(), Half.TOP));
+				}
+			}
+			for (int i : new int[]{ia - 1, ib + 1}) {
+				for (int k = 1; k <= 2; k++) {
+					d.set(side.outX(i, k), floorY, side.outZ(i, k), railing);
+				}
+			}
+		}
+		int mid = (ia + ib) / 2;
+		d.poi(dev.voidmc.hearth.api.PoiType.VIEWPOINT, side.outX(mid, 1), floorY, side.outZ(mid, 1), side.out());
+		return true;
 	}
 
 	/**
@@ -828,7 +930,7 @@ public final class Inn implements Archetype {
 				}
 				boolean doorCell = (x - x0) % 3 == 1;
 				d.set(x, base + 1, z0, Blocks.AIR.defaultBlockState());
-				d.set(x, base, z0, doorCell && gateMat.has(Form.FENCE_GATE) ? gateMat.gate(Dirs.FRONT, false) : Paint.of(Blocks.AIR.defaultBlockState()));
+				d.set(x, base, z0, doorCell && gateMat.has(Form.FENCE_GATE) ? gateMat.gate(Dirs.FRONT, true) : Paint.of(Blocks.AIR.defaultBlockState()));
 			}
 		}
 		try (var s = d.stage(StageKind.INTERIOR)) {

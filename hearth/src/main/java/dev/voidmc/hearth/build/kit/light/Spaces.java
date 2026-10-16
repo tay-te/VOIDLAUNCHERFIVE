@@ -39,7 +39,7 @@ import net.minecraft.world.level.pathfinder.PathComputationType;
  *
  * <p>A cell is <b>roofed</b> when something solid or glazed stands anywhere above the head (leaves, plants, chains and
  * lanterns are not roofs). A roofed cell is <b>enclosed</b> when, looking out level at head height in each of the four
- * directions, a wall (any block a person cannot walk through: masonry, glass, a door, a fence) comes before the roof
+ * directions, a wall (any block a person cannot walk through but a lamp: masonry, glass, a door, a fence) comes before the roof
  * ends: a room. Porches, loggias, galleries round a court, arcades, the space under a stilt house and an open-sided
  * market floor are roofed but not enclosed.
  */
@@ -110,6 +110,38 @@ public final class Spaces {
 			}
 		}
 		walk(starts);
+	}
+
+	/**
+	 * Where folk stand in a draft as it is drawn so far, walked from its entrances and the street row before the plot
+	 * (as the light pass walks it): the plot and {@link LightRules#MARGIN} round it, from {@link LightRules#BELOW} under
+	 * the lowest drawn block (or the floor) to {@link LightRules#ABOVE} over the highest.
+	 */
+	public static Spaces of(dev.voidmc.hearth.build.draft.Draft d) {
+		return of(d, true);
+	}
+
+	/** {@link #of(dev.voidmc.hearth.build.draft.Draft)}, walked from the street row only when {@code fromEntrances} is false (as the invariant checks walk to a main entrance). */
+	public static Spaces of(dev.voidmc.hearth.build.draft.Draft d, boolean fromEntrances) {
+		int[] yr = {Integer.MAX_VALUE, Integer.MIN_VALUE};
+		d.forEach((x, y, z, c) -> {
+			yr[0] = Math.min(yr[0], y);
+			yr[1] = Math.max(yr[1], y);
+		});
+		if (yr[0] == Integer.MAX_VALUE) {
+			yr[0] = 0;
+			yr[1] = 0;
+		}
+		int m = LightRules.MARGIN;
+		Grid g = Grid.of(d, -m, Math.min(yr[0], 0) - LightRules.BELOW, -m, d.frontage() - 1 + m, Math.max(yr[1], 0) + LightRules.ABOVE, d.depth() - 1 + m);
+		java.util.List<BlockPos> starts = new java.util.ArrayList<>();
+		for (int[] e : fromEntrances ? d.entrances() : java.util.List.<int[]>of()) {
+			starts.add(new BlockPos(e[0], e[1], e[2]));
+		}
+		for (int x = 0; x < d.frontage(); x++) {
+			starts.add(new BlockPos(x, Math.max(d.site().ground(x, -1), 0), -1));
+		}
+		return new Spaces(g, starts);
 	}
 
 	/** Per grid cell: what its block is to someone walking ({@link #PASS}, {@link #STAND}, ...). */
@@ -220,9 +252,17 @@ public final class Spaces {
 		return !s.getCollisionShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO).isEmpty();
 	}
 
-	/** A block that closes a view at head height: anything a person cannot pass, and doors. */
+	/**
+	 * A block that closes a view at head height: anything a person cannot pass, and doors. A lantern or a candle does not
+	 * (a lamp set on a post or a rail beside an open strip leaves it open: the light pass puts them there itself, and
+	 * would otherwise turn the strip into a room it has already lit as a porch).
+	 */
 	private static boolean wallLike(BlockState s) {
-		return !passable(s) || s.getBlock() instanceof DoorBlock || s.getBlock() instanceof FenceGateBlock;
+		Block b = s.getBlock();
+		if (b instanceof LanternBlock || b instanceof net.minecraft.world.level.block.CandleBlock) {
+			return false;
+		}
+		return !passable(s) || b instanceof DoorBlock || b instanceof FenceGateBlock;
 	}
 
 	/** A stair, a bottom slab or a bed: walked up onto from beside it. */
@@ -242,6 +282,18 @@ public final class Spaces {
 			return true;
 		}
 		return (flagsAt(x, y - 1, z) & (STAND | CLIMB)) != 0;
+	}
+
+	/**
+	 * An open trapdoor at a position whose leaf stands on its {@code side} edge (an open trapdoor's leaf is on the edge
+	 * away from its facing): nobody passes that edge, though the cell itself can be stood in.
+	 */
+	private boolean leaf(int x, int y, int z, Direction side) {
+		if (!this.g.contains(x, y, z)) {
+			return false;
+		}
+		BlockState s = this.g.at(x, y, z);
+		return s.getBlock() instanceof TrapDoorBlock && s.getValue(TrapDoorBlock.OPEN) && s.getValue(TrapDoorBlock.FACING) == side.getOpposite();
 	}
 
 	/** Feet can be at this cell. */
@@ -349,10 +401,17 @@ public final class Spaces {
 				int[] s = g.step(d);
 				int nx = x + s[0];
 				int nz = z + s[2];
+				// the leaf of an open trapdoor on this side of the cell (a rail, a shutter against a wall) closes it
+				if (leaf(x, y, z, d) || leaf(x, y + 1, z, d)) {
+					continue;
+				}
 				for (int dy = 1; dy >= -3; dy--) {
 					int ny = y + dy;
 					if (dy == 1 && !headroom) {
 						continue;
+					}
+					if (leaf(nx, ny, nz, d.getOpposite()) || leaf(nx, ny + 1, nz, d.getOpposite())) {
+						break;
 					}
 					if (walkable(nx, ny, nz)) {
 						enqueue(q, nx, ny, nz);

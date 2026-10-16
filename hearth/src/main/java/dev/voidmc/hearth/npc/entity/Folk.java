@@ -230,6 +230,18 @@ public class Folk extends PathfinderMob {
 		}
 	}
 
+	/** Set while a builder works on scaffolding: nobody shoves them off it (server side, not saved). */
+	private boolean steady;
+
+	public void setSteady(boolean steady) {
+		this.steady = steady;
+	}
+
+	@Override
+	public boolean isPushable() {
+		return !this.steady && super.isPushable();
+	}
+
 	public long settlementId() {
 		return this.settlementId;
 	}

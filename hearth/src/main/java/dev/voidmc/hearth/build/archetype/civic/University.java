@@ -119,7 +119,7 @@ public final class University implements Archetype {
 				}
 			}
 			Side inner = Side.of(x0, z0, x1, z1, Dirs.BACK);
-			Details.arch(d, inner, inner.index(g - 1), 3, 0, Math.min(4, r.body.height(0) - 1), dress, null);
+			Details.arch(d, inner, Math.min(inner.index(g - 1), inner.index(g + 1)), 3, 0, Math.min(4, r.body.height(0) - 1), dress, null);
 			// the tower room over the passage: doors through its walls into the chambers either side, upstairs
 			for (int y = 0; y < 3; y++) {
 				for (int x = g - 1; x <= g + 1; x++) {

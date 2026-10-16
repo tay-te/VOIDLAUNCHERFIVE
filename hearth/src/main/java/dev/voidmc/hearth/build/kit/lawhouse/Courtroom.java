@@ -195,6 +195,10 @@ public final class Courtroom {
 					if (x == cx || !free(keep, taken, x, z) || keep.contains(key(x, z - 1)) || keep.contains(key(x, z + 1))) {
 						continue;
 					}
+					// benches four long at most, a gap between (a way through the rows, and no long ledge to clamber along)
+					if (Math.floorMod(Math.abs(x - cx) - 1, 5) == 4) {
+						continue;
+					}
 					if (!d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z)) {
 						continue;
 					}

@@ -16,7 +16,8 @@ npc/
   entity/          Folk (hearth:folk), FolkPose, FolkNavigation + ClimbNodeEvaluator, FolkSpots, FolkEntities
   place/           SettlementPlaces (POIs per plot), ResidentPlaces (one person's bed, home, work), PoiScanner, BlueprintSource
   routine/         Schedule (pure), Activity, Leisure, FolkBrain, Task, Tasks, Plans, RoutinePlacement
-  work/            WorkBehaviour + BuilderWork, FarmerWork, GuardWork, CraftWork, CounterWork, FieldWork, ChoresWork, ScaffoldLedger,
+  work/            WorkBehaviour + BuilderWork (with BuildSite, StepPlan, Staging, Walker, ScaffoldLedger), FarmerWork, GuardWork,
+                   CraftWork, CounterWork, FieldWork, ChoresWork,
                    Extraction + ExcavationWork (miners, quarriers, diggers), ForesterWork + Trees, HerderWork, BeekeeperWork,
                    FisherWork, DiggerWork, HaulerWork, OfficialWork (reeve, steward, judge, jailer), LordWork, ServiceWork
   service/         NpcServiceImpl (the api's NpcService), FolkHandleImpl, Perception (pure), Behaviours, BehaviourRunner, Escorts
@@ -44,9 +45,10 @@ a bigger head. The name and trade (or office: "Guard Captain", "Master Builder")
 Folk who are not residents (a caravan's traders and guards on the road, §15) are driven by a `Folk.Controller` instead of
 a brain; they have no record and right-clicking them gives a line of talk rather than the conversation screen.
 
-Movement: `FolkNavigation` opens and closes doors (vanilla `OpenDoorGoal`), climbs ladders, vines and scaffolding
-(`ClimbNodeEvaluator` adds straight up/down nodes on climbable blocks), and sneaks to drop through scaffolding when the
-path goes down. Sleeping uses the vanilla pose without touching the bed block (`Folk.sleepIn`), so a folk folded away
+Movement: `FolkNavigation` opens and closes doors (vanilla `OpenDoorGoal`), climbs ladders and vines
+(`ClimbNodeEvaluator` adds straight up/down nodes on climbable blocks; not scaffolding, whose paths up a site's ring and
+over the wall top no folk could follow: builders get about the ring by hand, §6), and sneaks to drop through
+scaffolding when the path goes down. Sleeping uses the vanilla pose without touching the bed block (`Folk.sleepIn`), so a folk folded away
 in bed never leaves a bed marked occupied. Step height 1.
 
 ## 2. Looks: skins composed on the client
@@ -160,30 +162,78 @@ at most once per 40 s per player), turn to face each other and take turns talkin
 
 ## 6. Trades, embodied
 
-**Builders** — the priority — follow this contract with the sim (ARCHITECTURE.md §5.3):
+**Builders** — the priority — work as a crew on a building site, under this contract with the sim (ARCHITECTURE.md
+§5.3):
 
-1. Pick a plot in state `BUILDING` that is not `waitingForGoods()` (builders spread over plots; a plot waiting for goods
-   is left until the sim starts its stage, which it does the moment the goods are in store).
-2. The next step is `(plot.stage(), plot.step())` of the plot's blueprint, **read again at the moment of placing**.
-3. Walk within reach (4.6 blocks eye to block centre); place it with flags `UPDATE_CLIENTS | UPDATE_KNOWN_SHAPE` (no
-   neighbour updates), load its block entity tag, swing, play the block's place sound and show particles. An **air
-   step** breaks what is there with particles. Steps that change nothing are passed over quickly (24 per tick at most).
-   A solid step is never placed into a player.
-4. Then `settlement.advanceConstruction(plot.id(), 1)`. A step where somebody's block entity stands (a chest, a sign, a
-   bed that is not the step's) is passed over, never built over: the same rule as the sim's applier.
+1. Pick a plot in state `BUILDING` that is not `waitingForGoods()` and has room in its crew. A site takes
+   `crewCap = clamp((sizeX + sizeZ + 3) / 7, 1, 10)` builders: two on a 7×7 cottage, three on an 11×9 house, five on a
+   20×14 hall, ten at most; claimants beyond the cap (by id) go elsewhere. A builder with no room in any crew carries
+   materials for the nearest site (store to site front and back, three loads; the crew there then need not fetch their
+   own), and with no site at all works at the yard.
+2. The plot's counter is `(plot.stage(), plot.step())`; a blueprint's steps are in build order, supports first. Builders
+   may place steps **ahead of the counter**: any step of the current stage still to do whose supports are in place — no
+   earlier step still to do at its own position or the one below it, nor, for a block with no body of its own (a torch,
+   a sign, a flower, a rail: no collision shape), beside or above it (`work/StepPlan`). The site (`work/BuildSite`, one
+   per plot, shared by its crew, kept in `TownState`) reads the stage from the counter on (at most every 6 ticks after a
+   placement, every 40 otherwise; 2 048 steps ahead, 640 still to do).
+3. Each builder takes the first such step no other builder has within reach (a step no place one can get to reaches is
+   passed for the next ready ones a while: up to four are tried, with at most eight paths asked for) and goes to the place — the ground, a floor
+   inside, a wall top, or the scaffolding at any height it stands to — from which the most such steps are within reach
+   (4.6 blocks eye to block centre), not where another builder works (2.5 blocks apart). There they place **every** such
+   step within reach, in order, one per `builder_step_ticks`, before moving along: flags `UPDATE_CLIENTS |
+   UPDATE_KNOWN_SHAPE | UPDATE_SKIP_ON_PLACE` (no neighbour updates), its block entity tag, a swing, the block's sound
+   and particles; an **air step** breaks what is there. A solid step is never placed into a player, and a step where
+   somebody's block entity stands (a chest, a sign, a bed that is not the step's) is passed, never built over: the same
+   rule as the sim's applier. Ground spots are tried with the pathfinder; a walk that comes no closer for three seconds
+   has failed, and the last block to the spot is a step across rather than more pathfinding. Builders open a shut
+   trapdoor their path goes through (the pathfinder counts trapdoors as open: the hatch over a loft ladder fitted by a
+   builder upstairs), work from the ground, a floor or the scaffolding but not balanced on a wall top or a ledge with a
+   drop on two sides, and step aside from a step they stand on. A builder whose walks fail six times in a row from the
+   same place (shut in) goes out by the front of the site: a last resort, after half a minute of getting nowhere.
+4. The site moves the counter over the done steps from the cursor — in the world as the blueprint wants them, placed by
+   a builder this stage, or passed — with one `settlement.advanceConstruction(plot.id(), n)`. So the counter, the
+   chunk ledgers and the chunk-load replay see exactly what a builder placing one step after another would have left; a
+   step placed ahead and then lost (the chunk folded back to its record) is placed again, as the same block, by the
+   applier or the next builder. While the counter stands still (the scaffolding going up) the site calls
+   `advanceConstruction(plot.id(), 0)` every 100 ticks while the crew has put a block or a scaffold in place in the last
+   15 s, which tells the sim the crew is at it so abstract labour keeps off the plot (a crew that has stalled is not
+   covered, so a stalled site never stalls the town).
 
-About one step per `builder_step_ticks` (30), as §4 says. When a stage begins, the builder first fetches materials from
-the work storage or the nearest store. **High work** (more than 3 blocks above the builder) is reached the way a
-player reaches it: the builder picks a clear column next to the work that no upcoming step of this or the next two
-stages will occupy, stands on it, jumps and places vanilla **scaffolding** underfoot at the top of each jump until it
-stands one below the work, works from the top while the steps stay in reach, then drops back through the scaffold
-(sneaking) and takes it down top first. Every scaffold block is recorded in the settlement's `ScaffoldLedger`
-(`HearthDataKey hearth:npc/scaffolds`, saved with the settlement) and removed when the builder finishes, is
-interrupted (activity change, threat) or folded away; anything left by a crash or an unloaded chunk is cleared the next
-time the settlement is embodied. Scaffolding is never a blueprint step. A builder who cannot reach the scaffold's column
-within 300 ticks gives up on it and does not try another scaffold for that step (it is placed from the ground, below). If a step stays out of reach after a fair try
-the builder places it from where it is (only from within 10 blocks) rather than stall the town. With nothing to build,
-builders work at their yard.
+**Scaffolding** (`work/Staging`). Work high on the shell (more than three blocks above the ring's lowest ground, within
+three blocks of the shell's faces) is reached from a **ring of vanilla scaffold columns** one block outside the
+building's shell (its walls, eaves and roof as the remaining stages will have them). Cells where a remaining step will
+put a block, or where something already stands above the floor (a neighbour's wall), are gaps; each column keeps two
+blocks of headroom below anything above it. The ring goes up **before it is needed**: as soon as the stage
+has high work on the shell, the site asks for it to the height from which the stage's highest course is at eye level
+(in lifts of four; and higher whenever a step is out of reach from anywhere one can stand but a ring column could reach
+it). Only the stretch of ring within reach of high work goes up (every column within five blocks of a high step still to
+do, and gaps of up to two columns between such stretches, so the crew can walk along the wall it works; once wanted a
+column stays wanted while the ring stands): round the whole shell while walls rise, along one wall for a gable or an
+upper floor's windows. The crew raises it a column at a time: a builder takes the nearest column still short that nobody else has, stands
+beside its foot and runs it up to the top, as clicking the foot of a vanilla scaffold column extends it at the top; one
+already up on the ring runs up the columns in reach of where they stand; once every short column is in hand the rest
+get on with the walls. A column nobody can get to the foot of is left short (a gap in the ring). A column of
+scaffolding is climbed inside and stood in at any height, as players use it, so the ring is a walkway at every level:
+builders climb in at a column's foot, rise inside it (0.15 a tick), walk along the ring at the height they stand
+(`work/Walker`; the pathfinder does not walk on scaffolding, so the ring is moved on by hand, round the other way past a
+gap or another builder, or down and round by the ground), and are not pushed by others while up there. Back at a
+column's foot they step out of it by hand before walking anywhere on the ground (no path starts inside scaffolding). The ring stays
+up through every stage with high work on the shell (walls, floors, roof) and comes down when the last of them is done:
+the crew pulls each column down from the ground (the whole column at once, as pulling the foot of vanilla scaffolding
+does), and every other column within an arm's length of where they stand before moving along. A ring whose work is
+done but which still stands (its crew called off to mend or shelter as the house was finished) is the first thing an
+idle builder sees to. Every block is in the settlement's `ScaffoldLedger` (`HearthDataKey hearth:npc/scaffolds`) under the site's own
+id; the ring comes down at once when the last of its crew folds away, and the housekeeping pass clears the scaffolding of
+a site nobody claims (after a minute) and of builders no longer embodied, so a town is never left wearing it. Scaffolding
+is never a blueprint step. A step nobody can reach from anywhere is placed leaning out from the nearest place one can
+stand (7 blocks), and after a fair try (10 s) from wherever the builder is (within 12 blocks; a builder further off goes
+to the front of the site first), rather than stall the town.
+
+When a stage begins, builders first fetch materials from the work storage or the nearest store (unless someone carries
+for the site, or they are up on the scaffolding). With nothing to build, a builder cuts an open working (quarry pit,
+mine, clay or sand pit, salt works) that nobody is at — a young town opens its quarry pit before it has a quarrier — as
+the trade that fits it would (`ExcavationWork`, one builder to a working; woods stay the foresters'); else they carry
+for a site whose crew is full, else work at their yard.
 
 **Farmers** farm the real crops of the town's farm plots (or the tilled earth round their job site): harvest ripe crops
 and re-sow at once (1 FOOD to the stockpile per harvest), sow bare farmland with the culture's crop (wheat, potatoes in

@@ -127,7 +127,11 @@ public final class PlanContext {
 
 	/** The core's radius the town will have at a population: what things meant to stay outside it plan for. */
 	public double coreRadiusAt(int population) {
-		return Math.max(18, this.state.layout.coreScale * Math.sqrt(Math.max(6, population)) * this.config.densityScale());
+		// a farmsteads settlement that has grown a village at its heart keeps that heart as compact as a crossroads town's
+		// (growth/Grid.nucleated, ART_REVIEW_2 item 1)
+		double scale = this.state.layout.expansive && population >= SettlementTier.VILLAGE.minPopulation ? dev.voidmc.hearth.plan.model.LayoutType.CROSSROADS.coreScale
+			: this.state.layout.coreScale;
+		return Math.max(18, scale * Math.sqrt(Math.max(6, population)) * this.config.densityScale());
 	}
 
 	/**

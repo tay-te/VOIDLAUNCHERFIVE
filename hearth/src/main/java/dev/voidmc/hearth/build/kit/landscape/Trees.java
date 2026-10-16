@@ -208,9 +208,14 @@ public final class Trees {
 		return Math.min(d.maxHeight() - 1, (int) Math.ceil(cy + rv));
 	}
 
+	/**
+	 * A spruce: the trunk stops two under the top, inside the last whorl, and the leader is two leaves standing on it
+	 * (a bare log tip over the foliage reads as a post, not a tree). Every whorl keeps the four cells round the trunk, so
+	 * the trunk never shows between tiers near the top.
+	 */
 	private static int conifer(Draft d, Reach r, int x, int y, int z, int h, Paint log, Paint leaf, long seed) {
 		int topY = y + h - 1;
-		for (int yy = y; yy < topY; yy++) {
+		for (int yy = y; yy <= topY - 2; yy++) {
 			logAt(d, r, x, yy, z, log);
 		}
 		int start = y + Math.max(1, h / 5);
@@ -222,13 +227,14 @@ public final class Trees {
 			for (int dz = -rad; dz <= rad; dz++) {
 				for (int dx = -rad; dx <= rad; dx++) {
 					double dd = Math.sqrt(dx * dx + dz * dz);
-					if (dd > rad + 0.3 || dd > rad - 0.4 && Noise.unit(seed, x + dx, yy, z + dz) < 0.35) {
+					if (dd > rad + 0.3 || dd > 1 && dd > rad - 0.4 && Noise.unit(seed, x + dx, yy, z + dz) < 0.35) {
 						continue;
 					}
 					leafAt(d, r, x + dx, yy, z + dz, leaf);
 				}
 			}
 		}
+		leafAt(d, r, x, topY - 1, z, leaf);
 		leafAt(d, r, x, topY, z, leaf);
 		return topY;
 	}
@@ -320,12 +326,20 @@ public final class Trees {
 		Paint log = logM.log(Direction.Axis.Y).orElse(logM.full());
 		Paint wood = logM.has(Form.WOOD) ? logM.wood() : log;
 		int trunk = Math.max(2, h / 2);
-		Direction kink = Dirs.HORIZONTAL[(int) (Noise.unit(seed, 2, 9, 4) * 4) % 4];
+		int k0 = (int) (Noise.unit(seed, 2, 9, 4) * 4) % 4;
+		Direction kink = null;
+		// the kink toward a side the tree may grow into (else the trunk goes straight up)
+		for (int i = 0; i < 4 && kink == null; i++) {
+			Direction c = Dirs.HORIZONTAL[(k0 + i) % 4];
+			if (r.ok(x + Dirs.dx(c), y + 1, z + Dirs.dz(c))) {
+				kink = c;
+			}
+		}
 		logAt(d, r, x, y, z, wood);
 		int tx = x;
 		int tz = z;
 		for (int k = 1; k < trunk; k++) {
-			if (k == 1) {
+			if (k == 1 && kink != null) {
 				logAt(d, r, x + Dirs.dx(kink), y + 1, z + Dirs.dz(kink), wood);
 				tx = x + Dirs.dx(kink);
 				tz = z + Dirs.dz(kink);

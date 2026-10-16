@@ -19,6 +19,7 @@ import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Halls;
 import dev.voidmc.hearth.build.kit.civic.Signs;
@@ -83,6 +84,11 @@ public final class Jail implements Archetype {
 		int h0 = 5;
 		int h1 = 4;
 		Body body = new Body(x0, z0, x1, z1, base, new int[]{h0, h1}, false, false);
+		// the mesa's lock-up steps its jailer's storey back from the front, the strong storey's roof a terrace before it
+		boolean pueblo = Pueblo.is(d);
+		if (pueblo) {
+			body.setback(1, Dirs.FRONT, z1 - z0 >= 8 ? 3 : 2);
+		}
 		d.body(x0, z0, x1, z1);
 		int plate = body.plateY();
 		d.eave(plate);
@@ -121,6 +127,10 @@ public final class Jail implements Archetype {
 			Details.arch(d, front, front.index(doorX), 1, base, 3, dress, dev.voidmc.hearth.build.draft.Paint.of(Blocks.IRON_BARS.defaultBlockState()));
 		}
 		Openings.door(d, front, doorX, base, 1, new Openings.DoorOpts(false, false, true));
+		// the mesa's lock-up: a portal on posts along its front, the jailer's shade
+		if (pueblo) {
+			Pueblo.portal(d, x0, x1, z0, base, 2);
+		}
 		for (int side : new int[]{-1, 1}) {
 			int lx = doorX + side;
 			if (z0 - 1 >= 0 && d.isEmpty(lx, base + 1, z0 - 1)) {
@@ -157,7 +167,18 @@ public final class Jail implements Archetype {
 		Storeys.Top top;
 		if (flat) {
 			top = Storeys.roof(d, body, RoofForm.FLAT, Direction.Axis.X, 1.0, 1);
-			Towers.battlements(d, x0, z0, x1, z1, top.deck());
+			int[] tr = body.topRect();
+			Towers.battlements(d, tr[0], tr[1], tr[2], tr[3], top.deck());
+			if (pueblo) {
+				// the terrace over the strong storey, a door out to it from the jailer's storey
+				dev.voidmc.hearth.build.kit.Roofs.terrace(d, body.rect(0), body.rect(1), fy - 1);
+				Openings.door(d, up, cx, fy, 1, new Openings.DoorOpts(false, false, false));
+				// a ramada over the jailer's door: the terrace's shade on posts
+				int[] ur = body.rect(1);
+				if (!Pueblo.portal(d, ur[0] + 1, ur[2] - 1, ur[1], fy, 2)) {
+					Pueblo.portal(d, ur[0] + 1, ur[2] - 1, ur[1], fy, 1);
+				}
+			}
 		} else {
 			RoofForm form = t == Tradition.KARST ? RoofForm.PAGODA : RoofForm.HIP;
 			top = Storeys.roof(d, body, form, Direction.Axis.X, 1.0, 2);
@@ -254,7 +275,7 @@ public final class Jail implements Archetype {
 				}
 			}
 		}
-		Rooms.furnish(d, guard, Rooms.Type.LIVING, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, guard), Rooms.Type.LIVING, 0, JobType.NONE);
 		Lighting.room(d, guard);
 
 		// --- upstairs: the jailer's room and the turnkey's bunk, a hearth with its chimney
@@ -263,6 +284,10 @@ public final class Jail implements Archetype {
 		quarters.keep(sx, iz0 + h0);
 		quarters.keepArea(sx, iz0, sx, iz0 + h0 - 1);
 		quarters.keepArea(sx + (stairLeft ? 1 : -1), iz0 + h0 - 3, sx + (stairLeft ? 1 : -1), iz0 + h0 - 1);
+		if (pueblo) {
+			// the way in from the terrace door
+			quarters.keepArea(cx, ur[1] + 1, cx, ur[1] + 2);
+		}
 		int hx = stairLeft ? ur[2] - 1 : ur[0] + 1;
 		int hz = (ur[1] + ur[3]) / 2;
 		if (top.roof() != null && quarters.claim(hx, hz)) {
@@ -279,7 +304,7 @@ public final class Jail implements Archetype {
 				}
 			}
 		}
-		Rooms.furnish(d, quarters, Rooms.Type.BEDROOM, 2, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, quarters), Rooms.Type.BEDROOM, 2, JobType.NONE);
 		Lighting.room(d, quarters);
 
 		Grounds.flight(d, doorX - 1, doorX + 1, z0 - 1, base, base);
@@ -288,6 +313,9 @@ public final class Jail implements Archetype {
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, x0, z0, x1, z1, base, doorX);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxH - 1, skyline + 2));
+		// the mesa's pueblo: a stepped room over the flat roof, a ladder up to its terrace
+		int crown = pueblo ? Pueblo.crown(d, body.topRect()) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(maxH - 1, skyline + 2), crown + 2));
 	}
 }

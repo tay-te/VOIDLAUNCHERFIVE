@@ -245,6 +245,12 @@ public final class Bohemian {
 		t.openings(d, yb + 1, yc - yb - 2, Tower.Opening.BIFORA, true, null);
 		t.floor(d, yb, dress.full());
 		t.hollow(d, yb + 1, yc - 1);
+		// a balustrade in the lights' feet: the ringer leans out over the square, he does not step out onto the roofs
+		Halls.sills(d, t.x0, t.z0, t.x1, t.z1, yb + 1, Halls.rail(d, dress));
+		if (ladder != null) {
+			// landings up the shaft, the ladder through a hatch in each (no climb past an open drop)
+			Halls.landings(d, t.x0 + 1, t.z0 + 1, t.x1 - 1, t.z1 - 1, base - 1, yb, ladder[0], ladder[1], d.mat(Role.FLOOR).full());
+		}
 		t.band(d, yc - 1);
 		t.cornice(d, yc);
 		t.bells(d, yc - 1, d.mat(Role.BEAM).log(Direction.Axis.X), Direction.Axis.X);

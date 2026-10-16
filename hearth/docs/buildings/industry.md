@@ -70,7 +70,9 @@ those whenever the build module is present.
   under a reed shade; **junk** (karst, tropics), a broad shallow hull with staging on both sides. On dry ground the ways
   stop at the plot's end.
 - **Caravan yard.** A roofed gateway with a hanging sign, a walled or fenced yard; a warehouse with cart doors, barrel
-  racks and a hoist; pens with troughs, hay and a lit shelter; the trader's booth with lectern and counter; wagons
+  racks and a hoist; pens with troughs, hay and a lit shelter (fenced on the plot's edge too, a gate from the yard into
+  each run and a gate through each divider, the shelter a block higher where the land beyond rises beside it); the
+  trader's booth (a lintel over its door where the culture's doors carry a lattice transom) with lectern and counter; wagons
   under canvas tilts or loaded open; a hitching rail with `HITCHING_POST`s.
 
 ## Points of interest
