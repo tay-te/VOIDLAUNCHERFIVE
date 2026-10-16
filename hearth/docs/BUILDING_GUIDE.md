@@ -117,6 +117,16 @@ from where the diggers come down, a drift slice by slice behind its props), give
 `try (var o = d.order(key)) { ... }`: in `CLEAR` and `EARTHWORK` steps go by key first (unkeyed first), then by the
 usual rule.
 
+**The site's works.** A building stalled on goods between stages must read as a building site, not a ruin. The
+compiler adds the works to every ordinary building (walls and a roof, not built in campaigns; `blueprint/SiteWorks`):
+a hurdle fence on the plot edge, open at the doors and paths, and a pile of hewn timbers and wall stone by the door
+(up in `FOUNDATION`, down in `EXTERIOR`); scaffold poles a block out from the walls at the corners and every third
+block, with putlogs and a lift of boards every three blocks up (up with `FRAME` or `WALLS`, down in `OPENINGS`), a
+flying scaffold over the street from y 3 in front of a house built to its frontage; a board deck over the wall heads
+(down as the roof goes on). They stand only where the finished building has nothing, so the finished blueprint is the
+drawing; a reader of steps takes the last step at a position. Do not draw them yourself; leave a plot's yard free if
+you want its pile and fence to show. Look with `blueprintPreview ... -Pterrain="flat;stage=floors"`.
+
 **Campaigns.** A building raised over months, or a working dug over weeks, is built in **campaigns**: sections done one
 after another, each a whole run of stages, so the work half done looks like what it is and no single stage asks for
 more goods than a town can store. A castle's terraces and keep, then its inner curtain, its towers, its palace...; a
@@ -259,8 +269,16 @@ Fields: `gable`, `hip`, `halfHip`, `shed`, `saltbox`, `cone`, `dome`, `flared`; 
 and `Profile.broken(steep, shallow, knee)`; `field.max(other)` merges. A `Roof` answers `covers(x, z)`,
 `surfaceY(x, z)`, `bottomY(x, z)` (what a wall fills up to) and `ridgeY`. `Roofs.flat(d, ...)` makes a deck with a
 parapet, spouts and vigas; `Roofs.terrace(d, outer, inner, deckY)` the roof of a lower storey round a set-back upper
-one. `Chimneys.stack(d, x, z, fromY, roof, minTop)` runs a chimney up through the roof with a corbel and a lit campfire
-(smoke) on top. Thatched styles (`habits.roof.thatch`) get their roof and ridge from the `thatch` role automatically.
+one. `Chimneys.stack(d, x, z, fromY, roof, minTop)` runs a chimney up through the roof to a smoking pot:
+`Chimneys.pot(d, x, y, z, stone)` puts the lit campfire in a crown of corbels (upside-down stairs of the stack's stone,
+backs to the fire) under a slab cap, so the roof smokes and shows no flame or light (a bare campfire on a stack reads as
+a roof on fire). A family that draws its own stack (a house, a kiln, a furnace's stack on its straw) may end it with a
+bare lit campfire: the compiler crowns and caps every bare fire on a stack (`Chimneys.crownBareFires`: a lit campfire
+on a full block with air over it, drawn in `ROOF`; or in any stage, three or more over the ground, open to the sky and
+on straw or on a block open on a side, so a hearth on a floor is left alone; never under a deep realm's vault, where the
+fires light the dark), and where the stack meets the plot's height it sinks the
+fire a course and caps it where it stood. A fire meant to be seen stands low or on a wall (a brazier); `SiteWorksTest`
+fails on any flame left open on a stack. Thatched styles (`habits.roof.thatch`) get their roof and ridge from the `thatch` role automatically.
 
 ### Porches, stairs, floors
 
@@ -616,7 +634,9 @@ JAVA_HOME=C:/Users/bitto/VOID/.tools/jdk-25 ./gradlew blueprintPreview -Parchety
 - `terrain`: `flat`, `slope`, `hills`, `river`, `coast`, `steep` (comma list or `all`), optionally followed by params
   after semicolons, passed to the spec: `-Pterrain="steep;frontage=9;depth=11;roof=hip;outshot=true"`.
   Preview-only keys: `seed=` (first seed), `facing=` (south, east, north, west; else the facing turns per seed),
-  `frontage=`, `depth=`, `tier=`, `variant=`.
+  `frontage=`, `depth=`, `tier=`, `variant=`, `stage=` (a stage kind: the site as built through the last stage of that
+  kind, the next one waiting, as the sim leaves a plot stalled on goods: `-Pterrain="flat;stage=floors"`; the output
+  names get `_<stage>`).
 - Output in `build/previews/`: `sheet_<archetype>_<terrain>.png` (all styles × seeds, labelled with the variant) and
   per building `<archetype>/<culture>_s<n>_<terrain>.png` (views from two opposite corners, then a plan and a cutaway
   per storey) and `_front.png`.
