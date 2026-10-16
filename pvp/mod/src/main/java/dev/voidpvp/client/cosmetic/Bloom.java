@@ -266,6 +266,9 @@ public final class Bloom {
                 : String.format(java.util.Locale.ROOT, "bloom level %d, %d composites (%.0f us each), %d player passes (draw buffers %.0f us/frame)",
                 level, composites, compNanos / 1000.0 / c, players, mrtNanos / 1000.0 / c);
         d += String.format(java.util.Locale.ROOT, "; shader bind %.0f us/frame", CosmeticShader.bindNanos / 1000.0 / c);
+        if (CosmeticRenderer.matrixError >= 0) {
+            d += String.format(java.util.Locale.ROOT, "; modelview rebuilt within %.2g of GL's", CosmeticRenderer.matrixError);
+        }
         composites = 0;
         players = 0;
         mrtNanos = 0;

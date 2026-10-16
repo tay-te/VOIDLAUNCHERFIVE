@@ -68,12 +68,22 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
     private float emissive = 1f;
     /** This player's passes run through {@link CosmeticShader} / write the bloom mask. */
     private boolean shaded, mrt;
+    /** This player's bloom gain (0 without the mask); each slot multiplies its reactive intensity in. */
+    private float playerBloom;
+    /**
+     * Reaction slots, in the motion stream's order (its {@code Reaction} constants): the cape, then
+     * the renderer's model slots back, head, face, halo.
+     */
+    private static final int REACT_CAPE = 0;
+    private static final int[] REACT_SLOT = {1, 2, 3, 4};
     /** The bloom pass does the glow: anchors only feed the light pool, never get placed. */
     private boolean bloomGlow;
     private final float[] partMv = new float[16];
     private final float[] eyeToBody = new float[16];
     private final float[] eyeToHead = new float[16];
     private static int matrixCheck;
+    /** -PvoidGlDebug: the worst difference seen between the rebuilt and GL's modelview. */
+    static float matrixError = -1;
     /** Distance to the player being drawn, for the model passes' LOD. */
     private double modelDist;
 
@@ -167,7 +177,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             CosmeticShader.begin();
             CosmeticShader.parts(eyeToBody, eyeToHead);
             CosmeticShader.rim(0.4f);
-            CosmeticShader.bloom(mrt ? bloomStrength(p, td, live.cosmeticsGlowLevel) : 0);
+            playerBloom = mrt ? bloomStrength(p, td, live.cosmeticsGlowLevel) : 0;
         }
         try {
             long tc = System.nanoTime();
@@ -315,6 +325,20 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
     }
 
     /**
+     * The reactive emissive multiplier for one slot of this player: 1 at rest. The fight-reaction
+     * stream (pvp-cos-motion's {@code Reactive}) supplies the real value — below 1 at low health,
+     * up to 2.5 through combos, hits and kills — and replaces this body when the branches meet.
+     */
+    private static float slotIntensity(PlayerFx fx, int slot) {
+        return 1f;
+    }
+
+    /** Albedo shade for low health (the same stream's {@code Reaction.dim}): 1 at rest. */
+    private static float albedoShade(PlayerFx fx) {
+        return 1f;
+    }
+
+    /**
      * The bloom's gain for this player, written into the mask: subtle in daylight (under a tenth),
      * full on a dark night; {@code low} is a little over half of {@code high}.
      */
@@ -361,7 +385,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         for (int i = 0; i < 16; i++) {
             worst = Math.max(worst, Math.abs(b.get(i) - modelview[i]));
         }
-        dev.voidpvp.client.VoidLog.info("cosmetics: rebuilt modelview differs from GL's by " + worst);
+        matrixError = Math.max(matrixError, worst);
     }
 
     // ------------------------------------------------------------------------- motion
@@ -501,7 +525,13 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             // against the torso (the lining darkens where it lies on the back), fold shading.
             CosmeticAssets.Tex tm = bundle.tint();
             CosmeticAssets.Tex em = bundle.emissive();
-            layersOn(tm, em, tint, id);
+            // Fight reactions: the emissive layer and its bloom scale by the slot's intensity (one
+            // pass: the shader adds above 1 without a second draw), the albedo dims at low health.
+            float ik = slotIntensity(fx, REACT_CAPE);
+            float shade = albedoShade(fx);
+            CosmeticShader.tint(shade, shade, shade, 1);
+            CosmeticShader.bloom(playerBloom * ik);
+            layersOn(tm, em, tint, id, emissive * ik);
             GlStateManager.bindTexture(tex.glId);
             Gl.selectFrame(frame, tex.frames);
             CosmeticShader.lit(false, style == null ? CosmeticShader.CLOTH : style.material, bundle.materialMask);
@@ -534,10 +564,16 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             // Emissive, full-bright and additive.
             CosmeticAssets.Tex em = bundle.emissive();
             if (em != null) {
-                emissiveBegin();
+                float e = emissive * slotIntensity(fx, REACT_CAPE);
+                emissiveBegin(Math.min(1f, e));
                 GlStateManager.bindTexture(em.glId);
                 Gl.selectFrame(frame, em.frames);
                 cape.draw(cloth, true, false);
+                if (e > 1.02f) {
+                    // Brighter than one additive pass can add: the remainder, once more.
+                    GlStateManager.color(e - 1f, e - 1f, e - 1f, 1);
+                    cape.draw(cloth, true, false);
+                }
                 Gl.resetFrame(em.frames);
                 emissiveEnd(light);
             }
@@ -617,7 +653,7 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
      * combined pass, and tells it which it has. Leaves unit 0 active for the albedo. Both bindings
      * go through {@code GlStateManager} so its cache stays true.
      */
-    private void layersOn(CosmeticAssets.Tex tm, CosmeticAssets.Tex em, int tint, String id) {
+    private void layersOn(CosmeticAssets.Tex tm, CosmeticAssets.Tex em, int tint, String id, float emissiveK) {
         if (em != null) {
             GlStateManager.activeTexture(com.mojang.blaze3d.platform.GLX.textureUnit + 2);
             GlStateManager.bindTexture(em.glId);
@@ -633,12 +669,12 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
         if (em != null || tm != null) {
             GlStateManager.activeTexture(com.mojang.blaze3d.platform.GLX.textureUnit);
         }
-        CosmeticShader.layers(em != null ? emissive : 0, tm != null ? tintRgb : null);
+        CosmeticShader.layers(em != null ? emissiveK : 0, tm != null ? tintRgb : null);
     }
 
     /** The fixed-function emissive pass (the material shader draws the layer in its one pass). */
-    private void emissiveBegin() {
-        GlStateManager.color(emissive, emissive, emissive, 1);
+    private void emissiveBegin(float k) {
+        GlStateManager.color(k, k, k, 1);
         GlStateManager.enableBlend();
         GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE);
         GlStateManager.disableLighting();
@@ -737,7 +773,11 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             // The emissive layer doubles nothing here, but past the mid band by day it is a few
             // pixels of light on a bright sky: left off there, as in the fixed-function path.
             CosmeticAssets.Tex em = emissiveFor ? bundle.emissive() : null;
-            layersOn(tm, em, tint, id);
+            float ik = slotIntensity(fx, REACT_SLOT[slot]);
+            float shade = albedoShade(fx);
+            CosmeticShader.tint(shade, shade, shade, 1);
+            CosmeticShader.bloom(playerBloom * ik);
+            layersOn(tm, em, tint, id, emissive * ik);
             GlStateManager.bindTexture(tex.glId);
             Gl.selectFrame(frame, tex.frames);
             CosmeticShader.lit(true, CosmeticShader.MATTE, bundle.materialMask);
@@ -779,10 +819,15 @@ public final class CosmeticRenderer implements FeatureRenderer<AbstractClientPla
             // when it is the point) get it.
             CosmeticAssets.Tex em = emissiveFor ? bundle.emissive() : null;
             if (em != null) {
-                emissiveBegin();
+                float e = emissive * slotIntensity(fx, REACT_SLOT[slot]);
+                emissiveBegin(Math.min(1f, e));
                 GlStateManager.bindTexture(em.glId);
                 Gl.selectFrame(frame, em.frames);
                 ModelDraw.draw(m, pose);
+                if (e > 1.02f) {
+                    GlStateManager.color(e - 1f, e - 1f, e - 1f, 1);
+                    ModelDraw.draw(m, pose);
+                }
                 Gl.resetFrame(em.frames);
                 emissiveEnd(light);
             }
