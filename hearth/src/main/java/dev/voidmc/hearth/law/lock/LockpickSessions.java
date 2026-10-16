@@ -2,8 +2,10 @@ package dev.voidmc.hearth.law.lock;
 
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.LawService.Offence;
+import dev.voidmc.hearth.api.PlayerSkills;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.law.Law;
+import dev.voidmc.hearth.law.LawSkills;
 import dev.voidmc.hearth.law.crime.CrimeDesk;
 import dev.voidmc.hearth.law.crime.TheftWatch;
 import dev.voidmc.hearth.law.crime.Witnesses;
@@ -67,7 +69,7 @@ public final class LockpickSessions {
 		long seed = player.getRandom().nextLong();
 		Session s = new Session(nextId++, lock, hit, player.level().getGameTime(), seed);
 		ACTIVE.put(player.getUUID(), s);
-		int skill = PlayerLaw.of(player).lockpickSkill();
+		int skill = LawSkills.lockpick(player);
 		Component what = Component.translatable(lock.door() ? "hearth.law.lockpick.door" : "hearth.law.lockpick.chest",
 			Ownership.name(lock.owner(), player.level().getServer()));
 		if (ServerPlayNetworking.canSend(player, LawPayloads.LockpickStart.TYPE)) {
@@ -101,7 +103,7 @@ public final class LockpickSessions {
 	private static void opened(ServerPlayer player, Session s, int clientTicks) {
 		ServerLevel level = player.level();
 		long elapsed = level.getGameTime() - s.started;
-		LockpickModel.Spec spec = LockpickModel.spec(s.lock.tier(), s.seed, PlayerLaw.of(player).lockpickSkill());
+		LockpickModel.Spec spec = LockpickModel.spec(s.lock.tier(), s.seed, LawSkills.lockpick(player));
 		double minimum = Law.config().stealth().lockpickMinSeconds() * spec.pins() * 20 * 0.8;
 		ACTIVE.remove(player.getUUID());
 		if (elapsed < minimum) {
@@ -113,6 +115,7 @@ public final class LockpickSessions {
 		Settlement settlement = s.lock.settlement();
 		Locks.markPicked(settlement, s.lock, level.getGameTime());
 		PlayerLaw.set(player, PlayerLaw.of(player).addLockpicking());
+		LawSkills.award(player, PlayerSkills.THIEVERY, LawSkills.lockXp(s.lock.tier()), "lockpick");
 		level.playSound(null, s.lock.pos(), SoundEvents.IRON_TRAPDOOR_OPEN, SoundSource.BLOCKS, 0.4F, 1.5F);
 		player.sendOverlayMessage(Component.translatable("hearth.law.lockpick.opened").withStyle(ChatFormatting.GREEN));
 		// a picked lock is a crime if anyone sees it, and a mystery for its owners if nobody does

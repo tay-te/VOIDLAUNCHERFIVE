@@ -2,6 +2,7 @@ package dev.voidmc.hearth.gametest;
 
 import dev.voidmc.hearth.api.ArchetypeInfo;
 import dev.voidmc.hearth.api.Culture;
+import dev.voidmc.hearth.api.StageKind;
 import dev.voidmc.hearth.api.PlotSpec;
 import dev.voidmc.hearth.api.TerrainProbe;
 import dev.voidmc.hearth.api.testing.SyntheticTerrain;
@@ -224,9 +225,13 @@ public final class BlueprintPreview {
 		params.remove("depth");
 		params.remove("facing");
 		params.remove("seed");
+		params.remove("stage");
 		int tier = params.contains("tier") ? params.getIntOr("tier", 2) : 2;
 		params.remove("tier");
-		return new PlotSpec(info.id(), style.id(), seed, new BlockPos(ox, floor, oz), sizeX, sizeZ, facing, Math.max(info.maxHeight(), 8), tier, params);
+		// height=N: the plot's height (default the archetype's most)
+		int height = params.contains("height") ? params.getIntOr("height", info.maxHeight()) : Math.max(info.maxHeight(), 8);
+		params.remove("height");
+		return new PlotSpec(info.id(), style.id(), seed, new BlockPos(ox, floor, oz), sizeX, sizeZ, facing, height, tier, params);
 	}
 
 	private static Cell renderOne(BlueprintServiceImpl service, IsoRenderer renderer, ArchetypeInfo info, Style style, long seed, int index, String terrain,
@@ -255,7 +260,18 @@ public final class BlueprintPreview {
 				dev.voidmc.hearth.gametest.render.Slices.print(service.draw(spec, probe), spec);
 			}
 		}
-		Voxels world = PreviewScene.build(bp, spec, probe, 3, culture);
+		// stage=<kind> (preview only): the site as built through the last stage of that kind, the next one waiting
+		String upTo = extra.getStringOr("stage", "");
+		int stages = Integer.MAX_VALUE;
+		if (!upTo.isEmpty()) {
+			StageKind last = StageKind.valueOf(upTo.toUpperCase(Locale.ROOT));
+			stages = 0;
+			while (stages < bp.stageCount() && bp.stageKind(stages).ordinal() <= last.ordinal()) {
+				stages++;
+			}
+			terrain = terrain + "_" + upTo;
+		}
+		Voxels world = PreviewScene.build(bp, spec, probe, 3, culture, stages);
 		double yaw = switch (spec.facing()) {
 			case SOUTH -> 45;
 			case EAST -> 135;

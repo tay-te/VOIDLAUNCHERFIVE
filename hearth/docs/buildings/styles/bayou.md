@@ -41,7 +41,7 @@ Tier 0 is mixed boards under exposed copper and spruce; tier 3 roofs in slate.
 
 ## Local materials
 
-Local timber into boards and stilts.
+Local timber into boards and stilts. Working yards (category workshop) fell dark oak, not red mangrove.
 
 ---
 

@@ -96,6 +96,8 @@ public interface Settlement {
 	/**
 	 * Records that an embodied builder placed the next {@code steps} steps of the plot's current stage in the world.
 	 * The sim advances the plot (and its stage when the stage is done) and does not re-apply those steps on chunk load.
+	 * With {@code steps} 0 it only notes that builders are at work on the plot (putting up scaffolding, placing steps
+	 * ahead of the cursor), so abstract labour keeps off it a while.
 	 */
 	void advanceConstruction(int plotId, int steps);
 

@@ -164,13 +164,13 @@ public final class Baths {
 		}
 	}
 
-	/** Benches of slabs along a run, each a seat. */
+	/** Benches of slabs along a run, each a seat, four long at most with a step's gap between (a way to the wall behind). */
 	public static void bench(Draft d, int x, int y, int z, Direction run, int n, Direction facing) {
 		Mat stone = d.mat(Role.WALL_ACCENT);
 		for (int i = 0; i < n; i++) {
 			int px = x + Dirs.dx(run) * i;
 			int pz = z + Dirs.dz(run) * i;
-			if (!d.isEmpty(px, y, pz)) {
+			if (!d.isEmpty(px, y, pz) || i % 5 == 4) {
 				continue;
 			}
 			try (var s = d.stage(StageKind.INTERIOR)) {

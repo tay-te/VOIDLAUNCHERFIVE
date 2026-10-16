@@ -7,6 +7,7 @@ import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Openings;
+import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Walls;
 import dev.voidmc.hearth.build.style.Form;
@@ -359,6 +360,298 @@ public final class Halls {
 				}
 			}
 		}
+	}
+
+	// ------------------------------------------------------------------------------------------- rails, sills, landings
+
+	/**
+	 * A rail someone leans on and cannot step over: the given wall-capable material's wall (a balustrade of stone), else
+	 * the railing's fence, else a post. A slab or a full block will not do: a slab is a step and a block a jump.
+	 */
+	public static Paint rail(Draft d, Mat stone) {
+		if (stone != null && stone.has(Form.WALL)) {
+			return stone.wall();
+		}
+		Mat r = d.mat(Role.RAILING);
+		return r.has(Form.FENCE) ? r.fence() : post(d);
+	}
+
+	/** {@link #rail(Draft, Mat)} in a tower's dressing. */
+	public static Paint rail(Draft d, dev.voidmc.hearth.build.kit.landmark.Stone stone) {
+		if (stone != null && stone.has(Form.WALL)) {
+			return stone.wall();
+		}
+		return rail(d, (Mat) null);
+	}
+
+	/**
+	 * Sills in a belfry's openings: every open cell of the ring {@code x0..x1 × z0..z1} at row y (the row someone standing
+	 * on the belfry floor walks into) takes a rail, as a real belfry has louvres or a balustrade: nobody walks out onto the
+	 * roofs from the bells.
+	 */
+	public static void sills(Draft d, int x0, int z0, int x1, int z1, int y, Paint rail) {
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int[] c : Draft.ring(x0, z0, x1, z1)) {
+				if (d.isEmpty(c[0], y, c[1]) && d.allowed(c[0], y, c[1])) {
+					d.set(c[0], y, c[1], rail);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Landings up a tower's shaft, so its ladder never climbs past a drop of four: floors over the interior
+	 * {@code x0..x1 × z0..z1} between the floor row {@code floorY} (the row under the foot) and the top floor row
+	 * {@code topY}, evenly spaced at most five apart (never closer than three, which keeps two rows of head room), each
+	 * holed at the ladder's cell {@code (lx, lz)} and given a chest or a barrel in the corner farthest from it (a stair
+	 * room with nothing in it reads as forgotten). Only empty cells are floored. Returns the landing rows.
+	 */
+	public static int[] landings(Draft d, int x0, int z0, int x1, int z1, int floorY, int topY, int lx, int lz, Paint floor) {
+		int span = topY - floorY;
+		int n = (span + 4) / 5;
+		if (n <= 1 || span < 6) {
+			return new int[0];
+		}
+		int[] rows = new int[n - 1];
+		int fx = Math.abs(lx - x0) >= Math.abs(lx - x1) ? x0 : x1;
+		int fz = Math.abs(lz - z0) >= Math.abs(lz - z1) ? z0 : z1;
+		for (int k = 1; k < n; k++) {
+			int y = floorY + (int) Math.round(k * span / (double) n);
+			rows[k - 1] = y;
+			try (var s = d.stage(StageKind.FLOORS)) {
+				for (int z = z0; z <= z1; z++) {
+					for (int x = x0; x <= x1; x++) {
+						if ((x != lx || z != lz) && d.isEmpty(x, y, z)) {
+							d.set(x, y, z, floor);
+						}
+					}
+				}
+			}
+			if ((fx != lx || fz != lz) && d.isEmpty(fx, y + 1, fz) && d.isEmpty(fx, y + 2, fz)) {
+				Direction face = fx == lx ? (fz < lz ? Dirs.BACK : Dirs.FRONT) : fx < lx ? Dirs.RIGHT : Dirs.LEFT;
+				if ((k & 1) == 1) {
+					dev.voidmc.hearth.build.kit.Furniture.barrel(d, fx, y + 1, fz, face);
+				} else {
+					dev.voidmc.hearth.build.kit.Furniture.chest(d, fx, y + 1, fz, face, List.of(new Object[]{"minecraft:candle", 4},
+						new Object[]{"minecraft:string", 6}));
+				}
+			}
+		}
+		return rows;
+	}
+
+	/**
+	 * The last touches every civic and law building takes before its ground is cleared: a lintel over every doorway, a rail
+	 * in the foot of every light a body could walk out of, and a parapet along made ground standing over a fall
+	 * ({@link #lintels}, {@link #walkThroughLights}, {@link Grounds#edgeRails}); a step cut wherever folk would climb a
+	 * whole block ({@link Steps#cut}); the hollows under the roofs nobody can enter packed ({@link Hollows#pack}); the
+	 * roofed corners nobody furnished take a bench, a rain butt, a jar or a banner ({@link Nooks#furnish}); then whatever
+	 * a body can still walk to beside a fall is guarded ({@link Falls#guard}).
+	 */
+	public static void finish(Draft d) {
+		lintels(d);
+		walkThroughLights(d);
+		Grounds.edgeRails(d);
+		Steps.cut(d);
+		Hollows.pack(d);
+		Nooks.furnish(d);
+		Falls.guard(d);
+	}
+
+	/**
+	 * Keeps the cells of a room at the open side of a stairwell or a ladder's hatch free of furniture: a bed, a chest or a
+	 * table there is a step up from which the next step is the drop. Call before furnishing it, once the stair is cut.
+	 */
+	public static Rooms.Room keepOffWells(Draft d, Rooms.Room room) {
+		int y = room.y;
+		for (int z = room.z0; z <= room.z1; z++) {
+			for (int x = room.x0; x <= room.x1; x++) {
+				for (Direction dir : Dirs.HORIZONTAL) {
+					int nx = x + Dirs.dx(dir);
+					int nz = z + Dirs.dz(dir);
+					// (where the well falls three or more: over a flight's upper steps a bed beside it is harmless)
+					if (d.isEmpty(nx, y, nz) && d.isEmpty(nx, y - 1, nz) && d.isEmpty(nx, y - 2, nz) && d.isEmpty(nx, y - 3, nz)
+						&& !d.isAbsent(nx, y - 1, nz)) {
+						room.keepArea(x, z, x, z);
+					}
+				}
+			}
+		}
+		return room;
+	}
+
+	/** A cell of a wall's line at row y beside a light: the wall, or the next light of a wide window (a lattice or a sill under it). */
+	private static boolean inWallLine(Draft d, int x, int y, int z) {
+		net.minecraft.world.level.block.state.BlockState s = d.get(x, y, z);
+		return d.isSolid(x, y, z) || floor(d, x, y - 1, z) && s != null && !s.isAir()
+			|| s != null && s.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock;
+	}
+
+	/** Something to stand on at y: a full block, an upper slab or a stair (a floor, a gallery's boards, a bench). */
+	private static boolean floor(Draft d, int x, int y, int z) {
+		if (d.isSolid(x, y, z)) {
+			return true;
+		}
+		net.minecraft.world.level.block.state.BlockState s = d.get(x, y, z);
+		return s != null && (s.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+			|| s.getBlock() instanceof net.minecraft.world.level.block.SlabBlock && s.getValue(net.minecraft.world.level.block.SlabBlock.TYPE) != SlabType.BOTTOM);
+	}
+
+	/**
+	 * Every latticed light a body could walk through (a trapdoor lattice in a wall over a solid sill, with floor and head
+	 * room on one side of it and nothing in the way on the other) takes a rail in its foot instead, as
+	 * {@link #windowRails} does for one ring: nobody steps out of an upper room onto the eaves or a wing's roof.
+	 */
+	public static void walkThroughLights(Draft d) {
+		Paint rail = rail(d, (Mat) null);
+		java.util.List<int[]> hits = new java.util.ArrayList<>();
+		for (long k : d.keys()) {
+			int x = Draft.keyX(k);
+			int y = Draft.keyY(k);
+			int z = Draft.keyZ(k);
+			net.minecraft.world.level.block.state.BlockState st = d.get(x, y, z);
+			// (over a sill: a full block, or a stair or a slab laid as one, a roof's edge run under it)
+			if (st == null || !(st.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) || d.isEmpty(x, y - 1, z)
+				|| d.get(x, y - 1, z).getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) {
+				continue;
+			}
+			for (Direction across : new Direction[]{Direction.EAST, Direction.SOUTH}) {
+				Direction along = across.getClockWise();
+				// in a wall: solid (or a light's frame) either side of it along the wall
+				boolean wall = inWallLine(d, x + along.getStepX(), y, z + along.getStepZ()) && inWallLine(d, x - along.getStepX(), y, z - along.getStepZ());
+				if (!wall) {
+					continue;
+				}
+				int ax = x + across.getStepX();
+				int az = z + across.getStepZ();
+				int bx = x - across.getStepX();
+				int bz = z - across.getStepZ();
+				// (open: head room, and nothing full at the feet: air, or a roof's stair or slab to step out onto)
+				boolean aOpen = !d.isSolid(ax, y, az) && d.isEmpty(ax, y + 1, az);
+				boolean bOpen = !d.isSolid(bx, y, bz) && d.isEmpty(bx, y + 1, bz);
+				// (something to stand on level with the sill or a row below it: a floor, a slab, a bed or a bench, from which the
+				// sill is a step up into the light)
+				boolean aFloor = aOpen && (!d.isEmpty(ax, y - 1, az) || !d.isEmpty(ax, y - 2, az));
+				boolean bFloor = bOpen && (!d.isEmpty(bx, y - 1, bz) || !d.isEmpty(bx, y - 2, bz));
+				if (aOpen && bOpen && (aFloor || bFloor)) {
+					hits.add(new int[]{x, y, z});
+					break;
+				}
+			}
+		}
+		if (hits.isEmpty()) {
+			return;
+		}
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			for (int[] c : hits) {
+				d.set(c[0], c[1], c[2], rail);
+				// a tall light's next row too: a bench or a step before it would carry a body up over a rail of one
+				net.minecraft.world.level.block.state.BlockState above = d.get(c[0], c[1] + 1, c[2]);
+				if (above != null && above.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock) {
+					d.set(c[0], c[1] + 1, c[2], rail);
+				}
+			}
+		}
+	}
+
+	/**
+	 * A head over every doorway in the draft: where the cell over a door's upper leaf is open (a tall light's lattice or
+	 * glass, or nothing) and it stands in a wall (solid either side of the door along its wall), that cell takes the wall's
+	 * dressed stone. A doorway needs a lintel: without one, a body can climb on top of the door.
+	 */
+	public static void lintels(Draft d) {
+		List<int[]> doors = new ArrayList<>();
+		for (long k : d.keys()) {
+			int x = Draft.keyX(k);
+			int y = Draft.keyY(k);
+			int z = Draft.keyZ(k);
+			net.minecraft.world.level.block.state.BlockState s = d.get(x, y, z);
+			if (s != null && s.getBlock() instanceof net.minecraft.world.level.block.DoorBlock
+				&& s.getValue(net.minecraft.world.level.block.DoorBlock.HALF) == net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER) {
+				doors.add(new int[]{x, y, z, s.getValue(net.minecraft.world.level.block.DoorBlock.FACING).getAxis() == Direction.Axis.Z ? 0 : 1});
+			}
+		}
+		Paint head = d.mat(Role.WALL_ACCENT).has(Form.FULL) ? d.mat(Role.WALL_ACCENT).full() : d.mat(Role.WALL).full();
+		for (int[] c : doors) {
+			int x = c[0];
+			int y = c[1] + 2;
+			int z = c[2];
+			net.minecraft.world.level.block.state.BlockState above = d.get(x, y, z);
+			boolean open = above == null || above.isAir() || above.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock
+				|| above.getBlock() instanceof net.minecraft.world.level.block.IronBarsBlock || above.getBlock() instanceof net.minecraft.world.level.block.TransparentBlock;
+			// the wall runs across the door's facing: x for a door facing along z
+			int ax = c[3] == 0 ? 1 : 0;
+			int az = c[3] == 0 ? 0 : 1;
+			boolean inWall = d.isSolid(x - ax, y, z - az) || d.isSolid(x + ax, y, z + az) || d.isSolid(x - ax, y - 1, z - az) && d.isSolid(x + ax, y - 1, z + az);
+			if (open && inWall && d.allowed(x, y, z)) {
+				d.inStage(StageKind.WALLS, () -> d.set(x, y, z, head));
+			}
+		}
+	}
+
+	/**
+	 * Low rails in the feet of latticed windows: on the wall ring {@code x0..x1 × z0..z1}, every window cell at row y filled
+	 * with a trapdoor lattice (which a body walks through) over a solid sill takes the railing's fence instead, so the
+	 * window of a raised or a karst hall is a balustraded light and nobody climbs out of it onto the eaves.
+	 */
+	public static void windowRails(Draft d, int x0, int z0, int x1, int z1, int y) {
+		Paint rail = rail(d, (Mat) null);
+		try (var s = d.stage(StageKind.OPENINGS)) {
+			for (int[] c : Draft.ring(x0, z0, x1, z1)) {
+				net.minecraft.world.level.block.state.BlockState st = d.get(c[0], y, c[1]);
+				if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.TrapDoorBlock && d.isSolid(c[0], y - 1, c[1])) {
+					d.set(c[0], y, c[1], rail);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Takes away every bed in {@code x0..x1 × z0..z1} on row y that nobody can get into: neither half has a cell beside it
+	 * with a floor and two rows of air (a bed under the eaves' slope, or boxed in by its neighbours), or that stands at the
+	 * open side of a stairwell. Returns how many beds stay.
+	 */
+	public static int dropBlockedBeds(Draft d, int x0, int z0, int x1, int z1, int y) {
+		int kept = 0;
+		for (int z = z0; z <= z1; z++) {
+			for (int x = x0; x <= x1; x++) {
+				net.minecraft.world.level.block.state.BlockState s = d.get(x, y, z);
+				if (s == null || !(s.getBlock() instanceof net.minecraft.world.level.block.BedBlock)
+					|| s.getValue(net.minecraft.world.level.block.BedBlock.PART) != net.minecraft.world.level.block.state.properties.BedPart.FOOT) {
+					continue;
+				}
+				Direction f = s.getValue(net.minecraft.world.level.block.BedBlock.FACING);
+				int hx = x + Dirs.dx(f);
+				int hz = z + Dirs.dz(f);
+				boolean ok = false;
+				for (int[] c : new int[][]{{x, z}, {hx, hz}}) {
+					for (Direction dir : Dirs.HORIZONTAL) {
+						int nx = c[0] + Dirs.dx(dir);
+						int nz = c[1] + Dirs.dz(dir);
+						if ((nx != x || nz != z) && (nx != hx || nz != hz) && d.isEmpty(nx, y, nz) && d.isEmpty(nx, y + 1, nz) && d.isSolid(nx, y - 1, nz)) {
+							ok = true;
+						}
+					}
+				}
+				// (nor a bed beside a stairwell's hole: whoever stands on it to make it stands over the drop)
+				for (int[] c : new int[][]{{x, z}, {hx, hz}}) {
+					for (Direction dir : Dirs.HORIZONTAL) {
+						int nx = c[0] + Dirs.dx(dir);
+						int nz = c[1] + Dirs.dz(dir);
+						if (d.isEmpty(nx, y, nz) && d.isEmpty(nx, y - 1, nz) && d.isEmpty(nx, y - 2, nz) && !d.isAbsent(nx, y - 1, nz)) {
+							ok = false;
+						}
+					}
+				}
+				if (ok) {
+					kept++;
+				} else {
+					d.set(x, y, z, Blocks.AIR.defaultBlockState());
+					d.set(hx, y, hz, Blocks.AIR.defaultBlockState());
+				}
+			}
+		}
+		return kept;
 	}
 
 	/** The hinge for the left leaf of a pair. */

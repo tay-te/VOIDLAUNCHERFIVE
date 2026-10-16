@@ -180,6 +180,7 @@ final class ChapelWhite {
 			int gx1 = right ? w - 1 : nx0 - 2;
 			Sacred.churchyard(d, gx0, z0, gx1, dp - 2, 0, true, Dirs.FRONT);
 		}
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

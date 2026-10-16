@@ -496,7 +496,13 @@ public final class QuestManager {
 			}
 			LivingQuests.completed(level, s, player, q);
 		}
-		QuestEvents.COMPLETED.invoker().onCompleted(player, s, q);
+		ended(dev.voidmc.hearth.api.QuestEvents.COMPLETED, player, s, q);
+	}
+
+	/** Tells other mods how a quest ended (api {@code QuestEvents}). */
+	private static void ended(net.fabricmc.fabric.api.event.Event<dev.voidmc.hearth.api.QuestEvents.Ended> event, ServerPlayer player, @Nullable Settlement s,
+		QuestInstance q) {
+		event.invoker().onEnded(player, s, q.type, q.template, s == null ? dev.voidmc.hearth.api.SettlementTier.CAMP : s.tier());
 	}
 
 	/**
@@ -557,6 +563,7 @@ public final class QuestManager {
 		}
 		sound(player, SoundEvents.VILLAGER_NO, 1.0F);
 		toast(player, QuestPayloads.Toast.Kind.FAILED, q.text.title(), reason.getString());
+		ended(outcome == QuestStatus.ABANDONED ? dev.voidmc.hearth.api.QuestEvents.ABANDONED : dev.voidmc.hearth.api.QuestEvents.FAILED, player, s, q);
 	}
 
 	public static boolean abandon(ServerPlayer player, UUID questId) {

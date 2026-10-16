@@ -21,6 +21,7 @@ import dev.voidmc.hearth.build.kit.sociallife.Fair;
 import dev.voidmc.hearth.build.kit.sociallife.Venue;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import dev.voidmc.hearth.build.kit.landscape.Edges;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -28,15 +29,16 @@ import net.minecraft.core.Direction;
 
 /**
  * {@code hearth:landscape/festival_ground}: the green at the edge of town where the feasts are kept. In its middle the
- * culture's centrepiece on a dance floor round it (the Bohemian maypole, its trunk stripped, a green crown and a garland
- * hung with the town's ribbons, over a floor of boards; the north's midsummer pole with its crossbar and hoops; a beacon
- * on the moors and the coast; a ring of lantern poles in the karst; the steppe's horsetail standard over the wrestling
- * ring; a wine vat under a vine pergola in the south; an obelisk with braziers in the desert; a bonfire in the cold and
- * the wet lands). Behind it the musicians' stage under its roof with the culture's cloth hung behind; booths with striped
- * awnings down either side; trestles with benches for the feast in front; a bonfire pit and heaps of hay; shade trees in
- * the corners; lamps round the floor; a garlanded arch over the way in from the street. The social module's festivals
- * gather at the stage (STAGE), its feasts at the tables (TABLE); MEETING_POINTs at the centrepiece and before the stage.
- * On rough ground the green is terraced in broad bands, the middle on one level.
+ * culture's centrepiece on a dance floor round it (the Bohemian maypole, its trunk stripped, a green crown and a
+ * garland hung with the town's ribbons, over a floor of boards; the north's midsummer pole with its crossbar and hoops;
+ * a beacon on the moors and the coast; a ring of lantern poles in the karst; the steppe's horsetail standard over the
+ * wrestling ring; a wine vat under a vine pergola in the south; an obelisk with braziers in the desert; a bonfire in
+ * the cold and the wet lands). Behind it the musicians' stage under its roof with the culture's cloth hung behind; a
+ * row of booths with striped awnings down either side, the length of the green; trestles with benches for the feast in
+ * front; a bonfire pit and heaps of hay; shade trees in the corners; lamps round the floor; a garlanded arch over the
+ * way in from the street. The social module's festivals gather at the stage (STAGE), its feasts at the tables (TABLE);
+ * MEETING_POINTs at the centrepiece and before the stage. On rough ground the green is terraced in broad bands, the
+ * middle on one level.
  */
 public final class FestivalGround implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("landscape/festival_ground"), ArchetypeCategory.LANDSCAPE, Set.of(), 0,
@@ -175,33 +177,8 @@ public final class FestivalGround implements Archetype {
 			}
 		}
 
-		// --- booths down either side of the floor, facing it
-		int nb = dp >= 31 ? 2 : 1;
-		for (int side : new int[]{-1, 1}) {
-			for (int k = 0; k < nb; k++) {
-				int bz = cz - 3 + k * 5;
-				// the booth's front-left corner seen from the floor
-				Direction face = side < 0 ? Dirs.RIGHT : Dirs.LEFT;
-				int bx = side < 0 ? cx - ring - 6 : cx + ring + 6;
-				if (bx < 1 || bx > w - 2) {
-					continue;
-				}
-				int[][] cells = boothCells(bx, bz, face);
-				boolean ok = true;
-				for (int[] c : cells) {
-					ok &= inside(d, c[0], c[1]) && c[0] >= 1 && c[0] <= w - 2 && !taken[c[0]][c[1]] && level[c[1]] == y && Enclosure.ground(d, c[0], y, c[1]);
-				}
-				if (!ok) {
-					continue;
-				}
-				Fair.booth(d, bx, y, bz, face);
-				for (int[] c : cells) {
-					taken[c[0]][c[1]] = true;
-				}
-			}
-		}
-
-		// --- the feast's trestles round the floor, either side of the walk and behind the booths
+		// --- the feast's trestles round the floor, either side of the walk (laid out before the booths, which fill in round
+		// them)
 		int placedTables = 0;
 		for (int[] c : new int[][]{{cx - 8, cz - ring - 3}, {cx + 4, cz - ring - 3}, {cx - ring - 10, cz + ring + 3}, {cx + ring + 6, cz + ring + 3},
 			{cx - 13, cz - ring - 3}, {cx + 9, cz - ring - 3}}) {
@@ -226,6 +203,30 @@ public final class FestivalGround implements Archetype {
 			for (int x = tx - 1; x <= tx + 5; x++) {
 				for (int z = tz - 1; z <= tz + 1; z++) {
 					taken[x][z] = true;
+				}
+			}
+		}
+
+		// --- booths down either side of the floor, facing it, a row of them the length of the green
+		for (int side : new int[]{-1, 1}) {
+			for (int bz = 3; bz + 3 <= dp - 2; bz += 5) {
+				// the booth's front-left corner seen from the floor
+				Direction face = side < 0 ? Dirs.RIGHT : Dirs.LEFT;
+				int bx = side < 0 ? cx - ring - 6 : cx + ring + 6;
+				if (bx < 1 || bx > w - 2) {
+					continue;
+				}
+				int[][] cells = boothCells(bx, bz, face);
+				boolean ok = true;
+				for (int[] c : cells) {
+					ok &= inside(d, c[0], c[1]) && c[0] >= 1 && c[0] <= w - 2 && !taken[c[0]][c[1]] && level[c[1]] == y && Enclosure.ground(d, c[0], y, c[1]);
+				}
+				if (!ok) {
+					continue;
+				}
+				Fair.booth(d, bx, y, bz, face);
+				for (int[] c : cells) {
+					taken[c[0]][c[1]] = true;
 				}
 			}
 		}
@@ -272,6 +273,8 @@ public final class FestivalGround implements Archetype {
 			Bohemia.wattle(d, 0, dp - 1, w - 1, dp - 1);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, maxH - 1);
+		// rails where the green's terraces stand over the falling ground
+		Edges.guard(d);
 	}
 
 	private static int[][] boothCells(int x, int z, Direction toCustomers) {

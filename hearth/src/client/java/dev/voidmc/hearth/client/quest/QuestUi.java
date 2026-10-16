@@ -1,10 +1,10 @@
 package dev.voidmc.hearth.client.quest;
 
+import dev.voidmc.hearth.api.QuestType;
 import dev.voidmc.hearth.quest.model.Objective;
 import dev.voidmc.hearth.quest.model.ObjectiveKind;
 import dev.voidmc.hearth.quest.model.QuestInstance;
 import dev.voidmc.hearth.quest.model.QuestStatus;
-import dev.voidmc.hearth.quest.model.QuestType;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;

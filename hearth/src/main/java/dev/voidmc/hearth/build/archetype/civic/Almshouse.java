@@ -14,6 +14,7 @@ import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.civic.Pueblo;
 import dev.voidmc.hearth.build.kit.civic.Grounds;
 import dev.voidmc.hearth.build.kit.civic.Sacred;
 import dev.voidmc.hearth.build.kit.civic.Tradition;
@@ -108,7 +109,7 @@ public final class Almshouse implements Archetype {
 		}
 		Range.wallBench(d, ground);
 		ground.blockDrawn(d);
-		Rooms.furnish(d, ground.room(), Rooms.Type.HALL, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, ground.room()), Rooms.Type.HALL, 0, JobType.NONE);
 		Lighting.room(d, r.ix0(), r.iz0(), r.ix1(), r.iz1(), base);
 
 		// --- the sleeping floor: a bed for each, a chest or a candle stand at its side
@@ -118,6 +119,8 @@ public final class Almshouse implements Archetype {
 			Wards.row(d, up, wall, 2, false, 12, kit);
 		}
 		Lighting.room(d, up.x0, up.z0, up.x1, up.z1, up.y);
+		// (a bed boxed in, or at the stairwell's open side, is no bed)
+		dev.voidmc.hearth.build.kit.civic.Halls.dropBlockedBeds(d, up.x0, up.z0, up.x1, up.z1, up.y);
 
 		// --- outside: a cross over the door, a bench, the board
 		Side front = r.body().side(0, Dirs.FRONT);
@@ -159,7 +162,13 @@ public final class Almshouse implements Archetype {
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, 0, r.zF(), w - 1, r.zM(), base, doorX);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, r.shell().skyline() + 3));
+		// the mesa's pueblo: a portal on posts along the front, a stepped room over the flat roof, a ladder up to its terrace
+		if (Pueblo.is(d)) {
+			Pueblo.portalFront(d);
+		}
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(d.maxHeight() - 1, r.shell().skyline() + 3), pueblo + 2));
 	}
 
 	/** The rows of the hall across the back of the court. */
@@ -247,7 +256,13 @@ public final class Almshouse implements Archetype {
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, cx0, 1, cx1, zR - 1, base, doorX);
 		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, roofTop + 3));
+		// the mesa's pueblo: a portal on posts along the front, a stepped room over the flat roof, a ladder up to its terrace
+		if (Pueblo.is(d)) {
+			Pueblo.portalFront(d);
+		}
+		int pueblo = Pueblo.is(d) ? Pueblo.crown(d) : Integer.MIN_VALUE;
+		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(Math.min(d.maxHeight() - 1, roofTop + 3), pueblo + 2));
 	}
 
 	/**
@@ -299,7 +314,7 @@ public final class Almshouse implements Archetype {
 		}
 		Range.wallBench(d, ground);
 		ground.blockDrawn(d);
-		Rooms.furnish(d, ground.room(), Rooms.Type.HALL, 0, JobType.NONE);
+		Rooms.furnish(d, dev.voidmc.hearth.build.kit.civic.Halls.keepOffWells(d, ground.room()), Rooms.Type.HALL, 0, JobType.NONE);
 		Lighting.room(d, r.ix0(), r.iz0(), r.ix1(), r.iz1(), base);
 
 		Floorplan up = r.upper();
@@ -308,6 +323,8 @@ public final class Almshouse implements Archetype {
 			Wards.row(d, up, wall, 2, false, 12, kit);
 		}
 		Lighting.room(d, up.x0, up.z0, up.x1, up.z1, up.y);
+		// (a bed boxed in, or at the stairwell's open side, is no bed)
+		dev.voidmc.hearth.build.kit.civic.Halls.dropBlockedBeds(d, up.x0, up.z0, up.x1, up.z1, up.y);
 
 		// the cross over the door
 		Side front = r.body().side(0, Dirs.FRONT);

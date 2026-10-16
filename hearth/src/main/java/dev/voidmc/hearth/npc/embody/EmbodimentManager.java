@@ -539,11 +539,29 @@ public final class EmbodimentManager {
 
 	private void housekeeping(MinecraftServer server) {
 		// Scaffolding left by a crash or by builders folded where their chunk was not loaded.
+		// A site's scaffolding stands while it has a crew; a site nobody has worked for a minute is cleared and forgotten.
 		Set<UUID> working = new HashSet<>(this.embodied.keySet());
 		for (ServerLevel level : server.getAllLevels()) {
 			for (Settlement s : SettlementSources.embodied(level)) {
 				ScaffoldLedger ledger = s.data(ScaffoldLedger.KEY);
-				if (!ledger.isEmpty() && ledger.clearOrphans(level, working) > 0) {
+				TownState town = this.towns.get(s.id());
+				Set<UUID> keep = working;
+				if (town != null && !town.sites.isEmpty()) {
+					keep = new HashSet<>(working);
+					long now = level.getGameTime();
+					Iterator<dev.voidmc.hearth.npc.work.BuildSite> sites = town.sites.values().iterator();
+					while (sites.hasNext()) {
+						dev.voidmc.hearth.npc.work.BuildSite site = sites.next();
+						if (town.claimsOn(site.plotId) > 0) {
+							keep.add(site.ledgerId);
+						} else if (now - site.lastTouched() > 1200) {
+							site.clearScaffolding(level, ledger);
+							s.markDirty();
+							sites.remove();
+						}
+					}
+				}
+				if (!ledger.isEmpty() && ledger.clearOrphans(level, keep) > 0) {
 					s.markDirty();
 				}
 			}

@@ -252,6 +252,28 @@ public final class Rooms {
 	 * before claiming cells in a room built over a floor something else furnished (beds added after the furnisher).
 	 */
 	public static void read(Draft d, Room r) {
+		// every door in the walls round the floor (or a step up or down from it) keeps its inside cell free and joined
+		for (int z = r.z0 - 1; z <= r.z1 + 1; z++) {
+			for (int x = r.x0 - 1; x <= r.x1 + 1; x++) {
+				if (r.inside(x, z)) {
+					continue;
+				}
+				for (int dy = -1; dy <= 1; dy++) {
+					BlockState s = d.get(x, r.y + dy, z);
+					if (s == null || !(s.getBlock() instanceof net.minecraft.world.level.block.DoorBlock)
+						|| s.getValue(net.minecraft.world.level.block.DoorBlock.HALF) != net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER) {
+						continue;
+					}
+					for (Direction dir : Dirs.HORIZONTAL) {
+						int ix = x + Dirs.dx(dir);
+						int iz = z + Dirs.dz(dir);
+						if (r.inside(ix, iz) && d.isEmpty(ix, r.y, iz)) {
+							r.keep(ix, iz);
+						}
+					}
+				}
+			}
+		}
 		for (int z = r.z0; z <= r.z1; z++) {
 			for (int x = r.x0; x <= r.x1; x++) {
 				BlockState s = d.get(x, r.y, z);
@@ -304,6 +326,14 @@ public final class Rooms {
 	public static void furnish(Draft d, Room r, Type type, int beds, JobType job) {
 		read(d, r);
 		List<Slot> slots = slots(d, r);
+		// a square of clear floor the furnishing leaves (released when it is done: what the caller adds may use it)
+		boolean[] square = null;
+		// in a kitchen or a living room the table in the middle first (it and its chairs matter more than a shelf),
+		// in a store before anything: then a square of clear floor the wall pieces leave
+		boolean tabled = (type == Type.KITCHEN || type == Type.LIVING) && centreTable(d, r);
+		if (tabled || type == Type.STORAGE) {
+			square = clearSquare(r);
+		}
 		switch (type) {
 			case BEDROOM -> {
 				int placed = 0;
@@ -340,14 +370,21 @@ public final class Rooms {
 			case KITCHEN -> {
 				// a counter along the longest free wall run
 				wallPieces(d, r, slots, new String[]{"counter", "barrel", "shelf_kitchen", "barrel", "chest"});
-				centreTable(d, r);
+				if (!tabled) {
+					centreTable(d, r);
+				}
 			}
 			case LIVING -> {
 				wallPieces(d, r, slots, new String[]{"bookshelf", "armchair", "shelf", "pot", "bookshelf", "chest"});
-				centreTable(d, r);
+				if (!tabled) {
+					centreTable(d, r);
+				}
 			}
 			case WORKSHOP -> {
-				wallPieces(d, r, slots, new String[]{"work", "chest", "work2", "barrel", "shelf_tools", "barrel"}, job);
+				// the trade's own station first, then a square of clear floor to work in, then the rest
+				wallPieces(d, r, slots, new String[]{"work"}, job);
+				square = clearSquare(r);
+				wallPieces(d, r, slots, new String[]{"chest", "work2", "barrel", "shelf_tools", "barrel"}, job);
 			}
 			case STORAGE -> {
 				wallPieces(d, r, slots, new String[]{"chest", "barrel", "chest", "hay", "barrel", "barrel", "chest"});
@@ -359,6 +396,67 @@ public final class Rooms {
 		if (type == Type.BEDROOM || type == Type.LIVING) {
 			rugInOpen(d, r);
 		}
+		if (square != null) {
+			for (int i = 0; i < square.length; i++) {
+				if (square[i]) {
+					r.reserved[i] = false;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Keeps a square of three by three clear in a room of nine cells or more while it is furnished (the audit's rule
+	 * S3: room to turn round, a way across): of every square whose cells are all still open and free, the one nearest a
+	 * door's inside cell (so the clear floor is where one comes in), else nearest the middle. Returns the cells it
+	 * reserved (to release once the furnishing is done), or null if no square is left whole.
+	 */
+	static boolean[] clearSquare(Room r) {
+		if (r.width() < 3 || r.length() < 3 || r.width() * r.length() < 9) {
+			return null;
+		}
+		int best = Integer.MAX_VALUE;
+		int bx = 0;
+		int bz = 0;
+		int cx2 = r.x0 + r.x1;
+		int cz2 = r.z0 + r.z1;
+		for (int z = r.z0; z + 2 <= r.z1; z++) {
+			for (int x = r.x0; x + 2 <= r.x1; x++) {
+				boolean whole = true;
+				for (int dz = 0; dz < 3 && whole; dz++) {
+					for (int dx = 0; dx < 3 && whole; dx++) {
+						int px = x + dx;
+						int pz = z + dz;
+						whole = r.open(px, pz) && (r.free(px, pz) || r.reserved[r.idx(px, pz)]);
+					}
+				}
+				if (!whole) {
+					continue;
+				}
+				int score = Math.abs(2 * (x + 1) - cx2) + Math.abs(2 * (z + 1) - cz2);
+				for (int[] k : r.reach) {
+					int dist = Math.max(0, Math.abs(k[0] - (x + 1)) - 1) + Math.max(0, Math.abs(k[1] - (z + 1)) - 1);
+					score = Math.min(score, dist * 2);
+				}
+				if (score < best) {
+					best = score;
+					bx = x;
+					bz = z;
+				}
+			}
+		}
+		if (best == Integer.MAX_VALUE) {
+			return null;
+		}
+		// the cells this reserves (not those kept already), to release after
+		boolean[] mine = new boolean[r.reserved.length];
+		for (int z = bz; z <= bz + 2; z++) {
+			for (int x = bx; x <= bx + 2; x++) {
+				mine[r.idx(x, z)] = !r.reserved[r.idx(x, z)];
+			}
+		}
+		r.keepArea(bx, bz, bx + 2, bz + 2);
+		return mine;
 	}
 
 	private static boolean ladder(BlockState s) {
@@ -583,14 +681,14 @@ public final class Rooms {
 	}
 
 	/** A table with chairs in the middle of rooms at least 4 × 4 inside. */
-	private static void centreTable(Draft d, Room r) {
+	private static boolean centreTable(Draft d, Room r) {
 		if (r.width() < 4 || r.length() < 4) {
-			return;
+			return false;
 		}
 		int cx = (r.x0 + r.x1) / 2;
 		int cz = (r.z0 + r.z1) / 2;
 		if (!tryTake(r, new int[][]{{cx, cz}}, null)) {
-			return;
+			return false;
 		}
 		Furniture.table(d, cx, r.y, cz);
 		for (Direction dir : Dirs.HORIZONTAL) {
@@ -600,6 +698,7 @@ public final class Rooms {
 				Furniture.chair(d, sx, r.y, sz, dir);
 			}
 		}
+		return true;
 	}
 
 	/** Light: lanterns hanging from the ceiling in rooms tall enough, wall torches in low ones. */

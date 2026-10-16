@@ -49,6 +49,27 @@ public final class Plantation implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("extract/plantation"), ArchetypeCategory.EXTRACTION, Set.of(JobType.FORESTER), 0,
 		15, 31, 15, 31, 9, 16, SettlementTier.VILLAGE, Set.of(), Set.of(ArchetypeInfo.SiteFlag.OUTSKIRTS), List.of(), 0, 0.8);
 
+	/**
+	 * The woodlot's timber: the style's own tree, unless that is a garden or orchard tree no forester plants for wood —
+	 * the karst's cherry gives way to fir, the olive to an oak coppice, the wet tropics' palm to jungle hardwood.
+	 */
+	record Timber(Block log, Block leaves, boolean conifer, boolean own) {
+		static Timber of(Draft d) {
+			String log = Manner.path(d.mat(Role.TREE_LOG), Form.LOG);
+			String leaves = Manner.path(d.mat(Role.TREE_LEAVES), Form.FULL);
+			if (log.contains("cherry") || log.contains("wisteria") || log.contains("maple")) {
+				return new Timber(Blocks.SPRUCE_LOG, Blocks.SPRUCE_LEAVES, true, false);
+			}
+			if (log.contains("olive") || leaves.contains("azalea")) {
+				return new Timber(Blocks.OAK_LOG, Blocks.OAK_LEAVES, false, false);
+			}
+			if ((log.contains("palm") || log.contains("jungle")) && d.site().temperature() >= 0.9F && d.mat(Role.GROUND).main(Form.FULL) != Blocks.SAND) {
+				return new Timber(Blocks.JUNGLE_LOG, Blocks.JUNGLE_LEAVES, false, false);
+			}
+			return new Timber(Blocks.OAK_LOG, Blocks.OAK_LEAVES, false, true);
+		}
+	}
+
 	/** Ages of a coupe in the rotation. */
 	private enum Age {
 		CUT, REGROWTH, GROWN
@@ -73,12 +94,13 @@ public final class Plantation implements Archetype {
 		}
 		Pithead head = new Pithead(d, rock, ex, yd, base);
 		Mat logs = d.mat(Role.TREE_LOG);
+		Timber timber = Timber.of(d);
 		try (var p = d.campaign(0)) {
 			head.way(ride);
 			head.shed(JobType.FORESTER);
 			head.lamp();
-			yardStacks(d, head, yd, logs);
-			head.cart(logs.log(Direction.Axis.X).at(0, 0, 0));
+			yardStacks(d, head, yd, logs, timber);
+			head.cart(timber.own() ? logs.log(Direction.Axis.X).at(0, 0, 0) : dev.voidmc.hearth.build.draft.States.axis(timber.log(), Direction.Axis.X));
 			Groundwork.clear(d, 0, 0, w - 1, yd, Math.min(d.maxHeight() - 1, 10));
 		}
 		int[] rideY = new int[dp];
@@ -97,14 +119,15 @@ public final class Plantation implements Archetype {
 		Age[] ages = Age.values();
 		int shift = d.random().nextInt(3);
 		Trees.Kind kind = Trees.kind(d);
-		Block sapling = sapling(d);
+		Block sapling = timber.own() ? sapling(d) : dev.voidmc.hearth.build.draft.States.block(
+			"minecraft:" + net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(timber.log()).getPath().replace("_log", "_sapling"), Blocks.OAK_SAPLING);
 		for (int k = 0; k < n; k++) {
 			int z0 = yd + 1 + (int) Math.round(k * span / (double) n);
 			int z1 = yd + (int) Math.round((k + 1) * span / (double) n);
 			Age age = ages[(k + shift) % 3];
 			try (var p = d.campaign(k + 1)) {
 				bank(d, z0, ride, k == 0);
-				coupe(d, z0 + 2, z1, ride, age, kind, sapling, logs);
+				coupe(d, z0 + 2, z1, ride, age, kind, sapling, logs, timber);
 				// where the foresters go in from the ride: on it, and beside it where the coupe's ground meets it
 				int zm = Math.min(Math.min(z1, z0 + 3), rideEnd);
 				if (zm >= z0) {
@@ -206,9 +229,9 @@ public final class Plantation implements Archetype {
 	}
 
 	/** One coupe's trees on rows {@code z0..z1}, at its age in the rotation. */
-	private static void coupe(Draft d, int z0, int z1, int ride, Age age, Trees.Kind kind, Block sapling, Mat logs) {
+	private static void coupe(Draft d, int z0, int z1, int ride, Age age, Trees.Kind kind, Block sapling, Mat logs, Timber timber) {
 		int w = d.frontage();
-		int spacing = kind == Trees.Kind.PALM ? 5 : 4;
+		int spacing = kind == Trees.Kind.PALM && timber.own() ? 5 : 4;
 		int row = 0;
 		List<int[]> stumps = new ArrayList<>();
 		for (int z = z0; z <= z1; z += spacing - 1, row++) {
@@ -229,23 +252,23 @@ public final class Plantation implements Archetype {
 				switch (age) {
 					case GROWN -> {
 						if (room >= 6) {
-							Trees.tree(d, x, y, z, Math.min(room, 7 + (int) (u * 4)), kind, bx0, z0 - 2, bx1, z1 + 1);
+							tree(d, x, y, z, Math.min(room, 7 + (int) (u * 4)), kind, bx0, z0 - 2, bx1, z1 + 1, timber);
 						}
 					}
 					case REGROWTH -> {
 						if (u < 0.12 && room >= 7) {
 							// a standard kept over the coppice
-							Trees.tree(d, x, y, z, Math.min(room, 8 + (int) (u * 20)), kind, bx0, z0 - 2, bx1, z1 + 1);
+							tree(d, x, y, z, Math.min(room, 8 + (int) (u * 20)), kind, bx0, z0 - 2, bx1, z1 + 1, timber);
 						} else {
-							stool(d, x, y, z, logs, u < 0.6 ? 2 : 1);
+							stool(d, x, y, z, logs, u < 0.6 ? 2 : 1, timber);
 						}
 					}
 					case CUT -> {
 						if (u < 0.1 && room >= 7) {
-							Trees.tree(d, x, y, z, Math.min(room, 8 + (int) (u * 20)), kind, bx0, z0 - 2, bx1, z1 + 1);
+							tree(d, x, y, z, Math.min(room, 8 + (int) (u * 20)), kind, bx0, z0 - 2, bx1, z1 + 1, timber);
 						} else {
 							try (var st = d.stage(StageKind.EXTERIOR)) {
-								d.set(x, y, z, logs.log(Direction.Axis.Y));
+								d.set(x, y, z, stem(logs, timber, Direction.Axis.Y));
 							}
 							stumps.add(new int[]{x, y, z});
 						}
@@ -266,18 +289,32 @@ public final class Plantation implements Archetype {
 					}
 				}
 			}
-			cordwood(d, z0, z1, ride, logs);
+			cordwood(d, z0, z1, ride, logs, timber);
 		}
 	}
 
+	/** A tree of the woodlot: the style's own shape, or the timber that replaces a garden tree. */
+	private static void tree(Draft d, int x, int y, int z, int h, Trees.Kind kind, int bx0, int bz0, int bx1, int bz1, Timber timber) {
+		if (timber.own()) {
+			Trees.tree(d, x, y, z, h, kind, bx0, bz0, bx1, bz1);
+		} else {
+			dev.voidmc.hearth.build.kit.homestead.Trees.timber(d, x, y, z, h, timber.log(), timber.leaves(), timber.conifer());
+		}
+	}
+
+	/** A log of the woodlot's timber, upright or on its side. */
+	private static dev.voidmc.hearth.build.draft.Paint stem(Mat logs, Timber timber, Direction.Axis axis) {
+		return timber.own() ? logs.log(axis) : dev.voidmc.hearth.build.draft.Paint.of(dev.voidmc.hearth.build.draft.States.axis(timber.log(), axis));
+	}
+
 	/** A coppice stool: a cut stump bushing out in shoots ({@code h} high). */
-	private static void stool(Draft d, int x, int y, int z, Mat logs, int h) {
-		BlockState leaf = d.mat(Role.TREE_LEAVES).leaves().at(x, y, z);
+	private static void stool(Draft d, int x, int y, int z, Mat logs, int h, Timber timber) {
+		BlockState leaf = timber.own() ? d.mat(Role.TREE_LEAVES).leaves().at(x, y, z) : dev.voidmc.hearth.build.draft.States.leaves(timber.leaves());
 		if (leaf == null) {
 			return;
 		}
 		try (var st = d.stage(StageKind.EXTERIOR)) {
-			d.set(x, y, z, logs.log(Direction.Axis.Y));
+			d.set(x, y, z, stem(logs, timber, Direction.Axis.Y));
 			for (int k = 1; k <= h && y + k < d.maxHeight(); k++) {
 				d.set(x, y + k, z, leaf);
 			}
@@ -292,7 +329,7 @@ public final class Plantation implements Archetype {
 	}
 
 	/** The cut wood stacked by the ride on level ground: a pile of logs along it. */
-	private static void cordwood(Draft d, int z0, int z1, int ride, Mat logs) {
+	private static void cordwood(Draft d, int z0, int z1, int ride, Mat logs, Timber timber) {
 		for (int side : new int[]{1, -1}) {
 			int x = ride + 2 * side;
 			for (int z = z0; z + 2 <= z1; z++) {
@@ -302,7 +339,7 @@ public final class Plantation implements Archetype {
 					ok &= d.site().ground(x, z + k) == g && g < d.maxHeight() - 3 && d.isEmpty(x, g, z + k) && d.isEmpty(x, g + 1, z + k) && !d.site().isWater(x, z + k);
 				}
 				if (ok) {
-					Props.logPile(d, x, g, z, Direction.Axis.Z, 3, 1, 2, logs);
+					pile(d, x, g, z, Direction.Axis.Z, logs, timber);
 					return;
 				}
 			}
@@ -310,13 +347,31 @@ public final class Plantation implements Archetype {
 	}
 
 	/** Logs waiting in the yard for the carts, and a chopping block. */
-	private static void yardStacks(Draft d, Pithead head, int yd, Mat logs) {
+	/** A pile of cut logs three long, two high in the middle: the style's own, or the timber's. */
+	private static void pile(Draft d, int x, int y, int z, Direction.Axis axis, Mat logs, Timber timber) {
+		if (timber.own()) {
+			Props.logPile(d, x, y, z, axis, 3, 1, 2, logs);
+			return;
+		}
+		try (var st = d.stage(StageKind.EXTERIOR)) {
+			for (int a = 0; a < 3; a++) {
+				int px = axis == Direction.Axis.X ? x + a : x;
+				int pz = axis == Direction.Axis.X ? z : z + a;
+				d.set(px, y, pz, stem(logs, timber, axis));
+				if (a == 1 || Noise.unit(d.seed() ^ 0x10C, px, y, pz) < 0.5) {
+					d.set(px, y + 1, pz, stem(logs, timber, axis));
+				}
+			}
+		}
+	}
+
+	private static void yardStacks(Draft d, Pithead head, int yd, Mat logs, Timber timber) {
 		int w = d.frontage();
 		boolean block = false;
 		for (int z = yd; z >= 2; z--) {
 			for (int x = 1; x + 2 <= w - 2; x++) {
 				if (head.free(x, z) && head.free(x + 1, z) && head.free(x + 2, z) && (head.free(x, z - 1) || head.free(x + 1, z - 1))) {
-					Props.logPile(d, x, 0, z, Direction.Axis.X, 3, 1, 2, logs);
+					pile(d, x, 0, z, Direction.Axis.X, logs, timber);
 					head.reserve(x, z, x + 2, z);
 					head.store(x + 1, z - 1 >= 1 && head.free(x + 1, z - 1) ? z - 1 : z, Dirs.BACK);
 					if (!block && head.free(x + 3, z) && x + 3 <= w - 2) {

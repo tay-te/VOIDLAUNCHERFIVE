@@ -109,8 +109,8 @@ public record Dress(LineMat main, @Nullable LineMat wear, double wearShare, Line
 			return new Dress(paving, null, 0, frame, EdgeKind.LOG, paving, 0, false, width >= 5 && tier >= 1, 8);
 		}
 		LineMat tread = paving.has(Form.STAIRS) && (tier >= 2 || !found.has(Form.STAIRS)) ? paving : found;
-		LineMat cheek = c == Culture.MEDITERRANEAN || c == Culture.STEPPE ? contrast(tread, accent, plinth, found, paving)
-			: contrast(tread, plinth, accent, paving, found);
+		// (the Mediterranean's cheeks in its grey stone: white quartz down a hillside reads as painted lines, review 2 item 16)
+		LineMat cheek = c == Culture.STEPPE ? contrast(tread, accent, plinth, found, paving) : contrast(tread, plinth, accent, paving, found);
 		if (!cheek.has(Form.STAIRS)) {
 			cheek = tread;
 		}
@@ -135,8 +135,7 @@ public record Dress(LineMat main, @Nullable LineMat wear, double wearShare, Line
 		// the street's setts: rubble where the foundation is cobbled, the paving otherwise; dressed kerbs against them
 		// (the setts in one stone: a street of mixed rubble and moss reads as a ruin; wear patches bring the variety)
 		LineMat setts = found.mainName().contains("cobble") && found.has(Form.SLAB) ? found.top(1) : paving.top(2);
-		LineMat kerb = c == Culture.MEDITERRANEAN || c == Culture.STEPPE ? contrast(setts, accent, plinth, paving, found)
-			: contrast(setts, plinth, paving, accent, found);
+		LineMat kerb = c == Culture.STEPPE ? contrast(setts, accent, plinth, paving, found) : contrast(setts, plinth, paving, accent, found);
 		// steps are cut from one stone, so a climbing road reads as built
 		LineMat stepPaved = (setts.has(Form.STAIRS) ? setts : found).top(1);
 		LineMat stepStone = (found.has(Form.STAIRS) ? found : plinth).top(1);
@@ -188,7 +187,12 @@ public record Dress(LineMat main, @Nullable LineMat wear, double wearShare, Line
 					yield new Dress(body, body == found ? paving : found, 0.2, edge, ek, stepPaved, tier >= 3 && body.has(Form.SLAB) ? 1 : 0, false, false, 0);
 				}
 				if (tier == 2) {
-					yield new Dress(path, found, 0.3, logEdge ? logs : path, logEdge ? EdgeKind.LOG : EdgeKind.SAME, stepStone, 0, false, false, 0);
+					// a village lane: packed earth with a little rubble trodden in, not a cobbled street in dots
+					yield new Dress(path, found, 0.12, logEdge ? logs : path, logEdge ? EdgeKind.LOG : EdgeKind.SAME, stepStone, 0, false, false, 0);
+				}
+				if (!logEdge && width >= 3) {
+					// a hamlet's lane is a cart track: two worn ruts, grass between them (review 2 item 16)
+					yield new Dress(ground, null, 0, path, EdgeKind.SAME, stepStone, 0, true, false, 0);
 				}
 				yield new Dress(path, null, 0, logEdge ? logs : path, logEdge ? EdgeKind.LOG : EdgeKind.SAME, stepStone, 0, false, false, 0);
 			}

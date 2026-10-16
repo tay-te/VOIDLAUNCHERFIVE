@@ -3,10 +3,10 @@
 	"name": "Mesa: terraced adobe pueblos in earth and terracotta, lime-white bands, dark vigas, turquoise doors, ladders and roof terraces",
 	"base_name": "pueblo",
 	"roles": {
-		"foundation": [{"m": "minecraft:red_sandstone", "w": 2}, {"m": "minecraft:terracotta", "w": 1}],
-		"plinth": [{"m": "minecraft:brown_terracotta", "w": 1}, {"m": "minecraft:terracotta", "w": 1}],
-		"wall": [{"m": "minecraft:terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall", "w": 5}, {"m": "minecraft:packed_mud", "w": 0.15, "low": 12}, {"m": "minecraft:light_gray_terracotta", "w": 0.15, "high": 8}],
-		"wall_accent": [{"m": "minecraft:white_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 3}, {"m": "minecraft:red_terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall", "w": 0.6}],
+		"foundation": [{"m": "minecraft:red_sandstone", "w": 3}, {"m": "minecraft:terracotta", "w": 0.24}],
+		"plinth": ["minecraft:brown_terracotta"],
+		"wall": [{"m": "minecraft:terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall", "w": 5}, {"m": "minecraft:granite", "w": 0.3}, {"m": "minecraft:packed_mud", "w": 0.1, "low": 12}],
+		"wall_accent": [{"m": "minecraft:polished_granite", "wall": "minecraft:granite_wall"}],
 		"frame": ["wood:minecraft:spruce"],
 		"beam": ["wood:minecraft:spruce"],
 		"floor": [{"m": "minecraft:mud_bricks", "w": 1}, {"m": "minecraft:packed_mud", "w": 1}],
@@ -46,19 +46,19 @@
 	"base_weight": 2,
 	"base_when": {"not": [{"categories": ["religious"]}]},
 	"variants": [
-		{"name": "white", "w": 1, "roles": {"wall": [{"m": "minecraft:white_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 3}], "gable": ["minecraft:white_terracotta"], "wall_accent": [{"m": "minecraft:terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall", "w": 2}, {"m": "minecraft:red_terracotta", "w": 1}]}},
-		{"name": "rust", "w": 1, "roles": {"wall": [{"m": "minecraft:orange_terracotta", "stairs": "minecraft:smooth_red_sandstone_stairs", "slab": "minecraft:smooth_red_sandstone_slab", "wall": "minecraft:red_sandstone_wall", "w": 2}, {"m": "minecraft:red_terracotta", "w": 0.16}], "gable": ["minecraft:orange_terracotta"]}},
-		{"name": "red sandstone", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_red_sandstone", "w": 3}, {"m": "minecraft:red_sandstone", "w": 0.24}], "gable": ["minecraft:smooth_red_sandstone"], "wall_accent": [{"m": "minecraft:white_terracotta", "w": 2}, {"m": "minecraft:cut_red_sandstone", "w": 1}]}}
+		{"name": "white", "w": 1, "roles": {"wall": [{"m": "minecraft:white_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 3}], "gable": ["minecraft:white_terracotta"], "wall_accent": [{"m": "minecraft:smooth_sandstone", "wall": "minecraft:sandstone_wall"}]}},
+		{"name": "rust", "w": 1, "roles": {"wall": [{"m": "minecraft:orange_terracotta", "stairs": "minecraft:smooth_red_sandstone_stairs", "slab": "minecraft:smooth_red_sandstone_slab", "wall": "minecraft:red_sandstone_wall", "w": 2}, {"m": "minecraft:red_terracotta", "w": 0.1}], "gable": ["minecraft:orange_terracotta"], "wall_accent": [{"m": "minecraft:smooth_red_sandstone", "wall": "minecraft:red_sandstone_wall"}]}},
+		{"name": "red sandstone", "w": 1, "roles": {"wall": [{"m": "minecraft:smooth_red_sandstone", "w": 3}, {"m": "minecraft:red_sandstone", "w": 0.24}], "gable": ["minecraft:smooth_red_sandstone"], "wall_accent": ["minecraft:cut_red_sandstone"]}}
 	],
 	"substyles": [
 		{
 			"name": "cliff masonry",
 			"w": 4,
-			"when": [{"stations": ["poor", "peasant"]}, {"landforms": ["steep"]}, {"categories": ["farmstead", "storage"]}],
+			"when": [{"stations": ["poor", "peasant"]}, {"landforms": ["steep"]}, {"categories": ["farmstead", "storage"], "not": {"categories": ["noble"]}}],
 			"roles": {
-				"wall": [{"m": "minecraft:red_sandstone", "w": 3}, {"m": "minecraft:cut_red_sandstone", "w": 0.12}, {"m": "minecraft:terracotta", "w": 0.12}, {"m": "minecraft:packed_mud", "w": 0.09, "low": 12}],
+				"wall": [{"m": "minecraft:red_sandstone", "w": 3}, {"m": "minecraft:cut_red_sandstone", "w": 0.2}, {"m": "minecraft:packed_mud", "w": 0.06, "low": 12}],
 				"gable": ["minecraft:red_sandstone"],
-				"wall_accent": [{"m": "minecraft:cut_red_sandstone", "w": 2}, {"m": "minecraft:packed_mud", "w": 1}],
+				"wall_accent": ["minecraft:cut_red_sandstone"],
 				"plinth": ["minecraft:red_sandstone"]
 			},
 			"habits": {
@@ -71,9 +71,9 @@
 			"w": 8,
 			"when": [{"categories": ["religious", "grand"]}, {"stations": ["gentry", "lord", "official"]}],
 			"roles": {
-				"wall": [{"m": "minecraft:white_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 4}, {"m": "minecraft:calcite", "w": 0.12, "high": 8}, {"m": "minecraft:terracotta", "w": 0.12, "low": 12}],
+				"wall": [{"m": "minecraft:white_terracotta", "stairs": "minecraft:smooth_sandstone_stairs", "slab": "minecraft:smooth_sandstone_slab", "wall": "minecraft:sandstone_wall", "w": 4}, {"m": "minecraft:smooth_sandstone", "w": 0.3}, {"m": "minecraft:terracotta", "w": 0.06, "low": 12}],
 				"gable": ["minecraft:white_terracotta"],
-				"wall_accent": [{"m": "minecraft:terracotta", "stairs": "minecraft:granite_stairs", "slab": "minecraft:granite_slab", "wall": "minecraft:granite_wall", "w": 2}, {"m": "minecraft:brown_terracotta", "w": 1}],
+				"wall_accent": [{"m": "minecraft:smooth_sandstone", "wall": "minecraft:sandstone_wall"}],
 				"plinth": ["minecraft:terracotta"],
 				"roof": [{"m": "minecraft:bricks", "w": 3}, {"m": "minecraft:mud_bricks", "w": 1}],
 				"roof_trim": ["minecraft:bricks"],
@@ -87,6 +87,9 @@
 				"porch": 0.8
 			}
 		}
+	],
+	"overrides": [
+		{"when": {"categories": ["workshop"]}, "roles": {"tree_log": ["minecraft:spruce_log"], "tree_leaves": ["minecraft:spruce_leaves"]}}
 	],
 	"habits": {
 		"walls": {"kind": "adobe", "storey_height": 4, "plinth": 1, "jetty": 0.0, "post_spacing": 3, "braces": 0, "beam_ends": 0.85},

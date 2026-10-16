@@ -7,6 +7,7 @@ import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -14,6 +15,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.InputWithModifiers;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.locale.Language;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.Entity;
@@ -33,6 +35,7 @@ public class ConversationScreen extends Screen {
 	private static final int EDGE = 0xFF5A4026;
 	private static final int INK = 0xFF3A2A1A;
 	private static final int INK_SOFT = 0xFF7A6040;
+	private static final int INK_FADED = 0xFFA89070;
 	/** Characters of speech revealed per tick. */
 	private static final float REVEAL = 2.2F;
 
@@ -204,10 +207,14 @@ public class ConversationScreen extends Screen {
 		OptionEntry(int x, int y, int w, int h, TalkPayloads.Option option) {
 			super(x, y, w, h, option.label());
 			this.option = option;
+			this.active = !option.locked();
 		}
 
 		@Override
 		public void onPress(InputWithModifiers input) {
+			if (this.option.locked()) {
+				return;
+			}
 			// Show the rest of the line at once if they click before it is written out.
 			ConversationScreen.this.revealed = Float.MAX_VALUE / 2;
 			ClientPlayNetworking.send(new TalkPayloads.Choose(ConversationScreen.this.entityId, this.option.id()));
@@ -215,12 +222,31 @@ public class ConversationScreen extends Screen {
 
 		@Override
 		protected void extractContents(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-			boolean hot = this.isHoveredOrFocused();
+			boolean locked = this.option.locked();
+			boolean hot = this.isHoveredOrFocused() && !locked;
 			if (hot) {
 				g.fill(this.getX(), this.getY(), this.getX() + this.getWidth(), this.getY() + this.getHeight(), PAPER_DARK);
 			}
-			g.text(ConversationScreen.this.font, Component.literal(hot ? "▶ " : "• "), this.getX() + 4, this.getY() + 4, hot ? EDGE : INK_SOFT, false);
-			g.text(ConversationScreen.this.font, this.getMessage(), this.getX() + 16, this.getY() + 4, INK, false);
+			Font font = ConversationScreen.this.font;
+			g.text(font, Component.literal(hot ? "▶ " : locked ? "× " : "• "), this.getX() + 4, this.getY() + 4, hot ? EDGE : INK_SOFT, false);
+			int right = this.getX() + this.getWidth() - 4;
+			Component hint = this.option.hint();
+			if (hint != null) {
+				int w = font.width(hint);
+				right -= w;
+				g.text(font, locked ? Component.literal(hint.getString()) : hint, right, this.getY() + 4, locked ? INK_FADED : INK_SOFT, false);
+				right -= 8;
+			}
+			// a locked option is written faded, plain (its colours dropped), and cannot be picked
+			Component label = locked ? Component.literal(this.getMessage().getString()) : this.getMessage();
+			int room = right - (this.getX() + 16);
+			FormattedCharSequence shown = font.width(label) > room
+				? Language.getInstance().getVisualOrder(font.substrByWidth(label, Math.max(0, room - font.width("…"))))
+				: label.getVisualOrderText();
+			g.text(font, shown, this.getX() + 16, this.getY() + 4, locked ? INK_FADED : INK, false);
+			if (this.option.tooltip() != null && this.isHovered()) {
+				g.setTooltipForNextFrame(font, font.split(this.option.tooltip(), 200), mouseX, mouseY);
+			}
 		}
 
 		@Override
