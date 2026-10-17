@@ -4,7 +4,27 @@ A Minecraft that stays open, for fixing VOID Welkin. It loads Gloam, VOID LOD, V
 runs the Welkin pack straight from a worktree. A fix is checked as edit, reload, shoot: about 2 to 9 seconds a look,
 where a game test took 6 to 10 minutes.
 
-Everything goes through `reel/tools/wstudio.sh`, run from `C:/Users/bitto/VOID/.claude/worktrees/welkin-studio/reel`.
+Everything goes through `reel/tools/wstudio.sh`. The examples below say `bash tools/wstudio.sh`; the script finds its
+own folder, so from anywhere you can run it by its full path without `cd`:
+
+```bash
+WS=C:/Users/bitto/VOID/.claude/worktrees/welkin-studio/reel/tools/wstudio.sh
+bash $WS start B C:/Users/bitto/VOID/.claude/worktrees/<yours> 90
+```
+
+## A fix, start to finish
+
+Run every command in the foreground (give the Bash tool a 600000 ms timeout): each returns when its work is done.
+
+1. Make your own worktree of `welkin` and edit there. Never edit the main welkin worktree.
+2. `bash $WS start B <your worktree> 90`. It returns after 1.5 to 2.5 minutes with `studio B ready`.
+3. Shoot the views your fix is about **before** you edit, with a name: `bash $WS B shoot plain 16:30 p1630_before`.
+   Shoot it twice and keep the second if you have just moved there (see "Same frame twice" below).
+4. Edit `<your worktree>/welkin/shaders/...`, then `bash $WS B reload`.
+   - Exit 0: the pack compiled. Exit 1: it printed `--- errors` (see "When a reload fails").
+5. `bash $WS B shoot plain 16:30 p1630_after`, and compare the two frames (and the reference packs, with `wcompare.py`).
+6. Repeat 4 and 5. One loop is about 5 seconds.
+7. `bash $WS B quit` when you are done. Then commit in your worktree.
 
 ## Start
 
@@ -16,6 +36,10 @@ bash tools/wstudio.sh start B <worktree> 90     # studio B, your own worktree (i
 - `start` waits for a free game slot, launches the game in the background and returns only when the world, the
   chunks and the far land around the first view are drawn. That takes about 1.5 to 2.5 minutes.
 - The game keeps running after `start` returns. It holds the game slot until it quits.
+- If both slots (`C:/Users/bitto/VOID/.tools/locks/game1|game2`) are taken, `start` prints `waiting for a game slot`
+  with their owners every 20 s and goes on waiting.
+- To run A and B together, start one, wait until it is ready, then start the other. Two `start`s at the same moment
+  would run two Gradle builds of this worktree at once.
 - A uses control port 7351 and B uses 7352. Give `A` or `B` as the first word of any command, or set `WSTUDIO=B`.
   The default is A.
 - Each start makes a fresh world. Its settings match the bench, so frames line up with the old game-test frames:
@@ -36,10 +60,27 @@ bash tools/wstudio.sh shoot plain 16:30         # prints the frame's path
 
 - The pack in the run folder is a junction to `<worktree>/welkin`. Iris reads your edited files on each reload, so
   there is nothing to copy or zip.
-- After a compile error the game runs without the pack. Fix the file and reload again.
-- `opt KEY=value ...` sets pack options and reloads. `opt` with no arguments shows them; `opt --reset` goes back to
-  the pack's defaults.
+- `opt KEY=value ...` sets pack options and reloads (and checks for errors as `reload` does). `opt` with no
+  arguments shows them; `opt --reset` goes back to the pack's defaults. The options live in the run folder
+  (`build/run/studio<A|B>/shaderpacks/Welkin.txt`), never in your worktree.
 - `pack <worktree>` points a running studio at another worktree and reloads. `pack` alone shows the current one.
+
+### When a reload fails
+
+- Iris reports a compile error only in the game's log, so the reply's `"error":""` stays empty. `reload` reads the
+  log for you: it prints `--- errors` and the Iris lines and exits 1. For example:
+
+  ```
+  net.irisshaders.iris.gl.shader.ShaderCompileException: final: ... line 1353:11 missing ';' at 'outColor'
+  ```
+
+  - The first word (`final`) is the program: `shaders/world0/final.fsh`, which includes `program/final.glsl`.
+  - The line number counts lines of the program after Iris has expanded every `#include`, so it is not a line of your
+    file. Look for the quoted token near your edit.
+- After a failed reload the game runs **without the pack** (plain vanilla look). The studio remembers this:
+  - `shoot` refuses with `refused: the last reload failed` (set `WSTUDIO_FORCE=1` to shoot anyway);
+  - `status` prints `BROKEN`.
+- Fix the file and `reload` again. A reload that compiles clears the mark.
 
 ## Shoot
 
@@ -72,13 +113,30 @@ bash tools/wstudio.sh views                     # the views and their hours
 - **The world holds still between shots** (`tick freeze`). Clouds, wind and sway stay put, so a frame before an edit
   and one after it differ only by the edit. An unchanged pack gives a pixel-identical frame. `hold off` lets the world
   run, as on the bench.
+- **Same frame twice.** The first shot just after a long move can differ from the next shot of the same view by one
+  8-bit step in a few thousand pixels (measured: 2128 pixels, at most 1 step). From the second shot at a spot on,
+  frames repeat exactly, and a reverted edit gives back the very same frame. Take your before frame at the spot,
+  not as the first shot after the move.
+- **A frame's tone can differ a lot from the old bench frame of the same view at the same commit.** Most views land
+  within 1 to 7 median steps of review round 2, but in the baseline of 2026-10-16 (pack a304d351):
+  - plain 16:30 was 31 steps darker (93 vs 125): a frozen cloud's shadow lay over the foreground;
+  - forest was 5 to 34 darker at every hour: the trees grew differently and a tree stands right in front of the camera;
+  - countryside (-21) and mesa (-12): the far trees are LOD's, and differ from the bench's.
+
+  So judge a fix by your before and after frames from the same running studio. Use the bench rounds and the
+  reference packs for the target tone, not as a before frame.
 - **Compare sheets:** `python -I <scratchpad>/studio_tools/wcompare.py <frame> --before review2` puts a frame beside the
-  reference packs and an earlier round, with tone figures. `wsheet.py` makes sheets of several frames.
+  reference packs and an earlier round, with tone figures. `wsheet.py` makes sheets of several frames (pass the
+  files, not the folder: `renders/welkin/A` also holds older frames).
+  - The tools know the bench, foliage, vista and amber/griver views only. They skip rain0, far0 and storm0 (no
+    reference pack shot them); compare those by eye with the review round's frames in
+    `<scratchpad>/welkin_p2/review2/B/raw/n3/`.
+  - amber and griver have no tone target: the GAP line says "no numeric target at this hour (night ...)" there.
 
 ## Quit and status
 
 ```bash
-bash tools/wstudio.sh status                    # state, pack, slot, log
+bash tools/wstudio.sh status                    # state, pack, front, slot, log (and BROKEN after a failed reload)
 bash tools/wstudio.sh log 60                    # the game's log: build/wstudio-<A|B>.log
 bash tools/wstudio.sh quit                      # closes the game; frees the slot and deletes the world
 ```
@@ -92,7 +150,12 @@ bash tools/wstudio.sh quit                      # closes the game; frees the slo
 | `shoot` of the same view again | 1.5 to 3.5 s |
 | edit, reload and shoot, one loop | 4.4 to 8.8 s |
 | `shoot` at a new place that is generated fresh | 23 to 49 s |
-| `quit` | 6 s |
+| `quit` | 6 to 11 s |
+| `pack <worktree>` (relink and reload) | 4 s |
+| a full bench view, six hours, first visit | 55 to 70 s (one 30 to 47 s shot, then 3 to 7 s each) |
+
+The second session of 2026-10-16 (A and B running together) matched these: start 104 to 126 s, reload 1.9 to 3.6 s,
+re-shoot 1.6 to 4.4 s, a loop 4.8 s, a first shot at a new place 30 to 58 s.
 
 ## Rules
 
@@ -101,6 +164,14 @@ bash tools/wstudio.sh quit                      # closes the game; frees the slo
 - **Quit when you are done.** A studio holds one of the machine's two game slots until it quits, or until its minutes
   run out (180 by default).
 - **Use one studio at a time if you can.** Two games at once share the GPU and run slower.
+- **Editing `wstudio.sh` while a studio runs is safe only for studios started after 2026-10-16.** The background
+  holder is bash running this file; before the `esac; exit $?` line, bash read on from its old place in an edited file
+  when the game ended, and ran whatever stood there.
+- **`quit` leaves a Gradle daemon** (a `java.exe` running `gradle-daemon-main`). That is normal; it stops itself when
+  idle. Never kill Java or run `gradlew --stop`: other sessions use them. Only a game of yours whose `quit` failed may
+  be ended, a `java.exe` whose command line holds `devlaunchinjector` and `welkin-studio`.
+- The junction `build/run/studio<A|B>/shaderpacks/Welkin` stays after `quit`, pointing at the last pack. It is only a
+  link; the worktree's `git status` is not touched by it.
 - **Never `rm -rf` a run folder (`build/run/studioA|B`).** Its `shaderpacks/Welkin` is a junction into a worktree, and
   `rm` may follow it into your shaders. `wstudio.sh` removes the junction itself with `cmd /c rmdir`.
 - The mods are jars in `build/set/` (`SOURCE.txt` says which gloam commit). To refresh them:
@@ -123,4 +194,5 @@ bash tools/wstudio.sh quit                      # closes the game; frees the slo
     bench caught them.
 - **The front is set once, at start.** A view the bench shot at another front (rain0, far0 and storm0 at 0.8)
   needs a studio started with `-Pgloam.test.front=0.8`.
-- **Places need generating.** With one generation thread, the first shot at a new place takes 20 to 50 s.
+- **Places need generating.** With one generation thread, the first shot at a new place takes 20 to 60 s.
+- **The underground views** (amber, griver, ...) ignore the front; shoot them in any studio.

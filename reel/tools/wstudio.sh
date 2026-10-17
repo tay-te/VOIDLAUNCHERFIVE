@@ -36,6 +36,18 @@ FRAMES="$HERE/renders/welkin/$studio"
 SLOTFILE="$HERE/build/wstudio-$studio.slot"
 
 alive() { curl -s -m 3 "$BASE/studio" 2>/dev/null | grep -q '"state"'; }
+BROKEN="$HERE/build/wstudio-$studio.broken"   # present while the last reload failed (the game then runs WITHOUT the pack)
+# Scans the log from line $1 on for shader errors; on one, prints them, marks the studio broken and returns 1.
+# (Iris reports a compile error only in the log: the reply's "error" field stays empty.)
+scan_errors() {
+	local errs
+	errs=$(tail -n +"$1" "$LOG" | grep -iE "error|fail|exception|could not|unable" | grep -v "^\s*at " | head -30)
+	if [ -n "$errs" ] || { [ -n "${2:-}" ] && ! echo "$2" | grep -q '"error":""'; }; then
+		echo "--- errors (the game now runs WITHOUT the pack: fix the file and reload):"; echo "$errs"
+		date +%T > "$BROKEN"; return 1
+	fi
+	rm -f "$BROKEN"; return 0
+}
 winpath() { cygpath -w "$1"; }
 
 # Removes a junction (only the link, never what it points at); refuses a real folder.
@@ -99,8 +111,10 @@ start)
 	maxShadowRenderDistance=32
 	shaderPack=Welkin
 	EOF
-	rm -rf "$RUN/saves"
+	rm -rf "$RUN/saves" "$BROKEN"
 	echo "$pack" > "$RUN/pack.txt"
+	front=0.38; for a in "$@"; do case "$a" in -Pgloam.test.front=*) front="${a#-Pgloam.test.front=}" ;; esac; done
+	echo "$front" > "$RUN/front.txt"
 	start=$(date +%s)
 	nohup bash "$0" "$studio" _hold "$slot" -Pwelkin.studio=true -Preel.control=$PORT -Pstudio.run=studio$studio -Piris "-Pmods=$MODS" \
 		-Preel.width=1600 -Preel.height=900 -Pwelkin.minutes=$minutes -Pgloam.test.front=0.38 -Pgloam.test.bgThreads=1 "$@" > "$LOG" 2>&1 < /dev/null &
@@ -120,13 +134,12 @@ start)
 	;;
 _hold) hold "$@" ;;
 reload)
-	n=$(grep -c "\[welkin\] reload [0-9]* begins" "$LOG" 2>/dev/null); n=$((n + 1))
+	from=$(( $(wc -l < "$LOG") + 1 ))
 	t0=$(date +%s%N)
 	r=$(curl -s -X POST -m 120 "$BASE/reload"); echo "$r"
 	sleep 0.3
-	errs=$(awk -v b="[welkin] reload $n begins" 'index($0,b){on=1} on' "$LOG" | grep -iE "error|fail|exception|could not|unable" | grep -v "^\s*at " | head -30)
 	echo "reload took $(( ($(date +%s%N) - t0) / 1000000 )) ms"
-	if [ -n "$errs" ] || ! echo "$r" | grep -q '"error":""'; then echo "--- errors:"; echo "$errs"; exit 1; fi
+	scan_errors "$from" "$r" || exit 1
 	;;
 shoot)
 	if [ "${1:-}" = at ]; then
@@ -137,7 +150,11 @@ shoot)
 		IFS=$'\t' read -r tp tick fov weather front label <<< "$line"
 		name="${3:-${view}_$label}"
 	fi
-	[ "$front" != "-" ] && [ "$front" != "0.38" ] && echo "note: the bench shot this view at gloam.test.front=$front; this studio runs its own front (start with -Pgloam.test.front=$front to match)"
+	if [ -f "$BROKEN" ] && [ -z "${WSTUDIO_FORCE:-}" ]; then
+		echo "refused: the last reload failed ($(cat "$BROKEN")), so the game runs without the pack. Fix the shader and reload (WSTUDIO_FORCE=1 shoots anyway)"; exit 1
+	fi
+	running=$(cat "$RUN/front.txt" 2>/dev/null || echo 0.38)
+	[ "$front" != "-" ] && [ "$front" != "$running" ] && echo "note: the bench shot this view at gloam.test.front=$front; this studio runs front $running (start one with -Pgloam.test.front=$front to match)"
 	t0=$(date +%s%N)
 	r=$(curl -s -m 900 -X POST -G "$BASE/shoot" --data-urlencode "tp=$tp" --data-urlencode "time=$tick" --data-urlencode "fov=$fov" \
 		--data-urlencode "weather=$weather" --data-urlencode "name=$name" --data-urlencode "out=$(winpath "$FRAMES")" --data-urlencode "w=${W:-1600}" --data-urlencode "h=${H:-900}")
@@ -158,7 +175,10 @@ opt)
 	fi
 	[ $# -gt 0 ] || { cat "$RUN/shaderpacks/Welkin.txt" 2>/dev/null || echo "(defaults)"; exit 0; }
 	q=""; for kv in "$@"; do q="$q&$kv"; done
+	from=$(( $(wc -l < "$LOG") + 1 ))
 	curl -s -X POST "$BASE/pack?${q#&}"; echo
+	for i in 1 2 3 4 5; do curl -s -m 3 "$BASE/studio" >/dev/null; done; sleep 1   # Iris compiles on the next frames
+	scan_errors "$from" || exit 1
 	;;
 pack)
 	# point the running studio at another worktree's welkin/ (the junction is relinked) and reload
@@ -175,7 +195,8 @@ hold) curl -s -X POST "$BASE/hold?on=$([ "${1:-on}" = off ] && echo false || ech
 views) python -I "$HERE/tools/wviews.py" --list "$VIEWS" ;;
 status)
 	if alive; then curl -s "$BASE/studio"; echo; curl -s "$BASE/status"; echo; else echo "studio $studio is not running"; fi
-	echo "pack: $(cat "$RUN/pack.txt" 2>/dev/null); slot: $(cat "$SLOTFILE" 2>/dev/null || echo none); log: $LOG; frames: $FRAMES"
+	[ -f "$BROKEN" ] && echo "BROKEN: the last reload failed at $(cat "$BROKEN"); the game runs without the pack until a reload succeeds"
+	echo "pack: $(cat "$RUN/pack.txt" 2>/dev/null); front: $(cat "$RUN/front.txt" 2>/dev/null); slot: $(cat "$SLOTFILE" 2>/dev/null || echo none); log: $LOG; frames: $FRAMES"
 	;;
 log) tail -n "${1:-40}" "$LOG" ;;
 cmd) curl -s -X POST --data "$*" "$BASE/cmd"; echo ;;
@@ -191,4 +212,4 @@ quit)
 	[ -n "$slot" ] && [ -d "$slot" ] && echo "warning: slot $slot still held"
 	;;
 *) sed -n '2,16p' "$0"; exit 2 ;;
-esac
+esac; exit $?   # (on the same line: a running studio holder never reads past here, so editing this file is safe)
