@@ -38,6 +38,9 @@ public class ReelStudio implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		if (Boolean.getBoolean("welkin.studio")) {
+			return; // the VOID Welkin studio runs instead (WelkinStudio)
+		}
 		List<String> shots = Arrays.stream(System.getProperty("reel.shots", "").split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
 		boolean stills = "stills".equals(System.getProperty("reel.mode"));
 		int studioMinutes = Integer.getInteger("reel.studio", 0);

@@ -51,10 +51,12 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * POST /set?syncBody=true&jitter=shot&supersample=2   live filming settings (GET /set shows them)
  * POST /pack?TAA_DEFINE=0              sets shader pack options and reloads the pack
  * POST /quit                           closes the studio
+ * GET  /studio, POST /reload, POST /shoot   the VOID Welkin studio's desk (see WelkinDesk)
  * </pre>
  */
 public final class ControlServer {
 	private static volatile boolean quit;
+	private static volatile HttpServer running;
 
 	private ControlServer() {
 	}
@@ -66,14 +68,28 @@ public final class ControlServer {
 
 	public static void start(int port) throws IOException {
 		HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
-		server.setExecutor(Executors.newSingleThreadExecutor(r -> {
+		// a few threads, so /status and /studio answer while a /shoot waits for its frame (WelkinDesk serialises the jobs)
+		server.setExecutor(Executors.newFixedThreadPool(4, r -> {
 			Thread t = new Thread(r, "Reel control");
 			t.setDaemon(true);
 			return t;
 		}));
 		server.createContext("/", ControlServer::handle);
 		server.start();
+		running = server;
 		Reel.LOG.info("[reel] control on http://127.0.0.1:{}/", port);
+	}
+
+	/**
+	 * Closes the port. Its dispatcher thread is not a daemon: a studio that leaves it open keeps the JVM alive after the
+	 * game has shut down, until the client's shutdown watchdog crashes it.
+	 */
+	public static void stop() {
+		HttpServer server = running;
+		running = null;
+		if (server != null) {
+			server.stop(1);
+		}
 	}
 
 	private static void handle(HttpExchange exchange) throws IOException {
@@ -230,7 +246,13 @@ public final class ControlServer {
 				quit = true;
 				yield "{\"quit\":true}";
 			}
-			default -> throw new IllegalArgumentException("unknown path " + path + " (status, shots, check, play, render, stills, snap, stop, where, height, cmd, quit)");
+			default -> {
+				String welkin = WelkinDesk.route(path, q);
+				if (welkin == null) {
+					throw new IllegalArgumentException("unknown path " + path + " (status, shots, check, play, render, stills, snap, stop, where, height, cmd, set, pack, quit, studio, reload, shoot)");
+				}
+				yield welkin;
+			}
 		};
 	}
 
@@ -241,7 +263,7 @@ public final class ControlServer {
 		});
 	}
 
-	private static String onClient(Supplier<String> task) {
+	static String onClient(Supplier<String> task) {
 		CompletableFuture<String> result = new CompletableFuture<>();
 		Minecraft.getInstance().execute(() -> {
 			try {
@@ -286,7 +308,7 @@ public final class ControlServer {
 		return q.containsKey(key) ? Integer.valueOf(q.get(key)) : null;
 	}
 
-	private static String error(String message) {
+	static String error(String message) {
 		return "{\"error\":\"" + Report.escape(String.valueOf(message)) + "\"}";
 	}
 }

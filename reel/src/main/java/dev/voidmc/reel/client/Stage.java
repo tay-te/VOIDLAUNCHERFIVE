@@ -77,8 +77,11 @@ final class Stage {
 			this.timeTouched = true;
 			server(mc, "time set " + (long) Math.floor(world.time()), "time pause");
 		}
-		this.frozeWorld = freeze;
-		if (freeze) {
+		// a world already frozen (the Welkin studio holds it between shots) stays frozen afterwards
+		IntegratedServer integrated = mc.getSingleplayerServer();
+		boolean already = integrated != null && integrated.tickRateManager().isFrozen();
+		this.frozeWorld = freeze && !already;
+		if (this.frozeWorld) {
 			server(mc, "tick freeze");
 		}
 	}

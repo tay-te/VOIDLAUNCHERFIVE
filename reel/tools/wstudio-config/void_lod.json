@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "preset": "high",
+  "enabled": true,
+  "radius": 8192,
+  "detail": 5.0,
+  "farDetail": 5.0,
+  "haze": 0,
+  "smoothFrom": 10,
+  "threads": 4,
+  "budget": 512,
+  "autoTune": true,
+  "gpuTarget": 1.5,
+  "prepareTarget": 0.5
+}

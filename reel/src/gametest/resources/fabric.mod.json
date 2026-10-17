@@ -5,7 +5,7 @@
 	"name": "VOID Reel studio",
 	"environment": "*",
 	"entrypoints": {
-		"fabric-client-gametest": ["dev.voidmc.reel.studio.ReelStudio"]
+		"fabric-client-gametest": ["dev.voidmc.reel.studio.ReelStudio", "dev.voidmc.reel.studio.WelkinStudio"]
 	},
 	"depends": {"reel": "*"}
 }

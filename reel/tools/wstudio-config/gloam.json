@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "sky": true,
+  "darkNights": 0.85,
+  "showers": true,
+  "seasonDays": 8,
+  "motes": 1.0,
+  "sound": 1.0,
+  "far": true
+}

@@ -6,6 +6,7 @@ no pop-in.
 
 - Shot format: [docs/SHOTS.md](docs/SHOTS.md)
 - How it works and what comes next: [docs/DESIGN.md](docs/DESIGN.md)
+- The VOID Welkin studio (a studio kept open for shader pack fixes: edit, reload, shoot): [docs/WELKIN_STUDIO.md](docs/WELKIN_STUDIO.md)
 
 ## Quick start
 

@@ -95,6 +95,33 @@ loom {
 	}
 }
 
+// The VOID Welkin studio (tools/wstudio.sh, docs/WELKIN_STUDIO.md): Gloam's gloam.*, VOID LOD's void.lod.* and the
+// studio's welkin.* settings pass through as system properties, as Gloam's own build does; -Pgloam.test.bgThreads=N
+// sets the game's background executor (world generation) to N threads, so the bench's trees grow the same; the LOD
+// does not tune itself under the studio. -Pstudio.run=<dir> runs the game in build/run/<dir>, so two studios (A, B)
+// can run from this one worktree.
+loom.runs.configureEach {
+	project.properties.each { key, value ->
+		if (key.startsWith('gloam.') || key.startsWith('void.lod.') || key.startsWith('welkin.')) {
+			property key, value.toString()
+		}
+	}
+	if (it.name == 'clientGameTest') {
+		def bg = project.findProperty('gloam.test.bgThreads')
+		if (bg) {
+			property 'max.bg.threads', bg.toString()
+		}
+		if (project.hasProperty('welkin.studio')) {
+			property 'void.lod.autoTune', (project.findProperty('void.lod.autoTune') ?: 'false').toString()
+		}
+	}
+}
+afterEvaluate {
+	if (project.hasProperty('studio.run')) {
+		loom.runs.named('clientGameTest').configure { runDir = 'build/run/' + project.property('studio.run') }
+	}
+}
+
 // The studio: a client game test that makes (or reopens) a world, then films the shots named in -Preel.shots,
 // or with -Preel.studio=<minutes> stays open and takes orders over the control port (tools/reel.sh).
 loom.runs.configureEach {
