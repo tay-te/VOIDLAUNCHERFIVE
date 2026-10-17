@@ -19,7 +19,8 @@ Run every command in the foreground (give the Bash tool a 600000 ms timeout): ea
 1. Make your own worktree of `welkin` and edit there. Never edit the main welkin worktree.
 2. `bash $WS start B <your worktree> 90`. It returns after 1.5 to 2.5 minutes with `studio B ready`.
 3. Shoot the views your fix is about **before** you edit, with a name: `bash $WS B shoot plain 16:30 p1630_before`.
-   Shoot it twice and keep the second if you have just moved there (see "Same frame twice" below).
+   Shoot it twice and keep the second if you have just moved there (see "Same frame twice" below). For a view with
+   water (valley, rain0) let the water flow first (see "Water does not flow" under Known limits).
 4. Edit `<your worktree>/welkin/shaders/...`, then `bash $WS B reload`.
    - Exit 0: the pack compiled. Exit 1: it printed `--- errors` (see "When a reload fails").
 5. `bash $WS B shoot plain 16:30 p1630_after`, and compare the two frames (and the reference packs, with `wcompare.py`).
@@ -192,6 +193,22 @@ re-shoot 1.6 to 4.4 s, a loop 4.8 s, a first shot at a new place 30 to 58 s.
 - **Clouds and wind are not the bench's.** The bench let game time run; the studio freezes it.
   - The pack's frame time is fixed at 100 s during a shot. Animated water and the like are steady, but not as the
     bench caught them.
+- **Water does not flow and rain does not fall while the world is held.** Flowing water and the rain level advance only
+  on world ticks, and the studio freezes them from the moment it is ready. So in a fresh studio:
+  - every waterfall and spring that was not yet flowing is missing. The valley at 2026-10-16 lost all its waterfalls,
+    which moved its R/B from 1.30 to 1.65 at 16:30; rain0 lost the waterfalls too;
+  - `weather rain` sets rain, but the rain streaks need about 100 ticks to fade in, so rain0 shows no rain.
+
+  Before you shoot a view with water, let it flow once; it then stays put after `hold on`:
+
+  ```bash
+  bash $WS B shoot valley 12:00 warmup     # go there (the chunks load)
+  bash $WS B hold off; sleep 40; bash $WS B hold on
+  bash $WS B shoot valley 16:30            # waterfalls in place; it now repeats exactly again
+  ```
+
+  For rain, do the same with a rain view (`shoot rain0`, `hold off`, wait 10 s, shoot again while the world runs).
+  The waterfall warm-up is checked; the rain one is untested.
 - **The front is set once, at start.** A view the bench shot at another front (rain0, far0 and storm0 at 0.8)
   needs a studio started with `-Pgloam.test.front=0.8`.
 - **Places need generating.** With one generation thread, the first shot at a new place takes 20 to 60 s.
