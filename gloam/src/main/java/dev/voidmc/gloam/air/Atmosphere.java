@@ -108,7 +108,9 @@ public final class Atmosphere {
 		float storm = Math.max(Air.storm(front, year), vanillaThunder(level, 1.0F) * Noise.smoothstep(0.3F, 0.6F, front));
 		// the ground soaks up rain in a few minutes and dries over most of a day, faster in the heat
 		float drying = 1.0F / (12000.0F / (0.5F + Math.max(0, this.temperature)));
-		this.wetness = rain > this.wetness ? Math.min(rain, this.wetness + rain / 1200.0F) : Math.max(0, this.wetness - drying);
+		// the ground dries toward the rain still falling, never below it (drying to 0 under steady rain made it flip a
+		// step below and back every tick)
+		this.wetness = rain > this.wetness ? Math.min(rain, this.wetness + rain / 1200.0F) : Math.max(rain, this.wetness - drying);
 		float mist = level.dimensionType().hasSkyLight() ? Air.mist(clock, year, climate, this.wetness) : 0;
 		float ground = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at.getX(), at.getZ());
 		this.here = new AirSample(year, Season.of(year), Air.warmth(year), Air.hour(clock), this.air.wind(gameTime, storm), front,
