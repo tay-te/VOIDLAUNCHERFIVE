@@ -4,7 +4,8 @@
 #
 #   wstudio.sh start [A|B] [pack worktree] [minutes] [-Pkey=value ...]   launch; returns once the world and LOD are ready
 #   wstudio.sh [A|B] reload                           reload the pack (Iris re-reads the files); prints compile errors
-#   wstudio.sh [A|B] shoot <view> [hour] [name]       time set + tp to a bench view, one 1600x900 frame; prints its path
+#   wstudio.sh [A|B] shoot <view> [hour] [name]       time set + tp to a bench view, the settle, one 1600x900 frame; prints its path
+#                                                     (WSTUDIO_TICKS=N: the settle's world ticks; WSTUDIO_WARMUP=0|1: the warm-up frame)
 #   wstudio.sh [A|B] shoot at "<tp @a x y z yaw pitch>" <tick> [name]          any eye (y = the feet), any absolute tick
 #   wstudio.sh [A|B] opt KEY=value ...  |  opt --reset                         pack options (Welkin.txt) and reload
 #   wstudio.sh [A|B] pack <worktree>                 point the running studio at another worktree's welkin/ and reload
@@ -157,7 +158,8 @@ shoot)
 	[ "$front" != "-" ] && [ "$front" != "$running" ] && echo "note: the bench shot this view at gloam.test.front=$front; this studio runs front $running (start one with -Pgloam.test.front=$front to match)"
 	t0=$(date +%s%N)
 	r=$(curl -s -m 900 -X POST -G "$BASE/shoot" --data-urlencode "tp=$tp" --data-urlencode "time=$tick" --data-urlencode "fov=$fov" \
-		--data-urlencode "weather=$weather" --data-urlencode "name=$name" --data-urlencode "out=$(winpath "$FRAMES")" --data-urlencode "w=${W:-1600}" --data-urlencode "h=${H:-900}")
+		--data-urlencode "weather=$weather" --data-urlencode "name=$name" --data-urlencode "out=$(winpath "$FRAMES")" --data-urlencode "w=${W:-1600}" --data-urlencode "h=${H:-900}" \
+		${WSTUDIO_TICKS:+--data-urlencode "ticks=$WSTUDIO_TICKS"} ${WSTUDIO_WARMUP:+--data-urlencode "warmup=$WSTUDIO_WARMUP"})
 	ms=$(( ($(date +%s%N) - t0) / 1000000 ))
 	echo "$r" | python -I -c "
 import json,sys
@@ -165,7 +167,9 @@ d=json.load(sys.stdin)
 if 'error' in d: print('error:', d['error']); sys.exit(1)
 rep=d.get('report') or {}
 loading=rep.get('framesFilmedLoading') or []
-print(f\"{d['file']}\n  {d['seconds']:.1f} s (settle {d['settleMs']/1000:.1f} s, frame {d['frameSeconds']:.1f} s), tick {d['time']}, eye {d['eye']} yaw {d['yaw']} pitch {d['pitch']}\" + (f', LOADING: {loading}' if loading else ''))
+print(f\"{d['file']}\n  {d['seconds']:.1f} s (settle {d['settleMs']/1000:.1f} s: chunks {d['chunkMs']/1000:.1f} s, {d['ticks']} ticks in {d['sprintMs']/1000:.1f} s{', wet ground brought to the rain in ' + str(d['soakTicks']) + ' client ticks' if d['soakTicks'] else ''}; warm-up {d['warmupMs']/1000:.1f} s; frame {d['frameSeconds']:.1f} s)\")
+same = d['clock'] == d['time']
+print(f\"  tick {d['time']} (clock {d['clock']}{'' if same else ': NOT THE TICK ASKED FOR'}), game time {d['gameTime']}, rain {d['rain']}{'' if d['wetness'] < 0 else ' (wet ground ' + str(d['wetness']) + ')'}, eye {d['eye']} yaw {d['yaw']} pitch {d['pitch']}\" + (f', LOADING: {loading}' if loading else ''))
 " || exit 1
 	echo "  wall ${ms} ms"
 	;;
@@ -211,5 +215,5 @@ quit)
 	tail -n 1 "$LOG"
 	[ -n "$slot" ] && [ -d "$slot" ] && echo "warning: slot $slot still held"
 	;;
-*) sed -n '2,16p' "$0"; exit 2 ;;
+*) sed -n '2,17p' "$0"; exit 2 ;;
 esac; exit $?   # (on the same line: a running studio holder never reads past here, so editing this file is safe)

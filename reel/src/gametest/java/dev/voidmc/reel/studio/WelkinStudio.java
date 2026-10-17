@@ -20,7 +20,8 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  * day and the weather stopped, the player a spectator. Gloam's gloam.test.* and VOID LOD's void.lod.* properties pass
  * through from Gradle. Before it says ready (GET /studio), it stands at the warm-up view (welkin.warm.tp at
  * welkin.warm.time, the bench's plain at 16:30 by default) until the chunks and the far tiles round it are drawn.
- * Once ready the world's ticks stay frozen between shots (welkin.hold, default true; see WelkinDesk). It stays open
+ * Once ready the world's ticks stay frozen between shots (welkin.hold, default true), and a shot that moves or changes
+ * the clock or the weather runs them a settle's worth first (see WelkinDesk). It stays open
  * welkin.minutes (default 180), or until POST /quit.
  */
 public class WelkinStudio implements FabricClientGameTest {
@@ -84,6 +85,8 @@ public class WelkinStudio implements FabricClientGameTest {
 				// the world holds still between shots (WelkinDesk: the clouds and the sway stay put across a reload)
 				world.getServer().runCommand("tick freeze");
 			}
+			// what the held world is settled for (its water ran while the studio warmed up) and the game time it holds at
+			WelkinDesk.ready(warmTp, warmTime, "clear", world.getServer().computeOnServer(server -> server.overworld().getGameTime()));
 			WelkinDesk.state("ready");
 			System.out.printf(Locale.ROOT, "[welkin] studio ready %.1f s after launch, open for %d min; POST /quit to close%n",
 				(System.currentTimeMillis() - begin) / 1000.0, minutes);

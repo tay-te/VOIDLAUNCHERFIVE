@@ -49,6 +49,7 @@ public final class ReelClient implements ClientModInitializer {
 			});
 		});
 		ClientTickEvents.START_CLIENT_TICK.register(ReelClient::followCamera);
+		ClientTickEvents.END_CLIENT_TICK.register(mc -> WelkinDesk.clientTicked());
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, context) -> dispatcher.register(ClientCommands.literal("reel")
 			.then(ClientCommands.literal("play").then(ClientCommands.argument("shot", StringArgumentType.word())
 				.executes(c -> withShot(c, shot -> director.play(Minecraft.getInstance(), shot)))))
