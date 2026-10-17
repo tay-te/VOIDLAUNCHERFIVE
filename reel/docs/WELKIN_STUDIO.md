@@ -19,8 +19,8 @@ Run every command in the foreground (give the Bash tool a 600000 ms timeout): ea
 1. Make your own worktree of `welkin` and edit there. Never edit the main welkin worktree.
 2. `bash $WS start B <your worktree> 90`. It returns after 1.5 to 2.5 minutes with `studio B ready`.
 3. Shoot the views your fix is about **before** you edit, with a name: `bash $WS B shoot plain 16:30 p1630_before`.
-   Shoot it twice and keep the second if you have just moved there (see "Same frame twice" below). For a view with
-   water (valley, rain0) let the water flow first (see "Water does not flow" under Known limits).
+   The shot settles the world at the view first (water flows, rain sets in; see "The settle"), so the frame is ready to
+   compare. To compare several hours of one view, see "Before and after over several hours".
 4. Edit `<your worktree>/welkin/shaders/...`, then `bash $WS B reload`.
    - Exit 0: the pack compiled. Exit 1: it printed `--- errors` (see "When a reload fails").
 5. `bash $WS B shoot plain 16:30 p1630_after`, and compare the two frames (and the reference packs, with `wcompare.py`).
@@ -105,19 +105,61 @@ bash tools/wstudio.sh views                     # the views and their hours
   on each shot. Give a name to keep before and after frames.
 - **Each shot:**
   1. Sets the time and the weather, and runs the view's `tp` exactly as the bench did.
-  2. Settles: 1 s, or 3 s after a move.
-  3. Waits for the chunks to load, Gloam's seasonal recolour, and VOID LOD's far tiles.
-  4. Takes one frame.
+  2. Settles the world if the shot moved or changed the clock or the weather (see "The settle").
+  3. Waits for Gloam's seasonal recolour, the chunks, and VOID LOD's far tiles.
+  4. After a settle, films one warm-up frame and throws it away.
+  5. Takes one frame.
 
-  It prints the time taken and the eye.
+  It prints the time taken, split into its parts, and the eye. The second line gives the requested tick and the clock
+  the frame was taken at (`NOT THE TICK ASKED FOR` if they ever differ), the game time, the rain at the camera and
+  Gloam's wet ground.
+- **The settle.** The world is held (frozen) between shots. A shot that moves to another `tp` than the last shot's, or
+  changes the clock or the weather, first runs the world for a budget of ticks, as fast as the game can (`tick sprint`,
+  with the client running ten ticks a frame: the game test harness ticks the server in step with the client):
+  - after a move: waits until the chunks round the eye are in, then runs **600 ticks** (30 s of game time). Water flows
+    and settles at the new spot, and the waterfalls fall;
+  - after a change of clock or weather only: **120 ticks**, enough for the rain level to ramp from 0 to 1 (vanilla
+    raises it 0.01 a tick while the world runs, whatever the `advance_weather` rule says);
+  - then it freezes the world again, winds the game time back to the time the studio holds at (so clouds, wind and
+    Gloam's fronts stand where they stood), and sets the clock to the shot's tick again. The clock the frame is taken at
+    is always the tick asked for;
+  - the client then gets 20 ticks (40 after a move) to take it in, and Gloam's wet ground is brought to the rain: it
+    soaks up to it in a minute of client ticks and dries after it over most of a day, so the client runs those ticks
+    fast while the world stays frozen;
+  - a shot that changes nothing runs no ticks.
+
+  Change the budgets with `WSTUDIO_TICKS=N bash $WS shoot ...` (this shot), or at start with
+  `-Pwelkin.settle.moved=600 -Pwelkin.settle.changed=120 -Pwelkin.settle.client=20`. `WSTUDIO_WARMUP=0|1` turns the
+  warm-up frame off or on for a shot. With `hold off` there is no settle (the world runs anyway): a shot waits 1 s, or
+  3 s after a move.
 - **Field of view:** the bench's FOV 70 seen by a flying spectator is a 77-degree lens; the studio shoots with the same.
 - **The world holds still between shots** (`tick freeze`). Clouds, wind and sway stay put, so a frame before an edit
   and one after it differ only by the edit. An unchanged pack gives a pixel-identical frame. `hold off` lets the world
-  run, as on the bench.
-- **Same frame twice.** The first shot just after a long move can differ from the next shot of the same view by one
-  8-bit step in a few thousand pixels (measured: 2128 pixels, at most 1 step). From the second shot at a spot on,
-  frames repeat exactly, and a reverted edit gives back the very same frame. Take your before frame at the spot,
-  not as the first shot after the move.
+  run, as on the bench; `hold on` holds it again at the game time it has reached.
+- **Same frame twice.** Shooting a view, then shooting it again, gives the same frame pixel for pixel, also when the
+  first shot was the one that moved there (checked on 2026-10-16 for valley 12:00 and 16:30, plain 16:30, forest,
+  village, shore, grove, torch night and rain0, and across a reload). The first frame after a move or a change used to
+  be one 8-bit step off in a few to a few thousand pixels (2128 after a long move); the warm-up frame takes that.
+  Two exceptions, both from Gloam and both in a few hundred pixels at most:
+  - **rain0:** about 1 shot in 3 is one step off in some 650 pixels (0.05%). Gloam's wet ground, once it has reached the
+    rain, dries one step below it and climbs back on every client tick (`Atmosphere.tick` dries with `Math.max(0, ...)`
+    rather than down to the rain), and the client ticks while the world is held, so a frame catches either value;
+  - **far0 and storm0** (front 0.8): 6 to 65 pixels (up to 8 steps) at specks where Gloam's motes are, which keep
+    spawning on client ticks while the world is held.
+- **Before and after over several hours.** Every settle runs world ticks, and with them what the studio cannot wind
+  back: the water's animated texture, particles, mobs. So a view shot at 12:00, then 16:30, then 12:00 again is not the
+  same frame twice (the water moved on: some 98000 pixels). Back-to-back shots of one view and hour are. To sweep hours
+  before and after an edit, settle the spot once, then shoot the other hours without ticks:
+
+  ```bash
+  bash $WS B shoot valley 12:00 v1200_before                    # moves there and settles
+  WSTUDIO_TICKS=0 bash $WS B shoot valley 16:30 v1630_before     # clock only, nothing runs
+  # edit, reload
+  WSTUDIO_TICKS=0 bash $WS B shoot valley 12:00 v1200_after
+  WSTUDIO_TICKS=0 bash $WS B shoot valley 16:30 v1630_after
+  ```
+
+  Do not use `WSTUDIO_TICKS=0` for a change of weather: the rain needs its 100 ticks.
 - **A frame's tone can differ a lot from the old bench frame of the same view at the same commit.** Most views land
   within 1 to 7 median steps of review round 2, but in the baseline of 2026-10-16 (pack a304d351):
   - plain 16:30 was 31 steps darker (93 vs 125): a frozen cloud's shadow lay over the foreground;
@@ -148,15 +190,23 @@ bash tools/wstudio.sh quit                      # closes the game; frees the slo
 |---|---|
 | `start` until ready | 95 to 135 s |
 | `reload` | 1.4 to 6 s (Iris recompiling) |
-| `shoot` of the same view again | 1.5 to 3.5 s |
+| `shoot` of the same view again | 2.6 to 8 s (mostly under 5 s) |
 | edit, reload and shoot, one loop | 4.4 to 8.8 s |
-| `shoot` at a new place that is generated fresh | 23 to 49 s |
+| `shoot` at a new place that is generated fresh | 22 to 58 s |
+| `shoot` back at a place visited before | 14 to 25 s (4 to 5 s without the settle) |
+| `shoot` with a new hour or weather at the same place | 6 to 13 s (about 3.5 s before the settle: a 1 s wait and the frame) |
 | `quit` | 6 to 11 s |
 | `pack <worktree>` (relink and reload) | 4 s |
-| a full bench view, six hours, first visit | 55 to 70 s (one 30 to 47 s shot, then 3 to 7 s each) |
 
-The second session of 2026-10-16 (A and B running together) matched these: start 104 to 126 s, reload 1.9 to 3.6 s,
-re-shoot 1.6 to 4.4 s, a loop 4.8 s, a first shot at a new place 30 to 58 s.
+What the settle adds (second session of 2026-10-16):
+
+- after a move: the 600 ticks take 3.8 to 7.3 s (95 to 160 ticks a second); the 40 client ticks 2 s; the warm-up frame
+  2.4 to 8 s where the place is loaded. The wait for the chunks (0.5 to 24 s) and much of a warm-up at a fresh place
+  (up to 26 s) is loading the snap would have waited for anyway. At a place visited before it comes to about 10 s
+  (forest: 14.2 s settled, 4.1 s without);
+- after a clock or weather change: the 120 ticks take 1.1 to 1.3 s, the client ticks 1 s, the warm-up 2.4 to 8 s;
+- rain: soaking the ground takes some 430 to 500 client ticks on top of the settle's own, about 1 to 3 s. Drying it after
+  rain is long: the first clear view after rain0 took 9600 client ticks, about 60 s, once.
 
 ## Rules
 
@@ -189,26 +239,18 @@ re-shoot 1.6 to 4.4 s, a loop 4.8 s, a first shot at a new place 30 to 58 s.
     session; use the old bench frames only for tone.
   - For the fullest far view, shoot nearby views first.
 - **Two studios do not match pixel for pixel.** Each world stops at its own game time, so the clouds, the sway and
-  any LOD-drawn tree differ between A and B, and between runs. Within one running studio, frames repeat exactly.
+  any LOD-drawn tree differ between A and B, and between runs. Within one running studio, a view shot back to back
+  repeats exactly (see "Same frame twice").
 - **Clouds and wind are not the bench's.** The bench let game time run; the studio freezes it.
   - The pack's frame time is fixed at 100 s during a shot. Animated water and the like are steady, but not as the
     bench caught them.
-- **Water does not flow and rain does not fall while the world is held.** Flowing water and the rain level advance only
-  on world ticks, and the studio freezes them from the moment it is ready. So in a fresh studio:
-  - every waterfall and spring that was not yet flowing is missing. The valley at 2026-10-16 lost all its waterfalls,
-    which moved its R/B from 1.30 to 1.65 at 16:30; rain0 lost the waterfalls too;
-  - `weather rain` sets rain, but the rain streaks need about 100 ticks to fade in, so rain0 shows no rain.
-
-  Before you shoot a view with water, let it flow once; it then stays put after `hold on`:
-
-  ```bash
-  bash $WS B shoot valley 12:00 warmup     # go there (the chunks load)
-  bash $WS B hold off; sleep 40; bash $WS B hold on
-  bash $WS B shoot valley 16:30            # waterfalls in place; it now repeats exactly again
-  ```
-
-  For rain, do the same with a rain view (`shoot rain0`, `hold off`, wait 10 s, shoot again while the world runs).
-  The waterfall warm-up is checked; the rain one is untested.
+- **The settle runs the world where the eye is.** Fluids flow only in chunks that are loaded and ticking (the
+  simulation distance, 12 chunks), so a waterfall farther out than that flows only once a shot comes near it. 600
+  ticks (30 s) is enough for the valley's falls; a taller fall may need more (`WSTUDIO_TICKS=1200`). Mobs walk and
+  crops grow during a settle as they would in 30 s of play.
+- **A studio that has rained stays wet until its ground dries.** After rain, the first shot without it dries Gloam's wet
+  ground out (about a minute, once); every shot after that is dry. Shoot the dry views first, or in their own studio, if
+  that minute matters.
 - **The front is set once, at start.** A view the bench shot at another front (rain0, far0 and storm0 at 0.8)
   needs a studio started with `-Pgloam.test.front=0.8`.
 - **Places need generating.** With one generation thread, the first shot at a new place takes 20 to 60 s.
