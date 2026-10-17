@@ -52,7 +52,7 @@ struct CloudCol {
 
 // The extra height of a deck's top over its first WC_DECK blocks, at most.
 float wcDeckSpan(int k) {
-	return WC_DECK + (k == 1 ? float(WC_MAIN_TIERS) : (k == 0 ? float(WC_LOW_TIERS) : 0.0)) * WC_TIER;
+	return WC_DECK + (k == 1 ? float(WC_MAIN_TIERS) * WC_MAIN_TIER : (k == 0 ? float(WC_LOW_TIERS) * WC_TIER : 0.0));
 }
 
 
@@ -362,7 +362,7 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 			c.dens.y = c.field.y * 2.0 - 1.0;
 			// a storm's sheet stands a tier taller
 			c.tiers.y = min(wcTiersOf(c.dens.y, ch, WC_MAIN_TIERS) + (wide > 0.5 ? 1 : 0), WC_MAIN_TIERS);
-			c.main = vec2(mainIv.x, mainIv.y + float(c.tiers.y) * WC_TIER);
+			c.main = vec2(mainIv.x, mainIv.y + float(c.tiers.y) * WC_MAIN_TIER);
 		}
 	}
 	// the low stratus: wide grey sheets under wet fronts

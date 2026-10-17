@@ -108,7 +108,7 @@ CloudCol wcMapDecode(int bits, int g, CloudEnv e) {
 	c.tiers = r.yz;
 	c.field = vec2(0.0);
 	c.low = (bits & 1) != 0 ? vec2(e.layers.x, e.layers.x + WC_DECK + float(r.y) * WC_TIER) : WC_EMPTY;
-	c.main = (bits & 2) != 0 ? vec2(e.layers.y, e.layers.y + WC_DECK + float(r.z) * WC_TIER) : WC_EMPTY;
+	c.main = (bits & 2) != 0 ? vec2(e.layers.y, e.layers.y + WC_DECK + float(r.z) * WC_MAIN_TIER) : WC_EMPTY;
 	c.high = (bits & 4) != 0 ? vec2(e.layers.z, e.layers.z + WC_DECK) : WC_EMPTY;
 	c.anvil = (bits & 8) != 0 ? vec2(e.layers.w - WC_TOWER_STEP, e.layers.w + WC_DECK) : WC_EMPTY;
 	c.tone = (bits >> 4) & 3;
@@ -143,12 +143,39 @@ CloudCol wcMapColumn(ivec2 cell, int lv, CloudEnv e) {
 // The low and main decks' margin fields (x low, y main) at camera-relative point q, read at ring lv through the GPU's
 // bilinear filter: 0.5 on a cloud's outline, rising smoothly to 1 deep inside it and falling to 0 out in the open, so
 // the light inside a voxel cloud runs in soft gradients with no cell steps (the outline itself stays the cells').
-vec2 wcField(vec2 q, int lv, CloudEnv e) {
+vec2 wcFieldAt(vec2 q, int lv, CloudEnv e) {
 	int s = WC_CELL << lv;
 	ivec2 cell = wcCellOf(q, lv, e);
 	vec2 f = (q - wcCellCorner(cell, s, e)) / float(s);
 	vec2 local = clamp(vec2(cell - wcMapAnchor(lv, e) + WC_MAP_HALF) + f, vec2(0.5), vec2(float(WC_MAP) - 0.5));
 	return texture(colortex7, (local + vec2(0.0, float(lv * WC_MAP))) / vec2(float(WC_MAP), float(WC_MAP * 8))).ba;
+}
+
+// (clouds2) The fields at q, eased from ring to ring: each ring's map is worked out on its own cells (twice as wide as
+// the ring's before, with its finer octaves left out), so the light inside a deck jumped where one ring met the next,
+// a long straight seam through an overcast belly. Over the outer third of each ring the next ring's field is blended
+// in, so at the ring's edge it is the next ring's already. `lv` is unused: the ring is the point's own.
+vec2 wcField(vec2 q, int lv, CloudEnv e) {
+	float d = length(q);
+	int l0 = wcLevel(d);
+	vec2 f = wcFieldAt(q, l0, e);
+	if (l0 < WC_MAX_LEVEL) {
+		float edge = WC_RING0 * exp2(float(l0));
+		float w = smoothstep(edge * (l0 == 0 ? 0.6 : 0.8), edge, d);
+		if (w > 0.0) {
+			f = mix(f, wcFieldAt(q, l0 + 1, e), w);
+		}
+	}
+	return f;
+}
+
+// (clouds2) The fields at q, smoother: four bilinear reads half a cell apart, averaged (a quadratic B-spline over the
+// cells), so a cloud's heart shades in round soft forms instead of the bilinear filter's diamonds. For the body's own
+// depth; the samples along the light take the plain field.
+vec2 wcFieldSmooth(vec2 q, CloudEnv e) {
+	float h = 0.5 * float(WC_CELL) * clamp(1.5 * length(q) / WC_RING0, 1.0, float(1 << WC_MAX_LEVEL));
+	return 0.25 * (wcField(q + vec2(h, h), 0, e) + wcField(q + vec2(-h, h), 0, e)
+		+ wcField(q + vec2(h, -h), 0, e) + wcField(q + vec2(-h, -h), 0, e));
 }
 #endif
 

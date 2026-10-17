@@ -31,7 +31,11 @@
 // cumulus is a voxel dome, thin at its ragged rim, three or four tiers over its heart. The low stratus takes one
 // tier at most; the high deck stays one thin sheet.)
 #define WC_TIER 6.0          // each tier over the first 4 blocks (review round 2: 6, was 4: a fair cumulus up to 22 blocks tall, a volume with lit sides rather than a slab)
-#define WC_MAIN_TIERS 3      // the main deck: up to 4 + 3 x 6 = 22 blocks
+#define WC_MAIN_TIERS 3      // the main deck: up to 4 + 3 x WC_MAIN_TIER blocks
+// (clouds2: the main deck's tiers WC_MAIN_TIER tall, as tall as a cell is wide: the deck stands some 240 blocks over the
+// land on a tall world, where a cumulus 22 blocks tall under a sky hundreds of blocks wide read as a flat slab; at 12 a
+// fair cumulus is up to 40 blocks tall, voxel cubes stacked into a dome, with lit sides toward the horizon)
+#define WC_MAIN_TIER 12.0
 #define WC_LOW_TIERS 1       // the low stratus: up to 10
 
 // Gloam's Contract.Slot ordinals: the texel column of each uniform in the header mirror (rows 1..3).
@@ -203,7 +207,7 @@ CloudEnv welkinCloudEnv() {
 	e.frameRem = e.frameInt - e.frame12 * 12;
 
 	e.yLo = e.layers.x > WC_ABSENT * 0.5 ? e.layers.x : e.layers.y;
-	e.yHi = max(max(e.layers.w, e.layers.z) + 4.0, e.layers.y + WC_DECK + float(WC_MAIN_TIERS) * WC_TIER);
+	e.yHi = max(max(e.layers.w, e.layers.z) + 4.0, e.layers.y + WC_DECK + float(WC_MAIN_TIERS) * WC_MAIN_TIER);
 
 	e.sun = normalize(mat3(gbufferModelViewInverse) * sunPosition);
 	e.lightDir = e.sun.y > -0.06 ? e.sun : -e.sun;
