@@ -314,8 +314,10 @@ void main() {
 		// kind's own cool tint (a misty land's white at 16:48 read cool beside both reference packs' warm cream):
 		// cream in the afternoon, rose-peach on a clear morning, least once the hour is a full sunset (its glow has it)
 		{
-			float wA = 0.5 * smoothstep(0.1, 0.5, lum.warm) * (1.0 - 0.5 * smoothstep(0.8, 1.0, lum.warm)) * lum.clear * lum.up;
-			vec3 tw = sunAngle < 0.25 || sunAngle > 0.75 ? vec3(1.05, 0.97, 0.95) : vec3(1.06, 1.0, 0.88);
+			// (golden, 2026-10-18: 0.75 and a deeper afternoon cream, was 0.5 and (1.06, 1.0, 0.88): the mesa vista's far air
+			// at 16:48 still read a cool milky white beside the reference packs' warm hazy afternoon)
+			float wA = 0.75 * smoothstep(0.1, 0.5, lum.warm) * (1.0 - 0.5 * smoothstep(0.8, 1.0, lum.warm)) * lum.clear * lum.up;
+			vec3 tw = sunAngle < 0.25 || sunAngle > 0.75 ? vec3(1.05, 0.97, 0.95) : vec3(1.09, 1.0, 0.80);
 			tw /= dot(tw, vec3(0.2126, 0.7152, 0.0722));
 			h.back.rgb = mix(h.back.rgb, h.back.rgb * tw, wA);
 			h.front.rgb = mix(h.front.rgb, h.front.rgb * tw, wA);

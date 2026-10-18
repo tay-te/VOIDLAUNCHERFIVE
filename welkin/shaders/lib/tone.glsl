@@ -39,7 +39,7 @@
 // and 16:30's sun to shade past 7:1, the occlusion keeping the corners)
 // (review round 2: 0.19 and 0.14 below: the darkest twentieth of a sunlit field was half the reference packs'; the
 // sky's fill a little higher, the open shade's colour as it was)
-#define LAND_FILL 0.19
+#define LAND_FILL 0.215
 // (ambient (B): while the sun is low the fill keeps round 3's level, so the golden hour's long shadows stay deep and cool
 // against the amber, and the fill rises to LAND_FILL as the sun climbs past about 17 degrees)
 // (golden, 2026-10-16: 0.105, and down to it from a higher sun (about 38 degrees, was 17): the golden hours' shade deeper

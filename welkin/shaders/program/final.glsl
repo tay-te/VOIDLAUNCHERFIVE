@@ -155,27 +155,27 @@ void main() {
 	// 0.7), while the disc's own art pixels go on to white. The glow and the halo had blazed the sky round a sun some 10 to
 	// 25 degrees up to the disc's own white, and the disc dissolved into a soft white blob
 	{
-		float d = texelFetch(depthtex0, p, 0).r;
+		vec3 v = normalize((gbufferProjectionInverse * vec4((vec2(p) + 0.5) / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0)).xyz);
+		vec3 sv = normalize(sunPosition);
+		float near = smoothstep(0.88, 0.97, dot(v, sv));
+		float m = max(c.r, max(c.g, c.b));
+		if (near > 0.0 && m > 0.7) {
+			float d = texelFetch(depthtex0, p, 0).r;
 #ifdef DISTANT_HORIZONS
-		d = min(d, texelFetch(dhDepthTex0, p, 0).r);
+			d = min(d, texelFetch(dhDepthTex0, p, 0).r);
 #endif
-		if (d >= 1.0 && texelFetch(colortex6, p, 0).r > 999.0) {
-			vec3 v = normalize((gbufferProjectionInverse * vec4((vec2(p) + 0.5) / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0)).xyz);
-			vec3 sv = normalize(sunPosition);
-			float near = smoothstep(0.88, 0.97, dot(v, sv));
-			float m = max(c.r, max(c.g, c.b));
-			if (near > 0.0 && m > 0.7) {
-				// the disc's own art pixels (lib/sky/celestial.glsl, as the dome draws them) go on to white
-				mat3 toW = mat3(gbufferModelViewInverse);
-				vec3 sunW = normalize(toW * sv);
-				ivec2 ip;
-				if (skyArtPixel(normalize(toW * v), sunW, skyPathAxis(sunW), ip)) {
-					int k = skySunPixel(ip);
-					near *= k >= 1 && k <= 3 ? 0.0 : 1.0;
-				}
-				float t = 0.7 + 0.27 * (1.0 - exp(-(m - 0.7) / 0.27));
-				c = mix(c, c * (t / m), near);
+			// only the open sky (not the land, not a cloud)
+			near *= d >= 1.0 && texelFetch(colortex6, p, 0).r > 999.0 ? 1.0 : 0.0;
+			// the disc's own art pixels (lib/sky/celestial.glsl, as the dome draws them) go on to white
+			mat3 toW = mat3(gbufferModelViewInverse);
+			vec3 sunW = normalize(toW * sv);
+			ivec2 ip;
+			if (near > 0.0 && skyArtPixel(normalize(toW * v), sunW, skyPathAxis(sunW), ip)) {
+				int k = skySunPixel(ip);
+				near *= k >= 1 && k <= 3 ? 0.0 : 1.0;
 			}
+			float t = 0.7 + 0.27 * (1.0 - exp(-(m - 0.7) / 0.27));
+			c = mix(c, c * (t / m), near);
 		}
 	}
 #endif

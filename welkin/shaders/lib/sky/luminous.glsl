@@ -93,7 +93,7 @@ SkyLum skyLumFrame(vec3 sunW) {
 	float morning = sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0;
 	// (review round 2) over the evening's last degrees the gold turns peach and rose, so a sunset over water reads
 	// peach-rose with a lilac sky above, not a cream-yellow frame (less gold than Complementary)
-	const vec3 PEACH = vec3(1.0, 0.48, 0.34) / 0.5805;
+	const vec3 PEACH = vec3(1.0, 0.45, 0.44) / 0.5662;
 	vec3 eve = mix(GOLD, PEACH, 1.0 - smoothstep(0.03, 0.2, sunW.y));
 	vec3 g = mix(f.hue, mix(eve, ROSE_GOLD, morning), 0.6 * f.warm);
 	f.gold = g / max(skyLumLuma(g), 1e-4);
@@ -157,7 +157,7 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// (review round 2: a clear morning a little more: its rose-gold reads as a warm rose-peach air, not a neutral cream)
 	float dawnAir = sunAngle < 0.25 || sunAngle > 0.75 ? 0.28 : 0.20;
 	// (golden, 2026-10-16: the zenith none of it, was half: gold mixed into the blue overhead read as a cream-grey wash)
-	L = mix(L, f.gold * y, clamp(dawnAir * f.warm * f.up * (1.0 - zen) * min(k, 1.0), 0.0, 1.0));
+	L = mix(L, f.gold * y, clamp(dawnAir * f.warm * f.up * (1.0 - zen) * (1.0 - smoothstep(0.04, 0.4, hp)) * min(k, 1.0), 0.0, 1.0));
 	// the glow round the sun: mixed toward the sun's hue at a brighter level (amber at a low sun, never white)
 	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.45);
 	float glow = (0.22 + 0.55 * f.low) * f.up;
