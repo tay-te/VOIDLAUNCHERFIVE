@@ -430,8 +430,11 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		// (review round 2: brighter than the sky behind by more, the bellies most: a sunset's clouds glow pink and peach
 		// over a lilac sky, away from the sun too (the low sun lights them from the side), as both reference packs' do;
 		// and their billows' relief shows)
-		float lift = (n.y > 0.5 ? 1.65 : (n.y < -0.5 ? 1.5 : 1.55 * mix(0.85, 1.1, b.hIn))) * mix(1.0, 1.2, sw * sw)
-			* mix(1.25, 0.78, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.15 * b.bill) * (1.0 + 0.35 * clamp(b.relief, -0.3, 1.0))
+		// (clouds2: lower under the heart of a belly, a little over the sky there, and highest on the thin rims, the
+		// sides' brows and the tops: every face had been lifted to half again the sky's light, and in the tone curve's
+		// shoulder a whole sunset deck came out one flat cream; now the bellies keep their form under lit rims)
+		float lift = (n.y > 0.5 ? 1.6 : (n.y < -0.5 ? 1.22 : mix(1.1, 1.5, b.hIn))) * mix(1.0, 1.15, sw * sw)
+			* mix(1.3, 0.84, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.15 * b.bill) * (1.0 + 0.35 * clamp(b.relief, -0.3, 1.0))
 			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
 		// (the shortfall is added in the floor's own warm light, not taken channel by channel: a per-channel max of a
 		// cool grey belly and a cream floor came out a mauve-brown mottle)
