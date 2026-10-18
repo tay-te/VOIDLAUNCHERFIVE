@@ -131,6 +131,9 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define BLOOM
 // Bloom strength: How much of the brightest light spreads into the halo.  [look]
 #define BLOOM_STRENGTH 100 // [50 75 100 125 150 200]
+// ---- look (welkin-look)
+// Colour grade: Welkin's own grade: muted earthy colours by day, rich golden hours, misty dawns, moonlit nights. 0 is off.  [look]
+#define GRADE_STRENGTH 100 // [0 25 50 75 100 125]
 // ---- end atmos
 // ---- Clouds
 // Block clouds: Solid clouds made of blocks, drawn by the shader and shaped by the weather. Off brings back the normal Minecraft clouds.  [clouds]
