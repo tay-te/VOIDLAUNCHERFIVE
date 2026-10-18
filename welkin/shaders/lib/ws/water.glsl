@@ -246,9 +246,16 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 		// (the defects pass) the glitter path: the light thrown back by the waves too small to draw, a wide lobe about
 		// the sun's image (wider in the wind and with distance), broken near the eye into sparkles on the water's own
 		// 1/8-block grid, each redrawn a few times a second at its own moment; far off the sparkles average out smooth
-		float th2 = 2.0 * max(1.0 - dot(R, L), 0.0);
-		float wide = WS_GLITTER_SPREAD * mix(0.5, 1.6, clamp(energy, 0.0, 1.3)) + 4.0 * var;
-		float lobe = exp(-th2 / wide) * smoothstep(-0.02, 0.06, L.y);
+		// (water2, 2026-10-18) the lobe is laid in the waves' slopes, not round the sun's image: the facet that throws
+		// the sun to the eye leans by the half-way vector's tilt, and at a low sun the facets leaning toward or away
+		// from it reach far down the view while the ones leaning sideways barely move it, so the path runs long and
+		// narrow from the horizon to the eye, as on real water, instead of a round spot under the sun
+		vec3 Hh = normalize(L - V);
+		// (measured from the drawn ripple's own normal, so the path breaks up along the wave crests)
+		float cH = max(dot(Hh, N), 1e-2);
+		float slope2 = (1.0 - cH * cH) / (cH * cH);
+		float wide = WS_GLITTER_SLOPE * mix(0.5, 1.6, clamp(energy, 0.0, 1.3)) + var;
+		float lobe = exp(-slope2 / wide) * smoothstep(-0.02, 0.06, L.y);
 		vec2 gc = floor(wp.xz * 16.0);
 		ivec2 gi = ivec2(gc);
 		float slot = floor(frameTimeCounter * 4.0 + wsHash1(gi.x, gi.y) * 8.0);
@@ -260,12 +267,17 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 		float sparkle = smoothstep(1.2, 2.0, cellPx) * (1.0 - smoothstep(8.0, 14.0, cellPx));
 		float mean = share * lobe;
 		g += (mix(mean, spark, sparkle) * WS_GLITTER_GAIN + lobe * WS_GLITTER_GLOW) * mix(0.5, 1.0, F);
-		glint = skyDirectLight() * sunShare * (w.reach * g) * (1.0 - fall) * (1.0 - foam);
+		// (water2) a low sun's light is dimmed and reddened on its long way through the air, but its path on the water
+		// is what an evening lake is about: the glitter keeps more of its strength as the sun goes down
+		float lowSun = 1.0 + 2.0 * (1.0 - smoothstep(0.04, 0.35, L.y)) * step(0.0, sunAngle < 0.5 ? 1.0 : -1.0);
+		glint = skyDirectLight() * sunShare * (w.reach * g * lowSun) * (1.0 - fall) * (1.0 - foam);
 	}
 
 	vec3 rgb = body * a * (1.0 - F) + refl * F + glint;
 	float alpha = 1.0 - (1.0 - a) * (1.0 - F);
-	info = vec4(octEncode(N), F * seen, kind);
+	// (water2) near water seen from the air carries its whole opacity in the kind (0.75 to 1), so composite1 can tint
+	// just the bed's share (lib/water.glsl)
+	info = vec4(octEncode(N), F * seen, w.far ? kind : 0.75 + 0.25 * clamp(alpha, 0.0, 1.0));
 #if WS_DEBUG_VIEW == 1
 	return vec4(N * 0.5 + 0.5, 1.0);
 #elif WS_DEBUG_VIEW == 2
