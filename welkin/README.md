@@ -1,7 +1,7 @@
 # VOID Welkin
 
 Welkin is VOID's shader pack for Iris (Minecraft 26.3, Fabric, Iris 1.11 with Sodium). It draws every pixel of the
-VOID world: sky, light, water, haze, valley mist, voxel clouds, far rain, the underground's air, god rays and bloom. It reads the world's state from
+VOID world: sky, light, water, haze, valley mist, voxel clouds (heaped cumulus with lit flanks and luminous bellies), far rain, the underground's air, god rays and bloom. It reads the world's state from
 VOID Gloam through a small bridge, and draws the far land of VOID LOD to 128 km through its Distant Horizons programs,
 so near and far land are lit the same way.
 
@@ -77,7 +77,7 @@ welkin/
 | `composite2` (the atmosphere) | Water's reflections of the land, trees and far shores on MEDIUM and HIGH (`WS_WATER_SSR`, M6, `lib/ws/ssr.glsl`); the water fog (the Nether and the End; composite1 lays it in the overworld), the haze by country with its forward scatter toward the sun (`lib/air.glsl`, `AIR_MIE`), the valley mist, the volumetric haze and the sun shafts (god rays in the sun's warm light) resolved from `colortex13` (`lib/haze/volume.glsl`, `lib/shafts.glsl`), the haze in front, the land's aerial perspective (`AERIAL_PERSPECTIVE`); then the underground air (P6, `lib/underground/ug_atmosphere.glsl`: cave fog by the space's openness in strata, cavern water by kind, mist over cave rivers and seas), which the surface air hands over to at cave mouths; debug views |
 | `composite3` | Half resolution: the bloom's bright source into `colortex14` (`lib/bloom.glsl`: the light past white, its headroom given back; every dimension, with `BLOOM`) and the sun beams toward the sun on the screen into `colortex12` (`SHAFT_BEAMS`, overworld) |
 | `composite4` | Half resolution: the bloom's halo from six of `colortex14`'s mip levels (a tight core and a wide soft halo, weights summing to 1) into `colortex9`, with the frame's mean bright share in its alpha for final's veil cut (with `BLOOM`) |
-| `final` | The sun beams (4x4 texels of `colortex12`) and the bloom's halo laid on in linear light with headroom, then a soft shoulder past white, then invisible anti-banding (one 8-bit step of fixed triangular noise) |
+| `final` | The sun beams (4x4 texels of `colortex12`) and the bloom's halo laid on in linear light with headroom, then a soft shoulder past white; round the sun (within about 25 degrees) the open sky, its glow and the halo eased under the pixel sun's own white, so the disc stays a crisp solid sun in its glow (2026-10-18); then invisible anti-banding (one 8-bit step of fixed triangular noise) |
 
 ### Buffers
 
@@ -142,7 +142,12 @@ welkin/tools/pack.sh <run>/shaderpacks DEBUG_VIEW=1 SOFT_BANDS=0
 welkin/tools/wrappers.sh
 ```
 
-Testing is by game-test screenshots, one Minecraft at a time across all sessions (the shared game-test lock):
+Looks are now checked in the Welkin studio (`reel/docs/WELKIN_STUDIO.md` in the `welkin-studio` worktree): a game that
+stays open on one of the machine's two game slots, runs the pack straight from a worktree's `welkin/` folder, and gives
+edit, reload, shoot in a few seconds a look (`wstudio.sh start A|B <worktree>`, `reload`, `shoot <view> <hour>`,
+`quit`), with `wcompare.py` putting each frame beside the reference packs and an earlier frame. Compare studio frames
+from one running studio with each other; each start freezes the clouds in new places. The game tests below remain for
+load runs and frame-time sweeps (one Minecraft at a time across all sessions, the shared game-test lock):
 
 * **With VOID LOD:** install into the LOD bench's `build/run/clientGameTest/shaderpacks`, then run its showcase
   through the LOD game-test script with `-Piris`, for example

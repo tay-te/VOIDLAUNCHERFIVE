@@ -1499,3 +1499,65 @@ world B (gloam 677914b4), where the reference packs' plain, village and forest s
   the countryside's morning air is warmer but still far from Euphoria's pink fog (by intent less); the pale wedge at the
   right of rain0 is the spray veil of a fall at the eye (by design); the clouds and, at a low sun facing it, the heavy
   effects are over their lines.
+
+### Studio fixes, wave 1: golden hour and clouds2 merged on `welkin` (2026-10-18)
+
+The first fixes made in the Welkin studio (`reel/docs/WELKIN_STUDIO.md` in the `welkin-studio` worktree: edit, reload,
+shoot in a game that stays open). Two lanes from review round 2 (a304d351): `welkin-golden` (golden hour and the
+atmosphere) merged first, then `welkin-clouds2` (the clouds).
+
+- **Golden hour (`welkin-golden`).**
+  - *The pixel sun* (`program/final.glsl`, the block marked "golden, 2026-10-18"): within about 25 degrees of the sun
+    the open sky, its glow and the bloom's halo on it ease under 0.97 of white (hue kept, a soft shoulder from 0.7),
+    while the disc's own art pixels go on to white. A sun 10 to 25 degrees up had blazed its sky to the disc's white
+    and the disc dissolved into a soft blob; it now reads as a solid pixel disc in a warm glow at 17:30 to 18:30 and
+    05:30, bloom on or off. Depth and cloud reads and the disc test run only on bright pixels near the sun.
+  - *Sky colour* (`lib/sky/luminous.glsl`, `lib/sky/build.glsl`): the glow's hues peach and rose instead of cream, a
+    lilac-blue golden-hour zenith, the dome's warmth kept low in the sky; the sunlit open sky in the god rays 0.25
+    (`lib/shafts.glsl`, was 0.4).
+  - *The land at golden hour* (`lib/tone.glsl`, `lib/sky/build.glsl`): deeper, cooler shade while the sun is low (fill
+    0.105, full only once the sun is about 38 degrees up); a stronger low sun (0.8 of noon at the horizon, was 0.6); the
+    evening's last-degrees sun rose-peach instead of deep gold (the shore's 18:30 gold cast gone: land R/B 1.95, under
+    Complementary's 2.14).
+  - *Shade lift:* the day's sky fill 0.215 (was 0.19), a modest lift where the shade was far darker than the
+    references. *Mesa haze* (`program/composite2.glsl`): the afternoon far haze cream instead of milky white.
+- **Clouds (`welkin-clouds2`; edits only in `lib/clouds/` and `program/parts/clouds.glsl`, `cloudfinish.glsl`, all
+  marked "(clouds2)").**
+  - *Heaps:* the main deck's three tiers rise 15, 44 and 80 blocks and most of a cloud stands full height, so the
+    flanks show as sunlit walls toward the horizon (the clouds had been about eight times as wide as tall). The ring
+    seam's light jump is gone (fields and light path continuous across rings) and the body field is smoother.
+  - *Light:* smooth bellies without grey blotches or contour lines (lumps 0.2; the light samples leave a heap over 24
+    blocks); softer, lighter noon shade under the sky behind; dawn and dusk bellies rose and lilac instead of brown,
+    a little over the sky behind them, the golden-hour floor lowest under a belly's heart and highest on rims and tops;
+    flanks from a lit brow to a darker foot, and flanks toward the low sun just under its glow (no washed-out frame
+    near the sun).
+  - *Overcast and far decks:* an overcast's top rolls in low swells (no flat plane, no city of towers from above); the
+    march crosses a block over its tallest heap in one step; the far bands take the last rows of cells sooner (no
+    staircase over the horizon) and a hit inside a band keeps its own light.
+  - *Cost work:* one cloud light a pixel (the hit's or the nearest band's; a second compiled copy cost 0.1 ms), the
+    bands not worked out behind land, and land seen from well under every deck leaves the clouds pass at once.
+- **Conflicts:** none. The lanes touched disjoint files (golden: `final`, `composite2`, `lib/shafts`, `lib/tone`,
+  `lib/sky/build`, `lib/sky/luminous`; clouds2: `lib/clouds/*`, `program/parts/clouds`, `cloudfinish`), and each
+  lane's files in the merge are byte for byte that lane's.
+- **Checks.** Every `live.sh` variant compiles and links (363 programs and options variants, ALL OK). In studio A
+  (front 0.38) each view was settled once and shot at 05:30, 08:00, 12:00, 16:30, 18:30 and night with the merged
+  pack, then with each lane's pack in the same world (no ticks between, so the clouds stand still): plain, shore,
+  valley, steppe, countryside, village, the mesa and steppe vista hours, and the sun-facing plain at 17:30, 18:00 and
+  18:30. The merge matches clouds2 to within 1 to 2 mean steps wherever the golden hours do not reach (no pixel more
+  than 8 steps off at 08:00 to 16:30 and night) and matches golden in the land's tone figures (`wcompare.py` against
+  the golden lane's own frames: median within 0.4 steps, c95/5 within 0.05, R/B within 0.05, the same off-target
+  counts; the mesa vista equal to golden's in the same session, R/B 1.23 against clouds2's 1.11). With the clouds off,
+  the sunplain frames at 17:30 and 18:00 are golden's to the pixel (the crisp disc kept). In studio B (front 0.8) far0
+  and storm0 are clouds2's to 0.1 of a step and rain0 golden's to 0.03. Frames and sheets:
+  `<scratchpad>/welkin_p3/merge1/` (`tri_*.jpg`, `sun_*.png`, `cmp/`).
+- **Cost** (the lanes' figures; not re-measured on the merge): golden adds no pass (one projection and a dot product a
+  pixel in `final`); the clouds 1.04 ms (plain 12:00), 1.18 (shore 16:30), 1.33 (steppe 18:30), against 1.08 to 1.25
+  before. The march is about 0.4 ms, the light 0.2 to 0.3, the cloud shadows on land, haze and clouds about 0.25 and
+  the map passes 0.14; cutting steps, light samples, top billows or body smoothing each saved 0.03 ms or less.
+- **Still open:** golden-hour contrast 3.7 to 4.7 against the 6 asked for (the plain at 18:30 lies in the forest's long
+  shadow: 9.5 with shadows off); the mesa vista's dimness against the references (mostly content: canopy where they
+  have sand); village 08:00 at 152 against 120 to 140; the steppe dim by day in the vista; god rays still faint; the
+  taller heaps cast more cloud shadow on the vistas by day (steppe, countryside and mesa medians 5 to 19 steps under the golden
+  lane's in the same session); the clouds over their 0.6 ms line (the march would need rebuilding and the haze's
+  cloud-shadow reads cutting); the storm deck from above blockier than before; the plain 16:30 seam unconfirmed (it did
+  not show); far cloud shadows unchanged; the per-pass sweep of the merge at MEDIUM against the 1.2 ms heavy-effects line.
