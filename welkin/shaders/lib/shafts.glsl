@@ -59,7 +59,9 @@ float shaftGate(vec3 sunW) {
 #define SHAFT_GAIN 1.7
 #define SHAFT_CAP 0.50
 // (review round 1) on the open sky: the beams between clouds and over ridges toward a low sun
-#define SHAFT_SKY 0.4
+// (golden, 2026-10-16: 0.25, was 0.4: on the open sky the sunlit air only whitened the glow round a 17:00 to 18:00 sun
+// into a milky disc; the beams (SHAFT_BEAMS) carry the rays over the sky)
+#define SHAFT_SKY 0.25
 
 #ifdef WELKIN_SHAFTS_READ
 #ifndef WU_colortex13
