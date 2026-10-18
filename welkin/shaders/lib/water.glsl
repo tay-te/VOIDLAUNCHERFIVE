@@ -36,7 +36,7 @@ uniform sampler2D colortex4;
 uniform mat4 gbufferModelViewInverse;
 #endif
 // (water2) how fast clear water takes each colour out of the bed's light, per block of path
-const vec3 WATER_BED_SIGMA = vec3(0.085, 0.032, 0.03);
+const vec3 WATER_BED_SIGMA = vec3(0.06, 0.027, 0.027);
 
 vec3 waterFog(ivec2 p, vec2 uv, vec3 scene) {
 	Surface front = surfaceAt(p, uv);

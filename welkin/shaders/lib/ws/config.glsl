@@ -51,7 +51,7 @@ const float WS_BANK_STRENGTH = 0.28;
 // (the defects pass, 2026-10-16) how much light the body throws back, in the shallows and where it is deep (a share of
 // its lit tint), the shore foam's strength, and the glitter path: its spread (radians squared, before the wind), the
 // share of the water's sparkle cells lit at its heart, and how bright a sparkle is (times the direct light).
-const float WS_SCATTER_SHALLOW = 0.26;
+const float WS_SCATTER_SHALLOW = 0.36;
 const float WS_SCATTER_DEEP = 0.82;
 const float WS_SHORE_FOAM = 0.8;
 const float WS_GLITTER_SPREAD = 0.03;
