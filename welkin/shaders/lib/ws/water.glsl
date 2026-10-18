@@ -213,8 +213,10 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	a = mix(a, max(a, WS_ALPHA_FALL), fall);
 	// a fall right at the eye (looking through it from behind, or standing in its spray): its pixels would be blocks
 	// wider than the screen's tenth, so the sheet goes over to a soft, bright veil of spray, the world dim behind it
-	foam = mix(foam, 0.45, spray);
-	a = mix(a, 0.8, spray);
+	// (water2, 2026-10-18: the veil keeps the ropes, a pixel of foam being no bigger than a texel of the rock beside it
+	// at that range, and stays half clear; a flat pale slab of 0.8 hid the view beside a fall)
+	foam = mix(foam, 0.15 + 0.6 * foam, spray);
+	a = mix(a, 0.55, spray);
 	albedo = mix(albedo, vec3(0.86, 0.91, 0.93), foam);
 	a = mix(a, 0.95, foam);
 	vec3 body = welkinLightCore(albedo, faceN, w.lm, 0.0, sunShare * mix(bodySun, 1.0, max(fall, foam)), wsSeasonAmbient(sea),
