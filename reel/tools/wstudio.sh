@@ -212,6 +212,25 @@ quit)
 		grep -q "^\[wstudio\] game exited" "$LOG" 2>/dev/null && break
 		sleep 2
 	done
+	if ! grep -q "^\[wstudio\] game exited" "$LOG" 2>/dev/null; then
+		# the quit hung (seen when the server thread stopped answering): stop this studio's own game, found by its
+		# control port, then make sure its holder and slot go too
+		echo "[wstudio] the game did not exit after the quit: stopping studio $studio's game (port $PORT)"
+		for pid in $(powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='java.exe'\" | Where-Object { \$_.CommandLine -match 'devlaunchinjector' -and \$_.CommandLine -match 'reel.control=$PORT' } | ForEach-Object { \$_.ProcessId }" | tr -d '\r'); do
+			taskkill //PID "$pid" //F >/dev/null 2>&1 && echo "[wstudio] stopped game process $pid"
+		done
+		for i in $(seq 1 15); do
+			grep -q "^\[wstudio\] game exited" "$LOG" 2>/dev/null && break
+			sleep 2
+		done
+		if ! grep -q "^\[wstudio\] game exited" "$LOG" 2>/dev/null; then
+			for pid in $(powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='bash.exe'\" | Where-Object { \$_.CommandLine -match 'wstudio.sh $studio _hold' } | ForEach-Object { \$_.ProcessId }" | tr -d '\r'); do
+				taskkill //PID "$pid" //F >/dev/null 2>&1
+			done
+			[ -n "$slot" ] && rm -rf "$slot"; rm -f "$SLOTFILE"; rm -rf "$RUN/saves"
+			echo "[wstudio] game exited (forced) at $(date +%T); slot $(basename "${slot:-none}") released" >> "$LOG"
+		fi
+	fi
 	tail -n 1 "$LOG"
 	[ -n "$slot" ] && [ -d "$slot" ] && echo "warning: slot $slot still held"
 	;;
