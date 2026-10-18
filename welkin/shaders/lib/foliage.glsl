@@ -20,10 +20,13 @@ float foliageCanopy = -1.0;
 // takes the sun's colour half desaturated (CANOPY_LEAK_DESAT): light diffused through leaves loses the sun's amber.
 const float CANOPY_FILL_CUT = 0.8; // (round 3's cut, kept for a crown's heart)
 const float CANOPY_FILL_CUT_FLOOR = 0.5;
+const float CANOPY_FILL_CUT_PLANT = 0.68; // (the undergrowth: ferns and bushes keep some depth)
 const float CANOPY_FILL_UP = 1.0;
 const float CANOPY_LEAK_DAY = 0.035;
 const float CANOPY_LEAK_DESAT = 1.0;
 float canopyFillCut = CANOPY_FILL_CUT_FLOOR;
+// the leak's share for what deferred lights (a crown's own leaves keep round 3's faint leak, so its heart stays dark)
+float canopyLeakKeep = 1.0;
 // The low sun that threads a wood (dawn and dusk, the sky light cut): its amber half taken out, so the flecks and the
 // lit trunks read as bright light against the cool green shade instead of tinting the whole wood orange (the grove at
 // 18:30 was R/B 4.3 against Complementary's 1.9); in the open the golden hour keeps its colour.
@@ -59,7 +62,7 @@ float canopyLeak(float skyLevel) {
 	const float leak = 0.12;
 #endif
 	float under = foliageCanopy >= 0.0 ? foliageCanopy * smoothstep(0.25, 0.55, skyLevel) : canopyFromSky(skyLevel);
-	return leak * under;
+	return leak * under * canopyLeakKeep;
 }
 
 // How deep a place lies under a canopy by day, 0..1: where the shadow map finds leaves just above it (workstream C:
