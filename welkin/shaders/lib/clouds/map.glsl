@@ -14,7 +14,8 @@
 // (the clouds rework, 2026-10-16) The raw map's B and A are no longer bits: they hold the low and main decks' smooth
 // margin fields (CloudCol.field), which the clouds pass samples with the GPU's bilinear filter (wcField) for the light
 // inside each cloud; the raw R carries the main deck's tiers in bits 6..7 and the raw G the low deck's tier in bit 7.
-// In the finished map G is the tower's rise (bits 0..6), the low deck's tier (7) and the main deck's tiers (8..9).
+// In the finished map G is the tower's rise (bits 0..6), the low deck's tier (7) and the main deck's tiers (8..9), and
+// (clouds2) the tallest main-deck tier over the cell's block (10..11).
 //
 //   R  bit 0 low deck, 1 main deck, 2 high deck, 3 anvil, 4..5 tone (0 fair, 1 showers, 2 storm); in the finished
 //      map also bits 8..11: bits 0..3 ORed over the cell's block (its 4 x 4 tower cell), so with G (one tower per

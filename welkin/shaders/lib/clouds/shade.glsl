@@ -629,7 +629,9 @@ vec4 wcBandOf(int k, vec3 ro, vec3 rd, float pixAngle, CloudEnv e) {
 	float rows = cell * abs(rd.y) / max(tMid * pixAngle, 1e-6);
 	// (a narrow hand-over: past it the cells are drawn whole and crisp; across a wide one every cell was blended with
 	// the sky behind it and read as a see-through slab)
-	float weight = 1.0 - smoothstep(1.2, 3.0, rows);
+	// (clouds2: 1.2..3 was: the last rows of cells stood as sawtooth bands; the high deck, a thin sheet whose cells are
+	// kilometres wide out there, gives way to its band sooner, or its far edge stood as a staircase over the horizon)
+	float weight = k == 2 ? 1.0 - smoothstep(4.0, 12.0, rows) : 1.0 - smoothstep(2.0, 5.0, rows);
 	if (weight <= 0.0) {
 		return vec4(tIn, tMid, 0.0, 0.0);
 	}

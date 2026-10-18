@@ -252,7 +252,9 @@ CloudHit welkinCloudMarch(vec3 ro, vec3 rd, float tScene, float pixAngle, CloudE
 				int bits = raw.x >> 8;
 				float rise = float(raw.y & 127) * 4.0;
 				bool held = ((bits & 1) != 0 && wcOverlaps(vec2(e.layers.x, e.layers.x + wcDeckSpan(0)), blo, bhi))
-					|| ((bits & 2) != 0 && wcOverlaps(vec2(e.layers.y, e.layers.y + wcDeckSpan(1)), blo, bhi))
+					// (clouds2: the main deck only as tall as the block's tallest heap: a ray over a block of low cells
+					// crosses it in one step, now that a heart stands 84 blocks over the deck)
+					|| ((bits & 2) != 0 && wcOverlaps(vec2(e.layers.y, e.layers.y + WC_DECK + wcMainTierHeight((raw.y >> 10) & 3)), blo, bhi))
 					|| ((bits & 4) != 0 && wcOverlaps(vec2(e.layers.z, e.layers.z + wcDeckSpan(2)), blo, bhi))
 					|| ((bits & 8) != 0 && wcOverlaps(anvilBand, blo, bhi))
 					|| (rise > 0.0 && wcOverlaps(vec2(base, base + rise), blo, bhi));

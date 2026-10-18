@@ -368,8 +368,16 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 		if (n > thr || wide > 0.5) {
 			// thin at a cloud's ragged edge, thick inside it (the shading's body)
 			c.dens.y = c.field.y * 2.0 - 1.0;
-			// a storm's sheet stands a tier taller
-			c.tiers.y = min(wcTiersOf(wcMainRise(c.dens.y), ch, WC_MAIN_TIERS) + (wide > 0.5 ? 1 : 0), WC_MAIN_TIERS);
+			// (clouds2) a closing cover's deck is no field of heaps all at their full height (seen from above, an
+			// overcast stood as one flat plane at the heaps' top, or as a city of towers): its top rolls in low, broad
+			// swells 20 cells across, mostly its first tier, now and then the second
+			float rise = wcMainRise(c.dens.y);
+			float over = max(wcSmooth(0.6, 0.95, cover), step(0.5, wide));
+			if (over > 0.0) {
+				float swell = 0.6 * wcValue(m, 240, e.seed + 71u) + 0.4 * lump;
+				rise = mix(rise, min(rise, clamp(swell * 0.8 - 0.1, 0.05, 0.55)), over);
+			}
+			c.tiers.y = wcTiersOf(rise, ch, WC_MAIN_TIERS);
 			c.main = vec2(mainIv.x, mainIv.y + wcMainTierHeight(c.tiers.y));
 		}
 	}
