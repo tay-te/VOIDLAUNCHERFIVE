@@ -108,7 +108,7 @@ CloudCol wcMapDecode(int bits, int g, CloudEnv e) {
 	c.tiers = r.yz;
 	c.field = vec2(0.0);
 	c.low = (bits & 1) != 0 ? vec2(e.layers.x, e.layers.x + WC_DECK + float(r.y) * WC_TIER) : WC_EMPTY;
-	c.main = (bits & 2) != 0 ? vec2(e.layers.y, e.layers.y + WC_DECK + float(r.z) * WC_MAIN_TIER) : WC_EMPTY;
+	c.main = (bits & 2) != 0 ? vec2(e.layers.y, e.layers.y + WC_DECK + wcMainTierHeight(r.z)) : WC_EMPTY;
 	c.high = (bits & 4) != 0 ? vec2(e.layers.z, e.layers.z + WC_DECK) : WC_EMPTY;
 	c.anvil = (bits & 8) != 0 ? vec2(e.layers.w - WC_TOWER_STEP, e.layers.w + WC_DECK) : WC_EMPTY;
 	c.tone = (bits >> 4) & 3;
