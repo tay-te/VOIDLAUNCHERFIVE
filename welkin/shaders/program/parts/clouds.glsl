@@ -90,9 +90,10 @@ void main() {
 	if (band0.x < band1.x) { vec4 t = band0; band0 = band1; band1 = t; }
 	if (band1.x < band2.x) { vec4 t = band1; band1 = band2; band2 = t; }
 	if (band0.x < band1.x) { vec4 t = band0; band0 = band1; band1 = t; }
-	// (clouds2) one cloud light a pixel: the hit's own, or the nearest band drawn here (a hit the band has mostly
-	// taken over is lit as the band, so it matches the gaps beside it); the bands lay that colour on. Two copies of
-	// the cloud light (the hit's and the band's) had cost a tenth of a millisecond, and three band lights a pixel more.
+	// (clouds2) one cloud light a pixel: the hit's own, or, in a gap, the nearest band drawn here; the bands lay that
+	// colour on (over a hit, its own: a hit lit as the band stood as flat strips with hard edges over the horizon).
+	// Two copies of the cloud light (the hit's and the band's) had cost a tenth of a millisecond, and three band lights
+	// a pixel more.
 	vec4 sel = vec4(1e30, 1e30, 0.0, 0.0);
 	for (int i = 0; i < 3; i++) {
 		vec4 b = i == 0 ? band0 : (i == 1 ? band1 : band2);
@@ -100,7 +101,7 @@ void main() {
 			sel = b;
 		}
 	}
-	bool useBand = sel.z > 0.0 && (!h.hit || sel.z >= 0.5);
+	bool useBand = sel.z > 0.0 && !h.hit;
 	vec3 lit = vec3(0.0);
 	if (h.hit || sel.z > 0.0) {
 		lit = welkinCloudShade(useBand ? wcBandHit(rd, sel.y, e) : h, ro, rd, e, pixAngle, useBand);
