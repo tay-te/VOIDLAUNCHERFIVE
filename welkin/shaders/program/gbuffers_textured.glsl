@@ -2,4 +2,7 @@
 #define G_TEXTURED
 #define G_FLAG
 #define G_NEARCUT
+// (forest2, 2026-10-18: particles take the near shadow map's sun, as entities do: falling leaves under a canopy
+// glowed sunlit lime against the wood's shade)
+#define G_SHADOW
 #include "/program/gbuffers_common.glsl"
