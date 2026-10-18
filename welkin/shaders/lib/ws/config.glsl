@@ -40,7 +40,9 @@ const float WS_ALPHA_MIN = 0.20;
 const float WS_ALPHA_MAX = 0.94;
 // Water running down a slope or a fall: churned with air, nearly opaque (merged onto the lighting, 2026-10-16).
 // (the defects pass, 2026-10-16: 0.86 with a pale albedo read as ice; a fall is a clear sheet, the foam on it opaque)
-const float WS_ALPHA_FALL = 0.62;
+// (water2, 2026-10-18: 0.42, was 0.62, and the foam's floor 0.06: a clear sheet with white ropes, not ice)
+const float WS_ALPHA_FALL = 0.42;
+const float WS_FALL_FOAM_FLOOR = 0.06;
 // Far water (VOID LOD) where the bed behind is unknown.
 const float WS_ALPHA_FAR = 0.88;
 // The pale band where water thins out over a bank (vertical depth in blocks, and how strong it is).
