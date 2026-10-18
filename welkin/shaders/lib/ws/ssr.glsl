@@ -30,7 +30,7 @@ float wsSceneZ(vec2 suv, vec2 res) {
 // growing 1.45x reach about 1.5 km, the LOD's land is met as the chunks' is, and the LOD's water reflects as well.)
 vec3 wsWaterSSR(vec3 col, ivec2 px) {
 	vec4 info = texelFetch(colortex4, px, 0);
-	bool nearWater = abs(info.a - WS_KIND_WATER) < 0.05;
+	bool nearWater = info.a > 0.74; // (water2: 0.75 to 1, the near water's opacity)
 	bool farWater = abs(info.a - WS_KIND_FAR_WATER) < 0.05;
 	if (!(nearWater || farWater) || info.b < 0.02) {
 		return col;
@@ -97,7 +97,51 @@ vec3 wsWaterSSR(vec3 col, ivec2 px) {
 		stepLen *= 1.45;
 	}
 	if (hit.x < 0.0) {
-		return col;
+		// (water2, 2026-10-18) no land met: the ray goes on to the sky. Where its direction lands on the screen's own
+		// sky or clouds, the water takes that pixel (the clouds, lit pink at dawn and silver under the moon, and the
+		// sky's own gradient) instead of the bare sky table, fading to the table toward the screen's edges. The sun's
+		// own disc is left to the water's glint.
+		// (the sky takes the waves a little calmer, so the clouds' crisp outlines break into soft streaks, not shards)
+		vec3 nS = normalize(vec3(nWorld.x * 0.6, nWorld.y, nWorld.z * 0.6));
+		vec3 rwC = reflect(mat3(gbufferModelViewInverse) * (vp / dist), nS);
+		vec4 ci = gbufferProjection * vec4(mat3(gbufferModelView) * rwC, 0.0);
+		if (ci.w <= 1e-4) {
+			return col;
+		}
+		vec2 su = (ci.xy / ci.w) * 0.5 + 0.5;
+		vec2 eS = min(su, 1.0 - su);
+		float fS = smoothstep(0.0, 0.14, min(eS.x, eS.y));
+		if (fS <= 0.0) {
+			return col;
+		}
+		ivec2 sq = clamp(ivec2(su * res), ivec2(0), ivec2(res) - 1);
+		bool skyPx = surfaceAt(sq, su).sky;
+		float ck = texelFetch(colortex6, sq, 0).r;
+		if (!skyPx && !(ck > 0.0 && ck < 999.0)) {
+			return col;
+		}
+		vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
+		fS *= 1.0 - smoothstep(0.9965, 0.9992, dot(rwC, sunW));
+		vec3 rwS = rw;
+		rwS.y = abs(rwS.y);
+		vec3 skyS = skyDomeOnly(rwS, skyFrame());
+		// a short streak down the screen, as a reflection on a rippled surface stretches: five taps, any that leave the
+		// sky (a far shore's edge) take the centre's
+		vec3 pixS = texelFetch(colortex0, sq, 0).rgb;
+		vec3 accS = pixS * 0.32;
+		float sp = max(2.0, res.y * 0.0045);
+		for (int k = -2; k <= 2; k++) {
+			if (k == 0) {
+				continue;
+			}
+			ivec2 tq = clamp(sq + ivec2(0, int(float(k) * sp)), ivec2(0), ivec2(res) - 1);
+			vec2 tu = (vec2(tq) + 0.5) / res;
+			float tk = texelFetch(colortex6, tq, 0).r;
+			bool ok = surfaceAt(tq, tu).sky || (tk > 0.0 && tk < 999.0);
+			accS += (ok ? texelFetch(colortex0, tq, 0).rgb : pixS) * (abs(k) == 1 ? 0.22 : 0.12);
+		}
+		pixS = accS;
+		return col + info.b * (pixS - skyS) * fS * WS_SSR_SKY_SHARE;
 	}
 	vec2 e = min(hit.xy, 1.0 - hit.xy);
 	float fade = smoothstep(0.0, 0.06, min(e.x, e.y)) * (1.0 - smoothstep(0.7, 1.0, travelled / WS_SSR_REACH));

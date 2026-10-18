@@ -223,9 +223,12 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 					vec2 hw = (vec2(c0 & 255) + lo + d * tIn) * 1024.0;
 					float u = abs(tn.x - sideIn) < 1e-3 ? hw.y : hw.x;
 					float yh = camY + dy * tIn;
-					float streak = 0.65 * wfNoise2(vec2(u / 40.0, (yh + fall) / 160.0), e.seed + 0x5F5u)
-						+ 0.35 * wfNoise2(vec2(u / 14.0, (yh + fall) / 70.0), e.seed + 0x5F6u);
-					odi *= 0.45 + 1.1 * streak;
+					// (water2, 2026-10-18) long, leaning streaks (falling rain draws lines, not puffs: at 160 blocks tall they
+					// read as smoke), the lean the same way across a front, and a deeper contrast between them
+					float us = u + 0.35 * yh;
+					float streak = 0.6 * wfNoise2(vec2(us / 36.0, (yh + fall) / 520.0), e.seed + 0x5F5u)
+						+ 0.4 * wfNoise2(vec2(us / 15.0, (yh + fall) / 260.0), e.seed + 0x5F6u);
+					odi *= 0.3 + 1.4 * streak * streak * 1.6;
 				}
 				od += odi;
 				stormSum += storm * odi;

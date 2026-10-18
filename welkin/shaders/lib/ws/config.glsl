@@ -40,7 +40,9 @@ const float WS_ALPHA_MIN = 0.20;
 const float WS_ALPHA_MAX = 0.94;
 // Water running down a slope or a fall: churned with air, nearly opaque (merged onto the lighting, 2026-10-16).
 // (the defects pass, 2026-10-16: 0.86 with a pale albedo read as ice; a fall is a clear sheet, the foam on it opaque)
-const float WS_ALPHA_FALL = 0.62;
+// (water2, 2026-10-18: 0.42, was 0.62, and the foam's floor 0.06: a clear sheet with white ropes, not ice)
+const float WS_ALPHA_FALL = 0.42;
+const float WS_FALL_FOAM_FLOOR = 0.06;
 // Far water (VOID LOD) where the bed behind is unknown.
 const float WS_ALPHA_FAR = 0.88;
 // The pale band where water thins out over a bank (vertical depth in blocks, and how strong it is).
@@ -49,7 +51,7 @@ const float WS_BANK_STRENGTH = 0.28;
 // (the defects pass, 2026-10-16) how much light the body throws back, in the shallows and where it is deep (a share of
 // its lit tint), the shore foam's strength, and the glitter path: its spread (radians squared, before the wind), the
 // share of the water's sparkle cells lit at its heart, and how bright a sparkle is (times the direct light).
-const float WS_SCATTER_SHALLOW = 0.42;
+const float WS_SCATTER_SHALLOW = 0.36;
 const float WS_SCATTER_DEEP = 0.82;
 const float WS_SHORE_FOAM = 0.8;
 const float WS_GLITTER_SPREAD = 0.03;
@@ -57,6 +59,8 @@ const float WS_GLITTER_SHARE = 0.22;
 const float WS_GLITTER_GAIN = 2.4;
 // and the soft glow the path lies in (times the direct light at its heart)
 const float WS_GLITTER_GLOW = 0.22;
+// (water2) the glitter path's spread as the waves' slope variance (tan squared of the tilt)
+const float WS_GLITTER_SLOPE = 0.012;
 // Fresnel at normal incidence for water, glass and ice.
 const float WS_F0_WATER = 0.02;
 const float WS_F0_GLASS = 0.04;
@@ -70,6 +74,8 @@ const float WS_SSR_MAX_DIST = 1024.0;
 // (the defects pass) the march: steps, and the reach they cover (0.5-block first step growing 1.45x)
 #define WS_SSR_STEPS 18
 const float WS_SSR_REACH = 1500.0;
+// (water2) how much of the screen's own sky and clouds a ray that meets no land takes over the sky table's
+const float WS_SSR_SKY_SHARE = 1.0;
 
 // The info target's water kinds (colortex4.a).
 const float WS_KIND_WATER = 1.0;
