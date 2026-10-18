@@ -68,6 +68,40 @@ uniform sampler2D colortex6; // the clouds' distance (> 999: none)
 #endif
 #endif
 // ---- end atmos
+// (golden, 2026-10-18) the sky round the pixel sun kept under its disc (below, after the bloom)
+#ifdef WORLD_OVERWORLD
+#include "/lib/sky/celestial.glsl"
+#ifndef WU_depthtex0
+#define WU_depthtex0
+uniform sampler2D depthtex0;
+#endif
+#ifdef DISTANT_HORIZONS
+#ifndef WU_dhDepthTex0
+#define WU_dhDepthTex0
+uniform sampler2D dhDepthTex0;
+#endif
+#endif
+#ifndef WU_colortex6
+#define WU_colortex6
+uniform sampler2D colortex6; // the clouds' distance (> 999: none)
+#endif
+#ifndef WU_sunPosition
+#define WU_sunPosition
+uniform vec3 sunPosition;
+#endif
+#ifndef WU_gbufferProjectionInverse
+#define WU_gbufferProjectionInverse
+uniform mat4 gbufferProjectionInverse;
+#endif
+#ifndef WU_viewWidth
+#define WU_viewWidth
+uniform float viewWidth;
+#endif
+#ifndef WU_viewHeight
+#define WU_viewHeight
+uniform float viewHeight;
+#endif
+#endif
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
@@ -115,6 +149,36 @@ void main() {
 	}
 #endif
 	// ---- end atmos
+#ifdef WORLD_OVERWORLD
+	// (golden, 2026-10-18) the pixel sun a crisp solid disc in its glow: round the sun (within about 25 degrees) the
+	// open sky, its glow and the halo the bloom lays on it ease under 0.97 of white, hue kept (a soft shoulder from
+	// 0.7), while the disc's own art pixels go on to white. The glow and the halo had blazed the sky round a sun some 10 to
+	// 25 degrees up to the disc's own white, and the disc dissolved into a soft white blob
+	{
+		vec3 v = normalize((gbufferProjectionInverse * vec4((vec2(p) + 0.5) / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0)).xyz);
+		vec3 sv = normalize(sunPosition);
+		float near = smoothstep(0.88, 0.97, dot(v, sv));
+		float m = max(c.r, max(c.g, c.b));
+		if (near > 0.0 && m > 0.7) {
+			float d = texelFetch(depthtex0, p, 0).r;
+#ifdef DISTANT_HORIZONS
+			d = min(d, texelFetch(dhDepthTex0, p, 0).r);
+#endif
+			// only the open sky (not the land, not a cloud)
+			near *= d >= 1.0 && texelFetch(colortex6, p, 0).r > 999.0 ? 1.0 : 0.0;
+			// the disc's own art pixels (lib/sky/celestial.glsl, as the dome draws them) go on to white
+			mat3 toW = mat3(gbufferModelViewInverse);
+			vec3 sunW = normalize(toW * sv);
+			ivec2 ip;
+			if (near > 0.0 && skyArtPixel(normalize(toW * v), sunW, skyPathAxis(sunW), ip)) {
+				int k = skySunPixel(ip);
+				near *= k >= 1 && k <= 3 ? 0.0 : 1.0;
+			}
+			float t = 0.7 + 0.27 * (1.0 - exp(-(m - 0.7) / 0.27));
+			c = mix(c, c * (t / m), near);
+		}
+	}
+#endif
 	c = shoulder(c);
 	// two uniform values per pixel summed: a triangle from -1 to +1 of one 8-bit step, mean zero
 	uint h = pixelHash(p, 7u);

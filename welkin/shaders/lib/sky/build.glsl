@@ -69,20 +69,24 @@ SkyMood skyMood(SkyInputs s, vec3 sunW, vec3 moonW) {
 	// (the zenith less than the horizon: a dusk sky is luminous low down and deepens to mauve overhead)
 	float day = 1.0 - 0.97 * m.nightStep;
 	float sunUp = skySmooth(-0.14, 0.12, sunW.y);
-	vec3 z = SKY_DAY_ZENITH * max(day, 0.40 * sunUp);
+	// (golden, 2026-10-16: the zenith 0.55 of the day's while the sun is up, was 0.40: a golden hour's upper sky a
+	// luminous blue-lilac over the warm horizon, as the reference packs' 18:30, not a dull mauve-grey lid)
+	vec3 z = SKY_DAY_ZENITH * max(day, 0.55 * sunUp);
 	vec3 h = SKY_DAY_HORIZON * max(day, 0.66 * sunUp);
 	// the blue hour: a deep clear blue overhead, the land cool
 	z = mix(z, skyTone(SKY_DUSK_BLUE, z, 1.0), 0.55 * s.blue);
 	h = mix(h, skyTone(SKY_DUSK_BLUE, h, 1.0), 0.30 * s.blue);
 	// the golden hour: paler gold toward the low sun
-	z = mix(z, skyTone(SKY_GOLDEN_HAZE, z, 1.05), 0.20 * s.golden);
+	// (golden: the zenith keeps its blue, 0.06 was 0.20: the gold over the whole dome greyed the blue to cream-mauve)
+	z = mix(z, skyTone(SKY_GOLDEN_HAZE, z, 1.05), 0.06 * s.golden);
 	h = mix(h, skyTone(SKY_GOLDEN_HAZE, h, 1.0), 0.40 * s.golden);
 	// (review round 1) the last degrees of the sun and the first after it: the sky round the dome turns mauve
 	// overhead and rose low down (the light through the most air), so dawn and dusk read as rose and lilac, not as a
 	// greyed blue; the sun's own side keeps the dusk palette's glow over it
 	float lowRose = (1.0 - skySmooth(0.04, 0.24, sunW.y)) * skySmooth(-0.16, -0.02, sunW.y) * (1.0 - 0.8 * m.cloudStep)
 		* (1.0 - m.rainStep);
-	z = mix(z, skyTone(vec3(0.60, 0.50, 0.72), z, 1.0), 0.7 * lowRose);
+	// (golden: a clear lilac-blue overhead, was a mauve (0.60, 0.50, 0.72) at 0.7 that read brown-grey beside the rose)
+	z = mix(z, skyTone(vec3(0.54, 0.54, 0.84), z, 1.0), 0.6 * lowRose);
 	h = mix(h, skyTone(vec3(0.96, 0.66, 0.68), h, 1.04), 0.6 * lowRose);
 	// the night: a moonlit navy under a clear moon, near black without one
 	float moonlit = skyLevel(m.night * s.moon * m.clear);
@@ -215,9 +219,11 @@ vec3 skyLandSunColour(float h, float morning) {
 	// (air and tone (D), 2026-10-13: dawn rose and softer than dusk: its gold a paler rose-gold and its last degrees a
 	// rose-red with more blue in them, so the dawn land reads rose, not the orange it read warmer than the evening's)
 	vec3 gold = mix(vec3(1.00, 0.63, 0.28), vec3(1.00, 0.67, 0.52), morning);
+	// (golden, 2026-10-18: the evening's last degrees (1, 0.40, 0.15), was (1, 0.36, 0.07): a rose-peach rather than a deep
+	// gold on the land, the land at 18:30 nearer Complementary's red to blue and the shore's gold cast gone)
 	// (round 2: the last degrees a deep amber, a little rosier at dawn: in linear light the blue must fall to about a
 	// seventh of the red for a white trunk or a crown it meets to read amber on screen rather than a pale cream)
-	vec3 low  = mix(vec3(1.00, 0.36, 0.07), vec3(1.00, 0.47, 0.30), morning);
+	vec3 low  = mix(vec3(1.00, 0.40, 0.15), vec3(1.00, 0.47, 0.30), morning);
 	vec3 c = mix(aft, noon, smoothstep(0.52, 0.92, h));
 	c = mix(gold, c, smoothstep(0.08, 0.36, h));
 	// (the last ten degrees are the low sun's: red enough that a green crown turns gold in it, not lime)
@@ -235,7 +241,9 @@ float skyLandSunStrength(float h) {
 	// the disc meets it: the golden hour's sun-facing faces stay lit amber between the long cool shadows)
 	// (round 3: and a tenth more through the morning and the afternoon, from about 15 to 45 degrees, so 08:00 and 16:30
 	// stand as bright as the hours round noon; noon itself as before)
-	return LAND_SUN * (0.6 + 0.4 * smoothstep(0.0, 0.45, h)) * (1.0 - 0.065 * smoothstep(0.6, 0.92, h))
+	// (golden, 2026-10-16/18: 0.8 of noon at the horizon, was 0.6: the golden hour's sun-facing faces brighter against the
+	// deeper shade)
+	return LAND_SUN * (0.8 + 0.2 * smoothstep(0.0, 0.45, h)) * (1.0 - 0.065 * smoothstep(0.6, 0.92, h))
 		* (1.0 + LAND_SUN_SHOULDER_HOURS * smoothstep(0.25, 0.5, h) * (1.0 - smoothstep(0.66, 0.9, h)))
 		* smoothstep(-0.01, 0.022, h);
 }

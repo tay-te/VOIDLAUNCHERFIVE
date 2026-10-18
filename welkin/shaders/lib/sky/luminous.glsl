@@ -83,14 +83,17 @@ SkyLum skyLumFrame(vec3 sunW) {
 	h = min(h, vec3(1.9));
 	f.hue = h / max(skyLumLuma(h), 1e-4);
 	// the glow's amber: a warm gold (less orange than Complementary's), by how golden the hour is
-	const vec3 GOLD = vec3(1.0, 0.66, 0.36) / 0.7448;
+	// (golden, 2026-10-16: the hues deeper in linear light. A linear (1, 0.66, 0.36) shows on screen as a pale cream
+	// (1, 0.83, 0.63): every glow, band and sunlit haze round a low sun read cream-white and washed out. These read
+	// peach-gold, rose-peach and rose on screen, still with less yellow than Complementary's gold)
+	const vec3 GOLD = vec3(1.0, 0.57, 0.31) / 0.6426;
 	// (review round 1) the morning's a rose-gold, softer and pinker than the evening's amber (the warm pink morning
 	// air of a clear dawn; the land's own dawn sun is rose-gold too)
-	const vec3 ROSE_GOLD = vec3(1.0, 0.70, 0.58) / 0.7559;
+	const vec3 ROSE_GOLD = vec3(1.0, 0.53, 0.42) / 0.6219;
 	float morning = sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0;
 	// (review round 2) over the evening's last degrees the gold turns peach and rose, so a sunset over water reads
 	// peach-rose with a lilac sky above, not a cream-yellow frame (less gold than Complementary)
-	const vec3 PEACH = vec3(1.0, 0.66, 0.54) / 0.7343;
+	const vec3 PEACH = vec3(1.0, 0.45, 0.44) / 0.5662;
 	vec3 eve = mix(GOLD, PEACH, 1.0 - smoothstep(0.03, 0.2, sunW.y));
 	vec3 g = mix(f.hue, mix(eve, ROSE_GOLD, morning), 0.6 * f.warm);
 	f.gold = g / max(skyLumLuma(g), 1e-4);
@@ -153,7 +156,8 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// the golden hours warm the whole dome a little (its brightness kept), the zenith least
 	// (review round 2: a clear morning a little more: its rose-gold reads as a warm rose-peach air, not a neutral cream)
 	float dawnAir = sunAngle < 0.25 || sunAngle > 0.75 ? 0.28 : 0.20;
-	L = mix(L, f.gold * y, clamp(dawnAir * f.warm * f.up * (1.0 - 0.5 * zen) * min(k, 1.0), 0.0, 1.0));
+	// (golden, 2026-10-16: the zenith none of it, was half: gold mixed into the blue overhead read as a cream-grey wash)
+	L = mix(L, f.gold * y, clamp(dawnAir * f.warm * f.up * (1.0 - zen) * (1.0 - smoothstep(0.04, 0.4, hp)) * min(k, 1.0), 0.0, 1.0));
 	// the glow round the sun: mixed toward the sun's hue at a brighter level (amber at a low sun, never white)
 	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.45);
 	float glow = (0.22 + 0.55 * f.low) * f.up;
@@ -161,7 +165,9 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// (review round 2) round a low sun the glow stays under the disc's own light (about 0.8 on screen), so the pixel
 	// sun reads as a solid bright disc in its glow; it had blazed the sky round it to the disc's own cream and the
 	// disc showed only as its saturated rim (a hollow ring), or not at all
-	tl = min(tl, mix(6.0, 0.6, f.low * f.up));
+	// (golden, 2026-10-16: 0.42, was 0.6: the air round a low sun a deep glowing peach under the disc, not a cream-white
+	// field the disc vanished into)
+	tl = min(tl, mix(6.0, 0.42, f.low * f.up));
 	vec3 target = f.gold * tl;
 	L = mix(L, target, clamp(lobe * glow * k, 0.0, 0.92));
 	// the dome lit: the whole sky a little brighter by day, the sun's half more while the sun is low
