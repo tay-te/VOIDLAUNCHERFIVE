@@ -533,8 +533,8 @@ float wcSelfShadow(vec3 n, vec3 p, CloudEnv e) {
 #endif
 }
 
-// The colour of a cloud face at altitude `y` from its cell alone (the far bands): no field, no shadow from above.
-vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
+// (clouds2) The body of a far band's face at altitude `y`: no field, no shadow from above.
+CloudBody wcBandBody(CloudHit h, vec3 rd, float y, CloudEnv e) {
 	CloudBody b;
 	b.p = rd * h.t;
 	b.y = y;
@@ -547,7 +547,12 @@ vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 	b.field = false;
 	b.bill = 0.0;
 	b.relief = 0.0;
-	return wcCloudLight(b, h.n, h.tone, rd, 1.0, e);
+	return b;
+}
+
+// The colour of a cloud face at altitude `y` from its cell alone (the far bands): no field, no shadow from above.
+vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
+	return wcCloudLight(wcBandBody(h, rd, y, e), h.n, h.tone, rd, 1.0, e);
 }
 
 // The finished colour of a cloud hit, from the ray's origin `ro` (camera-relative) along `rd`. `pixAngle`: radians
@@ -611,7 +616,7 @@ vec4 wcWeatherAt(vec2 q, bool near, CloudEnv e) {
 
 // Deck k along the ray: where the ray enters its slab (x), its middle (y), the band's weight (z: 0 cells .. 1 band)
 // and how much of it is cloud (w). z is 0 for a deck the ray never meets or meets with cells several pixels deep.
-vec4 wcBandOf(int k, vec3 ro, vec3 rd, float pixAngle, CloudEnv e) {
+vec4 wcBandOf(int k, vec3 ro, vec3 rd, float pixAngle, float tScene, CloudEnv e) {
 	float deck = k == 0 ? e.layers.x : (k == 1 ? e.layers.y : e.layers.z);
 	float y0 = e.camY + ro.y;
 	if (!wcPresent(deck) || abs(rd.y) < 1e-5 || (y0 >= deck && y0 <= deck + wcDeckSpan(k))) {
@@ -632,14 +637,16 @@ vec4 wcBandOf(int k, vec3 ro, vec3 rd, float pixAngle, CloudEnv e) {
 	// (clouds2: 1.2..3 was: the last rows of cells stood as sawtooth bands; the high deck, a thin sheet whose cells are
 	// kilometres wide out there, gives way to its band sooner, or its far edge stood as a staircase over the horizon)
 	float weight = k == 2 ? 1.0 - smoothstep(4.0, 12.0, rows) : 1.0 - smoothstep(2.0, 5.0, rows);
-	if (weight <= 0.0) {
+	// (clouds2: nor behind the land, before the weather is read: the bands were a quarter of the clouds pass)
+	if (weight <= 0.0 || tIn >= tScene) {
 		return vec4(tIn, tMid, 0.0, 0.0);
 	}
 	return vec4(tIn, tMid, weight, wcDeckShare(k, wcWeatherAt(q, false, e), e));
 }
 
-// The band's colour for deck k met at tMid, `share` of it cloud, over the sky's horizon colour.
-vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
+// (clouds2) The far band of a deck met at tMid along rd, as a hit for welkinCloudShade: its face toward the eye, its
+// ring, and the tone its cells would take from the weather there.
+CloudHit wcBandHit(vec3 rd, float tMid, CloudEnv e) {
 	CloudHit f = wcNoHit();
 	f.hit = true;
 	f.t = tMid;
@@ -650,6 +657,42 @@ vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
 	vec4 w = wcWeatherAt(rd.xz * tMid, false, e);
 	float wide = max(w.a, wcSmooth(0.79, 0.93, w.r));
 	f.tone = wide > 0.45 ? 2 : (w.b > 0.25 || wcSmooth(0.72, 0.94, w.r) > 0.5 ? 1 : 0);
+	return f;
+}
+
+// (clouds2) The finished colour of a cloud hit (band false), or of a far band met as wcBandHit (band true), from the ray's
+// origin `ro` along `rd`. The clouds pass calls it once a pixel, so the whole cloud light is compiled there once: a
+// second copy for the bands had cost a tenth of a millisecond in registers alone.
+vec3 welkinCloudShade(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle, bool band) {
+	CloudBody b;
+	vec3 n = h.n;
+	float sun = 1.0;
+	if (band) {
+		b = wcBandBody(h, rd, e.camY + ro.y + rd.y * h.t, e);
+	} else {
+		b = wcBodyOf(h, ro, rd, e, true);
+		if (abs(n.y) < 0.5) {
+			float thin = wcSideThin(h, rd, b.iv.y - b.iv.x, pixAngle);
+			b.hIn = mix(b.hIn, rd.y > 0.0 ? 0.0 : 1.0, thin);
+			n = thin > 0.5 ? vec3(0.0, rd.y > 0.0 ? -1.0 : 1.0, 0.0) : n;
+		}
+		sun = wcSelfShadow(n, b.p - h.n * 0.05, e);
+	}
+	vec3 c = wcCloudLight(b, n, h.tone, rd, sun, e);
+#if CLOUD_DEBUG == 1
+	vec3 dk = b.k == 0 ? vec3(1.0, 0.2, 0.2) : (b.k == 1 ? vec3(0.2, 1.0, 0.2) : (b.k == 2 ? vec3(0.3, 0.4, 1.0) : vec3(1.0)));
+	return dk * (h.n.y > 0.5 ? 0.6 : (h.n.y < -0.5 ? 0.3 : 1.0)) * ((h.level & 1) == 0 ? 1.0 : 0.75) * (band ? 0.5 : 1.0);
+#elif CLOUD_DEBUG == 2
+	return vec3((b.top - b.iv.x) / 24.0, b.depth, b.field ? 1.0 : 0.0);
+#elif CLOUD_DEBUG == 3
+	return vec3(wcLightPath(b, e.sun, e) / 64.0);
+#endif
+	return mix(c, wcFogTarget(rd, e), wcFog(h));
+}
+
+// The band's colour for deck k met at tMid, `share` of it cloud, over the sky's horizon colour.
+vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
+	CloudHit f = wcBandHit(rd, tMid, e);
 	float y = e.camY + rd.y * tMid;
 	vec3 hor = wcHorizon(rd, e);
 	vec3 cloud = mix(welkinCloudFace(f, rd, y, 0.5, e), wcFogTarget(rd, e), wcFog(f));
