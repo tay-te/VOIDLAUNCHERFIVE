@@ -52,14 +52,16 @@ void main() {
 	}
 
 	// the block: the 4 x 4 cells of this cell's tower cell
-	int block = 0;
+	int block = 0, blockTier = 0;
 	ivec2 b0 = (cell >> 2) << 2;
 	for (int j = 0; j < 4; j++) {
 		for (int i = 0; i < 4; i++) {
-			block |= wcRawCell(b0 + ivec2(i, j), lv, e).x & 15;
+			int r = wcRawCell(b0 + ivec2(i, j), lv, e).x;
+			block |= r & 15;
+			blockTier = max(blockTier, r >> 6); // (clouds2) the block's tallest main-deck tier, for the march's block skip
 		}
 	}
-	outMap = vec4(float(bits | (block << 8) | wcMapDensityBits(rawOwn.ba)), float(rise | (tiers << 7)), float(deckEdges),
+	outMap = vec4(float(bits | (block << 8) | wcMapDensityBits(rawOwn.ba)), float(rise | (tiers << 7) | (blockTier << 10)), float(deckEdges),
 		float(towerEdges)) / 65535.0;
 }
 

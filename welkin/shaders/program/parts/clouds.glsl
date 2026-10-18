@@ -58,13 +58,23 @@ void main() {
 	vec3 rd = normalize(mat3(gbufferModelViewInverse) * viewFromDepth(texcoord, 1.0, gbufferProjectionInverse));
 	vec3 ro = vec3(0.0); // deferred's eyePos convention: camera-relative, no view-bob translation
 	float pixAngle = 2.0 / (gbufferProjection[1][1] * viewHeight);
+	// (clouds2) land nearer than the lowest a cloud can stand, seen by an eye well under every deck: nothing to draw,
+	// and nothing worked out (the weather, the bands, the fog banks); most of the land on screen ends here. Every
+	// deck stands at or over vanilla's cloud height (Gloam's CloudGrid.Layers, lib/clouds/env.glsl wcLayersOf).
+	float eyeY = float(cameraPositionInt.y) + cameraPositionFract.y;
+	float lowest = cloudHeight - 1.0;
+	if (eyeY < lowest - 40.0 && (rd.y <= 0.0 || tScene * rd.y < lowest - eyeY)) {
+		outColor = color;
+		outCloud = vec4(km, steps);
+		return;
+	}
 
 	CloudEnv e = welkinCloudEnv();
 	// where each deck turns into a far band (lib/clouds/shade.glsl wcBandOf): past a deck that is all band the march
 	// has nothing left to draw, so it stops there
-	vec4 band0 = wcBandOf(0, ro, rd, pixAngle, e);
-	vec4 band1 = wcBandOf(1, ro, rd, pixAngle, e);
-	vec4 band2 = wcBandOf(2, ro, rd, pixAngle, e);
+	vec4 band0 = wcBandOf(0, ro, rd, pixAngle, tScene, e);
+	vec4 band1 = wcBandOf(1, ro, rd, pixAngle, tScene, e);
+	vec4 band2 = wcBandOf(2, ro, rd, pixAngle, tScene, e);
 	// a deck near the eye's height is its fog bank instead (wcSlabFog): its band would draw the deck's far edge as a
 	// hard line on the horizon over the fog
 	band0.z *= 1.0 - wcNearDeck(0, e);
@@ -76,9 +86,29 @@ void main() {
 	tCut = band2.z >= 0.999 ? min(tCut, band2.x) : tCut;
 	CloudHit h = welkinCloudMarch(ro, rd, tCut, pixAngle, e);
 	steps = vec3(h.steps, h.gapCols, h.jumps);
+	// the far bands, the farthest first; each lies over what is behind it (a gap's sky, or the cell hit inside it)
+	if (band0.x < band1.x) { vec4 t = band0; band0 = band1; band1 = t; }
+	if (band1.x < band2.x) { vec4 t = band1; band1 = band2; band2 = t; }
+	if (band0.x < band1.x) { vec4 t = band0; band0 = band1; band1 = t; }
+	// (clouds2) one cloud light a pixel: the hit's own, or, in a gap, the nearest band drawn here; the bands lay that
+	// colour on (over a hit, its own: a hit lit as the band stood as flat strips with hard edges over the horizon).
+	// Two copies of the cloud light (the hit's and the band's) had cost a tenth of a millisecond, and three band lights
+	// a pixel more.
+	vec4 sel = vec4(1e30, 1e30, 0.0, 0.0);
+	for (int i = 0; i < 3; i++) {
+		vec4 b = i == 0 ? band0 : (i == 1 ? band1 : band2);
+		if (b.z > 0.0 && b.x < tScene && (!h.hit || h.t >= b.x - 1.0) && b.x < sel.x) {
+			sel = b;
+		}
+	}
+	bool useBand = sel.z > 0.0 && !h.hit;
+	vec3 lit = vec3(0.0);
+	if (h.hit || sel.z > 0.0) {
+		lit = welkinCloudShade(useBand ? wcBandHit(rd, sel.y, e) : h, ro, rd, e, pixAngle, useBand);
+	}
 	float opacity = 1.0;
 	if (h.hit) {
-		vec3 cc = welkinCloudColor(h, ro, rd, e, pixAngle);
+		vec3 cc = lit;
 		// a deck at eye height: its cells give way to the fog bank below (wcSlabFog) out to a few kilometres, where
 		// the bank covers them (seen edge-on, the far cells of a thin bank stood as hard dark lines on the horizon)
 		int k = wcDeckAt(e.camY + rd.y * h.t - h.n.y * 0.01, e);
@@ -86,10 +116,6 @@ void main() {
 		color.rgb = mix(color.rgb, cc, opacity);
 		km = opacity > 0.5 ? h.t / 1000.0 : km;
 	}
-	// the far bands, the farthest first; each lies over what is behind it (a gap's sky, or the cell hit inside it)
-	if (band0.x < band1.x) { vec4 t = band0; band0 = band1; band1 = t; }
-	if (band1.x < band2.x) { vec4 t = band1; band1 = band2; band2 = t; }
-	if (band0.x < band1.x) { vec4 t = band0; band0 = band1; band1 = t; }
 	for (int i = 0; i < 3; i++) {
 		vec4 b = i == 0 ? band0 : (i == 1 ? band1 : band2);
 		if (b.z > 0.0 && b.x < tScene && (!h.hit || h.t >= b.x - 1.0)) {
@@ -100,7 +126,7 @@ void main() {
 			// colour had painted out the far land along a hard line, with the far ridges standing over it unhazed. A
 			// pixel counts as cloud for the haze only where the band is mostly cloud.)
 			float alpha = b.z * (cell ? mix(b.w, 1.0, 0.6) : b.w);
-			color.rgb = mix(color.rgb, wcBandColour(rd, b.y, 1.0, e), alpha);
+			color.rgb = mix(color.rgb, lit, alpha);
 			if (alpha > 0.5) {
 				km = min(km, b.y / 1000.0);
 			}

@@ -188,22 +188,21 @@ CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField) {
 	b.relief = 0.0;
 #ifdef WC_FIELD
 	if (useField && (b.k == 0 || b.k == 1)) {
-		vec2 f = wcField(b.p.xz - h.n.xz * 0.05, b.lv, e);
+		vec2 f = wcFieldSmooth(b.p.xz - h.n.xz * 0.05, e);
 		b.depth = clamp((b.k == 0 ? f.x : f.y) * 2.0 - 1.0, 0.0, 1.0);
 		b.field = true;
 		// a base's light runs through the cloud's smooth thickness over it, not the cell's own steps of height (which
 		// tiled a belly in squares)
 		if (h.n.y < -0.5) {
-			b.top = iv.x + WC_DECK + b.depth * float(b.k == 1 ? WC_MAIN_TIERS : WC_LOW_TIERS) * WC_TIER;
+			b.top = iv.x + WC_DECK + (b.k == 1 ? wcMainHeightAt(wcMainRise(b.depth)) : b.depth * float(WC_LOW_TIERS) * WC_TIER);
 		}
 		// (review round 2) the billows: a belly's light runs through thicker and thinner lobes, a top has its domes
-		b.bill = wcBillow(b.p.xz, e);
-		if (h.n.y < -0.5) {
-			b.top += b.bill * 3.0 * (0.4 + 0.6 * b.depth);
-		}
-		// (a belly's or a top's billows as relief toward a sun from the side: a swell's flank turned to the sun lit, its
-		// far flank in its own shade, so the lobes read as rounded volumes, not as blotches)
-		if (abs(h.n.y) > 0.5 && length(e.sun.xz) > 0.05) {
+		// (clouds2: a belly is flat, as a real cumulus's base is: no billows under it. Its lobes, stretched long in
+		// perspective, read as grey smudges sheared across every deck seen from below)
+		b.bill = h.n.y < -0.5 ? 0.0 : wcBillow(b.p.xz, e);
+		// (a top's billows as relief toward a sun from the side: a swell's flank turned to the sun lit, its far flank in
+		// its own shade, so the lobes read as rounded volumes, not as blotches)
+		if (h.n.y > 0.5 && length(e.sun.xz) > 0.05) {
 			vec2 sd = normalize(e.sun.xz);
 			b.relief = clamp((b.bill - wcBillow(b.p.xz + sd * 10.0, e)) * 4.0, -1.0, 1.0);
 		}
@@ -246,8 +245,10 @@ float wcLightPath(CloudBody b, vec3 l, CloudEnv e) {
 		vec2 dir = l.xz / hl;
 		float slope = l.y / hl;
 		float sec = sqrt(1.0 + slope * slope);
-		float cs = float(WC_CELL << b.lv);
-		float extra = float(b.k == 1 ? WC_MAIN_TIERS : WC_LOW_TIERS) * WC_TIER;
+		// (clouds2: the cells' width at the point, continuous with the distance: the ring's own doubled where one ring
+		// met the next, and the light through a deck stepped there in a long straight seam)
+		float cs = float(WC_CELL) * clamp(1.5 * length(b.p.xz) / WC_RING0, 1.0, float(1 << WC_MAX_LEVEL));
+		float extra = float(WC_LOW_TIERS) * WC_TIER;
 		float path = min(own, 0.15 * cs * sec);
 		float prev = 0.15 * cs;
 		for (int i = 0; i < WC_LIGHT_SAMPLES; i++) {
@@ -255,9 +256,12 @@ float wcLightPath(CloudBody b, vec3 l, CloudEnv e) {
 			float a = cs * (WC_LIGHT_SAMPLES < 4 ? (i == 0 ? 0.6 : 3.0) : (i == 0 ? 0.4 : (i == 1 ? 1.1 : (i == 2 ? 2.6 : 5.5))));
 			vec2 f = wcField(b.p.xz + dir * a, b.lv, e);
 			float m = b.k == 0 ? f.x : f.y;
-			float top = b.iv.x + WC_DECK + clamp(m * 2.0 - 1.0, 0.0, 1.0) * extra;
+			float mr = clamp(m * 2.0 - 1.0, 0.0, 1.0);
+			float top = b.iv.x + WC_DECK + (b.k == 1 ? wcMainHeightAt(wcMainRise(mr)) : mr * extra);
 			float yr = b.y + a * slope;
-			path += smoothstep(0.42, 0.58, m) * clamp((top - yr) * 0.5 + 0.5, 0.0, 1.0) * (a - prev) * sec;
+			// (clouds2: the sample's ray leaves the heap over a few tiers' height, not two blocks: the light through a belly had
+			// stepped where the samples crossed the heaps' tops, in hard-edged dark contours under a low sun)
+			path += smoothstep(0.36, 0.72, m) * smoothstep(-12.0, 12.0, top - yr) * (a - prev) * sec;
 			prev = a;
 		}
 		return path;
@@ -270,7 +274,10 @@ float wcLightPath(CloudBody b, vec3 l, CloudEnv e) {
 // cloud with a gentle back-scatter off its lit side and a forward lobe through its thin parts, plus two softer octaves
 // of the light scattered many times; a voxel side turned from the light a little darker, as a block's.
 vec3 wcBodyLight(CloudBody b, vec3 n, float sigma, vec3 rd, vec3 l, vec3 col, CloudEnv e, out vec3 glint) {
+	// (clouds2: the optical depth eased off past about 2.5: a tall cloud's heart toward a low sun crossed a hundred blocks
+	// of cloud and fell to a mid grey core; the light scattered all through a cumulus keeps its shaded parts luminous)
 	float tau = sigma * wcLightPath(b, l, e);
+	tau = 2.5 * (1.0 - exp(-tau / 2.5)) + 0.08 * tau;
 	float c = dot(rd, l);
 	float thin = 1.0 - b.depth;
 	// (seen from the lit side a thin part gives back less than a deep one: the powder look of a cumulus's sunlit flank)
@@ -297,7 +304,7 @@ vec3 wcBodyLight(CloudBody b, vec3 n, float sigma, vec3 rd, vec3 l, vec3 col, Cl
 	// (review round 2: a third, softest octave: the light scattered all through a cloud keeps even a thick heart bright,
 	// as the reference packs' clouds are)
 	float ms = exp(-tau) * (p1 - fwd) + (0.6 * exp(-0.3 * tau) * mix(1.0, p1, 0.3) + 0.45 * exp(-0.1 * tau)
-		+ 0.22 * exp(-0.03 * tau)) * under * msPhase;
+		+ 0.35 * exp(-0.03 * tau)) * under * msPhase;
 	// (a top's dome takes the light most squarely at its heart, its rims at a grazing angle: domes read from above)
 	// (review round 1: a side bright at its brow and darker toward its foot, so a cloud's sides read as a rounded,
 	// lit volume from below, not a flat band)
@@ -305,7 +312,10 @@ vec3 wcBodyLight(CloudBody b, vec3 n, float sigma, vec3 rd, vec3 l, vec3 col, Cl
 	// columns of different heights share one gradient instead of stacking in bands; the billows on tops and sides)
 	float hDeck = b.k >= 0 ? clamp((b.y - b.iv.x) / wcDeckSpan(b.k), 0.0, 1.0) : b.hIn;
 	float face = n.y > 0.5 ? mix(0.72, 1.0, smoothstep(0.0, 0.7, b.depth)) * (1.0 + 0.2 * b.bill)
-		: (n.y < -0.5 ? 1.0 : (0.8 + 0.25 * dot(n.xz, l.xz) / max(length(l.xz), 1e-3)) * mix(0.84, 1.1, hDeck) * (1.0 + 0.12 * b.bill));
+		: (n.y < -0.5 ? 1.0 : (0.64 + 0.4 * dot(n.xz, l.xz) / max(length(l.xz), 1e-3)) * mix(0.72, 1.08, hDeck * (2.0 - hDeck)) * (1.0 + 0.12 * b.bill));
+	// (clouds2: the heaps' flanks, now walls up to 84 blocks tall, turn and shade more than a slab's thin sides did: a
+	// flank across the sun's path a soft shade under its sunlit brow, darker toward its foot; at 0.8 to 1.1 every wall
+	// of a morning deck came out one flat white past the shoulder)
 	// the forward lobe's single scattering apart: the silver lining, laid on past the shoulder (wcCloudLight), so a
 	// thin rim toward the sun may blaze past white and the bloom takes it
 	glint = col * (exp(-tau) * fwd * face * WC_DIRECT);
@@ -391,6 +401,16 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		light += glow * under * mix(0.2, 1.0, sw * sw) * mix(1.0, 0.55, b.depth) * (n.y < 0.5 ? 1.0 : 0.0);
 	}
 	vec3 c = wcAlbedo(tone) * light;
+	// (clouds2) by day a cloud's shaded parts sit under the bright sky behind them, as the reference packs' do: the belly
+	// and the lower sides turned from the sun a soft blue-grey, deepest under the thick heart, lightest at the thin rim,
+	// so each cloud reads as a lit volume over its own shade (they had come out as bright as the sky, a white smear)
+	float dayK = wcDay(e);
+	if (dayK > 0.0) {
+		float away = n.y < -0.5 ? 1.0 : (n.y > 0.5 ? 0.0 : lower * (0.55 - 0.45 * dot(n.xz, e.sun.xz) / max(length(e.sun.xz), 1e-3)));
+		float shade = dayK * away * mix(0.3, 1.0, b.depth);
+		vec3 cool = skyZenith() / max(wcLuma(skyZenith()), 1e-4);
+		c = mix(c, c * mix(vec3(1.0), clamp(cool, 0.6, 1.6), 0.25) * 0.84, shade);
+	}
 
 	// (review round 1) round sunrise and sunset a cloud is never darker than the sky behind it: the light scattered many
 	// times inside a deck comes from the whole bright low sky, which the luminous sky made brighter than the bellies'
@@ -416,13 +436,23 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		// (review round 2: brighter than the sky behind by more, the bellies most: a sunset's clouds glow pink and peach
 		// over a lilac sky, away from the sun too (the low sun lights them from the side), as both reference packs' do;
 		// and their billows' relief shows)
-		float lift = (n.y > 0.5 ? 1.65 : (n.y < -0.5 ? 1.5 : 1.55 * mix(0.85, 1.1, b.hIn))) * mix(1.0, 1.2, sw * sw)
-			* mix(1.25, 0.78, b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.15 * b.bill) * (1.0 + 0.35 * clamp(b.relief, -0.3, 1.0))
+		// (clouds2: lower under the heart of a belly, a little over the sky there, and highest on the thin rims, the
+		// sides' brows and the tops: every face had been lifted to half again the sky's light, and in the tone curve's
+		// shoulder a whole sunset deck came out one flat cream; now the bellies keep their form under lit rims)
+		float lift = (n.y > 0.5 ? 1.6 : (n.y < -0.5 ? 1.22 + 0.25 * dusk : mix(1.1, 1.5, b.hIn))) * (n.y > 0.5 ? mix(1.0, 1.15, sw * sw) : mix(1.0, 0.8, sw * sw * sw * sw))
+			* mix(1.3, mix(0.84, 0.95, dusk), b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.15 * b.bill) * (1.0 + 0.35 * clamp(b.relief, -0.3, 1.0))
 			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
+		// (clouds2: the flanks and bellies seen toward the low sun a little under the glow behind them, as a backlit cloud
+		// is, so its silver rims show: lifted over that glow, a sunset deck around the sun came out one washed cream)
 		// (the shortfall is added in the floor's own warm light, not taken channel by channel: a per-channel max of a
 		// cool grey belly and a cream floor came out a mauve-brown mottle)
 		float fy = wcLuma(behind) * lift;
 		c += hueF * (max(fy - wcLuma(c), 0.0) * glowK);
+		// (clouds2: the shaded faces take the floor's rose and peach at their own brightness: a belly turned from the low
+		// sun had come out a muddy brown, the low sun's orange at a fraction of its light)
+		float shadeF = n.y < -0.5 ? 1.0 : (n.y > 0.5 ? 0.0 : 0.5 * lower);
+		vec3 shadeHue = mix(vec3(0.88, 0.76, 0.88), vec3(0.97, 0.74, 0.72), sw);
+		c = mix(c, shadeHue * (wcLuma(c) / wcLuma(shadeHue)), 0.7 * shadeF * dusk * (1.0 - closed) * (1.0 - 0.5 * sw));
 	}
 
 	// at night a cloud is never a black cut-out in the stars: its body takes at least the night dome's own colour
@@ -472,7 +502,9 @@ vec3 wcFogTarget(vec3 rd, CloudEnv e) {
 // doubling of the distance, one curve over every ring and the sheets (composite2 lays the land's haze over them
 // besides); more in rain.
 float wcFog(CloudHit h) {
-	float f = clamp((wcFar(h.t) - 0.8) * 0.12, 0.0, 0.62);
+	// (clouds2: a third of what it was: composite2 lays the land's haze over the clouds at their distance besides, and
+	// the two together washed every deck past a kilometre into the sky's own white, the clouds reading as faint smears)
+	float f = clamp((wcFar(h.t) - 1.5) * 0.045, 0.0, 0.3);
 	f = min(f + 0.08 * smoothstep(0.6 * WC_REACH, WC_REACH, h.t), 0.9);
 	return mix(f, min(1.0, f * 1.4 + 0.08), smoothstep(0.2, 0.8, rainStrength));
 }
@@ -501,8 +533,8 @@ float wcSelfShadow(vec3 n, vec3 p, CloudEnv e) {
 #endif
 }
 
-// The colour of a cloud face at altitude `y` from its cell alone (the far bands): no field, no shadow from above.
-vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
+// (clouds2) The body of a far band's face at altitude `y`: no field, no shadow from above.
+CloudBody wcBandBody(CloudHit h, vec3 rd, float y, CloudEnv e) {
 	CloudBody b;
 	b.p = rd * h.t;
 	b.y = y;
@@ -515,7 +547,12 @@ vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 	b.field = false;
 	b.bill = 0.0;
 	b.relief = 0.0;
-	return wcCloudLight(b, h.n, h.tone, rd, 1.0, e);
+	return b;
+}
+
+// The colour of a cloud face at altitude `y` from its cell alone (the far bands): no field, no shadow from above.
+vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
+	return wcCloudLight(wcBandBody(h, rd, y, e), h.n, h.tone, rd, 1.0, e);
 }
 
 // The finished colour of a cloud hit, from the ray's origin `ro` (camera-relative) along `rd`. `pixAngle`: radians
@@ -579,7 +616,7 @@ vec4 wcWeatherAt(vec2 q, bool near, CloudEnv e) {
 
 // Deck k along the ray: where the ray enters its slab (x), its middle (y), the band's weight (z: 0 cells .. 1 band)
 // and how much of it is cloud (w). z is 0 for a deck the ray never meets or meets with cells several pixels deep.
-vec4 wcBandOf(int k, vec3 ro, vec3 rd, float pixAngle, CloudEnv e) {
+vec4 wcBandOf(int k, vec3 ro, vec3 rd, float pixAngle, float tScene, CloudEnv e) {
 	float deck = k == 0 ? e.layers.x : (k == 1 ? e.layers.y : e.layers.z);
 	float y0 = e.camY + ro.y;
 	if (!wcPresent(deck) || abs(rd.y) < 1e-5 || (y0 >= deck && y0 <= deck + wcDeckSpan(k))) {
@@ -597,15 +634,19 @@ vec4 wcBandOf(int k, vec3 ro, vec3 rd, float pixAngle, CloudEnv e) {
 	float rows = cell * abs(rd.y) / max(tMid * pixAngle, 1e-6);
 	// (a narrow hand-over: past it the cells are drawn whole and crisp; across a wide one every cell was blended with
 	// the sky behind it and read as a see-through slab)
-	float weight = 1.0 - smoothstep(1.2, 3.0, rows);
-	if (weight <= 0.0) {
+	// (clouds2: 1.2..3 was: the last rows of cells stood as sawtooth bands; the high deck, a thin sheet whose cells are
+	// kilometres wide out there, gives way to its band sooner, or its far edge stood as a staircase over the horizon)
+	float weight = k == 2 ? 1.0 - smoothstep(4.0, 12.0, rows) : 1.0 - smoothstep(2.0, 5.0, rows);
+	// (clouds2: nor behind the land, before the weather is read: the bands were a quarter of the clouds pass)
+	if (weight <= 0.0 || tIn >= tScene) {
 		return vec4(tIn, tMid, 0.0, 0.0);
 	}
 	return vec4(tIn, tMid, weight, wcDeckShare(k, wcWeatherAt(q, false, e), e));
 }
 
-// The band's colour for deck k met at tMid, `share` of it cloud, over the sky's horizon colour.
-vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
+// (clouds2) The far band of a deck met at tMid along rd, as a hit for welkinCloudShade: its face toward the eye, its
+// ring, and the tone its cells would take from the weather there.
+CloudHit wcBandHit(vec3 rd, float tMid, CloudEnv e) {
 	CloudHit f = wcNoHit();
 	f.hit = true;
 	f.t = tMid;
@@ -616,6 +657,42 @@ vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
 	vec4 w = wcWeatherAt(rd.xz * tMid, false, e);
 	float wide = max(w.a, wcSmooth(0.79, 0.93, w.r));
 	f.tone = wide > 0.45 ? 2 : (w.b > 0.25 || wcSmooth(0.72, 0.94, w.r) > 0.5 ? 1 : 0);
+	return f;
+}
+
+// (clouds2) The finished colour of a cloud hit (band false), or of a far band met as wcBandHit (band true), from the ray's
+// origin `ro` along `rd`. The clouds pass calls it once a pixel, so the whole cloud light is compiled there once: a
+// second copy for the bands had cost a tenth of a millisecond in registers alone.
+vec3 welkinCloudShade(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle, bool band) {
+	CloudBody b;
+	vec3 n = h.n;
+	float sun = 1.0;
+	if (band) {
+		b = wcBandBody(h, rd, e.camY + ro.y + rd.y * h.t, e);
+	} else {
+		b = wcBodyOf(h, ro, rd, e, true);
+		if (abs(n.y) < 0.5) {
+			float thin = wcSideThin(h, rd, b.iv.y - b.iv.x, pixAngle);
+			b.hIn = mix(b.hIn, rd.y > 0.0 ? 0.0 : 1.0, thin);
+			n = thin > 0.5 ? vec3(0.0, rd.y > 0.0 ? -1.0 : 1.0, 0.0) : n;
+		}
+		sun = wcSelfShadow(n, b.p - h.n * 0.05, e);
+	}
+	vec3 c = wcCloudLight(b, n, h.tone, rd, sun, e);
+#if CLOUD_DEBUG == 1
+	vec3 dk = b.k == 0 ? vec3(1.0, 0.2, 0.2) : (b.k == 1 ? vec3(0.2, 1.0, 0.2) : (b.k == 2 ? vec3(0.3, 0.4, 1.0) : vec3(1.0)));
+	return dk * (h.n.y > 0.5 ? 0.6 : (h.n.y < -0.5 ? 0.3 : 1.0)) * ((h.level & 1) == 0 ? 1.0 : 0.75) * (band ? 0.5 : 1.0);
+#elif CLOUD_DEBUG == 2
+	return vec3((b.top - b.iv.x) / 24.0, b.depth, b.field ? 1.0 : 0.0);
+#elif CLOUD_DEBUG == 3
+	return vec3(wcLightPath(b, e.sun, e) / 64.0);
+#endif
+	return mix(c, wcFogTarget(rd, e), wcFog(h));
+}
+
+// The band's colour for deck k met at tMid, `share` of it cloud, over the sky's horizon colour.
+vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
+	CloudHit f = wcBandHit(rd, tMid, e);
 	float y = e.camY + rd.y * tMid;
 	vec3 hor = wcHorizon(rd, e);
 	vec3 cloud = mix(welkinCloudFace(f, rd, y, 0.5, e), wcFogTarget(rd, e), wcFog(f));

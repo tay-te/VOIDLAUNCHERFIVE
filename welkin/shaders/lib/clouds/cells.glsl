@@ -52,7 +52,7 @@ struct CloudCol {
 
 // The extra height of a deck's top over its first WC_DECK blocks, at most.
 float wcDeckSpan(int k) {
-	return WC_DECK + (k == 1 ? float(WC_MAIN_TIERS) : (k == 0 ? float(WC_LOW_TIERS) : 0.0)) * WC_TIER;
+	return WC_DECK + (k == 1 ? WC_MAIN_HEIGHT : (k == 0 ? float(WC_LOW_TIERS) * WC_TIER : 0.0));
 }
 
 
@@ -87,6 +87,13 @@ uint wcHash(ivec2 c, uint salt) {
 
 float wcU01(uint h) {
 	return float(h >> 8u) * (1.0 / 16777216.0);
+}
+
+// (clouds2) How high a main-deck cloud stands over its first WC_DECK blocks, 0..1 of its tiers, by how deep inside it a
+// point lies: a heap, steep at its flanks and full over most of its body (a cumulus is as tall as it is wide), not a
+// gentle terrace that only rises at the very heart (that drew every cloud as a thin slab sheared long in perspective).
+float wcMainRise(float dens) {
+	return sqrt(clamp(dens, 0.0, 1.0));
 }
 
 // A cell's tiers from its thickness `dens` and its hash: none at a ragged rim, `most` deep inside.
@@ -354,15 +361,24 @@ CloudCol wcColumn(ivec2 cell, int lv, float lo, float hi, CloudEnv e, inout TCac
 		// broad deck has domes and hollows all over its top and a mottled belly, not one flat field
 		float lump = wcValue(m, 72, e.seed + 57u);
 		// (review round 1: the lumps take less of the field, 0.45 not 0.65: they drew grey blotches inside a belly)
+		// (clouds2: 0.2: the heaps give the tops their form now, and the lumps still drew dark blotches in a belly)
 		c.field.y = margin > 0.0 || wide > 0.5
-			? 0.5 + 0.5 * clamp(max(margin, wide > 0.5 ? 0.3 : 0.0), 0.0, 1.0) * (0.55 + 0.45 * lump)
+			? 0.5 + 0.5 * clamp(max(margin, wide > 0.5 ? 0.3 : 0.0), 0.0, 1.0) * (0.8 + 0.2 * lump)
 			: clamp(0.5 + 0.5 * margin, 0.0, 0.5);
 		if (n > thr || wide > 0.5) {
 			// thin at a cloud's ragged edge, thick inside it (the shading's body)
 			c.dens.y = c.field.y * 2.0 - 1.0;
-			// a storm's sheet stands a tier taller
-			c.tiers.y = min(wcTiersOf(c.dens.y, ch, WC_MAIN_TIERS) + (wide > 0.5 ? 1 : 0), WC_MAIN_TIERS);
-			c.main = vec2(mainIv.x, mainIv.y + float(c.tiers.y) * WC_TIER);
+			// (clouds2) a closing cover's deck is no field of heaps all at their full height (seen from above, an
+			// overcast stood as one flat plane at the heaps' top, or as a city of towers): its top rolls in low, broad
+			// swells 20 cells across, mostly its first tier, now and then the second
+			float rise = wcMainRise(c.dens.y);
+			float over = max(wcSmooth(0.6, 0.95, cover), step(0.5, wide));
+			if (over > 0.0) {
+				float swell = 0.6 * wcValue(m, 240, e.seed + 71u) + 0.4 * lump;
+				rise = mix(rise, min(rise, clamp(swell * 0.8 - 0.1, 0.05, 0.55)), over);
+			}
+			c.tiers.y = wcTiersOf(rise, ch, WC_MAIN_TIERS);
+			c.main = vec2(mainIv.x, mainIv.y + wcMainTierHeight(c.tiers.y));
 		}
 	}
 	// the low stratus: wide grey sheets under wet fronts
