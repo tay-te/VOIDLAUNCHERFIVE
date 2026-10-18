@@ -11,6 +11,34 @@
 // where nobody looked (past the map, without it, forward programs): there the sky light stands in.
 float foliageCanopy = -1.0;
 
+// ---- forest2 (2026-10-18): the floor and what stands on it under a canopy keep more of the sky's fill than a crown's
+// heart: round 3's 0.8 everywhere left a grove's floor at half the reference packs' level (21-27 against 41-44), a
+// near-black murk with no readable green. The crown's heart keeps 0.8 (deferred sets canopyFillCut for leaves), so a
+// crown is still a sunlit shell over a dark heart. Under a canopy the fill comes from the open sky overhead, through
+// the gaps (CANOPY_FILL_UP turns its normal up): the zenith's cool blue, not the warm low sky round a setting sun,
+// which the trunks and the crowns' sides hide, so the woods cool at dusk. The leak through the leaves (canopyLeak)
+// takes the sun's colour half desaturated (CANOPY_LEAK_DESAT): light diffused through leaves loses the sun's amber.
+const float CANOPY_FILL_CUT = 0.8; // (round 3's cut, kept for a crown's heart)
+const float CANOPY_FILL_CUT_FLOOR = 0.5;
+const float CANOPY_FILL_UP = 1.0;
+const float CANOPY_LEAK_DAY = 0.035;
+const float CANOPY_LEAK_DESAT = 1.0;
+float canopyFillCut = CANOPY_FILL_CUT_FLOOR;
+// The low sun that threads a wood (dawn and dusk, the sky light cut): its amber half taken out, so the flecks and the
+// lit trunks read as bright light against the cool green shade instead of tinting the whole wood orange (the grove at
+// 18:30 was R/B 4.3 against Complementary's 1.9); in the open the golden hour keeps its colour.
+const float CANOPY_DUSK_DESAT = 0.7;
+float canopyDuskDesat(float skyLevel) {
+#ifdef WORLD_OVERWORLD
+	float h = sunHeight();
+	float low = smoothstep(-0.02, 0.06, h) * (1.0 - smoothstep(0.12, 0.35, h));
+	return CANOPY_DUSK_DESAT * low * (1.0 - smoothstep(0.9, 0.975, skyLevel)) * smoothstep(0.25, 0.55, skyLevel);
+#else
+	return 0.0;
+#endif
+}
+// ---- end forest2
+
 // The share of the canopy the sky-light level says (the old key, where the map does not say): partly open to the sky
 // (sky light about 9..13).
 float canopyFromSky(float skyLevel) {
@@ -24,7 +52,9 @@ float canopyFromSky(float skyLevel) {
 // a wood, so the leak is faint (the floor's shade stays deep between the flecks).
 float canopyLeak(float skyLevel) {
 #if defined SHADOWS && defined WORLD_OVERWORLD
-	const float leak = 0.012;
+	// (forest2, 2026-10-18: 0.012 left a grove's floor near black between its flecks, half Complementary's; the light
+	// a canopy passes is a few % of the sun by day, and less at a low sun, whose path through the crowns is long)
+	float leak = mix(0.012, CANOPY_LEAK_DAY, smoothstep(0.08, 0.4, sunHeight()));
 #else
 	const float leak = 0.12;
 #endif
@@ -38,7 +68,6 @@ float canopyLeak(float skyLevel) {
 // shade while its outer, sunlit shell stays bright. In caves it is 0 (the ramp is dark already); by night it fades
 // out, so moonlit woods keep their level. sunReach: what the sun reaches; without the map's word, sunlit patches keep
 // their fill (the old rule).
-const float CANOPY_FILL_CUT = 0.8;
 float canopyShade(float skyLevel, float sunReach) {
 #ifdef WORLD_OVERWORLD
 	float day = smoothstep(-0.02, 0.12, sunHeight());
@@ -66,11 +95,24 @@ const float LEAF_FACE_SHADE = 0.5;
 float leafFacing(float ndl) {
 	return LEAF_FLOOR + (1.0 - LEAF_FLOOR) * clamp((ndl + LEAF_WRAP) / (1.0 + LEAF_WRAP), 0.0, 1.0);
 }
+// forest2 (2026-10-18): at dawn and in the golden hour a crown's sunward shell catches the low sun broadside, its
+// leaves turned every way (a wall or the ground takes it at a graze): the lit shells of the crowns take LEAF_LOW_SUN
+// more of it, so the woods' crowns light up at dawn against their dark hearts and the shade below (the forest at 05:30
+// read as one dim green mass beside Complementary's lit crowns). Only where the sun reaches: the hearts stay dark.
+const float LEAF_LOW_SUN = 0.7;
+float leafLowSunLift() {
+#ifdef WORLD_OVERWORLD
+	float h = sunHeight();
+	return 1.0 + LEAF_LOW_SUN * smoothstep(-0.02, 0.05, h) * (1.0 - smoothstep(0.12, 0.32, h));
+#else
+	return 1.0;
+#endif
+}
 float sunFacingMat(vec3 n, vec3 l, int m) {
 	float ndl = dot(n, l);
 	if (matHas(m, MATF_SSS)) {
 		if (matIsLeaves(m)) {
-			return leafFacing(ndl);
+			return leafFacing(ndl) * leafLowSunLift(); // (forest2)
 		}
 		return 0.62 + 0.38 * abs(ndl);
 	}

@@ -245,6 +245,9 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	vec4 fill = skyLandFill();
 	vec3 nf = lightFillUp > 0.0 ? normalize(mix(n, vec3(0.0, 1.0, 0.0), lightFillUp)) : n;
 	vec3 ns = normalize(nf + lightAoBend);
+	// (forest2: under a canopy the fill comes from the open sky overhead, lib/foliage.glsl CANOPY_FILL_UP)
+	float canopyS = canopyShade(lm.y, sunReach);
+	ns = normalize(mix(ns, vec3(0.0, 1.0, 0.0), CANOPY_FILL_UP * canopyS));
 	vec3 skyE = skyIrradiance(ns);
 	skyE = mix(vec3(lumaLin(skyE)), skyE, AMB_SKY_HUE);
 	vec3 hemi = fill.rgb * skyE + skyLandBounce() * (0.5 - 0.5 * nf.y);
@@ -253,7 +256,8 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	hemi = hemi * mix(1.0, faceShade(nf), mix(AMB_FACE_SHADE, AMB_FACE_SHADE_NIGHT, skyNightStep())) * (1.0 + 0.64 * lightFillUp);
 	// (round 3: the fill under a canopy cut by 0.8, not 0.68; workstream C: lib/foliage.glsl's CANOPY_FILL_CUT, keyed on
 	// the map's leaves above the point)
-	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - CANOPY_FILL_CUT * canopyShade(lm.y, sunReach));
+	// (forest2: canopyFillCut, the floor's 0.5 or a crown's 0.8)
+	vec3 ambient = hemi * rampSkyLin(lm.y) * ambientTint * (1.0 - canopyFillCut * canopyS);
 	// the short-range bounce (round 1): a shaded face among sunlit surfaces like itself takes back a share of the sun
 	// in its own colour, more on walls than on tops, so its light follows its albedo: the shade side of pale stone or
 	// sand reads a soft light grey (its colour half desaturated, so the bounce does not saturate the shade) instead of a near-black square beside a sunlit face, while grass and dirt (dark,
@@ -271,7 +275,11 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 		* rampSkyLin(lm.y) * (1.0 - canopyShade(lm.y, sunReach)));
 	// the sun (or the moon) on faces turned to it, where it reaches; under a canopy a little of it filters through
 	float lit = facing * sunReach;
-	vec3 direct = skyLandDirect() * (lit + canopyLeak(lm.y) * (1.0 - lit)) * sunShare;
+	// (forest2: the leak through the leaves takes the sun's colour half desaturated, lib/foliage.glsl)
+	vec3 dlSun = skyLandDirect();
+	dlSun = mix(dlSun, vec3(lumaLin(dlSun)), canopyDuskDesat(lm.y)); // (forest2: the low sun in a wood, lib/foliage.glsl)
+	vec3 direct = (dlSun * lit + mix(dlSun, vec3(lumaLin(dlSun)), CANOPY_LEAK_DESAT) * (canopyLeak(lm.y) * (1.0 - lit)))
+		* sunShare;
 	// through the leaf (round 1): the light keeps the sun's colour (amber at a low sun) and takes only half the leaf's
 	// saturation, so a back-lit crown rims warm instead of glowing lime
 	vec3 through = vec3(0.0);

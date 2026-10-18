@@ -236,6 +236,8 @@ void main() {
 		// (and leaves, as a cube of small leaves turned every way, a little: a crown's sides are not walls)
 		// (workstream C: leaves 0.15, not 0.35: a crown's heart is not lit from the open sky above it)
 		lightFillUp = matThin(material) ? 0.7 : (matIsLeaves(material) ? 0.15 : 0.0);
+		// (forest2: a crown's heart keeps round 3's deep cut of the sky's fill; the floor under it less, lib/foliage.glsl)
+		canopyFillCut = matIsLeaves(material) ? CANOPY_FILL_CUT : CANOPY_FILL_CUT_FLOOR;
 		// (workstream C: a plant's corner shading carries its root shade, gbuffers_common: laid on whole, with the
 		// occlusion)
 		float aoMc = flags.w;
