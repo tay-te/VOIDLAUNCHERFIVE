@@ -156,6 +156,15 @@ shoot)
 	fi
 	running=$(cat "$RUN/front.txt" 2>/dev/null || echo 0.38)
 	[ "$front" != "-" ] && [ "$front" != "$running" ] && echo "note: the bench shot this view at gloam.test.front=$front; this studio runs front $running (start one with -Pgloam.test.front=$front to match)"
+	# studios A and B snap through one shared folder (reel/renders/_snap-welkin) before copying to the named file, so
+	# shots taken at the same moment swapped frames (seen 2026-10-18): one shot at a time across both studios
+	SNAPLOCK="$L/welkin-snap.lock"
+	until mkdir "$SNAPLOCK" 2>/dev/null; do
+		find "$L" -maxdepth 1 -name welkin-snap.lock -type d -mmin +15 -exec rm -rf {} + 2>/dev/null   # stale after 15 min
+		sleep 1
+	done
+	echo "studio $studio $$ $(date +%T)" > "$SNAPLOCK/owner"
+	trap 'rm -rf "$SNAPLOCK" 2>/dev/null' EXIT
 	t0=$(date +%s%N)
 	r=$(curl -s -m 900 -X POST -G "$BASE/shoot" --data-urlencode "tp=$tp" --data-urlencode "time=$tick" --data-urlencode "fov=$fov" \
 		--data-urlencode "weather=$weather" --data-urlencode "name=$name" --data-urlencode "out=$(winpath "$FRAMES")" --data-urlencode "w=${W:-1600}" --data-urlencode "h=${H:-900}" \
