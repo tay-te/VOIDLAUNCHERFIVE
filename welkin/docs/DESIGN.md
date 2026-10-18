@@ -1561,3 +1561,81 @@ atmosphere) merged first, then `welkin-clouds2` (the clouds).
   lane's in the same session); the clouds over their 0.6 ms line (the march would need rebuilding and the haze's
   cloud-shadow reads cutting); the storm deck from above blockier than before; the plain 16:30 seam unconfirmed (it did
   not show); far cloud shadows unchanged; the per-pass sweep of the merge at MEDIUM against the 1.2 ms heavy-effects line.
+
+### Studio fixes, wave 2: forest2 and water2 merged on `welkin` (2026-10-18)
+
+Two more lanes fixed in the Welkin studio from wave 1's tree (5e61977e): `welkin-forest2` (the woods) merged first,
+then `welkin-water2` (water and weather).
+
+- **The woods (`welkin-forest2`; new constants and helpers in `lib/foliage.glsl`, small edits marked "forest2" in
+  `lib/light.glsl`, `program/deferred.glsl` and `program/gbuffers_textured.glsl`).**
+  - *Green shade under the canopy:* the ground under a canopy loses half the sky's fill (was 0.8), undergrowth 0.68,
+    a crown's heart keeps 0.8; that fill comes from the cool sky overhead, not the warm low sky; by day 3.5% of the sun
+    leaks through the canopy without its colour (was 1.2%; a crown's own leaves keep the old faint leak).
+  - *Dusk woods and crowns:* in a wood at dawn and dusk the sun loses 70% of its amber; a crown's sunlit outer leaves
+    take 1.7 times a low sun while the hearts stay dark (the second commit keeps the crowns' and undergrowth's depth
+    under the lift).
+  - *Leaf particles* use the shadow map (`G_SHADOW` in `gbuffers_textured`), so falling leaves in the shade no longer
+    glow lime.
+  - In the lane's studio: grove medians 25 to 38 by day (were 22 to 28; Complementary 26 to 44), grove R/B at 18:30
+    2.66 (was 4.29), forest contrast by day 6.45 (was 7.0, the cost of the lifted ground), the plain and every view at
+    night unchanged.
+- **Water and weather (`welkin-water2`; `lib/water.glsl`, `lib/ws/ssr.glsl`, `lib/ws/water.glsl`, `lib/ws/config.glsl`,
+  `lib/far_weather/wf_config.glsl`, `wf_curtains.glsl`).**
+  - *The sky in the water:* where a reflected ray meets no land the water shows the screen's own sky and clouds,
+    softened along the waves (`WS_SSR_SKY_SHARE`): pink dawn clouds and moonlit night clouds in the water instead of
+    flat navy.
+  - *The bed through the water* loses red, then green, with depth (clear sand, teal, blue). For this, near water now
+    stores its opacity in the water info's alpha (`colortex4.a` 0.75 to 1, was the marker 1.0; far water 0.66, glass
+    0.33 unchanged); `ssr.glsl` tests `a > 0.74` and `lib/water.glsl` reads it. Nothing else reads that channel.
+  - *The glitter path* at a low sun runs long and narrow from the horizon to the eye, broken along the crests, and keeps
+    more strength at sunset.
+  - *Waterfalls* keep a quarter of the vanilla flowing texture (its diagonal streaks read as scratched ice), are
+    clearer (opacity 0.42, was 0.62), mirror less sky, and pour foam down the face and each step in ropes a few pixels
+    wide; the fall right at the eye stays half clear (the pale slab over rain0's right side gone).
+  - *Far rain curtains:* denser, darker, in long leaning streaks, so they read as rain rather than smoky puffs.
+  - In the lane's studio: shore contrast at 05:30 5.54 (was 4.18) and at 18:30 5.04 with R/B 1.63 (was 4.24 and 1.97,
+    less gold); the shore by day 120 to 121 median, contrast 2.55 to 2.84 (Complementary 2.1 to 2.9). Cost +0.17 ms at
+    the shore 18:30 (9.83 to 10.00 ms), none from the curtains.
+- **Conflicts:** none. The lanes touched disjoint files (forest2: `lib/foliage`, `lib/light`, `program/deferred`,
+  `program/gbuffers_textured`; water2: `lib/water`, `lib/ws/*`, `lib/far_weather/*`), and each lane's files in the
+  merge are byte for byte that lane's.
+- **Checks.**
+  - Every `live.sh` variant compiles and links (363 programs and options variants, ALL OK); the studio's reload of the
+    merge compiles with no error.
+  - In studio A (front 0.38) each view was settled once and shot at 05:30, 08:00, 12:00, 16:30, 18:30 and night with
+    the merge, then with each lane's pack in the same world (no ticks between):
+    - plain, grove and forest: the merge is forest2's frame pixel for pixel at every hour;
+    - crowns: forest2's apart from the cascade in the view (3.5%, water2's clearer fall);
+    - shore and valley, shot with the merge, forest2 and water2: every pixel matches one lane or the other, except
+      where water2's water lies over land forest2 relit (the dusk sandbed through the shallows, 14% of the shore at
+      18:30 and nowhere more than 8 steps off both; the stone behind the clearer falls in the valley). There the merge
+      carries both changes. The shore by day is water2's to 0.0 of a median step and 0.01 of contrast.
+  - Against each fixer's own after frames (`wcompare.py`; other studio sessions, so clouds and drift differ): grove,
+    forest and crowns within 0 to 1.7 median steps at most hours (grove 16:30 31.9 / 2.27 / 1.62, the lane's 31.9 / 2.26
+    / 1.62); shore within 0.8 steps and 0.02 of contrast at every hour (05:30 5.55, 18:30 5.02, R/B 1.57).
+    - The valley is where the lanes meet: the merge is 2 steps brighter at noon than water2 in the same world and 1.6
+      lower in contrast (6.25 against 7.83), R/B 0.36 lower at 18:30. That is forest2's lifted, cooler canopy shade on
+      the valley's woods, the same cost forest2 reported on the forest view. The off-target counts are unchanged.
+  - In studio A at front 0.8, rain0, far0, storm0 and countryside: every pixel matches a lane, at most 2.2% (rain0)
+    matching neither, none by more than 8 steps. The merge carries water2's half-clear falls and spray veil in rain0
+    and its leaning grey curtains on the countryside horizon.
+  - Frames and sheets: `<scratchpad>/welkin_p3/merge2/` (`cmp/`, `neither.jpg`, `crowns_diff.jpg`,
+    `weather_merge_forest2_water2.jpg`, `check/`).
+- **Cost** (the lanes' figures; not re-measured on the merge): forest2 adds no pass (a few operations a pixel in the
+  deferred light, one shadow-map read per particle pixel); water2 +0.17 ms at the shore 18:30.
+- **Still open:**
+  - *The grove at 16:30* is still flat (c95/5 2.27 against Complementary's 6.2): no sun flecks reach its ground with
+    the sun path tilted at `sunPathRotation` -20. A tilt of +20 gives sunlit patches like Complementary's, but it
+    changes every view, so it waits for a pack-wide decision.
+  - *God rays in the forest view:* the screen-space beams never fire (the sun is off-screen at every hour), and the
+    haze's 14 samples a ray cannot resolve shafts 1 to 2 blocks wide near the eye. A near-air beam term gave a milky
+    glow over sunlit leaves rather than shafts and was dropped.
+  - *Woods and crowns colour:* the grove's day shade warmer than Complementary's (R/B 1.7 to 1.8 against 1.2 to 1.3);
+    the crowns at 16:30 cooler than the target (R/B 1.73 against about 2.1), olive rather than lime.
+  - *The shore's day contrast* 2.55 to 2.84 against the 5 asked for (the darkest tones are the lit sandbed;
+    Complementary itself is 2.1 to 2.9 here); its saturation 0.37 to 0.40, over Complementary's and in Euphoria's
+    range.
+  - *Far weather:* the curtain tops fade out in mid-air with no cloud base above them at that distance; the far decks
+    blocky and banded (the clouds' work). From far0 and storm0 (above the deck) the curtains show only as strips at the
+    horizon, by design.
