@@ -219,9 +219,11 @@ vec3 skyLandSunColour(float h, float morning) {
 	// (air and tone (D), 2026-10-13: dawn rose and softer than dusk: its gold a paler rose-gold and its last degrees a
 	// rose-red with more blue in them, so the dawn land reads rose, not the orange it read warmer than the evening's)
 	vec3 gold = mix(vec3(1.00, 0.63, 0.28), vec3(1.00, 0.67, 0.52), morning);
+	// (golden, 2026-10-18: the evening's last degrees (1, 0.40, 0.15), was (1, 0.36, 0.07): a rose-peach rather than a deep
+	// gold on the land, the land at 18:30 nearer Complementary's red to blue and the shore's gold cast gone)
 	// (round 2: the last degrees a deep amber, a little rosier at dawn: in linear light the blue must fall to about a
 	// seventh of the red for a white trunk or a crown it meets to read amber on screen rather than a pale cream)
-	vec3 low  = mix(vec3(1.00, 0.36, 0.07), vec3(1.00, 0.47, 0.30), morning);
+	vec3 low  = mix(vec3(1.00, 0.40, 0.15), vec3(1.00, 0.47, 0.30), morning);
 	vec3 c = mix(aft, noon, smoothstep(0.52, 0.92, h));
 	c = mix(gold, c, smoothstep(0.08, 0.36, h));
 	// (the last ten degrees are the low sun's: red enough that a green crown turns gold in it, not lime)
