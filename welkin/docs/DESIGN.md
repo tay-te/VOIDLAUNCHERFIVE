@@ -2241,3 +2241,83 @@ rain 0 on the peak (storm0, far0) and 0.2..1 in the valley (stormg, rain0). The 
   - the gap sun only shows where the decks open: under a uniform front pin there is no true storm edge with a clear
     sky beyond; a non-uniform front (Gloam's own weather) should be checked;
   - not reached: blazing gold-white rims next to a low sun at shore 18:30, rose light in the 05:30 dawn mist.
+
+## D7: clouds performance (2026-10-19, branch `welkin-d7`)
+
+Goal: the voxel clouds' cost (frame minus `CLOUDS` off) at or under 0.6 ms at 1600x900, with no visible change. Not
+reached: about 1.1 / 1.0 ms now (from 1.3 / 1.1). What was learnt is below, so the next step can aim at the right thing.
+
+### The probe, fixed (`program/prepare.glsl`, `final.glsl`, DEBUG_VIEW 25)
+The old running mean lived in one RGBA16F channel (11 bits): an update under half a step was lost, a dead zone of
+about 0.15 ms, which is why D6's "fewer steps change nothing" readings could not see small changes. The mean is now a
+plain mean since the last filmed frame (a filmed frame marks the texel; the next idle frame starts over), up to 2048
+frames, kept as two halves (r rounded to a half, exactly, and b the rest: 22 bits); final shows hundredths of a ms
+(r * 256 + g). Interleaved readings of one view now repeat to 0.01 to 0.05 ms. Tools: `scratchpad/welkin_look/d7/tools/`
+(`measure.sh`, `ftime.py` for the new scale, `abtime.sh` for interleaved base / new / off, `busy.ps1` the quiet gate).
+Other sessions' game tests pull a reading up to 11..14 ms: only readings taken with no other game or build count.
+
+### The costs (probe, 1600x900, RTX 4060, interleaved; studio front 0.38)
+
+| | steppe 17:00 | shore 18:30 |
+|---|---|---|
+| base a8c4fa09 | 7.26 / 7.32 ms | 9.18 ms |
+| D7 | 7.04 .. 7.14 ms | 9.14 / 9.14 ms |
+| CLOUDS off | 6.00 / 6.01 ms | 8.09 / 8.11 ms |
+| the clouds' cost, base -> D7 | 1.29 -> 1.10 ms | 1.08 -> 1.04 ms |
+
+### Where the steppe's millisecond goes (variants of the clouds pass, after the CloudEnv hoist)
+- the pass returning at once (the map passes and the land's cloud shadows stay): +0.05 ms over off;
+- the CloudEnv built per pixel: 0.15 ms (now 0.05: hoisted, below); bands and the fog bank: 0.06;
+- the march without the cloud light: +0.86 ms; the cloud light on top of the march: +0.02 (it hides behind the
+  march's latency; without the march the light alone costs 0.46);
+- so the march is about 0.8 of the 1.1 ms.
+- The march's own counts (DEBUG_VIEW 10 thresholds, 4K): 41% of the screen marches; a marching pixel takes about 8
+  steps, of them about 6 jumps (block skips and gap jumps) and 2.5 columns; no tower columns (gapCols 0), and forcing
+  the tower search off changes nothing. Under 1% reach 16 steps, none 24. About 8 dependent cloud map reads a sky
+  pixel cost 0.8 ms: every step waits on the read before it.
+
+### Built
+- **CloudEnv in the vertex shader** (`lib/clouds/envflat.glsl`): everything in it is the same over the screen; the
+  clouds pass builds it once in its vertex shader and reads it back from flat values. -0.15 ms at the steppe (where the
+  land does not take the early-out), 0.04 at the shore.
+- **The band cut before the march, the bands after it** (`wcBandCut`, the same arithmetic as `wcBandOf`): no measurable
+  change, kept because it holds less through the march's loop.
+
+### Tried and taken back
+- **The march in a pass of its own** (deferred6 into colortex10, the hit packed as two halves for t, the face, tone,
+  ring and the cell's low bits; composite lit it): steppe 7.11 / 7.14 against 7.04 without it. The march alone costs
+  what it cost inside the big program, so it is not the big program's registers or occupancy; and in deferred the
+  water is not drawn yet, so the march ran against the opaque land, where a block skip's span and the step cap fall
+  differently at the far horizon (storm0: some 11k one-pixel horizon streaks changed). Reverted (commit 3c1cc9e9).
+- A half-resolution march with full-resolution edges was not built: cells are about 40 pixels wide at every ring, so
+  outline warps (8 x 4 pixels) would still march in full, and a warp runs as long as its slowest pixel.
+
+### No visible change
+4K sky and cloud crops against a8c4fa09 (`scratchpad/welkin_look/d7/final/pixel_diff.jpg`: before | after | the
+difference x40, white over 4 levels), each pair shot back to back in one studio with `SWAY_FREEZE 7`:
+
+| view | crop (rows of 2160) | pixels off by more than 4 levels | where |
+|---|---|---|---|
+| steppe 17:00 | 840 | 0 (max 1) | |
+| shore 18:30 | 860 | 7345 | the far land and its reflection under the horizon, none on sky or cloud |
+| plain 12:00 | 760 | 655 | the birch crowns at the left edge, none on sky or cloud |
+| countryside 06:30 | 860 | 0 (max 1) | |
+| stormg (front 0.8) | 560 | 0 (max 2) | |
+| storm0 (front 0.8) | 1150 | 34 | Gloam's motes (specks), none on cloud |
+
+The land differs between any two shots across a pack reload (base against base at the steppe: 263k pixels over 4
+levels, all land: the temporal air and occlusion history restart), so only sky and cloud pixels are compared. The
+cloud outline is the same pixels. Cloud shadows and colortex6 (the clouds' distance and transmittance for the god
+rays) come from unchanged code; the land's shadow patches and the shafts read the same in the frames.
+
+### What is left (the next step)
+The march is about 0.8 ms of dependent reads, so the cost goes with the reads a pixel waits on, not with its ALU:
+- **Fewer dependent reads a ray:** a coarser skip level (a 16 x 16 cell superblock's deck bits and tallest top,
+  written by a third map pass), so a ray crosses wide gaps in one read instead of several; and keeping the W1/void
+  reads out of the loop. Exact as long as the step cap is not reached (no pixel reaches 24 steps at the steppe).
+- **Prefetch:** the next column's cell is known before the current column's read returns; issuing its read early
+  overlaps the waits (exact; costs a wasted read where a ray ends).
+- **The cloud light's per-frame terms** (wcCloudSun, the closed / dusk / night factors, the sky table reads) could go
+  to the vertex shader as CloudEnv did; worth about 0.05 ms at most while the march dominates.
+- A temporal or half-resolution march is ruled out by the brief (crisp outline, no TAA on the image).
+- `tools/wrappers.sh` drops the hand-made composite5..7 shaft wrappers (`RAY_PASS`) when run: restore them from git.
