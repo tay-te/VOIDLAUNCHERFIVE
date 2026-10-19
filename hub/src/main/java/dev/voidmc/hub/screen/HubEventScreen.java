@@ -129,7 +129,8 @@ public class HubEventScreen extends Screen {
 		graphics.pose().pushMatrix();
 		graphics.pose().scale(1.0F / gs, 1.0F / gs);
 		graphics.blit(RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA, HubView.TEXTURE_ID, 0, 0, 0.0F, 0.0F,
-			this.hub.width(), this.hub.height(), this.hub.texture().width(), this.hub.texture().height());
+			this.hub.width(), this.hub.height(), this.hub.texture().width(), this.hub.texture().height(),
+			this.hub.texture().width(), this.hub.texture().height());
 		graphics.pose().popMatrix();
 		this.hub.frame();
 

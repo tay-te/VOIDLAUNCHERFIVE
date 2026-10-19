@@ -32,6 +32,11 @@ public final class HearthSync {
 		}
 
 		@Override
+		public int iconEpoch() {
+			return iconEpoch;
+		}
+
+		@Override
 		public Object stateTree() {
 			Object tree = HearthLink.stateTree();
 			if (tree instanceof JsonObject o) {
@@ -102,6 +107,23 @@ public final class HearthSync {
 		} catch (Exception | LinkageError e) {
 			return base64;  // unreadable: the small one, smoothed by the page
 		}
+	}
+
+	/** Changes with every resource reload: the state is built and its pictures made again. */
+	private static volatile int iconEpoch;
+
+	/** Hearth's icons' epoch (tests). */
+	public static int iconEpoch() {
+		return iconEpoch;
+	}
+
+	/**
+	 * A resource reload (F3+T, a pack change): Hearth's pictures (the enlarged portraits) are made again and the state is
+	 * rebuilt with the new epoch. Render thread.
+	 */
+	public static void clearIcons() {
+		BIG.clear();
+		iconEpoch++;
 	}
 
 	/** Tests and the PERF lines. */

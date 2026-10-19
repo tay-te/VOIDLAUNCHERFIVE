@@ -799,7 +799,12 @@
     },
     apply: function (m) {
       if (m.type === "icons") {
-        var replaced = window.MC ? window.MC.setIcons(m.map, m.texels) : false;
+        // Icons are namespaced per mod (StateSync): only Mettle's are Mettle's, without their "mettle:" prefix.
+        if (m.mod && m.mod !== "mettle") return;
+        var own = {}, tx = {};
+        for (var k in m.map || {}) own[k.indexOf("mettle:") === 0 ? k.slice(7) : k] = m.map[k];
+        for (var t in m.texels || {}) tx[t.indexOf("mettle:") === 0 ? t.slice(7) : t] = m.texels[t];
+        var replaced = window.MC ? window.MC.setIcons(own, tx, !!m.reset) : false;
         built = "";
         if (window.MC) window.MC.iconsChanged(replaced);
         classes();

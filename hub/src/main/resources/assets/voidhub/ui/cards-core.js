@@ -173,9 +173,19 @@
     }
     return '<span class="' + (cls || "mc-img") + " ic " + c + '" data-tx="' + (t || 0) + '" style="' + st + "width:" + W + "px;height:" + H + 'px"></span>';
   };
-  /** New icons from Java (and their texel widths); a reload's new URLs replace the old rules. */
-  MC.setIcons = function (map, texels) {
+  /**
+   * New icons from Java (and their texel widths); a reload's new URLs replace the old rules. These are Mettle's alone:
+   * mettle.js hands over only {"type":"icons","mod":"mettle"} with the "mettle:" namespace taken off (StateSync), so
+   * another mod's icons never land here, and `reset` (Mettle's icons sent again from scratch) drops only Mettle's.
+   */
+  MC.setIcons = function (map, texels, reset) {
     var changed = false;
+    if (reset) {
+      for (var o in MC.icons) { delete MC.icons[o]; changed = true; }
+      for (var x in MC.texels) delete MC.texels[x];
+      iconCls = {};
+      iconUrl = {};
+    }
     for (var k in map) { if (MC.icons[k] && MC.icons[k] !== map[k]) changed = true; MC.icons[k] = map[k]; }
     for (var t in texels || {}) MC.texels[t] = texels[t];
     // Every new icon's rule is made now, in one go: inserting a rule restyles the whole page, which must not happen in

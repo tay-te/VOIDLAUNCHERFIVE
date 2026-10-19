@@ -22,6 +22,13 @@ import net.minecraft.client.Minecraft;
  * thread writes the text, compares it with what the page holds (ignoring {@code ages}), collects the icons the page has
  * not seen yet and hands the messages back. The page outlives the screens (one shared view), so what it holds is
  * remembered here across opens: reopening with nothing changed sends nothing.
+ *
+ * <p>Icons are namespaced by the mod they came from: {@code {"type":"icons","mod":"mettle","map":{"mettle:<id>":url}}},
+ * so two mods naming the same texture never overwrite each other's copy (each may scale it its own way), and a reset of
+ * one mod's icons ({@code "reset":true}) leaves the other's alone. Each mod's page part keeps its own table.
+ *
+ * <p>The source's {@link Source#stateTree} is only ever called on the render thread (the mods read the client's game
+ * state there); {@link #frame} skips its check on any other thread instead of building there.
  */
 public final class StateSync {
 
@@ -77,6 +84,7 @@ public final class StateSync {
 	private long builtAt;
 	private int epoch = Integer.MIN_VALUE;
 	private volatile boolean busy;
+	private boolean offThread;
 	/** Worker only: the state the page holds, without ages, and the icons it has. */
 	private String pageKey;
 	private final Set<String> iconsSent = new HashSet<>();
@@ -87,7 +95,8 @@ public final class StateSync {
 
 	/**
 	 * @param name the worker thread's name ("VOID Hub " + name + " state")
-	 * @param type the message type the page receives ({@code {"type": type, "state": ...}}) and its latest-only kind
+	 * @param type the message type the page receives ({@code {"type": type, "state": ...}}) and its latest-only kind; also
+	 *             the namespace of the icons it sends ({@code type + ":" + id})
 	 * @param ages what the comparison leaves out (ages that move without the page redrawing), or null
 	 * @param icon icon ids the state names (group 1), sent once each as {@code {"type":"icons",...}}, or null
 	 * @param ageNs the mod's counter alone rebuilds at most this often
@@ -124,6 +133,14 @@ public final class StateSync {
 			return;
 		}
 		Minecraft mc = Minecraft.getInstance();
+		if (!mc.isSameThread()) {
+			// The mods build their state from the client's game state: never off the render thread.
+			if (!this.offThread) {
+				this.offThread = true;
+				VoidHub.LOGGER.error("VOID Hub: the {} state was asked for off the render thread ({}); skipped", this.type, Thread.currentThread().getName());
+			}
+			return;
+		}
 		long sig = this.source.signature(mc);
 		long rev = this.source.revision(mc);
 		int ep = this.source.iconEpoch();
@@ -178,15 +195,15 @@ public final class StateSync {
 					continue;  // missing, or unreadable mid-reload: asked again with the next state
 				}
 				this.iconsSent.add(id);
-				map.put(id, url);
+				map.put(this.iconKey(id), url);
 				int t = this.source.texels(id);
 				if (t > 0) {
-					texels.put(id, t);
+					texels.put(this.iconKey(id), t);
 				}
 				n++;
 			}
 			if (n > 0) {
-				this.out.add(new Out("icons", Json.object().put("type", "icons").raw("map", map.end()).raw("texels", texels.end()).end()));
+				this.out.add(new Out("icons", Json.object().put("type", "icons").put("mod", this.type).raw("map", map.end()).raw("texels", texels.end()).end()));
 			}
 		}
 		String key = this.ages == null ? json : this.ages.matcher(json).replaceAll("");
@@ -196,7 +213,15 @@ public final class StateSync {
 		}
 	}
 
-	/** Forgets what the page holds (tests; a page that lost its state). */
+	/** An icon's id on the page: namespaced by this source ({@code "mettle:" + id}). */
+	String iconKey(String id) {
+		return this.type + ":" + id;
+	}
+
+	/**
+	 * Forgets what the page holds (tests; a page that lost its state): the state and this mod's icons are sent again,
+	 * and the page drops this mod's icons (never another mod's) before they come.
+	 */
 	public void reset() {
 		this.revision = Long.MIN_VALUE;
 		this.signature = Long.MIN_VALUE;
@@ -204,6 +229,9 @@ public final class StateSync {
 		this.worker.execute(() -> {
 			this.pageKey = null;
 			this.iconsSent.clear();
+			if (this.icon != null) {
+				this.out.add(new Out("icons", Json.object().put("type", "icons").put("mod", this.type).put("reset", true).raw("map", "{}").raw("texels", "{}").end()));
+			}
 		});
 	}
 }

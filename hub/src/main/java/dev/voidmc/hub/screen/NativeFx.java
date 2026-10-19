@@ -59,14 +59,21 @@ public abstract class NativeFx {
 		}).orElse(null);
 	}
 
-	/** A resource reload (F3+T, a pack change): every fx texture is released and loads again on first use. */
+	/**
+	 * A resource reload (F3+T, a pack change): every fx texture (Mettle's card strips, anything Hearth's minigames load)
+	 * is released and loads again, from the new resources, on first use. Render thread.
+	 */
 	public static void clearAllTextures() {
 		var manager = Minecraft.getInstance().getTextureManager();
 		for (Optional<Tex> t : TEXTURES.values()) {
 			t.ifPresent(tex -> manager.release(tex.id()));
 		}
 		TEXTURES.clear();
+		reloads++;
 	}
+
+	/** Tests: how many reloads dropped the fx textures. */
+	public static volatile int reloads;
 
 	private static final class FxTexture extends DynamicTexture {
 		FxTexture(String name, NativeImage image, boolean linear) {

@@ -61,6 +61,10 @@ public final class AuditTest {
 	}
 
 	private void section(String name, Runnable r) {
+		String only = System.getProperty("voidhub.test.only", "");
+		if (!only.isEmpty() && !name.contains(only)) {
+			return;  // -Ponly=<part of a section name>: that section alone (a quick look while fixing it)
+		}
 		log("== " + name);
 		try {
 			r.run();
@@ -488,6 +492,7 @@ public final class AuditTest {
 		});
 
 		this.section("resolution x GUI scale matrix", this::matrix);
+		this.section("the whole window paints after runtime size and GUI scale changes", this::paintsWholeWindow);
 		this.section("resize mid-burn", this::resizeMidBurn);
 		this.section("GUI scale change with a draft open", this::scaleMidDraft);
 		this.section("double actions", this::doubleActions);
@@ -573,6 +578,33 @@ public final class AuditTest {
 				this.shot("audit_03_draft_" + tag);
 			}
 		}
+		this.setWindow(1920, 1080, 0);
+	}
+
+	/**
+	 * The GUI-scale cut-off: at 1920x1080 GUI scale 2 Ultralight drew nothing past a 1280 x 720 CSS corner (the plain
+	 * inventory too). Window size and GUI scale change at runtime with the hub open, and after each change the page's
+	 * five probes (corners and centre, PaintProbe) must all reach the real frame.
+	 */
+	private void paintsWholeWindow() {
+		this.closeHub();
+		this.setWindow(1920, 1080, 0);
+		this.context.runOnClient(mc -> mc.gui.setScreen(new HubInventoryScreen(mc.player, HubInventoryScreen.INVENTORY)));
+		this.context.waitTicks(10);
+		int[][] steps = {{1920, 1080, 0}, {1920, 1080, 2}, {1920, 1080, 3}, {1920, 1080, 1}, {1920, 1080, 2}, {1280, 720, 2}, {2560, 1440, 2},
+			{2560, 1440, 0}, {1920, 1080, 4}, {1920, 1080, 2}};
+		for (int[] c : steps) {
+			this.setWindow(c[0], c[1], c[2]);
+			String tag = c[0] + "x" + c[1] + "x" + c[2] + " (" + this.actual() + ")";
+			PaintProbe.Result r = PaintProbe.run(this.context, "audit_03p_paint_inventory_" + c[0] + "x" + c[1] + "x" + c[2]);
+			log("NOTE paint " + tag + ": " + r.page());
+			this.check(r.missing().isEmpty(), "inventory " + tag + ": the whole window paints " + r.missing());
+		}
+		// The Classes page has its own unit (the cards' texel grid): the same at GUI scale 2.
+		this.openClasses();
+		PaintProbe.Result r = PaintProbe.run(this.context, "audit_03p_paint_classes_1920x1080x2", false);
+		this.check(r.missing().isEmpty(), "classes 1920x1080x2 (" + this.actual() + "): the whole window paints " + r.missing());
+		this.closeHub();
 		this.setWindow(1920, 1080, 0);
 	}
 
@@ -1438,7 +1470,8 @@ public final class AuditTest {
 		Object fx0 = this.context.computeOnClient(mc -> mc.getTextureManager().getTexture(edge));
 		String iconId = this.js("(function(){for(var k in MC.icons)return k;return ''})()");
 		Object icon0 = this.context.computeOnClient(mc -> MettleLink.icon(iconId));
-		int reloads0 = dev.voidmc.hub.screen.CardFx.reloads;
+		int reloads0 = dev.voidmc.hub.screen.NativeFx.reloads;
+		int hearthEpoch0 = dev.voidmc.hub.hearth.HearthSync.iconEpoch();
 		int tex0 = this.textures();
 		CompletableFuture<Void> f = this.context.computeOnClient(mc -> mc.reloadResourcePacks());
 		for (int i = 0; i < 600 && !f.isDone(); i += 5) {
@@ -1451,9 +1484,17 @@ public final class AuditTest {
 		log("NOTE reload: hub texture kept " + (hubTex0 == hubTex1) + ", card strip texture kept " + (fx0 == fx1) + " (" + fx1.getClass().getSimpleName() + "), textures " + tex0 + " -> "
 			+ this.textures() + ", hub still open " + (this.hub() != null));
 		this.check(this.hub() != null && hubTex0 == hubTex1, "F3+T keeps the hub open and its texture");
-		this.check(dev.voidmc.hub.screen.CardFx.reloads == reloads0 + 1 && fx1 != fx0, "F3+T reloads the card strips (a new texture, read from the new resources)");
+		this.check(dev.voidmc.hub.screen.NativeFx.reloads == reloads0 + 1 && fx1 != fx0, "F3+T reloads the card strips (a new texture, read from the new resources)");
+		this.check(dev.voidmc.hub.hearth.HearthSync.iconEpoch() == hearthEpoch0 + 1, "F3+T also starts Hearth's pictures again (the fx_art listener bumps HearthSync's icon epoch)");
 		Object icon1 = this.context.computeOnClient(mc -> MettleLink.icon(iconId));
 		this.check(!iconId.isEmpty() && icon1 != null && icon1 != icon0, "F3+T reads Mettle's icons again (" + iconId + ")");
+		// Icons are namespaced per mod (StateSync): Hearth's icons, even a reset of them under the same id, never touch Mettle's.
+		String before = this.js("(function(){return Object.keys(MC.icons).length+'|'+(MC.icons[" + Json.quote(iconId) + "]||'').length})()");
+		this.context.runOnClient(mc -> HubView.get().send("{\"type\":\"icons\",\"mod\":\"hearth\",\"reset\":true,\"map\":{\"hearth:" + iconId
+			+ "\":\"data:image/png;base64,AAAA\"},\"texels\":{}}"));
+		this.context.waitTicks(3);
+		String after = this.js("(function(){var h=0;for(var k in MC.icons)if(k.indexOf('hearth:')===0)h++;return Object.keys(MC.icons).length+'|'+(MC.icons[" + Json.quote(iconId) + "]||'').length+(h?' hearth '+h:'')})()");
+		this.check(!before.startsWith("0|") && before.equals(after), "a Hearth icon reset leaves Mettle's icons alone (" + before + " -> " + after + ")");
 		this.align("after F3+T");
 		this.ui.parkMouse();
 		this.hoverPage(".dr-hand .hc[data-hand=\"1\"] .hc-art");

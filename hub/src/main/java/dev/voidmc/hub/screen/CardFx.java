@@ -63,18 +63,6 @@ public final class CardFx extends NativeFx {
 		return NativeFx.tex("ui/cards", "cardfx", file, linear);
 	}
 
-	/**
-	 * A resource reload (F3+T, a pack change): the strips (and every other fx texture) are released and load again,
-	 * from the new resources, on first use. Render thread.
-	 */
-	public static void clearTextures() {
-		NativeFx.clearAllTextures();
-		reloads++;
-	}
-
-	/** Tests: how many reloads dropped the strips. */
-	public static volatile int reloads;
-
 	/** A lift on its way back down after the pointer left (it eases out from where it was). */
 	private record Leaving(Bridge.FxItem item, long start, double from) {
 	}
@@ -181,7 +169,13 @@ public final class CardFx extends NativeFx {
 		int sy = (int) Math.round(it.y() * u);
 		int sw = (int) Math.round(it.w() * u);
 		int sh = (int) Math.round(it.h() * u);
-		if (sw <= 0 || sh <= 0 || sx < 0 || sy < 0 || sx + sw > hubW || sy + sh > hubH) {
+		// The texture may be larger than the framebuffer (a scale under 1, HubView.surfaceSize): the box in its texels.
+		double k = hubW / (double) Math.max(1, net.minecraft.client.Minecraft.getInstance().getWindow().getWidth());
+		int tx = (int) Math.round(it.x() * u * k);
+		int ty = (int) Math.round(it.y() * u * k);
+		int tw = (int) Math.round(it.w() * u * k);
+		int th = (int) Math.round(it.h() * u * k);
+		if (sw <= 0 || sh <= 0 || tx < 0 || ty < 0 || tx + tw > hubW || ty + th > hubH) {
 			return;
 		}
 		float cx = sx + sw / 2.0F;
@@ -191,7 +185,7 @@ public final class CardFx extends NativeFx {
 		g.pose().translate(cx, (float) (cy + it.p() * e * u));
 		g.pose().scale(sc, sc);
 		g.pose().translate(-cx, -cy);
-		g.blit(RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA, HubView.TEXTURE_ID, sx, sy, sx, sy, sw, sh, sw, sh, hubW, hubH, 0xFFFFFFFF);
+		g.blit(RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA, HubView.TEXTURE_ID, sx, sy, tx, ty, sw, sh, tw, th, hubW, hubH, 0xFFFFFFFF);
 		g.pose().popMatrix();
 	}
 

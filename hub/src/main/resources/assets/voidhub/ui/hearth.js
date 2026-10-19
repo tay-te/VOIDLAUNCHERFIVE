@@ -23,6 +23,7 @@
     bankTab: "", marketTab: "sells", asked: false};
   var drawn = "";        // the frame drawn (screen + style), to rebuild the parts when it changes
   var lastKey = "";      // tests: the last key Java passed on
+  var icons = {};        // Hearth's icons by id ({"type":"icons","mod":"hearth"}), apart from Mettle's
 
   function send(msg) {
     try {
@@ -1326,6 +1327,12 @@
         render();
         reportFx(true);
         sendUi(true);
+      } else if (m.type === "icons") {
+        // Hearth's own icons (namespaced "hearth:" by StateSync), kept apart from Mettle's; a reset drops only these.
+        if (m.mod !== "hearth") return;
+        if (m.reset) icons = {};
+        for (var k in m.map || {}) icons[k.slice(7)] = m.map[k];
+        if (H) render();
       } else if (m.type === "hkey") {
         lastKey = m.key + (active() ? "" : " (inactive)");
         if (active()) key(m.key);
@@ -1339,6 +1346,6 @@
       }
     },
     // Tests: what the page holds.
-    debug: function () { return JSON.stringify({kind: kind, screen: screen, seg: seg, has: !!H, modal: modal(), fx: fxSent.length, key: lastKey}); }
+    debug: function () { return JSON.stringify({kind: kind, screen: screen, seg: seg, has: !!H, modal: modal(), fx: fxSent.length, key: lastKey, icons: Object.keys(icons).length}); }
   };
 })();

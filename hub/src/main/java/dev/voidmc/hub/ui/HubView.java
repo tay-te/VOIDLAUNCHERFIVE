@@ -84,8 +84,12 @@ public final class HubView {
 	private HubTexture texture;
 	private ByteBuffer staging;
 	private final int[] rect = new int[6];
+	/** The framebuffer the view covers. */
 	private int width;
 	private int height;
+	/** The view's surface and the texture: the framebuffer's size, or larger under a scale of 1 ({@link #surfaceSize}). */
+	private int surfaceW;
+	private int surfaceH;
 	private double scale = -1;
 	private boolean forceFull = true;
 	private Consumer<Bridge.Message> listener = m -> {
@@ -151,8 +155,9 @@ public final class HubView {
 			return;
 		}
 		instance = new HubView();
+		int[] surface = surfaceSize(fbW, fbH, scale);
 		instance.post(() -> {
-			instance.uiResize(fbW, fbH, scale);
+			instance.uiResize(surface[0], surface[1], ulScale(scale));
 			instance.view.evaluateScript(Bridge.call(layoutJson));
 			// A stand-in state and card build every meter and row the first real open would
 			// otherwise create (element creation is the expensive part of a first paint).
@@ -243,6 +248,26 @@ public final class HubView {
 			this.view.setDeviceScale(scale);
 			this.uiScale = scale;
 		}
+	}
+
+	/**
+	 * The view's surface for a framebuffer and layout scale. Ultralight 1.4 paints nothing past {@code (w * s) x (h * s)}
+	 * CSS px when its device scale {@code s} is below 1: a 1920x1080 view at 0.667 (GUI scale 2) drew only its top-left
+	 * 1280 x 720 CSS px, in its own surface (a full readback showed the same), with the CSS viewport itself right. So a
+	 * scale under 1 is never given to it: the view gets device scale 1 ({@link #ulScale}) and the CSS viewport's size in
+	 * pixels ({@code fb / scale}; the page lays out exactly as before), and the texture is drawn down onto the framebuffer,
+	 * sampled LINEAR. At scale 1 and up nothing changes. hubAudit's paint gate guards it.
+	 */
+	static int[] surfaceSize(int fbW, int fbH, double scale) {
+		if (scale >= 1.0) {
+			return new int[] {fbW, fbH};
+		}
+		return new int[] {Math.max(1, (int) Math.round(fbW / scale)), Math.max(1, (int) Math.round(fbH / scale))};
+	}
+
+	/** The device scale Ultralight gets for a layout scale: never below 1 (see {@link #surfaceSize}). */
+	static double ulScale(double scale) {
+		return scale >= 1.0 ? scale : 1.0;
 	}
 
 	private void uiPass() {
@@ -391,29 +416,41 @@ public final class HubView {
 
 	/**
 	 * Makes the view and texture match the framebuffer, at {@code scale} physical px per CSS px.
-	 * A size change recreates the texture and forces a full upload.
+	 * A size change recreates the texture and forces a full upload. Under a scale of 1 the view and the texture are the
+	 * CSS viewport's size and are drawn down ({@link #surfaceSize}).
 	 */
 	public void ensureSize(int fbW, int fbH, double scale) {
-		if (fbW != this.width || fbH != this.height) {
+		int[] surface = surfaceSize(fbW, fbH, scale);
+		int sw = surface[0];
+		int sh = surface[1];
+		double ul = ulScale(scale);
+		boolean fb = fbW != this.width || fbH != this.height;
+		this.width = fbW;
+		this.height = fbH;
+		if (sw != this.surfaceW || sh != this.surfaceH || fb) {
 			long t0 = System.nanoTime();
-			this.width = fbW;
-			this.height = fbH;
-			double s = scale;
-			this.post(() -> this.uiResize(fbW, fbH, s));
+			this.surfaceW = sw;
+			this.surfaceH = sh;
+			this.post(() -> this.uiResize(sw, sh, ul));
 			if (this.texture != null) {
 				Minecraft.getInstance().getTextureManager().release(TEXTURE_ID);
 			}
-			this.texture = new HubTexture(fbW, fbH);
+			this.texture = new HubTexture(sw, sh, sw != fbW || sh != fbH);
 			Minecraft.getInstance().getTextureManager().register(TEXTURE_ID, this.texture);
-			this.staging = ByteBuffer.allocateDirect(fbW * fbH * 4).order(ByteOrder.nativeOrder());
+			this.staging = ByteBuffer.allocateDirect(sw * sh * 4).order(ByteOrder.nativeOrder());
 			this.forceFull = true;
 			this.stats.lastResizeNs = System.nanoTime() - t0;
 		}
 		if (scale != this.scale) {
 			this.scale = scale;
-			this.post(() -> this.uiResize(fbW, fbH, scale));
+			this.post(() -> this.uiResize(sw, sh, ul));
 			this.forceFull = true;
 		}
+	}
+
+	/** Texels of the hub texture per framebuffer pixel: 1, or more under a scale of 1 (see {@link #surfaceSize}). */
+	public double texelsPerPixel() {
+		return this.width <= 0 ? 1.0 : this.surfaceW / (double) this.width;
 	}
 
 	public int width() {
@@ -586,7 +623,7 @@ public final class HubView {
 			f.copyNs = System.nanoTime() - t0;
 			return false;
 		}
-		if (this.rect[4] != this.width || this.rect[5] != this.height) {
+		if (this.rect[4] != this.surfaceW || this.rect[5] != this.surfaceH) {
 			// The UI thread has not applied the resize yet; a rect from the old surface must
 			// not reach the new texture. Copy everything once it has.
 			f.copyNs = System.nanoTime() - t0;
@@ -614,7 +651,7 @@ public final class HubView {
 	private boolean uploadFull(HubStats.Frame f) {
 		long t0 = System.nanoTime();
 		synchronized (this.fullLock) {
-			if (!this.fullReady || this.fullW != this.width || this.fullH != this.height) {
+			if (!this.fullReady || this.fullW != this.surfaceW || this.fullH != this.surfaceH) {
 				f.copyNs = System.nanoTime() - t0;
 				return false;
 			}
