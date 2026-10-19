@@ -80,6 +80,8 @@
 #define WD_LIT 1.15
 #define WD_LIT_WARM 0.85
 #define WD_LOW_SUN 0.3
+#define WD_SHADE_KNEE 0.5
+#define WD_SHADE_SOFT 0.8
 #define WD_UNDER_SKY 0.45
 #define WD_BELLY 0.52
 #define WD_BELLY_WARM 0.5
@@ -474,9 +476,12 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 		lit = sideSun * mix(WS_SIDE_FOOT, 1.0, brow) * sunK;
 	}
 	// (the light's own form still counts where it is brighter: thin parts lit through, the silver of a backlit edge)
-	lit = max(lit, 0.6 * smoothstep(WS_LIT_LO, WS_LIT_HI, L));
+	// (Look D3: toward a low sun only where the cloud is thin: the light through a thick body seen against the sun is a
+	// dark backlit shape, its thin edges glow)
+	lit = max(lit, 0.6 * smoothstep(WS_LIT_LO, WS_LIT_HI, L) * mix(1.0, 1.0 - b.depth, warm * sw * sw));
 	// round sunset the low sun lights the decks from below: the bellies toward it glow, their thin parts most
-	float under = dusk * (1.0 - closed) * mix(0.35, 1.0, sw * sw) * mix(0.35, 1.0, b.rim) * (n.y < 0.5 ? 1.0 : 0.4);
+	// (Look D3: mostly at the outline, 0.15 in a body's heart, was 0.35: a sunset deck's heart hangs dusky)
+	float under = dusk * (1.0 - closed) * mix(0.35, 1.0, sw * sw) * mix(0.15, 1.0, b.rim) * (n.y < 0.5 ? 1.0 : 0.4);
 	lit = clamp(max(lit, WS_UNDER * under), 0.0, 1.2);
 	vec3 sunHue = sunC / max(wcLuma(sunC), 1e-4);
 	// (gold through the golden hour, ember toward the sun at sunset, a deep rose-gold away from it)
@@ -513,14 +518,19 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 	// (the clouds' sun is held at full strength round the horizon for its hue; its light through the long low air is
 	// dimmer: WD_LOW_SUN of it on the horizon)
 	float sunL = wcLuma(sunC) * (1.0 - 0.6 * closed) * mix(WD_LOW_SUN, 1.0, smoothstep(0.0, 0.4, e.sun.y));
-	vec3 paint = mix(shade * ySky, litHue * (mix(WD_LIT, WD_LIT_WARM, warm) * sunL), s);
+	// (a cloud's shade does not follow a bright sky up: toward a low sun the sky behind blazes, but the deck's body seen
+	// against it is the light come through its depth, a dark backlit shape under its glowing edges. Past WD_SHADE_KNEE
+	// the sky's level counts softly)
+	float yShade = ySky / (1.0 + max(ySky - WD_SHADE_KNEE, 0.0) / WD_SHADE_SOFT);
+	vec3 paint = mix(shade * yShade, litHue * (mix(WD_LIT, WD_LIT_WARM, warm) * sunL), s);
 	// round sunset the bellies and flanks are lit from under by the low sun and its glowing sky: an ember glow toward it,
 	// rose away from it, a share of the sky's own light there, most at the thin outline
 	float underG = dusk * (1.0 - closed) * mix(0.25, 1.0, sw * sw) * mix(0.3, 1.0, max(b.rim, (1.0 - b.depth) * (1.0 - b.depth)))
 		* (n.y < 0.5 ? 1.0 : 0.25);
 	vec3 emberHue = mix(vec3(1.0, 0.56, 0.50), vec3(1.0, 0.50, 0.24), sw);
 	emberHue = toLinear(emberHue);
-	paint += emberHue / wcLuma(emberHue) * (WD_UNDER_SKY * underG * ySky * (1.0 - 0.5 * s));
+	float edgeU = max(b.rim, (1.0 - b.depth) * (1.0 - b.depth));
+	paint += emberHue / wcLuma(emberHue) * (WD_UNDER_SKY * underG * mix(yShade, ySky, edgeU) * (1.0 - 0.5 * s));
 	// the turn between the light and the shade: a painter's warmer, rosier half-tone through the warm hours
 	paint *= mix(vec3(1.0), WD_TURN_HUE, 4.0 * s * (1.0 - s) * warm * WD_TURN);
 	// a deck toward a low sun glows at its thin parts and along its outline: the light come through its edges
