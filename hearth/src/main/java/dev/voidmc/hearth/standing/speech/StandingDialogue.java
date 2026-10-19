@@ -81,14 +81,17 @@ public final class StandingDialogue implements DialogueProvider {
 		long today = engine.host().day();
 		Memories mem = Memories.of(resident);
 		if (!mem.has(id, SpeechKind.FLATTER.memoryKind(true), today) && !mem.has(id, SpeechKind.FLATTER.memoryKind(false), today)) {
-			out.add(new Option(FLATTER, SpeechCheck.label(SpeechCheck.odds(player, settlement, resident, SpeechKind.FLATTER, 0, 0),
-				Component.translatable("hearth.standing.dialogue.flatter")), 40));
+			SpeechOdds.Odds flatter = SpeechCheck.odds(player, settlement, resident, SpeechKind.FLATTER, 0, 0);
+			out.add(new Option(FLATTER, SpeechCheck.label(flatter, Component.translatable("hearth.standing.dialogue.flatter")), 40));
+			describe(FLATTER, "flatter", flatter, -1);
 		}
 		if (resident.id.equals(REFUSED.get(id))) {
-			out.add(new Option(ASK + "persuade", SpeechCheck.label(SpeechCheck.odds(player, settlement, resident, SpeechKind.PERSUADE, 0.1, 0),
-				Component.translatable("hearth.standing.dialogue.ask.persuade")), 42));
-			out.add(new Option(ASK + "intimidate", SpeechCheck.label(SpeechCheck.odds(player, settlement, resident, SpeechKind.INTIMIDATE, 0.1, 0),
-				Component.translatable("hearth.standing.dialogue.ask.intimidate")), 43));
+			SpeechOdds.Odds persuade = SpeechCheck.odds(player, settlement, resident, SpeechKind.PERSUADE, 0.1, 0);
+			out.add(new Option(ASK + "persuade", SpeechCheck.label(persuade, Component.translatable("hearth.standing.dialogue.ask.persuade")), 42));
+			describe(ASK + "persuade", "persuade", persuade, -1);
+			SpeechOdds.Odds intimidate = SpeechCheck.odds(player, settlement, resident, SpeechKind.INTIMIDATE, 0.1, 0);
+			out.add(new Option(ASK + "intimidate", SpeechCheck.label(intimidate, Component.translatable("hearth.standing.dialogue.ask.intimidate")), 43));
+			describe(ASK + "intimidate", "intimidate", intimidate, -1);
 			bribeOption(player, settlement, resident, ASK + "bribe", "hearth.standing.dialogue.ask.bribe", 0.1, 44, out);
 		} else {
 			out.add(new Option(REPUTATION, Component.translatable("hearth.standing.dialogue.reputation"), 42));
@@ -97,8 +100,9 @@ public final class StandingDialogue implements DialogueProvider {
 			out.add(new Option(NEWS, Component.translatable("hearth.standing.dialogue.news"), 46));
 		}
 		if (opinion < 0 && !mem.has(id, AMENDS_KIND, today) && !mem.has(id, SpeechKind.PERSUADE.memoryKind(false), today)) {
-			out.add(new Option(AMENDS, SpeechCheck.label(SpeechCheck.odds(player, settlement, resident, SpeechKind.PERSUADE, 0.15, 0),
-				Component.translatable("hearth.standing.dialogue.amends")), 48));
+			SpeechOdds.Odds amends = SpeechCheck.odds(player, settlement, resident, SpeechKind.PERSUADE, 0.15, 0);
+			out.add(new Option(AMENDS, SpeechCheck.label(amends, Component.translatable("hearth.standing.dialogue.amends")), 48));
+			describe(AMENDS, "persuade", amends, -1);
 			bribeOption(player, settlement, resident, AMENDS_BRIBE, "hearth.standing.dialogue.amends_bribe", 0.15, 49, out);
 		}
 	}
@@ -112,8 +116,14 @@ public final class StandingDialogue implements DialogueProvider {
 		if (economy.balance(player) < bits) {
 			return;
 		}
-		out.add(new Option(id, SpeechCheck.label(SpeechCheck.odds(player, s, r, SpeechKind.BRIBE, difficulty, bits),
-			Component.translatable(key, economy.format(bits))), order));
+		SpeechOdds.Odds odds = SpeechCheck.odds(player, s, r, SpeechKind.BRIBE, difficulty, bits);
+		out.add(new Option(id, SpeechCheck.label(odds, Component.translatable(key, economy.format(bits))), order));
+		describe(id, "bribe", odds, bits);
+	}
+
+	/** The option's facts for the richer conversation screens (docs/OVERLAY.md): a speech check reading Speech. */
+	private static void describe(String id, String kind, SpeechOdds.Odds odds, long cost) {
+		DialogueProvider.describe(id, new DialogueProvider.Info(kind, odds.percent(), cost, dev.voidmc.hearth.api.PlayerSkills.SPEECH));
 	}
 
 	@Override

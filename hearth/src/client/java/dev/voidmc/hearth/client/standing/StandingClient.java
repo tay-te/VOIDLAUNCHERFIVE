@@ -9,6 +9,8 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.KeyMapping;
+import dev.voidmc.hearth.client.overlay.HearthScreens;
+import dev.voidmc.hearth.client.overlay.HearthViews;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
 
@@ -33,14 +35,21 @@ public final class StandingClient {
 				}
 			}
 		});
-		ClientPlayNetworking.registerGlobalReceiver(StandingPayloads.Here.TYPE, (payload, context) -> ClientStanding.receive(payload));
-		ClientPlayNetworking.registerGlobalReceiver(StandingPayloads.Talk.TYPE, (payload, context) -> ClientStanding.receive(payload));
+		ClientPlayNetworking.registerGlobalReceiver(StandingPayloads.Here.TYPE, (payload, context) -> {
+			ClientStanding.receive(payload);
+			HearthViews.here(payload);
+		});
+		ClientPlayNetworking.registerGlobalReceiver(StandingPayloads.Talk.TYPE, (payload, context) -> {
+			ClientStanding.receive(payload);
+			HearthViews.talkStanding(payload);
+		});
 		ClientPlayNetworking.registerGlobalReceiver(StandingPayloads.Page.TYPE, (payload, context) -> {
 			Minecraft mc = context.client();
+			HearthViews.reputation(payload);
 			if (mc.gui.screen() instanceof ReputationScreen open) {
 				open.update(payload);
-			} else {
-				mc.gui.setScreen(new ReputationScreen(payload));
+			} else if (!HearthScreens.REPUTATION.equals(HearthScreens.hosted())) {
+				HearthScreens.show(HearthScreens.REPUTATION, () -> new ReputationScreen(payload));
 			}
 		});
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ClientStanding.reset());

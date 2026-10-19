@@ -252,6 +252,15 @@ public class NoticeBoardScreen extends Screen {
 		return true;
 	}
 
+	@Override
+	public void removed() {
+		super.removed();
+		// the board is shut: hosts stop showing it too (state.board goes null)
+		if (dev.voidmc.hearth.client.overlay.HearthViews.board() != null && isFor(dev.voidmc.hearth.client.overlay.HearthViews.board())) {
+			dev.voidmc.hearth.client.overlay.HearthViews.board(null);
+		}
+	}
+
 	static String standingName(int rep) {
 		String key = rep < -20 ? "distrusted" : rep < 10 ? "stranger" : rep < 30 ? "known" : rep < 60 ? "friend" : "hero";
 		return Component.translatable("hearth.quest.standing." + key).getString();

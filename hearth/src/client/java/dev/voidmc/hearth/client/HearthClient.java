@@ -23,5 +23,6 @@ public class HearthClient implements ClientModInitializer {
 		RepairClient.init();    // damage and repair feedback
 		SocialClient.init();    // dice and other tavern games, services
 		MapClient.init();       // settlements and the tracked quest for VOID Atlas's map, when it is installed
+		dev.voidmc.hearth.client.overlay.HearthOverlay.init(); // the state, actions and openers a host (the VOID Hub) draws Hearth with
 	}
 }

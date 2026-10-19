@@ -35,6 +35,30 @@ public final class Titles {
 		return Title.STRANGER;
 	}
 
+	/** The next title up the standing ladder and the standing it is earned at (Burgher, which property earns, is left out). */
+	public record Next(Title title, int at) {
+	}
+
+	/** The next title a higher standing earns, or null at the top (a hero). */
+	public static @org.jspecify.annotations.Nullable Next next(int standing, StandingConfig.Titles t) {
+		if (standing <= t.outlaw()) {
+			return new Next(Title.DISTRUSTED, t.outlaw() + 1);
+		}
+		if (standing <= t.distrusted()) {
+			return new Next(Title.STRANGER, t.distrusted() + 1);
+		}
+		if (standing < t.known()) {
+			return new Next(Title.KNOWN, t.known());
+		}
+		if (standing < t.friend()) {
+			return new Next(Title.FRIEND, t.friend());
+		}
+		if (standing < t.hero()) {
+			return new Next(Title.HERO, t.hero());
+		}
+		return null;
+	}
+
 	/** Whether the title means the town thinks ill of the player. */
 	public static boolean bad(Title title) {
 		return title == Title.OUTLAW || title == Title.DISTRUSTED;

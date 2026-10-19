@@ -16,6 +16,7 @@ public final class SocialClient {
 		ClientPlayNetworking.registerGlobalReceiver(DicePayloads.View.TYPE, (payload, context) -> {
 			if (context.player().containerMenu instanceof DiceMenu menu && menu.containerId == payload.containerId()) {
 				menu.setView(payload.view());
+				dev.voidmc.hearth.client.overlay.HearthViews.bump();
 				if (context.client().gui.screen() instanceof DiceScreen screen) {
 					screen.onView(payload.view());
 				}

@@ -197,7 +197,22 @@ public final class Market {
 
 		return new MarketView(this.settlement.name(), this.settlement.culture().getSerializedName(), rep, balance, cash,
 			note(pricer, counter, rep, refused, sour), this.status, this.sells.stream().map(Row::offer).toList(), this.buys.stream().map(Row::offer).toList(),
-			this.shop != null, this.session == null ? null : this.session.view());
+			this.shop != null, this.session == null ? null : this.session.view(), merchant(player));
+	}
+
+	/** Who keeps this counter, for the screens that show them; null at the town's own market or with no keeper. */
+	private MarketView.@Nullable Merchant merchant(ServerPlayer player) {
+		Resident keeper = keeper();
+		if (keeper == null) {
+			return null;
+		}
+		dev.voidmc.hearth.api.NpcService npc = HearthServices.npc();
+		dev.voidmc.hearth.api.NpcService.FolkHandle folk = npc == null ? null : npc.folk(keeper.id);
+		List<String> traits = new ArrayList<>(Temper.traits(keeper));
+		traits.sort(null);
+		int mood = keeper.extra.getCompoundOrEmpty("npc").getIntOr("mood", 0);
+		return new MarketView.Merchant(keeper.fullName(), "hearth.npc.job." + keeper.job.getSerializedName(), folk == null ? -1 : folk.entity().getId(),
+			traits, mood, Reputation.opinion(keeper.id, player.getUUID()));
 	}
 
 	/** One item's price at this counter for this player: the town's price, moved by sourness, greed and the fence's rate. */
@@ -395,7 +410,7 @@ public final class Market {
 		double room = Temper.skilled(Temper.room(cfg, Reputation.charisma(player), Reputation.standing(this.settlement, player.getUUID()), traits), speech);
 		double patience = Temper.patience(cfg, Reputation.opinion(keeper == null ? null : keeper.id, player.getUUID()), traits) * Temper.skilledPatience(speech);
 		Haggle haggle = Haggle.start(playerBuys, list, room, patience, counter.cash(), cfg);
-		this.session = new Session(row.id, row.stack.copyWithCount(1), row.price.lot * lots, lots, playerBuys, row.town, haggle);
+		this.session = new Session(row.id, row.stack.copyWithCount(1), row.price.lot * lots, lots, playerBuys, row.town, haggle, speech);
 		this.session.line = line(haggle, Haggle.Event.START);
 		this.status = Component.empty();
 	}
@@ -607,9 +622,12 @@ public final class Market {
 		final boolean playerBuys;
 		final boolean town;
 		final Haggle haggle;
+		/** The player's Speech when the haggle began (how well they read the merchant's limit). */
+		final int speech;
 		Component line = Component.empty();
 
-		Session(int rowId, ItemStack stack, int count, int lots, boolean playerBuys, boolean town, Haggle haggle) {
+		Session(int rowId, ItemStack stack, int count, int lots, boolean playerBuys, boolean town, Haggle haggle, int speech) {
+			this.speech = speech;
 			this.rowId = rowId;
 			this.stack = stack;
 			this.count = count;
@@ -620,8 +638,10 @@ public final class Market {
 		}
 
 		MarketView.HaggleView view() {
+			long[] band = this.haggle.band(this.speech);
 			return new MarketView.HaggleView(this.rowId, this.stack.copyWithCount(Math.max(1, Math.min(this.count, 99))), this.playerBuys,
-				this.haggle.list(), this.haggle.counter(), this.haggle.lastOffer(), this.haggle.patience(), this.line);
+				this.haggle.list(), this.haggle.counter(), this.haggle.lastOffer(), this.haggle.patience(), this.line, this.haggle.offersLeft(),
+				band == null ? -1 : band[0], band == null ? -1 : band[1], this.speech);
 		}
 	}
 }

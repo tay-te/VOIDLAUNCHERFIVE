@@ -22,11 +22,13 @@ public final class EconomyClient {
 		ClientPlayNetworking.registerGlobalReceiver(MarketViewPayload.TYPE, (payload, context) -> {
 			if (context.player().containerMenu instanceof MarketMenu menu && menu.containerId == payload.containerId()) {
 				menu.setView(payload.view());
+				dev.voidmc.hearth.client.overlay.HearthViews.bump();
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(BankViewPayload.TYPE, (payload, context) -> {
 			if (context.player().containerMenu instanceof BankMenu menu && menu.containerId == payload.containerId()) {
 				menu.setView(payload.view());
+				dev.voidmc.hearth.client.overlay.HearthViews.bump();
 				if (context.client().gui.screen() instanceof BankScreen screen) {
 					screen.onView(payload.view());
 				}

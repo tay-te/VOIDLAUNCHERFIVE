@@ -16,6 +16,8 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.KeyMapping;
+import dev.voidmc.hearth.client.overlay.HearthScreens;
+import dev.voidmc.hearth.client.overlay.HearthViews;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -46,10 +48,13 @@ public final class QuestClient {
 		});
 		ClientPlayNetworking.registerGlobalReceiver(QuestPayloads.Board.TYPE, (payload, context) -> {
 			Minecraft mc = context.client();
+			QuestPayloads.Board shown = HearthViews.board();
+			HearthViews.board(payload);
 			if (mc.gui.screen() instanceof NoticeBoardScreen open && open.isFor(payload)) {
 				open.update(payload);
-			} else {
-				mc.gui.setScreen(new NoticeBoardScreen(payload));
+			} else if (!(HearthScreens.BOARD.equals(HearthScreens.hosted()) && shown != null && shown.settlementId() == payload.settlementId()
+				&& shown.boardPos().equals(payload.boardPos()))) {
+				HearthScreens.show(HearthScreens.BOARD, () -> new NoticeBoardScreen(payload));
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(QuestPayloads.Toast.TYPE, (payload, context) ->
@@ -63,7 +68,7 @@ public final class QuestClient {
 	}
 
 	static void openJournal() {
-		Minecraft.getInstance().gui.setScreen(new JournalScreen());
+		HearthScreens.show(HearthScreens.JOURNAL, JournalScreen::new);
 	}
 
 	/**

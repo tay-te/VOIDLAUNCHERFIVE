@@ -29,6 +29,117 @@ public final class TalkPayloads {
 		PayloadTypeRegistry.serverboundPlay().register(End.TYPE, End.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(Markers.TYPE, Markers.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(Close.TYPE, Close.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(Detail.TYPE, Detail.CODEC);
+	}
+
+	/**
+	 * What an option is, for screens that show more than its label and hint (docs/OVERLAY.md {@code talk.options[]}).
+	 *
+	 * @param kind       {@code DialogueProvider.Info#kind}: talk, trade, quest, persuade, bribe, train, leave...
+	 * @param odds       a check's chance 0–100, or -1
+	 * @param cost       bits it costs, or -1
+	 * @param skill      the skill it reads ({@code mettle:speech}), or empty
+	 * @param skillLevel the player's level in that skill as the server's skills mod says (0 without one), or -1 without a skill
+	 */
+	public record OptionInfo(String id, String kind, int odds, long cost, String skill, int skillLevel) {
+		static final StreamCodec<RegistryFriendlyByteBuf, OptionInfo> CODEC = StreamCodec.of((buf, o) -> {
+			buf.writeUtf(o.id, 256);
+			buf.writeUtf(o.kind, 64);
+			buf.writeVarInt(o.odds);
+			buf.writeVarLong(o.cost);
+			buf.writeUtf(o.skill, 256);
+			buf.writeVarInt(o.skillLevel);
+		}, buf -> new OptionInfo(buf.readUtf(256), buf.readUtf(64), buf.readVarInt(), buf.readVarLong(), buf.readUtf(256), buf.readVarInt()));
+	}
+
+	/**
+	 * The resident card and option facts that go with a {@link Show} (sent right after it, for the same entity): what the
+	 * richer conversation screens draw beside the speech. Added 2026-10-19 (docs/OVERLAY.md); the parchment screen reads
+	 * none of it.
+	 *
+	 * @param job          their trade as a translation key (as {@link Show#title})
+	 * @param place        where they work ("Tavern"), or empty
+	 * @param traits       their personality traits' serialized names ({@code sociable}...)
+	 * @param mood         their mood, −100…100
+	 * @param opinion      what they think of the player, −100…100
+	 * @param memoryKind   the player's strongest memory with them (a deed kind), or empty
+	 * @param memoryWeight its weight (negative: a bad one)
+	 * @param standing     the player's standing in the town, −100…100
+	 * @param title        the player's title there ({@code known}...)
+	 * @param nextTitle    the next title up, or empty
+	 * @param nextAt       the standing it takes
+	 * @param minute       the minute of the day (0–1439) where they talk
+	 * @param speech       the player's Speech level (0 without a skills mod)
+	 */
+	public record Detail(int entity, String job, String place, List<String> traits, int mood, int opinion, String memoryKind, int memoryWeight,
+		int standing, String title, String nextTitle, int nextAt, int minute, int speech, List<OptionInfo> options) implements CustomPacketPayload {
+		public static final Type<Detail> TYPE = new Type<>(Hearth.id("npc/conversation_detail"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Detail> CODEC = StreamCodec.of((buf, p) -> {
+			buf.writeVarInt(p.entity);
+			buf.writeUtf(p.job, 256);
+			buf.writeUtf(p.place, 256);
+			int traits = Math.min(p.traits.size(), 16);
+			buf.writeVarInt(traits);
+			for (String t : p.traits.subList(0, traits)) {
+				buf.writeUtf(t, 64);
+			}
+			buf.writeVarInt(p.mood);
+			buf.writeVarInt(p.opinion);
+			buf.writeUtf(p.memoryKind, 256);
+			buf.writeVarInt(p.memoryWeight);
+			buf.writeVarInt(p.standing);
+			buf.writeUtf(p.title, 64);
+			buf.writeUtf(p.nextTitle, 64);
+			buf.writeVarInt(p.nextAt);
+			buf.writeVarInt(p.minute);
+			buf.writeVarInt(p.speech);
+			int count = Math.min(p.options.size(), MAX_OPTIONS);
+			buf.writeVarInt(count);
+			for (OptionInfo o : p.options.subList(0, count)) {
+				OptionInfo.CODEC.encode(buf, o);
+			}
+		}, buf -> {
+			int entity = buf.readVarInt();
+			String job = buf.readUtf(256);
+			String place = buf.readUtf(256);
+			int nt = Math.min(buf.readVarInt(), 16);
+			List<String> traits = new ArrayList<>(nt);
+			for (int i = 0; i < nt; i++) {
+				traits.add(buf.readUtf(64));
+			}
+			int mood = buf.readVarInt();
+			int opinion = buf.readVarInt();
+			String memoryKind = buf.readUtf(256);
+			int memoryWeight = buf.readVarInt();
+			int standing = buf.readVarInt();
+			String title = buf.readUtf(64);
+			String nextTitle = buf.readUtf(64);
+			int nextAt = buf.readVarInt();
+			int minute = buf.readVarInt();
+			int speech = buf.readVarInt();
+			int n = Math.min(buf.readVarInt(), MAX_OPTIONS);
+			List<OptionInfo> options = new ArrayList<>(n);
+			for (int i = 0; i < n; i++) {
+				options.add(OptionInfo.CODEC.decode(buf));
+			}
+			return new Detail(entity, job, place, traits, mood, opinion, memoryKind, memoryWeight, standing, title, nextTitle, nextAt, minute, speech,
+				options);
+		});
+
+		@Override
+		public Type<? extends CustomPacketPayload> type() {
+			return TYPE;
+		}
+
+		/** The facts for an option id, or null. */
+		public @Nullable OptionInfo info(String id) {
+			for (OptionInfo o : this.options) {
+				if (o.id.equals(id)) {
+					return o;
+				}
+			}
+			return null;
+		}
 	}
 
 	private static void writeOptional(RegistryFriendlyByteBuf buf, @Nullable Component c) {

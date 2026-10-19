@@ -173,13 +173,17 @@ public final class Conversations {
 		session.owners.clear();
 		session.locked.clear();
 		List<Ranked> ranked = new ArrayList<>();
+		Map<String, DialogueProvider.Info> described = new HashMap<>();
 		for (DialogueProvider p : DialogueProvider.providers()) {
 			List<DialogueProvider.Option> out = new ArrayList<>();
+			DialogueProvider.Registry.collectInfo(described);
 			try {
 				p.collect(player, brain.settlement, brain.resident, out);
 			} catch (RuntimeException e) {
 				dev.voidmc.hearth.Hearth.LOG.warn("dialogue provider {} failed", p.getClass().getName(), e);
 				continue;
+			} finally {
+				DialogueProvider.Registry.collectInfo(null);
 			}
 			for (DialogueProvider.Option o : out) {
 				if (!session.owners.containsKey(o.id())) {
@@ -205,6 +209,37 @@ public final class Conversations {
 		Resident r = brain.resident;
 		String title = r.age == AgeStage.CHILD ? "hearth.npc.child" : "hearth.npc.job." + r.job.getSerializedName();
 		ServerPlayNetworking.send(player, new TalkPayloads.Show(session.folk.getId(), open, r.fullName(), title, brain.settlement.name(), speech, options));
+		if (ServerPlayNetworking.canSend(player, TalkPayloads.Detail.TYPE)) {
+			ServerPlayNetworking.send(player, detail(player, session.folk, brain, title, ranked, described));
+		}
+	}
+
+	/** The resident card and each option's facts, for the richer conversation screens (docs/OVERLAY.md). */
+	private static TalkPayloads.Detail detail(ServerPlayer player, Folk folk, FolkBrain brain, String title, List<Ranked> ranked,
+		Map<String, DialogueProvider.Info> described) {
+		Resident r = brain.resident;
+		Settlement s = brain.settlement;
+		dev.voidmc.hearth.api.PlayerSkills skills = dev.voidmc.hearth.api.HearthServices.playerSkills();
+		List<TalkPayloads.OptionInfo> infos = new ArrayList<>(ranked.size());
+		for (Ranked k : ranked) {
+			DialogueProvider.Option o = k.option;
+			DialogueProvider.Info given = described.get(o.id());
+			DialogueProvider.Info info = OptionKinds.complete(given != null ? given : OptionKinds.infer(o.id(), o.order()));
+			int level = info.skill() == null ? -1 : skills.level(player, info.skill());
+			infos.add(new TalkPayloads.OptionInfo(o.id(), info.kind(), info.odds(), info.cost(), info.skill() == null ? "" : info.skill(), level));
+		}
+		dev.voidmc.hearth.npc.person.NpcData data = dev.voidmc.hearth.npc.person.NpcData.of(r);
+		List<String> traits = new ArrayList<>();
+		for (dev.voidmc.hearth.npc.person.Trait t : data.traits()) {
+			traits.add(t.getSerializedName());
+		}
+		java.util.Collections.sort(traits);
+		dev.voidmc.hearth.api.PlotView work = r.work == Resident.NO_PLOT ? null : s.plot(r.work);
+		String place = work == null ? "" : work.spec().archetype().getPath();
+		dev.voidmc.hearth.standing.speech.TalkCard card = dev.voidmc.hearth.standing.speech.TalkCard.of(player, s, r);
+		int minute = player.level() instanceof net.minecraft.server.level.ServerLevel level ? dev.voidmc.hearth.npc.NpcTime.minuteOfDay(level) : 0;
+		return new TalkPayloads.Detail(folk.getId(), title, place, traits, data.mood(), card.opinion(), card.memoryKind(), card.memoryWeight(),
+			card.standing(), card.title(), card.nextTitle(), card.nextAt(), minute, skills.level(player, dev.voidmc.hearth.api.PlayerSkills.SPEECH), infos);
 	}
 
 	private record Ranked(DialogueProvider.Option option, int index) {

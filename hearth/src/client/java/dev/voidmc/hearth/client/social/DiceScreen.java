@@ -68,6 +68,18 @@ public class DiceScreen extends AbstractContainerScreen<DiceMenu> {
 	private int ticks;
 	private final Random wobble = new Random();
 
+	/** Whether a host (the VOID Hub) was offered this screen yet: once, on the first init (docs/OVERLAY.md §openers). */
+	private boolean offered;
+
+	/** On the first init, a host that registered an opener takes over (the menu stays open under its screen). */
+	private boolean handedToHost(String screen) {
+		if (this.offered) {
+			return false;
+		}
+		this.offered = true;
+		return dev.voidmc.hearth.client.overlay.HearthScreens.offer(screen, this);
+	}
+
 	public DiceScreen(DiceMenu menu, Inventory inventory, Component title) {
 		super(menu, inventory, title, W, H);
 	}
@@ -75,6 +87,9 @@ public class DiceScreen extends AbstractContainerScreen<DiceMenu> {
 	@Override
 	protected void init() {
 		super.init();
+		if (handedToHost(dev.voidmc.hearth.client.overlay.HearthScreens.DICE)) {
+			return;
+		}
 		this.stakeButtons.clear();
 		int y = this.topPos + 188;
 		int x = this.leftPos + 12;

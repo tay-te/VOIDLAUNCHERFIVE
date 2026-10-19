@@ -131,6 +131,7 @@ public class ConfrontScreen extends Screen {
 	@Override
 	public void removed() {
 		super.removed();
+		dev.voidmc.hearth.client.overlay.HearthViews.confrontClosed(this.entity);
 		if (!this.answered && Minecraft.getInstance().getConnection() != null) {
 			ClientPlayNetworking.send(new LawPayloads.ConfrontChoice(this.entity, ""));
 		}

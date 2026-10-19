@@ -64,6 +64,24 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
 		super(menu, inventory, title, W, H);
 	}
 
+	/** Whether a host (the VOID Hub) was offered this screen yet: once, on the first init (docs/OVERLAY.md §openers). */
+	private boolean offered;
+
+	/** On the first init, a host that registered an opener takes over (the menu stays open under its screen). */
+	private boolean handedToHost(String screen) {
+		if (this.offered) {
+			return false;
+		}
+		this.offered = true;
+		return dev.voidmc.hearth.client.overlay.HearthScreens.offer(screen, this);
+	}
+
+	@Override
+	protected void init() {
+		super.init();
+		handedToHost(dev.voidmc.hearth.client.overlay.HearthScreens.MARKET);
+	}
+
 	@Override
 	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractBackground(g, mouseX, mouseY, a);

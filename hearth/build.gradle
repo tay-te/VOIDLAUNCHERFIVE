@@ -38,6 +38,11 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// The Hub overlay's state and action checks (client/overlay: HearthStateJson, ActionRules, HearthViews) are pure functions
+// of the payloads and are unit-tested: the tests see the client classes (they never touch Minecraft's client itself).
+sourceSets.test.compileClasspath += sourceSets.client.output
+sourceSets.test.runtimeClasspath += sourceSets.client.output
+
 // VOID Atlas, the map: an optional partner, compiled against the artifact Atlas publishes to Maven local
 // (dev.voidmc:void-atlas, from Atlas's own `./gradlew publishToMavenLocal`; it carries the client API too). Hearth never
 // builds inside an Atlas checkout. When that artifact is there (or -Patlas=true), the "atlas" source set (src/atlas: the

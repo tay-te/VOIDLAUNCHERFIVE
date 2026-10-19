@@ -31,6 +31,7 @@ final class RepairDialogue implements DialogueProvider {
 			EconomyService economy = HearthServices.economy();
 			Component price = economy != null ? economy.format(quote.bits()) : Component.literal(quote.bits() + "");
 			out.add(new Option(MEND, Component.translatable("hearth.repair.dialogue.mend", quote.blocks(), price), 150));
+			DialogueProvider.describe(MEND, new DialogueProvider.Info("repair", -1, quote.bits(), null));
 		}
 		if (!settlement.data(RepairModule.QUEUE).isEmpty()) {
 			out.add(new Option(NEWS, Component.translatable("hearth.repair.dialogue.news"), 40));

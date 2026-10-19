@@ -225,6 +225,7 @@ public class ConversationScreen extends Screen {
 	@Override
 	public void removed() {
 		super.removed();
+		dev.voidmc.hearth.client.overlay.HearthViews.talkClosed(this.entityId);
 		if (Minecraft.getInstance().getConnection() != null) {
 			ClientPlayNetworking.send(new TalkPayloads.End(this.entityId));
 		}
