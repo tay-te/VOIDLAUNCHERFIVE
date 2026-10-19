@@ -28,9 +28,17 @@
 // (HDR stage A: the bridge)
 #include "/lib/hdr.glsl"
 
+// (Look D9) the air under a cloud's shadow (below): the clouds' frame once, in the vertex shader (lib/clouds/envflat.glsl)
+#if defined WORLD_OVERWORLD && defined CLOUDS && CLOUD_SHADOWS > 0 && defined DEBUG_PLAIN
+#define C2_AIR_SHADOW
+#endif
+
 #ifdef VERTEX_SHADER
 
 out vec2 texcoord;
+#ifdef C2_AIR_SHADOW
+#include "/lib/clouds/envflat.glsl"
+#endif
 
 #if defined VALLEY_MIST && defined WORLD_OVERWORLD && defined DEBUG_PLAIN
 // the valley mist's camera sample, the same for every pixel: worked out here, once a corner, not once a pixel
@@ -47,6 +55,9 @@ void main() {
 	MistPoint a = mistAt(vec2(0.0), t);
 	mistCam = vec4(a.top, a.density, t.time, t.on ? 1.0 : 0.0);
 	mistCamCells = ivec4(t.camCell, t.centre);
+#endif
+#ifdef C2_AIR_SHADOW
+	wcEnvWrite(welkinCloudEnv());
 #endif
 }
 
@@ -91,6 +102,16 @@ void main() {
 #include "/lib/underground/ug_atmosphere.glsl"
 #if UG_DEBUG != 0
 #include "/lib/underground/ug_debug.glsl"
+#endif
+
+#ifdef C2_AIR_SHADOW
+#include "/lib/clouds/shadow.glsl"
+#include "/lib/clouds/envflat.glsl"
+// (Look D9) how much of the country haze's and the aerial perspective's light a land pixel's air loses where the land and
+// the air in front of it lie in a cloud's shadow, and how much cooler it turns (the sun's in-scatter goes, the sky's
+// stays): the drifting patches of shade stay readable out to the far land instead of drowning in an evenly lit haze
+#define AIR_CLOUD_DIM 0.42
+#define AIR_CLOUD_TINT vec3(0.86, 0.97, 1.16)
 #endif
 
 in vec2 texcoord;
@@ -317,6 +338,22 @@ void main() {
 		// ---- air and tone (D): the haze's forward scatter toward the sun (lib/air.glsl)
 		vec3 airPlain = air;
 		air = airMie(air, normalize(eyePos), sunW, st.kind);
+		vec3 airPlainHv = airPlain; // (the haze volume and the dawn mist take their own cloud shadows)
+#ifdef C2_AIR_SHADOW
+		// (Look D9) the air over the land in a cloud's shadow: read where the in-scatter that reaches the eye mostly comes
+		// from, over the far part of the ray (the land's own point twice), as a share of the sun (lib/clouds/shadow.glsl)
+		if (!s.sky && !cloud && !finished && sunW.y > 0.05) {
+			CloudEnv ce = wcEnvRead();
+			float sh = 0.25 * (welkinCloudShadow(eyePos * 0.55, ce) + welkinCloudShadow(eyePos * 0.8, ce))
+				+ 0.5 * welkinCloudShadow(eyePos, ce);
+			float closed = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
+			float u = (1.0 - clamp(sh, 0.0, 1.0)) * (1.0 - closed) * smoothstep(0.05, 0.25, sunW.y);
+			vec3 tintA = AIR_CLOUD_TINT / dot(AIR_CLOUD_TINT, vec3(0.2126, 0.7152, 0.0722));
+			vec3 dimA = (1.0 - AIR_CLOUD_DIM * u) * mix(vec3(1.0), tintA, u);
+			air *= dimA;
+			airPlain *= dimA;
+		}
+#endif
 		// (HDR stage B: the forward scatter is in-scattered light, uncapped: toward a low sun it may pass white; look4's
 		// golden-hour exposure and cap are gone)
 		vec3 n = s.sky ? vec3(0.0, 1.0, 0.0) : hzScreenNormal(eyePos);
@@ -435,7 +472,7 @@ void main() {
 #if defined WELKIN_VALLEY_MIST && defined DEBUG_PLAIN
 			hvMist = clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
 #endif
-			color.rgb = mix(hvComposite(color.rgb, hvRaw, st, normalize(eyePos), sunW, airPlain, s.sky, hvMist, lum),
+			color.rgb = mix(hvComposite(color.rgb, hvRaw, st, normalize(eyePos), sunW, airPlainHv, s.sky, hvMist, lum),
 				color.rgb, max(ug.amount, sunDisc));
 		}
 #endif
@@ -473,7 +510,7 @@ void main() {
 #ifdef HV_READ
 				fsunM = clamp(hvRaw.g / max(hvRaw.b, 1e-4), 0.0, 1.0);
 #endif
-				color.rgb = mix(color.rgb, dawnMistColour(airPlain, normalize(eyePos), sunW, fsunM, lum), airCoverA(cover, AIR_DAWN_DENS, AIR_DAWN_ONSET));
+				color.rgb = mix(color.rgb, dawnMistColour(airPlainHv, normalize(eyePos), sunW, fsunM, lum), airCoverA(cover, AIR_DAWN_DENS, AIR_DAWN_ONSET));
 #ifdef DM_DEBUG
 				color.rgb = vec3(cover, dawnAmt, fract(ground / 16.0));
 #endif

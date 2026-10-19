@@ -133,7 +133,7 @@ void main() {
 #ifdef WELKIN_WS_CLOUD_SHADOW
 		// the decks' shadows, as deferred lays them on the LOD's land
 		if (lmcoord.y > 0.0) {
-			w.sunShare *= welkinCloudShadow(eyePos, welkinCloudEnv());
+			w.sunShare *= welkinCloudShadowRGB(eyePos, welkinCloudEnv());
 		}
 #endif
 		c = wsShadeWater(w, inp, sea, skyFrame(), outInfo);

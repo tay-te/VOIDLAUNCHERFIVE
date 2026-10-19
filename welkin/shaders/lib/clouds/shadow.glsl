@@ -56,9 +56,12 @@ float wcShadowField(vec2 q, int k, int lv, CloudEnv e) {
 // (Look D4) while the sun stands high (past about 30 degrees) a cloud takes more of it: at midday the drifting patches of
 // shade are the land's strongest depth cue, and over a sun-led field one deck's shadow reads clearly. The golden hours
 // keep the lighter shares above, so a long low-sun shadow never blots out a lit ridge
-#define WC_SHADOW_ONE_HIGH 0.34
-#define WC_SHADOW_TWO_HIGH 0.28
-#define WC_SHADOW_THREE_HIGH 0.24
+// (Look D9) deeper again, 0.18 / 0.14 / 0.11 (was 0.34 / 0.28 / 0.24): KCD II's noon signature is the slow cloud shadows
+// drifting over the land, and at a third of the sun the patches read faintly in the vistas once the air lay over them.
+// The golden hours keep the lighter shares above (the sun under about 30 degrees: 16:30 and later barely move)
+#define WC_SHADOW_ONE_HIGH 0.18
+#define WC_SHADOW_TWO_HIGH 0.14
+#define WC_SHADOW_THREE_HIGH 0.11
 // (Look D6) under a closed overcast: the sun through a gap in the decks, and under one, two and three decks (as a share of
 // a clear day's sun; the closed sky's table sun is 0.12 of it)
 #define WC_GAP_SUN 0.75
@@ -150,6 +153,23 @@ float welkinCloudShadow(vec3 eyePos, CloudEnv e) {
 	// as a share of the table's sun (the weather's dimming taken back out)
 	share /= 1.0 - 0.88 * closed;
 	return mix(1.0, share, rise);
+#endif
+}
+
+// (Look D9) The light that still reaches the land under a deck is not the sun's warm beam but the cloud's own diffuse
+// light, white to cool: the share of the direct light under a cloud also leans cool, so a cloud's shadow reads as a
+// cool, sky-lit patch against the warm sunlit field beside it (the sky's fill, untouched, keeps it bluish). The hue
+// only, luminance kept; none under a closed overcast (lib/clouds/shadow.glsl's storm shares) or where the deck is open.
+#define WC_SHADOW_TINT vec3(0.84, 0.98, 1.24)
+vec3 welkinCloudShadowRGB(vec3 eyePos, CloudEnv e) {
+	float share = welkinCloudShadow(eyePos, e);
+#if CLOUD_SHADOWS == 0 || !defined CLOUDS
+	return vec3(share);
+#else
+	float closed = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
+	float u = smoothstep(0.0, 0.6, 1.0 - clamp(share, 0.0, 1.0)) * (1.0 - closed);
+	vec3 tint = WC_SHADOW_TINT / dot(WC_SHADOW_TINT, vec3(0.2126, 0.7152, 0.0722));
+	return share * mix(vec3(1.0), tint, u);
 #endif
 }
 
