@@ -44,6 +44,8 @@ public final class GuardBehaviour implements FolkBehaviour {
 	/** How far a guard sent for a player ({@link GuardDispatch}) will come, and how long they take before giving up. */
 	static final double SENT_RANGE = 160.0;
 	static final int SENT_TICKS = 20 * 90;
+	/** Ticks without getting nearer after which a guard sent comes round the corner instead. */
+	static final int STUCK_TICKS = 20 * 6;
 	/** Guards (resident ids) on a job now, for the dispatcher. */
 	private static final java.util.Set<UUID> ON_JOB = new java.util.HashSet<>();
 
@@ -69,6 +71,10 @@ public final class GuardBehaviour implements FolkBehaviour {
 		int cooldown;
 		/** Sent for by the dispatcher: the call's count (1 for the first), else 0. */
 		int sent;
+		/** The nearest a guard sent has got to the player, ticks since they last got nearer, and times moved closer. */
+		double nearest = Double.MAX_VALUE;
+		int stuck;
+		int closedIn;
 
 		Job(UUID player, Confrontations.Kind kind, Mode mode) {
 			this.player = player;
@@ -210,6 +216,11 @@ public final class GuardBehaviour implements FolkBehaviour {
 					Confrontations.open(player, folk, job.kind);
 					job.mode = Mode.TALK;
 					job.ticks = 0;
+				} else if (job.sent > 0 && stuck(job, d) && job.closedIn < 3) {
+					// no headway (no way through to the player): they come round the corner instead
+					job.closedIn++;
+					GuardDispatch.closeIn(folk, player, job.closedIn);
+					job.repath = 0;
 				} else if (job.repath <= 0) {
 					// a guard sent from afar hurries
 					folk.moveTo(player.blockPosition(), d > 16 ? 1.2 : 1.0);
@@ -245,6 +256,21 @@ public final class GuardBehaviour implements FolkBehaviour {
 				return chase(folk, player, job, d);
 			}
 		}
+		return true;
+	}
+
+	/** Whether a guard sent has made no headway toward the player for {@link #STUCK_TICKS}. */
+	private static boolean stuck(Job job, double d) {
+		if (d < job.nearest - 1.5) {
+			job.nearest = d;
+			job.stuck = 0;
+			return false;
+		}
+		if (++job.stuck < STUCK_TICKS) {
+			return false;
+		}
+		job.stuck = 0;
+		job.nearest = Double.MAX_VALUE;
 		return true;
 	}
 

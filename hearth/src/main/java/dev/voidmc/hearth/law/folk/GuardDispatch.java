@@ -256,23 +256,94 @@ public final class GuardDispatch {
 		SENT.put(pick.id, player.getUUID());
 	}
 
-	/** Makes a guard on duty appear a short walk from the player, on the side toward the middle of town. */
+	/**
+	 * Makes a guard on duty appear a short walk from the player: out in the open (a street, not a room or a roof), out
+	 * of the player's sight if it can be, on the side toward the middle of town first.
+	 */
 	private static @Nullable FolkHandle appear(ServerLevel level, Settlement s, Resident r, ServerPlayer player, NpcService npc) {
+		BlockPos spot = spotNear(level, player, s.center(), new int[]{ARRIVE_DISTANCE, ARRIVE_DISTANCE - 6, ARRIVE_DISTANCE + 6}, true);
+		if (spot != null) {
+			FolkHandle h = npc.embodyNear(level, s, r, spot);
+			if (h != null) {
+				return h;
+			}
+		}
 		BlockPos at = player.blockPosition();
-		BlockPos centre = s.center();
-		double dx = centre.getX() - at.getX();
-		double dz = centre.getZ() - at.getZ();
-		double len = Math.sqrt(dx * dx + dz * dz);
-		double base = len < 1 ? 0 : Math.atan2(dz, dx);
-		for (double turn : new double[]{0, 0.6, -0.6, 1.3, -1.3, Math.PI}) {
-			double a = base + turn;
-			BlockPos near = at.offset((int) Math.round(Math.cos(a) * ARRIVE_DISTANCE), 0, (int) Math.round(Math.sin(a) * ARRIVE_DISTANCE));
-			FolkHandle h = npc.embodyNear(level, s, r, near);
+		for (int i = 0; i < 6; i++) {
+			double a = i * Math.PI / 3;
+			FolkHandle h = npc.embodyNear(level, s, r, at.offset((int) Math.round(Math.cos(a) * ARRIVE_DISTANCE), 0, (int) Math.round(Math.sin(a) * ARRIVE_DISTANCE)));
 			if (h != null) {
 				return h;
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * A place to stand {@code radii} blocks (in that order of preference) from the player, at about their height: a
+	 * floor with two blocks of air over it. Spots the player cannot see are preferred, and with {@code open} only spots
+	 * under the open sky (a street or yard, from which folk can walk anywhere) count. Searched first on the side toward
+	 * {@code toward}.
+	 */
+	static @Nullable BlockPos spotNear(ServerLevel level, ServerPlayer player, BlockPos toward, int[] radii, boolean open) {
+		BlockPos at = player.blockPosition();
+		double dx = toward.getX() - at.getX();
+		double dz = toward.getZ() - at.getZ();
+		double base = dx * dx + dz * dz < 1 ? 0 : Math.atan2(dz, dx);
+		BlockPos seen = null;
+		net.minecraft.world.phys.Vec3 eye = player.getEyePosition();
+		for (int r : radii) {
+			for (int i = 0; i < 16; i++) {
+				// 0, +1, -1, +2, -2 ... steps of a sixteenth of a turn away from the preferred side
+				int step = (i + 1) / 2 * (i % 2 == 0 ? 1 : -1);
+				double a = base + step * Math.PI / 8;
+				int x = at.getX() + (int) Math.round(Math.cos(a) * r);
+				int z = at.getZ() + (int) Math.round(Math.sin(a) * r);
+				for (int dy : new int[]{0, 1, -1, 2, -2, 3, -3}) {
+					BlockPos p = new BlockPos(x, at.getY() + dy, z);
+					if (!level.isLoaded(p) || !standable(level, p) || open && !level.canSeeSky(p.above())) {
+						continue;
+					}
+					net.minecraft.world.phys.Vec3 head = net.minecraft.world.phys.Vec3.atBottomCenterOf(p).add(0, 1.6, 0);
+					boolean hidden = level.clip(new net.minecraft.world.level.ClipContext(eye, head, net.minecraft.world.level.ClipContext.Block.COLLIDER,
+						net.minecraft.world.level.ClipContext.Fluid.NONE, player)).getType() != net.minecraft.world.phys.HitResult.Type.MISS;
+					if (hidden) {
+						return p;
+					}
+					if (seen == null) {
+						seen = p;
+					}
+					break;
+				}
+			}
+		}
+		return seen;
+	}
+
+	private static boolean standable(ServerLevel level, BlockPos p) {
+		BlockPos below = p.below();
+		return level.getBlockState(p).getCollisionShape(level, p).isEmpty() && level.getFluidState(p).isEmpty()
+			&& level.getBlockState(p.above()).getCollisionShape(level, p.above()).isEmpty()
+			&& !level.getBlockState(below).getCollisionShape(level, below).isEmpty() && level.getFluidState(below).isEmpty();
+	}
+
+	/**
+	 * A guard sent for a player has made no headway for a while (no path to them: a shut room, a wall the pathfinder
+	 * will not take): they come round the corner instead, to a spot near the player, out of sight if one can be found.
+	 * Each try comes closer. Returns whether they were moved.
+	 */
+	static boolean closeIn(FolkHandle folk, ServerPlayer player, int attempt) {
+		if (!(folk.entity().level() instanceof ServerLevel level)) {
+			return false;
+		}
+		int[] radii = attempt <= 1 ? new int[]{9, 7, 11} : attempt == 2 ? new int[]{5, 4, 6} : new int[]{3, 2, 4};
+		BlockPos spot = spotNear(level, player, folk.entity().blockPosition(), radii, false);
+		if (spot == null) {
+			return false;
+		}
+		folk.stop();
+		folk.entity().teleportTo(spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5);
+		return true;
 	}
 
 	/** Nobody could come: the bounty goes up on the watch's notices, and the player hears of it. */

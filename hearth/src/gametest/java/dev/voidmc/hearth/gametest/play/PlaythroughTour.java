@@ -358,6 +358,43 @@ public class PlaythroughTour implements FabricClientGameTest {
 		ok(standing != null || here != null, "the standing line shows under the banner: shown " + standing + ", here " + here);
 		shot("1_arrival", true);
 		settle(4_000);
+		// The town's bounds can reach far out along a road (a bridge 120 blocks from the first house): note who is out
+		// here, then walk on to the first houses, where the folk are.
+		int[] edgeFolk = srv(server -> {
+			int near = 0;
+			for (Folk f : townFolk()) {
+				near += f.distanceTo(player(server)) <= 96 ? 1 : 0;
+			}
+			return new int[]{townFolk().size(), near};
+		});
+		BlockPos firstHouse = srv(server -> {
+			SimSettlement s = town(server);
+			BlockPos me = player(server).blockPosition();
+			BlockPos best = null;
+			for (Resident r : s.residents()) {
+				SimPlot home = r.home == Resident.NO_PLOT ? null : s.plot(r.home);
+				if (home == null) {
+					continue;
+				}
+				BlockPos p = home.reach().getCenter();
+				if (best == null || me.distSqr(p) < me.distSqr(best)) {
+					best = p;
+				}
+			}
+			return best;
+		});
+		note("at the edge after 5 s: " + edgeFolk[0] + " folk embodied, " + edgeFolk[1] + " within 96 blocks; the first house is "
+			+ (firstHouse == null ? "none" : String.format(Locale.ROOT, "%.0f blocks on at %s", Math.sqrt(srv(server -> player(server).blockPosition()).distSqr(firstHouse)),
+			firstHouse.toShortString())));
+		if (firstHouse != null && srv(server -> player(server).blockPosition()).distSqr(firstHouse) > 48 * 48) {
+			BlockPos me = srv(server -> player(server).blockPosition());
+			double len = Math.sqrt(me.distSqr(firstHouse));
+			BlockPos walk = new BlockPos((int) (firstHouse.getX() + (me.getX() - firstHouse.getX()) * 24 / len), 0,
+				(int) (firstHouse.getZ() + (me.getZ() - firstHouse.getZ()) * 24 / len));
+			stand(walk, 180);
+			settle(3_000);
+			note("walked on to " + where() + ", 24 blocks short of the first house");
+		}
 
 		// folk about the town: who is out, who moves, who is at work
 		List<String> folk = new ArrayList<>();
