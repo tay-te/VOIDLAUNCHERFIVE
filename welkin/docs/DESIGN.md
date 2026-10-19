@@ -1880,3 +1880,35 @@ rejection, neighbourhood clamp) was not built.
     off the settled frame: particles and leaves).
 - **Cost** (frame-time probe, 1600x900): shore 18:30 8.8 ms on against 8.7 off; plain 12:00 7.0 against 7.0. That is
   about 0.1 ms, at the probe's resolution.
+
+## Look D1: light, exposure, grade and air (2026-10-19, branch `welkin-d1`)
+
+The first look pass on the HDR foundation, judged by eye against the direction (Elden Ring / KCD II: earthy,
+atmospheric, not cheerful, not cold). Sheets: `scratchpad/welkin_look/d1/` (`mid/mid_sheet.jpg`,
+`final/hero_before_after.jpg`).
+
+- **Exposure** (`lib/hdr.glsl`): DAY 0.84 (a calmer, earthier noon), GOLDEN 1.0 (the glow toward the sun leads), NIGHT
+  1.1 (moonlit and readable), OVERCAST 0.9 (lower and softer in rain).
+- **Grade** (`lib/grade.glsl`):
+  - warm-led colours keep only a little extra saturation by day (0.92 to 0.94; fire and lamps at night keep 1.04): a
+    golden hour's whole warm-lit land no longer reads a saturated orange;
+  - lavender and lilac by day (the clouds' shaded flanks, a hazy dawn) go most of the way to a warm blue-grey, so the
+    sky is never a cold lilac (the dusk gradient in final still lays its rose-lilac after);
+  - the morning: a pink-gold highlight, a rose-violet shade (`loMorn`) and a rosier gain.
+- **The air in linear light** (`airLin` deleted): `airCover(tau, dens, onset)` lays each layer on by its optical depth,
+  1 - exp(-t^2 / (t + onset)) with t = tau x dens: the thin near air stays clear (no milk over the near land's darks),
+  the far air takes its whole depth (each ridge a step paler). Per layer: country haze, far air (0.8), valley mist,
+  morning mist, cloud fog, the day's body (`AIR_*` in lib/hdr.glsl); haze volume `HV_LIN_DENS` 0.65 / onset 0.35;
+  aerial perspective and forward scatter `AIR_LIN_*` (lib/air.glsl). The haze volume's light sits at the air's own level
+  side-on (sunlit 0.90 + 0.75 x forward lobe, was 1.12 + 0.55; shade 0.42, was 0.50): its in-scatter over the mesa's
+  valleys was the milk. The morning mist keeps more of the air's hue with a rose and a broad gold (pink-gold, not white).
+- **Emitters** (`hdrEmitterLight`, final): a glowing texel's exposed light eases toward HDR_EMIT_PEAK 0.85 with 1.15
+  of its chroma before the curve, so the path to white no longer bleaches a flame's tip; BLOOM_EMIT_GAIN 18 (was 10)
+  for the halos.
+- **Shafts:** past 60..400 blocks the beams thin to RAY_FAR_SHARE 0.3 (their unbroken part is the haze's own forward
+  scatter: the veil over the water at shore 18:30); the source takes the clouds' transmittance squared; RAY_GAIN 10,
+  RAY_SKY 0.32. The canopy beams are unchanged.
+- **Cost** (probe, 1600x900): shore 18:30 8.9 ms, plain 12:00 7.0 ms, steppe 17:00 7.0 ms (stage C: 8.8 / 7.0 / 7.0).
+- **Still open:** the clouds' look (bright, cool white bodies; they dominate the vistas and are the next lever), the
+  cloud-gap beams at front 0.55 are still faint in the sky (the near canopy beams carry the sunplain frame), the far
+  haze over the mesa's horizon is still pale, the countryside dawn still reads more pastel than misty gold, storms.
