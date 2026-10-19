@@ -177,12 +177,12 @@ flat in vec3 beamLight;
 // the walk: steps, how far toward the sun it reaches (screen heights), how fast a step's weight fades from the texel,
 // how wide the glow round the sun the beams carry is (screen heights)
 #define BEAM_STEPS 18 // (review round 1: 18, was 24, the decay per step matched; final gathers the noise away)
-#define BEAM_REACH 0.8
+#define BEAM_REACH 1.0 // (look: 1.0, was 0.8)
 #define BEAM_DECAY 0.940
-#define BEAM_GLOW 0.18
+#define BEAM_GLOW 0.26 // (look: 0.26, was 0.18)
 // how strong the beams are (of the sun-side horizon's light), and on the sky itself (the dome already glows there)
-#define BEAM_GAIN 0.9
-#define BEAM_SKY 0.12
+#define BEAM_GAIN 1.5 // (look: 1.5, was 0.9)
+#define BEAM_SKY 0.2 // (look: 0.2, was 0.12)
 
 // Whether the open sky shows at screen point uv (1), or land, the far land or a cloud stands there (0).
 float beamOpen(vec2 uv) {
