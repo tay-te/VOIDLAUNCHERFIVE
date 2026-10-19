@@ -356,7 +356,9 @@ void main() {
 			// (look2, 2026-10-18: bolder, a blue-grey a fifth under the horizon away from the sun and a warm glow toward
 			// it; it eases off as the haze closes to the world's far edge, which must meet the sky's horizon. The vistas'
 			// middle distance had been one milky white sheet: now a layered blue-grey air)
-			vec3 body = mix(vec3(0.80, 0.85, 0.92), vec3(1.0, 0.94, 0.84), smoothstep(0.35, 1.0, toSun * toSun));
+			// (Look D3: a deeper, earthier body, was (0.80, 0.85, 0.92) and (1.0, 0.94, 0.84): the mesa's far air still read
+			// a pale milk; now a slate blue-grey away from the sun, an amber toward it, each a step under the horizon)
+			vec3 body = mix(vec3(0.72, 0.78, 0.88), vec3(1.0, 0.91, 0.76), smoothstep(0.35, 1.0, toSun * toSun));
 			float wB = lum.day * lum.up * (s.sky ? 0.0 : 1.0);
 			float wBb = wB * (1.0 - smoothstep(0.8, 1.0, h.back.a));
 			float wBf = wB * (1.0 - smoothstep(0.8, 1.0, h.front.a));

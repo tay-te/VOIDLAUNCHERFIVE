@@ -12,11 +12,20 @@
 
 #ifdef VERTEX_SHADER
 
+#include "/lib/hdr.glsl"
+
 out vec2 texcoord;
+// (Look D3) the sky's horizon (away, toward the sun) and zenith in scene light, once (lib/clouds/shade.glsl wcDomeScene)
+flat out vec3 wcSkyHorAwayS;
+flat out vec3 wcSkyHorSunS;
+flat out vec3 wcSkyZenS;
 
 void main() {
 	gl_Position = ftransform();
 	texcoord = gl_MultiTexCoord0.xy;
+	wcSkyHorAwayS = sceneFromAuthored(skyHorizon(false));
+	wcSkyHorSunS = sceneFromAuthored(skyHorizon(true));
+	wcSkyZenS = sceneFromAuthored(skyZenith());
 }
 
 #endif
@@ -26,6 +35,7 @@ void main() {
 #include "/lib/depth.glsl"
 // the clouds rework (2026-10-16): this pass reads the raw map's smooth fields for the light inside the clouds
 #define WC_FIELD
+#define WC_SKY_FLAT
 #include "/lib/clouds/shade.glsl"
 #include "/lib/hdr.glsl"
 

@@ -101,7 +101,7 @@
 #define WN_EDGE 1.4
 #define WN_PAINT 0.9
 #define WS_SHADE_SKY 0.35
-#define WS_DUSK_SHADE vec3(0.78, 0.74, 1.0)
+#define WS_DUSK_SHADE vec3(0.84, 0.80, 0.98) // (Look D3: less violet, was (0.78, 0.74, 1.0): in scene light it read lilac)
 #define WS_CLOSED_KEEP 0.75
 #define WS_STORM_HEART 0.32
 #define WS_STORM_CELL 0.6
@@ -161,6 +161,24 @@ int wcDeckAt(float y, CloudEnv e) {
 // The sky's own colour in direction rd: the horizon low down, the zenith overhead (a view down takes its mirror).
 vec3 wcDome(vec3 rd, CloudEnv e) {
 	return mix(wcHorizon(rd, e), skyZenith(), smoothstep(0.02, 0.7, abs(rd.y)));
+}
+
+// (Look D3) The sky's own colour in direction rd in scene light, the sky behind a cloud for its paint. The clouds pass
+// works out the horizon (away, toward the sun) and zenith in scene light once in its vertex shader (WC_SKY_FLAT: the
+// curve's inverse per pixel cost a tenth of a millisecond); elsewhere they are converted here.
+#ifdef WC_SKY_FLAT
+flat in vec3 wcSkyHorAwayS;
+flat in vec3 wcSkyHorSunS;
+flat in vec3 wcSkyZenS;
+#endif
+vec3 wcDomeScene(vec3 rd, CloudEnv e) {
+#ifdef WC_SKY_FLAT
+	float spread = max(skyTable(SKY_X_STATE_GLOW, SKY_ROW_LIGHT).a * 2.0, 0.05);
+	float toward = 1.0 - smoothstep(0.0, spread, 1.0 - dot(rd, e.sun));
+	return mix(mix(wcSkyHorAwayS, wcSkyHorSunS, toward), wcSkyZenS, smoothstep(0.02, 0.7, abs(rd.y)));
+#else
+	return sceneFromAuthored(wcDome(rd, e));
+#endif
 }
 
 // How closed the cover is, 0..1 (the sky table's overcast).
@@ -574,7 +592,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	vec3 c = wcAlbedo(tone) * light;
 	// skies (welkin-skies): the form painted (wcPaint), in place of the day's blue-grey shade; (Look D3) in scene light,
 	// laid over the light's own colour once that is in scene light (below)
-	vec3 skyS = sceneFromAuthored(wcDome(rd, e));
+	vec3 skyS = wcDomeScene(rd, e);
 	float paintW;
 	vec3 paintS = wcPaint(c, b, n, tone, rd, sunC, shadow, skyS, e, paintW);
 
