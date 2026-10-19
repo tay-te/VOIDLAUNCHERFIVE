@@ -74,6 +74,9 @@
 #define WS_NOON_SHADE vec3(0.94, 0.95, 1.0)
 #define WS_SHADE_SKY 0.35
 #define WS_DUSK_SHADE vec3(0.78, 0.74, 1.0)
+#define WS_CLOSED_KEEP 0.75
+#define WS_STORM_HEART 0.32
+#define WS_STORM_CELL 0.6
 
 float wcLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -431,6 +434,8 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 	// (gold through the golden hour, ember toward the sun at sunset, a deep rose-gold away from it)
 	vec3 goldHue = mix(mix(vec3(1.0, 0.74, 0.40), sunHue, 0.2), mix(vec3(1.0, 0.62, 0.50), vec3(1.0, 0.50, 0.24), sw), dusk);
 	vec3 litHue = mix(mix(WS_NOON_LIT, sunHue, 0.3), goldHue, warm);
+	// (under a closed cover no sun reaches the tops: their light is the overcast's cool grey)
+	litHue = mix(litHue, vec3(0.94, 0.97, 1.04), closed);
 	litHue /= max(wcLuma(litHue), 1e-4);
 	// the shade: a cool blue-grey under the warm lit tops by day (the painter's warm light, cool shade), a dusky violet
 	// through the warm hours, warmer toward a sunset sun (a backlit belly holds the low light's ember)
@@ -445,7 +450,8 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 	// a soft S over the share, so the lit and the shade each hold their colour and meet in a broad soft turn
 	float s = smoothstep(0.0, 1.0, min(lit, 1.0)) + max(lit - 1.0, 0.0);
 	vec3 paint = ySky * mix(shadeHue * heavy, litHue * mix(WS_LIT, WS_LIT_WARM, warm), s);
-	return mix(c, paint, WS_PAINT * k);
+	// (a closed overcast keeps its own light: a storm deck seen from above was painted as flat beige tops)
+	return mix(c, paint, WS_PAINT * k * (1.0 - WS_CLOSED_KEEP * closed));
 }
 
 // The cloud's colour at the body with face normal n, tone `tone`, seen along rd; `shadow` the share of the sun past
@@ -530,7 +536,8 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// streaks along every tier seen from above)
 	float baseLike = n.y < -0.5 ? 1.0 : (n.y < 0.5 ? lower * lower : 0.0);
 	if (closed > 0.0 && baseLike > 0.0) {
-		vec3 dome = wcDome(rd, e) * mix(1.04, 0.5, b.depth * lower) * (tone == 2 ? 0.78 : (tone == 1 ? 0.92 : 1.0));
+		// (skies2: heavier and more threatening: the thick parts sink further, a storm cell's belly darkest)
+		vec3 dome = wcDome(rd, e) * mix(1.0, WS_STORM_HEART, b.depth * lower) * (tone == 2 ? WS_STORM_CELL : (tone == 1 ? 0.88 : 1.0));
 		c = mix(c, mix(c, dome, 0.6), closed * baseLike);
 	}
 	if (e.flash && tone == 2) {
