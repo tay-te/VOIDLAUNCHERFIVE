@@ -42,6 +42,20 @@ vec3 gradeRgb(vec3 c) {
 	return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y);
 }
 
+// (HDR stage C) The grade's gain and split tone can lift a bright warm channel past the output transform's path to
+// white: a colour whose brightest channel passes 0.93 (display) eases back under white by giving up saturation, its
+// luminance kept, so nothing the grade does flattens at 1.
+vec3 gradeLimit(vec3 d) {
+	d = max(d, 0.0);
+	float m = max(d.r, max(d.g, d.b));
+	if (m <= 0.93) {
+		return d;
+	}
+	float y = min(gradeLuma(d), 0.99);
+	float mt = 0.93 + 0.045 * (1.0 - exp(-(m - 0.93) / 0.045));
+	return y >= mt ? vec3(y) : y + (d - y) * ((mt - y) / max(m - y, 1e-5));
+}
+
 // h: x warm (0 noon .. 1 golden), y day (1 day .. 0 night), z clear (1 clear .. ~0.1 overcast), w morning (1 before noon)
 // open: the eye's openness to the sky (0 deep in a cave .. 1 outdoors)
 vec3 welkinGrade(vec3 c, vec4 h, float open) {
@@ -197,7 +211,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 	// its own colour, so the disc stays a crisp white in its graded glow instead of melting into it
 	float wp = smoothstep(0.72, 0.97, min(d0.r, min(d0.g, d0.b)));
 	d = mix(d, d0, wp * wp);
-	return mix(c, d, k);
+	return gradeLimit(mix(c, d, k));
 }
 
 #endif

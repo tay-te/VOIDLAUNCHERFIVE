@@ -19,9 +19,9 @@
 //               0.95 and up), so the sun can stand above its sky and nothing clips
 //        colour the chroma (the colour minus its luminance) is kept, a little out overall and in the highlights
 //               (welkinTone's LAND_SATURATION and LAND_HIGHLIGHT_DESAT); the brightest light (the last few percent
-//               under white: the sun's heart) burns toward white; and a colour whose brightest channel would pass
-//               white is eased back under it by brightness, its hue and saturation kept (a flame stays orange, an
-//               amber face in the low sun amber), never clipping channel by channel
+//               under white: the sun's heart) burns toward white; and (stage C) a path to white: the chroma is
+//               compressed smoothly as the brightest channel nears the top (hdrGamut), the luminance kept, so a
+//               bright saturated colour desaturates toward white instead of flattening at 1
 //   3. the grade (lib/grade.glsl welkinGrade, display values), then 4. the anti-banding dither.
 // Nothing else in the pack tone-maps or caps the scene.
 //
@@ -70,10 +70,12 @@ uniform float sunAngle;
 // the saturation of the result and the highlights' (welkinTone's LAND_SATURATION, LAND_HIGHLIGHT_DESAT)
 #define HDR_SATURATION 0.95
 #define HDR_HIGHLIGHT_DESAT 0.3
-// where a colour's brightest channel starts to ease toward white (linear display), and how much of its colour the
-// brightest light (the last few percent under white: the sun's heart) gives up
-#define HDR_PEAK 0.85
+// how much of its colour the brightest light (the last few percent under white: the sun's heart) gives up
 #define HDR_BURN 0.8
+// the path to white: the most of the headroom over its luminance a colour's brightest channel may take, and how hard
+// the compression turns (higher: later)
+#define HDR_GAMUT_MAX 0.92
+#define HDR_GAMUT_P 4.0
 // the inverse's clamp: the curve's output never taken past this (about 28000 x mid grey's light at exposure 1)
 #define HDR_T_MAX 0.995
 
@@ -141,16 +143,18 @@ float hdrSat(float t) {
 		* (1.0 - HDR_BURN * smoothstep(0.92, 0.995, t));
 }
 
-// the colour's brightest channel past HDR_PEAK eases toward 1 with the whole colour scaled (hue and saturation kept:
-// a flame stays orange, an amber face in the low sun stays amber), never past white
-float hdrPeak(float m) {
-	const float K = HDR_PEAK;
-	return m <= K ? m : K + (1.0 - K) * (1.0 - exp(-(m - K) / (1.0 - K)));
+// The path to white (stage C): the chroma (the colour minus its luminance t) measured against the headroom left above
+// t, r = (brightest channel - t) / (1 - t), is compressed smoothly toward HDR_GAMUT_MAX (r / (1 + (r / M)^p)^(1/p)):
+// a mildly coloured light keeps its colour, a saturated one gives up saturation as its brightest channel nears the
+// top, and as t itself nears white the colour runs out of room and whitens. The luminance is kept, so a bright orange
+// sky keeps its gradation (no channel flattens at 1) and the sun's heart burns white. Exactly invertible.
+float hdrGamut(float r) {
+	return r / pow(1.0 + pow(r / HDR_GAMUT_MAX, HDR_GAMUT_P), 1.0 / HDR_GAMUT_P);
 }
 
-float hdrPeakInv(float m) {
-	const float K = HDR_PEAK;
-	return m <= K ? m : K - (1.0 - K) * log(max(1.0 - (min(m, 0.99999) - K) / (1.0 - K), 1e-6));
+float hdrGamutInv(float r) {
+	r = min(r, HDR_GAMUT_MAX * 0.9995);
+	return r / pow(1.0 - pow(r / HDR_GAMUT_MAX, HDR_GAMUT_P), 1.0 / HDR_GAMUT_P);
 }
 
 // The curve: exposed scene light to linear display (0..1).
@@ -161,27 +165,29 @@ vec3 hdrCurve(vec3 x) {
 		return vec3(0.0);
 	}
 	float t = hdrShoulder(hdrS(y));
-	// the luminance through the curve, the chroma kept (then a little out)
-	vec3 c = x * (t / y) - t;
-	vec3 o = max(t + c * hdrSat(t), 0.0);
-	// past white: brought back under it by brightness, the hue kept
-	float m = max(o.r, max(o.g, o.b));
-	return m > HDR_PEAK ? o * (hdrPeak(m) / m) : o;
+	// the luminance through the curve, the chroma kept (then a little out), then compressed toward white
+	vec3 c = (x * (t / y) - t) * hdrSat(t);
+	float r = max(c.r, max(c.g, c.b)) / max(1.0 - t, 1e-6);
+	if (r > 1e-5) {
+		c *= hdrGamut(r) / r;
+	}
+	return max(t + c, 0.0);
 }
 
 // The curve's inverse: linear display back to exposed scene light (clamped at HDR_T_MAX).
 vec3 hdrCurveInv(vec3 d) {
 	d = max(d, 0.0);
-	float m = max(d.r, max(d.g, d.b));
-	if (m > HDR_PEAK) {
-		d *= hdrPeakInv(m) / m;
-	}
 	float t0 = hdrLuma(d);
 	if (t0 <= 1e-9) {
 		return vec3(0.0);
 	}
 	float t = min(t0, HDR_T_MAX);
-	vec3 c = (d - t0) / hdrSat(t);
+	vec3 c = d - t0;
+	float r = max(c.r, max(c.g, c.b)) / max(1.0 - t, 1e-6);
+	if (r > 1e-5) {
+		c *= hdrGamutInv(r) / r;
+	}
+	c /= hdrSat(t);
 	float y = hdrSInv(hdrShoulderInv(t));
 	return max((t + c) * (y / t), 0.0);
 }
