@@ -49,11 +49,11 @@ void main() {
 #if SHAFT_DEBUG == 6
 			r = textureLod(RAY_SRC, texcoord, 0.0).rgb; // the source itself
 #elif RAY_PASS == 1
-			r = rayBlurLog(RAY_SRC, texcoord, raySun.xy, RAY_LOG_STEP1);
+			r = rayBlurLog(RAY_SRC, texcoord, raySun.xy, RAY_LOG_STEP1, false);
 #elif RAY_PASS == 2
-			r = rayBlurLog(RAY_SRC, texcoord, raySun.xy, RAY_LOG_STEP2);
+			r = rayBlurLog(RAY_SRC, texcoord, raySun.xy, RAY_LOG_STEP2, false);
 #else
-			r = rayBlurLog(RAY_SRC, texcoord, raySun.xy, RAY_LOG_STEP3);
+			r = rayBlurLog(RAY_SRC, texcoord, raySun.xy, RAY_LOG_STEP3, true);
 #endif
 #if RAY_PASS == 3
 			float far = length((raySun.xy - texcoord) * vec2(viewWidth / viewHeight, 1.0));

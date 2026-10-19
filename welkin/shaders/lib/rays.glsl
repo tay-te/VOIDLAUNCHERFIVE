@@ -28,7 +28,7 @@
 #define RAY_SRC_CAP 6.0
 // final: the strength of the beams' in-scattered light, the air in front that holds them (blocks), the floor of it
 // near the eye (beams under a crown), and their share over the open sky (the dome already glows there)
-#define RAY_GAIN 10.0
+#define RAY_GAIN 13.0
 #define RAY_AIR 90.0
 #define RAY_NEAR_FLOOR 0.3
 #define RAY_SKY 0.32
@@ -79,8 +79,14 @@ vec3 rayBlur(sampler2D src, vec2 uv, vec2 sunUV, float frac) {
 //   mean, the sun's own disc does not dominate.
 #define RAY_LOG_SPAN 5.6   // the three passes' reach in log distance: the line runs to exp(-5.6) = 1/270 of the way
 #define RAY_LOG_OVERLAP 2.0 // each pass's span over the next pass's step
-#define RAY_WEIGHT_POW 1.0
-vec3 rayBlurLog(sampler2D src, vec2 uv, vec2 sunUV, float step) {
+#define RAY_WEIGHT_POW 0.8
+// `hollow`: the coarse pass leaves out the stretch nearest the sun, softly (its taps' weight fades from RAY_HOLLOW_OUT
+// of the way down to RAY_HOLLOW_IN): the sun's own disc and aureole, the same in every direction, do not wash each line
+// (a beam is a gap's light against its dark neighbours), and a gap's beam fades out gently at some ten times its
+// distance from the sun.
+#define RAY_HOLLOW_IN 0.02
+#define RAY_HOLLOW_OUT 0.15
+vec3 rayBlurLog(sampler2D src, vec2 uv, vec2 sunUV, float step, bool hollow) {
 	vec2 v = uv - sunUV;
 	float f = 1.0;
 	float w = 1.0;
@@ -89,7 +95,8 @@ vec3 rayBlurLog(sampler2D src, vec2 uv, vec2 sunUV, float step) {
 	vec3 s = vec3(0.0);
 	float ws = 0.0;
 	for (int j = 0; j < RAY_TAPS; j++) {
-		s += w * textureLod(src, sunUV + v * f, 0.0).rgb;
+		float h = hollow ? smoothstep(RAY_HOLLOW_IN, RAY_HOLLOW_OUT, f) : 1.0;
+		s += w * h * textureLod(src, sunUV + v * f, 0.0).rgb;
 		ws += w;
 		f *= q;
 		w *= qw;
@@ -112,10 +119,15 @@ vec3 rayBlurLog(sampler2D src, vec2 uv, vec2 sunUV, float step) {
 // keeps its edges as soft beams and a little glow.
 #define RAY_HP_RING 4
 #define RAY_HP_STEP 0.105 // radians a ring step (6 degrees): the kernel reaches 24 degrees either way
-#define RAY_HP 1.0        // how much of the shared (flat) part is taken off
+// how much of the shared (flat) part is taken off: over the near land (to RAY_HP_START blocks), past RAY_HP_END, the sky
+#define RAY_HP_NEAR 1.0
+#define RAY_HP_FAR 0.0
+#define RAY_HP_SKY 0.0
+#define RAY_HP_START 24.0
+#define RAY_HP_END 120.0
 #define RAY_FLAT_KEEP 0.12 // what is kept of it (a faint glow in the beams' colour)
 
-vec3 rayStructure(sampler2D tex, vec2 uv, vec2 sunUV, float aspect, vec3 r0) {
+vec3 rayStructure(sampler2D tex, vec2 uv, vec2 sunUV, float aspect, vec3 r0, float hp) {
 	const vec3 W = vec3(0.2126, 0.7152, 0.0722);
 	float y0 = dot(r0, W);
 	if (y0 < 1e-6) return vec3(0.0);
@@ -141,7 +153,7 @@ vec3 rayStructure(sampler2D tex, vec2 uv, vec2 sunUV, float aspect, vec3 r0) {
 	}
 	float flatY = sum / wsum;
 	float sharedY = min(y0, flatY);
-	float keep = max(y0 - RAY_HP * flatY, 0.0) + RAY_FLAT_KEEP * sharedY;
+	float keep = mix(y0, max(y0 - flatY, 0.0) + RAY_FLAT_KEEP * sharedY, hp);
 	return r0 * (keep / y0);
 }
 

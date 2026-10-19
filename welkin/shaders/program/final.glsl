@@ -209,10 +209,9 @@ void main() {
 		// by how much air lies in front (a floor near the eye, so the beams under a crown keep the near air they live
 		// in), a share over the open sky
 		vec3 rays = texture(colortex13, texcoord).rgb;
-		// (Look D2) only the structure: a large gap's solid fan is the glow the aureole and bloom already draw
-		rays = rayStructure(colortex13, texcoord, finalRaySun.xy, viewWidth / viewHeight, rays);
 		float dR = texelFetch(depthtex0, p, 0).r;
 		float air;
+		float hp; // (Look D2) how much of the shared, unbroken part is taken off
 		if (dR < 1.0) {
 			vec4 vp = gbufferProjectionInverse * vec4(texcoord * 2.0 - 1.0, dR * 2.0 - 1.0, 1.0);
 			float dist = length(vp.xyz / vp.w);
@@ -221,13 +220,20 @@ void main() {
 			// (lib/air.glsl, the haze volume), already there: laid on again it read as a veil over the water toward a
 			// low sun. Past RAY_FAR_START the beams thin to RAY_FAR_SHARE; the near beams (crowns, houses) keep it all
 			air *= mix(1.0, RAY_FAR_SHARE, smoothstep(RAY_FAR_START, RAY_FAR_END, dist));
+			hp = mix(RAY_HP_NEAR, RAY_HP_FAR, smoothstep(RAY_HP_START, RAY_HP_END, dist));
 		} else {
 #ifdef DISTANT_HORIZONS
-			air = texelFetch(dhDepthTex0, p, 0).r < 1.0 ? 1.0 : RAY_SKY;
+			bool dhLand = texelFetch(dhDepthTex0, p, 0).r < 1.0;
+			air = dhLand ? 1.0 : RAY_SKY;
+			hp = dhLand ? RAY_HP_FAR : RAY_HP_SKY;
 #else
 			air = RAY_SKY;
+			hp = RAY_HP_SKY;
 #endif
 		}
+		// (Look D2) over the near land only the structure: a large gap's solid fan there read as a sheet painted over the
+		// leaves; over the far land and the sky a broad beam is the air's own glow and mostly stays
+		rays = rayStructure(colortex13, texcoord, finalRaySun.xy, viewWidth / viewHeight, rays, hp);
 		sc += rays * (RAY_GAIN * air / expo);
 #if SHAFT_DEBUG == 5 || SHAFT_DEBUG == 6
 		outColor = vec4(toDisplay(clamp(rays * 4.0, 0.0, 1.0)), 1.0); // the shafts' blurred light, x4
