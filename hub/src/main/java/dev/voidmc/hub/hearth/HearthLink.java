@@ -205,7 +205,7 @@ public final class HearthLink {
 		Object r = null;
 		try {
 			r = switch (op) {
-				case "choose", "train", "close", "accept", "handIn", "track", "abandon", "confront", "setConversationStyle" ->
+				case "choose", "train", "close", "accept", "handIn", "track", "trackPoster", "abandon", "confront", "setConversationStyle" ->
 					invoke(action(op, String.class), arg);
 				case "trade", "haggle" -> invoke(action(op, int.class, boolean.class), Integer.parseInt(p[0]), "1".equals(p[1]));
 				case "haggleOffer", "deposit", "withdraw" -> invoke(action(op, long.class), Long.parseLong(arg));
@@ -214,7 +214,7 @@ public final class HearthLink {
 				case "fund" -> invoke(action(op, int.class, long.class), Integer.parseInt(p[0]), Long.parseLong(p[1]));
 				case "diceLoaded" -> invoke(action(op, boolean.class), "1".equals(arg));
 				case "haggleAccept", "haggleCancel", "refreshBoard", "stopLifting", "slipAway", "stopPicking", "diceRoll", "diceBank", "dicePass",
-					"diceAgain", "requestReputation" -> invoke(action(op));
+					"diceAgain", "requestReputation", "untrackPoster" -> invoke(action(op));
 				default -> null;
 			};
 		} catch (RuntimeException e) {

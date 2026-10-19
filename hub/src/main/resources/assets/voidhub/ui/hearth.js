@@ -9,6 +9,9 @@
 // Page -> Java: {type: "hearth", op, arg} (Bridge.HEARTH_OPS), {type: "hearthUi", modal, text} and
 // {type: "hearthFx", items, stacks} (the rects the minigames' native parts are drawn in, and item wells).
 // Everything is drawn from the state Java sends; a part is rewritten only when what it shows changed, nothing animates.
+// OVERLAY.md 2026-10-19 (hearth-ui2): portraits for every resident-backed screen (market.merchant, dice.opponent,
+// pickpocket), haggle.takes / takesLast ("he takes it" odds), bank.ledger (LATELY), board.wanted[].player / tracked and
+// state.wantedTrack (a tracked poster: trackPoster / untrackPoster), and training's fee in the option's cost.
 (function () {
   "use strict";
 
@@ -228,7 +231,7 @@
     var dot = "", text = "";
     var kindName = o.kind ? o.kind.charAt(0).toUpperCase() + o.kind.slice(1) : "";
     if (o.kind === "train" && o.skill) {
-      text = "Train " + o.skill.name + " " + o.skill.level + " → " + (o.skill.level + 1) + (o.cost ? "  ·  " + coinText(o.cost) : "") + "  ·  Mettle";
+      text = "Train " + o.skill.name + " " + o.skill.level + " → " + (o.skill.level + 1) + (o.cost && o.cost.total > 0 ? "  ·  " + coinText(o.cost) : "") + "  ·  Mettle";
       dot = "violet";
     } else if (o.odds >= 0) {
       text = (o.kind === "bribe" && o.cost ? "Bribe " + coinText(o.cost) : kindName + (o.skill ? "  ·  " + o.skill.name : "")) + "  ·  " + o.odds + "%";
@@ -449,7 +452,8 @@
       if (mr) {
         var traits = [];
         for (var i = 0; i < (mr.traits || []).length && i < 2; i++) traits.push(String(mr.traits[i].name).toLowerCase());
-        h += '<div class="h-well" style="left:16px;top:16px;width:52px;height:52px;border-radius:12px">' + face(mr, 48, "left:1px;top:1px") + "</div>" +
+        h += '<div class="h-well" style="left:16px;top:16px;width:52px;height:52px;border-radius:12px">' +
+          (mr.portrait ? face(mr, 48, "left:1px;top:1px") : '<span style="left:10px;top:10px">' + glyph("trade", 32, "#626569") + "</span>") + "</div>" +
           '<div style="left:80px;top:18px;font-size:15px;color:#EDEEEF;white-space:nowrap">' + esc(mr.name) + "</div>" +
           '<div style="left:80px;top:38px;font-size:11px;color:#9A9DA1;white-space:pre">' + esc(mr.job + (traits.length ? "  ·  " + traits.join(", ") : "")) + "</div>" +
           '<div class="h-pill ink" style="right:16px;top:20px"><div class="h-dot ' + (mr.mood > 20 ? "good" : mr.mood < -20 ? "bad" : "wary") + '"></div><span>Mood · ' + esc(mr.moodWord) + "</span></div>";
@@ -490,6 +494,19 @@
     });
   }
 
+  /**
+   * The odds he takes an offer (OVERLAY.md haggle.takes): 100 at his word or better, else the point at or below the
+   * offer (the points run from the far end of his possible limit up to his word, ascending by bits); -1 without points.
+   */
+  function takesAt(g, offer) {
+    if (!g.takes || !g.takes.length) return -1;
+    if (g.playerBuys ? offer >= g.word.total : offer <= g.word.total) return 100;
+    if (g.takesLast >= 0 && g.offer && offer === g.offer.total) return g.takesLast;
+    var odds = -1;
+    for (var i = 0; i < g.takes.length; i++) if (g.takes[i].bits <= offer) odds = g.takes[i].odds;
+    return odds >= 0 ? odds : g.playerBuys ? 0 : g.takes[0].odds;
+  }
+
   function haggle(m) {
     var g = m.haggle;
     var h = '<div class="h-panel h-hag"><div class="h-glow gold" style="left:190px;top:-110px;width:260px;height:260px"></div>';
@@ -505,6 +522,12 @@
     var big = band ? (offer >= band.low.total ? "In band" : "Low") : "?";
     var bigTone = band ? (offer >= band.low.total ? "good" : "wary") : "ink2";
     var bigNote = band ? (inBand ? "inside his limit" : offer > band.high.total ? "more than he needs" : "below his limit") : "Speech " + g.bandSpeech + " reads his limit";
+    var odds = takesAt(g, offer);
+    if (odds >= 0) {
+      big = odds + " %";
+      bigTone = oddsTone(odds);
+      bigNote = "he takes it";
+    }
     // The track: twenty cells from well under his limit to the posted price; his band, his word and your offer on it.
     var lo = Math.min(offer, g.word.total, band ? band.low.total : g.word.total) * 0.85;
     var hi = Math.max(g.list.total, g.word.total, offer) * 1.02;
@@ -557,7 +580,7 @@
       for (var i = 0; i < tabs.length; i++) h += '<div class="h-seg' + (tabs[i][0] === tab ? " on" : "") + '" data-ui="btab:' + tabs[i][0] + '">' + tabs[i][1] + (tabs[i][2] !== "" ? ' <span class="n">' + tabs[i][2] + "</span>" : "") + "</div>";
       return h + '</div><div style="right:28px;top:29px;font-size:12px;color:#9A9DA1;white-space:nowrap">' + esc((b.hasBank ? "Bank of " : "Town hall of ") + b.town) + "</div>";
     });
-    part(w, "hk-left", JSON.stringify([tab, b.deposit, b.carried, b.emeralds, b.status, ui.amount, b.projects, b.contracts, b.treasury]), function () {
+    part(w, "hk-left", JSON.stringify([tab, b.deposit, b.carried, b.emeralds, b.status, ui.amount, b.projects, b.contracts, b.treasury, b.ledger]), function () {
       var h = '<div class="h-panel h-acct">';
       if (tab === "changer") {
         h += '<div class="h-eb" style="left:15px;top:15px">THE MONEY CHANGER</div>' +
@@ -607,8 +630,7 @@
           '<div class="h-pill' + (ui.amount === -1 ? " on" : "") + '" data-ui="amt:all">All</div><div class="h-pill" data-ui="amt:clear">Clear</div></div>' +
           '<div class="h-btn primary" data-ui="deposit" style="left:15px;top:369px;width:200px">Deposit</div>' +
           '<div class="h-btn" data-ui="withdraw" style="left:223px;top:369px;width:200px">Withdraw</div>' +
-          '<div class="h-eb" style="left:15px;top:419px">LATELY</div>' +
-          '<div style="left:15px;top:435px;width:408px;font-size:11px;color:#9A9DA1;white-space:nowrap;overflow:hidden">' + esc(b.status || "Nothing yet this visit.") + "</div>";
+          '<div class="h-eb" style="left:15px;top:419px">LATELY</div>' + lately(b);
       }
       return h + "</div>";
     });
@@ -639,6 +661,19 @@
     part(w, "hk-foot", "f", function () { return foot("YOUR COIN IS ONE ACCOUNT IN EVERY TOWN  ·  PROPERTY IS PER TOWN", "bank"); });
   }
 
+  /** The bank's LATELY lines (Figma 3_bank): the ledger's newest two, "Day 33 · Deposited 2 crowns at Kestrel Ford". */
+  function lately(b) {
+    var led = b.ledger || [];
+    if (!led.length) return '<div style="left:15px;top:435px;width:408px;font-size:11px;color:#9A9DA1;white-space:nowrap;overflow:hidden">' + esc(b.status || "Nothing yet this visit.") + "</div>";
+    var h = "";
+    for (var i = 0; i < led.length && i < 2; i++) {
+      var l = led[i];
+      h += '<div class="flow" style="left:15px;top:' + (435 + i * 18) + 'px;width:408px;font-size:11px;color:#9A9DA1;white-space:nowrap;overflow:hidden">' +
+        '<span style="color:#626569">Day ' + (l.day + 1) + "  ·  </span>" + esc(l.text + (l.town ? " at " + l.town : "")) + "</div>";
+    }
+    return h;
+  }
+
   // ---- dice (662:42287): the six dice are Java's (the board rect), the rest is the page ---------------------------------------
   var RULES = "<b>Scoring</b><br>A single 1 is 100, a single 5 is 50. Three of a kind is the face × 100 (three 1s: 1,000). Pick scoring dice to set them aside, then roll the rest or bank the turn. No scoring dice in a roll: bust, the turn is lost.";
 
@@ -662,7 +697,8 @@
       var t = d.target || 4000;
       var me = Math.round(Math.min(1, d.scores.player / t) * 20), them = Math.round(Math.min(1, d.scores.folk / t) * 20);
       return '<div class="h-panel h-scores">' +
-        '<div class="h-well" style="left:15px;top:15px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center"><span style="position:relative">' + glyph("dice", 24) + "</span></div>" +
+        (d.opponent.portrait ? '<div class="h-well" style="left:15px;top:15px;width:44px;height:44px;border-radius:10px">' + face(d.opponent, 40, "left:1px;top:1px") + "</div>"
+          : '<div class="h-well" style="left:15px;top:15px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center"><span style="position:relative">' + glyph("dice", 24) + "</span></div>") +
         '<div style="left:71px;top:17px;font-size:14px;color:#EDEEEF;white-space:nowrap">' + esc(d.opponent.name) + "</div>" +
         '<div style="left:71px;top:37px;font-size:11px;color:#9A9DA1;white-space:pre">' + esc(d.opponent.temper ? "plays " + d.opponent.temper : "") + "</div>" +
         '<div class="h-hair" style="left:15px;top:73px;width:283px"></div>' +
@@ -778,9 +814,10 @@
         '<div class="h-pill ink" style="right:28px;top:24px"><div class="h-dot ' + (p.state === "caught" ? "bad" : p.asleep || st.active ? "good" : "wary") + '"></div><span>' +
         (p.state === "caught" ? "Caught" : p.asleep ? "Asleep" : st.active ? "Sneaking" : "In plain sight") + "</span></div>";
     });
-    part(w, "hp-mark", JSON.stringify([p.victim, p.asleep, p.state, p.taken]), function () {
+    part(w, "hp-mark", JSON.stringify([p.victim, p.asleep, p.state, p.taken, p.portraitKey, !!p.portrait]), function () {
       return '<div class="h-panel h-lockinfo">' +
-        '<div class="h-well" style="left:15px;top:15px;width:268px;height:150px;border-radius:14px"><span style="left:102px;top:43px">' + glyph(p.asleep ? "eye" : "hand", 64, "#626569") + "</span></div>" +
+        '<div class="h-well" style="left:15px;top:15px;width:268px;height:150px;border-radius:14px">' +
+        (p.portrait ? face(p, 144, "left:61px;top:5px") : '<span style="left:102px;top:43px">' + glyph(p.asleep ? "eye" : "hand", 64, "#626569") + "</span>") + "</div>" +
         '<div style="left:15px;top:179px;font-size:18px;color:#EDEEEF;white-space:nowrap">' + esc(p.victim) + "</div>" +
         '<div style="left:15px;top:205px;font-size:11.5px;color:#9A9DA1;white-space:pre">' + (p.asleep ? "Asleep" : "Awake") + "</div>" +
         '<div class="h-pill ink" style="left:15px;top:229px"><div class="h-dot ' + (p.state === "caught" ? "bad" : p.asleep ? "good" : "wary") + '"></div><span>' +
@@ -864,17 +901,22 @@
     var sel = null;
     for (var i = 0; i < list.length; i++) if (list[i].id === ui.quest) sel = list[i];
     if (!sel && list.length) { sel = list[0]; ui.quest = sel.id; }
-    part(w, "hq-body", JSON.stringify(["j", list, j.finished, ui.quest, ui.pop, ui.scroll]), function () {
+    var wt = H.wantedTrack || null;
+    part(w, "hq-body", JSON.stringify(["j", list, j.finished, ui.quest, ui.pop, ui.scroll, wt]), function () {
       var tracked = [], under = [], ready = [];
       for (var i = 0; i < list.length; i++) {
         var q = list[i];
         if (q.tracked) tracked.push(q); else if (q.state === "ready") ready.push(q); else under.push(q);
       }
       var h = '<div class="h-qlist">', y = 0;
-      function section(name, qs) {
-        if (!qs.length) return;
+      function section(name, qs, lead) {
+        if (!qs.length && !lead) return;
         h += '<div class="h-eb" style="left:4px;top:' + y + 'px">' + name + "</div>";
         y += 16;
+        if (lead) {
+          h += lead(y);
+          y += 84;
+        }
         for (var k = 0; k < qs.length; k++) {
           var q = qs[k];
           var obj = null;
@@ -894,10 +936,11 @@
         }
         y += 4;
       }
-      section("TRACKED", tracked);
+      // A tracked wanted poster leads the TRACKED list (one thing is tracked at a time, so usually alone).
+      section("TRACKED", tracked, wt ? function (at) { return wantedRow(wt, at); } : null);
       section("UNDER WAY", under);
       section("READY TO HAND IN", ready);
-      if (!list.length) h += '<div class="h-empty" style="top:200px">No quests under way. Notice boards in every town have work.</div>';
+      if (!list.length && !wt) h += '<div class="h-empty" style="top:200px">No quests under way. Notice boards in every town have work.</div>';
       var f = j.finished;
       if (f.total > 0 && y < 380) {
         var good = f.completed;
@@ -982,7 +1025,7 @@
             '<div class="h-hair" style="left:16px;top:118px;width:269px"></div>' +
             '<div class="bad" style="right:16px;top:128px;font-size:10.5px">bounty</div><div style="right:16px;top:144px;font-size:10.5px;color:#9A9DA1">posted by the guard</div>' +
             '<div style="left:16px;top:130px;font-size:15px;color:#EDEEEF">' + esc(wv.owed) + "</div>" +
-            '<div class="h-btn off" style="left:16px;top:168px;width:269px">Read only  ·  tracking soon</div></div>';
+            posterButton(wv) + "</div>";
           continue;
         }
         var post = e.p, q = post.quest;
@@ -1007,6 +1050,34 @@
     part(w, "hq-foot", JSON.stringify(["b", !!b]), function () {
       return foot(b ? "CLICK TAKE IT TO PUT A POST IN YOUR JOURNAL AND ON THE HUD" : "A BOARD OPENS HERE WHEN YOU READ ONE", "board");
     });
+  }
+
+  /**
+   * A wanted poster's button (Figma 2_notice_board "Track him"): tracks its quarry (trackPoster; one thing tracked at a
+   * time, followed on Atlas); tracked, it lets go (untrackPoster). An older server sends no quarry: read only.
+   */
+  function posterButton(wv) {
+    var who = first(wv.name);
+    if (!wv.player) return '<div class="h-btn off" style="left:16px;top:168px;width:269px">Read only</div>';
+    if (wv.tracked) return '<div class="h-btn primary" data-op="untrackPoster" style="left:16px;top:168px;width:269px">Tracking ' + esc(who) + "  ·  let go</div>";
+    return '<div class="h-btn" data-op="trackPoster" data-arg="' + esc(wv.player) + '" style="left:16px;top:168px;width:269px">Track ' + esc(who) + "</div>";
+  }
+
+  /** The tracked wanted poster in the journal's TRACKED list (state.wantedTrack), followed like a quest. */
+  function wantedRow(t, y) {
+    var where = !t.online ? "not on the roads now" : t.distance >= 0 ? Math.round(t.distance) + " m" + (t.bearing != null ? "  ·  " + compass(t.bearing) : "") : "somewhere else";
+    return '<div class="h-q wanted" style="top:' + y + 'px">' +
+      '<div class="h-well gw">' + glyph("fight", 32, "#C2645A") + "</div>" +
+      '<div class="h-eb e bad">' + esc((t.outlaw ? "OUTLAW" : "WANTED") + "  ·  " + upper(t.town)) + "</div>" +
+      '<div class="t">' + esc(t.name + (t.crime ? ", for " + String(t.crime).toLowerCase() : "")) + "</div>" +
+      '<div class="p">' + esc("Owes " + coinText(t.owed) + "  ·  " + where) + "</div>" +
+      '<div class="h-pill ink" data-op="untrackPoster"><div class="h-dot bad"></div><span>Tracked  ·  let go</span></div></div>';
+  }
+
+  /** A bearing (degrees from where the player looks, clockwise) as words. */
+  function compass(b) {
+    var a = Math.abs(b);
+    return a <= 20 ? "ahead" : a >= 160 ? "behind you" : (b > 0 ? "to your right" : "to your left");
   }
 
   var LADDER = [["outlaw", "Outlaw"], ["distrusted", "Distrusted"], ["stranger", "Stranger"], ["known", "Known"], ["friend", "Friend"], ["burgher", "Burgher"], ["hero", "Hero"]];

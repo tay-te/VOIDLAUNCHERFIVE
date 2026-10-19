@@ -61,6 +61,7 @@ public final class HearthTest {
 		this.boardJournal();
 		this.dice();
 		this.reputation();
+		this.reload();
 
 		dev.voidmc.hub.VoidHub.LOGGER.info("HEARTH shots: {}", this.shots);
 		for (String g : this.gaps) {
@@ -113,6 +114,17 @@ public final class HearthTest {
 				this.ui.clickPage("[data-ui=\"nudge:-10%\"]");
 				this.settle(4);
 				this.both("market_haggle");
+				String odds = this.js("(function(){var e=document.querySelector('.h-hag');return e?e.textContent:''})()");
+				this.log("haggle panel: " + odds);
+				boolean takes = this.context.computeOnClient(mc -> {
+					var m = HearthSync.section("market");
+					return m != null && m.has("haggle") && m.get("haggle").isJsonObject() && m.getAsJsonObject("haggle").has("takes");
+				});
+				this.expect(!takes || odds.contains("% he takes it") || odds.contains(" %he takes it"), "haggling shows Hearth's \"he takes it\" odds (haggle.takes)");
+				this.expect(this.context.computeOnClient(mc -> {
+					var m = HearthSync.section("market");
+					return m == null || m.get("merchant") == null || !m.get("merchant").isJsonObject() || m.getAsJsonObject("merchant").get("portrait").isJsonPrimitive();
+				}), "the market's merchant has a portrait (market.merchant.portrait)");
 				this.expect(this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubEventScreen s && s.pageModal()), "haggling holds Esc (the page is modal)");
 				this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
 				this.settle(10);
@@ -144,6 +156,14 @@ public final class HearthTest {
 			this.ui.clickPage("[data-ui=\"deposit\"]");
 			this.settle(10);
 			this.log("bank deposit: " + this.lastAct());
+			int lines = this.context.computeOnClient(mc -> {
+				var b = HearthSync.section("bank");
+				return b == null || !b.has("ledger") ? -1 : b.getAsJsonArray("ledger").size();
+			});
+			String lately = this.js("(function(){var e=document.querySelectorAll('#hk-left .flow');var o=[];for(var i=0;i<e.length;i++)if(/^Day /.test(e[i].textContent))o.push(e[i].textContent);return o.join(' | ')})()");
+			this.log("bank ledger lines " + lines + ", LATELY: " + lately);
+			this.expect(lines < 0 || (lines > 0 && lately.startsWith("Day ")), "the deposit is a ledger line under LATELY (bank.ledger)");
+			this.both("bank_ledger");
 		}
 		this.close();
 	}
@@ -172,6 +192,7 @@ public final class HearthTest {
 		this.both("talk_A");
 		this.idleAndHover("talk", ".h-opt");
 		this.log("talk options: " + this.js("JSON.stringify((function(){var o=[];var t=document.querySelectorAll('.h-opt');for(var i=0;i<t.length;i++)o.push(t[i].textContent);return o;})())"));
+		this.trainingChip();
 		// B, the cinematic bar: the per-player toggle on the card.
 		this.ui.clickPage("[data-arg=\"cinematic\"]");
 		this.settle(15);
@@ -266,6 +287,7 @@ public final class HearthTest {
 					this.settle(20);
 					this.log("board take: " + this.lastAct() + " sent " + HearthLink.lastSent);
 				}
+				this.posters();
 				this.close();
 			} else {
 				this.gaps.add("board: right-clicking the board opened no Quests page");
@@ -281,6 +303,7 @@ public final class HearthTest {
 		this.settle(20);
 		this.both("journal");
 		this.idleAndHover("journal", ".h-q");
+		this.wantedInJournal();
 		this.ui.clickPage("[data-ui=\"seg:finished\"]");
 		this.settle(5);
 		this.shot("finished", 3);
@@ -329,6 +352,211 @@ public final class HearthTest {
 		}
 		this.settle(20);
 		this.both("reputation");
+		this.close();
+	}
+
+	// ---- wanted posters (OVERLAY.md 2026-10-19: board.wanted[].player / tracked, state.wantedTrack) ----------------------
+
+	/**
+	 * Mettle's inline training (OVERLAY.md 2026-10-19: the lesson's fee in {@code cost}): the chip says the fee. The test
+	 * world's innkeeper teaches nothing, so the page is shown his options with one lesson added (Figma 653:37976, row 8).
+	 */
+	private void trainingChip() {
+		this.injectHearth(s -> {
+			var t = s.getAsJsonObject("talk");
+			if (t == null) {
+				return;
+			}
+			var opts = t.getAsJsonArray("options");
+			com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+			o.addProperty("key", 8);
+			o.addProperty("id", "mettle:train/speech");
+			o.addProperty("label", "Teach me to talk folk round, the way you do.");
+			o.addProperty("hint", "");
+			o.addProperty("tooltip", "");
+			o.addProperty("kind", "train");
+			o.addProperty("odds", -1);
+			com.google.gson.JsonObject cost = new com.google.gson.JsonObject();
+			cost.addProperty("total", 40);
+			cost.addProperty("crowns", 0);
+			cost.addProperty("marks", 4);
+			cost.addProperty("bits", 0);
+			cost.addProperty("text", "4 marks");
+			o.add("cost", cost);
+			com.google.gson.JsonObject skill = new com.google.gson.JsonObject();
+			skill.addProperty("id", "mettle:speech");
+			skill.addProperty("name", "Speech");
+			skill.addProperty("level", 6);
+			o.add("skill", skill);
+			o.addProperty("locked", false);
+			o.add("lockedReason", com.google.gson.JsonNull.INSTANCE);
+			com.google.gson.JsonArray next = new com.google.gson.JsonArray();
+			for (int i = 0; i < opts.size(); i++) {
+				if (i == 7) {
+					next.add(o);
+				}
+				next.add(opts.get(i));
+			}
+			t.add("options", next);
+		});
+		this.settle(4);
+		String chip = this.js("(function(){var e=document.querySelector('.h-opt[data-kind=\"train\"] .h-mchip');return e?e.textContent:''})()");
+		this.log("training chip: " + chip);
+		this.expect(chip.contains("Train Speech 6 → 7") && chip.contains("4 marks") && chip.contains("Mettle"), "a lesson's chip shows its fee (option cost): " + chip);
+		this.both("talk_A_training");
+		this.restoreHearth();
+	}
+
+	/** A quarry the test world cannot have (one player, and the server never lets you track yourself). */
+	private static final String QUARRY = "5eedf00d-1234-4bcd-9ef0-123456789abc";
+
+	/**
+	 * The page is shown the state a poster's quarry would make (Hearth's tree with one wanted poster added, then tracked),
+	 * because a one-player world has nobody to want: Track sends trackPoster(uuid) through the bridge (the server refuses
+	 * it: no such warrant), and the tracked look is photographed. Hearth's own state comes back after (HearthSync.reset).
+	 */
+	private void posters() {
+		this.injectHearth(s -> {
+			var b = s.getAsJsonObject("board");
+			if (b == null) {
+				return;
+			}
+			b.getAsJsonArray("wanted").add(wanted(false));
+		});
+		this.settle(4);
+		if (!this.has("[data-op=\"trackPoster\"]")) {
+			this.gaps.add("board: a wanted poster with a quarry showed no Track button");
+			this.restoreHearth();
+			return;
+		}
+		this.ui.clickPage("[data-op=\"trackPoster\"]");
+		this.settle(5);
+		this.log("poster track: " + this.lastAct() + " sent " + HearthLink.lastSent);
+		// Hearth's own client rule refuses a quarry its open board does not list (this one is the page's alone): the call
+		// reaching HearthActions is what the page and the bridge own.
+		this.expect(("trackPoster " + QUARRY).equals(this.lastAct()), "Track on a wanted poster calls Hearth's trackPoster(quarry)");
+		this.injectHearth(s -> {
+			var b = s.getAsJsonObject("board");
+			if (b != null) {
+				b.getAsJsonArray("wanted").add(wanted(true));
+			}
+			s.add("wantedTrack", track());
+		});
+		this.settle(4);
+		this.expect(this.has("[data-op=\"untrackPoster\"]"), "a tracked poster offers to let go (untrackPoster)");
+		this.both("board_poster_tracked");
+		this.ui.clickPage("[data-op=\"untrackPoster\"]");
+		this.settle(5);
+		this.log("poster let go: " + this.lastAct() + " sent " + HearthLink.lastSent);
+		this.expect("untrackPoster ".equals(this.lastAct()), "letting go calls Hearth's untrackPoster()");
+		this.restoreHearth();
+	}
+
+	/** The journal with a tracked poster (state.wantedTrack): it leads the TRACKED list. */
+	private void wantedInJournal() {
+		this.injectHearth(s -> s.add("wantedTrack", track()));
+		this.settle(4);
+		this.expect(this.has(".h-q.wanted"), "a tracked wanted poster shows in the journal's TRACKED list");
+		this.both("journal_poster_tracked");
+		this.restoreHearth();
+	}
+
+	private static com.google.gson.JsonObject wanted(boolean tracked) {
+		com.google.gson.JsonObject w = new com.google.gson.JsonObject();
+		w.addProperty("name", "Jory Flint");
+		w.addProperty("owed", "6 marks");
+		w.addProperty("outlaw", false);
+		w.addProperty("crime", "Theft");
+		w.addProperty("crimeKey", "hearth.offence.theft");
+		w.addProperty("player", QUARRY);
+		w.addProperty("tracked", tracked);
+		return w;
+	}
+
+	private static com.google.gson.JsonObject track() {
+		com.google.gson.JsonObject t = new com.google.gson.JsonObject();
+		t.addProperty("player", QUARRY);
+		t.addProperty("name", "Jory Flint");
+		com.google.gson.JsonObject owed = new com.google.gson.JsonObject();
+		owed.addProperty("total", 60);
+		owed.addProperty("crowns", 0);
+		owed.addProperty("marks", 6);
+		owed.addProperty("bits", 0);
+		owed.addProperty("text", "6 marks");
+		t.add("owed", owed);
+		t.addProperty("outlaw", false);
+		t.addProperty("crime", "Theft");
+		t.addProperty("crimeKey", "hearth.offence.theft");
+		t.addProperty("settlementId", 1);
+		t.addProperty("town", "Sandbox Temperate");
+		t.addProperty("online", true);
+		t.add("near", com.google.gson.JsonNull.INSTANCE);
+		t.addProperty("distance", 140);
+		t.addProperty("bearing", 35);
+		return t;
+	}
+
+	/** Shows the page Hearth's last state with a change (a copy; Hearth's own tree is not touched). */
+	private void injectHearth(java.util.function.Consumer<com.google.gson.JsonObject> change) {
+		this.context.runOnClient(mc -> {
+			com.google.gson.JsonObject s = HearthSync.state();
+			if (s == null) {
+				return;
+			}
+			com.google.gson.JsonObject copy = s.deepCopy();
+			change.accept(copy);
+			HubView.get().send("{\"type\":\"hearth\",\"state\":" + copy + "}");
+		});
+	}
+
+	/** Hearth's own state again (the page is told everything afresh). */
+	private void restoreHearth() {
+		this.context.runOnClient(mc -> HearthSync.reset());
+		this.settle(4);
+	}
+
+	// ---- F3+T with a Hearth screen open (the Hearth side of hubAudit's reload check) --------------------------------
+
+	private void reload() {
+		this.context.getInput().pressKey(InputConstants.KEY_J);
+		boolean journal = this.waitFor(() -> this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubInventoryScreen h && "quests".equals(h.page())), 60);
+		if (!journal) {
+			this.gaps.add("reload: J opened no Quests page");
+			return;
+		}
+		this.settle(10);
+		int epoch0 = HearthSync.iconEpoch();
+		int reloads0 = dev.voidmc.hub.screen.NativeFx.reloads;
+		int builds0 = HearthSync.builds;
+		int mettleIcons0 = Integer.parseInt(this.js("String(window.MC?Object.keys(MC.icons).length:-1)"));
+		var f = this.context.computeOnClient(mc -> mc.reloadResourcePacks());
+		for (int i = 0; i < 600 && !f.isDone(); i += 5) {
+			this.context.waitTicks(5);
+		}
+		this.settle(20);
+		this.expect(f.isDone() && !f.isCompletedExceptionally(), "the resource reload finished with the Quests page open");
+		this.expect(this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubInventoryScreen h && "quests".equals(h.page())), "F3+T keeps the Quests page open");
+		this.expect(HearthSync.iconEpoch() == epoch0 + 1, "F3+T starts Hearth's pictures again (HearthSync's icon epoch " + epoch0 + " -> " + HearthSync.iconEpoch() + ")");
+		this.expect(dev.voidmc.hub.screen.NativeFx.reloads == reloads0 + 1, "F3+T releases the native fx textures once (the fx_art listener)");
+		this.expect(HearthSync.builds > builds0, "F3+T rebuilds Hearth's state for the page (" + builds0 + " -> " + HearthSync.builds + ")");
+		int mettleIcons1 = Integer.parseInt(this.js("String(window.MC?Object.keys(MC.icons).length:-1)"));
+		this.log("reload: Mettle's page icons " + mettleIcons0 + " -> " + mettleIcons1 + ", page " + this.js("window.hubHearth.debug()"));
+		this.expect(mettleIcons1 >= mettleIcons0, "Hearth's reload keeps Mettle's icons on the page");
+		this.both("journal_after_reload");
+		// The GUI-scale cut-off on a Hearth page: at GUI scale 2 the whole window paints (hubAudit's probe).
+		this.context.runOnClient(mc -> {
+			mc.options.guiScale().set(2);
+			mc.resizeGui();
+		});
+		this.context.waitTicks(8);
+		PaintProbe.Result r = PaintProbe.run(this.context, "hearth_paint_probe_quests_gs2");
+		this.log("paint probe, Quests page at GUI scale 2 (" + r.page() + "): missing " + r.missing());
+		this.expect(r.missing().isEmpty(), "the Quests page paints the whole window at GUI scale 2 " + r.missing());
+		this.context.runOnClient(mc -> {
+			mc.options.guiScale().set(0);
+			mc.resizeGui();
+		});
+		this.context.waitTicks(4);
 		this.close();
 	}
 

@@ -116,7 +116,10 @@ final class HearthServer {
 		List<ItemStack> items = List.of(new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hearth", "copper_bit")), 12),
 			new ItemStack(BuiltInRegistries.ITEM.getValue(Identifier.fromNamespaceAndPath("hearth", "iron_mark")), 2), new ItemStack(Items.BREAD, 1),
 			new ItemStack(Items.APPLE, 3), new ItemStack(Items.PAPER, 1), new ItemStack(Items.TRIPWIRE_HOOK, 1));
-		send(server, make("dev.voidmc.hearth.law.net.LawPayloads$Pocket", 7002, "Edda Miller", false, items, 0.42F, 0.0F, -1, 0.0F, 0.0F, 0));
+		// The victim's face (OVERLAY.md 2026-10-19): a folk nearby if there is one, else a look the client composes alone.
+		Entity folk = nearestFolk(server);
+		send(server, make("dev.voidmc.hearth.law.net.LawPayloads$Pocket", 7002, "Edda Miller", false, items, 0.42F, 0.0F, -1, 0.0F, 0.0F, 0,
+			folk == null ? -1 : folk.getId(), 0x5EEDF00D1234ABCDL));
 	}
 
 	/** The notice board block the quest sandbox put up near the player, or null. */

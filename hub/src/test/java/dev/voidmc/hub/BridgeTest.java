@@ -131,14 +131,16 @@ class BridgeTest {
 		String[][] ok = {{"choose", "npc:news"}, {"choose", "mettle:train/speech"}, {"train", "mettle:speech"}, {"close", "talk"}, {"trade", "12#1"},
 			{"haggle", "3#0"}, {"haggleOffer", "190"}, {"haggleAccept", ""}, {"deposit", "-1"}, {"withdraw", "250"}, {"sellEmeralds", "1"},
 			{"buyPlot", "7"}, {"fund", "4#10"}, {"accept", "41cb1892-0888-d08d-6dfd-14c4edf1cdab"}, {"confront", ""}, {"confront", "pay"},
-			{"lift", "5"}, {"diceToggle", "3"}, {"diceLoaded", "1"}, {"requestReputation", ""}, {"setConversationStyle", "cinematic"}};
+			{"lift", "5"}, {"diceToggle", "3"}, {"diceLoaded", "1"}, {"requestReputation", ""}, {"setConversationStyle", "cinematic"},
+			{"trackPoster", "5eedf00d-1234-4bcd-9ef0-123456789abc"}, {"untrackPoster", ""}};
 		for (String[] c : ok) {
 			assertEquals(new Bridge.HearthCall(c[0], c[1]), Bridge.decode(Json.object().put("type", "hearth").put("op", c[0]).put("arg", c[1]).end()), c[0]);
 		}
 		// A number where a string is expected is read as its whole value.
 		assertEquals(new Bridge.HearthCall("lift", "2"), Bridge.decode("{\"type\":\"hearth\",\"op\":\"lift\",\"arg\":2}"));
 		String[][] bad = {{"choose", ""}, {"choose", "npc news"}, {"close", "inventory"}, {"trade", "12"}, {"haggleOffer", "-5"}, {"deposit", "1.5"},
-			{"sellEmeralds", "0"}, {"accept", "not-a-uuid"}, {"diceToggle", "6"}, {"setConversationStyle", "ledger"}, {"pay", "1"}, {"lift", "1.5"}};
+			{"sellEmeralds", "0"}, {"accept", "not-a-uuid"}, {"diceToggle", "6"}, {"setConversationStyle", "ledger"}, {"pay", "1"}, {"lift", "1.5"},
+			{"trackPoster", ""}, {"trackPoster", "Jory Flint"}, {"untrackPoster", "x"}};
 		for (String[] c : bad) {
 			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(Json.object().put("type", "hearth").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
 		}

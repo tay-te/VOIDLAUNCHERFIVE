@@ -265,6 +265,8 @@ public final class Bridge {
 		op("handIn", UUID),
 		op("refreshBoard", ""),
 		op("track", UUID),
+		op("trackPoster", UUID),
+		op("untrackPoster", ""),
 		op("abandon", UUID),
 		op("confront", "(?:" + OPTION + ")?"),
 		op("lift", "\\d{1,2}"),

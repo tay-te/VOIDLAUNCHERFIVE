@@ -259,10 +259,8 @@ public class HubEventScreen extends Screen {
 		if ("lockpick".equals(this.name) && event.button() == InputConstants.MOUSE_BUTTON_LEFT && this.fx.onLock(x, y)) {
 			Screen ns = HearthLink.nativeScreen();
 			if (ns != null) {
-				// Hold to turn. Hearth's screen (hearth-ui 7b167cc3) tests button 0, GLFW's left, where 26.x sends SDL's 1:
-				// it gets both, so the turn works whichever it reads.
+				// Hold to turn: Hearth's screen reads 26.x's buttons (InputConstants.MOUSE_BUTTON_LEFT) since hearth-ui2.
 				ns.mouseClicked(event, doubleClick);
-				ns.mouseClicked(new MouseButtonEvent(event.x(), event.y(), new net.minecraft.client.input.MouseButtonInfo(0, event.modifiers())), doubleClick);
 			}
 			return true;
 		}
@@ -276,7 +274,6 @@ public class HubEventScreen extends Screen {
 			Screen ns = HearthLink.nativeScreen();
 			if (ns != null) {
 				ns.mouseReleased(event);
-				ns.mouseReleased(new MouseButtonEvent(event.x(), event.y(), new net.minecraft.client.input.MouseButtonInfo(0, event.modifiers())));
 			}
 		}
 		this.hub.mouseButton(false, this.css(event.x()), this.css(event.y()), event.button());
