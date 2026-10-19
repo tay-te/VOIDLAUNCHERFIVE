@@ -35,11 +35,40 @@ class HearthOverlayTest {
 		}
 	};
 
+	/** The same house, planned and not built yet. */
+	private static final HearthOverlay.Footprints PLANNED = new HearthOverlay.Footprints() {
+		@Override
+		public long version(int regionX, int regionZ) {
+			return 1;
+		}
+
+		@Override
+		public boolean sample(int x, int z, int[] out) {
+			if (!HOUSE.sample(x, z, out)) {
+				return false;
+			}
+			out[0] = out[0] & 0xFFFFFF | HearthOverlay.PLANNED << 24;
+			return true;
+		}
+	};
+
 	private static ColumnSample sample(int x, int z, int cell) {
+		return sample(HOUSE, x, z, cell);
+	}
+
+	private static ColumnSample sample(HearthOverlay.Footprints footprints, int x, int z, int cell) {
 		ColumnSample out = new ColumnSample();
 		out.clear();
-		new HearthOverlay(LAND, HOUSE).sample(x, z, cell, out);
+		new HearthOverlay(LAND, footprints).sample(x, z, cell, out);
 		return out;
+	}
+
+	@Test
+	void aPlannedHouseIsNotStoodUpCloseButStillTintsFarOut() {
+		ColumnSample middle = sample(PLANNED, 4, 4, 1);
+		assertEquals(64, middle.ground, 1e-4, "no walls for a house not built");
+		assertEquals(0x60A040, middle.top);
+		assertTrue(sample(PLANNED, 8, 8, 16).top != 0x60A040, "the town still tints the far cell");
 	}
 
 	@Test

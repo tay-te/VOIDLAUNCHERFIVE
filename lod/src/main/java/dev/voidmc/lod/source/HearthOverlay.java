@@ -17,12 +17,22 @@ public final class HearthOverlay implements TerrainSource {
 		/** Bumped whenever anything in the 1024-block region (x >> 10, z >> 10) would draw differently. */
 		long version(int regionX, int regionZ);
 
-		/** A finished building's {wall colour, roof colour, eave << 16 | ridge & 0xFFFF} at column (x, z), if one stands there. */
+		/**
+		 * A building's {wall colour, roof colour, eave << 16 | ridge & 0xFFFF} at column (x, z), if one stands there. The wall
+		 * word's top byte is {@link #PLANNED} for a building a live town has planned or is putting up and has not finished.
+		 */
 		boolean sample(int x, int z, int[] out);
 
 		/** Something changed (a region's version moved on): what was read before may be out of date. */
 		default void changed() {
 		}
+	}
+
+	/** The wall word's top byte for a building not finished yet ({@link Footprints#sample}): any other is a building that stands. */
+	public static final int PLANNED = 0xFE;
+
+	static boolean planned(int wall) {
+		return wall >>> 24 == PLANNED;
 	}
 
 	/** How far in from a footprint's edge a roof is looked for: a ridge rises no higher than this above the eaves here. */
@@ -97,7 +107,8 @@ public final class HearthOverlay implements TerrainSource {
 		}
 		int[] b = this.scratch.get();
 		if (cell <= 4) {
-			if (!this.footprints.sample(x, z, b)) {
+			if (!this.footprints.sample(x, z, b) || planned(b[0])) {
+				// a building not up yet stands as nothing close by: only a tint farther out, where the town is a smudge anyway
 				return;
 			}
 			int wall = b[0] & 0xFFFFFF, roof = b[1] & 0xFFFFFF, eave = b[2] >> 16, ridge = (short) b[2];
