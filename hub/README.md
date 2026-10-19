@@ -198,6 +198,28 @@ mettle/docs/OVERLAY.md), so it builds and runs without Mettle. The page side is 
 hooked into `hub.js` in four places. Mettle's icons reach the page as data URLs, enlarged nearest-neighbour first
 (Ultralight smooths scaled images). `./gradlew hubMettle` runs the in-game test with `libs/void-mettle.jar`.
 
+## VOID Hearth (optional)
+
+With VOID Hearth installed (hearth/docs/HUB_UI.md, hearth/docs/OVERLAY.md on branch `hearth-ui`) the hub hosts
+Hearth's screens, in Figma section 651:37945's design:
+
+* **Quests** (the pages island): Journal, Notice board, Reputation and Finished as segments; J, a notice board and
+  `/hearth standing` open it on theirs.
+* **Event screens** (`HubEventScreen`, the lighter hub screen: no slots, the VOID mark and an Esc island): a
+  conversation (A, the portrait card, or B, the cinematic bar, a per-player toggle), a guard stopping you, a market with
+  haggling, a bank or town hall, a dice table, lockpicking and pickpocketing. The minigames' moving parts (dice, lock and
+  pick, strain, awareness, the hand ring) are drawn natively by `hearth/HearthFx` over rects the page reports; input is
+  read in the screen's own handlers. Hearth's lockpick screen keeps the game itself, the hub only draws it.
+
+`hearth/HearthLink` reaches Hearth's overlay API through method handles (every one optional), `hearth/HearthSync` sends
+its state only when `HearthState.revision()` moved and the text differs (portraits pre-scaled nearest-neighbour), and
+`hearth/HearthHost` registers every opener at startup. `sync/StateSync` and `screen/NativeFx` are the mod-neutral parts
+Mettle and Hearth share. The page side is `ui/hearth.js` + `ui/hearth.css`.
+
+    ./gradlew syncHearth                     build Hearth from a git snapshot of hearth-ui into libs/void-hearth.jar
+    ./gradlew hubHearth [-PhearthJar=<jar>]  in-game test: every screen through real interactions, photographed at
+                                             GUI scale 2 and 3 (-Pshots=<dir>), idle paints and hover cost measured
+
 ## Building and running
 
 Java 25 and the Ultralight binding (built by `pvp/mod/native`, see its README) are needed:

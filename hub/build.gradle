@@ -243,6 +243,8 @@ def hubTestRun = { String name, String mode ->
 		property 'voidhub.test', mode
 		property 'voidhub.test.backend', backend
 		property 'voidhub.test.out', file('build/perf').absolutePath
+		// The Hearth test copies its photographs here (-Pshots=<dir>).
+		property 'voidhub.test.shots', (project.findProperty('shots') ?: file('build/hearth-shots').absolutePath).toString()
 		property 'voidhub.test.docs', file('docs').absolutePath
 		property 'voidhub.test.seconds', (project.findProperty('seconds') ?: '10').toString()
 		property 'voidhub.test.explore', (project.findProperty('explore') ?: 'false').toString()
@@ -293,7 +295,7 @@ tasks.register('hubFunctional') {
 // ---------------------------------------------------------------------------------------------
 // -PmettleJar=<file> runs with another Mettle jar (a snapshot, so a jar replaced mid-run cannot break a resource reload).
 def mettleJar = file(project.findProperty('mettleJar') ?: 'libs/void-mettle.jar')
-def withMettle = project.hasProperty('mettle') || gradle.startParameter.taskNames.any { it.contains('hubMettle') || it.contains('hubAudit') }
+def withMettle = project.hasProperty('mettle') || gradle.startParameter.taskNames.any { it.contains('hubMettle') || it.contains('hubAudit') || it.contains('hubHearth') }
 if (withMettle) {
 	if (!mettleJar.isFile()) {
 		throw new GradleException("Mettle runs need libs/void-mettle.jar (Mettle's built jar)")
@@ -315,4 +317,92 @@ tasks.register('hubMettle') {
 	group = 'voidhub'
 	description = 'In-game test of VOID Mettle in the hub (Gear and Classes pages); needs libs/void-mettle.jar'
 	dependsOn 'runHubMettleGame'
+}
+
+// ---------------------------------------------------------------------------------------------
+// VOID Hearth (optional). With Hearth installed the hub hosts Hearth's screens: the Quests page
+// (journal, notice board, reputation) and the event screens (talk, guard, market, bank, dice,
+// lockpicking, pickpocketing). The hub reaches Hearth's client overlay API reflectively
+// (dev.voidmc.hub.hearth.HearthLink), so nothing of Hearth is needed to build.
+//
+//   ./gradlew syncHearth                       build Hearth from a git snapshot of -PhearthRef
+//                                              (default hearth-ui; no worktree is touched) and stage
+//                                              it as libs/void-hearth.jar (-PhearthJar=<file>: copy that)
+//   ./gradlew runClient -Phearth               dev client with Hearth loaded
+//   ./gradlew hubHearth                        in-game test of the Hearth pages (photographs each one)
+//   -PhearthJar=<file> on a run uses that jar instead of libs/void-hearth.jar (a snapshot copy)
+// ---------------------------------------------------------------------------------------------
+def hearthJar = file(project.findProperty('hearthJar') ?: 'libs/void-hearth.jar')
+def withHearth = project.hasProperty('hearth') || gradle.startParameter.taskNames.any { it.contains('hubHearth') }
+if (withHearth) {
+	if (!hearthJar.isFile()) {
+		throw new GradleException("Hearth runs need libs/void-hearth.jar (./gradlew syncHearth) or -PhearthJar=<file>")
+	}
+	dependencies {
+		localRuntime files(hearthJar)
+	}
+}
+
+tasks.register('syncHearth') {
+	group = 'voidhub'
+	description = 'Stages VOID Hearth as libs/void-hearth.jar (built from a git snapshot of -PhearthRef, default hearth-ui, or copied from -PhearthJar)'
+	def given = project.findProperty('hearthJar')
+	def ref = (project.findProperty('hearthRef') ?: 'hearth-ui').toString()
+	def snapshot = layout.buildDirectory.dir('hearth-snapshot').get().asFile
+	def libs = file('libs')
+	def repoRoot = rootDir.parentFile
+	def javaHome = System.getenv('JAVA_HOME') ?: System.getProperty('java.home')
+	doLast {
+		libs.mkdirs()
+		String origin
+		File jar
+		if (given) {
+			jar = file(given.toString())
+			if (!jar.isFile()) {
+				throw new GradleException("no jar at ${jar}")
+			}
+			origin = jar.absolutePath
+		} else {
+			def sha = providers.exec { commandLine 'git', '-C', repoRoot.absolutePath, 'rev-parse', ref }.standardOutput.asText.get().trim()
+			project.delete(snapshot)
+			snapshot.mkdirs()
+			def tar = new File(snapshot, 'hearth.tar')
+			providers.exec { commandLine 'git', '-C', repoRoot.absolutePath, 'archive', '-o', tar.absolutePath, sha, 'hearth', 'expanse' }.result.get()  // Hearth includes ../expanse as a build
+			project.copy {
+				from project.tarTree(tar)
+				into snapshot
+			}
+			def dir = new File(snapshot, 'hearth')
+			def isWindows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')
+			def build = providers.exec {
+				workingDir dir
+				environment 'JAVA_HOME', javaHome
+				commandLine isWindows ? ['cmd', '/c', new File(dir, 'gradlew.bat').absolutePath, 'jar', '--no-daemon', '-q'] : ['sh', new File(dir, 'gradlew').absolutePath, 'jar', '--no-daemon', '-q']
+				ignoreExitValue = true
+			}
+			if (build.result.get().exitValue != 0) {
+				throw new GradleException('the Hearth snapshot build failed:\n' + build.standardOutput.asText.get() + build.standardError.asText.get())
+			}
+			jar = new File(dir, 'build/libs').listFiles().find { it.name.endsWith('.jar') && !it.name.contains('-sources') }
+			if (jar == null) {
+				throw new GradleException("the Hearth snapshot built no jar in ${dir}/build/libs")
+			}
+			origin = "${ref} @ ${sha}"
+		}
+		project.copy {
+			from jar
+			into libs
+			rename { 'void-hearth.jar' }
+		}
+		new File(libs, 'void-hearth.txt').text = "VOID Hearth staged from ${origin} (${jar.name}) on ${new Date()}\n"
+		println "VOID Hearth staged: libs/void-hearth.jar from ${origin}"
+	}
+}
+
+hubTestRun('hubHearthGame', 'hearth')
+
+tasks.register('hubHearth') {
+	group = 'voidhub'
+	description = 'In-game test of VOID Hearth in the hub (Quests page and event screens); needs libs/void-hearth.jar (and Mettle, for training)'
+	dependsOn 'runHubHearthGame'
 }

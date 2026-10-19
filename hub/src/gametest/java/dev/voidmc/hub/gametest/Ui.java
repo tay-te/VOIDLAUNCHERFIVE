@@ -37,7 +37,8 @@ public final class Ui {
 	}
 
 	public HubLayout layout() {
-		return this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubScreen<?> s ? s.layout() : null);
+		return this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubScreen<?> s ? s.layout()
+			: mc.gui.screen() instanceof dev.voidmc.hub.screen.HubEventScreen e ? e.layout() : null);
 	}
 
 	public Rect cell(int slot) {

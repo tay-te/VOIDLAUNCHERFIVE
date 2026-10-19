@@ -19,6 +19,7 @@ import net.minecraft.client.gui.screens.worldselection.WorldCreationUiState;
  *   <li>{@code perf} — the regression gate (see {@link PerfTest});</li>
  *   <li>{@code smoke} — open both screens and photograph them;</li>
  *   <li>{@code mettle} — VOID Mettle's Gear and Classes pages (see {@link MettleTest});</li>
+ *   <li>{@code hearth} — VOID Hearth's Quests page and event screens (see {@link HearthTest});</li>
  *   <li>{@code all} (default) — functional, then perf.</li>
  * </ul>
  */
@@ -62,6 +63,9 @@ public class HubGameTest implements FabricClientGameTest {
 			try {
 				if (mode.equals("mettle")) {
 					new MettleTest(context, world).run();
+				}
+				if (mode.equals("hearth")) {
+					new HearthTest(context, world).run();
 				}
 				if (mode.equals("audit")) {
 					new AuditTest(context, world).run();
