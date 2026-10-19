@@ -169,7 +169,7 @@ the oldest member does; the last to leave disbands it. `companies.enabled` false
 - **Screens**: on the conversation, market and bank screens, a small line along the bottom: the town, title and standing;
   in conversation also "Edda Miller thinks well of you (+18)" and the last speech check's outcome. Those screens belong to
   other modules: the line is drawn after them through Fabric's screen events, the screens recognised by class name.
-- **Reputation page**: the K key (`key.hearth.standing`) or `/hearth standing`: fame here, charisma and menace with what
+- **Reputation page**: the Hub's Quests page, `/hearth standing`, or the Reputation key (`key.hearth.standing`, unbound by default; K is Mettle's): fame here, charisma and menace with what
   folk notice, the company, and every town the player has dealings with (title, a bar from outlaw to hero, tier, culture,
   distance), nearest first.
 

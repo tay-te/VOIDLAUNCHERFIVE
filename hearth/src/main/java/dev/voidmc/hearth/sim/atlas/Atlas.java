@@ -134,6 +134,16 @@ public final class Atlas {
 		return (settlementId & HISTORIC) != 0;
 	}
 
+	/** The region x of a historic settlement's id (the inverse of {@link #historicId}). */
+	public static int historicRegionX(long settlementId) {
+		return (int) (settlementId >>> 21 & 0x1F_FFFF) - (1 << 20);
+	}
+
+	/** The region z of a historic settlement's id (the inverse of {@link #historicId}). */
+	public static int historicRegionZ(long settlementId) {
+		return (int) (settlementId & 0x1F_FFFF) - (1 << 20);
+	}
+
 	/** The block rectangle of a region. */
 	public static BoundingBox regionBox(int rx, int rz) {
 		return new BoundingBox(rx << REGION_BITS, -2048, rz << REGION_BITS, (rx << REGION_BITS) + REGION_SIZE - 1, 4096,

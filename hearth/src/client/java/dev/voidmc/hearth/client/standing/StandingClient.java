@@ -26,7 +26,7 @@ public final class StandingClient {
 	}
 
 	public static void init() {
-		reputationKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.hearth.standing", InputConstants.KEY_K,
+		reputationKey = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.hearth.standing", InputConstants.UNKNOWN.getValue(),
 			KeyMapping.Category.register(Hearth.id("standing"))));
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (reputationKey.consumeClick()) {
