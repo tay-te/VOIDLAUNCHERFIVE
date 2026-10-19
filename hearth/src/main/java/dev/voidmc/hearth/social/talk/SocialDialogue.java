@@ -30,6 +30,9 @@ import dev.voidmc.hearth.social.service.WageTask;
 import dev.voidmc.hearth.social.service.WageTasks;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -43,6 +46,8 @@ import net.minecraft.world.item.ItemStack;
  * hand-in to farmers and builders; dice; the visiting trader's wares at the market stalls; and each official's business.
  */
 public final class SocialDialogue implements DialogueProvider {
+	/** What the resident just answered this player, for the conversation's {@link #reply} right after {@link #select}. */
+	private static final Map<UUID, Component> ANSWER = new ConcurrentHashMap<>();
 	static final String WHATS_ON = "social:whats_on";
 	static final String ROAD = "social:road_news";
 	static final String BED = "social:bed";
@@ -88,12 +93,16 @@ public final class SocialDialogue implements DialogueProvider {
 		boolean money = Hooks.economy() != null;
 		if (cfg.inn().enabled() && ServiceSites.innkeeper(s, r)) {
 			out.add(opt(ROAD, "road_news", 20));
-			out.add(new Option(BED, label("bed", Hooks.coins(cfg.inn().bed())), 130));
-			boolean hasRoom = false;
-			for (SocialLedger.Rental rent : s.data(SocialModule.LEDGER).rooms) {
-				hasRoom |= rent.player().equals(player.getUUID());
+			// beds and rooms only where the house has beds (a tavern keeper serves ale and meals, not lodging)
+			PlotView inn = ServiceSites.inn(s, r);
+			if (inn != null && !ServiceSites.pois(s, inn, dev.voidmc.hearth.api.PoiType.BED).isEmpty()) {
+				out.add(new Option(BED, label("bed", Hooks.coins(cfg.inn().bed())), 130));
+				boolean hasRoom = false;
+				for (SocialLedger.Rental rent : s.data(SocialModule.LEDGER).rooms) {
+					hasRoom |= rent.player().equals(player.getUUID());
+				}
+				out.add(new Option(ROOM, label(hasRoom ? "room_more" : "room", Hooks.coins(cfg.inn().room())), 131));
 			}
-			out.add(new Option(ROOM, label(hasRoom ? "room_more" : "room", Hooks.coins(cfg.inn().room())), 131));
 			out.add(new Option(MEAL, label("meal", Hooks.coins(cfg.inn().meal())), 132));
 		}
 		if (cfg.bath().enabled() && ServiceSites.bathKeeper(s, r)) {
@@ -188,6 +197,7 @@ public final class SocialDialogue implements DialogueProvider {
 
 	@Override
 	public boolean select(ServerPlayer player, Settlement s, Resident r, String id) {
+		ANSWER.remove(player.getUUID());
 		SocialConfig cfg = SocialModule.config();
 		HearthWorld w = HearthWorld.of((ServerLevel) player.level());
 		if (w == null) {
@@ -322,8 +332,14 @@ public final class SocialDialogue implements DialogueProvider {
 		return Component.translatable("hearth.social.talk." + key, args);
 	}
 
+	@Override
+	public Component reply(ServerPlayer player, Settlement s, Resident r, String id) {
+		return id.startsWith("social:") ? ANSWER.remove(player.getUUID()) : null;
+	}
+
 	private static void say(ServerPlayer player, Resident r, Settlement s, Component line) {
 		Hooks.reply(player, r, s, line);
+		ANSWER.put(player.getUUID(), line);
 	}
 
 	static boolean pledged(Resident lord, ServerPlayer player) {
