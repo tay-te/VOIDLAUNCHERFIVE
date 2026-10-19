@@ -474,7 +474,10 @@ public final class Growth {
 		}
 		if (have < want) {
 			double priority = e.priority() - have * 15;
-			if (have == 0 && pop >= 2 * Math.max(8, e.minPop()) && dev.voidmc.hearth.plan.resource.Extraction.digsOut(info.id())) {
+			// (and a crew whose working is dug out, standing by its pit with no face to cut, gets its next one as soon: the
+			// reopening is for them, and at the program's own priority every call had something more urgent for months)
+			if (have == 0 && dev.voidmc.hearth.plan.resource.Extraction.digsOut(info.id())
+				&& (pop >= 2 * Math.max(8, e.minPop()) || dev.voidmc.hearth.plan.resource.Extraction.employs(ctx, info.id()))) {
 				priority = Math.max(priority, DIG_PRIORITY);
 			}
 			list.add(new Need("program/" + info.id().getPath(), priority, c -> program(c, e, info)));
