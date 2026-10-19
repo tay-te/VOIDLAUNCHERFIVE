@@ -30,36 +30,41 @@ uniform sampler2D colortex14;
 /* RENDERTARGETS: 9 */
 layout(location = 0) out vec4 outGlow;
 
-// (Look D5) Each level through a cubic B-spline over its own 4x4 texels, fetched exactly (texelFetch). The mip levels
-// are read without filtering between texels, so the old tent (four taps half a texel off) drew each coarse level as
-// nested hard-edged boxes: round the sun the halo showed as a cream rectangle with an outline. The B-spline is smooth in
-// value, slope and curve, and its weights add to 1 (each level stays energy-conserving)
+// (Look D5) Each broad level through a quadratic B-spline over its own 3x3 texels, fetched exactly (texelFetch). The mip
+// levels are read without filtering between texels, so the old tent (four taps half a texel off) drew each coarse level
+// as nested hard-edged boxes: round the sun the halo showed as a cream rectangle with an outline. The B-spline is smooth
+// in value and slope, and its weights add to 1 (each level stays energy-conserving)
 vec3 tentAt(vec2 uv, float lod) {
 	int l = int(lod);
 	ivec2 sz = textureSize(colortex14, l);
 	vec2 st = uv * vec2(sz) - 0.5;
-	vec2 i0 = floor(st);
-	vec2 f = st - i0;
-	vec2 f2 = f * f;
-	vec2 f3 = f2 * f;
-	vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
-	vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
-	vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
-	vec2 w3 = f3 / 6.0;
-	vec4 wx = vec4(w0.x, w1.x, w2.x, w3.x);
-	vec4 wy = vec4(w0.y, w1.y, w2.y, w3.y);
-	ivec2 b = ivec2(i0) - 1;
+	vec2 ic = floor(st + 0.5);
+	vec2 f = st - ic;
+	vec2 w0 = 0.5 * (0.5 - f) * (0.5 - f);
+	vec2 w1 = 0.75 - f * f;
+	vec2 w2 = 0.5 * (0.5 + f) * (0.5 + f);
+	vec3 wx = vec3(w0.x, w1.x, w2.x);
+	vec3 wy = vec3(w0.y, w1.y, w2.y);
+	ivec2 b = ivec2(ic) - 1;
 	ivec2 hi = sz - 1;
 	vec3 c = vec3(0.0);
-	for (int y = 0; y < 4; y++) {
+	for (int y = 0; y < 3; y++) {
 		vec3 row = vec3(0.0);
 		int ty = clamp(b.y + y, 0, hi.y);
-		for (int x = 0; x < 4; x++) {
+		for (int x = 0; x < 3; x++) {
 			row += wx[x] * texelFetch(colortex14, ivec2(clamp(b.x + x, 0, hi.x), ty), l).rgb;
 		}
 		c += wy[y] * row;
 	}
 	return c;
+}
+
+// (Look D5) The fine levels (a few pixels a texel, under the halo's core) keep the old four-tap tent: their steps are
+// too small to show
+vec3 fineAt(vec2 uv, float lod) {
+	vec2 h = 0.5 / vec2(textureSize(colortex14, int(lod)));
+	return 0.25 * (textureLod(colortex14, uv + vec2(-h.x, -h.y), lod).rgb + textureLod(colortex14, uv + vec2(h.x, -h.y), lod).rgb
+		+ textureLod(colortex14, uv + vec2(-h.x, h.y), lod).rgb + textureLod(colortex14, uv + vec2(h.x, h.y), lod).rgb);
 }
 
 // (review round 1) the widest levels a little less saturated: a saturated light's broad halo (the amber realm's
@@ -85,8 +90,8 @@ void main() {
 	// (look2, 2026-10-18: wider and warmer, a painterly glow in the air: the weight moved toward the broad levels, and
 	// the broad levels lean toward a warm amber instead of a neutral grey, so a low sun's, a lamp's or a fire's glow
 	// spreads as warm light, never a grey wash; was 0.16 0.20 0.23 0.21 0.12 0.08, the wide levels greyed 0.25 and 0.4)
-	g += tentAt(uv, 1.0) * 0.09;
-	g += tentAt(uv, 2.0) * 0.13;
+	g += fineAt(uv, 1.0) * 0.09;
+	g += fineAt(uv, 2.0) * 0.13;
 	g += tentAt(uv, 3.0) * 0.18;
 	g += tentAt(uv, 4.0) * 0.21;
 	g += wideWarm(tentAt(uv, 5.0), 0.30) * 0.21;
