@@ -155,6 +155,18 @@ vec3 shoulder(vec3 c) {
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec3 c = max(texelFetch(colortex0, p, 0).rgb, 0.0);
+#define WL4_PROBE 0
+#if WL4_PROBE == 1
+	outColor = vec4(c * 0.25, 1.0); return;
+#elif WL4_PROBE == 2
+	{ vec2 hp = 1.0 / vec2(textureSize(colortex12, 0)); vec2 cu = vec2(p >> 1) * hp;
+	  vec3 b = texture(colortex12, cu - hp).rgb + texture(colortex12, cu + hp).rgb + texture(colortex12, cu + vec2(hp.x, -hp.y)).rgb + texture(colortex12, cu + vec2(-hp.x, hp.y)).rgb;
+	  outColor = vec4(b * 0.35 * (1.0 - clamp(c, 0.0, 1.0)) * 0.25 * 4.0, 1.0); return; }
+#elif WL4_PROBE == 5
+	{ vec4 glow = texture(colortex9, texcoord); outColor = vec4(glow.rgb * 0.25, 1.0); return; }
+#elif WL4_PROBE == 4
+	{ float ck = texelFetch(colortex6, p, 0).r; outColor = vec4(c * 0.25 + vec3(ck < 999.0 ? 0.5 : 0.0, 0.0, ck < 0.0 ? 0.5 : 0.0), 1.0); return; }
+#endif
 	// ---- atmos (welkin-atmos): the sun beams, then the bloom
 #ifdef FINAL_BEAMS
 	{
@@ -194,6 +206,9 @@ void main() {
 	}
 #endif
 	// ---- end atmos
+#if WL4_PROBE == 3
+	outColor = vec4(c * 0.25, 1.0); return;
+#endif
 	bool sunArt = false; // (look3) the pixel sun's own art pixels
 #ifdef WORLD_OVERWORLD
 	// (look3, 2026-10-18) the evening sky's gradient across the whole dome, the clouds in it too: gold round the sun,
@@ -223,53 +238,47 @@ void main() {
 			c *= 1.0 - (cl ? 0.10 : 0.20) * w;
 		}
 	}
-	// (golden, 2026-10-18) the pixel sun a crisp solid disc in its glow: round the sun (within about 25 degrees) the
-	// open sky, its glow and the halo the bloom lays on it ease under 0.97 of white, hue kept (a soft shoulder from
-	// 0.7), while the disc's own art pixels go on to white. The glow and the halo had blazed the sky round a sun some 10 to
-	// 25 degrees up to the disc's own white, and the disc dissolved into a soft white blob
+	// (look4, 2026-10-18) the pixel sun's own art pixels: they go on to a crisp white whatever lies round them (the
+	// glow round the disc no longer eases under it: golden, 2026-10-18 held the sky within 25 degrees of the sun under
+	// 0.97 of white, which with the roll-off below flattened the whole of a low sun's glow into one peach field)
 	{
 		vec3 v = normalize((gbufferProjectionInverse * vec4((vec2(p) + 0.5) / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0)).xyz);
 		vec3 sv = normalize(sunPosition);
-		float near = smoothstep(0.88, 0.97, dot(v, sv));
-		float m = max(c.r, max(c.g, c.b));
-		if (near > 0.0 && m > 0.7) {
+		if (dot(v, sv) > 0.99) {
 			float d = texelFetch(depthtex0, p, 0).r;
 #ifdef DISTANT_HORIZONS
 			d = min(d, texelFetch(dhDepthTex0, p, 0).r);
 #endif
-			// only the open sky (not the land, not a cloud)
-			near *= d >= 1.0 && texelFetch(colortex6, p, 0).r > 999.0 ? 1.0 : 0.0;
-			// the disc's own art pixels (lib/sky/celestial.glsl, as the dome draws them) go on to white
 			mat3 toW = mat3(gbufferModelViewInverse);
 			vec3 sunW = normalize(toW * sv);
 			ivec2 ip;
-			if (near > 0.0 && skyArtPixel(normalize(toW * v), sunW, skyPathAxis(sunW), ip)) {
+			if (d >= 1.0 && texelFetch(colortex6, p, 0).r > 999.0 && skyArtPixel(normalize(toW * v), sunW, skyPathAxis(sunW), ip)) {
 				int k = skySunPixel(ip);
 				sunArt = k >= 1 && k <= 3;
-				near *= sunArt ? 0.0 : 1.0;
 			}
-			float t = 0.7 + 0.27 * (1.0 - exp(-(m - 0.7) / 0.27));
-			c = mix(c, c * (t / m), near);
 		}
 	}
 #endif
 	// (look3, 2026-10-18) highlights roll off and hold their colour: whatever the light, the glow and the bloom have
-	// pushed past white (a sunset's horizon, the sun's path on the water, the far hills in its glow) eases under white
-	// with its hue and saturation kept, so a blazing gold stays gold-orange instead of clipping channel by channel to
-	// white paper. By day only, and never on the pixel sun's own art pixels (the disc stays a crisp white; the moon and
-	// stars at night are untouched)
+	// pushed past white eases under white with its hue kept, so a blazing gold stays gold instead of clipping channel by
+	// channel to white paper. By day only, and never on the pixel sun's own art pixels.
+	// (look4, 2026-10-18) a long shoulder, not a wall: from 0.7 the light eases toward white over a wide range (1 shows
+	// at 0.85, 2 at 0.94, 4 at 0.97), so a low sun's heart still stands over its glow and the glow over the sky round it,
+	// where look3's knee at 0.78 had sent anything from 1 to 5 to one 0.93. Through the warm hours the colour past white
+	// burns in as gold over the first stops (the glow, the glitter path), and the hottest light, the sun's heart, turns
+	// a gold-white, as film's highlights do: gold-white heart, gold, amber, then the rose air
 	{
 		float m = max(c.r, max(c.g, c.b));
-		const float K = 0.78;
+		const float K = 0.70;
 		float amt = gradeHour.y * gradeOpen * (sunArt ? 0.0 : 1.0);
 		if (m > K && amt > 0.0) {
-			float t = K + (1.0 - K) * (1.0 - exp(-(m - K) / (1.0 - K)));
+			float o = m - K;
+			float t = K + (1.0 - K) * o / (o + (1.0 - K));
 			vec3 r = c * (t / m);
-			// through the warm hours the light past white burns in as colour, as film's highlights do at sunset: the
-			// further past white, the more of it turns to a deep gold, so the sun's glow and its path on the water read
-			// as a blazing gold-orange core, not a pale cream
-			float burn = clamp((m - 1.0) / 1.2, 0.0, 1.0) * 0.55 * gradeHour.x;
+			float burn = smoothstep(1.0, 1.7, m) * (1.0 - smoothstep(2.4, 5.0, m)) * 0.45 * gradeHour.x;
 			r = mix(r, vec3(1.0, 0.70, 0.40) * t, burn);
+			float heart = smoothstep(2.0, 6.0, m) * 0.75;
+			r = mix(r, vec3(1.0, 0.90, 0.72) * t, heart);
 			c = mix(c, r, amt);
 		}
 	}

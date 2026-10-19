@@ -112,6 +112,35 @@ SkyLum skyLumFrame(vec3 sunW) {
 	return f;
 }
 
+// (look4) How much of the golden hour's headroom the sky takes (0..1): the warm hours with the sun up, under a clear
+// sky (k carries the clear and the day), from about 15 degrees of sun down to just under the horizon.
+float skyGoldenHeadroom(SkyLum f) {
+	return f.up * smoothstep(0.30, 0.0, f.sunW.y) * smoothstep(-0.10, 0.0, f.sunW.y + 0.04);
+}
+
+// (look4) The golden hour's exposure and aureole toward unit direction d at headroom gh (0..1): `expo` multiplies the
+// sky's linear light (down by up to 0.45 on the sun's half, a third of that away from it, nothing in the sun's own
+// glow), `aur` is the sun's aureole to add (linear): a gold-white heart a few degrees across, a gold-amber glow to some
+// ten degrees, a faint amber to a quarter of the sky; `ceilL` how far past white the hue-keeping cap may let it go.
+void skyGoldenTerms(vec3 d, SkyLum f, float gh, out float expo, out vec3 aur, out float ceilL) {
+	float mu = dot(d, f.sunW);
+	vec2 dz = d.xz, sz = f.sunW.xz;
+	float az = dot(dz, dz) > 1e-8 && dot(sz, sz) > 1e-8 ? dot(normalize(dz), normalize(sz)) : 0.0;
+	float side = 0.5 + 0.5 * az;
+	float ang = acos(clamp(mu, -1.0, 1.0));
+	// (measured from the pixel disc's rim, SUN_SIZE art pixels: about 0.066 radians at the defaults)
+	float a = max(ang - float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4 * 0.85, 0.0);
+	float heart = exp(-a / 0.045);
+	float near = exp(-a / 0.15);
+	float wide = exp(-ang / 0.40);
+	expo = 1.0 - gh * max(0.75 * mix(0.6, 1.0, side * side) - 0.35 * wide, 0.0);
+	const vec3 AMBER4 = vec3(1.0, 0.56, 0.24) / 0.6119;
+	const vec3 WHITE_GOLD = vec3(1.0, 0.86, 0.62) / 0.8810;
+	vec3 aurC = mix(mix(f.gold, AMBER4, 0.6), WHITE_GOLD, heart);
+	aur = gh * aurC * (2.6 * heart + 0.55 * near + 0.10 * wide);
+	ceilL = 1.0 + gh * (3.0 * heart + 0.6 * near);
+}
+
 // The hue-keeping shoulder in linear light: past `knee` the brightest channel eases toward 1 and the colour is scaled
 // with it, so a hue never slides toward white by clipping.
 vec3 skyLumCapLin(vec3 L) {
@@ -229,7 +258,24 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// the dome lit: the whole sky a little brighter by day, the sun's half more while the sun is low
 	L *= 1.0 + k * (0.10 + 0.14 * f.low * f.up * side);
 
-	return pow(skyLumCapLin(L), vec3(1.0 / 2.2));
+	// (look4, 2026-10-18) the golden hour's headroom: the sky round a low sun had sat at white over the whole of the
+	// sun's half (the band, the glow and the lit dome all at the cap), so nothing could peak and the sun read as a white
+	// sticker on a flat peach field. Now the sky's exposure comes down through the golden hours, most on the sun's side
+	// and least overhead, and the sun's aureole rises out of it in the sun's own light: a gold-white heart a few
+	// degrees across, a gold glow to some ten degrees, amber out to a quarter of the sky, and the rose air beyond. Only
+	// the heart and the near glow pass white (they keep their hue under final's roll-off and feed the bloom)
+	float gh = skyGoldenHeadroom(f) * min(k, 1.0);
+	float ceilL = 1.0;
+	if (gh > 0.0) {
+		float expo;
+		vec3 aur;
+		skyGoldenTerms(d, f, gh, expo, aur, ceilL);
+		// (the sky's own light under its cap first: before it, the lit dome runs to two or three times white round a
+		// low sun, and an exposure taken there came back to the cap)
+		L = skyLumCapLin(L) * expo + aur;
+	}
+
+	return pow(skyLumCapLin(L / ceilL) * ceilL, vec3(1.0 / 2.2));
 #else
 	return col;
 #endif

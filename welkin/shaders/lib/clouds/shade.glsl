@@ -547,7 +547,32 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// (review round 2: at most 0.55 past the shoulder: the rim glows and blooms without a hard white line)
 	// (skies: on a belly only along its rim, or its thin parts glowed all over round the thick heart's grey oval)
 	glint *= n.y < -0.5 ? b.rim : 1.0;
-	return wcShoulder(c) + min(wcAlbedo(tone) * glint * (1.0 - 0.7 * closed), vec3(0.55));
+	// (look4, 2026-10-18) the golden hour's headroom, as the sky's (lib/sky/luminous.glsl): the decks round a low sun
+	// had sat at white with the sky, one flat peach field the sun could not outshine. Now a deck's exposure comes down
+	// with the sky's, most toward the sun, where a cloud hangs against the light as a darker, backlit body, and its thin
+	// edges blaze: the silver lining toward the sun turns a gold rim that passes white and blooms
+	float gh = smoothstep(0.30, 0.0, e.sun.y) * smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - closed);
+	float rimK = 1.0;
+	float expo = 1.0;
+	if (gh > 0.0) {
+		float mu = dot(rd, e.sun);
+		float swk = wcSunward(rd, e);
+		float nearS = smoothstep(0.75, 0.995, mu);
+		expo = 1.0 - gh * (0.08 + 0.32 * swk * swk + 0.18 * nearS);
+		rimK = 1.0 + gh * (1.5 + 5.0 * nearS);
+	}
+	vec3 outC = wcShoulder(c) * expo + min(wcAlbedo(tone) * glint * rimK * (1.0 - 0.7 * closed), vec3(0.55 * rimK));
+	if (gh > 0.0) {
+		// a thin cloud across the sun itself glows with it: the sun's light through it, gold-white over the disc and
+		// close round it, less through a thick part (the low sun behind a strip of cloud is a blaze in the strip, not a
+		// dark bar across it)
+		float ang = acos(clamp(dot(rd, e.sun), -1.0, 1.0));
+		float rS = float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4;
+		float through = exp(-max(ang - rS, 0.0) / 0.06) + 0.35 * exp(-ang / 0.18);
+		vec3 sunHue = mix(vec3(1.0, 0.86, 0.62) / 0.8810, vec3(1.0, 0.62, 0.32) / 0.6626, smoothstep(0.0, 0.25, ang));
+		outC += sunHue * gh * through * mix(2.2, 0.25, b.depth) * (n.y < -0.5 ? 1.0 : 0.6);
+	}
+	return outC;
 }
 
 // ------------------------------------------------------------------------------------------------- distance

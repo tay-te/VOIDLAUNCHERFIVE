@@ -132,6 +132,20 @@ bool openSkyAt(ivec2 p) {
 }
 
 #ifdef BLOOM
+#ifndef WU_upPosition
+#define WU_upPosition
+uniform vec3 upPosition;
+#endif
+// (look4) the golden hour's low sun, 0..1 (as lib/sky/luminous.glsl skyGoldenHeadroom, by the sun's height alone)
+float waterGolden() {
+#ifdef WORLD_OVERWORLD
+	float y = dot(normalize(sunPosition), normalize(upPosition));
+	return smoothstep(0.30, 0.0, y) * smoothstep(-0.14, -0.04, y);
+#else
+	return 0.0;
+#endif
+}
+
 // How much of pixel p's bright share (display colour c) feeds the bloom: the open sky BLOOM_SKY, a cloud (or a far rain
 // curtain over the sky) its body BLOOM_CLOUD and its rim past white wholly (lib/bloom.glsl; the merge of phase 2), the
 // rest wholly.
@@ -141,7 +155,9 @@ float bloomShareAt(ivec2 p, vec3 c) {
 	d = min(d, texelFetch(dhDepthTex0, p, 0).r);
 #endif
 	if (d < 1.0) {
-		return 1.0;
+		// (look4, 2026-10-18) the water round a low sun a little less: the glitter path's broad field of reflected glow
+		// had bloomed into a soft orange ball over the lake; its glints still bloom
+		return texelFetch(colortex3, p, 0).a > 0.25 ? mix(1.0, 0.45, waterGolden()) : 1.0;
 	}
 #ifdef WORLD_OVERWORLD
 	if (texelFetch(colortex6, p, 0).r <= 999.0) {
@@ -171,6 +187,10 @@ float bloomDiffuseAt(ivec2 p, float emit) {
 
 #ifdef C3_BEAMS
 #include "/lib/noise.glsl"
+#ifndef WU_gbufferProjectionInverse
+#define WU_gbufferProjectionInverse
+uniform mat4 gbufferProjectionInverse;
+#endif
 flat in vec3 beamSun;
 flat in vec3 beamLight;
 
@@ -259,6 +279,17 @@ void main() {
 			float rays = acc / wsum * onScreen * (1.0 - BEAM_FLAT * clamp(acc / max(gl, 1e-5), 0.0, 1.0));
 			bool skyHere = beamOpen(uv) > 0.75;
 			beams = beamLight * (BEAM_GAIN * rays * (skyHere ? BEAM_SKY : 1.0));
+			// (look4, 2026-10-18) the beams are light in the air between the eye and what it sees: over the near land and
+			// the near water (the first hundred blocks or so) there is little air to light, so they fade there. Screened
+			// over the dark shallows at the shore's feet they had laid a milky veil over the whole foreground
+			if (!skyHere) {
+				float d0 = textureLod(depthtex0, uv, 0.0).r;
+				if (d0 < 1.0) {
+					vec4 vp = gbufferProjectionInverse * vec4(uv * 2.0 - 1.0, d0 * 2.0 - 1.0, 1.0);
+					float dist = length(vp.xyz / vp.w);
+					beams *= mix(0.12, 1.0, 1.0 - exp(-max(dist - 8.0, 0.0) / 140.0));
+				}
+			}
 		}
 	}
 #endif

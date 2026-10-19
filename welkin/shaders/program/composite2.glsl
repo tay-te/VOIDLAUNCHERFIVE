@@ -238,6 +238,7 @@ ivec2 pinholeFill(ivec2 p, vec2 uv) {
 	return p;
 }
 
+#define WL4_C2 0
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec2 uv = texcoord;
@@ -297,7 +298,19 @@ void main() {
 		// ---- air and tone (D): the haze's forward scatter toward the sun (lib/air.glsl)
 		vec3 airPlain = air;
 		air = airMie(air, normalize(eyePos), sunW, st.kind);
-		air = skyLumCap(air); // atmos: the forward scatter's added glow keeps its hue under white
+		// (look4, 2026-10-18) through the golden hours the forward scatter's glow takes the sky's lower exposure (the
+		// luminous air above already has it), and the cap lets the air in the sun's own glow pass white as the sky's
+		// does, so the haze over the low sky keeps the light's peak instead of laying a flat white field over it
+		{
+			float gh = skyGoldenHeadroom(lum) * min(0.8 * float(SKY_GLOW) * 0.01 * lum.clear * lum.day, 1.0);
+			float ex = 1.0, ce = 1.0;
+			if (gh > 0.0) {
+				vec3 au;
+				skyGoldenTerms(normalize(eyePos), lum, gh, ex, au, ce);
+			}
+			vec3 La = pow(max(airPlain, 0.0), vec3(2.2)) + max(pow(max(air, 0.0), vec3(2.2)) - pow(max(airPlain, 0.0), vec3(2.2)), 0.0) * ex;
+			air = pow(skyLumCapLin(La / ce) * ce, vec3(1.0 / 2.2)); // atmos: the forward scatter's glow keeps its hue
+		}
 		vec3 n = s.sky ? vec3(0.0, 1.0, 0.0) : hzScreenNormal(eyePos);
 		WelkinHaze h;
 		if (finished) {
@@ -364,7 +377,28 @@ void main() {
 		}
 		h.back.a *= 1.0 - sunDisc;
 		h.front.a *= 1.0 - sunDisc;
+		// (look4, 2026-10-18) through the golden hours the open sky above the horizon keeps its own exposure: the haze's
+		// air is the horizon's light, and laid over the dimmer sky round a low sun it lifted the whole sun-side sky back
+		// toward white. Near the horizon (the land's far haze meets the sky there) it stays
+		if ((s.sky || cloud) && !finished) {
+			float ghS = skyGoldenHeadroom(lum) * lum.clear * smoothstep(0.02, 0.15, normalize(eyePos).y);
+			h.back.a *= 1.0 - 0.85 * ghS;
+			h.front.a *= 1.0 - 0.85 * ghS;
+		}
+#if WL4_C2 == 1
+		outColor = color; return;
+#endif
+#if WL4_C2 == 7
+		outColor = vec4(h.back.rgb, 1.0); return;
+#elif WL4_C2 == 8
+		outColor = vec4(vec3(h.back.a * 4.0), 1.0); return;
+#elif WL4_C2 == 9
+		outColor = vec4(air, 1.0); return;
+#endif
 		color.rgb = welkinHazeBack(color.rgb, h);
+#if WL4_C2 == 2
+		outColor = color; return;
+#endif
 		vec3 ugBeforeMist = color.rgb;
 #ifdef WELKIN_VALLEY_MIST
 		// the mist lies far below the decks: in front of a cloud only when the cloud is against the sky
@@ -396,6 +430,9 @@ void main() {
 			color.rgb = mix(hvComposite(color.rgb, hvRaw, st, normalize(eyePos), sunW, airPlain, s.sky, hvMist, lum),
 				color.rgb, max(ug.amount, sunDisc));
 		}
+#endif
+#if WL4_C2 == 3
+		outColor = color; return;
 #endif
 		// ---- end atmos
 		// ---- look2: the morning mist (lib/haze/dawn.glsl), before the shafts, so the beams stream through it
@@ -438,6 +475,9 @@ void main() {
 			}
 		}
 #endif
+#if WL4_C2 == 4
+		outColor = color; return;
+#endif
 		// ---- air and tone (D): the sun shafts (lib/shafts.glsl), in the near air, before the haze in front of it
 #ifdef WELKIN_SHAFTS_READ
 		if (shaftGate(sunW) > 0.0 && sunAngle < 0.5) {
@@ -460,8 +500,14 @@ void main() {
 #endif
 		}
 #endif
+#if WL4_C2 == 5
+		outColor = color; return;
+#endif
 		color.rgb = mix(color.rgb, ugBeforeMist, ug.amount); // M5: the valley mist (and the shafts) hand over too
 		color.rgb = welkinHazeFront(color.rgb, h);
+#if WL4_C2 == 6
+		outColor = color; return;
+#endif
 		// ---- air and tone (D): the land's aerial perspective (lib/air.glsl)
 		if (!s.sky && !cloud) {
 			// (M5: it hands over to the cave air at cave mouths, as the haze does)
