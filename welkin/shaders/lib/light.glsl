@@ -167,7 +167,7 @@ const float AMB_FACE_SHADE_NIGHT = 0.6;
 // How much of the sky's hue by orientation the fill takes (its brightness by orientation is taken whole): at noon a
 // wall facing the pale horizon sees a whiter sky than a top under the deep zenith, at dusk one facing the afterglow a
 // warmer one; half of that keeps the shade on walls a clear, cool sky-blue while dusk's faces still warm and cool.
-const float AMB_SKY_HUE = 0.8;
+const float AMB_SKY_HUE = 1.0;
 
 // Set by deferred for each pixel before it lights it (forward programs leave them): how far the occlusion covers the
 // pixel (0 none .. 1 full; it fades out by AO_FAR), and the bend it gives the normal the sky's light is looked up along

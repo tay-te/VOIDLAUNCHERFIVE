@@ -220,7 +220,8 @@ vec3 skyLandSunColour(float h, float morning) {
 	// rose-gold at dawn (more red than yellow, so dawn crowns gild instead of turning lime)
 	// (round 3: noon a cleaner white, so pale stone in the sun reads white, not cream; the morning fresher, a clean
 	// pale gold with less yellow in it, so 08:00's grass reads green; the afternoon a touch less yellow)
-	vec3 noon = vec3(1.00, 0.965, 0.90);
+	// (Look D4: a little warmer, (1, 0.95, 0.85), so the sunlit side reads warm against the sky-blue shade)
+	vec3 noon = vec3(1.00, 0.95, 0.85);
 	vec3 aft  = mix(vec3(1.00, 0.84, 0.52), vec3(1.00, 0.89, 0.72), morning);
 	// (round 3: the gold and the last degrees deeper still: in linear light a pale stone face in the low sun needs green at
 	// about a third of red and blue near nothing to read amber on screen and not peach-cream; dawn keeps more blue,
@@ -299,7 +300,8 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 	vec3 clearFill = mix(vec3(0.48, 0.61, 1.00), vec3(0.50, 0.66, 1.00), smoothstep(0.05, 0.45, h));
 	clearFill = mix(vec3(0.43, 0.55, 1.00), clearFill, smoothstep(-0.10, 0.02, h));
 	vec3 greyFill = vec3(0.84, 0.88, 0.95);
-	float grey = max(m.overcast, max(m.cloudStep, m.rainStep));
+	// (Look D4: a partly cloudy sky still fills the shade mostly from its blue between the clouds: half the cloud step)
+	float grey = max(m.overcast, max(0.5 * m.cloudStep, m.rainStep));
 	// round 2: round sunrise and sunset the shade takes the colour of the sky it sees, the dome's own zenith and
 	// horizon: a rose-lavender at dawn (more of the glowing horizon), a cooler violet-blue at dusk (more of the
 	// deepening zenith), so the land under a pink sky picks the pink up instead of reading neutral grey

@@ -26,11 +26,11 @@
 #define DM_ROSE vec3(1.32, 0.90, 0.72)
 #define DM_ROSE_MIX 0.4
 
-// 1 from first light to about 06:45, three fifths of it at 08:00, nothing by about 09:30 (sunAngle runs 0.012 at 05:30, 0.055 at
-// 06:30, 0.117 at 08:00)
+// 1 from first light to about 06:45, (Look D4) under a third of it at 08:00, nothing by about 08:45 (sunAngle runs 0.012
+// at 05:30, 0.055 at 06:30, 0.117 at 08:00): the mist burns off as the sun climbs, so the morning light models the land)
 float dawnMistHour() {
 	float t = sunAngle > 0.5 ? sunAngle - 1.0 : sunAngle;
-	return smoothstep(-0.05, -0.015, t) * (1.0 - smoothstep(0.06, 0.20, t));
+	return smoothstep(-0.05, -0.015, t) * (1.0 - smoothstep(0.06, 0.15, t));
 }
 
 // The cover 0..1 along view direction dir (world, unit) to distance T, from the camera at height camY, over ground at
