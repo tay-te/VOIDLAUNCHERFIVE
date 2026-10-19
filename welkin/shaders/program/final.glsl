@@ -15,8 +15,10 @@ out vec2 texcoord;
 flat out vec4 gradeHour; // warm, day, clear, morning
 flat out float gradeOpen; // the eye's openness to the sky
 flat out float gradeDusk; // (look3) the evening's last degrees, clear sky: 0..1
+flat out vec3 rayLight; // (look pass 6) the light shafts' light at full strength (display; lib/rays_light.glsl)
 #ifdef WORLD_OVERWORLD
 #include "/lib/sky/luminous.glsl"
+#include "/lib/rays_light.glsl"
 #ifndef WU_sunPosition
 #define WU_sunPosition
 uniform vec3 sunPosition;
@@ -42,11 +44,13 @@ void main() {
 		gradeHour = vec4(f.warm * f.up, f.day, f.clear, sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0);
 		gradeOpen = smoothstep(0.15, 0.7, float(eyeBrightnessSmooth.y) / 240.0);
 		gradeDusk = sunAngle < 0.5 ? (1.0 - smoothstep(0.03, 0.30, f.sunW.y)) * f.up * f.clear : 0.0;
+		rayLight = rayLightFor(f);
 	}
 #else
 	gradeHour = vec4(0.0, 1.0, 1.0, 0.0);
 	gradeOpen = 0.0;
 	gradeDusk = 0.0;
+	rayLight = vec3(0.0);
 #endif
 	// ---- end look
 }
@@ -61,6 +65,7 @@ in vec2 texcoord;
 flat in vec4 gradeHour;
 flat in float gradeOpen;
 flat in float gradeDusk;
+flat in vec3 rayLight;
 // ---- end look
 
 #ifndef WU_colortex0
@@ -71,10 +76,37 @@ uniform sampler2D colortex0;
 // ---- atmos (welkin-atmos): the sun beams and the bloom
 #if defined SHAFT_BEAMS && defined WORLD_OVERWORLD
 #define FINAL_BEAMS
-#ifndef WU_colortex12
-#define WU_colortex12
-uniform sampler2D colortex12;
+#ifndef WU_colortex13
+#define WU_colortex13
+uniform sampler2D colortex13; // (look pass 6) the light shafts, blurred toward the sun (composite7, lib/rays.glsl)
 #endif
+#ifndef WU_depthtex0
+#define WU_depthtex0
+uniform sampler2D depthtex0;
+#endif
+#ifndef WU_colortex6
+#define WU_colortex6
+uniform sampler2D colortex6;
+#endif
+#ifndef WU_gbufferProjectionInverse
+#define WU_gbufferProjectionInverse
+uniform mat4 gbufferProjectionInverse;
+#endif
+#ifndef WU_viewWidth
+#define WU_viewWidth
+uniform float viewWidth;
+#endif
+#ifndef WU_viewHeight
+#define WU_viewHeight
+uniform float viewHeight;
+#endif
+// (look pass 6) the shafts' strength over the scene, on the open sky, and how much air (blocks) makes a full beam, with
+// the share the nearest air keeps (under a crown the near air is exactly where the beams are)
+#define RAY_GAIN 5.0
+#define RAY_SKY 0.35
+#define RAY_AIR 40.0
+#define RAY_AIR_NEAR 0.4
+#define RAY_SHADE 0.5
 #endif
 #ifdef BLOOM
 #include "/lib/bloom.glsl"
@@ -155,19 +187,32 @@ vec3 shoulder(vec3 c) {
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec3 c = max(texelFetch(colortex0, p, 0).rgb, 0.0);
+	vec3 rayDbg = vec3(0.0); // (look pass 6) SHAFT_DEBUG 5 and 6
 	// ---- atmos (welkin-atmos): the sun beams, then the bloom
 #ifdef FINAL_BEAMS
 	{
-		// four bilinear taps at the corners between texels: the 4x4 half-resolution texels round the pixel, evenly
-		vec2 hp = 1.0 / vec2(textureSize(colortex12, 0));
-		// (the texel boundary between q - 2 | q - 1 and q | q + 1 in each axis)
-		vec2 cu = vec2(p >> 1) * hp;
-		vec3 b = texture(colortex12, cu + vec2(-hp.x, -hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, -hp.y)).rgb
-			+ texture(colortex12, cu + vec2(-hp.x, hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, hp.y)).rgb;
-		// (look, welkin-look: laid on as a screen, so the beams stream bright through the dark lanes between trunks and
-		// over shaded land, and add little over what is already bright: open water and sky toward the sun take no veil;
-		// was c += b * 0.25)
-		c += b * 0.35 * (1.0 - clamp(c, 0.0, 1.0)); // (look2: 0.35, was 0.25)
+		// (look pass 6) the light shafts (lib/rays.glsl), already smooth: one bilinear read
+		vec3 rays = textureLod(colortex13, texcoord, 0.0).rgb;
+		// as light in the air between the eye and what it sees: the air a ray crosses, with a floor near the eye
+		float d0 = texelFetch(depthtex0, p, 0).r;
+		float air = 1.0;
+		bool sky = false;
+		if (d0 < 1.0) {
+			vec4 vp = gbufferProjectionInverse * vec4(texcoord * 2.0 - 1.0, d0 * 2.0 - 1.0, 1.0);
+			air = mix(RAY_AIR_NEAR, 1.0, 1.0 - exp(-length(vp.xyz / vp.w) / RAY_AIR));
+		} else {
+			sky = true;
+#ifdef DISTANT_HORIZONS
+			sky = texelFetch(dhDepthTex0, p, 0).r >= 1.0;
+#endif
+		}
+		vec3 b = rayLight * (sky ? rays.y * RAY_SKY : rays.x * air);
+		// the shadowed lanes over the sky and the clouds: the air there lends less of the sun's glow, so they dim a little
+		c *= 1.0 - RAY_SHADE * (sky ? rays.z : 0.0);
+		// laid on as a screen, so the beams stream bright through the dark lanes and add little over what is already
+		// bright
+		c += b * RAY_GAIN * (1.0 - 0.6 * clamp(c, 0.0, 1.0));
+		rayDbg = SHAFT_DEBUG == 5 ? rays : b * RAY_GAIN;
 	}
 #endif
 #ifdef BLOOM
@@ -276,6 +321,9 @@ void main() {
 	uint h = pixelHash(p, 7u);
 	float tri = (float(h & 0xFFFFu) + float(h >> 16u)) / 65535.0 - 1.0;
 	c = clamp(c + tri / 255.0, 0.0, 1.0);
+#if SHAFT_DEBUG == 5 || SHAFT_DEBUG == 6
+	c = rayDbg; // (look pass 6) the shafts alone, as they are added (display)
+#endif
 	outColor = vec4(c, 1.0);
 }
 

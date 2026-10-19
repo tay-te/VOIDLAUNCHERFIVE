@@ -71,8 +71,8 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define SUN_SHAFTS
 // Sun shaft strength: How bright the sun shafts are.  [air]
 #define SHAFT_STRENGTH 100 // [50 75 100 125 150 200]
-// Sun shaft debug: 1 the resolved sunlit share of the near air, 2 the raw (noisy) term. For testing only; on no screen.  [air]
-#define SHAFT_DEBUG 0 // [0 1 2 3 4]
+// Sun shaft debug: 1 the resolved sunlit share of the near air, 2 the raw (noisy) term, 5 the light shafts' source (lib/rays.glsl), 6 the blurred shafts before the air. For testing only; on no screen.  [air]
+#define SHAFT_DEBUG 0 // [0 1 2 3 4 5 6]
 // ---- Sky
 // Pixel sun and moon: Draws the sun and the moon, with all eight moon phases, as crisp pixel art in the sky instead of the vanilla pictures.  [sky]
 #define SKY_PIXEL_SUN
