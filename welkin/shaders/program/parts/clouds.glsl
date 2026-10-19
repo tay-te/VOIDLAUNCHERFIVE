@@ -150,13 +150,13 @@ void main() {
 			float f = wcSlabFog(k, rd, seen, wcDeckShare(k, wHere, e), e);
 			if (f > 0.0) {
 				color.rgb = welkinCloudVeil(color.rgb, rd, 1e30, e) * f + color.rgb * (1.0 - f);
-				hdrKeep *= 1.0 - clamp(f, 0.0, 1.0);
+				// (the veil keeps a share of what is behind it itself: the HDR share passes as the old hot values did)
 			}
 		}
 	}
 	if (h.inside) {
 		color.rgb = welkinCloudVeil(color.rgb, rd, min(h.tOut, tScene), e);
-		hdrKeep = 0.0;
+		hdrKeep *= 0.5;
 	}
 #if DEBUG_VIEW == 10
 	// the cost map: columns and jumps per pixel, blue few .. red at the cap (WC_STEPS)

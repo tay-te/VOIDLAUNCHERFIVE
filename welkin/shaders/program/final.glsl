@@ -167,8 +167,8 @@ void main() {
 	return;
 #endif
 	float expo = hdrExposure();
-	// ---- atmos (welkin-atmos): the sun beams, then the bloom. (HDR stage A: both still made in display values; the
-	// beams are screened over the display value and come back through the bridge, the bloom's halo comes in as light)
+	// ---- atmos (welkin-atmos): the sun beams, then the bloom. (HDR stage A: both still made and laid on in display
+	// values, through the bridge; stage B feeds them from the scene's light)
 #ifdef FINAL_BEAMS
 	{
 		// four bilinear taps at the corners between texels: the 4x4 half-resolution texels round the pixel, evenly
@@ -181,7 +181,7 @@ void main() {
 		// over shaded land, and add little over what is already bright; look2: 0.35)
 		vec3 d = hdrBridgeToDisplay(sc);
 		vec3 d2 = d + b * 0.35 * (1.0 - clamp(d, 0.0, 1.0));
-		sc = hdrBridgeBack(d2, d, sc);
+		sc = hdrBridgeBack(d2, d, sc, 1.0);
 	}
 #endif
 #ifdef BLOOM
@@ -198,11 +198,12 @@ void main() {
 		lend = d >= 1.0 && texelFetch(colortex6, p, 0).r <= 999.0 ? 0.3 : lend;
 #endif
 		vec4 glow = texture(colortex9, texcoord); // rgb the halo, a the frame's mean bright share (composite4)
-		vec3 add = bloomAdd(hdrBridgeToDisplay(sc), glow.rgb, emit, lend, glow.a,
+		// (laid on the display value as before, then back through the bridge: the pixel's light past what the display
+		// value carries, the sun's disc, passes whole, so the halo round the sun rolls under the disc instead of over it)
+		vec3 dB = hdrBridgeToDisplay(sc);
+		vec3 dB2 = bloomApply(dB, glow.rgb, emit, lend, glow.a,
 			d < 1.0 && emit <= 0.0 && texelFetch(colortex3, p, 0).a <= 0.25 ? 1.0 : 0.0);
-		// (the halo is light: it adds to the scene and the output transform's shoulder takes it, so a glow round the
-		// sun rolls off instead of clipping; what a pixel lends out never takes more than two fifths of it)
-		sc = max(sc + hdrBridgeLight(add), 0.6 * sc);
+		sc = hdrBridgeBack(dB2, dB, sc, 1.0);
 	}
 #endif
 	// ---- end atmos

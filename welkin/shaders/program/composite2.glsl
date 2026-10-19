@@ -384,6 +384,14 @@ void main() {
 		}
 		h.back.a *= 1.0 - sunDisc;
 		h.front.a *= 1.0 - sunDisc;
+		// (HDR stage A) the disc's own light shows through the air as it does above, over a far cloud band too: the share
+		// the bridge carries past the display values
+		float hdrDisc = sunDisc;
+		if (s.sky && cloud && !finished) {
+			float rS = float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4;
+			float aS = sqrt(max(2.0 * (1.0 - dot(normalize(eyePos), sunW)), 0.0));
+			hdrDisc = 0.75 * (1.0 - smoothstep(0.95 * rS, 1.5 * rS, aS)) * smoothstep(-0.04, 0.0, sunW.y);
+		}
 		// (look4, 2026-10-18) through the golden hours the open sky above the horizon keeps its own exposure: the haze's
 		// air is the horizon's light, and laid over the dimmer sky round a low sun it lifted the whole sun-side sky back
 		// toward white. Near the horizon (the land's far haze meets the sky there) it stays
@@ -393,7 +401,7 @@ void main() {
 			h.front.a *= 1.0 - 0.85 * ghS;
 		}
 		color.rgb = welkinHazeBack(color.rgb, h);
-		hdrKeep *= 1.0 - clamp(h.back.a, 0.0, 1.0);
+		hdrKeep *= 1.0 - clamp(h.back.a * (1.0 - hdrDisc), 0.0, 1.0);
 		vec3 ugBeforeMist = color.rgb;
 #ifdef WELKIN_VALLEY_MIST
 		// the mist lies far below the decks: in front of a cloud only when the cloud is against the sky
@@ -492,7 +500,7 @@ void main() {
 #endif
 		color.rgb = mix(color.rgb, ugBeforeMist, ug.amount); // M5: the valley mist (and the shafts) hand over too
 		color.rgb = welkinHazeFront(color.rgb, h);
-		hdrKeep *= 1.0 - clamp(h.front.a, 0.0, 1.0);
+		hdrKeep *= 1.0 - clamp(h.front.a * (1.0 - hdrDisc), 0.0, 1.0);
 		// ---- air and tone (D): the land's aerial perspective (lib/air.glsl)
 		if (!s.sky && !cloud) {
 			// (M5: it hands over to the cave air at cave mouths, as the haze does)
