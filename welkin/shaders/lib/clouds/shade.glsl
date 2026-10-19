@@ -92,6 +92,13 @@
 #define WD_TURN 0.25
 #define WD_TURN_HUE vec3(1.10, 0.95, 0.88)
 #define WD_BACKGLOW 1.2
+// (Look D5) a deck toward a low sun: how much darker its heart, its rim's light (x the sky behind), how much of its far
+// fog it sheds
+#define WD_BACKLIT_HEAVY 0.45
+// (Look D5) how much of the lit share a face turned from a low sun loses, seen toward it (its outline keeps it)
+#define WD_BACKLIT_SHADE 0.8
+#define WD_BACKLIT_RIM 1.6
+#define WD_BACKLIT_FOG 0.75
 // the silver lining's scene light at noon .. through the warm hours (times WC_RIM_SCENE)
 #define WD_RIM_NOON 0.5
 #define WD_RIM_WARM 1.5
@@ -429,6 +436,15 @@ vec3 wcCloudSun(CloudEnv e) {
 	return hue * strength * (1.0 + 0.2 * wcDuskAmount(e.sun.y) * (1.0 - wcClosed()));
 }
 
+// (Look D5) Where a cloud's outline is as seen toward a low sun: a side face is the cell's outline in the world (its rim
+// and thin share are full there), but a side turned to the eye is the cell's shaded side against the light. The outline
+// on screen is a face seen nearly edge-on, or a belly's own outline (and thinnest part)
+float wcBackEdge(CloudBody b, vec3 n, vec3 rd) {
+	float graze = n.y < -0.5 ? 0.0 : smoothstep(0.55, 0.93, 1.0 - abs(dot(n, rd)));
+	float belly = n.y < -0.5 ? max(b.rim * b.rim, pow(1.0 - b.depth, 6.0)) : 0.0;
+	return max(graze * max(b.rim, 0.5), belly);
+}
+
 // ------------------------------------------------------------------------------------------------- skies: the paint
 // skies (welkin-skies, 2026-10-18): the painterly ramp. The light above (wcBodyLight and the sky's) gives every point of
 // a cloud its form: how much of the sun reaches it, against a sunlit top. Here that form is laid in with two colours,
@@ -507,6 +523,15 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 	// flank WD_LIT of it in the sun's colour (a calm cream at noon, gold through the warm hours), with a soft S between
 	float ySky = wcLuma(skyS);
 	float s = smoothstep(0.0, 1.0, min(lit, 1.0)) + max(lit - 1.0, 0.0);
+	// (Look D5) seen toward a low sun, a face turned from it is the deck's shaded side against the light: a small cell is
+	// thin all through, and its thin-body light (bellies, the light's own form) lit it a soft peach all over. There only
+	// its outline keeps the light; the body hangs in its shade colour (the outline then glows, wcCloudLight's rim)
+	{
+		float backP = smoothstep(0.50, 0.05, e.sun.y) * smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - closed);
+		float away = 1.0 - smoothstep(-0.15, 0.45, dot(n, e.sun));
+		float edge = wcBackEdge(b, n, rd);
+		s *= 1.0 - WD_BACKLIT_SHADE * backP * sw * sw * away * (1.0 - edge);
+	}
 	float heavy = (tone == 2 ? WD_BELLY_STORM : (tone == 1 ? WD_BELLY_SHOWER : mix(WD_BELLY, WD_BELLY_WARM, warm)))
 		* mix(1.15, 0.8, sqrt(b.depth));
 	vec3 shade = shadeHue * heavy;
@@ -530,12 +555,16 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 	vec3 emberHue = mix(vec3(1.0, 0.56, 0.50), vec3(1.0, 0.50, 0.24), sw);
 	emberHue = toLinear(emberHue);
 	float edgeU = max(b.rim, (1.0 - b.depth) * (1.0 - b.depth));
+	edgeU = mix(edgeU, wcBackEdge(b, n, rd), sw * sw); // (Look D5) at the outline
 	paint += emberHue / wcLuma(emberHue) * (WD_UNDER_SKY * underG * mix(yShade, ySky, edgeU) * (1.0 - 0.5 * s));
 	// the turn between the light and the shade: a painter's warmer, rosier half-tone through the warm hours
 	paint *= mix(vec3(1.0), WD_TURN_HUE, 4.0 * s * (1.0 - s) * warm * WD_TURN);
 	// a deck toward a low sun glows at its thin parts and along its outline: the light come through its edges
 	float thinE = (1.0 - b.depth) * (1.0 - b.depth);
-	paint += goldHue / max(wcLuma(goldHue), 1e-4) * (WD_BACKGLOW * ySky * warm * sw * sw * sw * max(thinE, 0.7 * b.rim) * (1.0 - closed));
+	// (Look D5) the glow keeps to the outline and the truly thin parts: a small cell is thin all through, and lit through
+	// its whole body it read a soft peach. Toward a low sun (sw) it narrows to the outline on screen (wcBackEdge)
+	thinE = mix(thinE, wcBackEdge(b, n, rd), sw * sw);
+	paint += goldHue / max(wcLuma(goldHue), 1e-4) * (WD_BACKGLOW * ySky * warm * sw * sw * sw * max(thinE, 0.7 * b.rim * (1.0 - sw * sw)) * (1.0 - closed));
 	weight = WS_PAINT * k * (1.0 - WS_CLOSED_KEEP * closed);
 	return paint;
 }
@@ -668,14 +697,26 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// a deck toward a low sun is seen from its shaded side, against the light: its body darker most toward the sun
 	// (look4's backlit body, kept as the cloud's own light), so its thin edges and the sun through it blaze over it
 	float backlit = smoothstep(0.50, 0.05, e.sun.y) * smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - closed);
+	vec3 backRim = vec3(0.0);
 	if (backlit > 0.0) {
 		float swk = wcSunward(rd, e);
-		cS *= 1.0 - backlit * (0.08 + 0.32 * swk * swk + 0.18 * smoothstep(0.75, 0.995, dot(rd, e.sun)));
+		float dk = 0.08 + 0.32 * swk * swk + 0.18 * smoothstep(0.75, 0.995, dot(rd, e.sun));
+		// (Look D5) the deck between the eye and a low sun is a dark, heavy shape: its thick heart most, its thin parts and
+		// outline less (they are lit through, below), so the body reads against the blazing sky rather than a soft peach
+		dk += WD_BACKLIT_HEAVY * swk * swk * (1.0 - 0.6 * wcBackEdge(b, n, rd));
+		cS *= 1.0 - backlit * min(dk, 0.92);
+		// (Look D5) and its thin parts and outline blaze: the low sun's light come through the edge, a gold-white rim at the
+		// sky's own level and over it, strongest straight toward the sun
+		float edgeR = wcBackEdge(b, n, rd);
+		vec3 rimHue = toLinear(vec3(1.0, 0.86, 0.62));
+		backRim = rimHue / wcLuma(rimHue) * (WD_BACKLIT_RIM * wcLuma(skyS) * backlit * swk * swk * swk * edgeR);
+		// the silver lining likewise keeps to the outline there: over a small cell's whole thin body it read cream
+		glint *= mix(1.0, edgeR, backlit * swk * swk);
 	}
 	float warmRim = max(dusk, smoothstep(0.3, 0.9, skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r)) * (1.0 - closed);
 	// (the body's authored colour into scene light; the silver lining is light on top of it, WC_RIM_SCENE of scene
 	// light at its strongest: above the sky, under the sun)
-	vec3 outC = cS + min(wcAlbedo(tone) * glint * (1.0 - 0.7 * closed), vec3(0.55))
+	vec3 outC = cS + backRim + min(wcAlbedo(tone) * glint * (1.0 - 0.7 * closed), vec3(0.55))
 		* (WC_RIM_SCENE * mix(WD_RIM_NOON, WD_RIM_WARM, warmRim));
 	// a thin cloud across the sun glows with it: the sun's light scattered forward through it, gold-white over the disc
 	// and close round it, less through a thick part (the low sun behind a strip of cloud is a blaze in the strip, not a
@@ -708,6 +749,14 @@ vec3 wcFogTarget(vec3 rd, CloudEnv e) {
 	// (the clouds rework: a far deck high over the eye takes mostly the horizon's light, 0.7 of it; the merge of phase 2:
 	// that air is then the luminous sky's, as for the land, so far clouds and far land fade into one band)
 	return skyLuminousLin(sceneFromAuthored(mix(band, hor, 0.7)), rd, skyLumFrame(e.sun), 0.6); // (scene light)
+}
+
+// (Look D5) How much of its far fog a deck keeps: toward a low sun a deck stands dark against the glow, not sunk into it
+// (the glow's peach laid over the decks there is what made them read soft)
+float wcFogBacklit(vec3 rd, CloudEnv e) {
+	float backlit = smoothstep(0.50, 0.05, e.sun.y) * smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - wcClosed());
+	float swk = wcSunward(rd, e);
+	return 1.0 - WD_BACKLIT_FOG * backlit * swk * swk;
 }
 
 // How far a hit sinks into the horizon colour: a little from a few hundred blocks out, then smoothly more with each
@@ -788,8 +837,10 @@ vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) 
 	return vec3((b.top - b.iv.x) / 24.0, b.depth, b.field ? 1.0 : 0.0);
 #elif CLOUD_DEBUG == 3
 	return vec3(wcLightPath(b, e.sun, e) / 64.0);
+#elif CLOUD_DEBUG == 4
+	return vec3(b.rim, b.depth, 1.0 - abs(dot(n, rd))) * 0.5; // D5DBG
 #endif
-	return mix(c, wcFogTarget(rd, e), airCoverA(wcFog(h), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET));
+	return mix(c, wcFogTarget(rd, e), airCoverA(wcFog(h), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET) * wcFogBacklit(rd, e));
 }
 
 // ------------------------------------------------------------------------------------------- the far band
@@ -899,8 +950,10 @@ vec3 welkinCloudShade(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle, 
 	return vec3((b.top - b.iv.x) / 24.0, b.depth, b.field ? 1.0 : 0.0);
 #elif CLOUD_DEBUG == 3
 	return vec3(wcLightPath(b, e.sun, e) / 64.0);
+#elif CLOUD_DEBUG == 4
+	return vec3(b.rim, b.depth, 1.0 - abs(dot(n, rd))) * 0.5; // D5DBG
 #endif
-	return mix(c, wcFogTarget(rd, e), airCoverA(wcFog(h), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET));
+	return mix(c, wcFogTarget(rd, e), airCoverA(wcFog(h), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET) * wcFogBacklit(rd, e));
 }
 
 // The band's colour for deck k met at tMid, `share` of it cloud, over the sky's horizon colour.
@@ -908,7 +961,7 @@ vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
 	CloudHit f = wcBandHit(rd, tMid, e);
 	float y = e.camY + rd.y * tMid;
 	vec3 hor = sceneFromAuthored(wcHorizon(rd, e));
-	vec3 cloud = mix(welkinCloudFace(f, rd, y, 0.5, e), wcFogTarget(rd, e), airCoverA(wcFog(f), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET));
+	vec3 cloud = mix(welkinCloudFace(f, rd, y, 0.5, e), wcFogTarget(rd, e), airCoverA(wcFog(f), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET) * wcFogBacklit(rd, e));
 	return mix(hor, cloud, share);
 }
 

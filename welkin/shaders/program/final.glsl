@@ -244,7 +244,12 @@ void main() {
 			// and they keep their share there). Their structure is kept there as over the near land, so the glow round
 			// the sun does not wash the clouds near it
 			float overCloud = 1.0 - clamp(texelFetch(colortex6, p, 0).g, 0.0, 1.0);
-			air = mix(air, RAY_SKY_CLOUD * (1.0 + RAY_CLOUDY_BOOST * cloudy), overCloud);
+			// (Look D5) but a deck close round a low sun is a dark backlit shape: the beams' glow laid over it there washed
+			// it a soft peach. Within about 35 degrees of a sun under about 25 degrees up, they keep RAY_CLOUD_BACKLIT
+			vec3 vR = normalize((gbufferProjectionInverse * vec4(texcoord * 2.0 - 1.0, 1.0, 1.0)).xyz);
+			float sunY = normalize(mat3(gbufferModelViewInverse) * sunPosition).y;
+			float nearR = smoothstep(0.80, 0.97, dot(vR, normalize(sunPosition))) * smoothstep(0.45, 0.15, sunY);
+			air = mix(air, RAY_SKY_CLOUD * (1.0 + RAY_CLOUDY_BOOST * cloudy) * mix(1.0, RAY_CLOUD_BACKLIT, nearR), overCloud);
 			hp = mix(hp, RAY_HP_CLOUD, overCloud);
 		}
 		// (Look D2) over the near land only the structure: a large gap's solid fan there read as a sheet painted over the

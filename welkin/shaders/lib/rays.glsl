@@ -33,6 +33,8 @@
 #define RAY_SKY 0.32
 // (Look D3) over a cloud's body (by its cover): the beams' share and how much of their shared part is taken off
 #define RAY_SKY_CLOUD 1.0
+// (Look D5) the share of it a deck keeps close round a low sun (a dark backlit shape)
+#define RAY_CLOUD_BACKLIT 0.3
 #define RAY_HP_CLOUD 0.7
 // (Look D3) a partly cloudy sky: the beams' share over the far land, how much of their shared part is taken off there,
 // and how much stronger they are (the clouds' shadows in the air)
