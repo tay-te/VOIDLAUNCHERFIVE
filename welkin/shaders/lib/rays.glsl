@@ -28,10 +28,10 @@
 #define RAY_SRC_CAP 6.0
 // final: the strength of the beams' in-scattered light, the air in front that holds them (blocks), the floor of it
 // near the eye (beams under a crown), and their share over the open sky (the dome already glows there)
-#define RAY_GAIN 8.0
+#define RAY_GAIN 10.0
 #define RAY_AIR 90.0
 #define RAY_NEAR_FLOOR 0.3
-#define RAY_SKY 0.25
+#define RAY_SKY 0.32
 // (Look D1) the beams over the far land and water: from RAY_FAR_START to RAY_FAR_END blocks they thin to this share
 #define RAY_FAR_SHARE 0.3
 #define RAY_FAR_START 60.0

@@ -284,7 +284,9 @@ void main() {
 					vec3 L = texelFetch(colortex0, p, 0).rgb * expoR;
 					float y = dot(L, vec3(0.2126, 0.7152, 0.0722));
 					L *= RAY_SRC_CAP / (RAY_SRC_CAP + y); // eased under the cap: the sky's light, not the disc's
-					beams += L * clamp(T, 0.0, 1.0);
+					// (Look D1) squared: a cloud's thin edge gives little, so the gaps stand out as beams
+					T = clamp(T, 0.0, 1.0);
+					beams += L * T * T;
 				}
 			}
 			beams *= 0.25 * near * gate;
