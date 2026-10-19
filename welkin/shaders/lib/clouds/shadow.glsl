@@ -53,6 +53,12 @@ float wcShadowField(vec2 q, int k, int lv, CloudEnv e) {
 #define WC_SHADOW_ONE 0.52
 #define WC_SHADOW_TWO 0.44
 #define WC_SHADOW_THREE 0.38
+// (Look D4) while the sun stands high (past about 30 degrees) a cloud takes more of it: at midday the drifting patches of
+// shade are the land's strongest depth cue, and over a sun-led field one deck's shadow reads clearly. The golden hours
+// keep the lighter shares above, so a long low-sun shadow never blots out a lit ridge
+#define WC_SHADOW_ONE_HIGH 0.34
+#define WC_SHADOW_TWO_HIGH 0.28
+#define WC_SHADOW_THREE_HIGH 0.24
 
 // How much of deck k's (0 low, 1 main, 2 high) cloud stands over camera-relative point q at altitude `mid`, 0..1: 1
 // inside a cloud, easing to a third at an open side of its cell, 0 in a gap.
@@ -119,9 +125,13 @@ float welkinCloudShadow(vec3 eyePos, CloudEnv e) {
 		}
 		under += wcShadowCover(snapped.xz + l.xz * ((mid - y) / l.y), k, mid, e);
 	}
-	float share = 1.0 - (1.0 - WC_SHADOW_ONE) * min(under, 1.0)
-		- (WC_SHADOW_ONE - WC_SHADOW_TWO) * clamp(under - 1.0, 0.0, 1.0)
-		- (WC_SHADOW_TWO - WC_SHADOW_THREE) * clamp(under - 2.0, 0.0, 1.0);
+	float hi = smoothstep(0.3, 0.55, l.y);
+	float s1 = mix(WC_SHADOW_ONE, WC_SHADOW_ONE_HIGH, hi);
+	float s2 = mix(WC_SHADOW_TWO, WC_SHADOW_TWO_HIGH, hi);
+	float s3 = mix(WC_SHADOW_THREE, WC_SHADOW_THREE_HIGH, hi);
+	float share = 1.0 - (1.0 - s1) * min(under, 1.0)
+		- (s1 - s2) * clamp(under - 1.0, 0.0, 1.0)
+		- (s2 - s3) * clamp(under - 2.0, 0.0, 1.0);
 	return mix(1.0, share, rise);
 #endif
 }

@@ -51,11 +51,11 @@ uniform float sunAngle;
 
 // ---- the exposure curve (a multiplier on scene light; 1 shows the land as the light model was tuned)
 // by day (the land's light model was tuned at exposure 1: the reference)
-#define HDR_EXPOSURE_DAY 0.84
+#define HDR_EXPOSURE_DAY 0.92
 // through the golden hours (the sky table's golden hour, 0..1)
 #define HDR_EXPOSURE_GOLDEN 1.0
 // at night (the moonlit land's lift lives in the light model, LAND_NIGHT; this is on top)
-#define HDR_EXPOSURE_NIGHT 1.1
+#define HDR_EXPOSURE_NIGHT 0.8
 // under a full overcast or in rain
 #define HDR_EXPOSURE_OVERCAST 0.9
 // the Nether and the End
@@ -64,6 +64,9 @@ uniform float sunAngle;
 // ---- the curve
 // the S round mid grey (welkinTone's LAND_CONTRAST)
 #define HDR_CONTRAST 1.12
+// (Look D4) by day, once the sun stands past about 20 degrees: a stronger S, so the sunlit tops stand clear of the shade
+// and the land has form (the golden hours, dawn and night keep HDR_CONTRAST)
+#define HDR_CONTRAST_DAY 1.22
 // where the shoulder starts (linear display) and how long it is (smaller m: longer)
 #define HDR_KNEE 0.45
 #define HDR_SHOULDER_M 0.4
@@ -98,7 +101,8 @@ float hdrExposure() {
 
 // the S's strength at luminance y: none in the deep dark (the toe), none in the highlights
 float hdrSK(float y) {
-	return (HDR_CONTRAST - 1.0) * smoothstep(0.002, 0.03, y) * (1.0 - smoothstep(0.3, 1.5, y));
+	float k = mix(HDR_CONTRAST, HDR_CONTRAST_DAY, smoothstep(0.3, 0.55, sin(sunAngle * 6.2831853)));
+	return (k - 1.0) * smoothstep(0.002, 0.03, y) * (1.0 - smoothstep(0.3, 1.5, y));
 }
 
 float hdrS(float y) {

@@ -40,7 +40,7 @@ const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
 #define TERRAIN_SLOPE 300 // [0 100 150 200 250 300 400]
 // ---- Light: ambient (B)
 // Occlusion strength: How deep corners, the feet of walls, the inside of crowns and the roots of grass sink into shade. 1.25 is the pack's own depth; the shade never goes black.  [light]
-#define AO_STRENGTH 1.25 // [0.5 0.75 1.0 1.25 1.5 2.0]
+#define AO_STRENGTH 1.6 // [0.5 0.75 1.0 1.25 1.6 2.0]
 // Occlusion quality: How many directions and steps the ambient occlusion looks along. High is a little smoother in deep corners and costs more.  [light]
 #define AO_QUALITY 1 // [1 2]
 // Far land's own shade: Past the shadow map's reach, and over the far land, the ambient occlusion also tells where the sun cannot get in: the floor between a far wood's crowns, the shaded side of a gully, the far wall of a hollow at a low sun. Soft, worked out from the shapes on screen.  [light]
