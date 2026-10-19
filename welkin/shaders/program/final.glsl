@@ -14,6 +14,7 @@ out vec2 texcoord;
 // ---- look (welkin-look): the hour for the colour grade (lib/grade.glsl), once per frame
 flat out vec4 gradeHour; // warm, day, clear, morning
 flat out float gradeOpen; // the eye's openness to the sky
+flat out float gradeDusk; // (look3) the evening's last degrees, clear sky: 0..1
 #ifdef WORLD_OVERWORLD
 #include "/lib/sky/luminous.glsl"
 #ifndef WU_sunPosition
@@ -40,10 +41,12 @@ void main() {
 		SkyLum f = skyLumFrame(normalize(mat3(gbufferModelViewInverse) * sunPosition));
 		gradeHour = vec4(f.warm * f.up, f.day, f.clear, sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0);
 		gradeOpen = smoothstep(0.15, 0.7, float(eyeBrightnessSmooth.y) / 240.0);
+		gradeDusk = sunAngle < 0.5 ? (1.0 - smoothstep(0.03, 0.30, f.sunW.y)) * f.up * f.clear : 0.0;
 	}
 #else
 	gradeHour = vec4(0.0, 1.0, 1.0, 0.0);
 	gradeOpen = 0.0;
+	gradeDusk = 0.0;
 #endif
 	// ---- end look
 }
@@ -57,6 +60,7 @@ in vec2 texcoord;
 #include "/lib/grade.glsl"
 flat in vec4 gradeHour;
 flat in float gradeOpen;
+flat in float gradeDusk;
 // ---- end look
 
 #ifndef WU_colortex0
@@ -190,7 +194,30 @@ void main() {
 	}
 #endif
 	// ---- end atmos
+	bool sunArt = false; // (look3) the pixel sun's own art pixels
 #ifdef WORLD_OVERWORLD
+	// (look3, 2026-10-18) the evening sky's gradient across the whole dome, the clouds in it too: gold round the sun,
+	// then the hue turns through a dusky rose to lilac and a soft blue-grey as the view turns away from the sun (the
+	// sky and its decks had been one salmon from edge to edge: the sun-side glow, the haze and the warm decks all lean
+	// peach). The brightness is kept; only the open sky and the clouds (not the land)
+	if (gradeDusk > 0.0) {
+		float d = texelFetch(depthtex0, p, 0).r;
+#ifdef DISTANT_HORIZONS
+		d = min(d, texelFetch(dhDepthTex0, p, 0).r);
+#endif
+		if (d >= 1.0) {
+			vec3 v = normalize((gbufferProjectionInverse * vec4((vec2(p) + 0.5) / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0)).xyz);
+			float mu = dot(v, normalize(sunPosition));
+			float w = smoothstep(0.92, 0.40, mu) * gradeDusk;
+			float y = dot(c, vec3(0.2126, 0.7152, 0.0722));
+			// display-value hues at luma 1: a dusky rose-lilac across, a blue-grey far from the sun
+			vec3 lilac = vec3(1.02, 0.93, 1.10) / 0.9631;
+			vec3 dusk = vec3(0.84, 0.92, 1.08) / 0.9158;
+			vec3 hue = mix(lilac, dusk, smoothstep(0.55, -0.1, mu));
+			// (a cloud less: its sunset-lit flanks keep their peach and gold)
+			c = mix(c, hue * y, (texelFetch(colortex6, p, 0).r <= 999.0 ? 0.36 : 0.62) * w);
+		}
+	}
 	// (golden, 2026-10-18) the pixel sun a crisp solid disc in its glow: round the sun (within about 25 degrees) the
 	// open sky, its glow and the halo the bloom lays on it ease under 0.97 of white, hue kept (a soft shoulder from
 	// 0.7), while the disc's own art pixels go on to white. The glow and the halo had blazed the sky round a sun some 10 to
@@ -213,13 +240,28 @@ void main() {
 			ivec2 ip;
 			if (near > 0.0 && skyArtPixel(normalize(toW * v), sunW, skyPathAxis(sunW), ip)) {
 				int k = skySunPixel(ip);
-				near *= k >= 1 && k <= 3 ? 0.0 : 1.0;
+				sunArt = k >= 1 && k <= 3;
+				near *= sunArt ? 0.0 : 1.0;
 			}
 			float t = 0.7 + 0.27 * (1.0 - exp(-(m - 0.7) / 0.27));
 			c = mix(c, c * (t / m), near);
 		}
 	}
 #endif
+	// (look3, 2026-10-18) highlights roll off and hold their colour: whatever the light, the glow and the bloom have
+	// pushed past white (a sunset's horizon, the sun's path on the water, the far hills in its glow) eases under white
+	// with its hue and saturation kept, so a blazing gold stays gold-orange instead of clipping channel by channel to
+	// white paper. By day only, and never on the pixel sun's own art pixels (the disc stays a crisp white; the moon and
+	// stars at night are untouched)
+	{
+		float m = max(c.r, max(c.g, c.b));
+		const float K = 0.78;
+		float amt = gradeHour.y * gradeOpen * (sunArt ? 0.0 : 1.0);
+		if (m > K && amt > 0.0) {
+			float t = K + (1.0 - K) * (1.0 - exp(-(m - K) / (1.0 - K)));
+			c = mix(c, c * (t / m), amt);
+		}
+	}
 	// ---- look (welkin-look): the colour grade (lib/grade.glsl)
 	c = welkinGrade(c, gradeHour, gradeOpen);
 	// ---- end look

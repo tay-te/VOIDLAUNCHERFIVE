@@ -185,6 +185,24 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	float dawnAir = sunAngle < 0.25 || sunAngle > 0.75 ? 0.28 : 0.20;
 	// (golden, 2026-10-16: the zenith none of it, was half: gold mixed into the blue overhead read as a cream-grey wash)
 	L = mix(L, f.gold * y, clamp(dawnAir * f.warm * f.up * (1.0 - zen) * (1.0 - smoothstep(0.04, 0.4, hp)) * min(k, 1.0), 0.0, 1.0));
+	// (look3, 2026-10-18) an evening sky has a gradient across it, not one salmon from edge to edge: gold round the sun
+	// (the glow below), a dusky rose and lilac across the sky, a soft blue-grey away from the sun and overhead. By the
+	// evening's last degrees (none at 17:00, most as the sun touches the horizon); the mornings keep their own pearl
+	float eveK = sunAngle < 0.5 ? 1.0 - smoothstep(0.03, 0.30, f.sunW.y) : 0.0;
+	float upk = smoothstep(0.02, 0.6, hp);
+	if (eveK > 0.0) {
+		float away = 1.0 - side;
+		// across: lilac; away and high: a blue-grey (linear, luma 1)
+		const vec3 LILAC = vec3(0.98, 0.80, 1.20) / 0.8606;
+		const vec3 DUSK_BLUE = vec3(0.62, 0.80, 1.18) / 0.8045;
+		vec3 dusk = mix(LILAC, DUSK_BLUE, clamp(away * away + 0.6 * upk * upk, 0.0, 1.0));
+		// (up the sky too, over the sun's side as well: the glow below takes the sun's own part of it back to gold)
+		float wD = smoothstep(0.25, 0.9, away) * 0.75 + 0.60 * upk * (1.0 - 0.45 * side * side);
+		wD = clamp(wD, 0.0, 0.85) * eveK * f.up * min(k, 1.0);
+		// (a little dimmer away from the sun: the dusk side of the sky)
+		L = mix(L, dusk * y * mix(1.0, 0.86, away), wD);
+		y = skyLumLuma(L);
+	}
 	// the glow round the sun: mixed toward the sun's hue at a brighter level (amber at a low sun, never white)
 	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.45);
 	float glow = (0.22 + 0.55 * f.low) * f.up;
@@ -197,7 +215,17 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// field the disc vanished into)
 	tl = min(tl, mix(6.0, 0.42, f.low * f.up));
 	vec3 target = f.gold * tl;
-	L = mix(L, target, clamp(lobe * glow * k, 0.0, 0.92));
+	float lobeW = lobe * glow * k;
+	if (eveK > 0.0) {
+		// (look3) an evening glow with a gradient in it: amber-gold close round the sun, the peach-rose of f.gold farther
+		// out, and up the sky the broad lobe gives way to the dusk's rose and lilac above (it had laid one salmon over the
+		// whole of the sun's half of the sky)
+		float nearS = smoothstep(0.82, 0.995, mu);
+		const vec3 AMBER = vec3(1.0, 0.60, 0.28) / 0.6620;
+		target = mix(f.gold, AMBER, nearS * eveK) * tl;
+		lobeW *= 1.0 - 0.55 * eveK * upk * (1.0 - nearS);
+	}
+	L = mix(L, target, clamp(lobeW, 0.0, 0.92));
 	// the dome lit: the whole sky a little brighter by day, the sun's half more while the sun is low
 	L *= 1.0 + k * (0.10 + 0.14 * f.low * f.up * side);
 
