@@ -39,4 +39,19 @@ public record FolkLook(int appearance, Culture culture, JobType job, AgeStage ag
 		return (long) this.appearance << 32 | (long) this.office.ordinal() << 28 | (long) this.station.ordinal() << 24
 			| (long) this.culture.ordinal() << 16 | (long) this.job.ordinal() << 8 | (long) this.age.ordinal() << 1 | (this.female ? 1 : 0);
 	}
+
+	/** The look a {@link #key()} stands for (docs/OVERLAY.md: a portrait for a resident whose folk the client has not loaded); out-of-range fields fall back to plain defaults. */
+	public static FolkLook fromKey(long key) {
+		Culture[] cultures = Culture.values();
+		JobType[] jobs = JobType.values();
+		AgeStage[] ages = AgeStage.values();
+		Station[] stations = Station.values();
+		int c = (int) (key >>> 16 & 0xFF);
+		int j = (int) (key >>> 8 & 0xFF);
+		int a = (int) (key >>> 1 & 0x7F);
+		int st = (int) (key >>> 24 & 0xF);
+		return new FolkLook((int) (key >>> 32), c < cultures.length ? cultures[c] : Culture.TEMPERATE, j < jobs.length ? jobs[j] : JobType.NONE,
+			a < ages.length ? ages[a] : AgeStage.ADULT, (key & 1) != 0, st < stations.length ? stations[st] : Station.PEASANT,
+			Office.byId((int) (key >>> 28 & 0xF)));
+	}
 }

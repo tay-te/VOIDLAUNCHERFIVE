@@ -95,7 +95,14 @@ public class DiceMenu extends AbstractContainerMenu {
 		return new DiceView(g.phase().ordinal(), this.folk.fullName(), g.personality().id(), this.stake, g.target(), g.score(DiceGame.PLAYER),
 			g.score(DiceGame.FOLK), g.turnPoints(), g.turn(), g.dice(), g.keptMask(), g.selectedMask(), g.scoringMask(), g.selectionScore(),
 			g.rolledMask(), g.rollSerial(), this.stakes, this.line, this.status, g.winner(), g.cheatCaught(), loaded, Hooks.balance(this.player),
-			g.canRollOn(), g.canBank());
+			g.canRollOn(), g.canBank(), folkEntity(), dev.voidmc.hearth.npc.look.ResidentLooks.key(this.settlement, this.folk));
+	}
+
+	/** The opponent's folk entity id where embodied (the client draws their face), or -1. */
+	private int folkEntity() {
+		dev.voidmc.hearth.api.NpcService npc = dev.voidmc.hearth.api.HearthServices.npc();
+		dev.voidmc.hearth.api.NpcService.FolkHandle h = npc == null || this.folk == null ? null : npc.folk(this.folk.id);
+		return h == null ? -1 : h.entity().getId();
 	}
 
 	/** A click from the client, on the server thread. */

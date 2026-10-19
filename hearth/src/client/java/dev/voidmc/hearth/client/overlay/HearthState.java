@@ -78,7 +78,7 @@ public final class HearthState {
 		PlayerQuests pq = QuestStore.get(player);
 		h = mix(h, System.identityHashCode(pq));
 		h = mix(h, player.getInventory().getTimesChanged());
-		if (pq.tracked != null) {
+		if (pq.tracked != null || HearthViews.posterTrack() != null) {
 			BlockPos p = player.blockPosition();
 			h = mix(h, p.asLong());
 			h = mix(h, Math.round(player.getYRot() / 5));
@@ -106,12 +106,13 @@ public final class HearthState {
 		root.add("settings", settings);
 		if (!online) {
 			for (String k : new String[] {"player", "talk", "journal", "questHud", "board", "market", "bank", "confront", "lockpick", "pickpocket", "dice",
-				"reputation", "law"}) {
+				"reputation", "law", "wantedTrack"}) {
 				root.add(k, JsonNull.INSTANCE);
 			}
 			return root;
 		}
-		HearthStateJson.Lookups look = new HearthStateJson.Lookups(Portraits::ofEntity, Portraits::keyOf, target -> carried(player, target));
+		HearthStateJson.Lookups look = new HearthStateJson.Lookups(Portraits::ofEntity, Portraits::keyOf, target -> carried(player, target),
+			Portraits::ofKey);
 		long gameTime = mc.level.getGameTime();
 		BlockPos from = player.blockPosition();
 
@@ -139,20 +140,22 @@ public final class HearthState {
 		PlayerQuests pq = QuestStore.get(player);
 		root.add("journal", HearthStateJson.journal(pq, gameTime, from, look));
 		root.add("questHud", HearthStateJson.questHud(pq, gameTime, from, player.getYRot(), look));
+		root.add("wantedTrack", HearthStateJson.wantedTrack(HearthViews.posterTrack(), from, player.getYRot()));
 		var board = HearthViews.board();
-		root.add("board", board == null ? JsonNull.INSTANCE : HearthStateJson.board(board, pq, gameTime, from, look));
+		root.add("board", board == null ? JsonNull.INSTANCE : HearthStateJson.board(board, pq, gameTime, from, look,
+			HearthViews.posterTrack() == null ? null : HearthViews.posterTrack().player()));
 
 		AbstractContainerMenu menu = player.containerMenu;
 		root.add("market", menu instanceof MarketMenu m ? HearthStateJson.market(m.containerId, m.view(), look) : JsonNull.INSTANCE);
 		root.add("bank", menu instanceof BankMenu b ? HearthStateJson.bank(b.containerId, b.view()) : JsonNull.INSTANCE);
-		root.add("dice", menu instanceof DiceMenu d ? HearthStateJson.dice(d.containerId, d.view()) : JsonNull.INSTANCE);
+		root.add("dice", menu instanceof DiceMenu d ? HearthStateJson.dice(d.containerId, d.view(), look) : JsonNull.INSTANCE);
 
 		var confront = HearthViews.confront();
 		root.add("confront", confront == null ? JsonNull.INSTANCE : HearthStateJson.confront(confront, HearthViews.confrontDetail(), look));
 		var lockpick = HearthViews.lockpick();
 		root.add("lockpick", lockpick == null ? JsonNull.INSTANCE : HearthStateJson.lockpick(lockpick));
 		var pocket = HearthViews.pocket();
-		root.add("pickpocket", pocket == null ? JsonNull.INSTANCE : HearthStateJson.pickpocket(pocket));
+		root.add("pickpocket", pocket == null ? JsonNull.INSTANCE : HearthStateJson.pickpocket(pocket, look));
 		var page = HearthViews.reputation();
 		root.add("reputation", page == null ? JsonNull.INSTANCE : HearthStateJson.reputation(page));
 		root.add("law", HearthStateJson.law(HearthViews.hint(), HearthViews.status(), Util.getMillis() - HearthViews.statusAt(), HearthViews.stealth()));

@@ -191,7 +191,7 @@ public final class QuestManager {
 			long bounty = w.bounty();
 			String owed = bounty <= 0 ? "" : economy != null ? economy.format(bounty).getString()
 				: Component.translatable("hearth.quest.reward.emeralds", Rewards.emeralds(bounty, config.bitsPerEmerald())).getString();
-			out.add(new QuestPayloads.Board.Poster(w.name(), owed, w.outlaw(), w.worst().translationKey()));
+			out.add(new QuestPayloads.Board.Poster(w.name(), owed, w.outlaw(), w.worst().translationKey(), w.player().toString()));
 			if (out.size() >= 6) {
 				break;
 			}

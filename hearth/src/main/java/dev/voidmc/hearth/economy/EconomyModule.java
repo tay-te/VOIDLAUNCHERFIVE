@@ -70,6 +70,7 @@ public final class EconomyModule {
 		EconomyItems.init();
 		EconomyMenus.init();
 		DepositStore.init();
+		dev.voidmc.hearth.economy.bank.BankLedger.init();
 		EconomyNetwork.init();
 		CoinLootTables.init();
 

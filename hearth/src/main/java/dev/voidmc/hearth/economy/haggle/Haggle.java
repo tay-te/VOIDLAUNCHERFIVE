@@ -212,4 +212,53 @@ public final class Haggle {
 	public long @org.jspecify.annotations.Nullable [] band(int speech) {
 		return band(this.list, this.limit, speech);
 	}
+
+	/** The widest room a merchant ever gives ({@link Temper#skilled} caps it here): the guess when the band is hidden. */
+	static final double MAX_ROOM = 0.6;
+
+	/**
+	 * How likely the merchant is to take an offer at once, 0–100, as the player can judge it (docs/OVERLAY.md,
+	 * {@code market.haggle.takes}): the haggle itself is deterministic, so the doubt is only where the hidden limit lies,
+	 * taken as even across the band the player's Speech reads ({@code bandLow}…{@code bandHigh}), or across every limit a
+	 * merchant could have when the band is hidden (both −1). An offer as good as the merchant's last word is always taken.
+	 */
+	public static int takesOdds(boolean playerBuys, long list, long counter, long bandLow, long bandHigh, long offer) {
+		long l = Math.max(1, list);
+		long o = Math.max(0, offer);
+		if (playerBuys ? o >= counter : o <= counter) {
+			return 100;
+		}
+		long lo;
+		long hi;
+		if (bandLow >= 0 && bandHigh >= bandLow) {
+			lo = bandLow;
+			hi = bandHigh;
+		} else if (playerBuys) {
+			lo = Math.max(1, (long) Math.floor(l * (1 - MAX_ROOM)));
+			hi = l;
+		} else {
+			lo = l;
+			hi = (long) Math.ceil(l * (1 + MAX_ROOM));
+		}
+		// the merchant's word never passes the limit, so the limit lies on the far side of it
+		if (playerBuys) {
+			hi = Math.min(hi, counter);
+		} else {
+			lo = Math.max(lo, counter);
+		}
+		if (hi < lo) {
+			lo = hi = counter;
+		}
+		int samples = (int) Math.min(64, hi - lo + 1);
+		int takes = 0;
+		for (int k = 0; k < samples; k++) {
+			long limit = samples == 1 ? lo : lo + Math.round((hi - lo) * (k / (double) (samples - 1)));
+			boolean within = playerBuys ? o >= limit : o <= limit;
+			long width = Math.max(1, Math.abs(l - limit));
+			if (within && Math.abs(counter - o) <= Math.max(1, Math.round(width * CLOSE_ENOUGH))) {
+				takes++;
+			}
+		}
+		return (int) Math.round(100.0 * takes / samples);
+	}
 }

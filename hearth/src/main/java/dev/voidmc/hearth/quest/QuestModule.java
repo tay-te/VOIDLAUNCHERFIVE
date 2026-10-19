@@ -74,12 +74,15 @@ public final class QuestModule {
 		ServerLifecycleEvents.SERVER_STARTING.register(dev.voidmc.hearth.quest.service.GameFactsImpl::setServer);
 
 		ServerTickEvents.END_SERVER_TICK.register(QuestTracker::tick);
+		ServerTickEvents.END_SERVER_TICK.register(dev.voidmc.hearth.quest.service.PosterTracks::tick);
 		ServerLivingEntityEvents.AFTER_DEATH.register(QuestTracker::onDeath);
 		ServerPlayerEvents.LEAVE.register(player -> QuestDialogue.forget(player.getUUID()));
+		ServerPlayerEvents.LEAVE.register(dev.voidmc.hearth.quest.service.PosterTracks::forget);
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			SandboxSettlements.clear();
 			StructureLocator.clear();
 			dev.voidmc.hearth.quest.service.LivingQuests.clear();
+			dev.voidmc.hearth.quest.service.PosterTracks.clear();
 			dev.voidmc.hearth.quest.service.GameFactsImpl.setServer(null);
 		});
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> QuestCommands.register(dispatcher));

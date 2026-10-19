@@ -33,6 +33,7 @@ public final class HearthViews {
 	private static long statusAt;
 	private static LawPayloads.Stealth stealth = new LawPayloads.Stealth(false, 0, false);
 	private static StandingPayloads.@Nullable Here here;
+	private static QuestPayloads.@Nullable PosterTrack posterTrack;
 
 	/**
 	 * A lockpicking attempt as the screens show it between the discrete events (the pins and the pick move natively).
@@ -241,6 +242,19 @@ public final class HearthViews {
 		return here;
 	}
 
+	/** The wanted poster the server says the player tracks (null: none). */
+	public static void posterTrack(QuestPayloads.PosterTrack payload) {
+		QuestPayloads.PosterTrack next = payload.active() ? payload : null;
+		if (!java.util.Objects.equals(next, posterTrack)) {
+			posterTrack = next;
+			bump();
+		}
+	}
+
+	public static QuestPayloads.@Nullable PosterTrack posterTrack() {
+		return posterTrack;
+	}
+
 	/** Leaving a world: forget everything. */
 	public static void reset() {
 		talk = null;
@@ -256,6 +270,7 @@ public final class HearthViews {
 		status = LawPayloads.Status.CLEAR;
 		stealth = new LawPayloads.Stealth(false, 0, false);
 		here = null;
+		posterTrack = null;
 		bump();
 	}
 }

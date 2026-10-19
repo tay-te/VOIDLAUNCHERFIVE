@@ -65,17 +65,23 @@ public final class QuestPayloads {
 		 * @param owed   the fine and bounty, as words, or empty
 		 * @param outlaw an outlaw of the region (attacked on sight), not merely wanted
 		 * @param crime  the worst offence's translation key ({@code hearth.offence.theft}), or empty
+		 * @param player the wanted player's UUID as a string (what {@link PosterAction} names to track them), or empty
 		 */
-		public record Poster(String name, String owed, boolean outlaw, String crime) {
+		public record Poster(String name, String owed, boolean outlaw, String crime, String player) {
 			public Poster(String name, String owed, boolean outlaw) {
-				this(name, owed, outlaw, "");
+				this(name, owed, outlaw, "", "");
+			}
+
+			public Poster(String name, String owed, boolean outlaw, String crime) {
+				this(name, owed, outlaw, crime, "");
 			}
 
 			static final Codec<Poster> CODEC = RecordCodecBuilder.create(i -> i.group(
 				Codec.STRING.fieldOf("name").forGetter(Poster::name),
 				Codec.STRING.optionalFieldOf("owed", "").forGetter(Poster::owed),
 				Codec.BOOL.optionalFieldOf("outlaw", false).forGetter(Poster::outlaw),
-				Codec.STRING.optionalFieldOf("crime", "").forGetter(Poster::crime)
+				Codec.STRING.optionalFieldOf("crime", "").forGetter(Poster::crime),
+				Codec.STRING.optionalFieldOf("player", "").forGetter(Poster::player)
 			).apply(i, Poster::new));
 		}
 
@@ -148,6 +154,57 @@ public final class QuestPayloads {
 		public enum Action {
 			TRACK,
 			ABANDON
+		}
+	}
+
+	/** The player tracks a wanted poster's quarry (a player the law wants in that settlement), or stops ({@code player} empty). */
+	public record PosterAction(long settlementId, String player) implements CustomPacketPayload {
+		public static final Type<PosterAction> TYPE = new Type<>(Hearth.id("quest/poster_action"));
+		public static final StreamCodec<FriendlyByteBuf, PosterAction> STREAM_CODEC = StreamCodec.composite(
+			ByteBufCodecs.VAR_LONG, PosterAction::settlementId,
+			ByteBufCodecs.stringUtf8(64), PosterAction::player,
+			PosterAction::new);
+
+		@Override
+		public Type<PosterAction> type() {
+			return TYPE;
+		}
+	}
+
+	/**
+	 * The tracked wanted poster, as the server sees it now (sent when it changes, at most once a second), or none
+	 * ({@code active} false: untracked, paid up or pardoned).
+	 *
+	 * @param player       the quarry's UUID as a string
+	 * @param owed         the fine and bounty in bits
+	 * @param crime        the worst offence's translation key, or empty
+	 * @param online       whether the quarry is on the server
+	 * @param located      whether {@code near} holds: online, in the tracker's dimension
+	 * @param near         where they are, to the nearest {@link #GRID} blocks (a hunt, not a pinpoint)
+	 */
+	public record PosterTrack(boolean active, String player, String name, long owed, boolean outlaw, String crime, long settlementId, String town,
+		boolean online, boolean located, BlockPos near) implements CustomPacketPayload {
+		public static final int GRID = 32;
+		public static final PosterTrack NONE = new PosterTrack(false, "", "", 0, false, "", 0, "", false, false, BlockPos.ZERO);
+		public static final Type<PosterTrack> TYPE = new Type<>(Hearth.id("quest/poster_track"));
+		public static final StreamCodec<FriendlyByteBuf, PosterTrack> STREAM_CODEC = StreamCodec.of((buf, p) -> {
+			buf.writeBoolean(p.active);
+			buf.writeUtf(p.player, 64);
+			buf.writeUtf(p.name, 64);
+			buf.writeVarLong(p.owed);
+			buf.writeBoolean(p.outlaw);
+			buf.writeUtf(p.crime, 128);
+			buf.writeVarLong(p.settlementId);
+			buf.writeUtf(p.town, 128);
+			buf.writeBoolean(p.online);
+			buf.writeBoolean(p.located);
+			buf.writeBlockPos(p.near);
+		}, buf -> new PosterTrack(buf.readBoolean(), buf.readUtf(64), buf.readUtf(64), buf.readVarLong(), buf.readBoolean(), buf.readUtf(128),
+			buf.readVarLong(), buf.readUtf(128), buf.readBoolean(), buf.readBoolean(), buf.readBlockPos()));
+
+		@Override
+		public Type<PosterTrack> type() {
+			return TYPE;
 		}
 	}
 }

@@ -13,5 +13,8 @@
   "hearth.map.quest.subtitle": "HEARTH  ·  %s",
   "hearth.map.quest.subtitle.hand_in": "HAND IN  ·  %s",
   "hearth.map.quest.objectives": "WHAT IS LEFT",
-  "hearth.map.quest.hand_in": "DONE  ·  HAND IT IN"
+  "hearth.map.quest.hand_in": "DONE  ·  HAND IT IN",
+  "hearth.map.wanted.subtitle": "WANTED  ·  %s",
+  "hearth.map.wanted.subtitle.outlaw": "OUTLAW  ·  %s",
+  "hearth.map.wanted.section": "LAST SEEN ABOUT HERE"
 }

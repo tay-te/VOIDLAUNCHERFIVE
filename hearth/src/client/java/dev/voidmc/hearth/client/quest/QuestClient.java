@@ -57,6 +57,7 @@ public final class QuestClient {
 				HearthScreens.show(HearthScreens.BOARD, () -> new NoticeBoardScreen(payload));
 			}
 		});
+		ClientPlayNetworking.registerGlobalReceiver(QuestPayloads.PosterTrack.TYPE, (payload, context) -> HearthViews.posterTrack(payload));
 		ClientPlayNetworking.registerGlobalReceiver(QuestPayloads.Toast.TYPE, (payload, context) ->
 			context.client().gui.toastManager().addToast(new QuestToast(payload)));
 		HudElementRegistry.attachElementAfter(VanillaHudElements.BOSS_BAR, Hearth.id("quest/tracker"), new QuestHud());

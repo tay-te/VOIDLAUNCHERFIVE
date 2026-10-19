@@ -32,6 +32,11 @@ public final class Portraits {
 		return CACHE.computeIfAbsent(look.key(), k -> Portrait.dataUrl(Portrait.of(look)));
 	}
 
+	/** The portrait of a look's {@link FolkLook#key()} (a resident whose folk the client has not loaded), or null for none. */
+	public static @Nullable String ofKey(long key) {
+		return key == -1L ? null : of(FolkLook.fromKey(key));
+	}
+
 	/** The portrait of the folk with this entity id in the client's level, or null (not a folk, not loaded). */
 	public static @Nullable String ofEntity(int entity) {
 		FolkLook look = look(entity);
