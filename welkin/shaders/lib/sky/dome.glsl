@@ -23,6 +23,7 @@
 #include "/lib/sky/celestial.glsl"
 // atmos (welkin-atmos): the luminous sky
 #include "/lib/sky/luminous.glsl"
+#include "/lib/hdr.glsl"
 
 // below this elevation (about -2.3 degrees) no sun, moon or star is drawn: the land hides them
 #define SKY_BODY_CUTOFF -0.04
@@ -202,6 +203,118 @@ vec3 skyHorizonFor(vec3 eyeDir, SkyFrame f, float dither) {
 	q.x = 1.0;
 	// atmos (welkin-atmos): the same luminous band the dome shows there
 	return skyLuminous(skyDomeColour(q), normalize(vec3(n2.x, 0.0, n2.y)), skyLumFrame(f.sunW), 1.0);
+}
+
+// ==== (HDR stage A) the sky in scene-linear light (lib/hdr.glsl's unit), for gbuffers_skybasic ====
+// The dome's colour points in the table's scene rows (14..21: the display rows through the output transform's
+// inverse at exposure 1, so at exposure 1 the dome shows its tuned colours), blended in linear light; the luminous sky
+// over them in linear light (skyLuminousLin: no cap, no golden headroom, the aureole); then the stars, the moon and
+// the sun as emitters far brighter than the sky (crisp pixel art, glowing above it: the output transform's shoulder
+// keeps their colour, the bloom spreads their light).
+
+// the pixel sun's disc (its core; middle and rim by the art's own palette), the moon's lit face and the brightest star
+#define SKY_SUN_RADIANCE 1500.0
+#define SKY_SUN_RADIANCE_LOW 600.0
+#define SKY_MOON_RADIANCE 2.0
+#define SKY_STAR_RADIANCE 1.5
+
+vec3 skyRowAtScene(float x, int row) {
+	float i = min(floor(x), 4.0);
+	int a = int(i);
+	return mix(skyTable(a, row).rgb, skyTable(a + 1, row).rgb, clamp(x - i, 0.0, 1.0));
+}
+
+vec3 skyDomeColourScene(vec3 q) {
+	float ri = min(floor(q.y), 3.0);
+	int r = int(ri);
+	vec3 c = mix(skyRowAtScene(q.x, SKY_ROW_DOME_SCENE + r), skyRowAtScene(q.x, SKY_ROW_DOME_SCENE + r + 1),
+		clamp(q.y - ri, 0.0, 1.0));
+	if (q.z > 0.0) {
+		vec3 base = skyRowAtScene(q.x, SKY_ROW_DOME_SCENE);
+		float mi = min(floor(q.z), 2.0);
+		int m = int(mi);
+		vec3 a = m == 0 ? base : skyRowAtScene(q.x, SKY_ROW_MOON_SCENE + m);
+		vec3 b = skyRowAtScene(q.x, SKY_ROW_MOON_SCENE + m + 1);
+		c += max(mix(a, b, clamp(q.z - mi, 0.0, 1.0)) - base, 0.0);
+	}
+	return c;
+}
+
+// skyLowSunBandOver in linear light: the band's colour (a display colour in the table) taken to scene light once
+vec3 skyLowSunBandOverScene(vec3 col, vec3 d, SkyFrame f) {
+	vec4 b = skyLowSunBand();
+	if (b.a <= 0.0) {
+		return col;
+	}
+	vec2 sz = f.sunW.xz;
+	float az = 0.0;
+	if (dot(d.xz, d.xz) > 1e-8 && dot(sz, sz) > 1e-8) {
+		az = dot(normalize(d.xz), normalize(sz));
+	}
+	float wAz = 0.5 + 0.5 * az;
+	wAz *= wAz;
+	float wEl = exp(-max(d.y, 0.0) / 0.10) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
+	float w = clamp(b.a * wAz * wEl, 0.0, 1.0);
+	vec3 bL = hdrSceneFromPalette(clamp(b.rgb, 0.0, 1.0));
+	col = mix(col, max(col, bL), w);
+	float wAnti = 0.5 - 0.5 * az;
+	wAnti *= wAnti;
+	float wElA = exp(-max(d.y, 0.0) / 0.22) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
+	vec3 rose = hdrSceneFromPalette((vec3(0.86, 0.64, 0.70) * max(dot(b.rgb, vec3(0.2126, 0.7152, 0.0722)) * 0.62, 0.0)));
+	float wa = clamp(b.a * wAnti * wElA * 0.55, 0.0, 1.0);
+	return mix(col, max(col, rose), wa);
+}
+
+vec3 skyFullScene(vec3 dirW, SkyFrame f) {
+	vec3 d = normalize(dirW);
+	vec3 q = skyDomePos(d, f);
+#if SKY_DEBUG == 2
+	return vec3(q.x / 5.0, q.y / 4.0, q.z / 3.0);
+#endif
+	vec3 col = skyLowSunBandOverScene(skyDomeColourScene(q), d, f);
+	col = skyLuminousLin(col, d, skyLumFrame(f.sunW), 1.0);
+	if (d.y < SKY_BODY_CUTOFF) {
+		return col;
+	}
+	// the stars, behind the sky's own light (they fade out over a bright sky: a display luma of 0.08 .. 0.22)
+	float skyLight = dot(col, vec3(0.2126, 0.7152, 0.0722));
+	float behind = 1.0 - smoothstep(0.0039, 0.036, skyLight);
+	if (f.glow.b * behind > 0.0) {
+		vec3 c = vec3(dot(d, f.sunW), dot(d, f.axis), dot(d, cross(f.sunW, f.axis)));
+		vec3 st = toLinear(skyStars(c, f.glow.b, d.y)) * SKY_STAR_RADIANCE;
+		col = max(col, mix(col, st, behind));
+	}
+#ifdef SKY_PIXEL_SUN
+	ivec2 ip;
+	// the moon: lit side, maria and terminator by phase, an emitter; its dark side (the sky's own colour, darker) hides
+	// the stars
+	if (f.show.g > 0.0 && skyArtPixel(d, f.moonW, f.axis, ip)) {
+		int k = skyMoonPixel(ip, moonPhase & 7);
+		if (k == 4) {
+			col = mix(col, hdrSceneFromPalette(skyTable(11, SKY_ROW_SPRITE).rgb), f.show.g * step(0.75, f.show.b));
+		} else if (k > 0) {
+			col = mix(col, toLinear(skyTable(7 + k, SKY_ROW_SPRITE).rgb) * SKY_MOON_RADIANCE, f.show.g * f.show.b);
+		}
+	}
+	// the sun: core, middle, rim, an emitter far above its sky (dimmer and warmer low over the horizon), and a one-pixel
+	// ring at a tenth of it; behind cloud a paler disc (the sun's visibility)
+	if (f.show.r > 0.0 && skyArtPixel(d, f.sunW, f.axis, ip)) {
+		int k = skySunPixel(ip);
+		float rad = mix(SKY_SUN_RADIANCE_LOW, SKY_SUN_RADIANCE, smoothstep(0.0, 0.4, f.sunW.y));
+		if (k == 4) {
+			col = mix(col, max(col, toLinear(skyTable(3, SKY_ROW_SPRITE).rgb) * (0.1 * rad)), 0.3 * f.show.r);
+		} else if (k > 0) {
+			// (the core brightest, the middle and the rim a step under it, so the art reads by light as well as hue)
+			float ring = k == 1 ? 1.0 : (k == 2 ? 0.6 : 0.35);
+			col = mix(col, toLinear(skyTable(k - 1, SKY_ROW_SPRITE).rgb) * (rad * ring), f.show.r);
+		}
+	}
+#endif
+	return min(col, vec3(30000.0)); // (inside RGBA16F)
+}
+
+vec3 skyFullScene(vec3 dirW) {
+	return skyFullScene(dirW, skyFrame());
 }
 
 #endif

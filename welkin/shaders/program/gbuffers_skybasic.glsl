@@ -60,7 +60,7 @@ void main() {
 	vec4 ndc = vec4(gl_FragCoord.xy / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0);
 	vec4 view = gbufferProjectionInverse * ndc;
 	vec3 dir = mat3(gbufferModelViewInverse) * (view.xyz / view.w);
-	outColor = vec4(hdrBridgeToScene(skyFull(dir)), 1.0); // (HDR A2 interim: bridged)
+	outColor = vec4(skyFullScene(dir), 1.0); // (HDR stage A: the sky in scene-linear light, lib/sky/dome.glsl)
 }
 
 #else

@@ -189,6 +189,16 @@ vec3 hdrCurveInv(vec3 d) {
 	return max((t + c) * (y / t), 0.0);
 }
 
+// A colour point authored in display values (the sky's palette in the table) as scene light: what the old pipeline
+// showed it as (its final shoulder: linear to 0.8, then a soft roll, so an authored white was 0.93 on screen) taken
+// through the curve's inverse at exposure 1. Not a bridge: the palette is authored this way until stage D re-authors it.
+vec3 hdrSceneFromPalette(vec3 display) {
+	vec3 d = max(display, 0.0);
+	vec3 over = max(d - 0.8, 0.0);
+	d = min(d, 0.8) + 0.2 * (1.0 - exp(-over * 5.0));
+	return hdrCurveInv(toLinear(d));
+}
+
 // ---- the output transform's first two steps (final): scene light to linear display
 vec3 hdrOutput(vec3 scene, float exposure) {
 	return hdrCurve(scene * exposure);
@@ -200,14 +210,35 @@ vec3 hdrBridgeToDisplay(vec3 scene) {
 	return toDisplay(hdrCurve(scene * hdrExposure()));
 }
 
-// an old pass's display value -> scene light
+// an old pass's display value -> scene light. The old passes could leave a value past display white (a cloud's silver
+// lining, the haze's air round a low sun, a glint), which the old final's shoulder rolled under white; here a colour's
+// brightest channel past 0.88 is rolled toward 0.96 (hue kept) before the inverse, so it lands as bright light, not at
+// the curve's asymptote.
 vec3 hdrBridgeToScene(vec3 display) {
-	return hdrCurveInv(toLinear(display)) / hdrExposure();
+	vec3 d = max(display, 0.0);
+	float m = max(d.r, max(d.g, d.b));
+	if (m > 0.88) {
+		d *= (0.88 + 0.08 * (1.0 - exp(-(m - 0.88) / 0.08))) / m;
+	}
+	return hdrCurveInv(toLinear(d)) / hdrExposure();
 }
 
-// an old pass's result back to scene light: a pixel it left alone (dOut == dIn) keeps its scene light exactly
+
+// The same, for a pass that knows how much of what lay behind it still shows (`keep`, its transmittance): the light
+// past what a display value can carry (an HDR emitter's: the sun's disc) passes through in that share, so a thin
+// cloud band or the haze over the sun dims it rather than flattening it to the band's own colour.
+vec3 hdrBridgeBack(vec3 dOut, vec3 dIn, vec3 sceneIn, float keep) {
+	if (all(equal(dOut, dIn))) {
+		return sceneIn;
+	}
+	return hdrBridgeToScene(dOut) + clamp(keep, 0.0, 1.0) * max(sceneIn - hdrBridgeToScene(dIn), 0.0);
+}
+
+// an old pass's result back to scene light, for a pass that does not say what shows through: a pixel it left alone
+// keeps its scene light exactly; a small change keeps the HDR share, a large one (a curtain laid over it) loses it
 vec3 hdrBridgeBack(vec3 dOut, vec3 dIn, vec3 sceneIn) {
-	return all(equal(dOut, dIn)) ? sceneIn : hdrBridgeToScene(dOut);
+	vec3 dd = abs(dOut - dIn);
+	return hdrBridgeBack(dOut, dIn, sceneIn, 1.0 - max(dd.r, max(dd.g, dd.b)) / 0.25);
 }
 
 // light an old pass adds (linear, in display white's units) -> scene light

@@ -1,5 +1,5 @@
 // VOID Welkin sky (M2): the sky table's layout and its readers. The prepare pass writes the table into colortex5
-// (64x32 RGBA16, size.buffer in shaders.properties) once a frame; anything after it reads it with texelFetch: the sky
+// (64x32 RGBA16F since HDR stage A, size.buffer in shaders.properties) once a frame; anything after it reads it with texelFetch: the sky
 // dome (gbuffers_skybasic), the light ramp (lib/light.glsl), the far fade and haze, water reflections, clouds.
 //
 // Its colours are control points: readers blend between neighbouring texels where they need a gradient (the dome),
@@ -33,7 +33,11 @@
 //   y 10..12  the dome with the moon's halo ring 1..3 (x as rows 0..4)
 //   y 13      the sky's irradiance on the land (lib/sky/irradiance.glsl): x 0..8 its spherical-harmonic coefficients
 //             (l <= 2, cosine-convolved, normalised per channel to an upward face), stored v / 8 + 0.5
-//   y 14..30  reserved (written black): rows for other modules' palettes go here
+//   y 14..18  (HDR stage A) the dome as rows 0..4, in SCENE-LINEAR light (lib/hdr.glsl's unit): the dome's colour
+//             points taken through the output transform's inverse at exposure 1, so the dome is drawn in linear light
+//             and shows its tuned colours; gbuffers_skybasic reads these, the passes still in display values rows 0..4
+//   y 19..21  (HDR stage A) the moon's halo rings 1..3 (rows 10..12) the same way
+//   y 22..30  reserved (written black): rows for other modules' palettes go here
 //   y 31      x 0: 'W' 'K' version 1 255, the check that prepare ran
 
 #ifndef WELKIN_SKY_TABLE
@@ -55,6 +59,8 @@ uniform sampler2D colortex5;
 #define SKY_ROW_SPRITE    9
 #define SKY_ROW_MOON_DOME 9  // + ring 1..3
 #define SKY_ROW_CHECK     31
+#define SKY_ROW_DOME_SCENE 14 // + ring 0..4 (HDR stage A)
+#define SKY_ROW_MOON_SCENE 18 // + ring 1..3 (HDR stage A)
 
 #define SKY_X_SUN        0
 #define SKY_X_MOON       1

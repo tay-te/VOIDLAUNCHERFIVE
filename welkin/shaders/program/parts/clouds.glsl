@@ -55,6 +55,7 @@ void main() {
 	vec3 hdrSceneIn = color.rgb;
 	color.rgb = hdrBridgeToDisplay(color.rgb);
 	vec3 hdrDispIn = color.rgb;
+	float hdrKeep = 1.0; // what of the scene behind still shows (for the bridge's HDR share)
 	float km = WC_NO_CLOUD_KM;
 	vec3 steps = vec3(0.0); // columns and jumps the ray took, of them gap columns, jumps (the gltest cost map)
 #ifdef CLOUDS
@@ -119,6 +120,7 @@ void main() {
 		int k = wcDeckAt(e.camY + rd.y * h.t - h.n.y * 0.01, e);
 		opacity = k >= 0 ? mix(1.0, smoothstep(300.0, 3000.0, h.t), wcNearDeck(k, e)) : 1.0;
 		color.rgb = mix(color.rgb, cc, opacity);
+		hdrKeep *= 1.0 - opacity;
 		km = opacity > 0.5 ? h.t / 1000.0 : km;
 	}
 	for (int i = 0; i < 3; i++) {
@@ -132,6 +134,7 @@ void main() {
 			// pixel counts as cloud for the haze only where the band is mostly cloud.)
 			float alpha = b.z * (cell ? mix(b.w, 1.0, 0.6) : b.w);
 			color.rgb = mix(color.rgb, lit, alpha);
+			hdrKeep *= 1.0 - clamp(alpha, 0.0, 1.0);
 			if (alpha > 0.5) {
 				km = min(km, b.y / 1000.0);
 			}
@@ -147,11 +150,13 @@ void main() {
 			float f = wcSlabFog(k, rd, seen, wcDeckShare(k, wHere, e), e);
 			if (f > 0.0) {
 				color.rgb = welkinCloudVeil(color.rgb, rd, 1e30, e) * f + color.rgb * (1.0 - f);
+				hdrKeep *= 1.0 - clamp(f, 0.0, 1.0);
 			}
 		}
 	}
 	if (h.inside) {
 		color.rgb = welkinCloudVeil(color.rgb, rd, min(h.tOut, tScene), e);
+		hdrKeep = 0.0;
 	}
 #if DEBUG_VIEW == 10
 	// the cost map: columns and jumps per pixel, blue few .. red at the cap (WC_STEPS)
@@ -165,7 +170,7 @@ void main() {
 	}
 #endif
 #endif
-	outColor = vec4(hdrBridgeBack(color.rgb, hdrDispIn, hdrSceneIn), color.a);
+	outColor = vec4(hdrBridgeBack(color.rgb, hdrDispIn, hdrSceneIn, hdrKeep), color.a);
 	outCloud = vec4(km, steps); // colortex6 is R16F: only km is kept
 }
 

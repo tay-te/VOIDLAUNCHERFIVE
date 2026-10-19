@@ -18,6 +18,7 @@
 #include "/lib/sky/table.glsl"
 #include "/lib/sky/uniforms.glsl"
 #include "/lib/tone.glsl"
+#include "/lib/hdr.glsl"
 
 // skies2 (welkin-skies): the far air's colour (the haze rows)
 #define WS_AIR_BLUEGREY vec3(0.66, 0.73, 0.84)
@@ -444,7 +445,7 @@ float skyRingMix(float r) {
 #include "/lib/sky/irradiance.glsl"
 
 // The texel at t: what prepare writes.
-vec4 skyBuildTexel(ivec2 t) {
+vec4 skyBuildTexelRaw(ivec2 t) {
 	if (t.y == SKY_ROW_CHECK) {
 		return t.x == 0 ? vec4(87.0, 75.0, 1.0, 255.0) / 255.0 : vec4(0.0);
 	}
@@ -527,6 +528,23 @@ vec4 skyBuildTexel(ivec2 t) {
 	}
 	return vec4(0.0);
 #endif
+}
+
+// The texel at t (HDR stage A): the rows that were display colours stay in 0..1 as the RGBA16 table kept them (the
+// table is RGBA16F now); the land's light (row 5, x 12..14) and the irradiance (row 13) as written; the dome in
+// scene-linear light (rows 14..21) from the dome's own colour points.
+vec4 skyBuildTexel(ivec2 t) {
+#if !defined WORLD_NETHER && !defined WORLD_END
+	if (t.y >= SKY_ROW_DOME_SCENE && t.y <= SKY_ROW_MOON_SCENE + 3) {
+		ivec2 src = t.y <= SKY_ROW_DOME_SCENE + 4 ? ivec2(t.x, t.y - SKY_ROW_DOME_SCENE)
+			: ivec2(t.x, SKY_ROW_MOON_DOME + (t.y - SKY_ROW_MOON_SCENE));
+		vec4 c = clamp(skyBuildTexelRaw(src), 0.0, 1.0);
+		return vec4(hdrSceneFromPalette(c.rgb), 1.0);
+	}
+#endif
+	vec4 v = skyBuildTexelRaw(t);
+	bool keep = (t.y == SKY_ROW_LIGHT && t.x >= SKY_X_LAND_DIRECT && t.x <= SKY_X_LAND_BOUNCE) || t.y == SKY_ROW_IRRADIANCE;
+	return keep ? v : clamp(v, 0.0, 1.0);
 }
 
 #endif

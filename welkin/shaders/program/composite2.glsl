@@ -258,6 +258,7 @@ void main() {
 	vec3 hdrSceneIn = color.rgb;
 	color.rgb = hdrBridgeToDisplay(color.rgb);
 	vec3 hdrDispIn = color.rgb;
+	float hdrKeep = 1.0; // what of the scene behind still shows through the air (the bridge's HDR share)
 #if defined DEBUG_PLAIN
 	// M3: a cloud drawn here (composite), nearer than whatever lies behind it; it fogged itself by ring
 	bool cloud = false;
@@ -392,6 +393,7 @@ void main() {
 			h.front.a *= 1.0 - 0.85 * ghS;
 		}
 		color.rgb = welkinHazeBack(color.rgb, h);
+		hdrKeep *= 1.0 - clamp(h.back.a, 0.0, 1.0);
 		vec3 ugBeforeMist = color.rgb;
 #ifdef WELKIN_VALLEY_MIST
 		// the mist lies far below the decks: in front of a cloud only when the cloud is against the sky
@@ -459,6 +461,7 @@ void main() {
 				fsunM = clamp(hvRaw.g / max(hvRaw.b, 1e-4), 0.0, 1.0);
 #endif
 				color.rgb = mix(color.rgb, dawnMistColour(airPlain, normalize(eyePos), sunW, fsunM, lum), cover * (1.0 - sunDisc));
+				hdrKeep *= 1.0 - clamp(cover * (1.0 - sunDisc), 0.0, 1.0);
 #ifdef DM_DEBUG
 				color.rgb = vec3(cover, dawnAmt, fract(ground / 16.0));
 #endif
@@ -489,6 +492,7 @@ void main() {
 #endif
 		color.rgb = mix(color.rgb, ugBeforeMist, ug.amount); // M5: the valley mist (and the shafts) hand over too
 		color.rgb = welkinHazeFront(color.rgb, h);
+		hdrKeep *= 1.0 - clamp(h.front.a, 0.0, 1.0);
 		// ---- air and tone (D): the land's aerial perspective (lib/air.glsl)
 		if (!s.sky && !cloud) {
 			// (M5: it hands over to the cave air at cave mouths, as the haze does)
@@ -524,7 +528,7 @@ void main() {
 #if SKY_DEBUG == 1
 	color.rgb = skyDebugOverlay(p, color.rgb); // the sky table, 8x, bottom left
 #endif
-	outColor = vec4(hdrBridgeBack(color.rgb, hdrDispIn, hdrSceneIn), color.a);
+	outColor = vec4(hdrBridgeBack(color.rgb, hdrDispIn, hdrSceneIn, hdrKeep), color.a);
 }
 
 #endif
