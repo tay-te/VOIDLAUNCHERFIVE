@@ -102,6 +102,16 @@ Surface surfaceBehind(ivec2 p, vec2 uv) {
 #endif
 	return pickSurface(texelFetch(depthtex1, p, 0).r, dh, uv);
 }
+
+// (look3, 2026-10-18) The view distance the half-resolution walk (deferred_shafts, colortex13.a) saw at `p`: it runs
+// before the water and the glass are drawn, so it reads the opaque surface behind them. The depth-aware resolves
+// (hvResolve, shaftResolve) must match against this one, not the water's surface: matched against the water, every
+// texel's distance was off by the lake's depth, the weights fell apart, and the 4x4 noise tile showed as a dot grid over
+// the lakes (shore 05:30's mist).
+float resolveDist(ivec2 p, vec2 uv) {
+	Surface b = surfaceBehind(p, uv);
+	return b.sky ? 1e4 : min(length(b.view), 1e4);
+}
 #endif
 
 #endif

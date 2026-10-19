@@ -79,17 +79,20 @@ uniform sampler2D colortex13;
 float shaftResolve(ivec2 p, float dist) {
 	ivec2 qc = p >> 1;
 	ivec2 hi = textureSize(colortex13, 0) - 1;
-	float sum = 0.0, wsum = 0.0;
+	float sum = 0.0, wsum = 0.0, tileSum = 0.0;
 	for (int y = -2; y < 2; y++) {
 		for (int x = -2; x < 2; x++) {
 			vec4 r = texelFetch(colortex13, clamp(qc + ivec2(x, y), ivec2(0), hi), 0);
 			float tol = 0.06 * min(dist, r.a) + 0.4;
-			float w = exp(-abs(r.a - dist) / tol);
+			// (look3: dist < 0, a water pixel: the walk saw the bed, not the water, so every texel counts alike)
+			float w = dist < 0.0 ? 1.0 : exp(-abs(r.a - dist) / tol);
 			sum += r.r * w;
 			wsum += w;
+			tileSum += r.r;
 		}
 	}
-	return wsum > 1e-3 ? sum / wsum : texelFetch(colortex13, clamp(qc, ivec2(0), hi), 0).r;
+	// (look3) where no texel matches, the plain mean of the whole tile (smooth), never one noisy texel
+	return mix(tileSum / 16.0, sum / max(wsum, 1e-6), smoothstep(0.02, 0.5, wsum));
 }
 
 // The shafts' light for view direction dirW (world, unit), `lit` the resolved term, in display values to add. f the

@@ -191,18 +191,21 @@ uniform sampler2D colortex13;
 vec3 hvResolve(ivec2 p, float dist) {
 	ivec2 qc = p >> 1;
 	ivec2 hi = textureSize(colortex13, 0) - 1;
-	vec3 sum = vec3(0.0);
+	vec3 sum = vec3(0.0), tileSum = vec3(0.0);
 	float wsum = 0.0;
 	for (int y = -2; y < 2; y++) {
 		for (int x = -2; x < 2; x++) {
 			vec4 r = texelFetch(colortex13, clamp(qc + ivec2(x, y), ivec2(0), hi), 0);
 			float tol = 0.06 * min(dist, r.a) + 0.4;
-			float w = exp(-abs(r.a - dist) / tol);
+			// (look3: dist < 0, a water pixel: the walk saw the bed, not the water, so every texel counts alike)
+			float w = dist < 0.0 ? 1.0 : exp(-abs(r.a - dist) / tol);
 			sum += r.rgb * w;
 			wsum += w;
+			tileSum += r.rgb;
 		}
 	}
-	return wsum > 1e-3 ? sum / wsum : texelFetch(colortex13, clamp(qc, ivec2(0), hi), 0).rgb;
+	// (look3) where no texel matches, the plain mean of the whole tile (smooth), never one noisy texel
+	return mix(tileSum / 16.0, sum / max(wsum, 1e-6), smoothstep(0.02, 0.5, wsum));
 }
 
 // How thick the air is here, against temperate air at strength 100: by the camera's country (its haze kind), Gloam's

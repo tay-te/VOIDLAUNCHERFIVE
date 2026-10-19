@@ -385,7 +385,7 @@ void main() {
 		vec3 hvRaw = vec3(0.0);
 #ifdef HV_READ
 		if (!cloud && !finished) {
-			hvRaw = hvResolve(p, s.sky ? 1e4 : length(eyePos));
+			hvRaw = hvResolve(p, pinholeWater(p) ? -1.0 : resolveDist(p, uv)); // look3: the walk's own (opaque) distance; water: the tile's mean
 			float hvMist = 0.0;
 #if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
 			hvMist = clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
@@ -441,7 +441,7 @@ void main() {
 #ifdef HV_READ
 			float lit = hvRaw.r; // atmos: the haze's walk gives the shafts' term (resolved above)
 #else
-			float lit = shaftResolve(p, s.sky ? 1e4 : length(eyePos));
+			float lit = shaftResolve(p, pinholeWater(p) ? -1.0 : resolveDist(p, uv));
 #endif
 			// atmos (shafts and bloom): thicker in hazy air and where the morning's valley mist lies, thinner in rain
 			float shThick = mix(0.85, 1.5, clamp(st.haze.x, 0.0, 1.0)) * (1.0 - 0.5 * st.rain);
