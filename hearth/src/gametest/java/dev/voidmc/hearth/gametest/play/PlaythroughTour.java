@@ -967,7 +967,7 @@ public class PlaythroughTour implements FabricClientGameTest {
 			return f == null ? null : f.brain().resident.id;
 		});
 		if (witness != null) {
-			BlockPos spot = srv(server -> freeBeside(server.overworld(), here, 3));
+			BlockPos spot = srv(server -> inSight(server.overworld(), here, 4));
 			srv(server -> {
 				Folk w = NpcModule.embodiment().entityOf(witness);
 				if (w != null) {
@@ -2072,6 +2072,29 @@ public class PlaythroughTour implements FabricClientGameTest {
 	}
 
 	/** A spot a player can stand {@code r} (or fewer) blocks from a block, on the same level if it can. */
+	/**
+	 * A spot to stand a few steps from {@code target} with a clear line from head to head (a witness put behind the wall
+	 * of the next room sees nothing), or {@link #freeBeside} when there is none.
+	 */
+	private static BlockPos inSight(ServerLevel level, BlockPos target, int r) {
+		Vec3 eye = Vec3.atBottomCenterOf(target).add(0, 1.62, 0);
+		for (int d = 2; d <= r; d++) {
+			for (Direction dir : Direction.Plane.HORIZONTAL) {
+				for (int dy : new int[]{0, -1, 1}) {
+					BlockPos at = target.relative(dir, d).above(dy);
+					if (level.getBlockState(at).getCollisionShape(level, at).isEmpty() && level.getBlockState(at.above()).getCollisionShape(level, at.above()).isEmpty()
+						&& !level.getBlockState(at.below()).getCollisionShape(level, at.below()).isEmpty()
+						&& level.clip(new net.minecraft.world.level.ClipContext(Vec3.atBottomCenterOf(at).add(0, 1.62, 0), eye,
+						net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE,
+						net.minecraft.world.phys.shapes.CollisionContext.empty())).getType() == net.minecraft.world.phys.HitResult.Type.MISS) {
+						return at;
+					}
+				}
+			}
+		}
+		return freeBeside(level, target, r);
+	}
+
 	private static BlockPos freeBeside(ServerLevel level, BlockPos target, int r) {
 		for (int d = r; d >= 1; d--) {
 			for (Direction dir : Direction.Plane.HORIZONTAL) {
