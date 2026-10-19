@@ -33,6 +33,7 @@
 #define WELKIN_CLOUD_SHADE
 
 #include "/lib/clouds/march.glsl"
+#include "/lib/clouds/bandcut.glsl"
 #include "/lib/clouds/shadow.glsl"
 #include "/lib/sky/dome.glsl"
 #include "/lib/fade.glsl"
@@ -1016,17 +1017,6 @@ vec3 welkinCloudVeil(vec3 scene, vec3 rd, float path, CloudEnv e) {
 	return mix(scene, wcVeilColour(rd, e), 1.0 - exp(-min(path, 1e4) / 7.0)); // (scene light in and out)
 }
 
-// How near the eye is to deck k's slab, 1 inside or at its faces .. 0 from 30 blocks off: a deck at eye height is
-// seen edge-on as a hard plane across the land, so there its near cells give way to a fog bank (wcSlabFog).
-float wcNearDeck(int k, CloudEnv e) {
-	float deck = k == 0 ? e.layers.x : (k == 1 ? e.layers.y : e.layers.z);
-	if (!wcPresent(deck)) {
-		return 0.0;
-	}
-	float off = max(max(deck - e.camY, e.camY - deck - wcDeckSpan(k)), 0.0);
-	return 1.0 - smoothstep(4.0, 30.0, off);
-}
-
 // The fog bank's density across a deck's height (its slab a..b), summed from below up to altitude y: 1 inside the
 // slab, easing off linearly over WC_SLAB_MARGIN blocks above and below it, so the bank has no hard top or bottom.
 #define WC_SLAB_MARGIN 20.0
@@ -1061,27 +1051,5 @@ float wcSlabFog(int k, vec3 rd, float seen, float share, CloudEnv e) {
 	return near * (1.0 - exp(-path * share / 45.0));
 }
 
-
-// (D7) Where the march may stop for deck k: where the ray enters its slab if the deck is all band there and not a fog
-// bank (wcBandOf's z, times 1 - wcNearDeck, at least 0.999), else 1e30. The same arithmetic as wcBandOf, without the
-// weather: the clouds pass works out its cut before the march and the bands themselves after it, so the bands are not
-// held through the march's loop.
-float wcBandCut(int k, vec3 ro, vec3 rd, float pixAngle, CloudEnv e) {
-	float deck = k == 0 ? e.layers.x : (k == 1 ? e.layers.y : e.layers.z);
-	float y0 = e.camY + ro.y;
-	if (!wcPresent(deck) || abs(rd.y) < 1e-5 || (y0 >= deck && y0 <= deck + wcDeckSpan(k))) {
-		return 1e30;
-	}
-	float tIn = ((rd.y > 0.0 ? deck : deck + wcDeckSpan(k)) - y0) / rd.y;
-	float tMid = (deck + 0.5 * WC_DECK - y0) / rd.y;
-	if (tIn <= 0.0) {
-		return 1e30;
-	}
-	vec2 q = ro.xz + rd.xz * tMid;
-	float cell = float(WC_CELL) * clamp(2.0 * length(q) / WC_RING0, 1.0, float(1 << WC_MAX_LEVEL));
-	float rows = cell * abs(rd.y) / max(tMid * pixAngle, 1e-6);
-	float weight = k == 2 ? 1.0 - smoothstep(4.0, 12.0, rows) : 1.0 - smoothstep(2.0, 5.0, rows);
-	return weight * (1.0 - wcNearDeck(k, e)) >= 0.999 ? tIn : 1e30;
-}
 
 #endif
