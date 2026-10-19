@@ -80,7 +80,7 @@
 #define WD_LIT 1.15
 #define WD_LIT_WARM 0.85
 #define WD_LOW_SUN 0.3
-#define WD_UNDER_SKY 0.6
+#define WD_UNDER_SKY 0.45
 #define WD_BELLY 0.52
 #define WD_BELLY_WARM 0.5
 #define WD_BELLY_SHOWER 0.42
@@ -491,7 +491,7 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 	vec3 paint = mix(shade * ySky, litHue * (mix(WD_LIT, WD_LIT_WARM, warm) * sunL), s);
 	// round sunset the bellies and flanks are lit from under by the low sun and its glowing sky: an ember glow toward it,
 	// rose away from it, a share of the sky's own light there, most at the thin outline
-	float underG = dusk * (1.0 - closed) * mix(0.25, 1.0, sw * sw) * mix(0.55, 1.0, max(b.rim, 1.0 - b.depth))
+	float underG = dusk * (1.0 - closed) * mix(0.25, 1.0, sw * sw) * mix(0.3, 1.0, max(b.rim, (1.0 - b.depth) * (1.0 - b.depth)))
 		* (n.y < 0.5 ? 1.0 : 0.25);
 	vec3 emberHue = mix(vec3(1.0, 0.56, 0.50), vec3(1.0, 0.50, 0.24), sw);
 	emberHue = toLinear(emberHue);
