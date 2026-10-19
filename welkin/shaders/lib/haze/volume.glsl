@@ -57,6 +57,7 @@
 #define HV_MAX_OPACITY 0.70
 // the near steps' spacing: t grows as this power of the step (1 even)
 #define HV_NEAR_POW 1.6
+#define HV_PROBE 0
 
 float hvDensity(float y, float ground) {
 	float sea = exp(-clamp(y - HAZE_SEA_LEVEL, -40.0, 600.0) / HV_H_SEA);
@@ -115,6 +116,7 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 #endif
 	float shaft = 0.0, hzSun = 0.0, hzAll = 0.0, tau = 0.0;
 	float cloudVis = 1.0;
+	float pr0 = 0.0, pr1 = 0.0, pr2 = 0.0; // HV_PROBE (temporary)
 	// (shafts and bloom step: the near steps crowd toward the eye, t growing as the 1.6th power of the step, so the beams
 	// between trunks a few blocks off are walked as finely as the long shadows further out)
 	for (int i = 0; i < NN; i++) {
@@ -128,6 +130,8 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 #else
 		float vis = 1.0;
 #endif
+		pr0 += vis / float(NN);
+		pr2 += hvLineVis(y, line0, w0) / float(NN);
 		vis *= hvLineVis(y, line0, w0);
 #ifdef HV_CLOUDS
 		// (a cloud's shadow changes slowly along the near air: read every other step, which halves the walk's cost of it)
@@ -135,6 +139,7 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 			cloudVis = welkinCloudShadow(dirP * (t + 0.5 * dtN), ce);
 		}
 		vis *= cloudVis;
+		pr1 += cloudVis / float(NN);
 #endif
 		shaft += vis * exp(-t / SHAFT_FALLOFF) * dtN;
 		float rho = hvDensity(y, g0) * (t * t / (t * t + HV_NEAR_CLEAR * HV_NEAR_CLEAR));
@@ -175,8 +180,57 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 			tau += rho * dt * HV_SIGMA_MARCH;
 		}
 	}
+#if HV_PROBE == 1
+	return vec4(pr0, hzSun, hzAll, dist);
+#elif HV_PROBE == 2
+	return vec4(pr1, hzSun, hzAll, dist);
+#elif HV_PROBE == 3
+	return vec4(pr2, hzSun, hzAll, dist);
+#elif HV_PROBE == 4
+	return vec4(nearEnd / 200.0, hzSun, hzAll, dist);
+#endif
 	return vec4(shaftsOn ? shaft / SHAFT_FALLOFF : 0.0, hzSun, hzAll, dist);
 }
+#endif
+
+#ifdef HV_WALK
+#ifdef HV_CLOUDS
+// (look5, 2026-10-19) The cloud lanes: crepuscular rays. A cloud's shadow is a column of unlit air slanting down from it
+// toward the land; between them the sunlit air glows. Those columns are hundreds of blocks across and stand hundreds to
+// thousands of blocks out, where the shafts' term (weighted over its first ~220 blocks, read every other step of six
+// far steps) never saw them: it held the cloud shadow over the eye and its neighbourhood, the same for every ray, so no
+// lane could ever form. Here the ray is walked on its own, out to HV_LANE_REACH or until it rises over the clouds,
+// HV_LANE_STEPS even steps (jittered by the 4x4 lighting noise, resolved like the rest), each one read of the decks'
+// cover over the point (lib/clouds/shadow.glsl welkinCloudCoverAir, two texels), weighted by the air's density and
+// a long extinction. Out: x the sunlit air, y all the air (the same weights), both in units of HV_LANE_L blocks.
+#define HV_LANE_STEPS 12
+#define HV_LANE_REACH 2400.0
+#define HV_LANE_L 900.0
+vec2 hvCloudLanes(ivec2 q, vec3 dirP, float dist, bool sky) {
+	CloudEnv ce = welkinCloudEnv();
+	float camY = cameraPosition.y;
+	float tEnd = sky ? HV_LANE_REACH : min(dist, HV_LANE_REACH);
+	// a ray that climbs over the decks: the air above them is all in the sun and only dilutes the lanes
+	if (dirP.y > 1e-3) {
+		tEnd = min(tEnd, max(ce.yHi - camY, 0.0) / dirP.y);
+	}
+	if (tEnd < 4.0 || ce.sun.y < 0.03) {
+		return vec2(0.0);
+	}
+	float u = lightNoise(q + ivec2(1, 2), lightFrame()); // (another turn of the tile than the main walk's)
+	float g0 = min(camY - 2.0, HAZE_SEA_LEVEL + 40.0);
+	float lit = 0.0, all = 0.0;
+	float dt = tEnd / float(HV_LANE_STEPS);
+	for (int i = 0; i < HV_LANE_STEPS; i++) {
+		float t = (float(i) + u) * dt;
+		vec3 pp = dirP * t;
+		float w = hvDensity(camY + pp.y, g0) * exp(-t / HV_LANE_L) * dt / HV_LANE_L;
+		lit += w * (1.0 - welkinCloudCoverAir(pp, ce));
+		all += w;
+	}
+	return vec2(lit, all);
+}
+#endif
 #endif
 
 // ---- the resolve and the light (composite2; define HV_READ and include lib/sky/luminous.glsl, lib/haze/haze.glsl)
@@ -206,6 +260,68 @@ vec3 hvResolve(ivec2 p, float dist) {
 	}
 	// (look3) where no texel matches, the plain mean of the whole tile (smooth), never one noisy texel
 	return mix(tileSum / 16.0, sum / max(wsum, 1e-6), smoothstep(0.02, 0.5, wsum));
+}
+
+// (look5) The cloud lanes (hvCloudLanes, colortex9) resolved as hvResolve: x the sunlit air, y all of it.
+#ifndef WU_colortex9
+#define WU_colortex9
+uniform sampler2D colortex9;
+#endif
+vec2 hvLanesResolve(ivec2 p, float dist) {
+	ivec2 qc = p >> 1;
+	ivec2 hi = textureSize(colortex9, 0) - 1;
+	vec2 sum = vec2(0.0), tileSum = vec2(0.0);
+	float wsum = 0.0;
+	for (int y = -2; y < 2; y++) {
+		for (int x = -2; x < 2; x++) {
+			vec4 r = texelFetch(colortex9, clamp(qc + ivec2(x, y), ivec2(0), hi), 0);
+			float tol = 0.06 * min(dist, r.a) + 0.4;
+			float w = dist < 0.0 ? 1.0 : exp(-abs(r.a - dist) / tol);
+			sum += r.xy * w;
+			wsum += w;
+			tileSum += r.xy;
+		}
+	}
+	return mix(tileSum / 16.0, sum / max(wsum, 1e-6), smoothstep(0.02, 0.5, wsum));
+}
+
+// (look5) The cloud lanes' light over `color` (display): the air in a cloud's shadow loses the sun's forward glow the
+// sky, the haze and the air's scatter lay toward the sun (they assume the air is all in the sun), and the sunlit air
+// between those shadows glows in the sun's warm light where shadow lies near it, so beams fan from the gaps between the
+// clouds toward and away from a low sun. A clear sky (no shadow along any ray) is left as it was: no veil. p the pixel,
+// dist its resolve distance, dirW the view (world, unit), thick the shafts' thickness of the air, lightAdd the sun's
+// light (display, luma about the sun-side horizon's).
+#define LANE_DARK 0.7
+#define LANE_GAIN 2.5
+vec3 hvCloudLaneLight(vec3 color, ivec2 p, float dist, vec3 dirW, vec3 sunW, SkyLum f, float thick, vec3 lightAdd, bool sky) {
+	vec2 ln = hvLanesResolve(p, dist);
+	if (ln.y <= 1e-5) {
+		return color;
+	}
+	float ratio = clamp(ln.x / ln.y, 0.0, 1.0);
+	// the broad shade round the pixel (8 taps on a ring of 48 half-resolution texels): the lit lanes glow where shadow
+	// lies beside them, not over a sky with no cloud near the sun
+	vec2 hs = vec2(textureSize(colortex9, 0));
+	vec2 c = (vec2(p >> 1) + 0.5) / hs;
+	vec2 broad = vec2(0.0);
+	for (int i = 0; i < 8; i++) {
+		float a = float(i) * 0.785398 + 0.39;
+		broad += textureLod(colortex9, c + vec2(cos(a), sin(a)) * 48.0 / hs, 0.0).xy;
+	}
+	float broadShade = 1.0 - clamp(broad.x / max(broad.y, 1e-5), 0.0, 1.0);
+	float mu = dot(dirW, sunW);
+	// (a floor: the lanes read side-on too, as the slanting columns of lit haze under a broken sky, most toward the sun)
+	float lobe = 0.3 + 0.7 * (0.65 * skyLumHg(mu, 0.78) + 0.35 * skyLumHg(mu, 0.35));
+	float gate = smoothstep(-0.02, 0.06, sunW.y) * (1.0 - 0.6 * smoothstep(0.35, 0.85, sunW.y)) * f.day;
+	float amt = (1.0 - exp(-8.0 * ln.y)) * min(thick, 1.6);
+	float k = gate * lobe * amt * (sky ? 0.8 : 1.0);
+#ifdef LANE_PROBE
+	return vec3(k, ratio, broadShade);
+#endif
+	vec3 lin = pow(max(color, 0.0), vec3(2.2));
+	lin *= 1.0 - LANE_DARK * min(k, 1.0) * (1.0 - ratio);
+	vec3 add = pow(max(lightAdd, 0.0), vec3(2.2)) * LANE_GAIN * k * ratio * smoothstep(0.04, 0.3, broadShade);
+	return pow(lin + add, vec3(1.0 / 2.2));
 }
 
 // How thick the air is here, against temperate air at strength 100: by the camera's country (its haze kind), Gloam's

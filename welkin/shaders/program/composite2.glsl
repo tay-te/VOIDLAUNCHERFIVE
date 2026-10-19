@@ -473,10 +473,27 @@ void main() {
 #endif
 			shThick *= 1.0 + 0.9 * clamp(dawnAmt, 0.0, 1.5); // look2: thicker in the morning mist
 			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky, lum, shThick, s.sky ? 1e4 : length(eyePos)) * (cloud ? 0.0 : 1.0);
+#ifdef HV_READ
+			// (look5) the cloud lanes: crepuscular rays from the gaps between the clouds
+			{
+				vec3 hueL = pow(mix(lum.hue, lum.gold, 0.55) * 0.4, vec3(1.0 / 2.2));
+				hueL /= max(dot(hueL, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
+				float levelL = max(dot(skyHazeHorizon(st.kind, true), vec3(0.2126, 0.7152, 0.0722)), 0.3);
+				if (!cloud) {
+					color.rgb = mix(hvCloudLaneLight(color.rgb, p, pinholeWater(p) ? -1.0 : resolveDist(p, uv), normalize(eyePos), sunW,
+						lum, shThick, hueL * levelL, s.sky), color.rgb, sunDisc);
+				}
+			}
+#endif
 #if SHAFT_DEBUG == 1
-			color.rgb = vec3(lit * 20.0); // (look4: x20) the resolved sunlit share of the near air
+			color.rgb = vec3(clamp(lit * 20.0, 0.0, 1.0)); // (look4: x20) the resolved sunlit share of the near air
 #elif SHAFT_DEBUG == 2
 			color.rgb = vec3(texelFetch(colortex13, p >> 1, 0).r); // the raw term
+#elif SHAFT_DEBUG == 3 && defined HV_READ
+			{
+				vec2 ln = hvLanesResolve(p, pinholeWater(p) ? -1.0 : resolveDist(p, uv));
+				color.rgb = vec3(ln.x / max(ln.y, 1e-5)); // look5: the cloud lanes' sunlit share, all the air
+			}
 #endif
 		}
 #endif

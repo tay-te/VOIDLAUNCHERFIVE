@@ -46,12 +46,16 @@ uniform float viewWidth;
 uniform float viewHeight;
 #endif
 
-/* RENDERTARGETS: 13 */
+/* RENDERTARGETS: 13,9 */
 layout(location = 0) out vec4 outShaft;
+// (look5) colortex9 (half size, free between the occlusion's resolve and the bloom's gather): x the cloud lanes'
+// sunlit air, y all of it (lib/haze/volume.glsl hvCloudLanes), a the view distance (for the resolve)
+layout(location = 1) out vec4 outLanes;
 
 void main() {
 	ivec2 q = ivec2(gl_FragCoord.xy); // the half-resolution texel
 	outShaft = vec4(0.0, 0.0, 0.0, 1e4);
+	outLanes = vec4(0.0, 0.0, 0.0, 1e4);
 #ifdef HAZE_VOLUME
 	// atmos (welkin-atmos): one walk for the volumetric haze and the plain shafts (their term within SHAFT_REACH)
 	{
@@ -70,6 +74,11 @@ void main() {
 		shaftsOn = shaftGate(sunW) > 0.0 && sunAngle < 0.5;
 #endif
 		outShaft = hvWalk(q, dirP, dist, s.sky, shaftsOn);
+#ifdef HV_CLOUDS
+		if (shaftsOn) {
+			outLanes = vec4(hvCloudLanes(q, dirP, dist, s.sky), 0.0, dist);
+		}
+#endif
 		return;
 	}
 #endif

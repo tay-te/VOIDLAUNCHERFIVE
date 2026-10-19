@@ -126,4 +126,35 @@ float welkinCloudShadow(vec3 eyePos, CloudEnv e) {
 #endif
 }
 
+// (look5, 2026-10-19) How much of the sun the clouds take from the AIR at camera-relative point eyePos, 0 (in the sun)
+// to 1 (under a cloud): the cover itself, without the land's lighter cloud shade (WC_SHADOW_ONE keeps a sunlit field
+// readable under a cloud; the air in a cloud's shadow has only the sky's faint light, so the lanes between the sunlit
+// air read). No snap to the block grid: the air has no texels. Fades in with the sun as welkinCloudShadow.
+float welkinCloudCoverAir(vec3 eyePos, CloudEnv e) {
+#if CLOUD_SHADOWS == 0 || !defined CLOUDS
+	return 0.0;
+#else
+	vec3 l = e.sun;
+	float rise = smoothstep(0.03, 0.10, l.y);
+	if (rise <= 0.0) {
+		return 0.0;
+	}
+	float y = e.camY + eyePos.y;
+	float under = 0.0;
+	for (int i = 0; i < min(CLOUD_SHADOWS, 2); i++) {
+		int k = i == 0 ? 1 : 0;
+		float deck = k == 0 ? e.layers.x : e.layers.y;
+		if (!wcPresent(deck)) {
+			continue;
+		}
+		float mid = deck + WC_DECK * 0.5;
+		if (mid <= y) {
+			continue;
+		}
+		under += wcShadowCover(eyePos.xz + l.xz * ((mid - y) / l.y), k, mid, e);
+	}
+	return min(under, 1.0) * rise;
+#endif
+}
+
 #endif
