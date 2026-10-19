@@ -175,6 +175,8 @@ public final class PaperMill implements Archetype {
 				}
 			}
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, 2 * r) + 2);
 	}
 

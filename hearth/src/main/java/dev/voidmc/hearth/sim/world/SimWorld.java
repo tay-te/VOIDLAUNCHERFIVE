@@ -76,6 +76,8 @@ public final class SimWorld implements HearthWorld, SimContext {
 	private final Atlas atlas;
 	private final SettlementStore store;
 	private final SimIndex index;
+	/** Where live settlement ids are handed out: the overworld's index. */
+	private final SimIndex ids;
 	private final SpatialIndex spatial;
 	private final ChunkApplier applier;
 	private final LodFootprints footprints;
@@ -86,7 +88,6 @@ public final class SimWorld implements HearthWorld, SimContext {
 	/** Regions whose plan is being computed for adoption, and regions known to hold nobody (this session). */
 	private final LongSet adopting = new LongOpenHashSet();
 	private final LongSet unsettled = new LongOpenHashSet();
-	private final Map<UUID, Long> playerIn = new HashMap<>();
 	private final java.util.ArrayDeque<SimSettlement> saveQueue = new java.util.ArrayDeque<>();
 	private boolean quiet;
 	private boolean fastForward;
@@ -119,6 +120,10 @@ public final class SimWorld implements HearthWorld, SimContext {
 		this.store = new SettlementStore(data);
 		this.index = level.getDataStorage().computeIfAbsent(SimIndex.TYPE);
 		this.index.data().setOps(this.ops);
+		// live ids come from the overworld's index whatever level a settlement is in, so they are unique on the server
+		// (other modules key per-player state by settlement id alone)
+		this.ids = level.dimension() == net.minecraft.world.level.Level.OVERWORLD ? this.index
+			: level.getServer().overworld().getDataStorage().computeIfAbsent(SimIndex.TYPE);
 		var embody = rules.config.embody();
 		this.spatial = new SpatialIndex(embody.radius() + embody.hysteresis(), rules.config.atlas().guardMargin());
 		this.applier = new ChunkApplier(level, this.spatial, blueprints(), this.probe, () -> !INLINE_BLUEPRINTS);
@@ -130,8 +135,21 @@ public final class SimWorld implements HearthWorld, SimContext {
 	/** Reads the level's settlements from disk and puts them on the clock. */
 	public void load() {
 		List<SimSettlement> loaded = this.store.loadAll(this.ops);
+		int bad = 0;
 		for (SimSettlement s : loaded) {
-			register(s, false);
+			if (!Atlas.isHistoric(s.id())) {
+				// ids are never handed out twice, even if the index was saved before a settlement it counted (a crash)
+				this.ids.reserveId(s.id());
+			}
+			try {
+				register(s, false);
+			} catch (RuntimeException e) {
+				// one settlement that will not come back must not keep the world from loading: its file stays for a fix
+				LOG.error("hearth: settlement {} ({}) could not be loaded; left out of this session, its file kept", s.id(), s.name(), e);
+				this.settlements.remove(s.id());
+				this.spatial.remove(s.id());
+				bad++;
+			}
 		}
 		// the files are the truth: drop index entries whose file is gone, add those it missed
 		for (SimIndex.Entry e : this.index.entries()) {
@@ -139,7 +157,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 				this.index.remove(e.id());
 			}
 		}
-		LOG.info("hearth: {} settlements loaded in {}", loaded.size(), this.level.dimension().identifier());
+		LOG.info("hearth: {} settlements loaded in {}", loaded.size() - bad, this.level.dimension().identifier());
 	}
 
 	private void register(SimSettlement s, boolean isNew) {
@@ -286,6 +304,33 @@ public final class SimWorld implements HearthWorld, SimContext {
 		return this.spatial.isPlanned(x, z) || this.atlas.isPlanned(x, z);
 	}
 
+	/**
+	 * As {@link #isPlanned}, for the server thread: it never works out a region's history here (that takes most of a
+	 * second), so a column in a region not yet planned counts as planned until the atlas worker has done it.
+	 */
+	public boolean isPlannedNow(int x, int z) {
+		if (this.spatial.isPlanned(x, z)) {
+			return true;
+		}
+		if (!this.atlas.enabled()) {
+			return false;
+		}
+		int rx = Atlas.region(x);
+		int rz = Atlas.region(z);
+		RegionPlan plan = this.atlas.planIfReady(rx, rz);
+		if (plan == null) {
+			long key = Atlas.regionKey(rx, rz);
+			if (this.planning.add(key)) {
+				this.atlas.planAsync(rx, rz).whenComplete((p, t) -> this.level.getServer().execute(() -> this.planning.remove(key)));
+			}
+			return true;
+		}
+		return plan.isPlanned(x, z);
+	}
+
+	/** Regions whose plan was asked of the atlas worker from the server thread and is not back yet. */
+	private final LongSet planning = new LongOpenHashSet();
+
 	// ---------------------------------------------------------------- SimContext
 
 	@Override
@@ -399,6 +444,14 @@ public final class SimWorld implements HearthWorld, SimContext {
 		this.index.put(entry(s));
 	}
 
+	/** A loaded chunk became reachable from the server thread: write what is owed to it. */
+	public void onChunkReachable(LevelChunk chunk) {
+		long key = chunk.getPos().pack();
+		if (this.spatial.hasPlots(key)) {
+			this.applier.enqueue(key);
+		}
+	}
+
 	/** A chunk finished loading: write what is owed to it, and adopt the history it belongs to. */
 	public void onChunkLoad(LevelChunk chunk) {
 		ChunkPos pos = chunk.getPos();
@@ -422,7 +475,12 @@ public final class SimWorld implements HearthWorld, SimContext {
 		this.adopting.add(region);
 		this.atlas.planAsync(rx, rz).whenComplete((p, t) -> this.level.getServer().execute(() -> {
 			this.adopting.remove(region);
-			if (p != null) {
+			if (t != null) {
+				LOG.error("hearth: the history of region {},{} in {} could not be worked out; it stays unsettled this session", rx, rz,
+					this.level.dimension().identifier(), t);
+				this.unsettled.add(region);
+			} else if (p != null && SimServer.world(this.level) == this) {
+				// (not once this world has been unloaded: a server stopping while the plan was made)
 				considerAdoption(p, pos);
 			}
 		}));
@@ -438,7 +496,20 @@ public final class SimWorld implements HearthWorld, SimContext {
 		BoundingBox b = plan.bounds();
 		if (pos.getMaxBlockX() >= b.minX() - m && pos.getMinBlockX() <= b.maxX() + m && pos.getMaxBlockZ() >= b.minZ() - m
 			&& pos.getMinBlockZ() <= b.maxZ() + m) {
-			adopt(plan);
+			try {
+				adopt(plan);
+			} catch (RuntimeException e) {
+				// a bug in the resident factory or a FOUNDED listener: the town is not adopted this session (its region is not
+				// marked adopted, so a later session tries again), and the chunk loading goes on
+				LOG.error("hearth: adopting the settlement of region {},{} failed; trying again next session", plan.regionX(), plan.regionZ(), e);
+				this.unsettled.add(region);
+				RegionPlan.Site site = plan.site();
+				if (site != null && this.settlements.remove(site.settlementId()) != null) {
+					this.spatial.remove(site.settlementId());
+					this.index.remove(site.settlementId());
+					this.index.unmarkAdopted(region);
+				}
+			}
 		}
 	}
 
@@ -479,7 +550,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		this.server.stats().adoptNanos.add(System.nanoTime() - start);
 		LOG.info("hearth: adopted {} ({} {}, {} souls, {} plots, founded {} days before the world) at {}", s.name(), s.culture().getSerializedName(),
 			s.tier().getSerializedName(), s.population(), s.plots().size(), site.age(), s.center().toShortString());
-		SettlementEvents.FOUNDED.invoker().onFounded(this, s);
+		fireFounded(s);
 		for (SimPlot p : s.plots()) {
 			this.applier.enqueuePlot(p);
 		}
@@ -622,8 +693,16 @@ public final class SimWorld implements HearthWorld, SimContext {
 			residents(), new BoundingBox(-30_000_000, -2048, -30_000_000, 30_000_000, 4096, 30_000_000));
 		s.bind(off);
 		long serverStart = System.nanoTime() - start;
-		java.util.concurrent.CompletableFuture.runAsync(() -> SettlementClock.found(s, off, settlers.isEmpty() ? founding.residents() : settlers.size(),
-			settlers, founding.goodsMap(), founding.treasury()), FOUNDING).whenComplete((v, t) -> this.level.getServer().execute(() -> {
+		// until the hamlet is registered its settlers belong to no saved record: if the world unloads first they go home
+		java.util.concurrent.CompletableFuture<Void> layout = java.util.concurrent.CompletableFuture.runAsync(() -> SettlementClock.found(s, off,
+			settlers.isEmpty() ? founding.residents() : settlers.size(), settlers, founding.goodsMap(), founding.treasury()), FOUNDING);
+		PendingFounding pending = new PendingFounding(parent, settlers, layout);
+		this.foundingsInFlight.add(pending);
+		layout.whenComplete((v, t) -> this.level.getServer().execute(() -> {
+				if (!this.foundingsInFlight.remove(pending)) {
+					// the world was unloaded meanwhile and the settlers went home
+					return;
+				}
 				if (t != null) {
 					LOG.error("hearth: laying out {} failed; its settlers go home to {}", f.name, parent.name(), t);
 					for (Resident r : settlers) {
@@ -640,6 +719,34 @@ public final class SimWorld implements HearthWorld, SimContext {
 					s.center().toShortString(), reason);
 				done.accept(s);
 			}));
+	}
+
+	/** A hamlet being laid out off the server thread: who left for it, from where. */
+	private record PendingFounding(SimSettlement parent, List<Resident> settlers, java.util.concurrent.CompletableFuture<Void> layout) {
+	}
+
+	private final List<PendingFounding> foundingsInFlight = new ArrayList<>();
+
+	/**
+	 * The level is unloading (the server stops): settlers whose hamlet is still being laid out go back to the town they
+	 * left, so the save that follows does not lose them.
+	 */
+	public void unload() {
+		for (PendingFounding f : this.foundingsInFlight) {
+			try {
+				// the layout touches the settlers' records: let it finish first (it takes 50-150 ms)
+				f.layout().get(10, java.util.concurrent.TimeUnit.SECONDS);
+			} catch (Exception e) {
+				// failed or slow: the settlers go home all the same
+			}
+			for (Resident r : f.settlers()) {
+				r.extra("sim").remove("came_from");
+				r.home = Resident.NO_PLOT;
+				r.work = Resident.NO_PLOT;
+				f.parent().addResident(r);
+			}
+		}
+		this.foundingsInFlight.clear();
 	}
 
 	/** One worker for laying out hamlets founded by settlers. */
@@ -882,10 +989,20 @@ public final class SimWorld implements HearthWorld, SimContext {
 
 	/** Caravans that are due, and trees owed to the world felled in loaded woods (from the server tick). */
 	public void tickLand(long fellBudgetNanos) {
+		tickCaravans();
+		tickFelling(fellBudgetNanos);
+	}
+
+	/** Caravans that are due (and, once a session, the old reputation numbers handed to the standing module). */
+	public void tickCaravans() {
 		if (!this.reputationHanded) {
 			handReputationOver();
 		}
 		this.caravans.tick(clock());
+	}
+
+	/** Trees owed to the world felled in loaded woods, under the budget. */
+	public void tickFelling(long fellBudgetNanos) {
 		this.woodcutter.tick(fellBudgetNanos);
 	}
 
@@ -951,7 +1068,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		BlockPos center = new BlockPos(at.getX(), y, at.getZ());
 		Culture c = culture != null ? culture
 			: dev.voidmc.hearth.sim.terrain.CultureVote.at(at.getX(), at.getZ(), this.probe::biomeHolder, b -> HearthServices.culture(b));
-		long id = this.index.allocateId();
+		long id = this.ids.allocateId();
 		RandomSource random = RandomSource.create(id * 0x9E3779B97F4A7C15L ^ this.level.getSeed());
 		String n = name != null ? name : Names.settlement(c, random);
 		return new Founding(id, n, c, center, random);
@@ -989,7 +1106,16 @@ public final class SimWorld implements HearthWorld, SimContext {
 		s.markDirty();
 		register(s, isNew);
 		LOG.info("hearth: founded {} ({}) at {}", s.name(), f.culture.getSerializedName(), f.center.toShortString());
-		SettlementEvents.FOUNDED.invoker().onFounded(this, s);
+		fireFounded(s);
+	}
+
+	/** {@code FOUNDED}; a listener that throws is logged, and the settlement stays founded for everyone else. */
+	private void fireFounded(SimSettlement s) {
+		try {
+			SettlementEvents.FOUNDED.invoker().onFounded(this, s);
+		} catch (RuntimeException e) {
+			LOG.error("hearth: a FOUNDED listener failed for {} (#{})", s.name(), s.id(), e);
+		}
 	}
 
 	private int foundings;
@@ -1024,11 +1150,6 @@ public final class SimWorld implements HearthWorld, SimContext {
 			this.applier.enqueuePlot(p);
 		}
 		return System.nanoTime() - start;
-	}
-
-	/** Players near settlements: embodiment and arrival banners. Called every 20 ticks. */
-	public Map<UUID, Long> playerPresence() {
-		return this.playerIn;
 	}
 
 	/** Ages/residents helper for commands: counts by age stage. */

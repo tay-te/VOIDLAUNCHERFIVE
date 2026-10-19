@@ -83,6 +83,24 @@ public final class Mound {
 		if (crown == Integer.MIN_VALUE) {
 			crown = y;
 		}
+		// a sod stair with more mound over it is a whole sod (a step nobody can stand on reads to folk as a stair
+		// climbing into the mound's side)
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int yy = y; yy < crown; yy++) {
+				for (int z = z0; z <= z1; z++) {
+					for (int x = x0; x <= x1; x++) {
+						var b = d.get(x, yy, z);
+						var over = d.get(x, yy + 1, z);
+						if (b != null && b.getBlock() instanceof net.minecraft.world.level.block.StairBlock && over != null && !over.isAir()) {
+							var sod = skin.at(x, yy, z);
+							if (sod != null) {
+								d.set(x, yy, z, sod);
+							}
+						}
+					}
+				}
+			}
+		}
 		if (state == State.BURNING) {
 			// turf on the flats, green branches laid round the foot
 			try (var s = d.stage(StageKind.EXTERIOR)) {
@@ -119,6 +137,15 @@ public final class Mound {
 			try (var s = d.stage(StageKind.EXTERIOR)) {
 				d.set(ccx, crown, ccz, Stack.fire());
 				d.set(ccx, crown - 1, ccz, Blocks.HAY_BLOCK.defaultBlockState());
+				// whole sods round the vent: the fire's cap is set over them, and a sod stair under it reads as the top of a
+				// flight with no head room
+				for (Direction n : Direction.Plane.HORIZONTAL) {
+					var b = d.get(ccx + n.getStepX(), crown - 1, ccz + n.getStepZ());
+					var sod = skin.at(ccx + n.getStepX(), crown - 1, ccz + n.getStepZ());
+					if (b != null && b.getBlock() instanceof net.minecraft.world.level.block.StairBlock && sod != null) {
+						d.set(ccx + n.getStepX(), crown - 1, ccz + n.getStepZ(), sod);
+					}
+				}
 			}
 		} else {
 			// the centre pole the billets are stood round, standing out of the stack

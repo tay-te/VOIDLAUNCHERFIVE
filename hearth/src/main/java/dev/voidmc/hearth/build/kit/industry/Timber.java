@@ -43,7 +43,7 @@ public final class Timber {
 				}
 				for (int k = 0; k < h; k++) {
 					if (d.isEmpty(px, y + k, pz)) {
-						d.set(px, y + k, pz, log.log(across));
+						d.set(px, y + k, pz, Works.billet(d, log, across));
 					}
 				}
 			}
@@ -87,7 +87,7 @@ public final class Timber {
 					}
 					for (int k = 0; k < hh; k++) {
 						if (d.isEmpty(px, y + k, pz)) {
-							d.set(px, y + k, pz, log.log(axis));
+							d.set(px, y + k, pz, Works.billet(d, log, axis));
 						}
 					}
 					top = Math.max(top, hh);
@@ -103,8 +103,7 @@ public final class Timber {
 			return;
 		}
 		try (var s = d.stage(StageKind.EXTERIOR)) {
-			boolean peeled = log.has(Form.STRIPPED_LOG) && Noise.unit(d.seed() ^ 0x57, x, y, z) < 0.35;
-			d.set(x, y, z, peeled ? log.strippedLog(Direction.Axis.Y) : log.log(Direction.Axis.Y));
+			d.set(x, y, z, Works.billet(d, log, Direction.Axis.Y));
 		}
 	}
 

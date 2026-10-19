@@ -204,7 +204,7 @@ public final class DefaultCatalogue {
 		l.add(info(Archetypes.CEMETERY, V, jobs(JobType.PRIEST), 0, 13, 25, 13, 25, 6, 14, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(), 1, 1.0));
 
 		ArchetypeCategory W = ArchetypeCategory.WORKPLACE;
-		l.add(info(Archetypes.ALCHEMIST_TOWER, W, jobs(JobType.SCHOLAR), 1, 7, 9, 7, 9, 14, 22, SettlementTier.TOWN, cultures(), flags(VERTICAL), List.of(), 1,
+		l.add(info(Archetypes.ALCHEMIST_TOWER, W, jobs(JobType.SCHOLAR), 1, 11, 15, 10, 14, 14, 22, SettlementTier.TOWN, cultures(), flags(VERTICAL), List.of(), 1,
 			1.0));
 		l.add(info(Archetypes.LOGGING_CAMP, W, jobs(JobType.FORESTER, JobType.HAULER), 0, 12, 17, 12, 17, 7, 11, SettlementTier.HAMLET, cultures(), flags(OUTSKIRTS), List.of(), 0, 1.0));
 		l.add(info(Archetypes.CHARCOAL_KILN, W, jobs(JobType.CHARCOAL_BURNER), 0, 11, 14, 10, 13, 6, 9, SettlementTier.HAMLET, cultures(), flags(OUTSKIRTS), List.of(), 0, 1.0));

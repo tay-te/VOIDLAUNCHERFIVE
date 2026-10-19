@@ -14,11 +14,11 @@ import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Furniture;
-import dev.voidmc.hearth.build.kit.Porches;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
 import dev.voidmc.hearth.build.kit.trade.Hall;
+import dev.voidmc.hearth.build.kit.craft.Hatch;
 import dev.voidmc.hearth.build.kit.trade.Lifts;
 import dev.voidmc.hearth.build.kit.trade.Props;
 import dev.voidmc.hearth.build.kit.trade.Shed;
@@ -36,20 +36,20 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ScaffoldingBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.Half;
 
 /**
  * {@code hearth:work/builders_yard}: the first workplace every settlement raises, where its builders work, and it
  * shows. A fenced yard entered under a timber gate with the builders' sign hanging from its beam; at the back an open
  * work shed under a gable roof, benches and the stone saw beneath it, the master builder's office at one end — two
- * storeys with an outside stair climbing to a gallery where the plans are kept and the yard can be watched. In the yard:
+ * storeys, a turning stair inside (a ladder through a hatch where it will not fit) up to the room where the plans are
+ * kept and the yard is watched from the windows. In the yard:
  * logs on bearers, sawn boards in stickered stacks, dressed stone on pallets, scaffolding stacked ready, sawhorses, a
  * loaded cart, a corner of wall going up in its scaffold to try a new stone, and a timber crane whose jib swings a load
  * on a chain over the lane.
  *
  * <p>Job sites (BUILDER): the benches, the stone saw (MASON), the sawhorses, the crane's foot, the trial wall.
- * Storage: the shed's chests and the stacks. A LECTERN with the plans; a VIEWPOINT on the gallery.
+ * Storage: the shed's chests and the stacks. A LECTERN with the plans.
  *
  * <p>Params: {@code roof}, {@code variant}.
  */
@@ -122,9 +122,10 @@ public final class BuildersYard implements Archetype {
 				}
 			}
 		}
-		// the crane before the shed, its jib over the lane, a load of stone on its chain
+		// the crane before the shed, its jib over the lane, a load of stone on its chain (two rows out, so its mast stands
+		// clear of the shed's eave)
 		int craneX = officeLeft ? w - 3 : 2;
-		int cz = sz0 - 1;
+		int cz = sz0 - 2;
 		if (Lifts.crane(d, craneX, cz, 0, 10, craneX > lane ? Dirs.LEFT : Dirs.RIGHT, Math.max(3, Math.min(5, Math.abs(lane - craneX))),
 			d.mat(Role.PLINTH).full().at(lane, 2, cz)) != Integer.MIN_VALUE) {
 			// the rigger's bench by the crane's foot, its tackle hung over it
@@ -155,13 +156,15 @@ public final class BuildersYard implements Archetype {
 		dev.voidmc.hearth.build.kit.Garden.path(d, track, 0);
 		fence(d, w, dp, lane);
 		d.poi(PoiType.GATE, lane, 0, 0, Dirs.BACK);
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(office.top, 11) + 1);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**
-	 * The master builder's office: two storeys at the back corner, a door to the yard, an outside stair along its yard
-	 * side up to a gallery and the upper door, the plans on a lectern upstairs, a desk below.
+	 * The master builder's office: two storeys at the back corner, a door to the yard, a turning stair (or a ladder) up
+	 * to the plans on a lectern upstairs, the chest of tallies below.
 	 */
 	private static Hall office(Draft d, int x0, int z0, int x1, int z1, RoofForm form, boolean left) {
 		int sh = 4;
@@ -173,39 +176,48 @@ public final class BuildersYard implements Archetype {
 		door = h.door != null ? h.door : door;
 		// a turning stair against the wall away from the door, to the plans upstairs
 		int[] well = h.storeys() >= 2 ? h.switchback(0, left ? Dirs.LEFT : Dirs.RIGHT) : null;
-		if (h.storeys() >= 2 && well == null) {
-			h.openLoft(1);
-		}
 		h.roof(form, Direction.Axis.Z, 1, null);
 		if (h.roof == null) {
 			h.crown();
 		}
-		if (well != null) {
+		// where the turning stair does not fit, a ladder up through a hatch against the back or the side wall
+		int[] ladder = h.storeys() >= 2 && well == null ? Hatch.ladder(d, h, 1, null, Dirs.BACK, left ? Dirs.LEFT : Dirs.RIGHT) : null;
+		if (h.storeys() >= 2 && well == null && ladder == null) {
+			h.openLoft(1);
+		}
+		dev.voidmc.hearth.build.kit.craft.Rails.well(d, h, 0, well);
+		if (well != null || ladder != null) {
 			// upstairs: the plans on a lectern, a balcony over the yard
 			int[] up = h.inner(1);
 			int y = h.floorY(1);
 			int lx = left ? up[2] : up[0];
 			int lz = up[3];
-			if (lz > well[3] + 0 && d.isEmpty(lx, y, lz)) {
+			if ((well == null || lz > well[3]) && (ladder == null || Math.abs(lx - ladder[0]) + Math.abs(lz - ladder[1]) > 1) && d.isEmpty(lx, y, lz)
+				&& d.isEmpty(lx, y, lz - 1) && d.isEmpty(lx, y + 1, lz - 1)) {
 				d.inStage(StageKind.INTERIOR, () -> d.set(lx, y, lz, States.facing(Blocks.LECTERN, Dirs.FRONT), BlockEntities.lectern("Plans", "The Master Builder",
 					List.of("The settlement's plans: what is to be built next, in what order, with what stone and timber."))));
 				d.poi(PoiType.LECTERN, lx, y, lz - 1, Dirs.BACK);
 			}
-			Side front = h.side(1, Dirs.FRONT);
-			int c = front.column(front.middle());
-			Porches.balcony(d, front, Math.max(front.column(1), c - 1), Math.min(front.column(front.last() - 1), c + 1), y);
-			int i = front.index(c);
-			{
-				d.inStage(StageKind.OPENINGS, () -> d.door(front.x(i), y, front.z(i), d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
-					DoorHingeSide.LEFT));
-			}
+			// (no door out onto the one-deep balcony over the yard: its rail stood in the doorway; the yard is watched from
+			// the windows)
 			Props.hangLantern(d, (up[0] + up[2]) / 2, y + 1, (up[1] + up[3]) / 2);
 		}
 		// below: the chest of the settlement's tallies and the plans' copy, kept clear of the stair
 		dev.voidmc.hearth.build.kit.trade.Floorplan fp = h.floor(0).blockHoles(d);
 		fp.keep(door, in[1]);
 		if (well != null) {
+			// the well blocked but for its foot: a chest under the flight could not open
+			for (int x = well[4]; x <= well[6]; x++) {
+				for (int z = well[5]; z <= well[7]; z++) {
+					if (x != well[0] || z != well[1]) {
+						fp.block(x, z);
+					}
+				}
+			}
 			fp.keep(well[0], well[1]);
+		}
+		if (ladder != null) {
+			fp.keep(ladder[0], ladder[1]);
 		}
 		boolean chest = false;
 		for (Direction wall : new Direction[]{Dirs.BACK, left ? Dirs.RIGHT : Dirs.LEFT, Dirs.FRONT}) {
@@ -235,10 +247,28 @@ public final class BuildersYard implements Archetype {
 		Groundwork.footings(d, x0, z0, x1, z1, -1);
 		Yard.pave(d, x0 + 1, z0 + 1, x1 - 1, z1 - 1, 0);
 		RoofForm f = form == RoofForm.FLAT ? RoofForm.SHED : form == RoofForm.HIP ? RoofForm.HALF_HIP : form;
-		Roofs.Roof roof = Shed.open(d, x0, z0, x1, z1, 0, 4, f, Direction.Axis.X, 1, Dirs.BACK, officeLeft ? Dirs.RIGHT : Dirs.LEFT);
-		d.carve(x0 + 1, 0, z0 + 1, x1 - 1, 3, z1 - 1);
-		d.body(x0, z0, x1, z1);
-		d.eave(4);
+		// where the sun is strong the builders work under a reed shade before a back wall of their own masonry (the south,
+		// the dry lands, the tropics, the karst); elsewhere in the open shed
+		boolean shade = dev.voidmc.hearth.build.kit.craft.Craft.southern(d)
+			|| dev.voidmc.hearth.build.kit.industry.Works.culture(d) == dev.voidmc.hearth.api.Culture.TROPICAL
+			|| dev.voidmc.hearth.build.kit.industry.Works.culture(d) == dev.voidmc.hearth.api.Culture.KARST;
+		Roofs.Roof roof = null;
+		if (shade) {
+			Mat back = d.mat(Role.FOUNDATION);
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int x = x0; x <= x1; x++) {
+					for (int y = 0; y <= 2; y++) {
+						d.set(x, y, z1, back.full());
+					}
+				}
+			}
+			dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, x0, z0, x1, z1 - 1, 0);
+		} else {
+			roof = Shed.open(d, x0, z0, x1, z1, 0, 4, f, Direction.Axis.X, 1, Dirs.BACK, officeLeft ? Dirs.RIGHT : Dirs.LEFT);
+			d.carve(x0 + 1, 0, z0 + 1, x1 - 1, 3, z1 - 1);
+			d.body(x0, z0, x1, z1);
+			d.eave(4);
+		}
 		int row = z1 - 1;
 		String[] stations = {"chest", "bench", "saw", "rack", "bench", "chest2", "barrels"};
 		int x = officeLeft ? x0 + 1 : x1 - 1;
@@ -342,11 +372,11 @@ public final class BuildersYard implements Archetype {
 		}
 	}
 
-	/** Scaffolding stacked ready to go up. */
+	/** Scaffolding stacked ready to go up (two high: a taller stack was a ladder onto the shed's roof). */
 	private static void scaffoldPile(Draft d, int x, int z) {
 		BlockState scaf = Blocks.SCAFFOLDING.defaultBlockState().setValue(ScaffoldingBlock.DISTANCE, 0).setValue(ScaffoldingBlock.BOTTOM, false);
 		try (var s = d.stage(StageKind.EXTERIOR)) {
-			for (int k = 0; k < 3; k++) {
+			for (int k = 0; k < 2; k++) {
 				d.set(x, k, z, scaf);
 			}
 			d.set(x, 0, z - 1, scaf);

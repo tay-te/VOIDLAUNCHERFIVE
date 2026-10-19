@@ -96,9 +96,12 @@ public final class Furnace {
 			d.set(cx - 1, 1, z0, trim.stairsOrSlab(Dirs.LEFT, Half.TOP));
 			d.set(cx + 1, 1, z0, trim.stairsOrSlab(Dirs.RIGHT, Half.TOP));
 		}
+		// the hearth deep in the arch, and the tap in its left leg where the iron runs out to the casting floor (a tap set
+		// back behind the leg was out of everyone's reach)
 		try (var sc = d.stage(StageKind.INTERIOR)) {
 			d.set(cx, 0, z0 + 1, States.facing(Blocks.BLAST_FURNACE, Dirs.FRONT).trySetValue(BlockStateProperties.LIT, true));
-			d.set(cx - 1, 0, z0 + 1, Blocks.LAVA_CAULDRON.defaultBlockState());
+			d.set(cx - 1, 0, z0, Blocks.LAVA_CAULDRON.defaultBlockState());
+			d.set(cx - 1, 0, z0 + 1, stone.full().at(cx - 1, 0, z0 + 1));
 			d.set(cx + 1, 0, z0 + 1, stone.full().at(cx + 1, 0, z0 + 1));
 		}
 		// the tuyere on the far side from the charging hole: an iron nozzle in a little opening
@@ -204,7 +207,8 @@ public final class Furnace {
 				}
 			}
 			d.set(cx, s, cz, Stack.fire());
-			d.set(cx, s + 1, cz, Blocks.AIR.defaultBlockState());
+			// a grate of bars over the throat: the smoke goes up the stack, nobody steps into it from the charging hole
+			d.set(cx, s + 1, cz, Blocks.IRON_BARS.defaultBlockState());
 		}
 		// the stack: hollow over the fire, rounded at the corners, banded, crowned with a corbel course and a lip
 		int stackTop = top;

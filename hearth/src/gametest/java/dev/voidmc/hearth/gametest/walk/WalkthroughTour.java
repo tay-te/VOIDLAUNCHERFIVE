@@ -84,7 +84,12 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>{@code -Dhearth.tour=walk}; {@code -Dhearth.walk.out=DIR} (JPEGs and the results), {@code -Dhearth.walk.parts=a,b},
  * {@code -Dhearth.walk.only=cottage,inn}, {@code -Dhearth.walk.cultures=temperate,desert}, {@code -Dhearth.walk.days=N}
- * (part B's growth, default 120), {@code -Dhearth.walk.shots=false}.
+ * (part B's growth, default 120), {@code -Dhearth.walk.shots=false}, {@code -Dhearth.walk.types=house/croft,work/barn}
+ * (part A walks these archetypes instead of its seventeen: any registered paths, or names like {@code croft}).
+ *
+ * <p>At the end a folk-reach summary: per kind of POI how many the folk's pathfinder reached of those asked, the
+ * buildings that pass, warn and fail, and per archetype its folk reach over the cultures walked ({@code walk_folk.tsv}).
+ * The audit gate wants every bed and job site reached by the folk (BUILDING_GUIDE.md §8, "In game").
  */
 public class WalkthroughTour implements FabricClientGameTest {
 	private static final Path OUT = Path.of(System.getProperty("hearth.walk.out", "build/walk"));
@@ -94,12 +99,48 @@ public class WalkthroughTour implements FabricClientGameTest {
 	private static final boolean SHOTS = Boolean.parseBoolean(System.getProperty("hearth.walk.shots", "true"));
 	private static final int PAD = 10;
 
-	private static final List<String> TYPES = List.of("house/cottage", "house/farmhouse", "house/townhouse", "house/tenement", "house/merchant_house",
+	private static final List<String> DEFAULT_TYPES = List.of("house/cottage", "house/farmhouse", "house/townhouse", "house/tenement", "house/merchant_house",
 		"commerce/inn", "commerce/tavern", "work/smithy", "work/bakery", "work/windmill", "civic/chapel", "civic/town_hall", "civic/library",
 		"commerce/market_hall", "house/manor", "noble/keep", "extract/mine");
 	private static final List<Culture> CULTURES = List.of(Culture.TEMPERATE, Culture.MEDITERRANEAN, Culture.NORTHERN, Culture.DESERT);
 
+	/** The archetypes part A walks: {@code -Dhearth.walk.types}, else the seventeen common ones. */
+	private static final List<String> TYPES = types(System.getProperty("hearth.walk.types", ""));
+
 	private final List<Audit> audits = new ArrayList<>();
+
+	/** Archetype paths from a comma list of paths or names (a name is matched against the registered paths' last part). */
+	static List<String> types(String arg) {
+		if (arg.isBlank()) {
+			return DEFAULT_TYPES;
+		}
+		List<String> out = new ArrayList<>();
+		java.util.Set<String> known = new java.util.TreeSet<>();
+		try {
+			dev.voidmc.hearth.build.ArchetypeRegistry reg = new dev.voidmc.hearth.build.ArchetypeRegistry();
+			dev.voidmc.hearth.build.archetype.Archetypes.registerAll(reg);
+			for (var a : reg.all()) {
+				known.add(a.info().id().getPath());
+			}
+		} catch (RuntimeException e) {
+			// without the registry a name must be a full path
+		}
+		for (String t : arg.split(",")) {
+			String name = t.trim();
+			if (name.isEmpty()) {
+				continue;
+			}
+			if (name.startsWith("hearth:")) {
+				name = name.substring(7);
+			}
+			if (!name.contains("/")) {
+				String n = name;
+				name = known.stream().filter(p -> p.endsWith("/" + n)).findFirst().orElse(name);
+			}
+			out.add(name);
+		}
+		return List.copyOf(out);
+	}
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
@@ -129,6 +170,61 @@ public class WalkthroughTour implements FabricClientGameTest {
 			partB(context);
 		}
 		log("done: " + this.audits.size() + " buildings walked");
+		folkSummary();
+	}
+
+	/**
+	 * The folk-reach summary: per kind of POI the folk's pathfinder reached of those asked, the verdicts, and per archetype
+	 * its folk reach over the cultures walked (walk_folk.tsv): one line in the log the gate reads ("[hearth walk] folk reach").
+	 */
+	private void folkSummary() {
+		java.util.Map<dev.voidmc.hearth.api.PoiType, int[]> all = new java.util.EnumMap<>(dev.voidmc.hearth.api.PoiType.class);
+		java.util.Map<String, int[]> byType = new java.util.TreeMap<>();
+		int pass = 0;
+		int warn = 0;
+		int fail = 0;
+		for (Audit a : this.audits) {
+			switch (a.verdict()) {
+				case "PASS" -> pass++;
+				case "WARN" -> warn++;
+				default -> fail++;
+			}
+			int[] t = byType.computeIfAbsent(a.archetype, k -> new int[4]);
+			for (var e : a.folk.entrySet()) {
+				int[] n = all.computeIfAbsent(e.getKey(), k -> new int[2]);
+				n[0] += e.getValue()[0];
+				n[1] += e.getValue()[1];
+				if (e.getKey() == dev.voidmc.hearth.api.PoiType.BED) {
+					t[0] += e.getValue()[0];
+					t[1] += e.getValue()[1];
+				} else {
+					t[2] += e.getValue()[0];
+					t[3] += e.getValue()[1];
+				}
+			}
+		}
+		StringBuilder line = new StringBuilder("folk reach:");
+		for (var e : all.entrySet()) {
+			line.append(' ').append(e.getKey().getSerializedName()).append(' ').append(e.getValue()[0]).append('/').append(e.getValue()[1]).append(',');
+		}
+		line.append(String.format(Locale.ROOT, " buildings PASS %d, WARN %d, FAIL %d", pass, warn, fail));
+		log(line.toString());
+		StringBuilder tsv = new StringBuilder("archetype\tbeds (folk)\tjob sites, stores, counters, faces (folk)\tall reached\n");
+		for (var e : byType.entrySet()) {
+			int[] t = e.getValue();
+			boolean ok = t[0] == t[1] && t[2] == t[3];
+			tsv.append(e.getKey()).append('\t').append(t[0]).append('/').append(t[1]).append('\t').append(t[2]).append('/').append(t[3]).append('\t')
+				.append(ok ? "yes" : "NO").append('\n');
+			if (!ok) {
+				log(String.format(Locale.ROOT, "folk reach %s: beds %d/%d, work %d/%d", e.getKey(), t[0], t[1], t[2], t[3]));
+			}
+		}
+		try {
+			Files.writeString(OUT.resolve("walk_folk.tsv"), tsv.toString(), StandardCharsets.UTF_8);
+			Files.writeString(OUT.resolve("walk_results.md"), "\n## Folk reach\n\n" + line + "\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+		} catch (IOException e) {
+			log("could not write the folk summary: " + e);
+		}
 	}
 
 	// ---------------------------------------------------------------- part A: built on pads

@@ -219,7 +219,9 @@ public final class Spaces {
 	 */
 	public static boolean standable(BlockState s) {
 		Block b = s.getBlock();
-		if (s.isAir() || b instanceof ChainBlock || b instanceof FenceBlock || b instanceof WallBlock || b instanceof FenceGateBlock || b instanceof net.minecraft.world.level.block.CandleBlock
+		// (nobody stands on a door's lower half, inside its upper one, nor on a chain)
+		if (s.isAir() || b instanceof ChainBlock || b instanceof FenceBlock || b instanceof WallBlock || b instanceof FenceGateBlock || b instanceof DoorBlock
+			|| b instanceof net.minecraft.world.level.block.CandleBlock
 			|| b instanceof LanternBlock || b instanceof net.minecraft.world.level.block.FlowerPotBlock || b instanceof net.minecraft.world.level.block.CakeBlock
 			|| b instanceof net.minecraft.world.level.block.CandleCakeBlock || b instanceof net.minecraft.world.level.block.AbstractSkullBlock
 			|| b instanceof net.minecraft.world.level.block.SeaPickleBlock) {

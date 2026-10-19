@@ -184,6 +184,46 @@ public final class Shed {
 	}
 
 	/**
+	 * Lights in a closed side of an open shed (see {@link #open}) over [x0..x1] x [z0..z1] standing at level y: on side
+	 * {@code out}, every {@code every} cells from the middle out, a window two panes high in the boarding between the
+	 * posts (never in a post or a corner), with a sill under it where the plot has room. Returns how many were set.
+	 */
+	public static int windows(Draft d, int x0, int z0, int x1, int z1, int y, Direction out, int every) {
+		Side s = Side.of(x0, z0, x1, z1, out);
+		Mat glass = d.mat(Role.GLASS);
+		Mat sill = d.mat(Role.WINDOW);
+		int n = 0;
+		int mid = s.last() / 2;
+		try (var st = d.stage(StageKind.OPENINGS)) {
+			for (int o = 0; o <= s.last(); o++) {
+				for (int i : o == 0 ? new int[]{mid} : new int[]{mid + o, mid - o}) {
+					if (i <= 0 || i >= s.last() || Math.floorMod(i - mid, Math.max(2, every)) != 0) {
+						continue;
+					}
+					int x = s.x(i);
+					int z = s.z(i);
+					var a = d.get(x, y + 1, z);
+					var b = d.get(x, y + 2, z);
+					if (a == null || b == null || !a.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)
+						|| a.getBlock() instanceof net.minecraft.world.level.block.RotatedPillarBlock || !b.isCollisionShapeFullBlock(
+							net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)) {
+						continue;
+					}
+					d.set(x, y + 1, z, glass.pane());
+					d.set(x, y + 2, z, glass.pane());
+					int ox = s.outX(i, 1);
+					int oz = s.outZ(i, 1);
+					if (d.allowed(ox, y, oz) && d.isAbsent(ox, y, oz) && oz >= 0 && sill.has(Form.STAIRS)) {
+						d.set(ox, y, oz, sill.stairs(out.getOpposite(), Half.TOP));
+					}
+					n++;
+				}
+			}
+		}
+		return n;
+	}
+
+	/**
 	 * Closes a steep roof (an oast's pyramid, a mill cap's cone): wherever a column's surface stands more than a block
 	 * above a neighbour's, full blocks of {@code m} fill the column down to meet it, so the peak sits on the slope and no
 	 * course hangs in the air.

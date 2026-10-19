@@ -1,8 +1,12 @@
 package dev.voidmc.hearth.npc.entity;
 
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import org.jspecify.annotations.Nullable;
@@ -56,5 +60,75 @@ public final class FolkSpots {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * The nearest spot within {@code radius} (not {@code origin} itself) where one stands on a whole block with room
+	 * above: proper ground to step down to from a fence top, a wall's rim or a cauldron. Null if none is loaded.
+	 */
+	public static @Nullable BlockPos groundNear(Level level, BlockPos origin, int radius) {
+		BlockPos best = null;
+		double bestD = Double.MAX_VALUE;
+		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		for (int dy = -radius; dy <= 1; dy++) {
+			for (int dx = -radius; dx <= radius; dx++) {
+				for (int dz = -radius; dz <= radius; dz++) {
+					if (dx == 0 && dz == 0 && dy == 0) {
+						continue;
+					}
+					p.set(origin.getX() + dx, origin.getY() + dy, origin.getZ() + dz);
+					double d = dx * dx + dz * dz + dy * dy * 0.5;
+					if (d >= bestD || !level.isLoaded(p)) {
+						continue;
+					}
+					BlockPos below = p.below();
+					if (level.getBlockState(below).isCollisionShapeFullBlock(level, below) && passable(level, p) && passable(level, p.above())) {
+						best = p.immutable();
+						bestD = d;
+					}
+				}
+			}
+		}
+		return best;
+	}
+
+	/**
+	 * Where a folk stands to use {@code target}: the spot itself if one can stand there, else the standable cells
+	 * beside it (level, a step up or a step down), beside either half of a bed. Under a roof only cells under a roof
+	 * count, so a bed or a bench against an outside wall is reached from the room, not from the street through the
+	 * wall. Empty if none (the caller falls back on the target).
+	 *
+	 * <p>Paths are asked for these rather than for the block itself: a bed, a chest or an anvil is no place to stand, and
+	 * a search for it never ends early but runs through its whole node budget and returns wherever it got nearest,
+	 * which for a bed upstairs is often the floor below it.
+	 */
+	public static List<BlockPos> approaches(Level level, BlockPos target) {
+		List<BlockPos> out = new ArrayList<>(4);
+		if (!level.isLoaded(target)) {
+			return out;
+		}
+		if (standable(level, target)) {
+			out.add(target);
+			return out;
+		}
+		boolean roofed = !level.canSeeSky(target);
+		List<BlockPos> around = new ArrayList<>(2);
+		around.add(target);
+		BlockState state = level.getBlockState(target);
+		if (state.getBlock() instanceof BedBlock && state.hasProperty(BedBlock.PART) && state.hasProperty(BedBlock.FACING)) {
+			around.add(target.relative(BedBlock.getConnectedDirection(state)));
+		}
+		for (BlockPos at : around) {
+			for (Direction d : Direction.Plane.HORIZONTAL) {
+				for (int dy : new int[]{0, 1, -1}) {
+					BlockPos c = at.relative(d).above(dy);
+					if (!out.contains(c) && !around.contains(c) && level.isLoaded(c) && standable(level, c) && (!roofed || !level.canSeeSky(c))) {
+						out.add(c);
+						break;
+					}
+				}
+			}
+		}
+		return out;
 	}
 }

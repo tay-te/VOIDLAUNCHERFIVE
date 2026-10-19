@@ -73,10 +73,32 @@ public final class Sawmill implements Archetype {
 		Groundwork.footings(d, sx0, sz0, sx1, sz1, -1);
 		Mat floor = d.mat(Role.FLOOR);
 		Shed.deck(d, sx0 + 1, sz0 + 1, sx1 - 1, sz1 - 1, -1, floor);
-		Roofs.Roof roof = Shed.open(d, sx0, sz0, sx1, sz1, 0, 4, form, Direction.Axis.X, 1, Dirs.BACK);
-		d.carve(sx0 + 1, 0, sz0 + 1, sx1 - 1, 3, sz1 - 1);
-		d.body(sx0, sz0, sx1, sz1);
-		d.eave(4);
+		// boarded at the back and the gable ends, lights in them, open to the yard; where the sun is strong the saw works
+		// in the open under a shade of poles (the south, the dry lands, the tropics, the karst), its pit-sawn boards piled
+		// against a back wall of the culture's masonry
+		boolean shade = dev.voidmc.hearth.build.kit.craft.Craft.southern(d)
+			|| dev.voidmc.hearth.build.kit.industry.Works.culture(d) == dev.voidmc.hearth.api.Culture.TROPICAL
+			|| dev.voidmc.hearth.build.kit.industry.Works.culture(d) == dev.voidmc.hearth.api.Culture.KARST;
+		Roofs.Roof roof = null;
+		if (shade) {
+			Mat back = d.mat(Role.FOUNDATION);
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int x = sx0; x <= sx1; x++) {
+					for (int y = 0; y <= 2; y++) {
+						d.set(x, y, sz1, back.full());
+					}
+				}
+			}
+			dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, sx0, sz0, sx1, sz1 - 1, 0);
+		} else {
+			roof = Shed.open(d, sx0, sz0, sx1, sz1, 0, 4, form, Direction.Axis.X, 1, Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
+			d.carve(sx0 + 1, 0, sz0 + 1, sx1 - 1, 3, sz1 - 1);
+			Shed.windows(d, sx0, sz0, sx1, sz1, 0, Dirs.BACK, 3);
+			Shed.windows(d, sx0, sz0, sx1, sz1, 0, Dirs.LEFT, 2);
+			Shed.windows(d, sx0, sz0, sx1, sz1, 0, Dirs.RIGHT, 2);
+			d.body(sx0, sz0, sx1, sz1);
+			d.eave(4);
+		}
 		bench(d, sx0, sx1, sz0 + 1, sz1 - 1);
 
 		// water at the back: a wheel on the shed's end, dipping into a race
@@ -98,6 +120,8 @@ public final class Sawmill implements Archetype {
 		}
 		Yard.enclose(d, 0, 0, w - 1, sz0, gaps, Dirs.BACK);
 		Signs.post(d, gate + 2, 0, 0, Dirs.LEFT, 3, "sawmill", "Sawmill");
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : 6) + 3);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -110,8 +134,13 @@ public final class Sawmill implements Archetype {
 		Mat log = d.mat(Role.FRAME);
 		Mat boards = d.mat(Role.FLOOR);
 		int blade = (x0 + x1) / 2;
+		// the bench stops a cell short of the far end: the way round it to the aisle and the back wall
+		int pass = x1 - 1;
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			for (int x = x0 + 1; x <= x1 - 1; x++) {
+				if (x == pass && pass > blade + 1) {
+					continue;
+				}
 				if (x == blade) {
 					d.set(x, 0, z, States.facing(Blocks.STONECUTTER, Dirs.FRONT));
 				} else if (x < blade) {
@@ -125,7 +154,7 @@ public final class Sawmill implements Archetype {
 				d.set(x, 1, z, log.log(Direction.Axis.X));
 			}
 			// sawn boards beyond
-			for (int x = blade + 1; x <= Math.min(x1 - 1, blade + 2); x++) {
+			for (int x = blade + 1; x <= Math.min(pass - 1, blade + 2); x++) {
 				d.set(x, 1, z, boards.slab(SlabType.BOTTOM));
 			}
 		}

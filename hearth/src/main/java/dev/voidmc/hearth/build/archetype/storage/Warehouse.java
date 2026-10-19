@@ -15,6 +15,7 @@ import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.craft.Hatch;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Lifts;
@@ -94,24 +95,6 @@ public final class Warehouse implements Archetype {
 			}
 			wells[k] = hall.switchback(k, wellWall);
 		}
-		// the loading doors up the middle of the front, one per floor
-		Side front = hall.side(0, Dirs.FRONT);
-		for (int k = 1; k < hall.storeys(); k++) {
-			if (hall.body.height(k) < 3) {
-				continue;
-			}
-			Side s = hall.side(k, Dirs.FRONT);
-			int y = hall.floorY(k);
-			int i = s.index(door);
-			for (int c = 0; c < 2; c++) {
-				int ii = i + c;
-				if (ii <= 0 || ii >= s.last()) {
-					continue;
-				}
-				d.inStage(StageKind.OPENINGS, () -> d.door(s.x(ii), y, s.z(ii), d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
-					ii == i ? DoorHingeSide.RIGHT : DoorHingeSide.LEFT));
-			}
-		}
 		Direction.Axis ridge = flat ? Direction.Axis.X : Direction.Axis.Z;
 		hall.roof(form, ridge, 1, null);
 		if (flat) {
@@ -133,10 +116,34 @@ public final class Warehouse implements Archetype {
 			}
 		}
 		if (beamY != Integer.MIN_VALUE && beamY > hall.floorY(top)) {
-			Lifts.hoist(d, g, hi, beamY, 2, 3, States.facing(Blocks.BARREL, Direction.UP));
+			// a crate of boards on the chain (a barrel hung there read as a store nobody can reach)
+			Lifts.hoist(d, g, hi, beamY, 2, 3, d.mat(Role.FURNITURE).full().at(g.x(hi), 3, g.z(hi)));
 		}
 
-		interior(d, hall, door, wells);
+		boolean[] reached = interior(d, hall, door, wells, wellWall);
+		// the loading doors up the middle of the front, one per floor that is climbed to: half doors, a rail at the sill
+		// and the shutters swung open over it, so the goods come in on the hoist and nobody steps out into the street
+		// four floors up (no loading door on a floor no stair or ladder climbs to)
+		Side front = hall.side(0, Dirs.FRONT);
+		for (int k = 1; k < hall.storeys(); k++) {
+			if (hall.body.height(k) < 3 || !reached[k]) {
+				continue;
+			}
+			Side s = hall.side(k, Dirs.FRONT);
+			int y = hall.floorY(k);
+			int i = s.index(door);
+			for (int c = 0; c < 2; c++) {
+				int ii = i + c;
+				if (ii <= 0 || ii >= s.last()) {
+					continue;
+				}
+				Hatch.hoistDoor(d, s.x(ii), y, s.z(ii), Dirs.FRONT);
+			}
+		}
+		// a rail round each stairwell on the floor above
+		for (int k = 0; k < wells.length; k++) {
+			dev.voidmc.hearth.build.kit.craft.Rails.well(d, hall, k, wells[k]);
+		}
 		apron(d, hall, w, fz, door);
 		if (shed) {
 			cartShed(d, hall, shedLeft ? 0 : hx1 + 1, shedLeft ? hx0 - 1 : w - 1, hz0, hz1, shedLeft);
@@ -149,21 +156,40 @@ public final class Warehouse implements Archetype {
 			// a flat roof is a terrace: a stair up the side, a room set back, an awning
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
-	/** Racks of barrels along the walls, crates in the middle aisle, stores on every floor round the stair. */
-	private static void interior(Draft d, Hall hall, int door, int[][] wells) {
+	/**
+	 * Racks of barrels along the walls, crates in the middle aisle, stores on every floor round the stair; a low attic no
+	 * stair climbs to gets a ladder through a hatch under the ridge and sacks under its eaves. Answers which floors are
+	 * climbed to.
+	 */
+	private static boolean[] interior(Draft d, Hall hall, int door, int[][] wells, Direction wellWall) {
+		boolean[] reached = new boolean[hall.storeys()];
+		reached[0] = true;
+		int[][] ladders = new int[hall.storeys()][];
 		for (int k = 0; k < hall.storeys(); k++) {
-			boolean top = k == hall.storeys() - 1;
-			if (top && hall.roof != null && hall.body.height(k) <= 2 && k > 0) {
-				// the attic over the top floor: open to its rafters, left to the hoist
+			if (k > 0 && !reached[k]) {
+				// a floor nobody climbs to: open to its rafters, left to the hoist
 				break;
 			}
 			int[] in = hall.inner(k);
+			if (k > 0 && wells[k - 1] == null) {
+				attic(d, hall, k, door, ladders[k]);
+				break;
+			}
 			Floorplan fp = hall.floor(k).blockHoles(d);
 			int y = fp.y;
+			if (k + 1 < hall.storeys() && wells[k] != null) {
+				reached[k + 1] = true;
+			} else if (k + 1 < hall.storeys() && hall.body.height(k + 1) >= 2) {
+				// the attic over the top floor: a ladder up the gable wall under the ridge, where the head room is
+				ladders[k + 1] = Hatch.ladder(d, hall, k + 1, fp, Dirs.BACK, Dirs.FRONT, wellWall);
+				reached[k + 1] = ladders[k + 1] != null;
+			}
 			if (k == 0) {
 				fp.keep(door, in[1]);
 				fp.keep(door + 1, in[1]);
@@ -179,12 +205,16 @@ public final class Warehouse implements Archetype {
 			}
 			if (wells[k] != null) {
 				int[] wl = wells[k];
-				fp.keep(wl[0], wl[1]);
+				// the well is blocked but for its foot (on a tall ground storey the well's rectangle takes in the foot, and a
+				// blocked foot left the whole floor unfurnishable)
 				for (int x = wl[4]; x <= wl[6]; x++) {
 					for (int z = wl[5]; z <= wl[7]; z++) {
-						fp.block(x, z);
+						if (x != wl[0] || z != wl[1]) {
+							fp.block(x, z);
+						}
 					}
 				}
+				fp.keep(wl[0], wl[1]);
 			}
 			// barrel racks along the side walls, two tiers
 			int racks = 0;
@@ -216,9 +246,74 @@ public final class Warehouse implements Archetype {
 					break;
 				}
 			}
+			if (k == 0) {
+				weighBeam(d, fp, door, in);
+			}
 			Rooms.furnish(d, fp.room(), Rooms.Type.STORAGE, 0, JobType.NONE);
 			if (k == 0) {
 				hall.joists(0, Direction.Axis.X);
+			}
+		}
+		return reached;
+	}
+
+	/**
+	 * The attic for the hoist, climbed to by the ladder: the hatch and the loading door's inside kept clear, sacks and
+	 * crates set where the eaves leave head room over them and a cell before them to stand in.
+	 */
+	private static void attic(Draft d, Hall hall, int k, int door, int[] ladder) {
+		Floorplan up = hall.floor(k).blockHoles(d);
+		int[] in = hall.inner(k);
+		int y = up.y;
+		if (ladder != null) {
+			Hatch.keep(up, ladder);
+		}
+		up.keep(door, in[1]);
+		up.keep(door + 1, in[1]);
+		int placed = 0;
+		for (Direction wall : new Direction[]{Dirs.BACK, Dirs.LEFT, Dirs.RIGHT}) {
+			for (int[] c : up.along(wall)) {
+				Direction user = wall.getOpposite();
+				int fx = c[0] + Dirs.dx(user);
+				int fz = c[1] + Dirs.dz(user);
+				if (placed >= 6 || !d.isEmpty(c[0], y, c[1]) || !d.isEmpty(c[0], y + 1, c[1]) || !d.isEmpty(fx, y, fz) || !d.isEmpty(fx, y + 1, fz)) {
+					continue;
+				}
+				if (up.take(c[0], c[1], user)) {
+					if (placed % 2 == 0) {
+						Props.sacks(d, c[0], y, c[1], Dirs.right(wall), 1, placed % 4 == 0);
+					} else {
+						Props.crates(d, c[0], y, c[1], Dirs.right(wall), 1);
+					}
+					placed++;
+				}
+			}
+		}
+	}
+
+	/**
+	 * The weigh beam inside the cart doors, where every load is weighed in: a post, the balance beam across its head, a
+	 * chain from the beam's end down to the scale pan on the floor, a sack waiting on it.
+	 */
+	private static void weighBeam(Draft d, Floorplan fp, int door, int[] in) {
+		int z = in[1] + 2;
+		for (int x : new int[]{door - 2, door + 3, door - 3, door + 4}) {
+			int pan = x < door ? x + 1 : x - 1;
+			if (pan == door || pan == door + 1 || fp.height < 4) {
+				continue;
+			}
+			if (fp.take(new int[][]{{x, z}, {pan, z}}, new int[]{pan, z - 1})) {
+				Mat post = d.mat(Role.FRAME);
+				Mat beam = d.mat(Role.BEAM);
+				try (var s = d.stage(StageKind.INTERIOR)) {
+					d.set(x, 0, z, Hall.woodFence(d).fence());
+					d.set(x, 1, z, post.log(Direction.Axis.Y));
+					d.set(x, 2, z, beam.log(Direction.Axis.X));
+					d.set(pan, 2, z, beam.log(Direction.Axis.X));
+					d.set(pan, 1, z, Blocks.IRON_CHAIN.defaultBlockState());
+					d.set(pan, 0, z, Blocks.HEAVY_WEIGHTED_PRESSURE_PLATE.defaultBlockState());
+				}
+				return;
 			}
 		}
 	}

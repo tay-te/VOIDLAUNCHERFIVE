@@ -54,6 +54,8 @@ public final class Audit {
 	public final Map<PoiType, int[]> pois = new EnumMap<>(PoiType.class);
 	public int folkPaths;
 	public int folkPathsOk;
+	/** The folk's pathfinder per kind of POI: reached, asked. */
+	public final Map<PoiType, int[]> folk = new EnumMap<>(PoiType.class);
 	public int flightSteps;
 	public int badSteps;
 	public int jumps;
@@ -298,11 +300,16 @@ public final class Audit {
 			}
 			if (key && folk != null) {
 				this.folkPaths++;
+				this.folk.computeIfAbsent(p.type(), k -> new int[2])[1]++;
 				folk.snapTo(street.x() + 0.5, street.floor(), street.z() + 0.5, 0, 0);
 				folk.setOnGround(true);
-				Path path = folk.getNavigation().createPath(p.pos(), 1);
+				// as a folk asks: for a spot beside the bed or bench (npc FolkSpots.approaches), with a wider search for another storey
+				java.util.List<BlockPos> spots = dev.voidmc.hearth.npc.entity.FolkSpots.approaches(level, p.pos());
+				folk.getNavigation().setRequiredPathLength(Math.abs(p.pos().getY() - street.floor()) >= 3 ? 96.0F : 48.0F);
+				Path path = spots.isEmpty() ? folk.getNavigation().createPath(p.pos(), 1) : folk.getNavigation().createPath(new java.util.HashSet<>(spots), 0);
 				if (path != null && path.canReach()) {
 					this.folkPathsOk++;
+					this.folk.get(p.type())[0]++;
 				} else {
 					var end = path == null ? null : path.getEndNode();
 					defect(c == null || p.type() == PoiType.BED || p.type() == PoiType.JOB_SITE ? "HIGH" : "MED", "folk pathfinder finds no way from the street to the " + what
@@ -603,6 +610,18 @@ public final class Audit {
 		return b.toString();
 	}
 
+	/** The folk's reach by kind: "bed 3/4, job_site 2/2, storage 1/1". */
+	public String folkLine() {
+		StringBuilder b = new StringBuilder();
+		for (var e : this.folk.entrySet()) {
+			if (b.length() > 0) {
+				b.append(", ");
+			}
+			b.append(e.getKey().getSerializedName()).append(' ').append(e.getValue()[0]).append('/').append(e.getValue()[1]);
+		}
+		return b.toString();
+	}
+
 	public String row() {
 		return String.join("\t", this.culture, this.archetype, verdict(), this.roomsReached + "/" + this.rooms, this.entrancesReached + "/" + this.entrances,
 			poiLine(), this.folkPathsOk + "/" + this.folkPaths, walksOk() + "/" + this.walkResults.size(), Integer.toString(this.stuckAt.size()),
@@ -619,7 +638,7 @@ public final class Audit {
 		b.append(String.format(Locale.ROOT, "- rooms reached %d/%d; entrances %d/%d; doors bad %d/%d%n", this.roomsReached, this.rooms, this.entrancesReached,
 			this.entrances, this.badDoors, this.doors));
 		b.append("- POIs walked to (model): ").append(poiLine()).append("\n");
-		b.append(String.format(Locale.ROOT, "- folk pathfinder street -> bed/job/store: %d/%d%n", this.folkPathsOk, this.folkPaths));
+		b.append(String.format(Locale.ROOT, "- folk pathfinder street -> bed/job/store: %d/%d (%s)%n", this.folkPathsOk, this.folkPaths, folkLine()));
 		b.append(String.format(Locale.ROOT, "- player driven (real movement & collision): %d/%d paths completed, %d stuck%n", walksOk(), this.walkResults.size(),
 			this.stuckAt.size()));
 		b.append(String.format(Locale.ROOT, "- stairs: %d flight steps, %d unclimbable; jumps needed %d; tight head room %d%n", this.flightSteps, this.badSteps,
