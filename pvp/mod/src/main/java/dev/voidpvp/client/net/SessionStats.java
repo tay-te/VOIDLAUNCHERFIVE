@@ -13,6 +13,8 @@ public final class SessionStats {
     private final long startedAtMs;
     private long fpsSum;
     private long fpsSamples;
+    private long pingSum;
+    private long pingSamples;
     private long lastReportMs;
 
     public SessionStats(long nowMs) {
@@ -31,6 +33,24 @@ public final class SessionStats {
 
     public double fpsAverage() {
         return fpsSamples == 0 ? 0 : (double) fpsSum / (double) fpsSamples;
+    }
+
+    /**
+     * One ping reading, in milliseconds; the client tick calls this alongside {@link #sample}.
+     * Unknown readings (-1 in singleplayer, 0 before the player list arrives) are not pings and
+     * are skipped, so the mean is only ever over real round trips.
+     */
+    public void samplePing(int ping) {
+        if (ping <= 0) {
+            return;
+        }
+        pingSum += ping;
+        pingSamples++;
+    }
+
+    /** Mean ping over the session, or -1 when there has not been a reading to average. */
+    public double pingAverage() {
+        return pingSamples == 0 ? -1 : (double) pingSum / (double) pingSamples;
     }
 
     public long playedMs(long nowMs) {

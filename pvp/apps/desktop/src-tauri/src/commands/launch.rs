@@ -72,10 +72,14 @@ pub async fn prepare(
 }
 
 /// Start the bridge server, spawn the JVM, and stream `game:*` / `bridge:*` events.
+///
+/// `server` is the play bar's choice (Figma v1 Ship, rule 2): Launch joins it, and `None`
+/// — "Title screen" — launches without joining.
 pub async fn launch(
     state: &AppState,
     emitter: Arc<dyn Emitter>,
     loadout_id: &str,
+    server: Option<&str>,
 ) -> Result<LaunchReport, Error> {
     let loadout = super::loadouts::get(state, loadout_id)?;
 
@@ -121,6 +125,7 @@ pub async fn launch(
                 max_memory_mb: config.max_memory_mb,
                 extra_jvm_args: config.jvm_args.clone(),
                 mod_jar: config.mod_jar.clone(),
+                join_server: server.map(str::trim).filter(|s| !s.is_empty()).map(str::to_string),
             },
         },
     )
@@ -161,7 +166,7 @@ mod tests {
         let state = scratch_state();
         let id = super::super::loadouts::active(&state).unwrap().id.to_string();
         let rec: Arc<dyn Emitter> = Arc::new(Recorder::default());
-        let err = launch(&state, rec, &id).await.unwrap_err();
+        let err = launch(&state, rec, &id, None).await.unwrap_err();
         assert!(matches!(err, Error::NotSignedIn));
         assert!(err.to_string().starts_with("Not signed in."));
     }
@@ -170,7 +175,7 @@ mod tests {
     async fn launching_an_unknown_loadout_is_refused_before_the_account_check() {
         let state = scratch_state();
         let rec: Arc<dyn Emitter> = Arc::new(Recorder::default());
-        let err = launch(&state, rec, "nope").await.unwrap_err();
+        let err = launch(&state, rec, "nope", Some("mc.hypixel.net")).await.unwrap_err();
         assert!(!matches!(err, Error::NotSignedIn));
     }
 

@@ -19,6 +19,7 @@ import '@void/ui/styles.css';
 import './styles/icons.css';
 import './styles/overlay.css';
 import './styles/palette.css';
+import './styles/islands.css';
 
 import { App } from './App';
 import { connectBridge } from './bridge/connect';

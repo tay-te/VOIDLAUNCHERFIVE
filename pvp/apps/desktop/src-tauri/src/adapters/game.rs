@@ -63,7 +63,16 @@ pub struct GameState {
     /// Kept alive for the session; see the module note.
     pub bridge: Option<BridgeServer>,
     /// Last `session` summary the mod sent, so `game:closed` carries real numbers.
-    pub last_session: Arc<Mutex<Option<(u64, f64, Option<String>)>>>,
+    pub last_session: Arc<Mutex<Option<SessionSummary>>>,
+}
+
+/// The last `session` summary the mod sent — what `game:closed` reports.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SessionSummary {
+    pub played_ms: u64,
+    pub fps_avg: f64,
+    pub ping_avg: Option<f64>,
+    pub server: Option<String>,
 }
 
 impl GameState {
@@ -124,6 +133,8 @@ pub struct LaunchOptionsSeed {
     pub max_memory_mb: u32,
     pub extra_jvm_args: Vec<String>,
     pub mod_jar: Option<std::path::PathBuf>,
+    /// The server Launch joins (`host` or `host:port`), or `None` for the title screen.
+    pub join_server: Option<String>,
 }
 
 pub async fn launch(
@@ -173,6 +184,7 @@ pub async fn launch(
             bridge_port: port,
             bridge_token: token,
             mod_jar: req.options.mod_jar,
+            join_server: req.options.join_server,
         },
     )
     .await?;
@@ -270,11 +282,13 @@ pub async fn launch(
 
         running.store(false, Ordering::SeqCst);
 
-        let (played_ms, fps_avg, server) = last_session
-            .lock()
-            .unwrap()
-            .clone()
-            .unwrap_or((started.elapsed().as_millis() as u64, 0.0, None));
+        let SessionSummary { played_ms, fps_avg, ping_avg, server } =
+            last_session.lock().unwrap().clone().unwrap_or(SessionSummary {
+                played_ms: started.elapsed().as_millis() as u64,
+                fps_avg: 0.0,
+                ping_avg: None,
+                server: None,
+            });
 
         let crash_tail = (exit_code != 0).then(|| {
             let log = log.lock().unwrap();
@@ -297,6 +311,7 @@ pub async fn launch(
                 loadout: loadout_id,
                 played_ms,
                 fps_avg,
+                ping_avg,
                 server,
                 crash_tail,
             },
@@ -335,16 +350,17 @@ fn spawn_bridge_forwarder(
                     BRIDGE_STATE,
                     &serde_json::json!({ "t": "state", "loadout": loadout, "patch": patch }),
                 ),
-                Ok(JavaToRust::Session { fps_avg, played_ms, server, loadout }) => {
+                Ok(JavaToRust::Session { fps_avg, played_ms, ping_avg, server, loadout }) => {
                     if let Ok(slot) = game.lock().map(|g| g.last_session.clone()) {
-                        *slot.lock().unwrap() = Some((played_ms, fps_avg, server.clone()));
+                        *slot.lock().unwrap() =
+                            Some(SessionSummary { played_ms, fps_avg, ping_avg, server: server.clone() });
                     }
                     emit(
                         emitter.as_ref(),
                         BRIDGE_SESSION,
                         &serde_json::json!({
                             "t": "session", "fps_avg": fps_avg, "played_ms": played_ms,
-                            "server": server, "loadout": loadout,
+                            "ping_avg": ping_avg, "server": server, "loadout": loadout,
                         }),
                     );
                 }
@@ -612,6 +628,7 @@ mod tests {
         tx.send(JavaToRust::Session {
             fps_avg: 142.0,
             played_ms: 60_000,
+            ping_avg: Some(22.0),
             server: Some("mc.hypixel.net".into()),
             loadout: None,
         })
@@ -645,6 +662,14 @@ mod tests {
         // The session summary is remembered for `game:closed`.
         let slot = game.lock().unwrap().last_session.clone();
         let remembered = slot.lock().unwrap().clone();
-        assert_eq!(remembered, Some((60_000, 142.0, Some("mc.hypixel.net".into()))));
+        assert_eq!(
+            remembered,
+            Some(SessionSummary {
+                played_ms: 60_000,
+                fps_avg: 142.0,
+                ping_avg: Some(22.0),
+                server: Some("mc.hypixel.net".into()),
+            })
+        );
     }
 }

@@ -1,0 +1,16 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="cube &#194;&#183; hud" clip-path="url(#clip0_0_28)">
+<path id="Vector" d="M0.945 14.025L9 18.675V9.375L0.945 4.725V14.025Z" fill="#6A5DA6"/>
+<path id="Vector_2" d="M17.055 14.025L9 18.675V9.375L17.055 4.725V14.025Z" fill="#4E4577"/>
+<path id="Vector_3" d="M9 0.075L17.055 4.725L9 9.375L0.945 4.725L9 0.075Z" fill="#9F8BFF"/>
+<path id="Vector_4" d="M0.945 4.725L9 9.375L17.055 4.725" stroke="white" stroke-opacity="0.22" stroke-width="0.75"/>
+<path id="Vector_5" d="M9 18.675V9.375" stroke="white" stroke-opacity="0.22" stroke-width="0.75"/>
+<path id="Vector_6" d="M4.9725 3.1425L7.71 4.725L4.9725 6.3075L2.235 4.725L4.9725 3.1425Z" fill="#B7A8FF"/>
+<path id="Vector_7" d="M13.0275 3.1425L15.765 4.725L13.0275 6.3075L10.29 4.725L13.0275 3.1425Z" fill="#B7A8FF"/>
+</g>
+<defs>
+<clipPath id="clip0_0_28">
+<rect width="18" height="18" fill="white"/>
+</clipPath>
+</defs>
+</svg>

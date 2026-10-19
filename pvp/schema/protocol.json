@@ -126,7 +126,7 @@
 
     "msg_session": {
       "title": "session (Java to Rust)",
-      "description": "Telemetry summary the mod sends every 60 seconds and once more on exit (§7). Feeds the played-time and average-fps numbers on the launcher's Loadouts frame. Values are cumulative for the current game session, not deltas.",
+      "description": "Telemetry summary the mod sends every 60 seconds and once more on exit (§7). Feeds the played-time, average-fps and average-ping numbers on the launcher's Home (Last session). Values are cumulative for the current game session, not deltas.",
       "type": "object",
       "required": ["t", "fps_avg", "played_ms"],
       "additionalProperties": true,
@@ -134,6 +134,7 @@
         "t": { "description": "Message discriminator; always `session`.", "type": "string", "const": "session" },
         "fps_avg": { "description": "Mean frames per second over the session so far.", "type": "number", "minimum": 0 },
         "played_ms": { "description": "Milliseconds elapsed since the game window opened.", "type": "integer", "minimum": 0 },
+        "ping_avg": { "description": "Mean of the player's own ping readings (`NetworkPlayerInfo.responseTime`) over the session so far, in milliseconds. Only readings taken on a server count, so it is absent until there has been one and singleplayer never sends it. Optional and additive: a launcher that predates it ignores it, as it does any unknown field.", "type": "number", "minimum": 0 },
         "server": { "description": "Host of the server the player is on, or null in the main menu or singleplayer.", "type": ["string", "null"], "maxLength": 253 },
         "loadout": { "description": "Id of the loadout active at the time of the report. Optional; Rust attributes stats to the loadout it last saw active when absent.", "$ref": "https://schema.void.dev/pvp/loadout.json#/definitions/loadout_id" }
       }

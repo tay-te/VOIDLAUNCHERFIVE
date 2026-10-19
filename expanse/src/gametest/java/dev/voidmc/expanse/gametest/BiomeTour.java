@@ -59,6 +59,11 @@ public class BiomeTour implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
+		// -Dexpanse.genbench=true runs the generation benchmark instead of the tour
+		if (GenBench.enabled()) {
+			GenBench.run(context);
+			return;
+		}
 		context.runOnClient(mc -> {
 			if (!mc.gui.hud.isHidden()) {
 				mc.gui.hud.toggle();

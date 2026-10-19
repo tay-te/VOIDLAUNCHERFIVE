@@ -11,6 +11,39 @@ dock band under it holding the loadout selector, the version selector, the enabl
 readout and Launch. Every screen uses that identical shell. Flat: no blur, no shadow, no
 gradient, Outfit only. Where that file and anything below disagree, that file wins.
 
+## v1 Ship
+
+The launcher now follows the Figma **v1 Ship** page (`3c0Wgc4ZKFSpm98fWJoARS`, page `52:2`). Its
+eleven rules are the scope: PvP and Store live, Modpacks / Servers / Quests as SOON screens, a
+Friends drawer, one play bar on every screen. Frame exports: `design/screens/v1-ship/`.
+
+| Frame | Where |
+|---|---|
+| navbar · 72 — mark, PvP · Store · 3 × SOON, search, friends button, profile chip | `features/TopNav.tsx` |
+| play bar `62:30` — Server + Version + Launch, Playing + Stop; server `66:391` and version `66:424` menus | `features/PlayBar.tsx` |
+| Home (PvP) `68:135` and its states: Playing, Title screen, Offline, Server unreachable, First launch, Game crashed | `screens/Home.tsx` |
+| Friends drawer `76:1474` and `56:*` (add, error, pending, empty, no match) | `features/FriendsDrawer.tsx`, `stores/friends.ts` |
+| Store gallery `73:211`, item sheet `75:236` | `screens/Store.tsx`, `local/catalog.ts`, `stores/cosmetics.ts` |
+| Coming soon `71:*` | `screens/ComingSoon.tsx` |
+| Edit mods (the loadout's mods; a page of PvP) | the existing `screens/Mods.tsx` / `ModSetup.tsx` |
+| the character, capes, store art, avatars, cubes | `features/art.tsx` |
+| geometry for all of the above | `local/ship.css` |
+
+**Launch joins the chosen server** (rule 2): `launch` takes `server`, which becomes 1.8.9's own
+`--server/--port` game arguments (`void_core::launch::join_server_args`); *Title screen* passes
+none. The CLI has the same thing as `void-pvp launch --server HOST[:PORT]`.
+
+**Only data we have** (rule 6): pings and player counts are live SLP; *Last session* is the mod's
+`session` summary (played time, fps, and `ping_avg` — added to the protocol for this), persisted
+on `game:closed`. **Friends, cosmetics and checkout have no backend yet.** Friends and ownership
+live in `localStorage` and a real install starts empty (plus the free Origin cape); Buy always
+confirms and then says checkout is not connected — nothing is charged. The browser preview seeds
+the frames' data instead, and `?preview=first|title|offline|unreachable|crash|empty|signedout`
+shows each Home and drawer state.
+
+On Windows, `pvp/scripts/setup-windows.ps1` installs the toolchains into `.tools\` and
+`pvp/scripts/launcher.ps1 [-Build]` builds the client and opens the real launcher.
+
 ```
 apps/desktop/
 ├── src/                    the launcher React entry

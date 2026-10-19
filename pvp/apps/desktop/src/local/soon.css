@@ -1,0 +1,1207 @@
+/* soon.css — the Coming soon screens in motion.
+ *
+ * Figma v1 Ship, section 122:276 "Coming soon in motion": frames 125:1629 (Modpacks),
+ * 125:2929 (Servers), 125:4230 (Quests), the art kit 128:2005 and the motion spec 133:37164.
+ * Every number below is that spec's: the entrance plays once from mount, the loops start
+ * after it and only ever touch transform and opacity. The art is `assets/soon/*.svg`,
+ * generated from the frames by `tools/build-soon-art.py`; its layer names are the classes.
+ *
+ *   out = cubic-bezier(.22, 1, .36, 1)   pop = cubic-bezier(.34, 1.56, .64, 1)
+ */
+
+.soon {
+  --out: cubic-bezier(0.22, 1, 0.36, 1);
+  --pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --hue: #7ae0b0;
+  --line: 730ms;
+  --glow: 0.26;
+}
+
+.soon[data-which='modpacks'] {
+  --hue: #7ae0b0;
+  --line: 730ms;
+}
+
+.soon[data-which='servers'] {
+  --hue: #7adfff;
+  --line: 800ms;
+}
+
+.soon[data-which='quests'] {
+  --hue: #ff9e7a;
+  --line: 590ms;
+}
+
+/* ------------------------------------------------------------------- layout */
+
+.soon {
+  justify-content: center;
+}
+
+.soon__stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 760px;
+  margin-top: 52px;
+}
+
+/* The glow: a blurred, desaturated copy of the scene's own light, behind the art. */
+.soon__glow {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  width: 760px;
+  height: 340px;
+  margin-left: -380px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--hue) 58%, #8a8d92);
+  filter: blur(84px);
+  mix-blend-mode: screen;
+  opacity: var(--glow);
+  pointer-events: none;
+}
+
+.soon-art {
+  position: relative;
+  display: block;
+  width: 760px;
+  height: 420px;
+  overflow: visible;
+}
+
+.soon__copy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 630px;
+  margin-top: 36px;
+  text-align: center;
+}
+
+.soon__eyebrow {
+  margin: 0;
+}
+
+.soon__title {
+  display: flex;
+  justify-content: center;
+  gap: 0.28em;
+  margin: 14px 0 0;
+  font-size: 48px;
+  line-height: 60px;
+  font-weight: 400;
+  letter-spacing: -1.44px;
+  white-space: nowrap;
+}
+
+.soon__title .w {
+  display: inline-block;
+}
+
+.soon__line {
+  width: 520px;
+  margin: 14px 0 0;
+  font-size: 17px;
+  line-height: 21px;
+  font-weight: 300;
+  color: var(--ink-2);
+}
+
+.soon__copy .notify {
+  margin-top: 18px;
+}
+
+/* Short windows: scale the whole stage rather than reflow it. */
+@media (max-height: 900px) {
+  .soon__stage {
+    zoom: 0.8;
+    margin-top: 28px;
+  }
+}
+
+/* ------------------------------------------------------------------- shared */
+
+.soon-art g[class] {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.soon-art circle.dot {
+  transform-box: fill-box;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    translate: 0 var(--dy);
+  }
+}
+
+@keyframes grow {
+  from {
+    scale: var(--s0);
+  }
+}
+
+@keyframes fade-dim {
+  from {
+    opacity: 0.3;
+  }
+}
+
+@keyframes blur-in {
+  from {
+    filter: blur(10px);
+  }
+}
+
+@keyframes twinkle {
+  50% {
+    opacity: 0.3;
+    scale: 0.65;
+  }
+}
+
+@keyframes bob {
+  25% {
+    translate: 0 calc(var(--amp, 5px) * -1);
+  }
+  75% {
+    translate: 0 var(--amp, 5px);
+  }
+}
+
+/* slab and contact shadow: the ground every scene stands on */
+.e-slab {
+  --dy: 14px;
+  animation:
+    fade 500ms var(--out) both,
+    rise 600ms var(--out) both;
+}
+
+.e-shadow {
+  animation: fade 600ms var(--out) 100ms both;
+}
+
+.l-twinkle {
+  animation: twinkle calc(var(--per) * 1s) ease-in-out calc(1300ms + 80ms * var(--i)) infinite;
+}
+
+.e-spark {
+  --s0: 0.6;
+  animation:
+    fade 300ms var(--out) calc(1000ms + 80ms * var(--i)) both,
+    grow 300ms var(--out) calc(1000ms + 80ms * var(--i)) both;
+}
+
+.l-bob {
+  animation: bob 5s ease-in-out calc(1400ms + 800ms * var(--i)) infinite;
+}
+
+/* ------------------------------------------------------------------ glow */
+
+.soon__glow {
+  animation: glow-in 900ms var(--out) 100ms both;
+}
+
+@keyframes glow-in {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+  to {
+    opacity: var(--glow);
+    scale: 1;
+  }
+}
+
+/* ---------------------------------------------------------------- Modpacks */
+
+.e-ring {
+  animation: fade 600ms var(--out) 300ms both;
+}
+
+/* each dot slides to its neighbour's slot, three sub-steps along the ellipse; seamless */
+.soon-art .dot {
+  animation: ring 3s linear 900ms infinite;
+}
+
+@keyframes ring {
+  33.33% {
+    translate: var(--x1) var(--y1);
+  }
+  66.66% {
+    translate: var(--x2) var(--y2);
+  }
+  100% {
+    translate: var(--x3) var(--y3);
+  }
+}
+
+/* 19 voxel cells land bottom layer first, back to front */
+.e-cell {
+  --dy: -70px;
+  animation:
+    fade 160ms var(--out) calc(100ms + 28ms * var(--n)) both,
+    rise 500ms var(--pop) calc(100ms + 28ms * var(--n)) both;
+}
+
+.e-badge {
+  --s0: 0.3;
+  animation:
+    fade 130ms var(--out) 950ms both,
+    grow 450ms var(--pop) 950ms both;
+}
+
+.e-cube {
+  --s0: 0.6;
+  --dy: 14px;
+  animation:
+    fade 200ms var(--out) calc(420ms + 70ms * var(--i)) both,
+    grow 500ms var(--pop) calc(420ms + 70ms * var(--i)) both,
+    rise 500ms var(--pop) calc(420ms + 70ms * var(--i)) both;
+}
+
+/* orbit: glide onto the ellipse, then x ±4, y ±6 every 6 s, each cube 750ms later */
+.l-orbit {
+  animation:
+    orbit-in 800ms ease-in-out calc(920ms + 820ms * var(--i)) both,
+    orbit 6s linear calc(1720ms + 820ms * var(--i)) infinite;
+}
+
+@keyframes orbit-in {
+  to {
+    translate: -4px 0;
+  }
+}
+
+@keyframes orbit {
+  0%,
+  100% {
+    translate: -4px 0;
+  }
+  8.33% {
+    translate: -3.46px -3px;
+  }
+  16.67% {
+    translate: -2px -5.2px;
+  }
+  25% {
+    translate: 0 -6px;
+  }
+  33.33% {
+    translate: 2px -5.2px;
+  }
+  41.67% {
+    translate: 3.46px -3px;
+  }
+  50% {
+    translate: 4px 0;
+  }
+  58.33% {
+    translate: 3.46px 3px;
+  }
+  66.67% {
+    translate: 2px 5.2px;
+  }
+  75% {
+    translate: 0 6px;
+  }
+  83.33% {
+    translate: -2px 5.2px;
+  }
+  91.67% {
+    translate: -3.46px 3px;
+  }
+}
+
+.soon[data-which='modpacks'] .soon__glow {
+  animation:
+    glow-in 900ms var(--out) 100ms both,
+    badge-pop 880ms linear 1000ms forwards;
+}
+
+@keyframes badge-pop {
+  0% {
+    opacity: 0.26;
+    scale: 1;
+    animation-timing-function: var(--out);
+  }
+  20% {
+    opacity: 0.38;
+    scale: 1.03;
+    animation-timing-function: ease-in-out;
+  }
+  100% {
+    opacity: 0.3;
+    scale: 1;
+  }
+}
+
+.soon[data-which='modpacks'] {
+  --glow: 0.26;
+}
+
+/* ----------------------------------------------------------------- Servers */
+
+.e-rack {
+  --dy: 36px;
+  animation:
+    fade 250ms var(--out) calc(120ms + 100ms * var(--n)) both,
+    rise 600ms var(--out) calc(120ms + 100ms * var(--n)) both;
+}
+
+.e-led {
+  animation: fade 120ms var(--out) calc(670ms + 100ms * var(--n) + 50ms * var(--k)) both;
+}
+
+.e-strip {
+  animation: fade 300ms var(--out) calc(570ms + 100ms * var(--n)) both;
+}
+
+.s-strip > g {
+  opacity: 1;
+}
+
+.e-friend {
+  --s0: 0.6;
+  --dy: 10px;
+  animation:
+    fade 250ms var(--out) calc(500ms + 70ms * var(--i)) both,
+    grow 500ms var(--pop) calc(500ms + 70ms * var(--i)) both,
+    rise 500ms var(--pop) calc(500ms + 70ms * var(--i)) both;
+}
+
+.soon[data-which='servers'] .l-bob {
+  --amp: 4px;
+}
+
+.e-moon {
+  --dy: 8px;
+  animation:
+    fade 600ms var(--out) 600ms both,
+    rise 600ms var(--out) 600ms both;
+}
+
+.soon-art .draw {
+  stroke-dasharray: 1 1;
+  animation: draw 600ms var(--out) calc(700ms + 80ms * var(--i)) both;
+}
+
+@keyframes draw {
+  from {
+    stroke-dasharray: 0 1;
+  }
+}
+
+/* LEDs blink: a short dip every 3.0 / 3.6 / 4.2 s */
+.l-blink {
+  animation: blink calc(var(--per) * 1s) linear 1700ms infinite;
+}
+
+@keyframes blink {
+  0%,
+  92%,
+  100% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 0.25;
+  }
+}
+
+/* packets: every 3 s along the line, fade in 120 / out 150, travel 1400 */
+.l-packet {
+  opacity: 0;
+  animation: packet 3s linear calc(1600ms + 1000ms * var(--i)) infinite;
+}
+
+@keyframes packet {
+  0% {
+    opacity: 0;
+    translate: 0 0;
+  }
+  4% {
+    opacity: 1;
+  }
+  9.33% {
+    translate: var(--x1) var(--y1);
+  }
+  18.67% {
+    translate: var(--x2) var(--y2);
+  }
+  28% {
+    translate: var(--x3) var(--y3);
+  }
+  37.33% {
+    translate: var(--x4) var(--y4);
+  }
+  41.67% {
+    opacity: 1;
+  }
+  46.67%,
+  100% {
+    opacity: 0;
+    translate: var(--x5) var(--y5);
+  }
+}
+
+/* Story, 10.8 s from the sync blink at 6 s: sync, sleep (1 s), wake (at 5.2 s).
+   Percentages are ms / 108. */
+.s-moon {
+  opacity: 0.55;
+}
+
+.s-strip {
+  opacity: 0.75;
+}
+
+.s-led,
+.s-lines,
+.s-friends,
+.s-packets {
+  opacity: 1;
+}
+
+.s-z {
+  opacity: 0;
+}
+
+.s-led {
+  animation: story-led 10.8s linear 6s infinite;
+}
+
+.s-strip {
+  animation: story-strip 10.8s linear 6s infinite;
+}
+
+.s-lines {
+  animation: story-lines 10.8s linear 6s infinite;
+}
+
+.s-friends {
+  animation: story-friends 10.8s linear 6s infinite;
+}
+
+.s-moon {
+  animation: story-moon 10.8s linear 6s infinite;
+}
+
+.s-packets {
+  animation: story-packets 10.8s linear 6s infinite;
+}
+
+.s-z {
+  animation: story-z 10.8s linear 6s infinite;
+}
+
+@keyframes story-led {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  1.39% {
+    opacity: 0.15;
+  }
+  2.78% {
+    opacity: 1;
+  }
+  4.17% {
+    opacity: 0.15;
+  }
+  5.56%,
+  9.26% {
+    opacity: 1;
+  }
+  18.52% {
+    opacity: 0.22;
+  }
+  30.56% {
+    opacity: 0.4;
+  }
+  42.59%,
+  48.15% {
+    opacity: 0.22;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes story-strip {
+  0%,
+  5.56%,
+  9.26%,
+  100% {
+    opacity: 0.75;
+  }
+  1.1% {
+    opacity: 1;
+  }
+  18.52% {
+    opacity: 0.12;
+  }
+  30.56% {
+    opacity: 0.26;
+  }
+  42.59%,
+  48.15% {
+    opacity: 0.12;
+  }
+  50.93% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes story-lines {
+  0%,
+  9.26%,
+  100% {
+    opacity: 1;
+  }
+  18.52%,
+  42.59% {
+    opacity: 0.35;
+  }
+  48.15% {
+    opacity: 1;
+  }
+}
+
+@keyframes story-friends {
+  0%,
+  9.26%,
+  100% {
+    opacity: 1;
+  }
+  18.52%,
+  40.74% {
+    opacity: 0.42;
+  }
+  44.44% {
+    opacity: 1;
+  }
+}
+
+@keyframes story-moon {
+  0%,
+  9.26%,
+  100% {
+    opacity: 0.55;
+  }
+  18.52%,
+  48.15% {
+    opacity: 1;
+  }
+  52.78% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes story-packets {
+  0%,
+  9.26%,
+  50%,
+  100% {
+    opacity: 1;
+  }
+  12%,
+  48.15% {
+    opacity: 0;
+  }
+}
+
+@keyframes story-z {
+  0%,
+  14.8% {
+    opacity: 0;
+  }
+  18.5%,
+  44% {
+    opacity: 1;
+  }
+  48.15%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* z glyphs while it sleeps: rise and fade, every 1.8 s */
+.l-z {
+  animation: zrise 1.8s linear calc(7600ms + 500ms * var(--k)) infinite;
+  opacity: 0;
+}
+
+@keyframes zrise {
+  0% {
+    opacity: 0;
+    translate: 0 6px;
+  }
+  16.7% {
+    opacity: var(--zo);
+  }
+  83.3%,
+  100% {
+    opacity: 0;
+    translate: 0 -12px;
+  }
+}
+
+.soon[data-which='servers'] .soon__glow {
+  animation:
+    glow-in 900ms var(--out) 100ms both,
+    glow-sleep 10.8s linear 6s infinite;
+}
+
+@keyframes glow-sleep {
+  0%,
+  9.26% {
+    opacity: 0.27;
+  }
+  1.39% {
+    opacity: 0.36;
+  }
+  5.56% {
+    opacity: 0.27;
+  }
+  18.52%,
+  48.15% {
+    opacity: 0.14;
+  }
+  52.78%,
+  100% {
+    opacity: 0.26;
+  }
+}
+
+/* ------------------------------------------------------------------ Quests */
+
+.e-step {
+  --dy: 28px;
+  animation:
+    fade 200ms var(--out) calc(120ms + 90ms * var(--n)) both,
+    rise 550ms var(--pop) calc(120ms + 90ms * var(--n)) both;
+}
+
+.e-pip {
+  --s0: 0.6;
+  animation:
+    fade 300ms var(--out) calc(1250ms + 220ms * var(--n)) both,
+    grow 400ms var(--pop) calc(1250ms + 220ms * var(--n)) both;
+}
+
+.e-ped {
+  animation: fade-dim 250ms var(--out) 1950ms both;
+}
+
+.e-trophy {
+  --s0: 0.5;
+  --dy: 16px;
+  animation:
+    fade 250ms var(--out) 1950ms both,
+    grow 500ms var(--pop) 1950ms both,
+    rise 500ms var(--out) 1950ms both;
+}
+
+/* trophy: hover ±5 (5 s), tilt ±3° (6 s), flare 1.08 at 2.55 s then every 5 s, turn */
+.l-hover {
+  --amp: 5px;
+  animation:
+    bob 5s ease-in-out 2450ms infinite,
+    tilt 6s ease-in-out 2450ms infinite;
+}
+
+@keyframes tilt {
+  25% {
+    rotate: 3deg;
+  }
+  75% {
+    rotate: -3deg;
+  }
+}
+
+.l-flare {
+  animation:
+    flare 5s linear 2550ms infinite,
+    turn 5s ease-in-out 2550ms infinite;
+}
+
+@keyframes flare {
+  3% {
+    scale: 1.08;
+    animation-timing-function: ease-in-out;
+  }
+  16%,
+  100% {
+    scale: 1;
+  }
+}
+
+@keyframes turn {
+  12% {
+    transform: scaleX(0.86);
+  }
+  41%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/* pips dim at 6.2 s and refill 220ms apart, every 5 s; the pedestal dims and relights with them */
+.s-pip {
+  animation: story-pip-0 5s linear 6200ms infinite;
+}
+
+.s-pip[style*='--n:0'] {
+  animation-name: story-pip-0;
+}
+
+.s-pip[style*='--n:1'] {
+  animation-name: story-pip-1;
+}
+
+.s-pip[style*='--n:2'] {
+  animation-name: story-pip-2;
+}
+
+@keyframes story-pip-0 {
+  0%,
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+  6%,
+  12% {
+    opacity: 0.28;
+    scale: 1;
+  }
+  18% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes story-pip-1 {
+  0%,
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+  6%,
+  16.4% {
+    opacity: 0.28;
+    scale: 1;
+  }
+  22.4% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes story-pip-2 {
+  0%,
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+  6%,
+  20.8% {
+    opacity: 0.28;
+    scale: 1;
+  }
+  26.8% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+.s-ped {
+  animation: story-ped 5s linear 6200ms infinite;
+}
+
+@keyframes story-ped {
+  0%,
+  6%,
+  100% {
+    opacity: 1;
+  }
+  12%,
+  24% {
+    opacity: 0.3;
+  }
+  29% {
+    opacity: 1;
+  }
+}
+
+/* embers rise from the trophy; 3.4–4.6 s each, repeating every 4.2–5.7 s */
+.l-ember {
+  opacity: 0;
+  animation:
+    ember-up var(--per) linear calc(2350ms + 350ms * var(--k)) infinite,
+    ember-fade var(--per) ease-in-out calc(2350ms + 350ms * var(--k)) infinite;
+}
+
+@keyframes ember-up {
+  0% {
+    translate: 0 0;
+  }
+  81%,
+  100% {
+    translate: var(--dx) var(--dy);
+  }
+}
+
+@keyframes ember-fade {
+  0%,
+  81%,
+  100% {
+    opacity: 0;
+  }
+  9% {
+    opacity: 0.85;
+  }
+}
+
+.e-gem {
+  --s0: 0.6;
+  --dy: 10px;
+  animation:
+    fade 250ms var(--out) calc(550ms + 80ms * var(--i)) both,
+    grow 500ms var(--pop) calc(550ms + 80ms * var(--i)) both,
+    rise 500ms var(--pop) calc(550ms + 80ms * var(--i)) both;
+}
+
+.soon[data-which='quests'] .l-bob {
+  animation-duration: 5.2s;
+}
+
+.soon[data-which='quests'] .soon__glow {
+  animation:
+    glow-quest-in 2s var(--out) 100ms both,
+    glow-flare 850ms linear 2550ms forwards,
+    glow-story 5s linear 6200ms infinite;
+}
+
+@keyframes glow-quest-in {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+  45% {
+    opacity: 0.16;
+    scale: 1;
+  }
+  to {
+    opacity: 0.22;
+    scale: 1;
+  }
+}
+
+@keyframes glow-flare {
+  0% {
+    opacity: 0.22;
+    scale: 1;
+    animation-timing-function: var(--out);
+  }
+  18% {
+    opacity: 0.36;
+    scale: 1.03;
+    animation-timing-function: ease-in-out;
+  }
+  100% {
+    opacity: 0.28;
+    scale: 1;
+  }
+}
+
+@keyframes glow-story {
+  0%,
+  100% {
+    opacity: 0.28;
+    scale: 1;
+  }
+  8%,
+  24% {
+    opacity: 0.2;
+  }
+  27% {
+    opacity: 0.2;
+    animation-timing-function: var(--out);
+  }
+  30% {
+    opacity: 0.36;
+    scale: 1.03;
+    animation-timing-function: ease-in-out;
+  }
+  43% {
+    opacity: 0.28;
+    scale: 1;
+  }
+}
+
+/* ------------------------------------------------------------------- copy */
+
+.soon__eyebrow {
+  --dy: 8px;
+  animation:
+    fade 500ms var(--out) 300ms both,
+    rise 500ms var(--out) 300ms both;
+}
+
+.soon__title .w {
+  --dy: 18px;
+  animation:
+    fade 450ms var(--out) calc(380ms + 70ms * var(--i)) both,
+    rise 600ms var(--out) calc(380ms + 70ms * var(--i)) both,
+    blur-in 500ms linear calc(380ms + 70ms * var(--i)) both;
+}
+
+.soon__line {
+  --dy: 10px;
+  animation:
+    fade 600ms var(--out) var(--line) both,
+    rise 600ms var(--out) var(--line) both;
+}
+
+/* ----------------------------------------------------------- Notify me */
+
+.notify {
+  --dy: 6px;
+  --s0: 0.92;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 105px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 180ms var(--out),
+    background-color 180ms var(--out),
+    border-color 180ms var(--out),
+    box-shadow 180ms var(--out),
+    width 450ms var(--pop);
+  animation:
+    fade 350ms var(--out) calc(var(--line) + 80ms) both,
+    rise 500ms var(--pop) calc(var(--line) + 80ms) both,
+    grow 500ms var(--pop) calc(var(--line) + 80ms) both;
+}
+
+.notify__icon {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.notify__icon svg {
+  position: absolute;
+  inset: 0;
+  width: 14px;
+  height: 14px;
+  overflow: visible;
+  transform-origin: 50% 12%;
+}
+
+.notify__check {
+  opacity: 0;
+}
+
+.notify__check path {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+}
+
+.notify:hover:not([data-state='done']) {
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--hue) 7%, transparent);
+  border-color: color-mix(in srgb, var(--hue) 32%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, color-mix(in srgb, var(--hue) 55%, #8a8d92) 22%, transparent);
+}
+
+.notify:hover:not([data-state='done']) .notify__bell {
+  animation: ring-bell 560ms ease-in-out;
+}
+
+@keyframes ring-bell {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  15% {
+    rotate: 14deg;
+  }
+  35% {
+    rotate: -14deg;
+  }
+  55% {
+    rotate: 8deg;
+  }
+  75% {
+    rotate: -4deg;
+  }
+}
+
+.notify:active:not([data-state='done']) {
+  transform: scale(0.97);
+  box-shadow: 0 0 24px color-mix(in srgb, color-mix(in srgb, var(--hue) 55%, #8a8d92) 14%, transparent);
+  transition-duration: 90ms;
+}
+
+.notify:focus-visible {
+  outline: 2px solid var(--hue);
+  outline-offset: 3px;
+}
+
+.notify[data-state='done'] {
+  width: 148px;
+  cursor: default;
+  background: color-mix(in srgb, var(--hue) 7%, transparent);
+  border-color: color-mix(in srgb, var(--hue) 32%, transparent);
+}
+
+.notify[data-state='done'] .notify__bell {
+  opacity: 0;
+  scale: 0.6;
+  transition:
+    opacity 120ms,
+    scale 120ms;
+}
+
+.notify[data-state='done'] .notify__check {
+  opacity: 1;
+  color: var(--hue);
+}
+
+.notify[data-state='done'] .notify__check path {
+  stroke-dashoffset: 0;
+}
+
+.notify[data-just] .notify__check path {
+  stroke-dashoffset: 1;
+  animation: draw-check 320ms ease-out 100ms forwards;
+}
+
+@keyframes draw-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* the ripple and the eight burst cells fire once, on the click */
+.notify__ripple {
+  position: absolute;
+  inset: -1px;
+  border-radius: 16px;
+  border: 1px solid var(--hue);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.notify[data-just] .notify__ripple {
+  animation: ripple 450ms var(--out) both;
+}
+
+@keyframes ripple {
+  from {
+    opacity: 0.6;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 1.12 1.4;
+  }
+}
+
+.notify__burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.notify__burst i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px;
+  border-radius: 1.5px;
+  background: var(--hue);
+  opacity: 0;
+}
+
+.notify[data-just] .notify__burst i {
+  animation: burst 680ms var(--out) 80ms both;
+}
+
+@keyframes burst {
+  0% {
+    opacity: 1;
+    translate: 0 0;
+  }
+  100% {
+    opacity: 0;
+    translate: calc(cos(var(--a)) * var(--r)) calc(sin(var(--a)) * var(--r));
+  }
+}
+
+/* ------------------------------------------------- paused and reduced motion */
+
+/* Every loop pauses when the view is hidden or the window loses focus. */
+.soon[data-paused] *,
+.soon[data-paused] *::before,
+.soon[data-paused] *::after {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The rest state of the frames: every layer at its final opacity and position. */
+  .soon *,
+  .soon *::before,
+  .soon *::after {
+    animation: none !important;
+    transition-duration: 1ms !important;
+  }
+
+  .soon .l-packet,
+  .soon .l-ember,
+  .soon .l-z,
+  .soon .s-z {
+    opacity: 0;
+  }
+
+  .soon .soon__glow {
+    opacity: var(--glow);
+  }
+
+  .soon .soon__copy > * {
+    animation: fade 150ms linear both !important;
+  }
+
+  .soon .soon__title .w {
+    animation: fade 150ms linear both !important;
+  }
+
+  .soon .notify {
+    transform: none !important;
+  }
+}

@@ -58,7 +58,7 @@ describe('?fake= padding, end to end', () => {
 
     const bridge = connectBridge({ forceFake: true, runFakeClock: false });
     act(() => {
-      useVoidStore.setState({ menuOpen: true, route: { name: 'mods' } });
+      useVoidStore.setState({ menuOpen: true, route: { name: 'grid' }, back: 'grid' });
     });
     const { container } = render(<App />);
 
@@ -162,7 +162,7 @@ describe('?fake= padding, end to end', () => {
 
     const bridge = connectBridge({ forceFake: true, runFakeClock: false });
     act(() => {
-      useVoidStore.setState({ menuOpen: true, route: { name: 'mods' } });
+      useVoidStore.setState({ menuOpen: true, route: { name: 'grid' }, back: 'grid' });
     });
     const { container } = render(<App />);
 

@@ -206,6 +206,9 @@ pub struct SessionStats {
     pub loadout: String,
     pub played_ms: u64,
     pub fps_avg: f64,
+    /// Mean ping over the session, when the mod measured one on a server.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ping_avg: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub server: Option<String>,
     /// The last lines of output when the JVM exited non-zero.

@@ -9,6 +9,29 @@
         "cd pvp/apps/web && npx next build && npx next start --port 5195"
       ],
       "port": 5195
+    },
+    {
+      "name": "pvp-launcher",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "pvp/apps/desktop",
+        "run",
+        "dev:web"
+      ],
+      "port": 5183,
+      "url": "http://127.0.0.1:5183"
+    },
+    {
+      "name": "pvp-ingame",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "pvp/packages/ingame",
+        "run",
+        "dev"
+      ],
+      "port": 5184
     }
   ]
 }

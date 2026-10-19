@@ -1797,7 +1797,8 @@ public final class CavernModel {
 	/**
 	 * Whether the aquifers are kept out of (x, y, z): everywhere. The only open spaces underground are the
 	 * model's, and they hold only the water and lava poured into them (and vanilla's lava below y
-	 * {@value #LAVA_LEVEL}, which comes before any aquifer).
+	 * {@value #LAVA_LEVEL}, which comes before any aquifer). The base heights ({@link NoiseColumnScan}) count on
+	 * this being true everywhere: no aquifer water then stands above the sea.
 	 */
 	public boolean dry(int x, int y, int z) {
 		return true;

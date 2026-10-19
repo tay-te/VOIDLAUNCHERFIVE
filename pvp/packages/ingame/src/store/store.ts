@@ -62,7 +62,10 @@ export type SettingValue = boolean | number | string | null;
  * — the thing that decides what is drawn — and cannot drift from it.
  */
 export type Route =
+  /** The v1 Ship islands — what the menu opens on. */
   | { name: 'mods' }
+  /** Every mod as a grid of tiles with live previews: "All mods", one click from the island. */
+  | { name: 'grid' }
   | { name: 'mod'; id: ModId }
   | { name: 'settings' }
   | { name: 'loadouts' }
@@ -80,6 +83,24 @@ export type Route =
  * common one. The grid is now always full-panel and selecting a mod opens {@link Route} `mod`.
  */
 export type ModsLayout = 'grid' | 'list';
+
+/**
+ * Where the player is when Right Shift opens the menu — Figma v1 Ship, rule 9: the full menu
+ * only in the lobby; in a live match, a quick loadout panel only, with no dim, that closes
+ * itself the moment you are hit.
+ *
+ * **How "in a match" is decided, honestly.** The bridge carries no notion of a lobby or a
+ * match — no server says which one you are in, and a scoreboard heuristic per network would be
+ * a guess wearing a costume. What the bridge *does* carry is `tick.hits`, the monotonic
+ * dealt/taken counters. So a match here means **you are in a fight**: a hit landed or was taken
+ * within {@link COMBAT_WINDOW_MS}, on a server or in singleplayer alike. That is exactly the case the rule exists
+ * to protect — a full-screen menu while someone is hitting you costs the round — and it is
+ * decided once, when the menu opens, so the layout never changes under the cursor.
+ */
+export type MenuContext = 'lobby' | 'match';
+
+/** How recently a hit must have landed, either way, for an open to count as mid-fight. */
+export const COMBAT_WINDOW_MS = 12_000;
 
 const EMPTY_KEYS: KeysPayload = { w: 0, a: 0, s: 0, d: 0, lmb: 0, rmb: 0, space: 0, shift: 0 };
 
@@ -183,6 +204,23 @@ const fpsSamples: number[] = [];
  */
 let lastHits: { dealt: number; taken: number } | null = null;
 
+/** `Date.now()` of the last hit either way; see {@link MenuContext}. */
+let lastCombatAt = 0;
+
+/**
+ * The context an open lands in. `?ctx=lobby|match` pins it in the browser harness, where there
+ * is no fight to have — the fake bridge drives no hits — and both layouts need reviewing.
+ */
+function contextNow(): MenuContext {
+  if (typeof location !== 'undefined') {
+    const pinned = new URLSearchParams(location.search).get('ctx');
+    if (pinned === 'match' || pinned === 'lobby') return pinned;
+  }
+  // Any fight counts, a mob in singleplayer included: the rule protects whoever is mid-fight,
+  // and it is also the only way to see the quick panel without a server that will have you.
+  return lastCombatAt > 0 && Date.now() - lastCombatAt < COMBAT_WINDOW_MS ? 'match' : 'lobby';
+}
+
 /**
  * Value equality for the object-shaped `tick` fields.
  *
@@ -273,6 +311,7 @@ export function resetDerivedState(): void {
   rings.right = createClickRing();
   fpsSamples.length = 0;
   lastHits = null;
+  lastCombatAt = 0;
 }
 
 export interface VoidState {
@@ -345,6 +384,14 @@ export interface VoidState {
 
   /* -------------------------------------------------------------- UI state */
   menuOpen: boolean;
+  /**
+   * Where a mod page, Settings or the HUD editor goes back to: the islands, or the All-mods grid,
+   * whichever the player came from. Escape is "up one level", and the level above a page is the
+   * list it was opened from.
+   */
+  back: 'mods' | 'grid';
+  /** Decided at open; see {@link MenuContext}. */
+  context: MenuContext;
   route: Route;
   /**
    * Tile highlighted in the Mods grid.
@@ -378,6 +425,8 @@ export interface VoidState {
 
   /* -------------------------------------------------------------- UI actions */
   setRoute(route: Route): void;
+  /** Override the open's context — the harness's `?ctx=` and the palette use it. */
+  setContext(context: MenuContext): void;
   selectMod(id: ModId): void;
   openMod(id: ModId): void;
   closeMod(): void;
@@ -426,6 +475,8 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   globals: FACTORY_GLOBALS,
 
   menuOpen: false,
+  back: 'mods',
+  context: 'lobby',
   route: { name: 'mods' },
   selectedMod: 'keystrokes',
   layout: 'grid',
@@ -535,6 +586,19 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     // damage model, the harness opens the menu by default, and freezing the HUD there would make
     // HUD work impossible. Same split as the token layer — the constraint belongs to the renderer,
     // so the condition names the renderer.
+    // Rule 9: the quick panel closes itself the moment you are hit. Checked before the hold
+    // below, which would otherwise swallow the very tick that carries the hit. `lastHits` is
+    // only advanced further down, so while the menu holds it this compares against the counters
+    // as they stood when the menu opened — the first hit taken after that closes it.
+    if (tick.hits !== undefined && lastHits !== null) {
+      if (tick.hits.taken > lastHits.taken || tick.hits.dealt > lastHits.dealt) lastCombatAt = Date.now();
+      if (prev.menuOpen && prev.context === 'match' && tick.hits.taken > lastHits.taken) {
+        lastHits = { dealt: tick.hits.dealt, taken: tick.hits.taken };
+        getVoid().closeMenu();
+        return;
+      }
+    }
+
     if (prev.menuOpen && prev.route.name !== 'hud-editor' && isUltralight()) {
       return;
     }
@@ -665,13 +729,16 @@ export const useVoidStore = create<VoidState>((set, get) => ({
     // R-Shift and Escape both close the whole menu, so "close from a page" is covered here.
     set(
       open
-        ? { menuOpen: true, route: { name: 'mods' }, paletteOpen: false }
+        ? { menuOpen: true, back: 'mods', context: contextNow(), route: { name: 'mods' }, paletteOpen: false }
         : { menuOpen: false, paletteOpen: false },
     );
   },
 
   setRoute(route) {
-    set({ route });
+    set(route.name === 'mods' || route.name === 'grid' ? { route, back: route.name } : { route });
+  },
+  setContext(context) {
+    set({ context, ...(context === 'match' ? { route: { name: 'mods' } as Route, paletteOpen: false } : {}) });
   },
   selectMod(id) {
     // Selection **only**. It used to open the properties panel as a side effect, which is what
@@ -689,7 +756,7 @@ export const useVoidStore = create<VoidState>((set, get) => ({
   closeMod() {
     // Back to the grid, unchanged. `selectedMod` is deliberately left alone: it is what marks
     // the tile you were just inside.
-    set({ route: { name: 'mods' } });
+    set({ route: { name: get().back } });
   },
   setLayout(layout) {
     set({ layout });

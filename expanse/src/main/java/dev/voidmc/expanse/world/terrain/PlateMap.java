@@ -30,6 +30,7 @@ final class PlateMap {
 		int hoodX = Integer.MIN_VALUE;
 		int hoodZ;
 		final Plate[] hood = new Plate[25];
+		final Plate[] spare = new Plate[25];
 		Plate own;
 		/** Distance (blocks, in warped space) to the nearest border of any kind, and the plate across it. */
 		double border;
@@ -116,10 +117,18 @@ final class PlateMap {
 		int gz = Mth.floor(wz / SPACING);
 		Plate[] near = out.hood;
 		if (out.hoodX != gx || out.hoodZ != gz) {
+			// moved a cell or two: keep the plates the old neighbourhood shares with the new one
+			Plate[] old = out.spare;
+			System.arraycopy(near, 0, old, 0, 25);
+			int ox = out.hoodX;
+			int oz = out.hoodZ;
+			boolean overlap = ox != Integer.MIN_VALUE && Math.abs(gx - ox) <= 4 && Math.abs(gz - oz) <= 4;
 			int c = 0;
 			for (int dx = -2; dx <= 2; dx++) {
 				for (int dz = -2; dz <= 2; dz++) {
-					near[c++] = this.plate(gx + dx, gz + dz);
+					int ix = gx + dx - ox;
+					int iz = gz + dz - oz;
+					near[c++] = overlap && Math.abs(ix) <= 2 && Math.abs(iz) <= 2 ? old[(ix + 2) * 5 + iz + 2] : this.plate(gx + dx, gz + dz);
 				}
 			}
 			out.hoodX = gx;

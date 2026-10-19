@@ -71,7 +71,7 @@ export function keepsEscape(): boolean {
   const state = useVoidStore.getState();
   if (state.paletteOpen) return true;
   const route = state.route.name;
-  return route === 'mod' || route === 'settings' || route === 'hud-editor';
+  return route === 'mod' || route === 'settings' || route === 'hud-editor' || route === 'grid';
 }
 
 export interface ConnectResult {

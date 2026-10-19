@@ -779,7 +779,13 @@ the temperate heartland is Bohemian (Brezek Forest, Lake Maletz, the Olsava), th
 (Hamarvik Barrens, Ulfdal Cleft), dry and tropical land southern (Zaroma Desert). A world counts as an
 Expanse world when its biomes include the Expanse's; elsewhere Atlas names its places itself. The build
 compiles against stand-ins for Atlas's API (`src/atlasApi`), never shipped, so the Expanse needs nothing of
-Atlas to build or run.
+Atlas to build or run (copies of Atlas's API classes, kept exactly as Atlas has them).
+
+The Expanse's own structures are named on the map too: Chapel of St Prokop, Dubovice Keep, Hangman's Hill, the
+Kamenov Cross, Refuge on the Olsany Pass, Boundary Stone No. 47 and the like, after the country they stand in. In
+singleplayer the great mines are reported to Atlas as places of their own: the pithead a mineshaft on the map once
+found, its card telling how deep the shaft goes and its levels, and the great drift's mouth in the realm a place
+underground at its depth.
 
 ### For other mods
 
@@ -800,7 +806,10 @@ or send a quest down one. Both come from the seed, the same before and after the
 `TerrainModel.FAR_GRID` (512) blocks and up: the same plates, drainage, climate and countries, each plate worked out
 again on a 512-block grid (some 30 KB, cached apart), so a 100 km horizon never builds a full plate. The coarse grid
 can't hold the mountains' ridges, so its land is lifted back by what that comes to (by uplift, measured with
-`-Pslice=farpeaks`): it agrees with the fine ground's mean over a cell to within a few blocks at every height, and
+`-Pslice=farpeaks`), and the coastal plains, which the coarse grid's step down to the sea floor would pull under the
+sea, by up to 16 blocks at the shore (`-Pslice=farcoast`): it agrees with the fine ground's mean over a cell to within
+a few blocks at every height and calls land and sea as the fine ground does but for the cell or so either side of
+the shore, and
 `out.peak` gives the cell's high ground (about the 90th percentile of the fine ground) for skylines. Its climate is
 read on a grid of its own, a kilometre apart, so a call takes a few microseconds (`terrainPreview -Pslice=far`
 measures it). `TerrainModel.sample` is what LOD reads nearer in; `reservePlates` lets it keep more
@@ -843,6 +852,25 @@ rather than from memory.
 | `tools/textures/gen_textures.py` | Every block and item texture, plus the mod icon, all drawn procedurally and deterministically |
 | `tools/structures/gen_structures.py` | Every structure: templates (`.nbt`) built by `designs/*.py`, template pools, processor lists, structure sets, chest loot and tags. It validates its output against vanilla's block states and can render isometric previews (`--preview DIR`). |
 | `tools/structures/gen_caves.py` | The things underground: cave templates (`structure/cave/`), their processor lists, loot, journals and the `expanse:cave_template` features, one per group in `CaveThings.java` (it checks the two agree). Validates with the structure validator; `--preview DIR` renders a contact sheet. |
+
+### Generation speed, and proving it changed nothing
+
+`-Dexpanse.genbench=true` on the client game test (`GenBench`) runs a fixed benchmark instead of the tour: a world on
+seed 8675309, three 12 x 12-chunk areas (lowland, mountains, coast) timed to FULL, then a fingerprint of every block
+of 192 chunks at TERRAIN status and a check of the fast base heights against vanilla's. Any speed-up must leave the
+fingerprints byte for byte as they were. Three are in place, each exact:
+
+- **Surface rules only where they can act** (`SurfaceBands`, `EarthSurfaceMixin`, `MaterialSystemMixin`,
+  `MaterialRuleContextMixin`): on the Earth world, stone between y 50 and the preliminary surface is no longer put to
+  the rules (none of them can change it there, worked out from the rule tree itself), and the ore veins are sampled
+  only up to y 49. About a tenth off chunk generation.
+- **Base heights** (`NoiseColumnScan`): one scan answers every heightmap type, starting just above the land rather
+  than at the top of the world and without vanilla's per-column noise chunk, cached: 5 us a call against 282, which
+  is what structure placement, `/locate` and VOID LOD's distant structures ask for.
+- **The aquifer** (`EarthAquiferMixin`) answers at once where its twelve neighbouring centres agree (the Earth's
+  caves are dry, so they mostly do).
+
+The last two can be switched off (`-Dexpanse.fast.baseheight2=false`, `-Dexpanse.fast.noaquifer=false`).
 
 ### How this was checked without a monitor
 

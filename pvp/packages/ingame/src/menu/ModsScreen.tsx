@@ -486,7 +486,7 @@ export function gridRows(ids: ModId[], columns: number): ModId[][] {
  * cleanly to whatever element the test names — both were found in game, and both are checked
  * there.
  */
-function Tile({ id, selected }: { id: ModId; selected: boolean }) {
+export function Tile({ id, selected }: { id: ModId; selected: boolean }) {
   const settings = useModSettings(id);
   const on = useVoidStore((s) => isModOn(s.loadout, id));
   const openMod = useVoidStore((s) => s.openMod);
@@ -708,7 +708,7 @@ function SettingsControl() {
       className={cx('obtn', open && 'obtn--on')}
       aria-label="Settings"
       aria-pressed={open}
-      onClick={() => setRoute(open ? { name: 'mods' } : { name: 'settings' })}
+      onClick={() => setRoute(open ? { name: useVoidStore.getState().back } : { name: 'settings' })}
     >
       <SettingsGlyph />
     </button>

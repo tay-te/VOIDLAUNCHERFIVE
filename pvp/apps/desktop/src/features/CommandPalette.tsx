@@ -28,7 +28,7 @@ import { MOD_GRID_ORDER, MOD_REGISTRY, isOn } from '../local/registry';
 import { useLaunch } from '../stores/launch';
 import { useLoadouts } from '../stores/loadouts';
 import { useServers } from '../stores/servers';
-import { SCREENS, SCREEN_LABELS, useUi, type Screen } from '../stores/ui';
+import { SCREENS, SCREEN_LABELS, isSoon, useUi } from '../stores/ui';
 
 interface Result {
   id: string;
@@ -45,12 +45,12 @@ interface Result {
  * (`local/glyphs`) exist for the 14px nav band and would need `setIconRenderer` to
  * reach a `PaletteResult`, which is not worth a process-wide swap for two rows.
  */
-const SCREEN_ICONS: Record<Screen, IconName> = {
-  play: 'play',
-  mods: 'layers',
-  cosmetics: 'sparkle',
+const SCREEN_ICONS: Record<(typeof SCREENS)[number], IconName> = {
+  home: 'play',
+  store: 'sparkle',
+  modpacks: 'box',
   servers: 'box',
-  friends: 'users',
+  quests: 'star',
 };
 
 /** Subsequence match — "swp" finds "Sword PvP" — with a simple relevance score. */
@@ -83,7 +83,9 @@ export function CommandPalette() {
 
   const { library, active, switchTo, setMod } = useLoadouts();
   const servers = useServers((s) => s.servers);
-  const selectServer = useServers((s) => s.select);
+  const target = useServers((s) => s.target);
+  const chooseServer = useServers((s) => s.choose);
+  const toggleFriends = useUi((s) => s.toggleFriends);
   const start = useLaunch((s) => s.start);
   const phase = useLaunch((s) => s.phase);
 
@@ -118,7 +120,7 @@ export function CommandPalette() {
         id: `screen:${screen}`,
         group: 'GO TO',
         title: SCREEN_LABELS[screen],
-        sub: 'Screen',
+        sub: isSoon(screen) ? 'Coming soon' : 'Screen',
         icon: SCREEN_ICONS[screen],
         run: () => go(screen),
       });
@@ -156,19 +158,33 @@ export function CommandPalette() {
       });
     }
 
+    all.push({
+      id: 'server:title',
+      group: 'SERVERS',
+      title: 'Title screen',
+      sub: target === null ? 'Launch joins nothing · selected' : 'Launch without joining a server',
+      icon: 'box',
+      run: () => chooseServer(null),
+    });
     for (const s of servers) {
       all.push({
         id: `server:${s.host}`,
         group: 'SERVERS',
         title: s.name,
-        sub: s.host,
+        sub: s.host === target ? `${s.host} · Launch joins this` : s.host,
         icon: 'box',
-        run: () => {
-          selectServer(s.host);
-          go('servers');
-        },
+        run: () => chooseServer(s.host),
       });
     }
+
+    all.push({
+      id: 'screen:mods',
+      group: 'GO TO',
+      title: 'Edit mods',
+      sub: active ? `in ${active.name}` : 'Loadout',
+      icon: 'layers',
+      run: () => go('mods'),
+    });
 
     all.push(
       {
@@ -178,7 +194,15 @@ export function CommandPalette() {
         sub: active ? `with ${active.name}` : 'no loadout',
         icon: 'play',
         keys: ['⌘', '↵'],
-        run: () => active && phase === 'idle' && void start(active.id),
+        run: () => active && phase === 'idle' && void start(active.id, target),
+      },
+      {
+        id: 'action:friends',
+        group: 'ACTIONS',
+        title: 'Friends',
+        sub: 'Open the friends drawer',
+        icon: 'users',
+        run: toggleFriends,
       },
       {
         id: 'action:log',
@@ -210,7 +234,7 @@ export function CommandPalette() {
     // this the list reads `MODS · ACTIONS · MODS`.
     const order = [...new Set(ranked.map((r) => r.group))];
     return order.flatMap((group) => ranked.filter((r) => r.group === group));
-  }, [query, library, active, servers, phase, go, switchTo, openModSetup, setMod, selectServer, start, toggleLog, openSettings]);
+  }, [query, library, active, servers, target, phase, go, switchTo, openModSetup, setMod, chooseServer, start, toggleLog, openSettings, toggleFriends]);
 
   if (!open) return null;
 

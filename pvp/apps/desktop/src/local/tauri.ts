@@ -39,7 +39,8 @@ export interface Cmd {
   auth_offline: [{ name: string }, Account];
 
   prepare: [{ loadoutId: string }, PrepareReport];
-  launch: [{ loadoutId: string }, LaunchReport];
+  /** `server` is the play bar's choice; `null` launches to the title screen. */
+  launch: [{ loadoutId: string; server: string | null }, LaunchReport];
   game_kill: [Record<string, never>, void];
   game_log_tail: [{ lines?: number }, string[]];
 

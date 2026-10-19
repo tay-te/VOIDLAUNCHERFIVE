@@ -461,6 +461,7 @@ def write_lang(g):
     # the world underground: its blocks, and the biomes of the realms and the caves between (tools/assets_deep.py)
     DEEP.lang(lang)
     lang['commands.expanse.atlas.done'] = 'Atlas written to %s'
+    lang['expanse.atlas.layer.mines'] = 'Great mines'      # the VOID Atlas map's layer chip (client/atlas)
     lang.update({
         'advancements.expanse.root.title': 'VOID Expanse',
         'advancements.expanse.root.description': 'Set foot in a land no one has mapped',

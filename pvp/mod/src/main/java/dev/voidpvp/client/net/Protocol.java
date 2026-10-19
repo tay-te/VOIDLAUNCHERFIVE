@@ -98,10 +98,19 @@ public final class Protocol {
 
     public static JsonObject session(double fpsAvg, long playedMs, String server,
                                      String loadoutId) {
+        return session(fpsAvg, -1, playedMs, server, loadoutId);
+    }
+
+    /** {@code session} with the mean ping; a negative {@code pingAvg} leaves the field out. */
+    public static JsonObject session(double fpsAvg, double pingAvg, long playedMs, String server,
+                                     String loadoutId) {
         JsonObject o = new JsonObject();
         o.addProperty("t", "session");
         o.add("fps_avg", Json.number(Math.round(fpsAvg * 10.0) / 10.0));
         o.addProperty("played_ms", Long.valueOf(Math.max(0, playedMs)));
+        if (pingAvg >= 0) {
+            o.add("ping_avg", Json.number(Math.round(pingAvg * 10.0) / 10.0));
+        }
         if (server == null || server.isEmpty()) {
             o.add("server", JsonNull.INSTANCE);
         } else {

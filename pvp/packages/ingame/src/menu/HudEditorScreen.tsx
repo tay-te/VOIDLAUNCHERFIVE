@@ -481,7 +481,7 @@ export function HudEditorScreen() {
   const exit = useCallback(() => {
     releaseRef.current?.();
     setDraft(null);
-    setRoute({ name: 'mods' });
+    setRoute({ name: useVoidStore.getState().back });
   }, [setRoute]);
 
   const reset = useCallback(() => {
