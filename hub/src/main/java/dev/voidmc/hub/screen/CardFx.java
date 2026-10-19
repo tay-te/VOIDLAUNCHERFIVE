@@ -1,23 +1,13 @@
 package dev.voidmc.hub.screen;
 
-import com.mojang.blaze3d.platform.NativeImage;
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.renderpearl.api.textures.FilterMode;
-import dev.voidmc.hub.VoidHub;
 import dev.voidmc.hub.model.Bridge;
 import dev.voidmc.hub.ui.HubView;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.resources.Identifier;
-import net.minecraft.server.packs.resources.Resource;
 
 /**
  * The Mettle cards' moving parts, drawn natively over the page (the way item stacks are): burning edges, embers, the
@@ -33,7 +23,7 @@ import net.minecraft.server.packs.resources.Resource;
  *
  * <p>Render thread only.
  */
-public final class CardFx {
+public final class CardFx extends NativeFx {
 
 	private static final int FILL_GLOW = 0;
 	private static final int COLOUR = 1;
@@ -68,98 +58,59 @@ public final class CardFx {
 		}
 	}
 
-	private record Tex(Identifier id, int w, int h) {
-	}
-
-	private static final Map<String, Optional<Tex>> TEXTURES = new HashMap<>();
-
 	/** A texture under {@code assets/voidhub/ui/cards/}, loaded once (NEAREST for pixel art, LINEAR for soft art). */
 	private static Tex tex(String file, boolean linear) {
-		return TEXTURES.computeIfAbsent(file, f -> {
-			Identifier res = Identifier.fromNamespaceAndPath(VoidHub.MOD_ID, "ui/cards/" + f);
-			Optional<Resource> r = Minecraft.getInstance().getResourceManager().getResource(res);
-			if (r.isEmpty()) {
-				VoidHub.LOGGER.warn("VOID Hub: card texture {} is missing", f);
-				return Optional.empty();
-			}
-			try (InputStream in = r.get().open()) {
-				NativeImage img = NativeImage.read(in);
-				int w = img.getWidth();
-				int h = img.getHeight();
-				Identifier id = Identifier.fromNamespaceAndPath(VoidHub.MOD_ID, "cardfx/" + f.replace(".png", ""));
-				Minecraft.getInstance().getTextureManager().register(id, new FxTexture(f, img, linear));
-				return Optional.of(new Tex(id, w, h));
-			} catch (Exception e) {
-				VoidHub.LOGGER.warn("VOID Hub: could not load card texture {}", f, e);
-				return Optional.empty();
-			}
-		}).orElse(null);
+		return NativeFx.tex("ui/cards", "cardfx", file, linear);
 	}
 
 	/**
-	 * A resource reload (F3+T, a pack change): the strips are released and load again, from the new resources, on first
-	 * use. Render thread.
+	 * A resource reload (F3+T, a pack change): the strips (and every other fx texture) are released and load again,
+	 * from the new resources, on first use. Render thread.
 	 */
 	public static void clearTextures() {
-		var manager = Minecraft.getInstance().getTextureManager();
-		for (Optional<Tex> t : TEXTURES.values()) {
-			t.ifPresent(tex -> manager.release(tex.id()));
-		}
-		TEXTURES.clear();
+		NativeFx.clearAllTextures();
 		reloads++;
 	}
 
 	/** Tests: how many reloads dropped the strips. */
 	public static volatile int reloads;
 
-	private static final class FxTexture extends DynamicTexture {
-		FxTexture(String name, NativeImage image, boolean linear) {
-			super(() -> "VOID Hub card fx " + name, image);
-			this.sampler = RenderSystem.getSamplerCache().getClampToEdge(linear ? FilterMode.LINEAR : FilterMode.NEAREST);
-		}
-	}
-
 	/** A lift on its way back down after the pointer left (it eases out from where it was). */
 	private record Leaving(Bridge.FxItem item, long start, double from) {
 	}
 
-	private List<Bridge.FxItem> items = List.of();
-	private final Map<String, Long> seen = new HashMap<>();
 	private final List<Leaving> leaving = new ArrayList<>();
 	private static final double LIFT_MS = 160;
 
+	@Override
 	public boolean active() {
 		return !this.items.isEmpty() || !this.leaving.isEmpty();
 	}
 
 	/** The page's new set of layers. Ids it kept keep their start; a lift it dropped eases back. */
+	@Override
 	public void set(List<Bridge.FxItem> next) {
-		long now = System.nanoTime();
-		Map<String, Bridge.FxItem> kept = new HashMap<>();
+		super.set(next);
+		java.util.Set<String> kept = new java.util.HashSet<>();
 		for (Bridge.FxItem it : next) {
-			kept.put(it.id(), it);
+			kept.add(it.id());
 		}
-		for (Bridge.FxItem old : this.items) {
-			if ("lift".equals(old.kind()) && !kept.containsKey(old.id())) {
-				this.leaving.add(new Leaving(old, now, this.liftProgress(old.id(), now)));
+		this.leaving.removeIf(l -> kept.contains(l.item().id()));
+	}
+
+	@Override
+	protected void dropped(List<Bridge.FxItem> old, Map<String, Bridge.FxItem> kept, long now) {
+		for (Bridge.FxItem o : old) {
+			if ("lift".equals(o.kind()) && !kept.containsKey(o.id())) {
+				this.leaving.add(new Leaving(o, now, this.liftProgress(o.id(), now)));
 			}
 		}
-		this.seen.keySet().retainAll(kept.keySet());
-		for (Bridge.FxItem it : next) {
-			this.seen.putIfAbsent(it.id(), now);
-		}
-		this.leaving.removeIf(l -> kept.containsKey(l.item().id()));
-		this.items = next;
 	}
 
+	@Override
 	public void clear() {
-		this.items = List.of();
-		this.seen.clear();
+		super.clear();
 		this.leaving.clear();
-	}
-
-	private static double ms(long nanos) {
-		return nanos / 1_000_000.0;
 	}
 
 	private double liftProgress(String id, long now) {
@@ -175,6 +126,7 @@ public final class CardFx {
 	 * Draws everything over the page. {@code u}: physical px per CSS px; the hub texture's size for lifted copies.
 	 * Called inside the screen's GUI pose; this scales to physical px itself.
 	 */
+	@Override
 	public void extract(GuiGraphicsExtractor g, double u, int gs, int hubW, int hubH) {
 		if (!this.active()) {
 			return;
@@ -223,14 +175,6 @@ public final class CardFx {
 		g.pose().popMatrix();
 	}
 
-	private static int argb(int rgb, double alpha) {
-		return ((int) Math.round(Math.max(0, Math.min(1, alpha)) * 255) << 24) | (rgb & 0xFFFFFF);
-	}
-
-	private static double fade(Bridge.FxItem it, double age, double fadeMs) {
-		return fadeMs <= 0 ? it.alpha() : it.alpha() * Math.min(1, age / fadeMs);
-	}
-
 	/** A copy of the page's own pixels in a box, lifted {@code p} CSS px and scaled {@code q} at progress {@code e}. */
 	private void lift(GuiGraphicsExtractor g, Bridge.FxItem it, double e, double u, int hubW, int hubH) {
 		int sx = (int) Math.round(it.x() * u);
@@ -251,7 +195,8 @@ public final class CardFx {
 		g.pose().popMatrix();
 	}
 
-	private void layer(GuiGraphicsExtractor g, Bridge.FxItem it, double age, double clock, double u) {
+	@Override
+	protected void layer(GuiGraphicsExtractor g, Bridge.FxItem it, double age, double clock, double u) {
 		switch (it.kind()) {
 			case "rect" -> {
 				int a = argb(it.colour(), fade(it, age, it.q()));

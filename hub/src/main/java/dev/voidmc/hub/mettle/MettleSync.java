@@ -1,19 +1,13 @@
 package dev.voidmc.hub.mettle;
 
-import dev.voidmc.hub.VoidHub;
-import dev.voidmc.hub.model.Json;
+import dev.voidmc.hub.sync.StateSync;
 import dev.voidmc.hub.ui.HubView;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import net.minecraft.client.Minecraft;
 
 /**
- * Keeps the page's copy of Mettle's state current without paying for it every half second.
+ * Keeps the page's copy of Mettle's state current without paying for it every half second (the mod-neutral
+ * {@link StateSync} with Mettle as its source).
  *
  * <p>Mettle's state message is big (about 720 KB with a full binder of ~400 cards) and building it costs tens of ms. So
  * the render thread only reads {@link MettleLink#signature}, a signature of what the message is built from, once a tick
@@ -25,35 +19,44 @@ import net.minecraft.client.Minecraft;
  */
 public final class MettleSync {
 
-	private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(r -> {
-		Thread t = new Thread(r, "VOID Hub Mettle state");
-		t.setDaemon(true);
-		t.setPriority(Thread.NORM_PRIORITY - 1);
-		return t;
-	});
-
 	/** Chips and moments carry their age in ms: the comparison leaves it out (worker only). */
 	private static final Pattern AGES = Pattern.compile("\"ageMs\":-?\\d+");
 	private static final Pattern ICON = Pattern.compile("\"(?:icon|art)\":\"([^\"]{1,200}\\.png)\"");
-
-	/** Messages the worker produced, in order (icons before the state that names them). */
-	private record Out(String kind, String json) {
-	}
-
-	private static final ConcurrentLinkedQueue<Out> OUT = new ConcurrentLinkedQueue<>();
-	/** The signature of the state last handed to the worker (render thread). */
-	private static long revision = Long.MIN_VALUE;
-	/** The hub-side signature of the state last handed to the worker, and when (render thread). */
-	private static long signature = Long.MIN_VALUE;
-	private static long builtAt;
 	/** Mettle's counter alone (ages moving) rebuilds at most this often. */
 	private static final long AGE_NS = 10_000_000_000L;
-	private static int epoch = Integer.MIN_VALUE;
-	private static volatile boolean busy;
-	/** Worker only: the state the page holds, without ages, and the icons it has. */
-	private static String pageKey;
-	private static final Set<String> ICONS_SENT = new HashSet<>();
-	private static int iconsEpoch = Integer.MIN_VALUE;
+
+	private static final StateSync SYNC = new StateSync("Mettle", "mettle", new StateSync.Source() {
+		@Override
+		public long signature(Minecraft mc) {
+			return MettleLink.signature(mc);
+		}
+
+		@Override
+		public long revision(Minecraft mc) {
+			return MettleLink.revision(mc);
+		}
+
+		@Override
+		public int iconEpoch() {
+			return MettleLink.iconEpoch();
+		}
+
+		@Override
+		public Object stateTree() {
+			return MettleLink.stateTree();
+		}
+
+		@Override
+		public String icon(String id) {
+			return MettleLink.icon(id);
+		}
+
+		@Override
+		public int texels(String id) {
+			return MettleLink.texels(id);
+		}
+	}, AGES, ICON, AGE_NS);
+
 	/** Tests and the PERF lines: how many times the state was built, and sent. */
 	public static volatile int builds;
 	public static volatile int sends;
@@ -66,98 +69,13 @@ public final class MettleSync {
 	 * state if its signature moved. Cheap when nothing changed: a signature and an empty queue.
 	 */
 	public static void frame(HubView hub, boolean check) {
-		Out o;
-		while ((o = OUT.poll()) != null) {
-			if ("mettle".equals(o.kind())) {
-				hub.sendLatest("mettle", o.json());
-				sends++;
-			} else {
-				hub.send(o.json());
-			}
-		}
-		if (!check || busy) {
-			return;
-		}
-		Minecraft mc = Minecraft.getInstance();
-		long sig = MettleLink.signature(mc);
-		long rev = MettleLink.revision(mc);
-		int ep = MettleLink.iconEpoch();
-		long now = System.nanoTime();
-		// What the state is built from changed (or icons were reloaded): rebuild now. Mettle's own counter also moves
-		// with the ages it shows (four times a second while a chip shows, every second while a card attunes), which the
-		// page does not redraw for: those alone rebuild at most every AGE_NS, never at 4 Hz on the render thread.
-		boolean changed = sig != signature || ep != epoch;
-		boolean aged = rev != revision && now - builtAt >= AGE_NS;
-		if (!changed && !aged) {
-			return;
-		}
-		Object tree = MettleLink.stateTree();
-		if (tree == null) {
-			return;
-		}
-		signature = sig;
-		revision = rev;
-		builtAt = now;
-		epoch = ep;
-		builds++;
-		busy = true;
-		WORKER.execute(() -> {
-			try {
-				write(tree, ep);
-			} catch (Throwable t) {
-				VoidHub.LOGGER.error("VOID Hub: writing VOID Mettle's state failed", t);
-			} finally {
-				busy = false;
-			}
-		});
-	}
-
-	/** Worker: the text, the icons the page lacks, and the state if it differs from the page's. */
-	private static void write(Object tree, int ep) {
-		String json = String.valueOf(tree);
-		if (ep != iconsEpoch) {
-			iconsEpoch = ep;
-			ICONS_SENT.clear();
-		}
-		Json.Writer map = Json.object();
-		Json.Writer texels = Json.object();
-		int n = 0;
-		Matcher m = ICON.matcher(json);
-		while (m.find()) {
-			String id = m.group(1);
-			if (ICONS_SENT.contains(id)) {
-				continue;
-			}
-			String url = MettleLink.icon(id);
-			if (url == null) {
-				continue;  // missing, or unreadable mid-reload: asked again with the next state
-			}
-			ICONS_SENT.add(id);
-			map.put(id, url);
-			int t = MettleLink.texels(id);
-			if (t > 0) {
-				texels.put(id, t);
-			}
-			n++;
-		}
-		if (n > 0) {
-			OUT.add(new Out("icons", Json.object().put("type", "icons").raw("map", map.end()).raw("texels", texels.end()).end()));
-		}
-		String key = AGES.matcher(json).replaceAll("");
-		if (!key.equals(pageKey)) {
-			pageKey = key;
-			OUT.add(new Out("mettle", "{\"type\":\"mettle\",\"state\":" + json + "}"));
-		}
+		SYNC.frame(hub, check);
+		builds = SYNC.builds;
+		sends = SYNC.sends;
 	}
 
 	/** Forgets what the page holds (tests; a page that lost its state). */
 	public static void reset() {
-		revision = Long.MIN_VALUE;
-		signature = Long.MIN_VALUE;
-		epoch = Integer.MIN_VALUE;
-		WORKER.execute(() -> {
-			pageKey = null;
-			ICONS_SENT.clear();
-		});
+		SYNC.reset();
 	}
 }
