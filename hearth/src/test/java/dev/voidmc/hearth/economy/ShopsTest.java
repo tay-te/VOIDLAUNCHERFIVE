@@ -135,6 +135,53 @@ class ShopsTest {
 	}
 
 	@Test
+	void anEmptyTillIsToppedUpToItsFloorFromTheTreasuryWithoutMakingCoin() {
+		SimpleSettlement s = Towns.village();
+		Shops.sync(s, 0);
+		EconomyConfig.Shops cfg = EconomyConfig.Shops.DEFAULTS;
+		s.deposit(100_000);
+		for (Shop shop : Shops.book(s).shops.values()) {
+			shop.till = 2;
+		}
+		long coin = Towns.coin(s);
+		Shops.daily(s, new MarketPricer(s), 1, (shop, bits) -> Shops.payKeeper(s, shop, bits));
+		assertEquals(coin, Towns.coin(s), "the top-up moves coin from the treasury, it makes none");
+		Shop stall = shop(s, "commerce/market_stall");
+		Shop bakery = shop(s, "work/bakery");
+		long floor = Shops.floor(s, bakery, cfg);
+		assertTrue(floor >= 150 && floor <= cfg.workingTill(), "a village shop keeps a working till: " + floor);
+		assertTrue(Shops.floor(s, stall, cfg) > floor, "a general store keeps more");
+		assertTrue(stall.till >= Shops.floor(s, stall, cfg) && bakery.till >= floor, stall.till + " / " + bakery.till);
+
+		// a poor treasury lends only a share of itself a day
+		SimpleSettlement poor = Towns.village();
+		Shops.sync(poor, 0);
+		poor.withdraw(poor.treasury() - 1000);
+		Shop pb = shop(poor, "work/bakery");
+		pb.till = 0;
+		pb.stock[Goods.FOOD.ordinal()] = 5000; // nothing to restock or return
+		Shops.topUp(poor, pb, cfg);
+		assertTrue(pb.till <= Math.round(1000 * cfg.floorDraw()), "at most a share of the treasury: " + pb.till);
+	}
+
+	@Test
+	void tillsKeepTheirFloorThroughWagesAndRestocking() {
+		SimpleSettlement s = Towns.village();
+		Shops.sync(s, 0);
+		dev.voidmc.hearth.economy.purse.PurseEconomy.daily(s, new MarketPricer(s), 0);
+		for (long day = 1; day <= 40; day++) {
+			MarketPricer pricer = new MarketPricer(s);
+			dev.voidmc.hearth.economy.purse.PurseEconomy.daily(s, pricer, day);
+			Shops.daily(s, pricer, day, (shop, bits) -> Shops.payKeeper(s, shop, bits));
+		}
+		for (Shop shop : Shops.book(s).shops.values()) {
+			if (shop.open()) {
+				assertTrue(shop.till >= Shops.floor(s, shop, EconomyConfig.Shops.DEFAULTS), shop.kind + " till " + shop.till);
+			}
+		}
+	}
+
+	@Test
 	void sournessLastsItsDays() {
 		ShopBook book = new ShopBook();
 		UUID p = new UUID(1, 2);

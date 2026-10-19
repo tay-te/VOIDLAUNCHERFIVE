@@ -285,10 +285,14 @@ public record EconomyConfig(Pricing pricing, Treasury treasury, Bank bank, Prope
 	 * @param dueRate          share of a shop's takings paid to the treasury as market dues
 	 * @param townFloor        shops restock from the town's stores down to this share of its target stock (never below)
 	 * @param restockShare     a shop spends at most this share of its till on stock in a day, keeping coin to buy with
+	 * @param tillFloor        working capital an open shop's till is brought back up to each day, drawn from the treasury
+	 *                         (scaled by the town's size and the shop's trade, never above {@code workingTill}), so that it
+	 *                         can always buy from players; wages are paid from the till only above it
+	 * @param floorDraw        the most of the treasury one shop's top-up may take in a day
 	 */
 	public record Shops(double stockDays, int minStock, int maxStock, double wholesale, long startingTill, long workingTill, double keeperShare,
-		double dueRate, double townFloor, double restockShare) {
-		public static final Shops DEFAULTS = new Shops(4, 16, 512, 0.75, 200, 400, 0.3, 0.08, 0.6, 0.5);
+		double dueRate, double townFloor, double restockShare, long tillFloor, double floorDraw) {
+		public static final Shops DEFAULTS = new Shops(4, 16, 512, 0.75, 200, 400, 0.3, 0.08, 0.6, 0.5, 150, 0.05);
 
 		public static final Codec<Shops> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.DOUBLE.optionalFieldOf("stock_days", DEFAULTS.stockDays).forGetter(Shops::stockDays),
@@ -300,7 +304,9 @@ public record EconomyConfig(Pricing pricing, Treasury treasury, Bank bank, Prope
 			Codec.doubleRange(0, 1).optionalFieldOf("keeper_share", DEFAULTS.keeperShare).forGetter(Shops::keeperShare),
 			Codec.doubleRange(0, 1).optionalFieldOf("due_rate", DEFAULTS.dueRate).forGetter(Shops::dueRate),
 			Codec.doubleRange(0, 2).optionalFieldOf("town_floor", DEFAULTS.townFloor).forGetter(Shops::townFloor),
-			Codec.doubleRange(0, 1).optionalFieldOf("restock_share", DEFAULTS.restockShare).forGetter(Shops::restockShare)
+			Codec.doubleRange(0, 1).optionalFieldOf("restock_share", DEFAULTS.restockShare).forGetter(Shops::restockShare),
+			Codec.LONG.optionalFieldOf("till_floor", DEFAULTS.tillFloor).forGetter(Shops::tillFloor),
+			Codec.doubleRange(0, 1).optionalFieldOf("floor_draw", DEFAULTS.floorDraw).forGetter(Shops::floorDraw)
 		).apply(i, Shops::new));
 	}
 
