@@ -105,7 +105,7 @@ type Talk = {
   line: string;                              // what they say now (reveal it as you like; Hearth's screen types it out)
   lastCheck: string;                         // the last speech check's outcome line ("Persuade 62% passed — ..."), or ""
   options: {
-    key: number;                             // 1–9 in order, 0 for goodbye (kind "leave"), −1 past the ninth
+    key: number;                             // unique: 1–9 in order, 0 for the one goodbye (npc:bye, else the first "leave"), −1 past the ninth (still clickable)
     id: string;                              // what choose() takes
     label: string; hint: string; tooltip: string;          // hint: the provider's own chip text ("Persuade · 62 %"), may be ""
     kind: string;                            // talk | trade | bank | quest | persuade | intimidate | bribe | flatter | train |
