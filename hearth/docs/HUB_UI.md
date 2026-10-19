@@ -70,6 +70,21 @@ Subtleties: CardFx rects are fractional (getBoundingClientRect, within 0.6 px at
 F3+T; MettleSync keeps what the page holds across screen opens (one shared view), so reopening sends nothing. Ping the
 Mettle session with the generalisation commit for review before it lands in `claude/voidhub`.
 
+## Keys (default bindings, checked 2026-10-19)
+
+Hearth's own keys, set so none collides with Mettle, the Hub, Atlas, VOID LOD or vanilla defaults:
+
+| Mapping | Default | Opens |
+|---|---|---|
+| `key.hearth.journal` | J | The quest journal (vanilla, Mettle, Atlas and the Hub leave J free) |
+| `key.hearth.standing` | unbound | The reputation page; reputation now lives on the Hub's Quests page, so it needs no key |
+
+Taken by others (do not reuse as a Hearth default): Right Shift `key.voidhub.open`; K `key.mettle.character`, R
+`key.mettle.belt_use` (belt pockets unbound); M `key.atlas.map`, N `key.atlas.minimap`, B `key.atlas.waypoint`, = and -
+Atlas zoom (`key.atlas.settings` unbound); F8 `key.void_lod.toggle`; plus vanilla's (WASD, Space, Shift, Ctrl, E, Q, F,
+T, /, L advancements, P social, C and X hotbar save/load, Tab, 1-9, F1-F3, F5, F11). Until K was given back to Mettle,
+`key.hearth.standing` also defaulted to K and won the press, opening reputation instead of Mettle's Classes.
+
 ## Open follow-ups (2026-10-19)
 
 - Hub under CSS zoom (GUI scales 1-2): spaces between inline elements collapse ("fromHearth"); use explicit gaps or
