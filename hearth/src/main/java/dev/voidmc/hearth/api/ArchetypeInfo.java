@@ -26,6 +26,19 @@ public record ArchetypeInfo(Identifier id, ArchetypeCategory category, Set<JobTy
 		return this.cultures.isEmpty() || this.cultures.contains(culture);
 	}
 
+	/** Archetypes whose beds are guest beds, let to travellers: they house nobody (the town builds homes instead). */
+	public static final Set<String> GUEST_HOUSES = Set.of("commerce/inn", "commerce/tavern", "commerce/hostel", "commerce/caravanserai");
+
+	/** Whether an archetype's beds are guest beds rather than homes. */
+	public static boolean guestHouse(Identifier archetype) {
+		return GUEST_HOUSES.contains(archetype.getPath());
+	}
+
+	/** The beds of this archetype that house residents: none in a guest house. */
+	public int homeBeds() {
+		return guestHouse(this.id) ? 0 : this.beds;
+	}
+
 	public enum SiteFlag {
 		/** Can share side walls with neighbours (rowhouses, shops on a high street): params {@code party_left/right}. */
 		ATTACHABLE,

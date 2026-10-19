@@ -1026,7 +1026,7 @@ public final class SimSettlement implements Settlement {
 		p.state = PlotState.BUILT;
 		p.stage = f.stageCount();
 		p.step = 0;
-		p.beds = f.beds();
+		p.beds = homeBeds(p, f.beds());
 		p.jobs = f.jobs().clone();
 		p.storage = f.storage();
 		p.completedDay = Math.floorDiv(this.clock.simTick, SimRules.DAY);
@@ -1087,6 +1087,11 @@ public final class SimSettlement implements Settlement {
 	/** Excavations whose blueprints were not ready at the last count of the derived figures, or null. */
 	private int @Nullable [] waitingDigs;
 
+	/** The beds of a building that house residents: an inn's or hostel's are guest beds, let to travellers, not homes. */
+	static int homeBeds(SimPlot p, int beds) {
+		return dev.voidmc.hearth.api.ArchetypeInfo.guestHouse(p.spec().archetype()) ? 0 : beds;
+	}
+
 	/** Beds, job slots and storage from the standing buildings. */
 	public void recomputeDerived() {
 		this.derivedDirty = false;
@@ -1124,6 +1129,7 @@ public final class SimSettlement implements Settlement {
 			if (!p.isStanding()) {
 				continue;
 			}
+			p.beds = homeBeds(p, p.beds); // (a save from before guest beds stopped housing folk)
 			this.beds += p.beds;
 			if (this.ctx != null) {
 				// (a save from before job sites were kept to the archetype's trades)
