@@ -75,7 +75,24 @@
 #define WS_FOOT 0.0
 #define WS_BROW 0.8
 #define WS_NOON_LIT vec3(1.0, 0.96, 0.88)
-#define WS_NOON_SHADE vec3(0.94, 0.95, 1.0)
+#define WS_NOON_SHADE vec3(0.88, 0.88, 1.06)
+// (Look D3) the paint's levels in scene light, against the sky behind the cloud (wcPaint)
+#define WD_LIT 1.15
+#define WD_LIT_WARM 0.85
+#define WD_LOW_SUN 0.3
+#define WD_UNDER_SKY 0.6
+#define WD_BELLY 0.52
+#define WD_BELLY_WARM 0.5
+#define WD_BELLY_SHOWER 0.42
+#define WD_BELLY_STORM 0.30
+#define WD_BOUNCE 0.18
+#define WD_BOUNCE_HUE vec3(1.12, 0.96, 0.78)
+#define WD_TURN 0.25
+#define WD_TURN_HUE vec3(1.10, 0.95, 0.88)
+#define WD_BACKGLOW 1.2
+// the silver lining's scene light at noon .. through the warm hours (times WC_RIM_SCENE)
+#define WD_RIM_NOON 0.5
+#define WD_RIM_WARM 1.5
 #define WS_SHADE_SKY 0.35
 #define WS_DUSK_SHADE vec3(0.78, 0.74, 1.0)
 #define WS_CLOSED_KEEP 0.75
@@ -392,18 +409,20 @@ vec3 wcCloudSun(CloudEnv e) {
 // the golden hour) and a lit colour in the sun's own light (cream at noon, gold and ember as it sinks), blended by a
 // soft S over the form, so the sunlit tops and flanks glow, the thin rims stay light and the thick bellies hang dark
 // and heavy, with soft gradients between. Night keeps the moonlit light below.
-vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float shadow, CloudEnv e) {
+vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float shadow, vec3 skyS, CloudEnv e,
+	out float weight) {
 	// (the night's step is well up by sunset: the dusk keeps the paint)
 	float k = 1.0 - skyNightStep() * (1.0 - wcDuskAmount(e.sun.y));
+	weight = 0.0;
 	if (k <= 0.0) {
-		return c;
+		return vec3(0.0);
 	}
 	vec3 amb = skyAmbientLight();
 	float yTop = max(wcLuma(wcAlbedo(0) * (amb * 0.9 + sunC * 1.25)), 1e-4);
 	float L = wcLuma(c) / yTop;
 	float closed = wcClosed();
 	float dusk = wcDuskAmount(e.sun.y);
-	float golden = smoothstep(0.3, 0.9, skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r) * (1.0 - dusk);
+	float golden = smoothstep(0.1, 0.7, skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r) * (1.0 - dusk);
 	float warm = max(dusk, golden) * (1.0 - closed);
 	float sw = wcSunward(rd, e);
 	// skies2 (2026-10-18): the form is laid in by the shape, as a painter blocks in a cumulus, not by the light's ratio
@@ -436,26 +455,54 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 	lit = clamp(max(lit, WS_UNDER * under), 0.0, 1.2);
 	vec3 sunHue = sunC / max(wcLuma(sunC), 1e-4);
 	// (gold through the golden hour, ember toward the sun at sunset, a deep rose-gold away from it)
-	vec3 goldHue = mix(mix(vec3(1.0, 0.74, 0.40), sunHue, 0.2), mix(vec3(1.0, 0.62, 0.50), vec3(1.0, 0.50, 0.24), sw), dusk);
+	// (Look D3: deeper, a light that colours rather than a pale cream: an amber gold, a rose-gold away from a setting sun,
+	// ember toward it)
+	vec3 goldHue = mix(mix(vec3(1.0, 0.68, 0.34), sunHue, 0.15), mix(vec3(1.0, 0.55, 0.42), vec3(1.0, 0.45, 0.20), sw), dusk);
 	vec3 litHue = mix(mix(WS_NOON_LIT, sunHue, 0.3), goldHue, warm);
 	// (under a closed cover no sun reaches the tops: their light is the overcast's cool grey)
 	litHue = mix(litHue, vec3(0.94, 0.97, 1.04), closed);
+	// (Look D3) the hues are written as the eye sees them; in scene light they are their linear forms (an authored
+	// gold (1, 0.68, 0.34) is a linear (1, 0.42, 0.10)): written as they were, every warm light came out pale
+	litHue = toLinear(litHue);
 	litHue /= max(wcLuma(litHue), 1e-4);
 	// the shade: a cool blue-grey under the warm lit tops by day (the painter's warm light, cool shade), a dusky violet
 	// through the warm hours, warmer toward a sunset sun (a backlit belly holds the low light's ember)
 	vec3 skyHue = skyZenith() / max(wcLuma(skyZenith()), 1e-4);
 	vec3 shadeHue = mix(WS_NOON_SHADE, skyHue, WS_SHADE_SKY);
 	shadeHue = mix(shadeHue, mix(WS_DUSK_SHADE, vec3(0.92, 0.70, 0.72), 0.6 * sw * sw * dusk), warm);
+	shadeHue = pow(max(shadeHue, vec3(1e-4)), vec3(1.6));
 	shadeHue /= max(wcLuma(shadeHue), 1e-4);
-	float heavy = (tone == 2 ? 0.34 : (tone == 1 ? 0.46 : mix(WS_BELLY, WS_BELLY_WARM, warm))) * mix(1.1, 0.85, sqrt(b.depth));
-	// (painted against the sky behind the cloud, not the light's own scale: the tone curve after this pass rolls a
-	// noon top's light and its belly's into one white, so a belly is set by how much darker than its sky it hangs)
-	float ySky = wcLuma(wcDome(rd, e));
-	// a soft S over the share, so the lit and the shade each hold their colour and meet in a broad soft turn
+	// (Look D3) painted natively in scene light, against the sky behind the cloud in scene light (`skyS`): no display
+	// round trip. A belly hangs WD_BELLY of its sky (heavier deep inside, lighter toward its thin outline), a lit top or
+	// flank WD_LIT of it in the sun's colour (a calm cream at noon, gold through the warm hours), with a soft S between
+	float ySky = wcLuma(skyS);
 	float s = smoothstep(0.0, 1.0, min(lit, 1.0)) + max(lit - 1.0, 0.0);
-	vec3 paint = ySky * mix(shadeHue * heavy, litHue * mix(WS_LIT, WS_LIT_WARM, warm), s);
-	// (a closed overcast keeps its own light: a storm deck seen from above was painted as flat beige tops)
-	return mix(c, paint, WS_PAINT * k * (1.0 - WS_CLOSED_KEEP * closed));
+	float heavy = (tone == 2 ? WD_BELLY_STORM : (tone == 1 ? WD_BELLY_SHOWER : mix(WD_BELLY, WD_BELLY_WARM, warm)))
+		* mix(1.15, 0.8, sqrt(b.depth));
+	vec3 shade = shadeHue * heavy;
+	// the land's warm light thrown up under a belly (and a flank's foot) through the warm hours
+	float low = n.y < -0.5 ? 1.0 : (n.y < 0.5 ? 1.0 - hDeck : 0.0);
+	shade += toLinear(WD_BOUNCE_HUE) * (WD_BOUNCE * warm * low * mix(0.5, 1.0, sw) * (1.0 - closed));
+	// the lit colour is the sun's own light on the cloud, not a share of its sky: a low sun's tops are dimmer than noon's
+	// and darker than the bright sky round the sun (a backlit deck), brighter than the darker sky away from it
+	// (the clouds' sun is held at full strength round the horizon for its hue; its light through the long low air is
+	// dimmer: WD_LOW_SUN of it on the horizon)
+	float sunL = wcLuma(sunC) * (1.0 - 0.6 * closed) * mix(WD_LOW_SUN, 1.0, smoothstep(0.0, 0.4, e.sun.y));
+	vec3 paint = mix(shade * ySky, litHue * (mix(WD_LIT, WD_LIT_WARM, warm) * sunL), s);
+	// round sunset the bellies and flanks are lit from under by the low sun and its glowing sky: an ember glow toward it,
+	// rose away from it, a share of the sky's own light there, most at the thin outline
+	float underG = dusk * (1.0 - closed) * mix(0.25, 1.0, sw * sw) * mix(0.55, 1.0, max(b.rim, 1.0 - b.depth))
+		* (n.y < 0.5 ? 1.0 : 0.25);
+	vec3 emberHue = mix(vec3(1.0, 0.56, 0.50), vec3(1.0, 0.50, 0.24), sw);
+	emberHue = toLinear(emberHue);
+	paint += emberHue / wcLuma(emberHue) * (WD_UNDER_SKY * underG * ySky * (1.0 - 0.5 * s));
+	// the turn between the light and the shade: a painter's warmer, rosier half-tone through the warm hours
+	paint *= mix(vec3(1.0), WD_TURN_HUE, 4.0 * s * (1.0 - s) * warm * WD_TURN);
+	// a deck toward a low sun glows at its thin parts and along its outline: the light come through its edges
+	float thinE = (1.0 - b.depth) * (1.0 - b.depth);
+	paint += goldHue / max(wcLuma(goldHue), 1e-4) * (WD_BACKGLOW * ySky * warm * sw * sw * sw * max(thinE, 0.7 * b.rim) * (1.0 - closed));
+	weight = WS_PAINT * k * (1.0 - WS_CLOSED_KEEP * closed);
+	return paint;
 }
 
 // The cloud's colour at the body with face normal n, tone `tone`, seen along rd; `shadow` the share of the sun past
@@ -518,8 +565,11 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		light += glow * under * mix(0.2, 1.0, sw * sw) * mix(1.0, 0.55, b.depth) * (n.y < 0.5 ? 1.0 : 0.0);
 	}
 	vec3 c = wcAlbedo(tone) * light;
-	// skies (welkin-skies): the form painted (wcPaint), in place of the day's blue-grey shade
-	c = wcPaint(c, b, n, tone, rd, sunC, shadow, e);
+	// skies (welkin-skies): the form painted (wcPaint), in place of the day's blue-grey shade; (Look D3) in scene light,
+	// laid over the light's own colour once that is in scene light (below)
+	vec3 skyS = sceneFromAuthored(wcDome(rd, e));
+	float paintW;
+	vec3 paintS = wcPaint(c, b, n, tone, rd, sunC, shadow, skyS, e, paintW);
 
 	// (skies (welkin-skies): the dusk and golden-hour floor that lifted every face over the glowing sky behind it, in rose
 	// and peach, is gone: it drew a sunset deck as one pastel candy-pink sheet. wcPaint sets the warm hours now: gold
@@ -541,11 +591,14 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	float baseLike = n.y < -0.5 ? 1.0 : (n.y < 0.5 ? lower * lower : 0.0);
 	if (closed > 0.0 && baseLike > 0.0) {
 		// (skies2: heavier and more threatening: the thick parts sink further, a storm cell's belly darkest)
-		vec3 dome = wcDome(rd, e) * mix(1.0, WS_STORM_HEART, b.depth * lower) * (tone == 2 ? WS_STORM_CELL : (tone == 1 ? 0.88 : 1.0));
-		c = mix(c, mix(c, dome, 0.6), closed * baseLike);
+		float heart = mix(1.0, WS_STORM_HEART, b.depth * lower) * (tone == 2 ? WS_STORM_CELL : (tone == 1 ? 0.88 : 1.0));
+		c = mix(c, mix(c, wcDome(rd, e) * heart, 0.6), closed * baseLike);
+		paintS = mix(paintS, mix(paintS, skyS * (heart * heart), 0.6), closed * baseLike);
 	}
+	// (Look D3) the light's colour into scene light, the paint over it
+	vec3 cS = mix(sceneFromAuthored(wcShoulder(c)), paintS, paintW);
 	if (e.flash && tone == 2) {
-		c = mix(c, vec3(0.86, 0.86, 1.0), 0.5);
+		cS = mix(cS, sceneFromAuthored(vec3(0.86, 0.86, 1.0)), 0.5);
 	}
 	// the silver lining past the shoulder, less of it under a closed cover (it has no sun to show)
 	// (review round 2: at most 0.55 past the shoulder: the rim glows and blooms without a hard white line)
@@ -559,12 +612,13 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	float backlit = smoothstep(0.50, 0.05, e.sun.y) * smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - closed);
 	if (backlit > 0.0) {
 		float swk = wcSunward(rd, e);
-		c *= 1.0 - backlit * (0.08 + 0.32 * swk * swk + 0.18 * smoothstep(0.75, 0.995, dot(rd, e.sun)));
+		cS *= 1.0 - backlit * (0.08 + 0.32 * swk * swk + 0.18 * smoothstep(0.75, 0.995, dot(rd, e.sun)));
 	}
+	float warmRim = max(dusk, smoothstep(0.3, 0.9, skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r)) * (1.0 - closed);
 	// (the body's authored colour into scene light; the silver lining is light on top of it, WC_RIM_SCENE of scene
 	// light at its strongest: above the sky, under the sun)
-	vec3 outC = sceneFromAuthored(wcShoulder(c)) + min(wcAlbedo(tone) * glint * (1.0 - 0.7 * closed), vec3(0.55))
-		* WC_RIM_SCENE;
+	vec3 outC = cS + min(wcAlbedo(tone) * glint * (1.0 - 0.7 * closed), vec3(0.55))
+		* (WC_RIM_SCENE * mix(WD_RIM_NOON, WD_RIM_WARM, warmRim));
 	// a thin cloud across the sun glows with it: the sun's light scattered forward through it, gold-white over the disc
 	// and close round it, less through a thick part (the low sun behind a strip of cloud is a blaze in the strip, not a
 	// dark bar across it). Real light, scene units, at every hour the sun is up (strongest as it gets low)
