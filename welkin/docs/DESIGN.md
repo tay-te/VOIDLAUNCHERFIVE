@@ -1950,3 +1950,54 @@ moves the gaps). Sheets: `scratchpad/welkin_look/d2/` (`mid/mid_sheet.jpg`, `fin
   side-lit shafts are a little fainter than in D1. With the sun wholly behind the crowns there are no beams (rays from
   rim gaps show only while the disc is still near a gap's edge).
 - `SHAFT_DEBUG 7` shows the shafts' light linear at a quarter (to measure from a frame).
+
+## Look D3: clouds and dawn (2026-10-19, branch `welkin-d3`)
+
+The clouds were the main thing working against the mood (bright, cool white bodies), the dawn read pastel, and the
+cloud-gap beams at front 0.55 were faint. Sheets: `scratchpad/welkin_look/d3/` (`mid/mid_sheet.jpg`,
+`final/hero_before_after.jpg`, before left, after right; 4K frames `d3_k4_*` in the studio's renders).
+
+- **The clouds' paint in scene light** (`lib/clouds/shade.glsl` wcPaint): the painterly ramp no longer goes through
+  `sceneFromAuthored`. Its form (the lit share from shape, sun and self-shadow) is laid in natively:
+  - bellies: WD_BELLY (0.52 by day, 0.5 warm, 0.42 showers, 0.30 storm) of the sky behind the cloud in scene light
+    (`wcDomeScene`), heavier deep inside, lighter toward the thin outline. Past WD_SHADE_KNEE the sky's level counts
+    softly, so a deck against a blazing low sun stays a dark backlit shape;
+  - lit tops and flanks: the clouds' own sun (WD_LIT 1.15 at noon, WD_LIT_WARM 0.85 through the warm hours), dimmed
+    through the low air to WD_LOW_SUN 0.3 at the horizon: a calm cream at noon, amber-gold at 17:00, rose-ember at
+    sunset; a little under the old glare;
+  - the hues are linear (`toLinear` of the written colours): written as display values, every warm light came out
+    pale; the shade a grey-violet at noon, a less violet dusk shade (WS_DUSK_SHADE);
+  - through the warm hours: a warm bounce from the land under bellies and flank feet (WD_BOUNCE), a rosier half-tone in
+    the turn between light and shade (WD_TURN), a backlit deck's thin parts and outline glowing toward a low sun
+    (WD_BACKGLOW), an ember under-glow at sunset mostly at the outline (WD_UNDER_SKY); toward a low sun only thin
+    parts take the forward-lit share;
+  - the silver lining's scene light runs from WD_RIM_NOON 0.5 to WD_RIM_WARM 1.5 times WC_RIM_SCENE.
+  The physical light (wcBodyLight, authored) still sets the form and carries night and the closed overcast; it goes to
+  scene light once and the paint lies over it.
+- **Moonlit clouds** (night): painted in the moon's light against the night sky (WN_*): tops and flanks turned to the
+  moon a cool silver over the sky, bellies under it, thin parts toward the moon glowing. No longer flat grey slabs.
+  The moon's phase is not taken into account.
+- **Dawn:**
+  - grade (`final.glsl` gradeHour, `lib/grade.glsl`): the morning's warmth and day come in from first light (about 12
+    degrees of sun down), so the twilit dawn no longer takes the night's moonlit blue gain; morning highlight a pale
+    gold, shade (`loMorn`) and toe a soft rose;
+  - sky (`lib/sky/luminous.glsl`): the morning glow a paler gold (ROSE_GOLD (1, 0.60, 0.40)), 0.38 of the lower dome
+    from first light; a rose belt low over the horizon away from the sun until it is a few degrees up
+    (SKY_DAWN_BELT);
+  - dawn mist (`lib/haze/dawn.glsl`): DM_ROSE_MIX 0.4 of the first light's rose-gold all through it.
+- **Partly cloudy beams** (`final.glsl`, `lib/rays.glsl`): over a cloud's body the shafts take RAY_SKY_CLOUD 1.0 (was
+  the open sky's 0.32) with their structure kept (RAY_HP_CLOUD 0.7); under a partly cloudy sky (the overcast part way
+  in, none at the default front 0.38) they are RAY_CLOUDY_BOOST stronger and keep RAY_FAR_SHARE_CLOUDY 0.9 of their
+  structured light over the far land.
+- **The air's body** (composite2): a deeper slate blue-grey away from the sun, amber toward it.
+- **Cost** (probe, 1600x900, same session): shore 18:30 9.0 ms, steppe 17:00 7.0 ms (clouds off: 7.9 / 5.9, so the
+  clouds pass is about 1.1 ms; D2's pack in an earlier session of this pass: 9.0 / 7.0). The sky behind a cloud is
+  converted to scene light once in the clouds pass's vertex shader; the per-pixel inverse had cost about 0.2 ms.
+- **Still open:**
+  - sunset decks seen straight toward the sun (plain looking up at 18:30) read a soft peach rather than dark backlit
+    shapes with blazing rims: likely composite2's haze and the far fog laid over the clouds at their distance;
+  - shore 05:30's cloud bellies a flat taupe and its upper sky a slate grey (pre-sunrise blue hour);
+  - the cloud-gap beams at front 0.55 are visible but modest: the radial blur only fans gaps near the sun, and a deck's
+    straight lower edge gives a glow, not rays;
+  - the mesa's far haze still pale at the horizon (the sky's luminous band, which the land fades into);
+  - the clouds pass is still about 1.1 ms against its 0.6 budget.
