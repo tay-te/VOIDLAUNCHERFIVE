@@ -2001,3 +2001,66 @@ cloud-gap beams at front 0.55 were faint. Sheets: `scratchpad/welkin_look/d3/` (
     straight lower edge gives a glow, not rays;
   - the mesa's far haze still pale at the horizon (the sky's luminous band, which the land fades into);
   - the clouds pass is still about 1.1 ms against its 0.6 budget.
+
+## Look D4: form and contrast (2026-10-19, branch `welkin-d4`)
+
+The user: "Daylight and night still look very flat." By day the sunlit tops were dim (plain 12:00 land p95 149 against
+181..200 in the reference packs), light and shade read the same colour and the grade greyed everything; at night the
+blacks were lifted (village p5 26, median 42 against Complementary's 12 / 23) and the moon was an even wash. D4 is
+constants and gates only (no new passes). Sheets: `scratchpad/welkin_look/d4/` (`mid/mid_sheet.jpg`,
+`final/hero_before_after.jpg`: before, after and a reference pack, land stats in the labels; 4K frames `d4_k4_*` in the
+studio's renders). The golden-hour, storm and blue-hour items first planned for D4 were set aside.
+
+- **Day, light** (`lib/tone.glsl`, `lib/light.glsl`, `lib/sky/build.glsl`):
+  - the sky's fill on an upward face LAND_FILL 0.17 (was 0.215): the sun leads it further;
+  - the fill keeps more of Minecraft's face shading (AMB_FACE_SHADE 0.75, was 0.45) and all of the sky's hue by
+    orientation (AMB_SKY_HUE 1.0, was 0.5): faces turned from the sun sit clearly under the tops, sky-blue;
+  - a partly cloudy sky greys the fill by half its cloud step only (the shade still sees the blue between clouds);
+  - the noon sun a little warmer, (1, 0.95, 0.85);
+  - deeper contact occlusion: AO_STRENGTH 1.6 (was 1.25), AO_FLOOR 0.07 (was 0.12).
+- **Day, cloud shadows** (`lib/clouds/shadow.glsl`): while the sun stands past about 30 degrees a deck keeps
+  WC_SHADOW_*_HIGH (0.34 / 0.28 / 0.24 of the sun under one, two, three decks; was 0.52 / 0.44 / 0.38, which the golden
+  hours keep), so the drifting patches of shade read at midday.
+- **Day, transform and grade** (`lib/hdr.glsl`, `lib/grade.glsl`):
+  - HDR_EXPOSURE_DAY 0.92 (was 0.84);
+  - HDR_CONTRAST_DAY 1.22: a stronger S once the sun is past about 20 degrees (golden hours, dawn and night keep 1.12);
+  - the grade's greying eased: midday saturation 0.96 (was 0.80), warm-led colours 1.0 by day, the moss pulls gentler
+    (green 0.3 of the way, the yellow-green band GRADE_MOSS 0.85 and keeping 0.97..0.92 of its light, was 0.90..0.80);
+  - midday gain (1.03, 1.01, 0.96) (was 0.95, 0.935, 0.90), gamma 1.0, lift near nothing, the highlight roll 0.04 (was
+    0.11): the sunlit tops sit high; the shade split cooler (0.92, 0.99, 1.12).
+- **Morning:** the dawn mist burns off by about 08:45 (under a third of it at 08:00, was three fifths;
+  `lib/haze/dawn.glsl`): the valley at 08:00 has its form back; 06:30 keeps its mist.
+- **Night:**
+  - exposure HDR_EXPOSURE_NIGHT 0.52 once the sun is well under (5 to 15 degrees down); round sunset and in the blue
+    hour, where the night step is already most of the way in, HDR_EXPOSURE_TWILIGHT 1.1 (the old night exposure), so the
+    dusk's glow and the blue hour are unchanged;
+  - the moon is the key light: its light 0.6 (was 0.36) over a darker fill (0.42 of the moonlit palette, was 0.9) and
+    more face shading at night (AMB_FACE_SHADE_NIGHT 0.6): moonlit tops against deep blue-black sides, moon shadows
+    under plants;
+  - the grade's night lift, moon-blue gain and opened mids (gamma 1.14) only in the deep night (`nd`): there no lift,
+    gamma 1.0, gain (0.97, 1.02, 1.12);
+  - the lamps 1.5x at night (`lib/light.glsl`), so their warm pools pop from the darker land.
+- **Figures** (land, lower 55%; before -> after, same studio, same world):
+
+| view | before p5 / med / p95 | after | reference |
+|---|---|---|---|
+| plain 12:00 | 33 / 105 / 153 | 33 / 128 / 189 | Complementary 55 / 139 / 181, Hysteria 12 / 50 / 94 |
+| plain 16:30 | 41 / 112 / 183 | 41 / 129 / 205 | Complementary 44 / 108 / 169 |
+| forest 12:00 | 22 / 43 / 118 | 23 / 46 / 139 | Complementary 20 / 71 / 145 |
+| valley 08:00 | 57 / 118 / 204 | 51 / 116 / 224 | Complementary 25 / 70 / 211 |
+| village night | 24 / 42 / 63 | 10 / 31 / 47 | Complementary 11 / 23 / 44 |
+| torch night | 23 / 47 / 97 | 7 / 36 / 76 | Complementary 12 / 35 / 76 |
+| plain night | 22 / 43 / 55 | 7 / 30 / 39 | Complementary 9 / 23 / 34 |
+| village 18:30 | 50 / 69 / 125 | 49 / 69 / 126 | |
+| steppe 17:00 (guard) | 50 / 90 / 160 | 48 / 86 / 165 | |
+| shore 18:30 (guard) | 54 / 75 / 201 | 55 / 76 / 201 | |
+
+- **Cost** (probe, 1600x900, same session against 93510526): shore 18:30 9.0 ms, steppe 17:00 7.0, plain 12:00 7.0,
+  the same as before (constants only).
+- **Still open:**
+  - the camera-facing south sides on the plain take a share of the sun through the 20-degree sun path tilt, so the
+    plain's form comes mostly from the tops against the shaded and occluded sides, not from dark fronts (Hysteria's);
+  - the valley at 08:00 is still hazier than the reference packs (the falls' spray and the gorge's own mist);
+  - the forest floor at noon stays darker than Complementary (by design: canopy shade);
+  - the D4 items set aside: backlit decks toward a low sun, the bloom's halo by the sun in a leaf gap, storms, the blue
+    hour's palette, the mesa's pale horizon band, the clouds pass's cost.
