@@ -39,10 +39,10 @@ float gradeLuma(vec3 c) {
 #define GRADE_MOSS 0.85
 // (Look D5) the earthy day: the hue (degrees, of linear light) the sunlit yellow-greens are drawn to (an olive) and the
 // shaded ones (a moss), and the share of saturation the yellow-greens keep
-#define GRADE_OLIVE_HUE 63.0
-#define GRADE_MOSS_HUE 82.0
-#define GRADE_OLIVE_SAT 0.92
-#define GRADE_OLIVE_LIGHT 0.86
+#define GRADE_OLIVE_HUE 80.0
+#define GRADE_MOSS_HUE 92.0
+#define GRADE_OLIVE_SAT 0.80
+#define GRADE_OLIVE_LIGHT 0.82
 // (Look D5) the day sky's blue keeps this much saturation; the mids' gamma by day (under 1: deeper)
 #define GRADE_SKY_SAT 0.74
 #define GRADE_DAY_GAMMA 0.93

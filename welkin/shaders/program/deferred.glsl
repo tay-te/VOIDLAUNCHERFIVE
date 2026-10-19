@@ -37,6 +37,7 @@ void main() {
 #include "/lib/ao.glsl"
 // the sun's reach: the shadow buffers (deferred_shadow, deferred_resolve), or worked out here without the map
 #include "/lib/shadowfetch.glsl"
+#include "/lib/variety.glsl"
 
 in vec2 texcoord;
 
@@ -115,13 +116,19 @@ void main() {
 			// round 2: leaves' foliage tint a little less saturated, so a sunlit crown reads a natural green, not lime
 			albedo = mix(vec3(dot(albedo, vec3(0.2126, 0.7152, 0.0722))), albedo, 0.86);
 		}
+#if defined WORLD_OVERWORLD
+		// (Look D9) the meadow's patchwork: drier and lusher swathes over a field (lib/variety.glsl)
+		if (varietyMaterial(material)) {
+			albedo = varietyAlbedo(albedo, vec2(cameraPositionInt.xz) + (cameraPositionFract.xz + eyePos.xz));
+		}
+#endif
 		vec3 lightDir = lightDirWorld();
 		float facing = sunFacingMat(n, lightDir, material);
 		vec3 sunShare = vec3(1.0);
 #if defined WORLD_OVERWORLD && defined CLOUDS && CLOUD_SHADOWS > 0
 		// the decks' shadow, only where the light could reach
 		if (g.w > 0.0 && facing > 0.0) {
-			sunShare *= welkinCloudShadow(eyePos, welkinCloudEnv());
+			sunShare *= welkinCloudShadowRGB(eyePos, welkinCloudEnv());
 		}
 #endif
 		// the sun's reach: the near shadow map on the chunks inside its range, the sky-light gate beyond it and on the
