@@ -168,6 +168,9 @@ const float AMB_FACE_SHADE_NIGHT = 0.6;
 // wall facing the pale horizon sees a whiter sky than a top under the deep zenith, at dusk one facing the afterglow a
 // warmer one; half of that keeps the shade on walls a clear, cool sky-blue while dusk's faces still warm and cool.
 const float AMB_SKY_HUE = 1.0;
+// (Look D6) the closed sky's fill by orientation: a top's share and a wall's (a bottom a quarter under the wall's)
+const float LAND_OVERCAST_TOP = 1.1;
+const float LAND_OVERCAST_SIDE = 0.68;
 
 // Set by deferred for each pixel before it lights it (forward programs leave them): how far the occlusion covers the
 // pixel (0 none .. 1 full; it fades out by AO_FAR), and the bend it gives the normal the sky's light is looked up along
@@ -229,7 +232,8 @@ vec3 welkinLightGlowLin(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunSh
 	float aoV = clamp(ao, 0.0, 1.0);
 	float aoFar = mix(LIGHT_AO_FLOOR, 1.0, pow(aoV, LIGHT_AO_POW));
 	float aoNear = mix(1.0, aoV, AO_VANILLA);
-	vec3 aoPack = aoMultiBounce(pow(clamp(contact, 0.0, 1.0), AO_STRENGTH), a);
+	// (Look D6) under a closed sky the light is all fill: its contact shade a little deeper, so the land keeps its form
+	vec3 aoPack = aoMultiBounce(pow(clamp(contact, 0.0, 1.0), AO_STRENGTH * (1.0 + 0.35 * skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a)), a);
 	vec3 aoFill = mix(vec3(aoFar), max(aoNear * aoPack, vec3(AO_FLOOR)), lightAoCover);
 	vec3 aoBlock = mix(vec3(aoFar), aoNear * mix(vec3(1.0), aoPack, 0.5), lightAoCover);
 	float lv = rampLevel(lm.x);
@@ -262,6 +266,10 @@ vec3 welkinLightGlowLin(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunSh
 	// (a plant's thin blades take the sky on both their faces and pass some through: up to 1.45x a top's fill, so in the
 	// shade a meadow's tufts and stalks read light against the ground, as dry grass does at dusk)
 	hemi = hemi * mix(1.0, faceShade(nf), mix(AMB_FACE_SHADE, AMB_FACE_SHADE_NIGHT, skyNightStep())) * (1.0 + 0.64 * lightFillUp);
+	// (Look D6) under a closed sky the light is all from above (an overcast's zenith is about three times its horizon): tops
+	// lit, walls a clear step under them and undersides deep, so a storm's land keeps its form rather than one grey wash
+	float ovcF = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a * (1.0 - skyNightStep());
+	hemi *= mix(1.0, mix(LAND_OVERCAST_SIDE, LAND_OVERCAST_TOP, max(nf.y, 0.0)) * (1.0 + 0.25 * min(nf.y, 0.0)), ovcF);
 	// (round 3: the fill under a canopy cut by 0.8, not 0.68; workstream C: lib/foliage.glsl's CANOPY_FILL_CUT, keyed on
 	// the map's leaves above the point)
 	// (forest2: canopyFillCut, the floor's 0.5 or a crown's 0.8)

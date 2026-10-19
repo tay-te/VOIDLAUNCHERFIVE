@@ -114,6 +114,12 @@
 #define WS_CLOSED_KEEP 0.75
 #define WS_STORM_HEART 0.32
 #define WS_STORM_CELL 0.6
+// (Look D6) a closed deck's belly: its thick heart deeper still, its thin seams and rim a pale silver over the sky's level,
+// and how much of the belly the paint takes
+#define WS_STORM_DEEP 0.55
+#define WS_STORM_BELLY 0.72
+#define WS_STORM_SEAM 1.05
+#define WS_STORM_PAINT 0.85
 
 float wcLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -656,8 +662,15 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	if (closed > 0.0 && baseLike > 0.0) {
 		// (skies2: heavier and more threatening: the thick parts sink further, a storm cell's belly darkest)
 		float heart = mix(1.0, WS_STORM_HEART, b.depth * lower) * (tone == 2 ? WS_STORM_CELL : (tone == 1 ? 0.88 : 1.0));
+		// (Look D6) a storm's belly has structure: its thin parts and its rim let the light above through (a pale silver
+		// over the sky's level), its thick heart sinks to a dark slate, and the paint takes more of it, so a rain deck is
+		// layered dark masses with lit seams, never one flat grey ceiling
+		float thinB = (1.0 - smoothstep(0.0, 0.15, b.depth)) * lower * (b.k == 2 || b.k < 0 ? 0.3 : 1.0);
+		float heartS = WS_STORM_BELLY * heart * heart * mix(1.0, WS_STORM_DEEP, smoothstep(0.35, 1.0, b.depth) * lower);
+		heartS = mix(heartS, WS_STORM_SEAM, max(thinB, 0.6 * b.rim * b.rim * lower));
 		c = mix(c, mix(c, wcDome(rd, e) * heart, 0.6), closed * baseLike);
-		paintS = mix(paintS, mix(paintS, skyS * (heart * heart), 0.6), closed * baseLike);
+		paintS = mix(paintS, skyS * heartS, closed * baseLike);
+		paintW = mix(paintW, WS_STORM_PAINT, closed * baseLike);
 	}
 	// (Look D3) the light's colour into scene light, the paint over it
 	vec3 cS = mix(sceneFromAuthored(wcShoulder(c)), paintS, paintW);
@@ -792,7 +805,10 @@ float wcSelfShadow(vec3 n, vec3 p, CloudEnv e) {
 	if (n.y < -0.5 || e.sun.y < 0.08) {
 		return 1.0;
 	}
-	return welkinCloudShadow(p, e);
+	// (Look D6) a deck's top in a gap of the storm decks over it takes the sun a little softer than the land does: lit
+	// silver masses in the dark, not snow-white fields
+	float sh = welkinCloudShadow(p, e);
+	return sh > 1.0 ? 1.0 + (sh - 1.0) * 0.8 : sh;
 #endif
 }
 

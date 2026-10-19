@@ -59,6 +59,12 @@ float wcShadowField(vec2 q, int k, int lv, CloudEnv e) {
 #define WC_SHADOW_ONE_HIGH 0.34
 #define WC_SHADOW_TWO_HIGH 0.28
 #define WC_SHADOW_THREE_HIGH 0.24
+// (Look D6) under a closed overcast: the sun through a gap in the decks, and under one, two and three decks (as a share of
+// a clear day's sun; the closed sky's table sun is 0.12 of it)
+#define WC_GAP_SUN 0.75
+#define WC_STORM_ONE 0.12
+#define WC_STORM_TWO 0.07
+#define WC_STORM_THREE 0.05
 
 // How much of deck k's (0 low, 1 main, 2 high) cloud stands over camera-relative point q at altitude `mid`, 0..1: 1
 // inside a cloud, easing to a third at an open side of its cell, 0 in a gap.
@@ -129,9 +135,20 @@ float welkinCloudShadow(vec3 eyePos, CloudEnv e) {
 	float s1 = mix(WC_SHADOW_ONE, WC_SHADOW_ONE_HIGH, hi);
 	float s2 = mix(WC_SHADOW_TWO, WC_SHADOW_TWO_HIGH, hi);
 	float s3 = mix(WC_SHADOW_THREE, WC_SHADOW_THREE_HIGH, hi);
-	float share = 1.0 - (1.0 - s1) * min(under, 1.0)
+	// (Look D6) under a closed overcast the sun is still up there, over the decks: the sky table dims the land's sun to
+	// what comes through a closed deck (lib/sky/build.glsl weatherSun), and the deck's own cells give it back where they
+	// open. In a gap the land, the air and the clouds below take WC_GAP_SUN of a clear day's sun (a lit patch, a shaft
+	// under the gap: the storm's edge), under a deck what the table gives (the old closed light), heavier under two.
+	float closed = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
+	float g1 = mix(1.0, WC_GAP_SUN, closed);
+	s1 = mix(s1, WC_STORM_ONE, closed);
+	s2 = mix(s2, WC_STORM_TWO, closed);
+	s3 = mix(s3, WC_STORM_THREE, closed);
+	float share = g1 - (g1 - s1) * min(under, 1.0)
 		- (s1 - s2) * clamp(under - 1.0, 0.0, 1.0)
 		- (s2 - s3) * clamp(under - 2.0, 0.0, 1.0);
+	// as a share of the table's sun (the weather's dimming taken back out)
+	share /= 1.0 - 0.88 * closed;
 	return mix(1.0, share, rise);
 #endif
 }

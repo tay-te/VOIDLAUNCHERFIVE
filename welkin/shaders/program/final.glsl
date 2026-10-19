@@ -204,6 +204,10 @@ uniform float viewHeight;
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
 
+#ifndef WU_void_front
+#define WU_void_front
+uniform float void_front; // (Look D6) the front at the eye: the storm grade
+#endif
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec3 sc = max(texelFetch(colortex0, p, 0).rgb, 0.0); // scene-linear light (lib/hdr.glsl)
@@ -363,6 +367,11 @@ void main() {
 #endif
 	// ---- look (welkin-look): the colour grade (lib/grade.glsl), after the curve
 	gradeBlueHour = gradeBlue;
+#ifdef WORLD_OVERWORLD
+	// (Look D6) a storm: the closed sky with rain at the eye, or a strong front over it (a plain overcast stays calm)
+	gradeStorm = smoothstep(0.5, 0.95, skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a)
+		* max(smoothstep(0.2, 0.8, rainStrength), smoothstep(0.66, 0.8, void_front));
+#endif
 	c = welkinGrade(c, gradeHour, gradeOpen);
 	// ---- end look
 #if DEBUG_VIEW == 23

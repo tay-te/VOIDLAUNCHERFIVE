@@ -300,6 +300,8 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 	vec3 clearFill = mix(vec3(0.48, 0.61, 1.00), vec3(0.50, 0.66, 1.00), smoothstep(0.05, 0.45, h));
 	clearFill = mix(vec3(0.43, 0.55, 1.00), clearFill, smoothstep(-0.10, 0.02, h));
 	vec3 greyFill = vec3(0.84, 0.88, 0.95);
+	// (Look D6) the light under rain a cooler slate: the land's shade under a storm cool, never a neutral grey wash
+	greyFill = mix(greyFill, vec3(0.74, 0.85, 1.0), m.rainStep);
 	// (Look D4: a partly cloudy sky still fills the shade mostly from its blue between the clouds: half the cloud step)
 	float grey = max(m.overcast, max(0.5 * m.cloudStep, m.rainStep));
 	// round 2: round sunrise and sunset the shade takes the colour of the sky it sees, the dome's own zenith and

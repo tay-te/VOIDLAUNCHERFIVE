@@ -26,6 +26,10 @@
 // The day's pulls of the sky's blue toward a blue-grey and of lavender toward a warm grey ease off, and the shade takes a
 // blue-violet: the twilight's deep blue overhead stays
 float gradeBlueHour = 0.0;
+// (Look D6) a storm, 0..1: a closed sky with rain at the eye or a strong front over it (final sets it before the grade). A
+// plain overcast stays calm, cool and soft; a storm goes cool, deep and contrasty: no lifted toe, deeper mids, a stronger
+// S, a cool slate gain and a blue shade, so its light breaking through and its bright horizon carry the frame
+float gradeStorm = 0.0;
 
 float gradeLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
@@ -42,6 +46,11 @@ float gradeLuma(vec3 c) {
 // (Look D5) the day sky's blue keeps this much saturation; the mids' gamma by day (under 1: deeper)
 #define GRADE_SKY_SAT 0.74
 #define GRADE_DAY_GAMMA 0.93
+// (Look D6) the storm grade (gradeStorm)
+#define GRADE_STORM_SAT 0.84
+#define GRADE_STORM_GAIN vec3(0.91, 0.95, 1.0)
+#define GRADE_STORM_GAMMA 0.90
+#define GRADE_STORM_S 0.30
 // (Look D5) the mid-afternoon's extra highlight roll
 #define GRADE_AFTERNOON_ROLL 0.2
 // (Look D5) the blue hour's sky gradient (final): how much of the hue the open sky and the clouds take, how much deeper
@@ -168,6 +177,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		float yd = pow(max(gradeLuma(L), 0.0), 1.0 / 2.2);
 		float base = mix(0.96, 0.90, warm);         // midday muted (look3: 0.80, look2's 0.68 read grey and dead), golden hours richer
 		base = mix(base, 0.74, over);                 // overcast and rain greyer
+		base = mix(base, GRADE_STORM_SAT, gradeStorm);  // (Look D6) a storm keeps a little more: cool slate, not grey
 		base = mix(base, 0.70, night * open);         // moonlight is nearly colourless
 		// (D1) the warm-led colours keep more than the rest, but by day only a little: a golden hour's whole land is warm-lit
 		// (red sand, straw, brick), and wholly kept it read a saturated orange; fire and lamps at night keep all of theirs
@@ -207,6 +217,9 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 lo = mix(mix(loDay, mix(loGold, loMorn, morn), warm), loNight, night);
 		// (Look D5) the blue hour's shade a blue-violet (the land and the clouds' bellies under the twilit sky)
 		lo = mix(lo, vec3(0.92, 0.93, 1.16), gradeBlueHour);
+		// (Look D6) a storm's shade a cool blue slate; its lit parts neutral
+		lo = mix(lo, vec3(0.90, 0.97, 1.13), gradeStorm);
+		hi = mix(hi, vec3(1.0, 1.0, 0.98), gradeStorm);
 		hi /= gradeLuma(hi);
 		lo /= gradeLuma(lo);
 		// (look3) the open sky's blue takes a fifth of the warm highlight, so it stays a blue (the warm light is on the land)
@@ -230,6 +243,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		float nd = smoothstep(0.5, 1.0, night);
 		vec3 gNight = mix(vec3(1.04, 1.10, 1.20), vec3(0.97, 1.02, 1.12), nd); // (look2: moonlit and readable, was 0.92 0.97 1.04)
 		vec3 gain = mix(mix(gDay, gGold, warm), gOver, over);
+		gain = mix(gain, GRADE_STORM_GAIN, gradeStorm * day * open); // (Look D6)
 		gain = mix(gain, gNight, night * open * (1.0 - keepWarm));
 		gain = mix(gain, vec3(dot(gain, vec3(0.2126, 0.7152, 0.0722))), 0.5 * blueG * (1.0 - night));
 		// lift: a soft coloured toe, so the shade reads coloured rather than black (cool-neutral by day, a plum-blue
@@ -240,9 +254,11 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 lNight = mix(vec3(0.009, 0.012, 0.020), vec3(0.0015, 0.0025, 0.005), nd); // (look2: a moonlit blue-grey toe, was 0.004 0.006 0.011)
 		vec3 lMorn = vec3(0.018, 0.013, 0.014); // (D3: the dawn's toe a soft rose, the mist's shade)
 		vec3 lift = mix(mix(lDay, mix(lGold, lMorn, morn), warm), lOver, over);
+		lift = mix(lift, vec3(0.001, 0.003, 0.007), gradeStorm * day); // (Look D6) a storm's toe deep, barely cool
 		lift = mix(lift, lNight, night);
 		// gamma: the mids a little lower by day (calm), held at the golden hour, a little higher under an overcast
 		float gamma = mix(1.0, 1.03, over); // (look3: noon 0.98, was 0.95)
+		gamma = mix(gamma, GRADE_STORM_GAMMA, gradeStorm * day * open); // (Look D6) a storm's mids deeper
 		// (Look D5) by day the mids sit a little deeper (the tops and white kept): a calmer, earthier land with its form
 		gamma *= mix(1.0, GRADE_DAY_GAMMA, day * (1.0 - smoothstep(0.3, 0.55, warm)) * (1.0 - over) * open);
 		// (look2) moonlit nights a little more open in the mids, so the land reads under the moon
@@ -255,6 +271,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 	{
 		float yd = gradeLuma(d);
 		float amt = mix(0.22, 0.20, warm) * (1.0 - 0.6 * over) * mix(0.5, 1.0, day); // (look3: noon 0.16, was 0.10: the light models the land)
+		amt = mix(amt, GRADE_STORM_S * mix(0.5, 1.0, day), gradeStorm * open); // (Look D6) a storm's light against its dark
 		float x = clamp(yd, 0.0, 1.0);
 		float sx = x * x * (3.0 - 2.0 * x);
 		float yd2 = mix(x, sx, amt);
