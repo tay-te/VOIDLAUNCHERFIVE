@@ -63,6 +63,8 @@ void main() {
 #include "/lib/sky/table.glsl"
 #include "/lib/haze/haze.glsl"
 #include "/lib/air.glsl"
+// (look2) the day air's body: the veil over the first few hundred blocks
+#define AIR_BODY 0.45
 // ---- atmos (welkin-atmos): the luminous sky's air and the volumetric haze (lib/sky/luminous.glsl, lib/haze/volume.glsl)
 // (the luminous sky first: the shafts take its frame)
 #include "/lib/sky/luminous.glsl"
@@ -327,10 +329,15 @@ void main() {
 		// of dissolving into one milky white; toward the sun it keeps its warm glow
 		{
 			float toSun = clamp(dot(normalize(eyePos), sunW) * 0.5 + 0.5, 0.0, 1.0);
-			vec3 body = mix(vec3(0.88, 0.91, 0.95), vec3(0.97, 0.95, 0.92), toSun * toSun);
+			// (look2, 2026-10-18: bolder, a blue-grey a fifth under the horizon away from the sun and a warm glow toward
+			// it; it eases off as the haze closes to the world's far edge, which must meet the sky's horizon. The vistas'
+			// middle distance had been one milky white sheet: now a layered blue-grey air)
+			vec3 body = mix(vec3(0.80, 0.85, 0.92), vec3(1.0, 0.94, 0.84), smoothstep(0.35, 1.0, toSun * toSun));
 			float wB = lum.day * lum.up * (s.sky ? 0.0 : 1.0);
-			h.back.rgb = mix(h.back.rgb, h.back.rgb * body, wB);
-			h.front.rgb = mix(h.front.rgb, h.front.rgb * body, wB);
+			float wBb = wB * (1.0 - smoothstep(0.8, 1.0, h.back.a));
+			float wBf = wB * (1.0 - smoothstep(0.8, 1.0, h.front.a));
+			h.back.rgb = mix(h.back.rgb, h.back.rgb * body, wBb);
+			h.front.rgb = mix(h.front.rgb, h.front.rgb * body, wBf);
 		}
 		// M5 underground (P6): the surface air hands over to the cave air at cave mouths
 		h.back.a *= 1.0 - ug.amount;
@@ -406,6 +413,15 @@ void main() {
 			// (M5: it hands over to the cave air at cave mouths, as the haze does)
 			color.rgb = mix(airPerspective(color.rgb, h.air, (air - airPlain) * (1.0 - h.back.a), length(eyePos),
 				normalize(eyePos), sunW), color.rgb, ug.amount);
+			// (look2, 2026-10-18) the air has body by day: a gentle blue-grey veil that grows over the first few hundred
+			// blocks, most with the sun high (midday calm, every wood a step paler than the one in front), less through
+			// the golden hours (their own warm air carries them), none at night or under a cave mouth
+			float dB = length(eyePos);
+			float wN = AIR_BODY * lum.day * lum.up * mix(1.0, 0.45, lum.warm) * (1.0 - ug.amount)
+				* (1.0 - exp(-max(dB - 20.0, 0.0) / 280.0));
+			float aY = dot(h.air, vec3(0.2126, 0.7152, 0.0722));
+			vec3 veil = mix(vec3(aY), h.air, 0.55) * vec3(0.94, 0.97, 1.03) * 0.86;
+			color.rgb = mix(color.rgb, veil, wN);
 		}
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 		welkinHazeDebug(st, h, eyePos, s.sky, color.rgb);
