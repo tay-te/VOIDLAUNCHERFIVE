@@ -52,7 +52,7 @@ import net.minecraft.world.level.block.state.properties.SlabType;
  */
 public final class Pagoda implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("landmark/pagoda"), ArchetypeCategory.LANDMARK, Set.of(), 0,
-		15, 21, 17, 25, 28, 40, SettlementTier.TOWN, Set.of(Culture.KARST, Culture.WISTERIA),
+		15, 21, 17, 25, 28, 40, SettlementTier.TOWN, Set.of(Culture.KARST),
 		Set.of(ArchetypeInfo.SiteFlag.VERTICAL), List.of(), 1, 1.0);
 
 	private static final int TH = 4;
@@ -64,11 +64,6 @@ public final class Pagoda implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
-		if (d.style().culture() == Culture.WISTERIA) {
-			// the woodland glades are a European country: their landmark here is a town tower in a flower garden
-			gardenTower(d);
-			return;
-		}
 		int w = d.frontage();
 		int dp = d.depth();
 		int top = d.maxHeight() - 1;
@@ -120,7 +115,13 @@ public final class Pagoda implements Archetype {
 				if (c[1] == pz0 && Math.abs(c[0] - xc) <= 1) {
 					continue;
 				}
-				d.set(c[0], podiumH, c[1], (c[0] + c[1] & 1) == 0 ? dress.full() : dress.wallOrFull());
+				// piers capped with a post of the rail (a bare block is a step up onto the rail and over it)
+				if ((c[0] + c[1] & 1) == 0) {
+					d.set(c[0], podiumH, c[1], dress.full());
+					d.set(c[0], podiumH + 1, c[1], dress.balustrade(d));
+				} else {
+					d.set(c[0], podiumH, c[1], dress.balustrade(d));
+				}
 			}
 			for (int k = 0; k < podiumH; k++) {
 				for (int x = xc - 1; x <= xc + 1; x++) {
@@ -215,6 +216,11 @@ public final class Pagoda implements Archetype {
 					} else if (beamRow) {
 						p = beam.log(s.axis());
 						st = StageKind.FRAME;
+					} else if (light && y == fy + 1 && frame.has(Form.FENCE)) {
+						// the light's sill: a rail of the frame, so the lattice is a window to look out of, not a way
+						// out onto the eave below
+						p = frame.fence();
+						st = StageKind.OPENINGS;
 					} else if (light && shutter.has(Form.TRAPDOOR)) {
 						p = shutter.trapdoor(s.out().getOpposite(), y == fy + 1 ? Half.BOTTOM : Half.TOP, true);
 						st = StageKind.OPENINGS;
@@ -393,79 +399,5 @@ public final class Pagoda implements Archetype {
 			}
 		}
 		d.poi(PoiType.MEETING_POINT, xc, 0, Math.max(1, zEnd - 1), Dirs.BACK);
-	}
-
-	/**
-	 * The woodland glades' garden tower: the town's bell tower (a broach or an octagonal spire, a pyramid of tile) stands
-	 * in the middle of a walled flower garden, a paved walk to its door, flower beds and little trees either side,
-	 * benches facing the tower, a lamp at each bench.
-	 */
-	private static void gardenTower(Draft d) {
-		new BellTower().draw(d);
-		int w = d.frontage();
-		int dp = d.depth();
-		int outer = 9;
-		int ox = (w - outer) / 2;
-		// a clipped hedge round the garden, open to the street at the walk
-		var hedge = d.mat(dev.voidmc.hearth.build.style.Role.HEDGE);
-		int gate = (w - 1) / 2;
-		try (var st = d.stage(StageKind.EXTERIOR)) {
-			for (int[] c : Draft.ring(0, 0, w - 1, dp - 1)) {
-				if (c[1] == 0 && Math.abs(c[0] - gate) <= 2) {
-					continue;
-				}
-				int y = Garden.groundAt(d, c[0], c[1]);
-				if (d.isEmpty(c[0], y, c[1]) && Garden.groundLike(d, c[0], y - 1, c[1])) {
-					d.set(c[0], y, c[1], hedge.leaves());
-				}
-			}
-		}
-		// little trees in the garden's corners
-		for (int[] c : new int[][]{{2, 2}, {w - 3, 2}, {2, dp - 3}, {w - 3, dp - 3}}) {
-			int y = Garden.groundAt(d, c[0], c[1]);
-			boolean free = true;
-			for (int dx = -1; dx <= 1 && free; dx++) {
-				for (int dz = -1; dz <= 1 && free; dz++) {
-					free = d.isEmpty(c[0] + dx, y, c[1] + dz) && d.isEmpty(c[0] + dx, y + 2, c[1] + dz);
-				}
-			}
-			if (free && Garden.groundLike(d, c[0], y - 1, c[1])) {
-				Garden.tree(d, c[0], y, c[1], 3);
-			}
-		}
-		int[][] strips = {{1, ox - 2}, {ox + outer + 1, w - 2}};
-		for (int[] st : strips) {
-			if (st[1] - st[0] < 1) {
-				continue;
-			}
-			for (int z = 2; z <= dp - 2; z++) {
-				for (int x = st[0]; x <= st[1]; x++) {
-					int y = dev.voidmc.hearth.build.kit.Garden.groundAt(d, x, z);
-					if (!d.isEmpty(x, y, z) || !d.isEmpty(x, y + 1, z) || !dev.voidmc.hearth.build.kit.Garden.groundLike(d, x, y - 1, z)) {
-						continue;
-					}
-					boolean walk = x == st[0] && st == strips[1] || x == st[1] && st == strips[0];
-					if (walk) {
-						continue;
-					}
-					if ((z - 2) % 6 == 3 && x == (st[0] + st[1]) / 2 && st[1] - st[0] >= 2) {
-						dev.voidmc.hearth.build.kit.Garden.tree(d, x, y, z, 3);
-					} else {
-						dev.voidmc.hearth.build.kit.Garden.flowerBed(d, List.of(new int[]{x, z}), y, 0.9);
-					}
-				}
-			}
-			// a bench looking at the tower, a lamp beside it
-			int bx = st == strips[0] ? st[1] : st[0];
-			int bz = dp / 2;
-			int by = dev.voidmc.hearth.build.kit.Garden.groundAt(d, bx, bz);
-			if (d.isEmpty(bx, by, bz) && d.isEmpty(bx, by, bz + 1)) {
-				dev.voidmc.hearth.build.kit.landscape.Benches.bench(d, bx, by, bz, st == strips[0] ? Dirs.RIGHT : Dirs.LEFT, Dirs.BACK, 1, false);
-				int ly = dev.voidmc.hearth.build.kit.Garden.groundAt(d, bx, bz + 2);
-				if (d.isEmpty(bx, ly, bz + 2)) {
-					dev.voidmc.hearth.build.kit.Garden.lampPost(d, bx, ly, bz + 2, 3, null);
-				}
-			}
-		}
 	}
 }

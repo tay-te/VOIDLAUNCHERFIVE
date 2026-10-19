@@ -198,9 +198,10 @@ public final class Curtain {
 		double[] mid = o.centre();
 		List<double[]> cells = new java.util.ArrayList<>();
 		double total = 0;
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet stitch = stitches(d, o, thick);
 		for (int z = o.z0; z <= o.z1; z++) {
 			for (int x = o.x0; x <= o.x1; x++) {
-				if (!o.wall(x, z, thick) || !Mason.inPlot(d, x, z) || skip != null && skip.test(x, z)) {
+				if (!o.wall(x, z, thick) && !stitch.contains(key(x, z)) || !Mason.inPlot(d, x, z) || skip != null && skip.test(x, z)) {
 					continue;
 				}
 				// the wall from its footing (two under the ground) to the walk and its parapet
@@ -254,9 +255,10 @@ public final class Curtain {
 		BlockState air = Blocks.AIR.defaultBlockState();
 		boolean timber = man.merlon() == Manner.Merlon.TIMBER;
 		List<int[]> face = new java.util.ArrayList<>();
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet stitch = stitches(d, o, thick);
 		for (int z = o.z0; z <= o.z1; z++) {
 			for (int x = o.x0; x <= o.x1; x++) {
-				if (!o.wall(x, z, thick) || !Mason.inPlot(d, x, z)) {
+				if (!o.wall(x, z, thick) && !stitch.contains(key(x, z)) || !Mason.inPlot(d, x, z)) {
 					continue;
 				}
 				if (skip != null && skip.test(x, z)) {
@@ -346,6 +348,87 @@ public final class Curtain {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Where a stretch runs at a slant the band of walk behind its parapet steps from column to column, and two walk cells
+	 * can touch only at a corner, which nobody can walk across. The stitches are the ward cells that join such corners:
+	 * each is raised as walk too, a mason's fillet on the court side of the step.
+	 */
+	static it.unimi.dsi.fastutil.longs.LongOpenHashSet stitches(Draft d, Outline o, int thick) {
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet out = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+		for (int z = o.z0; z <= o.z1; z++) {
+			for (int x = o.x0; x <= o.x1; x++) {
+				if (!walkCell(d, o, x, z, thick)) {
+					continue;
+				}
+				for (int dx = -1; dx <= 1; dx += 2) {
+					for (int dz = -1; dz <= 1; dz += 2) {
+						if (!walkCell(d, o, x + dx, z + dz, thick) || walkCell(d, o, x + dx, z, thick) || walkCell(d, o, x, z + dz, thick)) {
+							continue;
+						}
+						// the corner's ward-side cell (inside, every neighbour inside, not already wall)
+						for (int[] c : new int[][]{{x + dx, z}, {x, z + dz}}) {
+							if (o.inside(c[0], c[1]) && !o.wall(c[0], c[1], thick) && !fieldCell(o, c[0], c[1]) && Mason.inPlot(d, c[0], c[1])) {
+								out.add(key(c[0], c[1]));
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+		return out;
+	}
+
+	private static boolean walkCell(Draft d, Outline o, int x, int z, int thick) {
+		return o.wall(x, z, thick) && Mason.inPlot(d, x, z) && !fieldCell(o, x, z);
+	}
+
+	private static boolean fieldCell(Outline o, int x, int z) {
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (!o.inside(x + Dirs.dx(dir), z + Dirs.dz(dir))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * A parados on the court edge of a stretch's walk (drawn by {@link #run} with the same line): a low rail of the dressing
+	 * (posts and rails where the manner builds its heads in timber) carried on a corbel course out over the court, wherever
+	 * the walk would otherwise drop sheer into the ward. Cells the court's own work fills (a flight's treads, a range's
+	 * roof, a tower) are left as they are, so every way onto the walk stays open. Call after everything that stands
+	 * against the curtain.
+	 */
+	public static void parados(Draft d, Dress m, Manner man, int ax, int az, int bx, int bz, Direction out, int thick, int walk) {
+		Direction in = out.getOpposite();
+		Paint rail = man.merlon() == Manner.Merlon.TIMBER || !m.dress.has(Form.WALL) ? m.frame.fence() : m.dress.wall();
+		for (int[] c : cells(ax, az, bx, bz)) {
+			int wx = c[0] + Dirs.dx(in) * (thick - 1);
+			int wz = c[1] + Dirs.dz(in) * (thick - 1);
+			int nx = c[0] + Dirs.dx(in) * thick;
+			int nz = c[1] + Dirs.dz(in) * thick;
+			if (!Mason.inPlot(d, nx, nz) || !d.isSolid(wx, walk - 1, wz) || !d.isEmpty(wx, walk, wz) || !sheer(d, nx, walk, nz)) {
+				continue;
+			}
+			try (var s = d.stage(StageKind.WALLS)) {
+				d.set(nx, walk - 1, nz, m.dress.stairsOrSlab(out, Half.TOP));
+				d.set(nx, walk, nz, rail);
+			}
+		}
+	}
+
+	/** Whether the cell at (x, z) is open from {@code y + 1} down to four under the standing level {@code y}: a fall. */
+	static boolean sheer(Draft d, int x, int y, int z) {
+		// what is drawn wins over the ground under it (a court levelled down below the hillside it was cut from)
+		int g = d.site().ground(x, z);
+		for (int yy = y + 1; yy >= y - 4; yy--) {
+			if (d.isAbsent(x, yy, z) ? yy < g : !d.isEmpty(x, yy, z)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** Whether the plot leaves a row outside the whole stretch for a corbelled parapet. */

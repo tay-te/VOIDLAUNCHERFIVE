@@ -125,6 +125,27 @@ public final class Towers {
 		}
 	}
 
+	/**
+	 * The top course of a rectangle's walls at y turned into a moulded cornice: upside-down stairs of the accent (or the
+	 * walling where the accent has no stairs) round the faces, the quoins kept at the corners: the line the eaves spring
+	 * from. Masonry only.
+	 */
+	public static void cornice(Draft d, Look l, int x0, int z0, int x1, int z1, int y) {
+		Mat m = l.quoin.has(Form.STAIRS) ? l.quoin : l.body;
+		if (l.timber || !m.has(Form.STAIRS)) {
+			return;
+		}
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (Side side : Side.of(x0, z0, x1, z1)) {
+				for (int i = 1; i < side.length() - 1; i++) {
+					if (d.isSolid(side.x(i), y, side.z(i))) {
+						d.set(side.x(i), y, side.z(i), m.stairs(side.out().getOpposite(), net.minecraft.world.level.block.state.properties.Half.TOP));
+					}
+				}
+			}
+		}
+	}
+
 	/** A parapet round a rectangle at y and merlons on it at y + 1 (corners always, then every other block). */
 	public static void battlements(Draft d, Look l, int x0, int z0, int x1, int z1, int y) {
 		try (var s = d.stage(StageKind.WALLS)) {
@@ -144,6 +165,9 @@ public final class Towers {
 					boolean merlon = side.isCorner(i) || (i & 1) == 0 && i != side.last() - 1 || i == side.last();
 					if (merlon && y + 1 < d.maxHeight()) {
 						d.set(x, y + 1, z, d.tier() >= 3 ? l.quoin.full() : l.body.full());
+					} else if (y + 1 < d.maxHeight() && l.body.has(Form.SLAB)) {
+						// the crenel's sill a half block up, chest high: nobody steps into the gap and over
+						d.set(x, y + 1, z, l.body.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
 					}
 				}
 			}
@@ -175,6 +199,11 @@ public final class Towers {
 
 	/** {@link #lookout} with the posts set {@code inset} blocks in from the platform's edge (0: on its corners). */
 	public static int lookout(Draft d, Look l, int x0, int z0, int x1, int z1, int y, Top top, int inset) {
+		return lookout(d, l, x0, z0, x1, z1, y, top, inset, inset);
+	}
+
+	/** {@link #lookout} whose roof's eaves reach {@code eaves} blocks out from the posts (more than the inset: out past the walls). */
+	public static int lookout(Draft d, Look l, int x0, int z0, int x1, int z1, int y, Top top, int inset, int eaves) {
 		Mat post = l.post;
 		int plate = y + 3;
 		int px0 = x0 + inset;
@@ -201,7 +230,7 @@ public final class Towers {
 			case ALPINE -> 0.8;
 			default -> Math.max(hr.pitch(), 1.0);
 		};
-		Roofs.Opts o = Roofs.Opts.of(d).withEaves(inset, inset).withPitch(pitch);
+		Roofs.Opts o = Roofs.Opts.of(d).withEaves(eaves, eaves).withPitch(pitch);
 		RoofForm form = top == Top.PAGODA ? RoofForm.PAGODA : RoofForm.HIP;
 		Roofs.Built b = Roofs.build(d, px0, pz0, px1, pz1, plate, form, Direction.Axis.X, o, false, false);
 		int cx = (px0 + px1) / 2;

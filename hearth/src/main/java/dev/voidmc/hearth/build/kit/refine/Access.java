@@ -35,6 +35,11 @@ public final class Access {
 			Lofts.finish(d);
 		}
 		int guards = skip.contains("guards") ? 0 : Guards.finish(d);
+		// the few blocks a step above left hanging (head room cut out of a floor leaving a pair of boards alone): taken away,
+		// as every seat's own last stroke does (requests/w7-landmark.md §10)
+		if (!skip.contains("loose")) {
+			dev.voidmc.hearth.build.kit.noble.Mason.dropLoose(d, 6);
+		}
 		return new Report(r.doors(), r.cleared(), r.bricked(), r.lids(), guards);
 	}
 }

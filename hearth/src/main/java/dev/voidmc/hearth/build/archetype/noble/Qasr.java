@@ -221,6 +221,11 @@ final class Qasr {
 		r.walls(d, m, man);
 		r.floors(d, m);
 		r.door(d, m, Dirs.FRONT, p.c - 1, 0, 3, false);
+		// a side door at the back toward the burj: the yard between the hall, the range's end and the burj is closed
+		// to the court, and the burj's ground door opens onto it
+		Direction toBurj = p.towerLeft ? Dirs.LEFT : Dirs.RIGHT;
+		int sz = p.bz - 2;
+		r.door(d, m, toBurj, sz, 0, 1, false);
 		Side fs = r.side(Dirs.FRONT);
 		for (int i = 2; i < fs.length() - 2; i += 3) {
 			if (Math.abs(fs.column(i) - p.c) > 3) {
@@ -230,10 +235,11 @@ final class Qasr {
 		r.roof(d, m, man, RoofForm.FLAT, Direction.Axis.X, p.maxTop, 0, List.of());
 		int rad = Math.min(5, Math.min((p.hx1 - p.hx0) / 2, (p.bz - p.bz0) / 2) - 1);
 		Palace.dome(d, m, p.c, (p.bz0 + p.bz) / 2, r.plate() + 2, rad, p.maxTop);
-		Palace.arcade(d, m, man, p.hx0 + 1, p.bz0, p.hx1 - 1, p.bz0, p.y, Dirs.FRONT, p.c);
+		Palace.arcade(d, m, man, false, p.hx0 + 1, p.bz0, p.hx1 - 1, p.bz0, p.y, Dirs.FRONT, p.c);
 		int[] in = r.room(0);
 		Rooms.Room room = Chambers.room(in[0], in[1], in[2], in[3], in[4], new int[]{p.c - 1, in[1]}, new int[]{p.c, in[1]}, new int[]{p.c + 1, in[1]});
 		room.keepArea(p.c - 1, in[1], p.c + 1, in[1] + 1);
+		room.keep(p.towerLeft ? in[0] : in[2], sz);
 		Chambers.hall(d, m, room, Dirs.BACK, true);
 		Range.hang(d, in, 4);
 		Lighting.room(d, in[0], in[1], in[2], in[3], in[4]);

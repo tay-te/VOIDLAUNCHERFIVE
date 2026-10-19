@@ -253,6 +253,7 @@ public final class Keep implements Archetype {
 			Court.lamps(d, lx + thick, fz + thick, rx - thick, rz0 - 1, court);
 		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, maxTop);
+		dev.voidmc.hearth.build.kit.noble.Mason.settle(d, "keep");
 	}
 
 	/** The keep's storeys: stores, the hall with the throne, the bedchamber and chapel, the counting room, the guards. */

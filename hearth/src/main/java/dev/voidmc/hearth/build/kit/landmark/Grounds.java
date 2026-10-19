@@ -93,8 +93,53 @@ public final class Grounds {
 						d.set(x, y - 1, z, border && g < y ? edge.full() : paving.full());
 					}
 				}
+				// a parapet where the platform stands four or more over the ground beyond it (not on the street side,
+				// where the way down is laid)
+				if (border && z > 0 && y - lowestBeyond(d, x, z, x0, z0, x1, z1) >= 4) {
+					try (var s = d.stage(StageKind.EXTERIOR)) {
+						d.set(x, y, z, edge.balustrade(d));
+					}
+				}
 			}
 		}
+	}
+
+	/**
+	 * Opens the podium's parapet before every entrance (call once the doors are drawn): a balustrade laid on the border
+	 * before the doors were known never stands in a doorway or across the way to it.
+	 */
+	public static void openEntrances(Draft d) {
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int[] e : d.entrances()) {
+				for (int dx = -1; dx <= 1; dx++) {
+					for (int dz = -1; dz <= 1; dz++) {
+						net.minecraft.world.level.block.state.BlockState st = d.get(e[0] + dx, e[1], e[2] + dz);
+						if (st != null && (st.getBlock() instanceof net.minecraft.world.level.block.WallBlock
+							|| st.getBlock() instanceof net.minecraft.world.level.block.FenceBlock)) {
+							d.set(e[0] + dx, e[1], e[2] + dz, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/** The lowest dry ground beside a border cell of the rectangle, outside it. */
+	private static int lowestBeyond(Draft d, int x, int z, int x0, int z0, int x1, int z1) {
+		int low = Integer.MAX_VALUE;
+		for (Direction dir : Dirs.HORIZONTAL) {
+			int nx = x + Dirs.dx(dir);
+			int nz = z + Dirs.dz(dir);
+			if (nx >= x0 && nx <= x1 && nz >= z0 && nz <= z1) {
+				continue;
+			}
+			if (d.site().isWater(nx, nz)) {
+				// (a drop into water hurts nobody)
+				continue;
+			}
+			low = Math.min(low, d.site().ground(nx, nz));
+		}
+		return low;
 	}
 
 	/**
@@ -106,6 +151,20 @@ public final class Grounds {
 			Details.arch(d, f, i, 1, y, 3, dress, d.mat(Role.GLASS).pane());
 		}
 		Openings.door(d, f, f.column(i), y, 1, Openings.DoorOpts.MAIN);
+		threshold(d, f, i, 1, y, dress);
+	}
+
+	/** A sill of the dressing under a doorway where the ground was cut away below it (a slope falling to the street). */
+	private static void threshold(Draft d, Side f, int i, int width, int y, Stone dress) {
+		try (var s = d.stage(StageKind.FOUNDATION)) {
+			for (int c = 0; c < width; c++) {
+				int x = f.x(i + c);
+				int z = f.z(i + c);
+				if (!d.isSolid(x, y - 1, z)) {
+					d.set(x, y - 1, z, dress.full());
+				}
+			}
+		}
 	}
 
 	/** A double doorway (two leaves) at cells i, i + 1 under a round head shouldered by stairs. */
@@ -114,6 +173,7 @@ public final class Grounds {
 			Details.arch(d, f, i, 2, y, 3, dress, d.mat(Role.GLASS).pane());
 		}
 		Openings.door(d, f, f.column(i), y, 2, Openings.DoorOpts.MAIN);
+		threshold(d, f, i, 2, y, dress);
 	}
 
 	/**
@@ -186,6 +246,19 @@ public final class Grounds {
 		return d.site().ground(x, z) == y && !d.site().isWater(x, z);
 	}
 
+
+	/** Ground beyond the plot beside (x, z) stands high enough to step from onto a leaf at row y (a bank on a slope). */
+	private static boolean steppedOnto(Draft d, int x, int y, int z) {
+		for (Direction dir : Dirs.HORIZONTAL) {
+			int nx = x + Dirs.dx(dir);
+			int nz = z + Dirs.dz(dir);
+			if (!Walls.inPlot(d, nx, nz) && d.site().ground(nx, nz) >= y - 1) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/**
 	 * A tree on free ground at (x, y, z): a trunk of the style's garden wood and a crown of its leaves in three layers,
 	 * every leaf touching the trunk or another leaf, kept inside the plot. Planted only where the ground bears it.
@@ -214,7 +287,7 @@ public final class Grounds {
 					if (edge && Noise.unit(d.seed() ^ 0x7EE, c[0], yy, c[1]) < 0.3 && k != 1) {
 						continue;
 					}
-					if (Walls.inPlot(d, c[0], c[1]) && d.isEmpty(c[0], yy, c[1]) && d.allowed(c[0], yy, c[1])) {
+					if (Walls.inPlot(d, c[0], c[1]) && d.isEmpty(c[0], yy, c[1]) && d.allowed(c[0], yy, c[1]) && !steppedOnto(d, c[0], yy, c[1])) {
 						d.set(c[0], yy, c[1], leaves.leaves());
 						leaf.add(Draft.key(c[0], yy, c[1]));
 					}

@@ -13,6 +13,8 @@ import java.util.List;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
@@ -80,6 +82,8 @@ public final class Mason {
 		if (!ok(d, x, y, z)) {
 			return;
 		}
+		// every crenel has a sill a half block over the parapet, so its opening stands chest high: nobody steps up into it
+		// and over onto the drip course or the field below
 		switch (kind) {
 			case SQUARE -> {
 				if (corner || (index & 1) == 0) {
@@ -87,6 +91,8 @@ public final class Mason {
 					if (ok(d, x, y + 1, z) && d.tier() >= 3 && m.dress.has(Form.SLAB) && corner) {
 						d.set(x, y + 1, z, m.dress.slab(SlabType.BOTTOM));
 					}
+				} else {
+					sill(d, m, x, y, z);
 				}
 			}
 			case SWALLOW -> {
@@ -98,6 +104,8 @@ public final class Mason {
 					if (ok(d, x, y + 1, z) && m.wall.has(Form.STAIRS)) {
 						d.set(x, y + 1, z, m.wall.stairs(k == 0 ? along.getOpposite() : along, Half.BOTTOM));
 					}
+				} else {
+					sill(d, m, x, y, z);
 				}
 			}
 			case POINTED -> {
@@ -106,6 +114,8 @@ public final class Mason {
 					if (ok(d, x, y + 1, z)) {
 						d.set(x, y + 1, z, m.wall.has(Form.WALL) ? m.wall.wall() : m.dress.wallOrFull());
 					}
+				} else {
+					sill(d, m, x, y, z);
 				}
 			}
 			case PLAIN -> {
@@ -130,11 +140,27 @@ public final class Mason {
 	}
 
 	/**
+	 * A crenel's sill: the parapet course under the opening (at y - 1) laid as a wall of the walling (or the dressing),
+	 * which stands half a block higher than a block and cannot be stood on, so the crenel's opening is chest high to
+	 * the walk; where neither cuts a wall, a bottom slab in the opening on the parapet instead.
+	 */
+	private static void sill(Draft d, Dress m, int x, int y, int z) {
+		if (!d.isEmpty(x, y, z) || !d.isSolid(x, y - 1, z)) {
+			return;
+		}
+		if (m.wall.has(Form.WALL) || m.dress.has(Form.WALL)) {
+			d.set(x, y - 1, z, m.wall.has(Form.WALL) ? m.wall.wall() : m.dress.wall());
+		} else if (m.wall.has(Form.SLAB) || m.dress.has(Form.SLAB)) {
+			d.set(x, y, z, m.wall.has(Form.SLAB) ? m.wall.slab(SlabType.BOTTOM) : m.dress.slab(SlabType.BOTTOM));
+		}
+	}
+
+	/**
 	 * A corbel: an upside-down stair at (x, y, z) whose back is against the wall toward {@code toWall} (a bracket under an
 	 * oversailing parapet, a turret, a hoarding).
 	 */
 	public static void corbel(Draft d, Stone st, int x, int y, int z, Direction toWall) {
-		if (ok(d, x, y, z) && d.isEmpty(x, y, z)) {
+		if (ok(d, x, y, z) && d.isEmpty(x, y, z) && !ledge(d, x, y, z, toWall)) {
 			d.set(x, y, z, st.stairsOrSlab(toWall, Half.TOP));
 		}
 	}
@@ -148,7 +174,8 @@ public final class Mason {
 			return;
 		}
 		int g = d.site().ground(x, z);
-		if (g > maxY || d.site().isWater(x, z) || !d.isAbsent(x, g, z)) {
+		// (not on made ground: a court paved over the cell is walked, and a stair course on it is a step to trip on)
+		if (g > maxY || d.site().isWater(x, z) || !d.isAbsent(x, g, z) || !d.isAbsent(x, g - 1, z)) {
 			return;
 		}
 		try (var s = d.stage(StageKind.FOUNDATION)) {
@@ -244,9 +271,56 @@ public final class Mason {
 		if (overPlaced || overGround) {
 			return;
 		}
-		if (ok(d, x, y, z) && d.isEmpty(x, y, z)) {
+		if (ok(d, x, y, z) && d.isEmpty(x, y, z) && !ledge(d, x, y, z, toWall) && !lowOver(d, x, y, z)) {
 			d.set(x, y, z, m.dress.stairsOrSlab(toWall, Half.TOP));
 		}
+	}
+
+	/**
+	 * Whether a course block (a sill, a corbel, a string course: an upside-down stair at y against the wall toward
+	 * {@code toWall}) would join a floor folk stand on beside it, flush or a step down from it (a walk, a deck, a tower's
+	 * landing): then it is a ledge to walk out on along the wall's face, and is left out.
+	 */
+	/**
+	 * Whether a block at y would hang within three rows over a floor or the ground beneath it: too low to clear the head
+	 * of someone standing or stepping up there.
+	 */
+	public static boolean lowOver(Draft d, int x, int y, int z) {
+		int g = d.site().ground(x, z);
+		for (int yy = y - 1; yy >= y - 4; yy--) {
+			boolean solid = d.isAbsent(x, yy, z) ? yy < g : d.isSolid(x, yy, z);
+			if (solid) {
+				return y - (yy + 1) <= 3;
+			}
+		}
+		return false;
+	}
+
+	/** Whether a block is a course block: an upside-down stair or a top slab, hung on a wall's face. */
+	public static boolean course(@org.jspecify.annotations.Nullable BlockState st) {
+		return st != null && (st.getBlock() instanceof StairBlock && st.getValue(StairBlock.HALF) == Half.TOP
+			|| st.getBlock() instanceof SlabBlock && st.getValue(SlabBlock.TYPE) == SlabType.TOP);
+	}
+
+	public static boolean ledge(Draft d, int x, int y, int z, Direction toWall) {
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (dir == toWall) {
+				continue;
+			}
+			int nx = x + Dirs.dx(dir);
+			int nz = z + Dirs.dz(dir);
+			for (int top = y; top <= y + 1; top++) {
+				BlockState st = d.get(nx, top, nz);
+				if (st == null || !d.isSolid(nx, top, nz) || !d.isEmpty(nx, top + 1, nz) || !d.isEmpty(nx, top + 2, nz)) {
+					continue;
+				}
+				// another course block beside it is the course running on, not a floor
+				if (!course(st)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** A vertical log of a mat, or its full block where it has no logs. */
@@ -305,5 +379,100 @@ public final class Mason {
 	/** A hanging lantern state of the culture (always the iron lantern on the surface). */
 	public static BlockState lantern(boolean hanging) {
 		return States.lantern(Blocks.LANTERN, hanging);
+	}
+
+	/**
+	 * The drafted blocks that would float: not joined (by a face or an edge, through other drafted blocks) to the natural
+	 * ground under the plot, as the blueprint check sees them. Returns their keys ({@link Draft#key}).
+	 */
+	public static it.unimi.dsi.fastutil.longs.LongArrayList loose(Draft d) {
+		var cells = d.cells();
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet solid = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+		for (var e : cells.long2ObjectEntrySet()) {
+			if (!e.getValue().state().isAir()) {
+				solid.add(e.getLongKey());
+			}
+		}
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet seen = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+		it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue q = new it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue();
+		int[][] six = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+		for (long k : solid) {
+			int x = Draft.keyX(k);
+			int y = Draft.keyY(k);
+			int z = Draft.keyZ(k);
+			for (int[] o : six) {
+				int nx = x + o[0];
+				int ny = y + o[1];
+				int nz = z + o[2];
+				if (d.isAbsent(nx, ny, nz) && ny < d.site().ground(nx, nz)) {
+					seen.add(k);
+					q.enqueue(k);
+					break;
+				}
+			}
+		}
+		while (!q.isEmpty()) {
+			long k = q.dequeueLong();
+			int x = Draft.keyX(k);
+			int y = Draft.keyY(k);
+			int z = Draft.keyZ(k);
+			for (int dx = -1; dx <= 1; dx++) {
+				for (int dy = -1; dy <= 1; dy++) {
+					for (int dz = -1; dz <= 1; dz++) {
+						int nz = (dx != 0 ? 1 : 0) + (dy != 0 ? 1 : 0) + (dz != 0 ? 1 : 0);
+						if (nz == 0 || nz == 3) {
+							continue;
+						}
+						long n = Draft.key(x + dx, y + dy, z + dz);
+						if (solid.contains(n) && seen.add(n)) {
+							q.enqueue(n);
+						}
+					}
+				}
+			}
+		}
+		it.unimi.dsi.fastutil.longs.LongArrayList out = new it.unimi.dsi.fastutil.longs.LongArrayList();
+		for (long k : solid) {
+			if (!seen.contains(k)) {
+				out.add(k);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * Takes away what a later pass left hanging: every group of at most {@code most} drafted blocks no longer joined to the
+	 * ground (a crenel's sill whose parapet a tower's room was cleared out of, a lamp whose post a doorway took).
+	 */
+	public static void dropLoose(Draft d, int most) {
+		var l = loose(d);
+		if (l.isEmpty() || l.size() > most) {
+			return;
+		}
+		for (long k : l) {
+			d.set(Draft.keyX(k), Draft.keyY(k), Draft.keyZ(k), Blocks.AIR.defaultBlockState());
+		}
+	}
+
+	/**
+	 * The last stroke of a seat or a fort: {@link #dropLoose} the few blocks a later pass left hanging, then (with
+	 * -Dhearth.dbgloose) print whatever still floats, for finding the pass that leaves it.
+	 */
+	public static void settle(Draft d, String what) {
+		dropLoose(d, 6);
+		if (System.getProperty("hearth.dbgloose") == null) {
+			return;
+		}
+		var l = loose(d);
+		if (l.isEmpty()) {
+			return;
+		}
+		StringBuilder sb = new StringBuilder("DBGLOOSE " + what + " " + d.style().culture() + " " + d.frontage() + "x" + d.depth() + " " + l.size() + ":");
+		for (int i = 0; i < Math.min(12, l.size()); i++) {
+			long k = l.getLong(i);
+			sb.append(' ').append(Draft.keyX(k)).append('/').append(Draft.keyY(k)).append('/').append(Draft.keyZ(k)).append('=')
+				.append(d.get(Draft.keyX(k), Draft.keyY(k), Draft.keyZ(k)).getBlock().getDescriptionId());
+		}
+		System.out.println(sb);
 	}
 }

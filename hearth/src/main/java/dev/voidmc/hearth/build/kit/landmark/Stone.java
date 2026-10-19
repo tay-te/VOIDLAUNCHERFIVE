@@ -73,8 +73,9 @@ public final class Stone {
 	}
 
 	/**
-	 * Sheet for domes, onions and cupolas: the roof covering where it is masonry or metal (tile, brick, slate,
-	 * sandstone), else patinated copper, as a wooden-roofed town would sheath its domes.
+	 * Sheet for spires, domes, onions and cupolas: the roof covering where it is masonry or metal (tile, brick, slate,
+	 * sandstone), else dark slate (a lead or slate helm, as a shingled or thatched town would sheath its tower: a
+	 * patinated copper needle over a town of timber roofs reads as a teal toy, so copper is asked for by name only).
 	 */
 	public static Stone sheet(Draft d) {
 		Block b = d.mat(Role.ROOF).main(Form.FULL);
@@ -82,7 +83,7 @@ public final class Stone {
 		if (!wood) {
 			return of(d, Role.ROOF);
 		}
-		return new Stone(d, null, COPPER, Noise.hash(d.seed(), 0xC0FE), StageKind.ROOF);
+		return fixed(d, StageKind.ROOF, "minecraft:deepslate_tiles");
 	}
 
 	/** Patinated copper sheet. */
@@ -274,6 +275,18 @@ public final class Stone {
 	/** A wall post if the stone has one, else a full block. */
 	public Paint wallOrFull() {
 		return has(Form.WALL) ? wall() : full();
+	}
+
+	/**
+	 * A balustrade's block: a wall of this stone, else a rail of the style's railing (iron bars at worst). Never a full
+	 * block, which a stair's top step beside it climbs onto, and so out over the edge.
+	 */
+	public Paint balustrade(Draft d) {
+		if (has(Form.WALL)) {
+			return wall();
+		}
+		var railing = d.mat(dev.voidmc.hearth.build.style.Role.RAILING);
+		return railing.has(Form.FENCE) ? railing.fence() : Paint.of(net.minecraft.world.level.block.Blocks.IRON_BARS.defaultBlockState());
 	}
 
 	/** Stairs if the stone has them, else a slab of the same half, else the full block. */

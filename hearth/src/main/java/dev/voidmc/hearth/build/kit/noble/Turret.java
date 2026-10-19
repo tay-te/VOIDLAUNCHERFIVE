@@ -191,10 +191,10 @@ public final class Turret {
 		}
 		t.noPlinth().shell(d, m, top - 1);
 		t.floors(d, m, top);
-		for (Direction dir : doors) {
+		for (Direction dir : Tower.ordered(doors)) {
 			t.doorToward(d, m, dir, walk, false);
 		}
-		java.util.Set<Direction> look = new java.util.HashSet<>(Tower.all());
+		java.util.Set<Direction> look = Tower.all();
 		look.removeAll(doors);
 		t.loops(d, look, walk, top);
 		int hi = t.head(d, m, man, maxTop);

@@ -71,8 +71,22 @@ public final class Range {
 	}
 
 	/** Builds the walls in timber: a post at every corner and every third cell, boards between, on the stone plinth. */
+	/** Whether the walls are framed in logs and boards ({@link #timber()}). */
+	public boolean isTimber() {
+		return this.timber;
+	}
+
 	public Range timber() {
 		this.timber = true;
+		return this;
+	}
+
+	/** The left or right sides whose roof stops at the wall, no eave (the side toward a walk a step under it). */
+	private final Set<Direction> eaveless = EnumSet.noneOf(Direction.class);
+
+	/** No eave over the left or right wall: a range beside a wall walk keeps its roof off the walk (call before {@link #roof}). */
+	public Range eaveless(Direction... sides) {
+		this.eaveless.addAll(java.util.Arrays.asList(sides));
 		return this;
 	}
 
@@ -222,6 +236,59 @@ public final class Range {
 		return this;
 	}
 
+	/**
+	 * Breaks a long blind wall into bays (call after {@link #walls} and the openings): a pier of the dressing up the
+	 * wall's face every {@code step} cells, standing a block proud for its lowest {@code proud} courses (a buttress's
+	 * foot, its top weathered with a stair), and a small high vent of a slit in every other bay of each storey, as a
+	 * stable, a barn or a range's back wall is built. A wall of one material three dozen cells long reads as a blank
+	 * slab from the street otherwise.
+	 */
+	public Range bays(Draft d, Dress m, Direction out, int step, int proud) {
+		Side s = side(out);
+		int plate = plate();
+		// (where the dressing is the walling's own stone, the piers are timber posts let into the wall)
+		boolean same = m.dress.main(dev.voidmc.hearth.build.style.Form.FULL) == m.wall.main(dev.voidmc.hearth.build.style.Form.FULL);
+		Paint pier = this.timber || same ? Mason.post(m.frame) : m.dress.full();
+		for (int i = step; i < s.length() - 1; i += step) {
+			int x = s.x(i);
+			int z = s.z(i);
+			try (var st = d.stage(StageKind.WALLS)) {
+				for (int y = this.level + 1; y <= plate; y++) {
+					if (d.isSolid(x, y, z)) {
+						d.set(x, y, z, pier);
+					}
+				}
+				int ox = s.outX(i, 1);
+				int oz = s.outZ(i, 1);
+				if (proud > 0 && !this.timber && Mason.inPlot(d, ox, oz)) {
+					int g = d.site().ground(ox, oz);
+					Mason.footing(d, m, ox, oz, Math.min(g, this.level - 1));
+					for (int y = Math.min(g + 1, this.level); y < this.level + proud; y++) {
+						if (d.isEmpty(ox, y, oz)) {
+							d.set(ox, y, oz, m.dress.full());
+						}
+					}
+					if (d.isEmpty(ox, this.level + proud, oz)) {
+						d.set(ox, this.level + proud, oz, m.dress.stairsOrSlab(out.getOpposite(), Half.BOTTOM));
+					}
+				}
+			}
+			// a vent high in the bay beside this pier, every other bay, on each storey
+			if ((i / step & 1) == 1) {
+				for (int k = 0; k < this.heights.length; k++) {
+					int vy = ceiling(k) - 1;
+					int vi = i - step / 2;
+					int vx = s.x(vi);
+					int vz = s.z(vi);
+					if (vi > 1 && d.isSolid(vx, vy, vz) && d.isSolid(vx, vy - 1, vz) && d.isSolid(vx, vy + 1, vz)) {
+						Mason.loop(d, vx, vy, vz, 1);
+					}
+				}
+			}
+		}
+		return this;
+	}
+
 	/** The floors: stone over the ground, timber on every upper storey (but over the flights' wells). */
 	public Range floors(Draft d, Dress m) {
 		try (var s = d.stage(StageKind.FLOORS)) {
@@ -273,7 +340,7 @@ public final class Range {
 		return this;
 	}
 
-	/** Lays the treads of every planned flight, a rail of the furniture's fence along the open side of each well. */
+	/** Lays the treads of every planned flight, a rail of the furniture's fence over the low end of each well. */
 	public Range flights(Draft d, Dress m) {
 		BlockState air = Blocks.AIR.defaultBlockState();
 		try (var s = d.stage(StageKind.FLOORS)) {
@@ -292,6 +359,16 @@ public final class Range {
 					d.set(x, y, z, m.furniture.stairsOrSlab(dir, Half.BOTTOM));
 					for (int yy = y + 1; yy <= y + 3 && yy < floorY(k + 1) + 3; yy++) {
 						d.set(x, yy, z, air);
+					}
+				}
+				// the rail: over the well's low end, where it drops more than three from the floor above, a fence
+				// at the upper floor's standing level (a full row clear over every climber's head below it)
+				int up = floorY(k + 1);
+				for (int i = 0; i <= len - 3; i++) {
+					int x = w[0] + Dirs.dx(dir) * i;
+					int z = w[1] + Dirs.dz(dir) * i;
+					if (d.isEmpty(x, up, z) && f + i + 3 < up) {
+						d.set(x, up, z, m.furniture.fence());
 					}
 				}
 			}
@@ -316,6 +393,14 @@ public final class Range {
 			DoorHingeSide hinge = width == 1 ? DoorHingeSide.LEFT : c == 0 ? DoorHingeSide.RIGHT : DoorHingeSide.LEFT;
 			d.inStage(StageKind.OPENINGS, () -> d.door(x, y, z, doorBlock, out, hinge));
 			keep(x, z, y, y + 2);
+			// a window drawn here before the door leaves its sill on the step outside: clear the way in
+			for (int yy = y; yy <= y + 1; yy++) {
+				net.minecraft.world.level.block.state.BlockState there = d.get(s.outX(i, 1), yy, s.outZ(i, 1));
+				if (there != null && (there.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+					|| there.getBlock() instanceof net.minecraft.world.level.block.SlabBlock)) {
+					d.set(s.outX(i, 1), yy, s.outZ(i, 1), Blocks.AIR.defaultBlockState());
+				}
+			}
 		}
 		try (var st = d.stage(StageKind.WALLS)) {
 			for (int c = -1; c <= width; c++) {
@@ -507,7 +592,8 @@ public final class Range {
 		pitch = Math.max(0.5, pitch);
 		Roofs.Opts o = Roofs.Opts.of(d).withPitch(pitch).withEaves(1, man.crowSteps() ? 0 : 1);
 		RoofForm f = man.culture() == dev.voidmc.hearth.api.Culture.KARST && form != RoofForm.GABLE ? RoofForm.PAGODA : form;
-		Roofs.Plan plan = Roofs.plan(d, this.x0, this.z0, this.x1, this.z1, plate, f, axis, o, false, false);
+		Roofs.Plan plan = Roofs.plan(d, this.x0, this.z0, this.x1, this.z1, plate, f, axis, o, this.eaveless.contains(Dirs.LEFT),
+			this.eaveless.contains(Dirs.RIGHT));
 		if (dormers > 0 && f != RoofForm.PAGODA) {
 			Side cs = side(this.court);
 			if (cs.axis() == axis) {
@@ -599,23 +685,39 @@ public final class Range {
 	public void partition(Draft d, Dress m, int k, boolean alongZ, int at, int door) {
 		int f = floorY(k);
 		int c = ceiling(k);
+		boolean top = c == plate();
 		try (var st = d.stage(StageKind.WALLS)) {
 			if (alongZ) {
 				for (int z = this.z0 + 1; z < this.z1; z++) {
-					for (int y = f; y < c; y++) {
+					int h = top ? toRoof(d, at, c, z) : c;
+					for (int y = f; y < h; y++) {
 						boolean doorway = z == door && y < f + 2;
 						d.set(at, y, z, doorway ? Blocks.AIR.defaultBlockState() : m.wall.full().at(at, y, z));
 					}
 				}
 			} else {
 				for (int x = this.x0 + 1; x < this.x1; x++) {
-					for (int y = f; y < c; y++) {
+					int h = top ? toRoof(d, x, c, at) : c;
+					for (int y = f; y < h; y++) {
 						boolean doorway = x == door && y < f + 2;
 						d.set(x, y, at, doorway ? Blocks.AIR.defaultBlockState() : m.wall.full().at(x, y, at));
 					}
 				}
 			}
 		}
+	}
+
+	/**
+	 * Under an open roof a partition of the top storey runs on up to the roof drawn over it, so no ledge is left on its
+	 * head under the rafters; where nothing is over it yet, it stops at the plate.
+	 */
+	private static int toRoof(Draft d, int x, int c, int z) {
+		for (int y = c; y < c + 14; y++) {
+			if (!d.isEmpty(x, y, z)) {
+				return y;
+			}
+		}
+		return c;
 	}
 
 	/** A straight run of the plot's cells along this range's court side, one out (where a lamp or a bench goes). */

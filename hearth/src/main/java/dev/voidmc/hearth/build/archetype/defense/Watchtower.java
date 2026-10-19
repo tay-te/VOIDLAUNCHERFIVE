@@ -12,9 +12,11 @@ import dev.voidmc.hearth.build.draft.BlockEntities;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
+import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.draft.States;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Openings;
+import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.Stairs;
 import dev.voidmc.hearth.build.kit.landscape.Lamps;
@@ -70,13 +72,273 @@ public final class Watchtower implements Archetype {
 		};
 	}
 
+	/** The tower's plan, by the culture's way of building a lookout (param {@code plan}). */
+	enum Plan {
+		/** A square masonry shaft under a lookout or battlements (Bohemia, the mountains, the moor, the south, the karst). */
+		SQUARE,
+		/** A round shaft as the culture's castles raise them, a cone or battlements on it (the coast, the vale, the steppe). */
+		ROUND,
+		/** A slender timber shaft carrying a hoarded watch room oversailing it on beams, under a steep cap (the north). */
+		HOARD,
+		/** A watch hut on four posts over the wet, a ladder up a mast in the middle (bayou, tropics). */
+		STILTS
+	}
+
+	static Plan plan(Draft d) {
+		String p = d.param("plan", "");
+		for (Plan k : Plan.values()) {
+			if (k.name().equalsIgnoreCase(p)) {
+				return k;
+			}
+		}
+		return switch (dev.voidmc.hearth.build.kit.landscape.Manner.culture(d)) {
+			case MARITIME, WISTERIA, STEPPE -> Plan.ROUND;
+			case NORTHERN, TUNDRA -> Plan.HOARD;
+			case BAYOU, TROPICAL -> Plan.STILTS;
+			default -> Plan.SQUARE;
+		};
+	}
+
 	@Override
 	public void draw(Draft d) {
 		if (d.param("on_wall", false)) {
 			onWall(d);
-		} else {
-			standing(d);
+			return;
 		}
+		switch (plan(d)) {
+			case ROUND -> round(d);
+			case HOARD -> hoarded(d);
+			case STILTS -> stilts(d);
+			default -> standing(d);
+		}
+	}
+
+	// ------------------------------------------------------------------------------------------------ the round tower
+
+	/**
+	 * A round tower as the culture's castles build them ({@link dev.voidmc.hearth.build.kit.noble.Tower}): a battered
+	 * talus, a spiral round a newel, a floor every four rows (the guard room, the bunk room, the store), loops up the
+	 * shaft, a door with its lamp, and a cone over a top room (or open battlements on the coast).
+	 */
+	private static void round(Draft d) {
+		int w = d.frontage();
+		int dp = d.depth();
+		int diam = Math.min(Math.min(w, dp), 9);
+		diam -= 1 - diam % 2;
+		int cx = (w - 1) / 2;
+		int cz = (dp - 1) / 2;
+		var man = dev.voidmc.hearth.build.kit.noble.Manner.of(d);
+		var m = dev.voidmc.hearth.build.kit.noble.Dress.of(d);
+		var cap = dev.voidmc.hearth.build.kit.landscape.Manner.culture(d) == dev.voidmc.hearth.api.Culture.MARITIME && d.chance(0.5)
+			? dev.voidmc.hearth.build.kit.noble.Manner.Cap.CRENEL : dev.voidmc.hearth.build.kit.noble.Manner.Cap.CONE;
+		int maxTop = d.maxHeight() - 1;
+		int rows = dev.voidmc.hearth.build.kit.noble.Tower.headRows(cap, diam, man);
+		int top = Math.clamp(maxTop - Math.min(rows, 9), 9, 17);
+		List<Integer> lv = new java.util.ArrayList<>();
+		for (int y = 4; y <= top - 4; y += 4) {
+			lv.add(y);
+		}
+		int[] levels = lv.stream().mapToInt(Integer::intValue).toArray();
+		var t = dev.voidmc.hearth.build.kit.noble.Tower.round(cx, cz, diam, 0, top, cap);
+		t.footings(d, m);
+		t.shell(d, m, top - 1, levels);
+		// the spiral turned to arrive at the top room on the front, where the watch looks out (in a tower seven across
+		// the landing's quarters are cut apart by the wall)
+		t.arriveToward(Dirs.FRONT, top);
+		t.stair(d, m, man.timberTops(), Dirs.BACK);
+		t.floors(d, m, top, levels);
+		int[] out = t.door(d, m, Dirs.FRONT, 0, 1, true);
+		d.entrance(out[0], 0, out[1]);
+		Groundwork.approach(d, out[0], 0, out[1]);
+		dev.voidmc.hearth.build.kit.light.Lighting.doorLamp(d, out[0] + 1, 2, out[1], Dirs.BACK);
+		t.loops(d, Set.of(Dirs.LEFT, Dirs.RIGHT, Dirs.BACK), 2, top);
+		t.window(d, m, Dirs.FRONT, Math.max(4, top - 4) + 1, 2);
+		int hi = t.head(d, m, man, maxTop);
+		dev.voidmc.hearth.build.kit.Rooms.furnish(d, t.room(0), dev.voidmc.hearth.build.kit.Rooms.Type.WORKSHOP, 0, JobType.GUARD);
+		for (int k = 0; k < levels.length; k++) {
+			dev.voidmc.hearth.build.kit.Rooms.furnish(d, t.room(levels[k]), k == 0 ? dev.voidmc.hearth.build.kit.Rooms.Type.BEDROOM
+				: dev.voidmc.hearth.build.kit.Rooms.Type.STORAGE, k == 0 ? 1 : 0, JobType.NONE);
+		}
+		t.light(d, top - 1);
+		t.watch(d, Dirs.FRONT);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(maxTop, hi + 1));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	// ------------------------------------------------------------------------------------------------ the north
+
+	/**
+	 * The northern lookout: a slender shaft of logs five across (a ladder up its back wall from the door) carrying a
+	 * watch room that oversails it on cantilevered beams, boarded, with shuttered lights all round under a steep cap:
+	 * the grindstone, the arrows and a lamp up there where the watch is kept.
+	 */
+	private static void hoarded(Draft d) {
+		int w = d.frontage();
+		int dp = d.depth();
+		Look l = Look.of(d);
+		int sx0 = (w - 5) / 2;
+		int sz0 = (dp - 5) / 2;
+		int sx1 = sx0 + 4;
+		int sz1 = sz0 + 4;
+		int cx = sx0 + 2;
+		int p = Math.clamp(d.maxHeight() - 9, 8, 13);
+		Groundwork.footings(d, sx0, sz0, sx1, sz1, -1);
+		Towers.floor(d, l, sx0 + 1, sz0 + 1, sx1 - 1, sz1 - 1, -1, true);
+		Towers.shell(d, l, sx0, sz0, sx1, sz1, 0, p - 2);
+		Side front = Side.of(sx0, sz0, sx1, sz1, Dirs.FRONT);
+		Openings.door(d, front, cx, 0, 1, Openings.DoorOpts.MAIN);
+		Groundwork.approach(d, cx, 0, sz0 - 1);
+		for (int y = 4; y < p - 3; y += 3) {
+			Towers.slit(d, sx0, y, sz0 + 2);
+			Towers.slit(d, sx1, y + 1, sz0 + 2);
+		}
+		// a spiral of slabs round a newel up the shaft from the door to the watch room, which folk climb as they climb
+		// a stair (a ladder they do not): its well left open through the watch room's floor
+		// (its first step a cell in from the door, so nobody steps up under the door's head)
+		int cz = sz0 + 2;
+		Towers.spiral(d, cx, cz, 0, p, 1);
+		cabin(d, l, 0, 0, w - 1, dp - 1, p, cx, cz, new int[]{sx0, sz0, sx1, sz1});
+		dev.voidmc.hearth.build.kit.light.Lighting.room(d, sx0 + 1, sz0 + 1, sx1 - 1, sz1 - 1, 0);
+		int hi = cabinRoof(d, 0, 0, w - 1, dp - 1, p);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, hi + 1));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	// ------------------------------------------------------------------------------------------------ over the wet
+
+	/**
+	 * The lookout of the bayou and the palm coast: a watch hut on four corner posts braced with rails, a mast up the
+	 * middle with a ladder on its front face to a hatch in the hut's floor, the hut boarded with shutters all round
+	 * under a steep cap of the roofing.
+	 */
+	private static void stilts(Draft d) {
+		int w = d.frontage();
+		int dp = d.depth();
+		Look l = Look.of(d);
+		int x0 = 1;
+		int z0 = 1;
+		int x1 = w - 2;
+		int z1 = dp - 2;
+		int cx = (w - 1) / 2;
+		int cz = (dp - 1) / 2;
+		int p = Math.clamp(d.maxHeight() - 9, 7, 11);
+		Mat post = l.post();
+		Mat rail = d.mat(Role.RAILING);
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int[] c : new int[][]{{x0, z0}, {x1, z0}, {x0, z1}, {x1, z1}, {cx, cz}}) {
+				int g = Math.min(d.site().ground(c[0], c[1]), 0);
+				for (int y = g - 1; y < p - 1; y++) {
+					d.set(c[0], y, c[1], post.log(Direction.Axis.Y).orElse(l.body().full()));
+				}
+			}
+			// rails between the corner posts at two heights, braces against the wind (the front left open under the hut)
+			if (rail.has(Form.FENCE)) {
+				for (int y : new int[]{3, p - 3}) {
+					for (int[] c : Draft.ring(x0, z0, x1, z1)) {
+						if (d.isEmpty(c[0], y, c[1]) && !(c[1] == z0 && Math.abs(c[0] - cx) <= 1)) {
+							d.set(c[0], y, c[1], rail.fence());
+						}
+					}
+				}
+			}
+		}
+		// a spiral of slabs round the mast up to the hut (folk climb it as a stair, where a ladder stops them), its foot
+		// on the front, its well open through the hut's floor
+		Towers.spiral(d, cx, cz, 0, p, 0);
+		cabin(d, l, 0, 0, w - 1, dp - 1, p, cx, cz, null);
+		try (var s = d.stage(StageKind.FLOORS)) {
+			// the foot of the stair on a path of the paving from the street
+			for (int z = 0; z < cz - 1; z++) {
+				d.set(cx, -1, z, d.mat(Role.PAVING).full());
+			}
+		}
+		d.entrance(cx, 0, 0);
+		int hi = cabinRoof(d, 0, 0, w - 1, dp - 1, p);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, hi + 1));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	/**
+	 * A boarded watch room over the rectangle at standing level p: its floor (open over the spiral round (hx, hz)),
+	 * beams cantilevered out under it from the walls of the shaft {@code shaft} where there is one, walls two high of
+	 * boards between posts with shutters open in the middle of each side, and the watch's furniture.
+	 */
+	private static void cabin(Draft d, Look l, int x0, int z0, int x1, int z1, int p, int hx, int hz, int @org.jspecify.annotations.Nullable [] shaft) {
+		Mat boards = l.timber() ? l.body() : d.mat(Role.FLOOR);
+		Mat shutter = d.mat(Role.SHUTTER);
+		Mat post = l.post();
+		if (shaft != null) {
+			try (var s = d.stage(StageKind.FRAME)) {
+				// beams out from the shaft's head under the oversail, every other cell
+				for (Side side : Side.of(shaft[0], shaft[1], shaft[2], shaft[3])) {
+					for (int i = 0; i < side.length(); i += 2) {
+						for (int k = 1; k <= 2; k++) {
+							int bx = side.x(i) + Dirs.dx(side.out()) * k;
+							int bz = side.z(i) + Dirs.dz(side.out()) * k;
+							if (bx >= x0 && bx <= x1 && bz >= z0 && bz <= z1) {
+								d.set(bx, p - 2, bz, post.log(side.out().getAxis()).orElse(l.body().full()));
+							}
+						}
+					}
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.FLOORS)) {
+			for (int z = z0; z <= z1; z++) {
+				for (int x = x0; x <= x1; x++) {
+					// (the spiral's last treads and the air over them left as they are: the well up into the room)
+					if ((x != hx || z != hz) && d.isAbsent(x, p - 1, z)) {
+						d.set(x, p - 1, z, d.mat(Role.FLOOR).full());
+					}
+				}
+			}
+		}
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (Side side : Side.of(x0, z0, x1, z1)) {
+				int mid = side.middle();
+				for (int i = 0; i < side.length(); i++) {
+					for (int y = p; y <= p + 1; y++) {
+						Paint pt;
+						if (side.isCorner(i) || Math.abs(i - mid) == 2) {
+							pt = post.log(Direction.Axis.Y).orElse(l.body().full());
+						} else if (y == p + 1 && Math.abs(i - mid) <= 1 && shutter.has(Form.TRAPDOOR)) {
+							pt = shutter.trapdoor(side.out().getOpposite(), Half.TOP, true);
+						} else {
+							pt = boards.full();
+						}
+						d.set(side.x(i), y, side.z(i), pt);
+					}
+				}
+			}
+		}
+		java.util.Set<Long> taken = new java.util.HashSet<>();
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				taken.add(Draft.key(hx + dx, 0, hz + dz));
+			}
+		}
+		int[] g = Towers.spot(d, x0 + 1, z0 + 1, x1 - 1, z1 - 1, p, taken);
+		if (g != null) {
+			Furniture.workstation(d, JobType.GUARD, g[0], p, g[1], Dirs.HORIZONTAL[g[2]]);
+		} else {
+			Furniture.workstation(d, JobType.GUARD, x0 + 1, p, z1 - 1, Dirs.FRONT);
+		}
+		int[] c = Towers.spot(d, x0 + 1, z0 + 1, x1 - 1, z1 - 1, p, taken);
+		if (c != null) {
+			Furniture.chest(d, c[0], p, c[1], Dirs.HORIZONTAL[c[2]], List.of(new Object[]{"minecraft:arrow", 24}, new Object[]{"minecraft:torch", 8}));
+		}
+		d.poi(PoiType.GUARD_POST, x0 + 1, p, z0 + 1, Dirs.FRONT);
+		d.poi(PoiType.GUARD_POST, x1 - 1, p, z0 + 1, Dirs.FRONT);
+		d.poi(PoiType.VIEWPOINT, (x0 + x1) / 2, p, z0 + 1, Dirs.FRONT);
+		dev.voidmc.hearth.build.kit.light.Lighting.room(d, x0 + 1, z0 + 1, x1 - 1, z1 - 1, p);
+	}
+
+	/** The watch room's steep cap over its walls (their top course at p + 1). Returns its top. */
+	private static int cabinRoof(Draft d, int x0, int z0, int x1, int z1, int p) {
+		dev.voidmc.hearth.build.style.Habits.Roof hr = d.habits().roof();
+		Roofs.Opts o = Roofs.Opts.of(d).withEaves(0, 0).withPitch(Math.max(hr.pitch(), 1.3));
+		Roofs.Built b = Roofs.build(d, x0, z0, x1, z1, p + 1, dev.voidmc.hearth.build.style.Habits.RoofForm.HIP, Direction.Axis.X, o, false, false);
+		return b.roof().ridgeY;
 	}
 
 	private static void standing(Draft d) {

@@ -193,6 +193,10 @@ public final class Wooden {
 					} else if (y >= yc - 1) {
 						p = beam.log(f.axis());
 						st = StageKind.FRAME;
+					} else if (louvre && y == yb + 1) {
+						// the louvres stand on a rail: an open louvre is a gap a person steps into and out of
+						p = d.mat(Role.RAILING).fence();
+						st = StageKind.EXTERIOR;
 					} else if (louvre) {
 						p = shutter.has(Form.TRAPDOOR) ? shutter.trapdoor(f.out().getOpposite(), Half.TOP, true) : frame.fence();
 						st = StageKind.OPENINGS;

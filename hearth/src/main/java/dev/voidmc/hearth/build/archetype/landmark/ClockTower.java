@@ -85,7 +85,7 @@ public final class ClockTower implements Archetype {
 		int peak = switch (manner(d)) {
 			case TOWN_HALL -> townHall(d);
 			case CAMPANILE -> campanile(d);
-			case MINARET -> minaret(d);
+			case MINARET -> d.style().culture() == Culture.STEPPE ? sahel(d) : minaret(d);
 			case DRUM -> drumTower(d);
 			case CIVIC -> civic(d);
 		};
@@ -119,23 +119,48 @@ public final class ClockTower implements Archetype {
 	// ================================================================================================ the dials
 
 	/**
-	 * A clock face of one block set in the wall of face {@code f} at cell i, height y: a dark dial flecked with gold on a
-	 * light wall, a white one on a dark wall, in a round frame of four stones of the dressing. At a tower's scale this is
-	 * the dial a town reads from its square, not a Big Ben's.
+	 * A clock face set in the wall of face {@code f} at cell i, height y. On a face seven wide or more (with a cell of wall
+	 * either side of its frame) it is a dial three blocks across in a frame of the dressing: a dark face flecked with
+	 * gold on a light wall, a white one on a dark wall, its hub and its two hands (the minute hand up at twelve, the hour
+	 * hand where the seed sets it) in the other tone, so it reads as a clock from the square and not as a hole. On a narrow
+	 * face, one block in a round frame of four stones.
 	 */
 	static void dial(Draft d, Side f, int i, int y, Stone dress) {
 		Draft.Cell there = d.cell(f.x(i), y, f.z(i));
 		Block wall = there != null && !there.state().isAir() ? there.state().getBlock() : d.mat(Role.WALL).mainOr(Form.FULL, Blocks.STONE);
-		BlockState face = light(wall) ? States.block("minecraft:gilded_blackstone", Blocks.POLISHED_BLACKSTONE).defaultBlockState()
+		boolean lightWall = light(wall);
+		BlockState face = lightWall ? States.block("minecraft:gilded_blackstone", Blocks.POLISHED_BLACKSTONE).defaultBlockState()
 			: Blocks.CHISELED_QUARTZ_BLOCK.defaultBlockState();
+		boolean big = f.length() >= 7 && i - 2 >= 1 && i + 2 <= f.last() - 1;
 		try (var s = d.stage(StageKind.WALLS)) {
-			for (int[] o : new int[][]{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) {
-				int j = i + o[0];
-				if (j > 0 && j < f.last()) {
-					d.set(f.x(j), y + o[1], f.z(j), dress.full());
+			if (!big) {
+				for (int[] o : new int[][]{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) {
+					int j = i + o[0];
+					if (j > 0 && j < f.last()) {
+						d.set(f.x(j), y + o[1], f.z(j), dress.full());
+					}
+				}
+				d.set(f.x(i), y, f.z(i), face);
+				return;
+			}
+			BlockState plain = lightWall ? Blocks.POLISHED_BLACKSTONE.defaultBlockState() : Blocks.QUARTZ_BLOCK.defaultBlockState();
+			BlockState hand = lightWall ? Blocks.GOLD_BLOCK.defaultBlockState() : Blocks.POLISHED_BLACKSTONE.defaultBlockState();
+			// the frame: the ring round the dial, its corners left to the wall so the dial reads round
+			for (int dy = -2; dy <= 2; dy++) {
+				for (int di = -2; di <= 2; di++) {
+					boolean ring = Math.abs(dy) == 2 || Math.abs(di) == 2;
+					if (ring && !(Math.abs(dy) == 2 && Math.abs(di) == 2)) {
+						d.set(f.x(i + di), y + dy, f.z(i + di), dress.full());
+					} else if (!ring) {
+						d.set(f.x(i + di), y + dy, f.z(i + di), di == 0 && dy == 0 ? face : plain);
+					}
 				}
 			}
-			d.set(f.x(i), y, f.z(i), face);
+			// the hands round the gilded hub: the minute hand at twelve, the hour hand at three, nine or between
+			int hour = (int) (dev.voidmc.hearth.build.draft.Noise.unit(d.seed(), i, y, f.out().ordinal()) * 4);
+			int[][] hours = {{1, 0}, {-1, 0}, {1, -1}, {-1, 1}};
+			d.set(f.x(i), y + 1, f.z(i), hand);
+			d.set(f.x(i + hours[hour][0]), y + hours[hour][1], f.z(i + hours[hour][0]), hand);
 		}
 	}
 
@@ -263,7 +288,7 @@ public final class ClockTower implements Archetype {
 				}
 				boolean corner = Crowns.isCorner(c, gx0, gz0, gx1, gz1);
 				d.set(c[0], y, c[1], dress.full());
-				d.set(c[0], y + 1, c[1], corner ? dress.full() : dress.wallOrFull());
+				d.set(c[0], y + 1, c[1], corner ? dress.full() : dress.balustrade(d));
 				if (corner && dress.has(Form.SLAB)) {
 					d.set(c[0], y + 2, c[1], dress.slab(SlabType.BOTTOM));
 				}
@@ -353,7 +378,7 @@ public final class ClockTower implements Archetype {
 		if (belfry == Tower.Opening.ARCH) {
 			for (Side f : t.faces()) {
 				for (int i = f.middle() - 1; i <= f.middle() + 1; i++) {
-					d.set(f.x(i), yb + 1, f.z(i), dress.wallOrFull());
+					d.set(f.x(i), yb + 1, f.z(i), dress.balustrade(d));
 				}
 			}
 		}
@@ -398,6 +423,121 @@ public final class ClockTower implements Archetype {
 	 * balustrade two thirds up, an arcaded lantern at the head where the stair comes out (the hours are called from it), a
 	 * small lime dome and a gilded finial; a sundial before the door. Returns the top.
 	 */
+	/**
+	 * The steppe's tower, as the Sahel raises its minarets in mud: a massive square tower tapering in steps as it climbs,
+	 * its faces bristling with rows of toron (the palm beams left standing out of the mud for the yearly replastering), a
+	 * spiral in its narrow core lit by small square holes, a room at its foot and an open lantern at its head under a
+	 * flat roof with rounded pinnacles at its corners, from which the hours are called. Returns the top.
+	 */
+	private static int sahel(Draft d) {
+		int w = d.frontage();
+		int dp = d.depth();
+		int avail = Math.min(w, dp);
+		int b = avail >= 11 ? 9 : 7;
+		int x0 = (w - b) / 2;
+		int z0 = Math.max(1, (dp - b + 1) / 2);
+		if (z0 + b > dp) {
+			z0 = dp - b;
+		}
+		int cx = x0 + b / 2;
+		int cz = z0 + b / 2;
+		Stone body = Stone.panel(d).crisp();
+		Stone dress = Stone.dressing(d);
+		Mat beam = d.mat(Role.BEAM);
+		int top = d.maxHeight() - 1;
+		int lantern = Math.max(14, (int) Math.round(top * 0.8) - 5);   // the lantern's standing level
+		int steps = (b - 5) / 2;                                          // how many times the faces step in
+		int seg = Math.max(5, lantern / (steps + 1));
+		d.body(x0, z0, x0 + b - 1, z0 + b - 1);
+		d.eave(lantern + 3);
+		Grounds.footings(d, x0, z0, x0 + b - 1, z0 + b - 1, -1);
+		Paint air = Paint.of(Blocks.AIR.defaultBlockState());
+		java.util.function.IntUnaryOperator half = y -> Math.max(2, b / 2 - Math.min(steps, Math.max(0, y) / seg));
+		// the mass: solid mud but for the room at the foot (four high) and the stair's core
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int y = -1; y < lantern - 1; y++) {
+				int r = half.applyAsInt(y);
+				for (int z = cz - r; z <= cz + r; z++) {
+					for (int x = cx - r; x <= cx + r; x++) {
+						boolean edge = Math.abs(x - cx) == r || Math.abs(z - cz) == r;
+						boolean room = y >= 0 && y <= 3 && !edge;
+						boolean core = Math.abs(x - cx) <= 1 && Math.abs(z - cz) <= 1 && y >= 0;
+						d.set(x, y, z, room || core ? air : y == -1 ? Stone.footing(d).full() : body.full());
+					}
+				}
+				// where the faces step in, the ledge below weathered off in a sloping course
+				int below = half.applyAsInt(y - 1);
+				if (y > 0 && below > r) {
+					for (int[] c : Draft.ring(cx - below, cz - below, cx + below, cz + below)) {
+						Direction out = dev.voidmc.hearth.build.kit.landscape.Towers.out(c[0], c[1], cx - below, cz - below, cx + below, cz + below);
+						d.set(c[0], y, c[1], out != null && body.has(Form.STAIRS) ? body.stairs(out.getOpposite(), Half.BOTTOM) : body.full());
+					}
+				}
+			}
+		}
+		// the toron: a row of beams standing out of every face every third course, every other cell
+		try (var st = d.stage(StageKind.FRAME)) {
+			for (int y = 3; y < lantern - 1; y += 3) {
+				int r = half.applyAsInt(y);
+				for (Side f : Side.of(cx - r, cz - r, cx + r, cz + r)) {
+					for (int i = 1; i < f.last(); i += 2) {
+						int ox = f.outX(i, 1);
+						int oz = f.outZ(i, 1);
+						if (d.allowed(ox, y, oz) && d.isEmpty(ox, y, oz)) {
+							d.set(ox, y, oz, beam.log(f.out().getAxis()).orElse(beam.full()));
+						}
+					}
+				}
+			}
+		}
+		// the lantern, corbelled a block out over the shaft's head: its floor, a sill all round, small arched openings in
+		// the middle of each face, a flat roof, rounded pinnacles at the corners
+		int r = half.applyAsInt(lantern) + 1;
+		try (var st = d.stage(StageKind.WALLS)) {
+			for (int[] c : Draft.ring(cx - r, cz - r, cx + r, cz + r)) {
+				Direction out = dev.voidmc.hearth.build.kit.landscape.Towers.out(c[0], c[1], cx - r, cz - r, cx + r, cz + r);
+				boolean corner = Math.abs(c[0] - cx) == r && Math.abs(c[1] - cz) == r;
+				d.set(c[0], lantern - 2, c[1], corner || !body.has(Form.STAIRS) ? body.full() : body.stairs(out.getOpposite(), Half.TOP));
+			}
+			for (int z = cz - r; z <= cz + r; z++) {
+				for (int x = cx - r; x <= cx + r; x++) {
+					boolean edge = Math.abs(x - cx) == r || Math.abs(z - cz) == r;
+					boolean corner = Math.abs(x - cx) == r && Math.abs(z - cz) == r;
+					int along = Math.abs(x - cx) == r ? Math.abs(z - cz) : Math.abs(x - cx);
+					d.set(x, lantern - 1, z, body.full());
+					for (int y = lantern; y <= lantern + 2; y++) {
+						boolean open = edge && !corner && along <= 1 && y == lantern + 1;
+						d.set(x, y, z, !edge || open ? air : body.full());
+					}
+					d.set(x, lantern + 3, z, body.full());
+					if (corner) {
+						d.set(x, lantern + 4, z, body.full());
+						d.set(x, lantern + 5, z, body.has(Form.WALL) ? body.wall() : body.full());
+					}
+				}
+			}
+		}
+		// the stair in the core from the room to the lantern, the core's small square lights turning round it
+		Stone treads = Stone.dressing(d);
+		Shapes.spiral(d, cx, cz, 0, lantern, 1, treads, body.full());
+		for (int y = 6, k = 0; y < lantern - 3; y += 4, k++) {
+			Direction dir = Dirs.HORIZONTAL[k % 4];
+			int rr = half.applyAsInt(y);
+			for (int t = 2; t <= rr; t++) {
+				d.set(cx + Dirs.dx(dir) * t, y, cz + Dirs.dz(dir) * t, air);
+			}
+		}
+		// the door into the room at the foot, its lamp
+		Side fr = Side.of(cx - b / 2, cz - b / 2, cx + b / 2, cz + b / 2, Dirs.FRONT);
+		Grounds.door(d, fr, fr.middle() + 1 <= fr.last() - 1 ? fr.middle() + 1 : fr.middle(), 0, dress);
+		dev.voidmc.hearth.build.kit.light.Lighting.room(d, cx - b / 2 + 1, cz - b / 2 + 1, cx + b / 2 - 1, cz + b / 2 - 1, 0);
+		Details.bell(d, cx, lantern + 2, cz - 1 >= cz - r + 1 ? cz : cz, Dirs.FRONT);
+		d.poi(PoiType.VIEWPOINT, cx - 1, lantern, cz - 1, Dirs.FRONT);
+		dev.voidmc.hearth.build.kit.light.Lighting.room(d, cx - r + 1, cz - r + 1, cx + r - 1, cz + r - 1, lantern);
+		Grounds.forecourt(d, new int[]{cx - b / 2, cz - b / 2, cx + b / 2, cz + b / 2}, fr.x(fr.middle()), 0, fr.outZ(fr.middle(), 1));
+		return lantern + 6;
+	}
+
 	private static int minaret(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
@@ -501,7 +641,7 @@ public final class ClockTower implements Archetype {
 				int x = (int) (k >> 32);
 				int z = (int) k;
 				d.set(x, balcony, z, dress.full());
-				d.set(x, balcony + 1, z, dress.wallOrFull());
+				d.set(x, balcony + 1, z, dress.balustrade(d));
 				Direction in = Dirs.nearest(cx - x, cz - z);
 				if (d.isEmpty(x, balcony - 1, z)) {
 					d.set(x, balcony - 1, z, dress.stairsOrSlab(in, Half.TOP));
@@ -512,9 +652,10 @@ public final class ClockTower implements Archetype {
 		try (var s = d.stage(StageKind.OPENINGS)) {
 			for (Side f : faces) {
 				int mid = f.middle();
-				for (int y = hs + 1; y <= hs + 2; y++) {
-					d.set(f.x(mid), y, f.z(mid), Blocks.AIR.defaultBlockState());
-				}
+				// a balustrade across each arch's foot, so the lantern is looked out of, not stepped out of onto the
+				// cornice under it
+				d.set(f.x(mid), hs + 1, f.z(mid), dress.balustrade(d));
+				d.set(f.x(mid), hs + 2, f.z(mid), Blocks.AIR.defaultBlockState());
 				d.set(f.x(mid), hs + 3, f.z(mid), dress.full());
 			}
 		}
@@ -540,6 +681,11 @@ public final class ClockTower implements Archetype {
 		t.floor(d, -1, base.full());
 		int start = 1;
 		t.hollow(d, 0, hb - 1);
+		// the keeper's room four high under a ceiling the stair climbs through (a stair rising free in a room six high
+		// leaves its upper treads over a drop)
+		for (int y = 4; y < hb; y++) {
+			t.floor(d, y, d.mat(Role.FLOOR).full());
+		}
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int z = cz - 1; z <= cz + 1; z++) {
 				for (int x = cx - 1; x <= cx + 1; x++) {
@@ -647,7 +793,7 @@ public final class ClockTower implements Archetype {
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int[] c : Draft.ring(podium.x0, podium.z0, podium.x1, podium.z1)) {
 				if (d.allowed(c[0], hp + 1, c[1]) && !(c[1] == podium.z0 && Math.abs(c[0] - podium.cx) <= 0)) {
-					d.set(c[0], hp + 1, c[1], dress.wallOrFull());
+					d.set(c[0], hp + 1, c[1], dress.balustrade(d));
 				}
 			}
 		}
@@ -832,14 +978,18 @@ public final class ClockTower implements Archetype {
 		}
 		clock.band(d, ycC - 1);
 		clock.cornice(d, ycC);
-		for (int[] c : new int[][]{{clock.x0, clock.z0}, {clock.x1, clock.z0}, {clock.x0, clock.z1}, {clock.x1, clock.z1}}) {
-			Details.pinnacle(d, c[0], ycC + 1, c[1], 2, dress, true);
+		// (pinnacles only on the Hanseatic coast's brick towers: on a timber or a moorland town's tower they read as Big Ben)
+		Culture cu = d.style().culture();
+		if (cu == null || cu == Culture.MARITIME) {
+			for (int[] c : new int[][]{{clock.x0, clock.z0}, {clock.x1, clock.z0}, {clock.x0, clock.z1}, {clock.x1, clock.z1}}) {
+				Details.pinnacle(d, c[0], ycC + 1, c[1], 2, dress, true);
+			}
 		}
 		// the gallery's balustrade along the clock stage's edge
 		try (var s = d.stage(StageKind.EXTERIOR)) {
 			for (int[] c : Draft.ring(clock.x0, clock.z0, clock.x1, clock.z1)) {
 				if (gallery && d.isEmpty(c[0], ycC + 1, c[1])) {
-					d.set(c[0], ycC + 1, c[1], dress.wallOrFull());
+					d.set(c[0], ycC + 1, c[1], dress.balustrade(d));
 				}
 			}
 		}
@@ -940,9 +1090,10 @@ public final class ClockTower implements Archetype {
 			return Crowns.Kind.SPIRE;
 		}
 		return switch (c) {
-			case NORTHERN, TUNDRA -> d.pick(Crowns.Kind.STAVE, Crowns.Kind.SPIRE);
+			// (a stave cap, a board cupola, a tolbooth's broach or battlement: no pinnacled needles off the Hanseatic coast)
+			case NORTHERN, TUNDRA -> Crowns.Kind.STAVE;
 			case BAYOU, TROPICAL -> d.pick(Crowns.Kind.PYRAMID, Crowns.Kind.CUPOLA);
-			case MOORLAND -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.PARAPET, Crowns.Kind.OCTAGON);
+			case MOORLAND -> d.pick(Crowns.Kind.BROACH, Crowns.Kind.PARAPET);
 			default -> d.pick(Crowns.Kind.SPIRE, Crowns.Kind.SPIRE, Crowns.Kind.CUPOLA, Crowns.Kind.OCTAGON);
 		};
 	}

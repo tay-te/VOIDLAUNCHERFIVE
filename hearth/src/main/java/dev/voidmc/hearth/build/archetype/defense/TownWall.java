@@ -3,6 +3,7 @@ package dev.voidmc.hearth.build.archetype.defense;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
+import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.SettlementTier;
 import dev.voidmc.hearth.api.StageKind;
@@ -135,7 +136,13 @@ public final class TownWall implements Archetype {
 		int[] p = walkLevels(d, c, h);
 		// the coping steps in runs; the walk behind it climbs a step at a time
 		int[] q = crest(p, 2);
-		boolean timber = Manner.timberForts(d);
+		// the wall in the culture's manner: a rampart of logs and earth where the forts are timber, and on the steppe and in
+		// the north (a palisade on an earth bank); plain adobe with a smooth coping in the desert; a covered walk under a
+		// pent roof in Bohemia and its mountains; crenellated masonry with its corbel table elsewhere
+		Culture cu = Manner.culture(d);
+		boolean timber = Manner.timberForts(d) || cu == Culture.STEPPE || cu == Culture.NORTHERN || cu == Culture.TUNDRA;
+		boolean adobe = !timber && (cu == Culture.DESERT || cu == Culture.MESA);
+		boolean covered = !timber && (cu == Culture.TEMPERATE || cu == Culture.WISTERIA || cu == Culture.ALPINE);
 		boolean capStart = !c.open(true);
 		boolean capEnd = !c.open(false);
 		// every stretch of a town's wall wears the same stone, whatever variant its plot's seed picks
@@ -145,7 +152,7 @@ public final class TownWall implements Archetype {
 		Mat walk = Manner.wood(Manner.fort(d, Role.PAVING)) && !timber ? body : Manner.fort(d, Role.PAVING);
 		Mat log = Manner.fort(d, Role.TREE_LOG);
 		Mat fence = Manner.fort(d, Role.FENCE);
-		boolean pilasters = !timber && h >= 7 && d.param("corbels", true);
+		boolean pilasters = !timber && !adobe && h >= 7 && d.param("corbels", true);
 		int bay = 6;
 		for (Corridor.Cell cell : c.cells) {
 			int x = cell.x();
@@ -191,7 +198,10 @@ public final class TownWall implements Archetype {
 						if (recess && y >= g + 2 && y <= top - 2) {
 							continue;
 						}
-						if (recess && y == g + 1 && body.has(Form.STAIRS) && cell.inward() != null) {
+						if (recess && y == g + 1 && body.has(Form.STAIRS) && cell.inward() != null && levelAlong(d, cell, g)
+							&& cell.index() > 2 && cell.index() < n - 3) {
+							// (only where the ground is level along the wall and clear of the stretch's ends: beside a
+							// walk step or a slope the talus makes a flight up the face to nowhere)
 							// a sloping talus at the foot of the bay
 							paint = body.stairs(cell.inward(), Half.BOTTOM);
 						}
@@ -204,8 +214,14 @@ public final class TownWall implements Archetype {
 						}
 						d.set(x, y, z, paint);
 					}
-					if ((cell.index() & 1) == 0) {
+					if (adobe) {
+						// a smooth parapet, its coping rounded off: no merlons on a mud wall
+						d.set(x, top + 1, z, body.has(Form.SLAB) ? body.slab(SlabType.BOTTOM) : body.full());
+					} else if ((cell.index() & 1) == 0) {
 						d.set(x, top + 1, z, merlon(d, accent, body));
+					} else if (body.has(Form.WALL)) {
+						// the crenel's sill: a wall of the masonry, chest high, so nobody steps out over the parapet
+						d.set(x, top, z, body.wall());
 					}
 				} else {
 					// the town face: on straight runs a blind arcade, round-headed niches between the pilasters
@@ -237,7 +253,9 @@ public final class TownWall implements Archetype {
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (Corridor.Cell cell : c.cells) {
 				int i = cell.index();
-				if (!cell.onLine() || isPier(cell, capStart, capEnd, n)) {
+				// (no step at the very ends: where the walk runs on into the next stretch, that stretch lays its own,
+				// and a flight half in one plot leads nowhere in the other)
+				if (!cell.onLine() || isPier(cell, capStart, capEnd, n) || i == 0 || i == n - 1) {
 					continue;
 				}
 				boolean upBehind = i > 0 && p[i - 1] == p[i] - 1;
@@ -253,11 +271,8 @@ public final class TownWall implements Archetype {
 				}
 			}
 		}
-		// lanterns along the town parapet
-		for (Corridor.Cell cell : c.cells) {
-			if (cell.town() && !isPier(cell, capStart, capEnd, n) && Math.floorMod(Math.round(cell.t()), 9) == 4 && !timber) {
-				Lamps.lanternOn(d, cell.x(), q[cell.index()] + 1, cell.z());
-			}
+		if (covered) {
+			coveredWalk(d, c, p, q, capStart, capEnd, n);
 		}
 		// stairs up from the town side: at the end nearer the street, and at the start too on a long stretch
 		int[] entrance = stair(d, c, p, q, true, capEnd, body, walk);
@@ -266,6 +281,15 @@ public final class TownWall implements Archetype {
 		}
 		if (entrance == null) {
 			entrance = stair(d, c, p, q, false, capStart, body, walk);
+		}
+		// lanterns along the town parapet (after the stairs: none where a flight comes up beside it, whose top it would
+		// block)
+		for (Corridor.Cell cell : c.cells) {
+			int qy = q[cell.index()];
+			if (cell.town() && !isPier(cell, capStart, capEnd, n) && Math.floorMod(Math.round(cell.t()), 9) == 4 && !timber
+				&& d.isSolid(cell.x(), qy, cell.z()) && !besideFlight(d, cell.x(), qy, cell.z())) {
+				Lamps.lanternOn(d, cell.x(), qy + 1, cell.z());
+			}
 		}
 		if (entrance != null) {
 			d.entrance(entrance[0], entrance[1], entrance[2]);
@@ -297,6 +321,71 @@ public final class TownWall implements Archetype {
 				}
 			}
 		}
+	}
+
+	/**
+	 * The Bohemian covered walk: timber posts on the town parapet every third step carrying a pent roof of the roofing
+	 * over the walk, low over the field parapet and high over the town side, so the walk is a dry gallery under the eaves.
+	 */
+	private static void coveredWalk(Draft d, Corridor c, int[] p, int[] q, boolean capStart, boolean capEnd, int n) {
+		Mat roof = d.mat(Role.ROOF);
+		Mat frame = d.mat(Role.FRAME);
+		for (Corridor.Cell cell : c.cells) {
+			int i = cell.index();
+			if (isPier(cell, capStart, capEnd, n) || cell.beyond() != 0) {
+				continue;
+			}
+			int r = Math.max(p[i] + 3, q[i] + 2);
+			if (r + 2 >= d.maxHeight()) {
+				continue;
+			}
+			try (var s = d.stage(StageKind.ROOF)) {
+				Direction in = cell.inward();
+				if (cell.field()) {
+					d.set(cell.x(), r, cell.z(), in != null && roof.has(Form.STAIRS) ? roof.stairs(in, Half.BOTTOM) : roof.full());
+				} else if (cell.onLine()) {
+					d.set(cell.x(), r, cell.z(), roof.has(Form.SLAB) ? roof.slab(SlabType.TOP) : roof.full());
+				} else if (cell.town()) {
+					boolean post = Math.floorMod(Math.round(cell.t()), 3) == 0;
+					if (post) {
+						for (int y = q[i] + 1; y < r; y++) {
+							d.set(cell.x(), y, cell.z(), frame.log(Direction.Axis.Y).orElse(frame.full()));
+						}
+					}
+					Direction out = in != null ? in.getOpposite() : null;
+					d.set(cell.x(), r, cell.z(), out != null && roof.has(Form.STAIRS) ? roof.stairs(out, Half.TOP) : roof.full());
+				}
+			}
+		}
+	}
+
+	/** A stair tread within a step of (x, z) a few rows under y. */
+	private static boolean besideFlight(Draft d, int x, int y, int z) {
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				for (int yy = y - 4; yy <= y + 1; yy++) {
+					net.minecraft.world.level.block.state.BlockState st = d.get(x + dx, yy, z + dz);
+					if (st != null && st.getBlock() instanceof net.minecraft.world.level.block.StairBlock
+						&& st.getValue(net.minecraft.world.level.block.StairBlock.HALF) == Half.BOTTOM) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/** The ground at a cell is the same a step either way along the wall. */
+	private static boolean levelAlong(Draft d, Corridor.Cell cell, int g) {
+		Direction a = cell.ahead();
+		for (int s : new int[]{-1, 1}) {
+			int x = cell.x() + a.getStepX() * s;
+			int z = cell.z() + a.getStepZ() * s;
+			if (x >= 0 && x < d.frontage() && z >= 0 && z < d.depth() && d.site().ground(x, z) != g) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private static boolean isPier(Corridor.Cell cell, boolean capStart, boolean capEnd, int n) {
@@ -339,8 +428,14 @@ public final class TownWall implements Archetype {
 			d.set(x, floor, z, Blocks.AIR.defaultBlockState());
 			d.set(x, floor + 1, z, Blocks.AIR.defaultBlockState());
 		} else if (cell.field()) {
+			// an earth-filled crib: an upright every third step, logs laid along the run between (an earth bank at the
+			// foot on the steppe)
+			boolean upright = Math.floorMod(Math.round(cell.t()), 3) == 0;
+			Direction a = cell.ahead();
+			Paint laid = a != null ? log.log(a.getAxis()).orElse(logs) : logs;
+			boolean bank = Manner.culture(d) == Culture.STEPPE;
 			for (int y = g; y <= top; y++) {
-				d.set(x, y, z, logs);
+				d.set(x, y, z, bank && y <= g + 1 ? fill : upright || y == top ? logs : laid);
 			}
 			boolean tall = Noise.unit(d.seed() ^ 0x9A1, x, 0, z) < 0.5;
 			d.set(x, top + 1, z, tall ? logs : fence.has(Form.FENCE) ? fence.fence() : logs);
@@ -454,7 +549,10 @@ public final class TownWall implements Archetype {
 				for (int yy = Math.min(g, y) - 1; yy < y; yy++) {
 					d.set(cell.x(), yy, cell.z(), body.full());
 				}
-				d.set(cell.x(), y, cell.z(), steps.has(Form.STAIRS) && face != null ? steps.stairs(face, Half.BOTTOM) : steps.full());
+				// (where the walk dips under the flight's last step, that step is a landing level with the walk's head
+				// and one steps down onto the walk: a tread there would lead up to nothing)
+				boolean flat = k == topK && g0 + topK > p[cell.index()];
+				d.set(cell.x(), y, cell.z(), steps.has(Form.STAIRS) && face != null && !flat ? steps.stairs(face, Half.BOTTOM) : steps.full());
 				// clear up through the coping (it may stand above the walk) and anything set on it
 				for (int yy = y + 1; yy <= Math.max(y + 3, q[cell.index()] + 1); yy++) {
 					d.set(cell.x(), yy, cell.z(), air);

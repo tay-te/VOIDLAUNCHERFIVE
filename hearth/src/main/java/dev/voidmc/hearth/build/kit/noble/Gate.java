@@ -64,16 +64,24 @@ public final class Gate {
 				}
 			}
 		}
-		t.floors(d, m, top, hall, hall + 4 < top - 1 ? hall + 4 : hall);
-		// a ladder up from the hall to the head, in the back corner
+		// a ladder up from the hall to the head, in the back corner, through a hatch in every floor over the hall: the
+		// tower keeps the well open, so the deck (or the top room's floor, under any cap) is cut round its last rung
+		// (a curved hip springs from the deck itself and leaves no room over it: there the gate hall rises to the roof)
 		int lx = x1 - 1;
 		int lz = z1 - 1;
-		try (var s = d.stage(StageKind.FLOORS)) {
-			for (int y = hall; y < top + (cap == Manner.Cap.CRENEL ? 1 : 0); y++) {
-				d.set(lx, y, lz, States.facing(Blocks.LADDER, Dirs.FRONT));
+		if (cap == Manner.Cap.PAGODA) {
+			t.floors(d, m, top, hall);
+		} else {
+			t.ladderWell(lx, lz);
+			t.floors(d, m, top, hall, hall + 4 < top - 1 ? hall + 4 : hall);
+			try (var s = d.stage(StageKind.FLOORS)) {
+				for (int y = hall; y < top; y++) {
+					d.set(lx, y, lz, States.facing(Blocks.LADDER, Dirs.FRONT));
+				}
+				d.set(lx, hall - 1, lz, m.floor.full());
 			}
-			d.set(lx, hall - 1, lz, m.floor.full());
 		}
+		walkDoors(d, m, x0, z0, x1, z1, hall);
 		t.loops(d, java.util.Set.of(Dirs.FRONT), hall + 1, top);
 		t.window(d, m, Dirs.BACK, hall + 1, 2);
 		t.head(d, m, man, maxTop);
@@ -173,6 +181,9 @@ public final class Gate {
 			if (f[0] >= b.px0() - 1 && f[0] <= b.px1() + 1) {
 				t.door(d, m, toPassage, level, 1, true);
 			}
+			// a doorway at the hall's level out onto the curtain's walk where it runs into the tower's flank, so
+			// the walk on each side of the gate is joined through the tower and the gate hall
+			t.doorToward(d, m, side < 0 ? Dirs.LEFT : Dirs.RIGHT, hall, false);
 			t.loops(d, java.util.Set.of(Dirs.FRONT, side < 0 ? Dirs.LEFT : Dirs.RIGHT), level + 1, towerTop);
 			t.window(d, m, side < 0 ? Dirs.LEFT : Dirs.RIGHT, hall + 1, 2);
 			t.head(d, m, man, maxTop);
@@ -321,6 +332,35 @@ public final class Gate {
 		d.poi(PoiType.GATE, cx, level, zf, Dirs.FRONT);
 		d.poi(PoiType.GUARD_POST, cx, level, zf + 2, Dirs.FRONT);
 		return cx;
+	}
+
+	/**
+	 * Doorways from the gate hall (standing level {@code hall}) onto the wall walks that meet the gate tower's flanks
+	 * (x0 and x1): on each flank, the row nearest the back where the walk outside can be stood on (drawn before the gate,
+	 * as the curtains are) gets an arched opening two high, so the hall is reached from the walks and the walks run on
+	 * through it.
+	 */
+	static void walkDoors(Draft d, Dress m, int x0, int z0, int x1, int z1, int hall) {
+		BlockState air = Blocks.AIR.defaultBlockState();
+		for (int side : new int[]{-1, 1}) {
+			int x = side < 0 ? x0 : x1;
+			int ox = x + side;
+			int ix = x - side;
+			for (int z = z1 - 1; z > z0; z--) {
+				if (!d.isSolid(ox, hall - 1, z) || !d.isEmpty(ox, hall, z) || !d.isEmpty(ox, hall + 1, z) || !d.isSolid(ix, hall - 1, z)) {
+					continue;
+				}
+				try (var s = d.stage(StageKind.WALLS)) {
+					d.set(x, hall, z, air);
+					d.set(x, hall + 1, z, air);
+					d.set(x, hall - 1, z, m.paving.full());
+					if (Mason.ok(d, x, hall + 2, z)) {
+						d.set(x, hall + 2, z, m.dress.full());
+					}
+				}
+				break;
+			}
+		}
 	}
 
 	/** A slab of the paving, for thresholds. */

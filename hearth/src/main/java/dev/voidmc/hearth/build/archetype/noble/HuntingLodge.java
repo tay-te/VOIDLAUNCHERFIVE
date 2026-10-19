@@ -47,6 +47,30 @@ public final class HuntingLodge implements Archetype {
 		return INFO;
 	}
 
+	/** The lodge's form, by the culture (param {@code plan}). */
+	enum Plan {
+		/** A hall house under a long saddle roof, its upper storey framed, the tower at a front corner (Bohemia, the west). */
+		HALL,
+		/** A log lodge turning its steep gable to the yard, the tower at a front corner (the north, the mountains). */
+		GABLE,
+		/** A hipped lodge (a curved hip in the karst, flat in the desert) with its tower in the middle of the front. */
+		HIP
+	}
+
+	static Plan plan(Draft d, Manner man) {
+		String p = d.param("plan", "");
+		for (Plan k : Plan.values()) {
+			if (k.name().equalsIgnoreCase(p)) {
+				return k;
+			}
+		}
+		return switch (man.culture()) {
+			case TEMPERATE, WISTERIA, MOORLAND, MARITIME -> Plan.HALL;
+			case NORTHERN, TUNDRA, ALPINE -> Plan.GABLE;
+			default -> Plan.HIP;
+		};
+	}
+
 	@Override
 	public void draw(Draft d) {
 		int w = d.frontage();
@@ -54,18 +78,25 @@ public final class HuntingLodge implements Archetype {
 		int maxTop = d.maxHeight() - 1;
 		Manner man = Manner.of(d);
 		Dress m = Dress.of(d);
+		Plan plan = plan(d, man);
 		boolean towerLeft = d.param("tower_side", d.chance(0.5) ? "left" : "right").equals("left");
 		int y = Court.level(d, 0, 0, w - 1, dp - 1, -1, 1);
-		// the lodge across the back, the tower and the kennel before it
+		// the lodge across the back a block in from the plot's sides and back, so its eaves stand out round it; the
+		// tower and the kennel before it
 		int rz0 = 5;
-		int rz1 = dp - 1;
+		int rz1 = dp - 2;
 		int[] heights = {5, 4};
-		Range r = new Range(0, rz0, w - 1, rz1, y, heights, Dirs.FRONT);
+		Range r = new Range(1, rz0, w - 2, rz1, y, heights, Dirs.FRONT);
 		r.blind(Dirs.BACK);
-		int tx0 = towerLeft ? 0 : w - 5;
+		if (plan == Plan.GABLE && man.culture() != dev.voidmc.hearth.api.Culture.ALPINE) {
+			r.timber();
+		}
+		int c = (w - 1) / 2;
+		int tx0 = plan == Plan.HIP ? c - 2 : towerLeft ? 0 : w - 5;
 		int tx1 = tx0 + 4;
 		int tcx = tx0 + 2;
-		int dcol = towerLeft ? Math.max(tx1 + 2, (w - 1) / 2) : Math.min(tx0 - 2, (w - 1) / 2);
+		int dcol = plan == Plan.HIP ? (towerLeft ? c + 4 : c - 4)
+			: towerLeft ? Math.max(tx1 + 2, (w - 1) / 2) : Math.min(tx0 - 2, (w - 1) / 2);
 		// the tower's doorway beside its ladder, through the lodge's front wall
 		int tdx = towerLeft ? tcx + 1 : tcx - 1;
 		d.body(0, rz0, w - 1, rz1);
@@ -75,7 +106,7 @@ public final class HuntingLodge implements Archetype {
 			Groundwork.level(d, 0, 0, w - 1, dp - 1, y, true);
 			r.footings(d, m);
 			r.walls(d, m, man);
-			if (framed(man)) {
+			if (framed(man) && !r.isTimber()) {
 				halfTimber(d, m, r, 1);
 			}
 			r.floors(d, m);
@@ -88,20 +119,25 @@ public final class HuntingLodge implements Archetype {
 			int hx = towerLeft ? w - 4 : 3;
 			int[] hearth = r.hearth(d, hx, rz1, 0, Dirs.FRONT);
 			// gables (curved hips in the karst), kept low enough for the tower to stand clear over the ridge
-			RoofForm form = man.culture() == dev.voidmc.hearth.api.Culture.KARST ? RoofForm.HIP : RoofForm.GABLE;
+			RoofForm form = plan == Plan.HIP ? RoofForm.HIP : RoofForm.GABLE;
+			Direction.Axis axis = plan == Plan.GABLE ? Direction.Axis.Z : Direction.Axis.X;
 			int head = Math.min(9, Tower.headRows(man.cap(), 5, man));
-			r.roof(d, m, man, form, Direction.Axis.X, maxTop - head - 5, Math.max(1, (w - 8) / 6), List.of(new int[]{hearth[0], hearth[1]}));
+			r.roof(d, m, man, form, axis, maxTop - head - 5, plan == Plan.GABLE ? 0 : Math.max(1, (w - 8) / 6), List.of(new int[]{hearth[0], hearth[1]}));
 			// the lookout tower: a ladder through its floors, a door into each storey of the lodge, its head over the roof
 			int top = Math.min(Math.max(r.plate() + 4, r.ridge + 3), maxTop - head);
 			top = Math.max(r.floorY(1) + 4, top);
-			Tower t = Tower.square(tx0, 0, tx1, 4, y, top, man.cap() == Manner.Cap.ONION ? Manner.Cap.PYRAMID : man.cap());
+			// (the hipped lodge's tower in the middle of the front stands a row back against the lodge, so the front row
+			// stays a way from one side of the yard to the other: the kennel's side is not cut off from the door's)
+			int tz0 = plan == Plan.HIP ? 1 : 0;
+			int tz1 = tz0 + 4;
+			Tower t = Tower.square(tx0, tz0, tx1, tz1, y, top, man.cap() == Manner.Cap.ONION ? Manner.Cap.PYRAMID : man.cap());
 			t.footings(d, m);
 			t.shell(d, m, top - 1, r.floorY(1));
 			t.stair(d, m, man.timberTops(), null);
 			t.floors(d, m, top, r.floorY(1));
 			for (int k = 0; k < 2; k++) {
 				int ly = r.floorY(k);
-				t.doorAt(d, m, tdx, 4, Dirs.BACK, ly, 1, false);
+				t.doorAt(d, m, tdx, tz1, Dirs.BACK, ly, 1, false);
 				try (var s = d.stage(StageKind.WALLS)) {
 					d.set(tdx, ly, rz0, Blocks.AIR.defaultBlockState());
 					d.set(tdx, ly + 1, rz0, Blocks.AIR.defaultBlockState());
@@ -120,8 +156,12 @@ public final class HuntingLodge implements Archetype {
 		try (var ph = d.campaign(1)) {
 			Court.pave(d, m, 0, 0, w - 1, rz0 - 1, y);
 			// the kennel against the lodge's front on the far side from the tower
-			int kx0 = towerLeft ? Math.max(dcol + 2, w - 6) : 0;
-			int kx1 = towerLeft ? w - 1 : Math.min(dcol - 2, 5);
+			int kx0 = plan == Plan.HIP ? (towerLeft ? 0 : tx1 + 2) : towerLeft ? Math.max(dcol + 2, w - 6) : 0;
+			int kx1 = plan == Plan.HIP ? (towerLeft ? tx0 - 2 : w - 1) : towerLeft ? w - 1 : Math.min(dcol - 2, 5);
+			if (plan == Plan.HIP) {
+				kx0 = Math.max(kx0, towerLeft ? 0 : Math.max(tx1 + 2, dcol + 2));
+				kx1 = Math.min(kx1, towerLeft ? Math.min(tx0 - 2, dcol - 2) : w - 1);
+			}
 			if (kx1 - kx0 >= 3) {
 				int[] door = new int[2];
 				Rooms.Room kennel = Court.leanTo(d, m, man, kx0, 1, kx1, rz0 - 1, y, Dirs.BACK, 3, door);
@@ -138,7 +178,9 @@ public final class HuntingLodge implements Archetype {
 			} else {
 				Furniture.workstation(d, JobType.HUNTER, towerLeft ? w - 2 : 1, y, 1, Dirs.BACK);
 			}
-			Court.woodpile(d, towerLeft ? tx1 + 1 : tx0 - 1, y, 0, towerLeft ? Dirs.RIGHT : Dirs.LEFT, 1);
+			if (plan != Plan.HIP) {
+				Court.woodpile(d, towerLeft ? tx1 + 1 : tx0 - 1, y, 0, towerLeft ? Dirs.RIGHT : Dirs.LEFT, 1);
+			}
 			Flag.banner(d, m, dcol, y + 3, rz0 - 1, Dirs.FRONT, 2);
 			Court.lamps(d, 0, 0, w - 1, rz0 - 1, y);
 		}
@@ -166,7 +208,9 @@ public final class HuntingLodge implements Archetype {
 				for (int i = 0; i < side.length(); i++) {
 					int x = side.x(i);
 					int z = side.z(i);
-					boolean post = i == 0 || i == side.last() || i % 3 == 0;
+					boolean post = i == 0 || i == side.last() || i % 2 == 0;
+					// braces from the corner posts: a stair of the frame under the plate beside each
+					boolean brace = i == 1 || i == side.last() - 1;
 					for (int yy = f - 1; yy <= c; yy++) {
 						if (!dev.voidmc.hearth.build.kit.Openings.isWallBlock(d, x, yy, z)) {
 							continue;
@@ -175,6 +219,8 @@ public final class HuntingLodge implements Archetype {
 							d.set(x, yy, z, Mason.beam(m.frame, ax));
 						} else if (post) {
 							d.set(x, yy, z, Mason.post(m.frame));
+						} else if (brace && yy == c - 1 && m.frame.has(dev.voidmc.hearth.build.style.Form.STAIRS)) {
+							d.set(x, yy, z, m.frame.stairs(i == 1 ? side.along().getOpposite() : side.along(), net.minecraft.world.level.block.state.properties.Half.TOP));
 						}
 					}
 				}
@@ -217,6 +263,15 @@ public final class HuntingLodge implements Archetype {
 		Rooms.Room b = Chambers.room(part + 1, u[1], u[2], u[3], u[4], new int[]{part + 1, door}, new int[]{tdx, u[1]});
 		Chambers.furnish(d, a, Rooms.Type.BEDROOM, 2);
 		Chambers.furnish(d, b, Rooms.Type.BEDROOM, 2);
+		// the hunt's chambers: the lord's arms and a trophy on the walls, a chest of furs, a rug before the beds
+		for (Rooms.Room room : new Rooms.Room[]{a, b}) {
+			int[] spot = Chambers.spot(d, room, Dirs.BACK);
+			if (spot != null) {
+				Furniture.chest(d, spot[0], u[4], spot[1], Dirs.HORIZONTAL[spot[2]].getOpposite(), List.of(new Object[]{"minecraft:leather", 6},
+					new Object[]{"minecraft:rabbit_hide", 4}, new Object[]{"minecraft:arrow", 16}));
+				Chambers.take(room, spot[0], spot[1]);
+			}
+		}
 		Lighting.room(d, u[0], u[1], u[2], u[3], u[4]);
 	}
 }

@@ -101,7 +101,7 @@ class LandmarkTest {
 		assertTrue(info("lighthouse").flags().contains(ArchetypeInfo.SiteFlag.WATERFRONT));
 		assertTrue(info("clock_tower").flags().contains(ArchetypeInfo.SiteFlag.CENTRAL));
 		// each culture the planner may ask has at least one landmark of its own, and the famous ones theirs
-		assertTrue(info("pagoda").cultures().containsAll(Set.of(Culture.KARST, Culture.WISTERIA)));
+		assertEquals(Set.of(Culture.KARST), info("pagoda").cultures());
 		assertTrue(info("great_hall").cultures().containsAll(Set.of(Culture.NORTHERN, Culture.TUNDRA, Culture.MOORLAND)));
 		assertTrue(info("temple").cultures().containsAll(Set.of(Culture.DESERT, Culture.MESA, Culture.STEPPE, Culture.TROPICAL, Culture.BAYOU)));
 		assertTrue(info("lighthouse").cultures().contains(Culture.MARITIME));

@@ -299,7 +299,9 @@ public final class Tower {
 				// only where the cell faces the wall square on (no lone corner stairs on a curve)
 				int wx = c[0] + Dirs.dx(toWall);
 				int wz = c[1] + Dirs.dz(toWall);
-				if (!wall(wx, wz)) {
+				// nor where it would run on from a walk or a deck beside the tower as a ledge round it, nor low over
+				// ground folk stand on (it would catch their heads stepping up to a door)
+				if (!wall(wx, wz) || Mason.ledge(d, c[0], y, c[1], toWall) || Mason.lowOver(d, c[0], y, c[1])) {
 					continue;
 				}
 				d.set(c[0], y, c[1], m.dress.stairsOrSlab(toWall, Half.TOP));
@@ -430,12 +432,26 @@ public final class Tower {
 	}
 
 	/**
+	 * Takes the cell (x, z) inside as the tower's ladder well (call before {@link #floors}): the floors and the head's deck
+	 * leave it open as a hatch, so a ladder set in it lands on the deck or the top room's floor.
+	 */
+	public Tower ladderWell(int x, int z) {
+		this.stairX = x;
+		this.stairZ = z;
+		this.ladder = true;
+		return this;
+	}
+
+	/** The spiral's ring of eight round its newel, in the order it climbs (see {@link Mason#spiral}). */
+	private static final int[][] ARRIVE_RING = {{-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}};
+
+	/**
 	 * Turns the spiral (call before {@link #stair}) so it arrives at as many of the standing {@code levels} as can be on
 	 * the side toward {@code dir}: in a round tower of seven the landing round the spiral is cut into four by the wall,
 	 * and only the quarter the spiral arrives on is reached at each floor, so doorways on a fixed side need this.
 	 */
 	public Tower arriveToward(Direction dir, int... levels) {
-		int[][] ring = {{-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}};
+		int[][] ring = ARRIVE_RING;
 		int best = 0;
 		int bestScore = -1;
 		for (int start = 0; start < 8; start++) {
@@ -599,6 +615,14 @@ public final class Tower {
 				try (var s = d.stage(StageKind.FLOORS)) {
 					d.set(px, level - 1, pz, m.paving.full());
 				}
+				// the drip course beside the threshold outside goes: it would be a ledge out of the doorway
+				for (Direction side : Dirs.HORIZONTAL) {
+					int nx = px + Dirs.dx(side);
+					int nz = pz + Dirs.dz(side);
+					if (!in(nx, nz) && Mason.course(d.get(nx, level - 1, nz)) && d.isEmpty(nx, level, nz)) {
+						d.set(nx, level - 1, nz, air);
+					}
+				}
 			}
 			this.doorways.add(new int[]{x, z, level});
 		}
@@ -613,7 +637,7 @@ public final class Tower {
 	public Tower loops(Draft d, Set<Direction> dirs, int from, int to) {
 		int k = 0;
 		for (int y = from; y < to; y += 3) {
-			for (Direction dir : dirs) {
+			for (Direction dir : ordered(dirs)) {
 				int[] f = face(dir);
 				Direction along = Dirs.right(dir);
 				int off = this.diam >= 9 && ((k + y) & 1) == 0 ? (this.round ? 0 : 2) : 0;
@@ -624,6 +648,11 @@ public final class Tower {
 				}
 				for (int t = 0; t < this.thick; t++) {
 					Mason.loop(d, x - Dirs.dx(dir) * t, y, z - Dirs.dz(dir) * t, 2);
+				}
+				// a grille in the loop's foot on the outer face: a slit two high in a wall one or two thick is a hole a
+				// person could climb into and fall out of
+				if (Mason.ok(d, x, y, z)) {
+					d.set(x, y, z, Blocks.IRON_BARS.defaultBlockState());
 				}
 			}
 			k++;
@@ -707,6 +736,14 @@ public final class Tower {
 				continue;
 			}
 			int score = 100 - Math.abs(c[0] - this.cx) - Math.abs(c[1] - this.cz);
+			// in a round tower of seven the landing is cut into quarters: hang the lamp over the quarter the spiral
+			// arrives on, not over one only a door (or nothing) reaches
+			if (this.round && !this.ladder && this.stairX != Integer.MIN_VALUE && level > this.base) {
+				int[] a = ARRIVE_RING[Math.floorMod(this.stairStart + 2 * (level - this.base), 8)];
+				int ax = this.stairX + 2 * a[0];
+				int az = this.stairZ + 2 * a[1];
+				score -= 10 * (Math.abs(c[0] - ax) + Math.abs(c[1] - az));
+			}
 			if (blockedByDoor(c[0], c[1], level)) {
 				score -= 50;
 			}
@@ -1150,9 +1187,24 @@ public final class Tower {
 		d.poi(PoiType.VIEWPOINT, x, this.top, z, look);
 	}
 
+	/**
+	 * The directions of a set in a fixed order (front, right, back, left). A {@code Set.of}'s order changes from one run of
+	 * the game to the next, so anything that chooses by walking one must walk it through here, or the blueprint is not the
+	 * same on every server.
+	 */
+	public static List<Direction> ordered(java.util.Collection<Direction> dirs) {
+		List<Direction> out = new ArrayList<>(4);
+		for (Direction dir : Dirs.HORIZONTAL) {
+			if (dirs.contains(dir)) {
+				out.add(dir);
+			}
+		}
+		return out;
+	}
+
 	/** The set of the four horizontal directions. */
 	public static Set<Direction> all() {
-		Set<Direction> s = new HashSet<>();
+		Set<Direction> s = java.util.EnumSet.noneOf(Direction.class);
 		java.util.Collections.addAll(s, Dirs.HORIZONTAL);
 		return s;
 	}
