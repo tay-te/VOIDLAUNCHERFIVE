@@ -220,6 +220,11 @@ float hvDensityMul(HzState st, float mist, vec3 sunW) {
 	m *= (1.0 + 1.4 * st.rain) * (1.0 + 0.5 * st.snow * st.rain);
 	m *= 1.0 - 0.6 * clamp(mist, 0.0, 1.0);
 	m *= st.outdoor * smoothstep(-0.10, 0.04, sunW.y);
+	// (look3, 2026-10-18) by day six tenths of it, so the far land reads in layers through it instead of one milky sheet
+	// (the mesa's valleys at 16:48, the steppe's creamy sun side at 17:00); the mornings keep it whole, through about
+	// 07:30, for the misty dawns
+	float morningK = sunAngle > 0.5 ? 1.0 : 1.0 - smoothstep(0.06, 0.13, sunAngle);
+	m *= mix(0.6, 1.0, morningK);
 	return m * float(HAZE_VOLUME_STRENGTH) * 0.01;
 }
 

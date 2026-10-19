@@ -115,7 +115,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		float s = mix(base, 1.04, keepWarm);
 		// (look3) the open sky's blue keeps more by day: a soft hazy blue, not a leaden grey
 		float blueK = clamp((L.b - max(L.r, L.g)) / max(L.b, 1e-4) * 3.0, 0.0, 1.0) * day * (1.0 - over);
-		s = mix(s, max(s, 0.94), blueK);
+		s = mix(s, max(s, 0.90), blueK);
 		// calmer highs and lows, richest in the mids
 		s *= 1.0 - 0.22 * smoothstep(0.62, 0.98, yd) * (1.0 - keepWarm) * (1.0 - 0.6 * blueK);
 		s *= 1.0 - mix(0.18, 0.06, day) * (1.0 - smoothstep(0.03, 0.22, yd)); // (look3: by day the shade keeps its colour)
@@ -143,12 +143,14 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 lo = mix(mix(loDay, loGold, warm), loNight, night);
 		hi /= gradeLuma(hi);
 		lo /= gradeLuma(lo);
-		// (look3) the open sky's blue takes half the warm highlight, so it stays a blue
+		// (look3) the open sky's blue takes a fifth of the warm highlight, so it stays a blue (the warm light is on the land)
 		float blueS = clamp((L.b - max(L.r, L.g)) / max(L.b, 1e-4) * 3.0, 0.0, 1.0) * day;
-		L *= mix(vec3(1.0), hi, wHi * open * (1.0 - 0.5 * blueS)) * mix(vec3(1.0), lo, wLo);
+		L *= mix(vec3(1.0), hi, wHi * open * (1.0 - 0.8 * blueS)) * mix(vec3(1.0), lo, wLo);
 	}
 
 	// ---- 4. lift / gamma / gain (display values)
+	// (look3) how blue-led the colour is now (the open sky): its gain stays neutral, the golden hour's warmth is for the land
+	float blueG = clamp((L.b - max(L.r, L.g)) / max(L.b, 1e-4) * 3.0, 0.0, 1.0) * day;
 	vec3 d = pow(max(L, 0.0), vec3(1.0 / 2.2));
 	{
 		// gain: midday calmer and a touch lower; golden hours warm and full; dawn pearly; overcast cool and soft; night
@@ -159,6 +161,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 gNight = vec3(1.04, 1.10, 1.20); // (look2: moonlit and readable, was 0.92 0.97 1.04)
 		vec3 gain = mix(mix(gDay, gGold, warm), gOver, over);
 		gain = mix(gain, gNight, night * open * (1.0 - keepWarm));
+		gain = mix(gain, vec3(dot(gain, vec3(0.2126, 0.7152, 0.0722))), 0.5 * blueG * (1.0 - night));
 		// lift: a soft coloured toe, so the shade reads coloured rather than black (cool-neutral by day, a plum-blue
 		// under the golden light, a blue-grey at night)
 		vec3 lDay = vec3(0.010, 0.012, 0.016);
