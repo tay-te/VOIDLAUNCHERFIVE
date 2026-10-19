@@ -157,7 +157,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		float wLo = 1.0 - smoothstep(0.06, 0.42, yd);
 		// the highlights: a neutral warmth by day, gold through the golden hours (rose-gold in the morning)
 		vec3 hiDay = vec3(1.05, 1.0, 0.92); // (look3: a warmer sunlit side, was 1.035 1.0 0.94)
-		vec3 hiGold = mix(vec3(1.09, 0.99, 0.82), vec3(1.08, 0.965, 0.90), morn); // (look2: richer gold; D1: the morning a pink-gold)
+		vec3 hiGold = mix(vec3(1.09, 0.99, 0.82), vec3(1.09, 0.975, 0.84), morn); // (look2: richer gold; D1: the morning a pink-gold; D3: a pale gold)
 		vec3 hiOver = vec3(1.0, 1.0, 0.99);
 		vec3 hiNight = vec3(0.96, 0.99, 1.04);
 		vec3 hi = mix(mix(hiDay, hiGold, warm), hiOver, over * 0.7);
@@ -167,7 +167,8 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 loGold = vec3(0.93, 0.98, 1.11); // (look2: cooler against the gold, was 0.95 0.985 1.07)
 		vec3 loNight = vec3(0.93, 0.98, 1.10);
 		// (D1) the morning's shade a soft rose-violet rather than the evening's cool blue: a misty, pink-gold dawn
-		vec3 loMorn = vec3(0.98, 0.97, 1.06);
+		// (D3) a rose shade, not a violet: misty gold and rose, never a mauve-grey
+		vec3 loMorn = vec3(1.02, 0.965, 1.0);
 		vec3 lo = mix(mix(loDay, mix(loGold, loMorn, morn), warm), loNight, night);
 		hi /= gradeLuma(hi);
 		lo /= gradeLuma(lo);
@@ -184,7 +185,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		// gain: midday calmer and a touch lower; golden hours warm and full; dawn pearly; overcast cool and soft; night
 		// moonlit
 		vec3 gDay = vec3(0.95, 0.935, 0.90); // (look3: sunlit, warm-neutral, was look2's 0.86 0.85 0.82, which killed the sun)
-		vec3 gGold = mix(vec3(1.03, 0.985, 0.92), vec3(1.03, 0.975, 0.95), morn); // (D1: the morning a touch rosier)
+		vec3 gGold = mix(vec3(1.03, 0.985, 0.92), vec3(1.04, 0.98, 0.915), morn); // (D1: the morning a touch rosier; D3: rose-gold)
 		vec3 gOver = vec3(0.94, 0.95, 0.96);
 		vec3 gNight = vec3(1.04, 1.10, 1.20); // (look2: moonlit and readable, was 0.92 0.97 1.04)
 		vec3 gain = mix(mix(gDay, gGold, warm), gOver, over);
@@ -196,7 +197,8 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 lGold = vec3(0.014, 0.011, 0.018);
 		vec3 lOver = vec3(0.016, 0.017, 0.019);
 		vec3 lNight = vec3(0.009, 0.012, 0.020); // (look2: a moonlit blue-grey toe, was 0.004 0.006 0.011)
-		vec3 lift = mix(mix(lDay, lGold, warm), lOver, over);
+		vec3 lMorn = vec3(0.018, 0.013, 0.014); // (D3: the dawn's toe a soft rose, the mist's shade)
+		vec3 lift = mix(mix(lDay, mix(lGold, lMorn, morn), warm), lOver, over);
 		lift = mix(lift, lNight, night);
 		// gamma: the mids a little lower by day (calm), held at the golden hour, a little higher under an overcast
 		float gamma = mix(mix(0.98, 1.0, warm), 1.03, over); // (look3: noon 0.98, was 0.95)

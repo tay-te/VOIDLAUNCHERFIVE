@@ -107,7 +107,8 @@ SkyLum skyLumFrame(vec3 sunW) {
 	const vec3 GOLD = vec3(1.0, 0.57, 0.31) / 0.6426;
 	// (review round 1) the morning's a rose-gold, softer and pinker than the evening's amber (the warm pink morning
 	// air of a clear dawn; the land's own dawn sun is rose-gold too)
-	const vec3 ROSE_GOLD = vec3(1.0, 0.53, 0.42) / 0.6219;
+	// (Look D3: a paler gold with its rose, was (1, 0.53, 0.42): the dawn read pastel salmon, not misty gold)
+	const vec3 ROSE_GOLD = vec3(1.0, 0.60, 0.40) / 0.6706;
 	float morning = sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0;
 	// (review round 2) over the evening's last degrees the gold turns peach and rose, so a sunset over water reads
 	// peach-rose with a lilac sky above, not a cream-yellow frame (less gold than Complementary)
@@ -146,6 +147,8 @@ vec3 skyAureole(vec3 d, SkyLum f) {
 // (HDR stage A) The luminous sky in scene-linear light: `L` the dome's light toward unit direction d (scene-linear,
 // lib/hdr.glsl), the same light laid over it as skyLuminous does, with no cap and no golden headroom (the output
 // transform's shoulder rolls the glow off), and the sun's aureole in linear light at every hour.
+#define SKY_DAWN_BELT 0.6
+#define SKY_DAWN_BELT_LEVEL 1.3
 vec3 skyLuminousLin(vec3 L, vec3 d, SkyLum f, float amount) {
 #ifdef SKY_LUMINOUS
 	float k = amount * float(SKY_GLOW) * 0.01 * f.clear * f.day;
@@ -198,9 +201,22 @@ vec3 skyLuminousLin(vec3 L, vec3 d, SkyLum f, float amount) {
 
 	// the golden hours warm the whole dome a little (its brightness kept), the zenith least
 	// (review round 2: a clear morning a little more: its rose-gold reads as a warm rose-peach air, not a neutral cream)
-	float dawnAir = sunAngle < 0.25 || sunAngle > 0.75 ? 0.28 : 0.20;
+	// (Look D3: 0.38 in the morning, was 0.28, and from the first light, before the sun is up: a misty gold dawn)
+	bool mornD = sunAngle < 0.25 || sunAngle > 0.75;
+	float dawnAir = mornD ? 0.38 : 0.20;
+	float upD = mornD ? max(f.up, smoothstep(-0.21, -0.03, f.sunW.y)) : f.up;
 	// (golden, 2026-10-16: the zenith none of it, was half: gold mixed into the blue overhead read as a cream-grey wash)
-	L = mix(L, f.gold * y, clamp(dawnAir * f.warm * f.up * (1.0 - zen) * (1.0 - smoothstep(0.04, 0.4, hp)) * min(k, 1.0), 0.0, 1.0));
+	L = mix(L, f.gold * y, clamp(dawnAir * f.warm * upD * (1.0 - zen) * (1.0 - smoothstep(0.04, 0.4, hp)) * min(k, 1.0), 0.0, 1.0));
+	// (Look D3) the dawn's rose belt: from the first light until the sun is a few degrees up, a band of rose-gold light low
+	// over the horizon, most away from the sun (the earth's shadow's lit rim), so a twilit shore glows rose over its mist
+	// instead of hanging a mauve-grey sky
+	if (mornD) {
+		float pre = smoothstep(-0.22, -0.07, f.sunW.y) * (1.0 - smoothstep(0.04, 0.18, f.sunW.y));
+		float belt = smoothstep(-0.01, 0.05, d.y) * exp(-max(d.y - 0.05, 0.0) / 0.16);
+		const vec3 BELT = vec3(1.0, 0.66, 0.56) / 0.7250;
+		L = mix(L, BELT * y * SKY_DAWN_BELT_LEVEL, clamp(SKY_DAWN_BELT * pre * belt * mix(0.55, 1.0, 1.0 - side), 0.0, 1.0));
+		y = skyLumLuma(L);
+	}
 	// (look3, 2026-10-18) an evening sky has a gradient across it, not one salmon from edge to edge: gold round the sun
 	// (the glow below), a dusky rose and lilac across the sky, a soft blue-grey away from the sun and overhead. By the
 	// evening's last degrees (none at 17:00, most as the sun touches the horizon); the mornings keep their own pearl

@@ -50,7 +50,12 @@ void main() {
 #ifdef WORLD_OVERWORLD
 	{
 		SkyLum f = skyLumFrame(normalize(mat3(gbufferModelViewInverse) * sunPosition));
-		gradeHour = vec4(f.warm * f.up, f.day, f.clear, sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0);
+		// (Look D3) the morning's warmth and day come in earlier, from the first light (about 12 degrees of sun down): the
+		// dawn twilight is misty gold and rose, not the night's moonlit blue
+		float mornK = sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0;
+		float upG = mix(f.up, max(f.up, smoothstep(-0.21, -0.03, f.sunW.y)), mornK);
+		float dayG = mix(f.day, max(f.day, smoothstep(-0.21, -0.07, f.sunW.y)), mornK);
+		gradeHour = vec4(f.warm * upG, dayG, f.clear, mornK);
 		gradeOpen = smoothstep(0.15, 0.7, float(eyeBrightnessSmooth.y) / 240.0);
 		gradeDusk = sunAngle < 0.5 ? (1.0 - smoothstep(0.03, 0.30, f.sunW.y)) * f.up * f.clear : 0.0;
 	}

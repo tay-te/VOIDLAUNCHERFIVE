@@ -22,6 +22,9 @@
 #define DM_NEAR 12.0
 // the most the mist covers (the land reads through)
 #define DM_MAX 0.78
+// (Look D3) the first light's rose-gold in the mist: its hue (linear, luma 1) and share
+#define DM_ROSE vec3(1.32, 0.90, 0.72)
+#define DM_ROSE_MIX 0.4
 
 // 1 from first light to about 06:45, three fifths of it at 08:00, nothing by about 09:30 (sunAngle runs 0.012 at 05:30, 0.055 at
 // 06:30, 0.117 at 08:00)
@@ -60,6 +63,9 @@ vec3 dawnMistColour(vec3 air, vec3 dir, vec3 sunW, float fsun, SkyLum f) {
 	float mu = clamp(dot(dir, sunW), 0.0, 1.0);
 	vec3 gold = f.gold; // (linear, luma 1)
 	c = mix(c, gold * y * 1.12, (0.25 + 0.6 * mu * mu) * f.up);
+	// (Look D3) the dawn mist holds the first light's rose-gold all through it, from before the sun is up: misty gold and
+	// rose, not a pearl grey (DM_ROSE, linear, luma 1)
+	c = mix(c, DM_ROSE * y * 1.05, DM_ROSE_MIX * smoothstep(-0.22, -0.02, sunW.y));
 	// in shadow a cool, dimmer grey-blue
 	c = mix(c * vec3(0.80, 0.86, 0.96) * 0.78, c, clamp(fsun, 0.0, 1.0));
 	return c;
