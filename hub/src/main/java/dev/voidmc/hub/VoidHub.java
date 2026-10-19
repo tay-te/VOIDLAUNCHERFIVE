@@ -46,7 +46,8 @@ public final class VoidHub implements ClientModInitializer {
 			if (mc.player == null || !HubView.available()) {
 				return false;
 			}
-			mc.gui.setScreen(new HubInventoryScreen(mc.player, "classes"));
+			// (not remembered as the last page: the first R-Shift after it lands on the Map with Atlas)
+			mc.gui.setScreen(HubInventoryScreen.picker(mc.player));
 			return true;
 		});
 		MettleLink.registerOpener(() -> {

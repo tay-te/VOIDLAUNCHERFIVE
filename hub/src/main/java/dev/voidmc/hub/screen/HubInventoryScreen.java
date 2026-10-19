@@ -110,6 +110,23 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		return HubMap.available() ? MAP : INVENTORY;
 	}
 
+	/**
+	 * Mettle's first-join background picker, hosted on the Classes page. It is not a page the player chose, so it is not
+	 * remembered: the first R-Shift after it still opens on the first page (the Map with VOID Atlas). A page the player
+	 * picks from the pages island while it is up is remembered as usual.
+	 */
+	public static HubInventoryScreen picker(Player player) {
+		String before = lastPage;
+		HubInventoryScreen screen = new HubInventoryScreen(player, "classes");
+		lastPage = before;
+		return screen;
+	}
+
+	/** Whether a page is remembered for R-Shift (tests). */
+	public static boolean remembersPage() {
+		return lastPage != null;
+	}
+
 	/** Forgets the last page (a new world, or tests). */
 	public static void resetLastPage() {
 		lastPage = null;

@@ -78,6 +78,9 @@ public final class MettleTest {
 		this.context.waitTicks(10);
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
 		this.context.waitTicks(5);
+		// The picker is not a page the player chose: the first R-Shift still opens on the first page (the Map with Atlas).
+		this.expect(!this.context.computeOnClient(mc -> HubInventoryScreen.remembersPage()),
+			"the first-join picker is not remembered as the last page (R-Shift would open on " + this.context.computeOnClient(mc -> HubInventoryScreen.rShiftPage()) + ")");
 
 		// Particles hidden: the player's own effect swirls drift in front of the camera as big flat-tinted squares (Speed's
 		// cyan), which the screenshots' outside-the-window scan would rightly flag as not-the-world.
