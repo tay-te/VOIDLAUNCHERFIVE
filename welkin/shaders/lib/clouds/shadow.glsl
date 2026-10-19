@@ -37,6 +37,9 @@ float wcShadowField(vec2 q, int k, int lv, CloudEnv e) {
 
 // How far the shadow's edge spreads into a cell from each of its open sides, in blocks.
 #define WC_SHADOW_SOFT 5.0
+// skies: the field over which a deck's shadow eases in, from the cloud's thin rim (0.5 at the outline) inward
+#define WS_SHADOW_LO 0.38
+#define WS_SHADOW_HI 0.68
 // The sun's share under one, two and three decks.
 // (round 2: a little lighter, so one cloud passing over a view dims it, not flattens it)
 // (the balance step, 2026-10-13: deeper again, 0.62 / 0.52 / 0.45, so the clouds' shadows lie on the middle and far land as
@@ -57,10 +60,13 @@ float wcShadowCover(vec2 q, int k, float mid, CloudEnv e) {
 	int lv = wcLevel(length(q));
 	// (review round 2) past the first rings a deck's shadow follows its smooth field, not its cells: the far cells are
 	// 48 to 1536 blocks wide and their shadows lay on the far land and sea as stepped, jagged dark bands (far0, storm0)
-	float smoothK = k <= 1 ? smoothstep(1.4 * WC_RING0, 2.6 * WC_RING0, length(q)) : 0.0;
+	// skies (welkin-skies, 2026-10-18): near too. The cells' own shadows, squares with a few blocks of soft edge, lay
+	// on the land as stepped tiles; the smooth field's shadow is a soft patch with a broad penumbra, drifting with
+	// its cloud (one bilinear fetch, cheaper than the cell and its edges)
+	float smoothK = k <= 1 ? 1.0 : 0.0;
 	float soft = 0.0;
 	if (smoothK > 0.0) {
-		soft = smoothstep(0.4, 0.62, wcShadowField(q, k, lv, e));
+		soft = smoothstep(WS_SHADOW_LO, WS_SHADOW_HI, wcShadowField(q, k, lv, e));
 		if (smoothK >= 1.0) {
 			return soft;
 		}

@@ -53,6 +53,17 @@
 // How much brighter the moon lights a cloud than the land (the clouds catch it across their whole body).
 #define WC_MOON_GAIN 1.2
 
+// skies (welkin-skies): the painterly ramp's levels (wcPaint)
+#define WS_LIT_LO 0.5
+#define WS_LIT_HI 1.0
+#define WS_BELLY 0.62
+#define WS_LIT 1.5
+#define WS_LIT_WARM 1.15
+#define WS_PAINT 1.0
+#define WS_BELLY_RIM 0.55
+#define WS_UNDER 0.9
+#define WS_RIM_W 0.9
+
 float wcLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
@@ -134,6 +145,7 @@ struct CloudBody {
 	bool field;    // the field may be read along the light
 	float bill;    // (review round 2) the billows over the body: -0.5 a hollow .. 0.5 a swell, smooth (wcBillow)
 	float relief;  // (review round 2) how the billows turn to the sun: 1 a swell's sunward flank .. -1 its far side
+	float rim;     // skies: how near the cloud's own voxel outline: 1 at an open side of the cell .. 0 a few blocks in
 };
 
 // (review round 2) Smooth value noise with its lattice every `w` blocks at camera-relative point q, on the clouds'
@@ -186,6 +198,20 @@ CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField) {
 	b.top = iv.y;
 	b.bill = 0.0;
 	b.relief = 0.0;
+	// skies (welkin-skies): the rim, from the finished map's edge bits (no neighbour read): the distance to the nearest
+	// open side of the hit's cell, over about two thirds of a cell, so a belly lightens toward the cloud's crisp outline
+	// in a soft gradient that follows it (the smooth field's contours drew grey ovals across a belly instead)
+	b.rim = 0.0;
+	{
+		int edges = (b.k >= 0 ? (tx.z >> (4 * b.k)) : tx.w) & 15;
+		if (edges != 0) {
+			int s = WC_CELL << h.level;
+			vec2 local = clamp(b.p.xz - wcCellCorner(h.cell, s, e), vec2(0.0), vec2(float(s)));
+			vec4 dist = vec4(local.x, float(s) - local.x, local.y, float(s) - local.y);
+			dist = mix(vec4(1e4), dist, vec4(ivec4(edges, edges >> 1, edges >> 2, edges >> 3) & 1));
+			b.rim = 1.0 - smoothstep(0.0, WS_RIM_W * float(s), min(min(dist.x, dist.y), min(dist.z, dist.w)));
+		}
+	}
 #ifdef WC_FIELD
 	if (useField && (b.k == 0 || b.k == 1)) {
 		vec2 f = wcFieldSmooth(b.p.xz - h.n.xz * 0.05, e);
@@ -341,6 +367,52 @@ vec3 wcCloudSun(CloudEnv e) {
 	return hue * strength * (1.0 + 0.2 * wcDuskAmount(e.sun.y) * (1.0 - wcClosed()));
 }
 
+// ------------------------------------------------------------------------------------------------- skies: the paint
+// skies (welkin-skies, 2026-10-18): the painterly ramp. The light above (wcBodyLight and the sky's) gives every point of
+// a cloud its form: how much of the sun reaches it, against a sunlit top. Here that form is laid in with two colours,
+// as a painter lays in a cloud: a heavy belly colour (a warm-neutral slate by day, deeper in rain and storm, dusky at
+// the golden hour) and a lit colour in the sun's own light (cream at noon, gold and ember as it sinks), blended by a
+// soft S over the form, so the sunlit tops and flanks glow, the thin rims stay light and the thick bellies hang dark
+// and heavy, with soft gradients between. Night keeps the moonlit light below.
+vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, CloudEnv e) {
+	// (the night's step is well up by sunset: the dusk keeps the paint)
+	float k = 1.0 - skyNightStep() * (1.0 - wcDuskAmount(e.sun.y));
+	if (k <= 0.0) {
+		return c;
+	}
+	vec3 amb = skyAmbientLight();
+	float yTop = max(wcLuma(wcAlbedo(0) * (amb * 0.9 + sunC * 1.25)), 1e-4);
+	float L = wcLuma(c) / yTop;
+	float closed = wcClosed();
+	float dusk = wcDuskAmount(e.sun.y);
+	float golden = smoothstep(0.3, 0.9, skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r) * (1.0 - dusk);
+	float warm = max(dusk, golden) * (1.0 - closed);
+	// the lit share: a soft S over the form on the tops and sides; a belly by its thickness alone, light at its thin rim
+	// and heavy toward its heart in one broad gradient (its form from the light's path stepped into blotches there)
+	float sw = wcSunward(rd, e);
+	float lit = n.y < -0.5 ? WS_BELLY_RIM * b.rim * b.rim * (3.0 - 2.0 * b.rim)
+		: smoothstep(n.y > 0.5 ? WS_LIT_LO : WS_LIT_LO - 0.12, WS_LIT_HI, L);
+	// round sunset the low sun lights the decks from below: the bellies toward it glow, their thin parts most
+	float under = dusk * (1.0 - closed) * mix(0.55, 1.0, sw * sw) * mix(0.35, 1.0, b.rim) * (n.y < 0.5 ? 1.0 : 0.4);
+	lit = max(lit, WS_UNDER * under);
+	vec3 sunHue = sunC / max(wcLuma(sunC), 1e-4);
+	// (gold through the golden hour, ember toward the sun at sunset, a dusky rose away from it)
+	vec3 goldHue = mix(mix(vec3(1.0, 0.78, 0.48), sunHue, 0.25), mix(vec3(0.92, 0.62, 0.62), vec3(1.0, 0.56, 0.30), sw), dusk);
+	vec3 litHue = mix(mix(vec3(1.0), sunHue, 0.45), goldHue, warm);
+	litHue /= max(wcLuma(litHue), 1e-4);
+	vec3 skyHue = skyZenith() / max(wcLuma(skyZenith()), 1e-4);
+	vec3 shadeHue = mix(vec3(1.0, 0.98, 0.96), skyHue, 0.16);
+	shadeHue = mix(shadeHue, vec3(0.80, 0.80, 1.0), warm);
+	shadeHue /= max(wcLuma(shadeHue), 1e-4);
+	float heavy = (tone == 2 ? 0.32 : (tone == 1 ? 0.46 : WS_BELLY)) * mix(1.08, 0.86, sqrt(b.depth));
+	// (painted against the sky behind the cloud, not the light's own scale: the tone curve after this pass rolls a
+	// noon top's light and its belly's into one white, so a belly is set by how much darker than its sky it hangs)
+	float ySky = wcLuma(wcDome(rd, e));
+	// (lower in the warm hours, so the gold is not rolled off to white by the tone curve's shoulder)
+	vec3 paint = ySky * mix(shadeHue * heavy, litHue * mix(WS_LIT, WS_LIT_WARM, warm), lit);
+	return mix(c, paint, WS_PAINT * k);
+}
+
 // The cloud's colour at the body with face normal n, tone `tone`, seen along rd; `shadow` the share of the sun past
 // the decks above.
 vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv e) {
@@ -401,59 +473,12 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		light += glow * under * mix(0.2, 1.0, sw * sw) * mix(1.0, 0.55, b.depth) * (n.y < 0.5 ? 1.0 : 0.0);
 	}
 	vec3 c = wcAlbedo(tone) * light;
-	// (clouds2) by day a cloud's shaded parts sit under the bright sky behind them, as the reference packs' do: the belly
-	// and the lower sides turned from the sun a soft blue-grey, deepest under the thick heart, lightest at the thin rim,
-	// so each cloud reads as a lit volume over its own shade (they had come out as bright as the sky, a white smear)
-	float dayK = wcDay(e);
-	if (dayK > 0.0) {
-		float away = n.y < -0.5 ? 1.0 : (n.y > 0.5 ? 0.0 : lower * (0.55 - 0.45 * dot(n.xz, e.sun.xz) / max(length(e.sun.xz), 1e-3)));
-		float shade = dayK * away * mix(0.3, 1.0, b.depth);
-		vec3 cool = skyZenith() / max(wcLuma(skyZenith()), 1e-4);
-		c = mix(c, c * mix(vec3(1.0), clamp(cool, 0.6, 1.6), 0.25) * 0.84, shade);
-	}
+	// skies (welkin-skies): the form painted (wcPaint), in place of the day's blue-grey shade
+	c = wcPaint(c, b, n, tone, rd, sunC, e);
 
-	// (review round 1) round sunrise and sunset a cloud is never darker than the sky behind it: the light scattered many
-	// times inside a deck comes from the whole bright low sky, which the luminous sky made brighter than the bellies'
-	// ambient term, so the dusk and dawn decks stood as brown and charcoal slabs over a glowing sky. The floor is the
-	// sky behind the cloud in rose and peach (peach toward the sun, rose-lilac away from it), a little over it, most on
-	// the thin parts and the tops, so the forms still read; the lit tops and the silver lining go on over it.
-	// (and through the golden hours, more gently: a morning or late-afternoon cloud's belly takes the warm low sky's
-	// light rather than a grey shade under it)
-	// (only once the hour is well golden: the floor costs a look at the sky, which a mid-afternoon need not pay)
-	float goldenK = smoothstep(0.3, 0.9, skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r) * (1.0 - dusk);
-	float glowK = max(dusk, 0.75 * goldenK) * (1.0 - closed) * (1.0 - 0.7 * smoothstep(0.2, 0.8, rainStrength));
-	if (glowK > 0.0) {
-		float sw = wcSunward(rd, e);
-		// (the dome's horizon and zenith under the luminous sky: the sky behind, near enough for a floor and a third of
-		// skyDomeOnly's table reads)
-		vec3 behind = skyLuminous(wcDome(rd, e), rd, skyLumFrame(e.sun), 1.0);
-		// (rose away from the sun, peach toward it; their own colour, the clouds glow in the low sun's light)
-		vec3 hueF = mix(vec3(0.97, 0.72, 0.70), vec3(1.0, 0.70, 0.50), sw);
-		// (in the golden hours with the sun still high, a warm cream: the light of a bright low sky, not a sunset's)
-		hueF = mix(hueF, mix(vec3(0.96, 0.90, 0.88), vec3(1.0, 0.88, 0.74), sw), goldenK);
-		hueF /= wcLuma(hueF);
-		// (thin rims and ragged edges brightest, the thick heart of a belly a soft shade under them: the forms read)
-		// (review round 2: brighter than the sky behind by more, the bellies most: a sunset's clouds glow pink and peach
-		// over a lilac sky, away from the sun too (the low sun lights them from the side), as both reference packs' do;
-		// and their billows' relief shows)
-		// (clouds2: lower under the heart of a belly, a little over the sky there, and highest on the thin rims, the
-		// sides' brows and the tops: every face had been lifted to half again the sky's light, and in the tone curve's
-		// shoulder a whole sunset deck came out one flat cream; now the bellies keep their form under lit rims)
-		float lift = (n.y > 0.5 ? 1.6 : (n.y < -0.5 ? 1.22 + 0.25 * dusk : mix(1.1, 1.5, b.hIn))) * (n.y > 0.5 ? mix(1.0, 1.15, sw * sw) : mix(1.0, 0.8, sw * sw * sw * sw))
-			* mix(1.3, mix(0.84, 0.95, dusk), b.depth * mix(0.6, 1.0, lower)) * mix(1.0, 0.82, goldenK) * (1.0 - 0.15 * b.bill) * (1.0 + 0.35 * clamp(b.relief, -0.3, 1.0))
-			* (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
-		// (clouds2: the flanks and bellies seen toward the low sun a little under the glow behind them, as a backlit cloud
-		// is, so its silver rims show: lifted over that glow, a sunset deck around the sun came out one washed cream)
-		// (the shortfall is added in the floor's own warm light, not taken channel by channel: a per-channel max of a
-		// cool grey belly and a cream floor came out a mauve-brown mottle)
-		float fy = wcLuma(behind) * lift;
-		c += hueF * (max(fy - wcLuma(c), 0.0) * glowK);
-		// (clouds2: the shaded faces take the floor's rose and peach at their own brightness: a belly turned from the low
-		// sun had come out a muddy brown, the low sun's orange at a fraction of its light)
-		float shadeF = n.y < -0.5 ? 1.0 : (n.y > 0.5 ? 0.0 : 0.5 * lower);
-		vec3 shadeHue = mix(vec3(0.88, 0.76, 0.88), vec3(0.97, 0.74, 0.72), sw);
-		c = mix(c, shadeHue * (wcLuma(c) / wcLuma(shadeHue)), 0.7 * shadeF * dusk * (1.0 - closed) * (1.0 - 0.5 * sw));
-	}
+	// (skies (welkin-skies): the dusk and golden-hour floor that lifted every face over the glowing sky behind it, in rose
+	// and peach, is gone: it drew a sunset deck as one pastel candy-pink sheet. wcPaint sets the warm hours now: gold
+	// and ember lit faces over dusky, heavy bellies, darker than the sky toward the sun)
 
 	// at night a cloud is never a black cut-out in the stars: its body takes at least the night dome's own colour
 	// behind it, a top a little over it, a base a little under
@@ -478,6 +503,8 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	}
 	// the silver lining past the shoulder, less of it under a closed cover (it has no sun to show)
 	// (review round 2: at most 0.55 past the shoulder: the rim glows and blooms without a hard white line)
+	// (skies: on a belly only along its rim, or its thin parts glowed all over round the thick heart's grey oval)
+	glint *= n.y < -0.5 ? b.rim : 1.0;
 	return wcShoulder(c) + min(wcAlbedo(tone) * glint * (1.0 - 0.7 * closed), vec3(0.55));
 }
 
@@ -547,6 +574,7 @@ CloudBody wcBandBody(CloudHit h, vec3 rd, float y, CloudEnv e) {
 	b.field = false;
 	b.bill = 0.0;
 	b.relief = 0.0;
+	b.rim = 0.0;
 	return b;
 }
 
