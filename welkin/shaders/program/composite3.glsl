@@ -179,12 +179,12 @@ flat in vec3 beamLight;
 #define BEAM_STEPS 18 // (review round 1: 18, was 24, the decay per step matched; final gathers the noise away)
 #define BEAM_REACH 1.0 // (look: 1.0, was 0.8)
 #define BEAM_DECAY 0.940
-#define BEAM_GLOW 0.20 // (look: 0.20, was 0.18)
+#define BEAM_GLOW 0.28 // (look2: 0.28, wider) (look: 0.20, was 0.18)
 // how strong the beams are (of the sun-side horizon's light), and on the sky itself (the dome already glows there)
-#define BEAM_GAIN 2.0 // (look: 2.0, was 0.9; BEAM_FLAT takes back most of it where nothing breaks the glow)
+#define BEAM_GAIN 3.4 // (look2: 3.4) (look: 2.0, was 0.9; BEAM_FLAT takes back most of it where nothing breaks the glow)
 #define BEAM_SKY 0.2 // (look: 0.2, was 0.12)
 // (look) how much of an unbroken glow is taken off: the beams are what the occluders break up, not a veil round the sun
-#define BEAM_FLAT 0.65
+#define BEAM_FLAT 0.5 // (look2: 0.5, was 0.65: more of the warm glow kept round a low sun)
 
 // Whether the open sky shows at screen point uv (1), or land, the far land or a cloud stands there (0).
 float beamOpen(vec2 uv) {

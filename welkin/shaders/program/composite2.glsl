@@ -64,7 +64,7 @@ void main() {
 #include "/lib/haze/haze.glsl"
 #include "/lib/air.glsl"
 // (look2) the day air's body: the veil over the first few hundred blocks
-#define AIR_BODY 0.45
+#define AIR_BODY 0.50
 // ---- atmos (welkin-atmos): the luminous sky's air and the volumetric haze (lib/sky/luminous.glsl, lib/haze/volume.glsl)
 // (the luminous sky first: the shafts take its frame)
 #include "/lib/sky/luminous.glsl"
@@ -342,6 +342,11 @@ void main() {
 			float wBf = wB * (1.0 - smoothstep(0.8, 1.0, h.front.a));
 			h.back.rgb = mix(h.back.rgb, h.back.rgb * body, wBb);
 			h.front.rgb = mix(h.front.rgb, h.front.rgb * body, wBf);
+			// (look2) the country haze's murk (the mesa vista's milky sheet: HAZE_STRENGTH 0 takes it, the valley mist,
+			// the far mist and the volume do not) a third thinner by day over the middle distance, so the land reads
+			// through it in layers; the world's far edge still closes into the sky
+			h.back.a *= 1.0 - 0.33 * wBb;
+			h.front.a *= 1.0 - 0.33 * wBf;
 		}
 		// M5 underground (P6): the surface air hands over to the cave air at cave mouths
 		h.back.a *= 1.0 - ug.amount;
@@ -396,9 +401,9 @@ void main() {
 		dawnAmt = float(MORNING_MIST) * 0.1 * dawnMistHour() * (1.0 - ug.amount);
 		if (dawnAmt > 0.0 && !cloud && !finished) {
 			float camY = float(cameraPositionInt.y) + cameraPositionFract.y;
-			float T = s.sky ? 1200.0 : length(eyePos);
+			float T = s.sky ? 700.0 : length(eyePos);
 			float ground = s.sky ? min(camY - 2.0, HAZE_SEA_LEVEL + 8.0) : camY + eyePos.y;
-			float weight = 0.45 * dawnMistLow(ground);
+			float weight = 0.5 * dawnMistLow(ground);
 #if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
 			if (mistCam.w > 0.5) {
 				// Gloam's near tiles: the valleys, the hollows and the water (the valley mist's pool and potential, with
@@ -417,7 +422,7 @@ void main() {
 #endif
 			float cover = dawnMistCover(normalize(eyePos), T, camY, ground, dawnAmt, weight);
 			// on the sky the bank sits low on the horizon
-			cover *= s.sky ? 1.0 - smoothstep(-0.01, 0.06, normalize(eyePos).y) : 1.0;
+			cover *= s.sky ? 0.55 * (1.0 - smoothstep(-0.02, 0.035, normalize(eyePos).y)) : 1.0;
 			if (cover > 0.0) {
 				float fsunM = 1.0;
 #ifdef HV_READ
@@ -464,9 +469,10 @@ void main() {
 			// the golden hours (their own warm air carries them), none at night or under a cave mouth
 			float dB = length(eyePos);
 			float wN = AIR_BODY * lum.day * lum.up * mix(1.0, 0.45, lum.warm) * (1.0 - ug.amount)
-				* (1.0 - exp(-max(dB - 20.0, 0.0) / 280.0));
+				* (1.0 - exp(-max(dB - 16.0, 0.0) / 220.0));
 			float aY = dot(h.air, vec3(0.2126, 0.7152, 0.0722));
-			vec3 veil = mix(vec3(aY), h.air, 0.55) * vec3(0.94, 0.97, 1.03) * 0.86;
+			// (a soft warm grey: the air's own light, most of its colour out, a breath of warmth)
+			vec3 veil = mix(vec3(aY), h.air, 0.35) * vec3(1.03, 1.0, 0.95) * 0.80;
 			color.rgb = mix(color.rgb, veil, wN);
 		}
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4

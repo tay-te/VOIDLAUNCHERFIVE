@@ -14,14 +14,14 @@
 #ifndef WELKIN_DAWN_MIST
 #define WELKIN_DAWN_MIST
 
-#define DM_H 9.0
-#define DM_LOW 24.0
+#define DM_H 11.0
+#define DM_LOW 30.0
 // optical depth per block at the ground's foot on low ground, at MORNING_MIST 10
-#define DM_DENS 0.08
+#define DM_DENS 0.10
 // the first blocks from the eye stay clear
 #define DM_NEAR 12.0
 // the most the mist covers (the land reads through)
-#define DM_MAX 0.9
+#define DM_MAX 0.78
 
 // 1 from first light to about 06:45, three fifths of it at 08:00, nothing by about 09:30 (sunAngle runs 0.012 at 05:30, 0.055 at
 // 06:30, 0.117 at 08:00)
@@ -53,13 +53,13 @@ vec3 dawnMistColour(vec3 air, vec3 dir, vec3 sunW, float fsun, SkyLum f) {
 	// pearly and luminous: the air's hue, two fifths of its saturation out, clearly brighter than the air (mist scatters
 	// the whole sky's light: it glows over the land instead of greying it)
 	vec3 c = mix(vec3(y), air, 0.6) * vec3(0.97, 0.99, 1.04) * 1.04;
-	c = mix(c, vec3(0.86, 0.88, 0.92), 0.25) * max(1.0, 0.72 / max(y, 1e-3));
+	c = mix(c, vec3(0.80, 0.84, 0.90), 0.25) * max(1.0, 0.58 / max(y, 1e-3));
 	y = dot(c, vec3(0.2126, 0.7152, 0.0722));
 	// toward the sun a warm gold glow
 	float mu = clamp(dot(dir, sunW), 0.0, 1.0);
 	vec3 gold = pow(max(f.gold, 0.0), vec3(1.0 / 2.2));
 	gold /= max(dot(gold, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
-	c = mix(c, gold * y * 1.15, 0.55 * mu * mu * mu * f.up);
+	c = mix(c, gold * y * 1.12, 0.75 * mu * mu * f.up);
 	// in shadow a cool, dimmer grey-blue
 	c = mix(c * vec3(0.80, 0.86, 0.96) * 0.78, c, clamp(fsun, 0.0, 1.0));
 	return min(c, vec3(0.97));

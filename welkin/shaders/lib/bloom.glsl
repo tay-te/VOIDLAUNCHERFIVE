@@ -37,7 +37,7 @@
 // the open sky's share of the source: a bright sky is a broad source, and wholly it washed the land under a grey-gold
 // veil whenever the sun stood in the view; the sun and its glow still bloom
 // (look2: 0.32, was 0.2: the golden-hour sky round the sun glows)
-#define BLOOM_SKY 0.32
+#define BLOOM_SKY 0.45
 // the clouds' share of the source (the merge of phase 2, with welkin-clouds' lit clouds): a sunlit deck sits just under
 // white over half the view, and wholly it veiled a peak over the cloud sea in milk; a cloud's body gives this share, a
 // rim past white (the silver lining, added past the clouds' shoulder) its whole light

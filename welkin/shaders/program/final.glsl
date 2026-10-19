@@ -163,7 +163,7 @@ void main() {
 		// (look, welkin-look: laid on as a screen, so the beams stream bright through the dark lanes between trunks and
 		// over shaded land, and add little over what is already bright: open water and sky toward the sun take no veil;
 		// was c += b * 0.25)
-		c += b * 0.25 * (1.0 - clamp(c, 0.0, 1.0));
+		c += b * 0.35 * (1.0 - clamp(c, 0.0, 1.0)); // (look2: 0.35, was 0.25)
 	}
 #endif
 #ifdef BLOOM
