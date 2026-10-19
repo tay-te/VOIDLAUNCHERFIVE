@@ -47,17 +47,14 @@ void main() {
 		float on = rayOnScreen(raySun.xy, viewWidth / viewHeight);
 		if (on > 0.0) {
 #if SHAFT_DEBUG == 6
-			float frac = 0.0; // the source itself
+			r = textureLod(RAY_SRC, texcoord, 0.0).rgb; // the source itself
 #elif RAY_PASS == 1
-			// (each pass covers RAY_OVERLAP times the next pass's step: a texel nearer the sun has a shorter line, and
-			// without the overlap the next pass's taps would land on gaps between its copies, as steps)
-			float frac = RAY_REACH * RAY_OVERLAP * RAY_OVERLAP / float(RAY_TAPS * RAY_TAPS * RAY_TAPS);
+			r = rayBlurLog(RAY_SRC, texcoord, raySun.xy, RAY_LOG_STEP1);
 #elif RAY_PASS == 2
-			float frac = RAY_REACH * RAY_OVERLAP / float(RAY_TAPS * RAY_TAPS);
+			r = rayBlurLog(RAY_SRC, texcoord, raySun.xy, RAY_LOG_STEP2);
 #else
-			float frac = RAY_REACH / float(RAY_TAPS);
+			r = rayBlurLog(RAY_SRC, texcoord, raySun.xy, RAY_LOG_STEP3);
 #endif
-			r = rayBlur(RAY_SRC, texcoord, raySun.xy, frac);
 #if RAY_PASS == 3
 			float far = length((raySun.xy - texcoord) * vec2(viewWidth / viewHeight, 1.0));
 			r *= rayFall(far) * on;

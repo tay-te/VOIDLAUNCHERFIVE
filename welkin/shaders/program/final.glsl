@@ -18,6 +18,14 @@ out vec2 texcoord;
 flat out vec4 gradeHour; // warm, day, clear, morning
 flat out float gradeOpen; // the eye's openness to the sky
 flat out float gradeDusk; // (look3) the evening's last degrees, clear sky: 0..1
+#if defined SHAFT_BEAMS && defined WORLD_OVERWORLD
+#include "/lib/rays.glsl"
+#ifndef WU_gbufferProjection
+#define WU_gbufferProjection
+uniform mat4 gbufferProjection;
+#endif
+flat out vec3 finalRaySun; // (Look D2) the sun's place on the screen, for the shafts' structure
+#endif
 #ifdef WORLD_OVERWORLD
 #include "/lib/sky/luminous.glsl"
 #ifndef WU_sunPosition
@@ -52,6 +60,9 @@ void main() {
 	gradeDusk = 0.0;
 #endif
 	// ---- end look
+#if defined SHAFT_BEAMS && defined WORLD_OVERWORLD
+	finalRaySun = raySunScreen(gbufferProjection, sunPosition);
+#endif
 }
 
 #endif
@@ -96,6 +107,7 @@ uniform sampler2D colortex2;
 #define WU_colortex13
 uniform sampler2D colortex13;
 #endif
+flat in vec3 finalRaySun;
 #ifndef WU_depthtex0
 #define WU_depthtex0
 uniform sampler2D depthtex0;
@@ -197,6 +209,8 @@ void main() {
 		// by how much air lies in front (a floor near the eye, so the beams under a crown keep the near air they live
 		// in), a share over the open sky
 		vec3 rays = texture(colortex13, texcoord).rgb;
+		// (Look D2) only the structure: a large gap's solid fan is the glow the aureole and bloom already draw
+		rays = rayStructure(colortex13, texcoord, finalRaySun.xy, viewWidth / viewHeight, rays);
 		float dR = texelFetch(depthtex0, p, 0).r;
 		float air;
 		if (dR < 1.0) {
@@ -217,6 +231,9 @@ void main() {
 		sc += rays * (RAY_GAIN * air / expo);
 #if SHAFT_DEBUG == 5 || SHAFT_DEBUG == 6
 		outColor = vec4(toDisplay(clamp(rays * 4.0, 0.0, 1.0)), 1.0); // the shafts' blurred light, x4
+		return;
+#elif SHAFT_DEBUG == 7
+		outColor = vec4(clamp(rays * 0.25, 0.0, 1.0), 1.0); // (Look D2) the shafts' light, linear, a quarter: to measure
 		return;
 #endif
 	}
