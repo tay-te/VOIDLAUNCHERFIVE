@@ -91,19 +91,21 @@ public final class Inn {
 		return t;
 	}
 
-	/** A bed in the inn that no guest has and no family of the inn sleeps in, nearest the player first. */
+	/**
+	 * A bed in the inn that no other guest has. Every bed in an inn is a guest bed (nobody lives there: the sim houses folk
+	 * only in homes), so any bed not let tonight is free.
+	 */
 	static @Nullable BlockPos freeBed(ServerLevel level, Settlement s, PlotView inn, SocialLedger ledger, UUID player) {
-		List<Poi> beds = new ArrayList<>(ServiceSites.pois(s, inn, PoiType.BED));
-		int family = 0;
-		for (Resident r : s.residents()) {
-			if (r.home == inn.id()) {
-				family++;
-			}
-		}
-		// the inn's own family sleeps in its first beds
+		return freeBed(ServiceSites.pois(s, inn, PoiType.BED), ledger, player,
+			p -> !level.isLoaded(p) || level.getBlockState(p).getBlock() instanceof BedBlock);
+	}
+
+	/** The first of the inn's beds (in a fixed order) that still stands and no other guest has tonight. */
+	static @Nullable BlockPos freeBed(List<Poi> pois, SocialLedger ledger, UUID player, java.util.function.Predicate<BlockPos> standing) {
+		List<Poi> beds = new ArrayList<>(pois);
 		beds.sort((a, b) -> Long.compare(a.pos().asLong(), b.pos().asLong()));
-		for (int i = family; i < beds.size(); i++) {
-			BlockPos p = beds.get(i).pos();
+		for (Poi bed : beds) {
+			BlockPos p = bed.pos();
 			boolean taken = false;
 			for (SocialLedger.Rental r : ledger.beds) {
 				if (r.pos() == p.asLong() && !r.player().equals(player)) {
@@ -111,7 +113,7 @@ public final class Inn {
 					break;
 				}
 			}
-			if (!taken && (!level.isLoaded(p) || level.getBlockState(p).getBlock() instanceof BedBlock)) {
+			if (!taken && standing.test(p)) {
 				return p;
 			}
 		}

@@ -96,7 +96,7 @@ public final class Needs {
 		if (!built && info.category() != ArchetypeCategory.INFRASTRUCTURE) {
 			this.unbuilt++;
 		}
-		if (info.beds() > 0 && !built) {
+		if (info.homeBeds() > 0 && !built) {
 			this.plannedBeds += estimateBeds(info, spec);
 		}
 		int s = jobSlots(info, spec);

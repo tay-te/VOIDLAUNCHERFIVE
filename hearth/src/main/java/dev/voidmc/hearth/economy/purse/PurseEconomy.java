@@ -104,6 +104,7 @@ public final class PurseEconomy {
 				byPlot.put(shop.plot, shop);
 			}
 		}
+		EconomyConfig.Shops sc = EconomyModule.config().shops();
 		double due = 0;
 		long paid = 0;
 		for (Resident r : settlement.residents()) {
@@ -123,7 +124,8 @@ public final class PurseEconomy {
 				shop = byKeeper.get(r.id);
 			}
 			long whole = round(wage, settlement.id(), day, r.id.hashCode());
-			if (shop != null && shop.till >= whole) {
+			// a shop pays from its till only above its working capital (the coin it keeps to buy from players with)
+			if (shop != null && shop.till - whole >= Shops.floor(settlement, shop, sc)) {
 				shop.till -= whole;
 				Purses.add(r, whole);
 				paid += whole;

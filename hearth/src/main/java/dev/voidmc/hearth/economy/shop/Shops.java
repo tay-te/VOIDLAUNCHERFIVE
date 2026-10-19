@@ -234,10 +234,37 @@ public final class Shops {
 					payout.accept(shop, profit);
 				}
 			}
+			if (shop.open()) {
+				topUp(settlement, shop, cfg);
+			}
 		}
 		book.pruneSour(day);
 		settlement.markDirty();
 		return dues;
+	}
+
+	/**
+	 * The working capital an open shop keeps to buy from players with: {@code tillFloor}, scaled by the town's size (half
+	 * for a hamlet, up to twice for a town) and the shop's trade (a general store or a fence's back room half again more),
+	 * never above {@code workingTill}.
+	 */
+	public static long floor(Settlement settlement, Shop shop, EconomyConfig.Shops cfg) {
+		double town = Math.max(0.5, Math.min(2, Math.sqrt(settlement.population() / 16.0)));
+		double trade = shop.general() || shop.fence ? 1.5 : 1;
+		return Math.min(cfg.workingTill(), Math.round(cfg.tillFloor() * town * trade));
+	}
+
+	/**
+	 * Brings an open shop's till back up to its floor from the treasury (at most {@code floorDraw} of the treasury per shop
+	 * a day). Coin moves, none is made: the treasury lends its shops the coin to buy with, and gets it back as wholesale,
+	 * dues and returns.
+	 */
+	public static void topUp(Settlement settlement, Shop shop, EconomyConfig.Shops cfg) {
+		long want = floor(settlement, shop, cfg) - shop.till;
+		long draw = Math.min(want, (long) Math.floor(settlement.treasury() * cfg.floorDraw()));
+		if (draw > 0 && settlement.withdraw(draw)) {
+			shop.till += draw;
+		}
 	}
 
 	/** Fills the shelves from what the town can spare, paying wholesale from the till. */
