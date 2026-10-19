@@ -98,12 +98,17 @@ public final class LightCheck {
 
 	/** Adds a line per kind of unmet need to {@code out}, and one for glowing Expanse blocks on the surface. */
 	static void light(BlueprintImpl bp, BlueprintChecks.World w, List<String> out) {
+		light(bp, w, null, out);
+	}
+
+	/** As {@link #light(BlueprintImpl, BlueprintChecks.World, List)}, with the evaluation already made (or null). */
+	static void light(BlueprintImpl bp, BlueprintChecks.World w, Result made, List<String> out) {
 		surfaceGlow(bp, w, out);
 		if (dev.voidmc.hearth.build.age.Decay.unlit(bp.spec())) {
 			// an abandoned building (decay at or past Decay.ABANDONED) is nobody's home: its lamps were taken, it may be dark
 			return;
 		}
-		Result r = evaluate(bp, w);
+		Result r = made != null ? made : evaluate(bp, w);
 		if (r.unmet().isEmpty()) {
 			return;
 		}

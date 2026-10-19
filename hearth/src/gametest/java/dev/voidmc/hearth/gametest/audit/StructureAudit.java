@@ -41,10 +41,12 @@ import net.minecraft.server.Bootstrap;
  * <pre>
  *   ./gradlew structureAudit -Pmode=metrics -Pout=build/audit
  *   ./gradlew structureAudit -Pmode=sheets -Parchetype=house/cottage,inn
- *   args: mode(metrics|sheets|all)  archetypes(all | ids, paths or names)  seeds  outDir  threads
+ *   ./gradlew structureAudit -Pmode=gate -Parchetype=house/       (metrics, then PASS/FAIL per archetype; exit 1 on a FAIL)
+ *   args: mode(metrics|sheets|all|gate)  archetypes(all | ids, paths or names)  seeds  outDir  threads
  * </pre>
  * Output: {@code metrics.csv} (one row per case), {@code archetypes.csv} (scores per archetype), {@code worst.md}
- * (worst offenders per metric) and {@code INDEX.md}; sheets in {@code sheets/<category>/<name>.webp}.
+ * (worst offenders per metric) and {@code INDEX.md}; sheets in {@code sheets/<category>/<name>.webp}; in mode {@code gate}
+ * also {@code gate.md} and {@code gate.csv}, the verdict per archetype against BUILDING_GUIDE.md §8 ({@link GateTable}).
  * The walk is the invariant checks' own (BlueprintChecks / Spaces): a 1 x 2 mover that steps up a block (stairs, slabs,
  * a jump onto a full block with three clear above), drops at most three, climbs ladders and passes doors: a player's box.
  */
@@ -79,12 +81,14 @@ public final class StructureAudit {
 		"doors_facing_drop", "unreached_doors", "entrances_unreached", "flights", "bad_flights", "ladders", "dead_ladders", "beds_no_free_side",
 		"workstations", "workstations_unusable", "chest_lids_blocked", "light_min_room", "light_mean_room", "dark_room_cells", "light_unmet",
 		"roof_hole_cells", "fall_edge_cells", "lava", "water_roofed",
+		// the gate's play rules (PlayChecks): the strict walk, pieces standing on nothing, roof gaps walkable or not, the rules broken
+		"strict_reach", "floating_pieces", "roof_gap_cells", "gate",
 		// detail
 		"relief_share", "flat_patch_max", "facade_blocks", "dominant_share", "windows_per_side", "blind_sides", "overhang_mean", "roof_facings",
 		"roof_corners", "roof_levels", "roof_complexity", "height", "height_ratio", "mirror_sym", "repeat_cols", "furniture_per_cell",
 		"empty_room_ratio", "culture_twin", "twin_culture", "culture_likes", "shape_hash",
 		// scores
-		"play_score", "detail_score", "where", "check_text"};
+		"play_score", "detail_score", "where", "check_text", "gate_text"};
 
 	private StructureAudit() {
 	}
@@ -126,9 +130,13 @@ public final class StructureAudit {
 		System.out.println("structure audit: " + entries.size() + " archetypes, mode " + mode + ", " + threads + " threads, out " + out.toAbsolutePath());
 
 		ExecutorService pool = Executors.newFixedThreadPool(threads);
+		boolean gatePassed = true;
 		try {
-			if (mode.equals("metrics") || mode.equals("all")) {
-				metrics(service, entries, seeds, out, pool);
+			if (mode.equals("metrics") || mode.equals("all") || mode.equals("gate")) {
+				List<Map<String, Object>> rows = metrics(service, entries, seeds, out, pool);
+				if (mode.equals("gate")) {
+					gatePassed = GateTable.write(rows, entries, out);
+				}
 			}
 			if (mode.equals("sheets") || mode.equals("all")) {
 				AuditSheets.run(service, entries, out.resolve("sheets"), pool);
@@ -138,6 +146,11 @@ public final class StructureAudit {
 		}
 		Index.write(entries, out);
 		System.out.println("wrote " + out.resolve("INDEX.md").toAbsolutePath());
+		if (!gatePassed) {
+			// a hard column over 0 somewhere: the gate fails the build step that ran it
+			System.exit(1);
+		}
+		System.exit(0);
 	}
 
 	private static boolean matches(String arg, ArchetypeInfo info) {
@@ -175,7 +188,8 @@ public final class StructureAudit {
 
 	// =========================================================================================== metrics
 
-	private static void metrics(BlueprintServiceImpl service, List<Entry> entries, int seeds, Path out, ExecutorService pool) throws Exception {
+	private static List<Map<String, Object>> metrics(BlueprintServiceImpl service, List<Entry> entries, int seeds, Path out, ExecutorService pool)
+		throws Exception {
 		List<Map<String, Object>> all = new ArrayList<>();
 		long t0 = System.currentTimeMillis();
 		try (PrintWriter csv = new PrintWriter(Files.newBufferedWriter(out.resolve("metrics.csv"), StandardCharsets.UTF_8))) {
@@ -214,6 +228,7 @@ public final class StructureAudit {
 		Scores.write(all, entries, out);
 		System.out.printf(Locale.ROOT, "audit metrics: %d cases in %.0f s -> %s%n", all.size(), (System.currentTimeMillis() - t0) / 1000.0,
 			out.resolve("metrics.csv").toAbsolutePath());
+		return all;
 	}
 
 	private static Map<String, Object> one(BlueprintServiceImpl service, Entry e, Culture c, Style style, String terrain, int index) {
@@ -227,8 +242,10 @@ public final class StructureAudit {
 		m.put("seed_index", index);
 		m.put("seed", seed(index));
 		try {
-			SyntheticTerrain probe = probe(terrain, c);
-			PlotSpec spec = BlueprintPreview.spec(e.info(), style, seed(index), index, probe, new CompoundTag());
+			// blueprintPreview's case; the dock set on its shore and the walkway between two house fronts (Demos)
+			Demos.Case cs = Demos.of(e.info(), style, seed(index), index, probe(terrain, c), terrain);
+			dev.voidmc.hearth.api.TerrainProbe probe = cs.probe();
+			PlotSpec spec = cs.spec();
 			m.put("facing", spec.facing().getSerializedName());
 			m.put("frontage", spec.frontage());
 			m.put("depth", spec.depth());
@@ -242,7 +259,15 @@ public final class StructureAudit {
 				m.put("_shape", Measure.shape(bp));
 			}
 		} catch (Throwable t) {
-			m.put("error", (t.getClass().getSimpleName() + ": " + t.getMessage()).replace('\n', ' '));
+			// where it broke: the first frames in Hearth's own code
+			StringBuilder at = new StringBuilder();
+			for (StackTraceElement el : t.getStackTrace()) {
+				if (el.getClassName().startsWith("dev.voidmc") && at.length() < 200) {
+					at.append(at.isEmpty() ? " at " : " < ").append(el.getClassName().substring(el.getClassName().lastIndexOf('.') + 1)).append(':')
+						.append(el.getLineNumber());
+				}
+			}
+			m.put("error", (t.getClass().getSimpleName() + ": " + t.getMessage() + at).replace('\n', ' '));
 		}
 		return m;
 	}

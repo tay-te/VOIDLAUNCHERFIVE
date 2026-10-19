@@ -1,0 +1,7 @@
+# Columns of the audit gate (structureAudit -Pmode=gate) excused for an archetype because its family page says the
+# finding is the point (BUILDING_GUIDE.md §8, "The audit gate"). One line per archetype: its path, the columns, why.
+# Keep it short: an excuse belongs here only when the page names the edge, the gap or the fluid.
+work/quarry fall_edge_cells          # the quarry faces are the working edge (AUDIT.md §5 S4)
+extract/quarry_pit fall_edge_cells   # the pit faces are the working edge (AUDIT.md §5 S4)
+infra/dock fall_edge_cells           # the quay edge (AUDIT.md §5 S4)
+defense/wall fall_edge_cells         # the town side of the wall walk (AUDIT.md §5 S4)

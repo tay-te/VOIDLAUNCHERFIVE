@@ -1,0 +1,30 @@
+# Known failures of the audit gate's play rules, work/* (AUDIT.md lane L3; BUILDING_GUIDE.md §8, "The audit gate").
+# One line per archetype: its path, the rules it still breaks, a comment (audit cases breaking it / cases measured).
+# Rules: walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole (build/check/PlayChecks.java).
+# When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
+# breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
+# by an archetype not listed for it fails the tests.
+work/alchemist_tower door-sides roof-hole                                # door-sides 12/84 (tests 113), roof-hole 30/84 (tests 112)
+work/apiary furnished-reached roof-hole                                  # furnished-reached 0/84 (tests 2), roof-hole 0/84 (tests 5)
+work/bakery walk door-sides roof-hole                                    # walk 0/84 (tests 2), door-sides 3/84 (tests 15), roof-hole 0/84 (tests 21)
+work/barn ladder-top                                                     # ladder-top 12/84 (tests 26)
+work/brewery walk door-sides furnished-reached floating-piece roof-hole  # walk 0/84 (tests 5), door-sides 8/84 (tests 38), furnished-reached 6/84 (tests 25), floating-piece 0/84 (tests 1), roof-hole 6/84 (tests 15)
+work/brick_kiln furnished-reached roof-hole                              # furnished-reached 0/84 (tests 45), roof-hole 0/84 (tests 3)
+work/builders_yard walk door-sides roof-hole                             # walk 2/84 (tests 11), door-sides 9/84 (tests 22), roof-hole 0/84 (tests 5)
+work/butcher walk door-sides furnished-reached roof-hole                 # walk 0/84 (tests 7), door-sides 0/84 (tests 139), furnished-reached 0/84 (tests 2), roof-hole 0/84 (tests 10)
+work/carpentry walk door-sides furnished-reached roof-hole               # walk 0/84 (tests 3), door-sides 30/84 (tests 250), furnished-reached 45/84 (tests 151), roof-hole 2/84 (tests 3)
+work/chandler walk door-sides furnished-reached roof-hole                # walk 0/84 (tests 5), door-sides 0/84 (tests 1), furnished-reached 6/84 (tests 15), roof-hole 6/84 (tests 29)
+work/charcoal_kiln furnished-reached                                     # furnished-reached 0/84 (tests 1)
+work/dye_works walk door-sides furnished-reached roof-hole               # walk 0/84 (tests 12), door-sides 0/84 (tests 11), furnished-reached 0/84 (tests 23), roof-hole 2/84 (tests 51)
+work/fishery walk door-sides furnished-reached roof-hole                 # walk 0/84 (tests 3), door-sides 3/84 (tests 22), furnished-reached 0/84 (tests 16), roof-hole 0/84 (tests 5)
+work/glassworks furnished-reached roof-hole                              # furnished-reached 2/84 (tests 27), roof-hole 15/84 (tests 65)
+work/hunters_lodge furnished-reached floating-piece roof-hole            # furnished-reached 0/84 (tests 9), floating-piece 0/84 (tests 1), roof-hole 0/84 (tests 27)
+work/logging_camp walk ladder-top furnished-reached roof-hole            # walk 0/84 (tests 6), ladder-top 0/84 (tests 5), furnished-reached 0/84 (tests 7), roof-hole 6/84 (tests 13)
+work/paper_mill walk                                                     # walk 0/84 (tests 43)
+work/salt_works walk furnished-reached roof-hole                         # walk 0/84 (tests 7), furnished-reached 6/84 (tests 4), roof-hole 6/84 (tests 26)
+work/shipyard furnished-reached roof-hole                                # furnished-reached 0/84 (tests 4), roof-hole 33/84 (tests 217)
+work/smelter roof-hole                                                   # roof-hole 12/84 (tests 163)
+work/tailor walk door-sides furnished-reached roof-hole                  # walk 0/84 (tests 2), door-sides 0/84 (tests 55), furnished-reached 0/84 (tests 19), roof-hole 0/84 (tests 7)
+work/tannery furnished-reached                                           # furnished-reached 6/84 (tests 14)
+work/watermill door-sides furnished-reached                              # door-sides 20/84 (tests 111), furnished-reached 20/84 (tests 102)
+work/windmill furnished-reached                                          # furnished-reached 3/84 (tests 6)

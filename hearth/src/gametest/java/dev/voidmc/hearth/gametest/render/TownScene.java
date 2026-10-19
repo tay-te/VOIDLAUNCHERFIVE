@@ -27,6 +27,16 @@ public final class TownScene {
 
 	public static Voxels build(Iterable<? extends PlotView> plots, BlueprintService service, TerrainProbe terrain, int x0, int z0, int x1, int z1,
 		Culture culture) {
+		return build(plots, service, terrain, x0, z0, x1, z1, culture, new Long2IntOpenHashMap());
+	}
+
+	/**
+	 * As {@link #build(Iterable, BlueprintService, TerrainProbe, int, int, int, int, Culture)}, filling {@code owner} with
+	 * who placed each position ({@link Voxels#key}; the plot's id + 1, absent for nature): what the floating-piece probe
+	 * of the composed town reads ({@link TownFloat}).
+	 */
+	public static Voxels build(Iterable<? extends PlotView> plots, BlueprintService service, TerrainProbe terrain, int x0, int z0, int x1, int z1,
+		Culture culture, Long2IntOpenHashMap owner) {
 		Voxels v = new Voxels();
 		for (int x = x0; x <= x1; x++) {
 			for (int z = z0; z <= z1; z++) {
@@ -55,7 +65,6 @@ public final class TownScene {
 		plots.forEach(sorted::add);
 		sorted.sort(Comparator.comparingInt(PlotView::id));
 		// who placed each position (0: nature)
-		Long2IntOpenHashMap owner = new Long2IntOpenHashMap();
 		for (PlotView p : sorted) {
 			if (p.state() == PlotState.PLANNED) {
 				continue;
@@ -110,7 +119,7 @@ public final class TownScene {
 
 	/** The ground cover a culture's land wears (as {@link PreviewScene}): grass on dirt, sand in the desert, red sand on the mesa. */
 	static BlockState ground(Culture c, int depth, boolean wet, int x, int z) {
-		int h = Math.floorMod(x * 31 + z * 17, 7);
+		int h = GroundNoise.patch(x, z, 7);
 		if (wet) {
 			return depth == 0 ? (h < 3 ? Blocks.SAND : h < 5 ? Blocks.GRAVEL : Blocks.DIRT).defaultBlockState() : Blocks.DIRT.defaultBlockState();
 		}
