@@ -15,6 +15,7 @@ import dev.voidmc.hearth.build.kit.Walls;
 import dev.voidmc.hearth.build.kit.homestead.Bohemia;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.style.Form;
+import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Role;
 import java.util.List;
@@ -48,8 +49,8 @@ public final class Craft {
 
 	/**
 	 * Roofs a hall in {@code form} with the ridge along {@code axis}, as steep as the culture likes its workshop roofs
-	 * (Bohemian gables three to two, five to four where the height will not take that) while the ridge stays under the
-	 * plot's height less {@code reserve}; otherwise exactly as {@link Hall#roof}.
+	 * (Bohemian and northern gables two to one, in clean courses, where the height takes it; else the culture's pitch)
+	 * while the ridge stays under the plot's height less {@code reserve}; otherwise exactly as {@link Hall#roof}.
 	 */
 	public static void roof(Draft d, Hall hall, RoofForm form, Direction.Axis axis, int reserve, Consumer<Roofs.Plan> extras) {
 		RoofForm base = form == RoofForm.CROSS_GABLE ? RoofForm.GABLE : form;
@@ -62,12 +63,12 @@ public final class Craft {
 		int limit = d.maxHeight() - 1 - reserve;
 		Roofs.Opts o = Roofs.Opts.of(d);
 		List<Double> pitches = new java.util.ArrayList<>();
-		if (steepRoofs(d) && (base == RoofForm.GABLE || base == RoofForm.GAMBREL)) {
-			for (double p : new double[]{1.5, 1.25}) {
-				if (p > o.pitch()) {
-					pitches.add(p);
-				}
-			}
+		// steep only in whole steps: two up for one across, every course a stair on a full block with one verge (the
+		// half steps of a 1.5 or 1.25 pitch laid the slope as a staircase of stairs and blocks that read as two roofs)
+		Culture c = d.style().culture();
+		boolean steep = Bohemia.is(d) || c == Culture.NORTHERN || c == Culture.ALPINE || c == Culture.TUNDRA;
+		if (steep && base == RoofForm.GABLE && 2.0 > o.pitch()) {
+			pitches.add(2.0);
 		}
 		for (double p = o.pitch(); p >= 0.5 - 1e-9; p -= 0.25) {
 			pitches.add(p);
@@ -75,10 +76,17 @@ public final class Craft {
 		Roofs.Opts chosen = null;
 		for (double p : pitches) {
 			Roofs.Opts t = o.withPitch(base == RoofForm.GAMBREL ? Math.min(p, 1.25) : p);
-			if (t.pitch() > 1.0 && (base == RoofForm.GABLE || base == RoofForm.GAMBREL)) {
+			if (t.pitch() > 1.0 && (base == RoofForm.GABLE || base == RoofForm.GAMBREL) && d.habits().walls().kind() != Habits.WallKind.LOG) {
 				// a steep gable ends flush with its wall: a block of verge on a steep slope is a wall of tiles in front of the
-				// gable, and the boarded or rendered triangle should show
+				// gable, and the boarded or rendered triangle should show (but a log wall's corners run a block past the wall,
+				// and a flush verge left them standing out beyond the roof like scaffold poles: there the verge stays)
 				t = t.withEaves(o.eaves(), 0);
+			}
+			// the eaves never hang lower than a man's head over the ground before the wall (a steep pitch with deep eaves
+			// on a low wall brought the eave down to the garden: the alpine apiary's front was shut off by it)
+			int eaveCap = Math.max(0, (int) Math.floor((plate - 1) / Math.max(1.0, t.pitch())));
+			if (t.eaves() > eaveCap) {
+				t = t.withEaves(eaveCap, t.gableOverhang());
 			}
 			if (Hall.ridgeY(d, tr[0], tr[1], tr[2], tr[3], plate, base, axis, t, hall.body.partyLeft, hall.body.partyRight) <= limit) {
 				chosen = t;

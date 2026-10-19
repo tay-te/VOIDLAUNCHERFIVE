@@ -12,6 +12,7 @@ import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Noise;
 import dev.voidmc.hearth.build.kit.Garden;
+import dev.voidmc.hearth.build.kit.craft.Rails;
 import dev.voidmc.hearth.build.kit.homestead.Barns;
 import dev.voidmc.hearth.build.kit.homestead.Crops;
 import dev.voidmc.hearth.build.kit.homestead.Spots;
@@ -87,14 +88,25 @@ public final class Barn implements Archetype {
 		Barns.sideWindows(d, hall);
 		Barns.backGable(d, hall);
 		Barns.interior(d, hall, doorW, false);
+		// a rail along the hayloft's edge over the threshing floor, where the loft is open to the aisle
+		Rails.guard(d, x0 + 1, z0 + 1, x1 - 1, z1 - 1, hall.loftY(), List.of());
 		if (hall.roof() == null) {
-			roofHay(d, hall);
+			int[] ladder = roofHay(d, hall);
 			dryByre(d, hall, z0, base);
+			if (ladder != null) {
+				// the parapet opens at the ladder's head, onto the wall's top and the deck
+				d.inStage(StageKind.WALLS, () -> {
+					d.set(hall.x0(), hall.deck(), ladder[1], Blocks.AIR.defaultBlockState());
+					d.set(hall.x0(), hall.deck() + 1, ladder[1], Blocks.AIR.defaultBlockState());
+				});
+			}
 		}
 		if (bw >= 11 && dp >= 13 && d.chance(0.6)) {
 			Barns.cupola(d, hall);
 		}
 		yard(d, hall, w, z0, base);
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, (hall.roof() != null ? hall.roof().ridgeY : hall.plateY() + 3) + 2));
 		// log walls peeled, the corner posts left in their bark
 		dev.voidmc.hearth.build.kit.homestead.Logs.peelAll(d, d.maxHeight() - 1);
@@ -118,13 +130,13 @@ public final class Barn implements Archetype {
 
 	/**
 	 * The flat roof of a byre in the dry country: hay stacked on the back half under a ramada (four poles, beams across
-	 * them, a lattice of slats laid over), and a ladder up the side wall to the roof, its rails standing over the
-	 * parapet.
+	 * them, a lattice of slats laid over), and a ladder up the side wall to the wall's head, where the parapet opens.
+	 * Returns the ladder's cell {x, z}, or null.
 	 */
-	private static void roofHay(Draft d, Barns.Hall h) {
+	private static int[] roofHay(Draft d, Barns.Hall h) {
 		int deck = h.deck();
 		if (deck == Integer.MIN_VALUE || deck + 3 >= d.maxHeight()) {
-			return;
+			return null;
 		}
 		var fence = d.mat(Role.FENCE).has(dev.voidmc.hearth.build.style.Form.FENCE) ? d.mat(Role.FENCE) : d.mat(Role.FRAME);
 		var beam = d.mat(Role.BEAM);
@@ -142,23 +154,31 @@ public final class Barn implements Archetype {
 				}
 			}
 		}
-		// the ladder up the left wall (clear of the beam ends), its rails over the parapet
+		// the ladder up the left wall (clear of the beam ends) to the wall's head, caged in posts above head height so
+		// nobody climbing it hangs over the drop, where the plot leaves a row outside it for the cage
 		int lx = h.x0() - 1;
-		if (lx < 0) {
-			return;
+		if (lx < 1) {
+			return null;
 		}
 		int lz = h.z0() + 2;
 		for (int y = h.y(); y <= deck + 1; y++) {
 			if (!d.isAbsent(lx, y, lz)) {
-				return;
+				return null;
 			}
 		}
 		try (var s = d.stage(StageKind.EXTERIOR)) {
-			for (int y = h.y(); y < deck + 1; y++) {
+			for (int y = h.y(); y < deck; y++) {
 				d.set(lx, y, lz, dev.voidmc.hearth.build.draft.States.facing(Blocks.LADDER, Dirs.LEFT));
 			}
-			d.set(lx, deck + 1, lz, fence.fence());
+			for (int y = h.y() + 2; y <= deck; y++) {
+				for (int[] c : new int[][]{{lx, lz - 1}, {lx, lz + 1}, {lx - 1, lz}}) {
+					if (d.isAbsent(c[0], y, c[1])) {
+						d.set(c[0], y, c[1], fence.fence());
+					}
+				}
+			}
 		}
+		return new int[]{lx, lz};
 	}
 
 	/**
@@ -250,7 +270,15 @@ public final class Barn implements Archetype {
 		boolean troughLeft = d.chance(0.5);
 		int tz = z0 - 1;
 		// water by the doors: a stone or wooden trough against the wall
-		int tx = troughLeft ? mid - 4 : mid + 3;
+		// a shade before the doors (the dry country's ramada) keeps the trough and the rick a cell off: stood beside it,
+		// either is a step onto its roof and from there onto the roof beams' ends over the yard
+		int gap = 0;
+		for (int x = mid - 2; x <= mid + 2; x++) {
+			if (!d.isAbsent(x, y + 2, tz)) {
+				gap = 1;
+			}
+		}
+		int tx = troughLeft ? mid - 4 - gap : mid + 3 + gap;
 		if (tx >= h.x0() + 1 && tx + 1 <= h.x1() - 1) {
 			try (var s = d.stage(StageKind.EXTERIOR)) {
 				for (int k = 0; k < 2; k++) {
@@ -260,9 +288,15 @@ public final class Barn implements Archetype {
 			}
 			Spots.at(d, PoiType.JOB_SITE, tx, y, tz - 1, Dirs.BACK, JobType.HERDER);
 		}
-		int ox = troughLeft ? mid + 3 : mid - 4;
+		int ox = troughLeft ? mid + 3 + gap : mid - 4 - gap;
 		if (ox >= 1 && ox + 1 <= w - 2 && z0 >= 3) {
-			if (d.chance(0.5)) {
+			// a rick's ridge two high beside anything standing taller before the wall (door leaves folded back, a
+			// shutter) is a stair onto it; a dung heap stays low
+			boolean tall = false;
+			for (int k = 0; k < 2; k++) {
+				tall |= !d.isAbsent(ox + k, y + 2, tz) || !d.isAbsent(ox + k, y + 2, tz - 2);
+			}
+			if (tall || d.chance(0.5)) {
 				Yard.dungHeap(d, ox, y, tz, Dirs.RIGHT);
 			} else {
 				Crops.rick(d, ox, y, tz - 1, Dirs.RIGHT, 2);

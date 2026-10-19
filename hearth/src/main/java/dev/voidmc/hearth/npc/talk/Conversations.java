@@ -27,8 +27,8 @@ import org.jspecify.annotations.Nullable;
  * <p>Other modules add options by registering a provider ({@code DialogueProvider.register}); see docs/FOLK.md.
  */
 public final class Conversations {
-	/** Blocks a player may stand from the folk and keep talking. */
-	private static final double RANGE = 8.0;
+	/** Blocks a player may stand from the folk and keep talking (the client screen closes at the same distance). */
+	public static final double RANGE = 10.0;
 
 	private final Map<UUID, Session> sessions = new HashMap<>();
 
@@ -63,13 +63,14 @@ public final class Conversations {
 	public void choose(ServerPlayer player, int entityId, String optionId) {
 		Session session = this.sessions.get(player.getUUID());
 		if (session == null || session.folk.getId() != entityId || !valid(player, session.folk)) {
-			end(player, entityId);
+			close(player, entityId);
 			return;
 		}
 		FolkBrain brain = session.folk.brain();
 		if (brain == null) {
 			return;
 		}
+		brain.keepEngaged(player);
 		DialogueProvider provider = session.owners.get(optionId);
 		if (provider != null && session.locked.contains(optionId)) {
 			// a locked option cannot be picked (a modified client, or the screen out of date)
@@ -83,7 +84,8 @@ public final class Conversations {
 		if (provider instanceof NpcDialogue npc) {
 			Component reply = npc.reply(player, brain, optionId);
 			if (reply == null) {
-				end(player, entityId);
+				// goodbye: the folk has had their last word, and the screen goes
+				close(player, entityId);
 				return;
 			}
 			brain.speak();
@@ -111,6 +113,14 @@ public final class Conversations {
 		Session session = this.sessions.remove(player.getUUID());
 		if (session != null && session.folk.brain() != null && session.folk.brain().engagedWith(player)) {
 			session.folk.brain().disengage();
+		}
+	}
+
+	/** The server ends the conversation: the session goes and the player's screen is closed. */
+	public void close(ServerPlayer player, int entityId) {
+		end(player, entityId);
+		if (ServerPlayNetworking.canSend(player, TalkPayloads.Close.TYPE)) {
+			ServerPlayNetworking.send(player, new TalkPayloads.Close(entityId));
 		}
 	}
 
@@ -154,6 +164,12 @@ public final class Conversations {
 			}
 		}
 		ranked.sort(Comparator.<Ranked>comparingInt(r -> r.option.order()).thenComparingInt(r -> r.index));
+		if (ranked.size() > TalkPayloads.MAX_OPTIONS) {
+			// too many to send: the last (goodbye) stays
+			Ranked last = ranked.get(ranked.size() - 1);
+			ranked = new ArrayList<>(ranked.subList(0, TalkPayloads.MAX_OPTIONS - 1));
+			ranked.add(last);
+		}
 		List<TalkPayloads.Option> options = new ArrayList<>(ranked.size());
 		for (Ranked r : ranked) {
 			options.add(new TalkPayloads.Option(r.option.id(), r.option.label(), r.option.locked(), r.option.hint(), r.option.tooltip()));

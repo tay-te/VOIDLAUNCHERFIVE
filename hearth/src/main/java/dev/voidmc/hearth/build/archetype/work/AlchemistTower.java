@@ -3,7 +3,6 @@ package dev.voidmc.hearth.build.archetype.work;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.ArchetypeCategory;
 import dev.voidmc.hearth.api.ArchetypeInfo;
-import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.SettlementTier;
@@ -12,694 +11,775 @@ import dev.voidmc.hearth.build.Archetype;
 import dev.voidmc.hearth.build.draft.Dirs;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
-import dev.voidmc.hearth.build.draft.Paint;
 import dev.voidmc.hearth.build.draft.States;
-import dev.voidmc.hearth.build.kit.Body;
-import dev.voidmc.hearth.build.kit.Facade;
 import dev.voidmc.hearth.build.kit.Furniture;
-import dev.voidmc.hearth.build.kit.Side;
-import dev.voidmc.hearth.build.kit.Walls;
-import dev.voidmc.hearth.build.kit.civic.Towers;
-import dev.voidmc.hearth.build.kit.civic.Tradition;
-import dev.voidmc.hearth.build.kit.landmark.Details;
-import dev.voidmc.hearth.build.kit.landmark.Grounds;
-import dev.voidmc.hearth.build.kit.landmark.Shapes;
-import dev.voidmc.hearth.build.kit.landmark.Stone;
-import dev.voidmc.hearth.build.kit.landmark.Tower;
-import dev.voidmc.hearth.build.kit.learning.Sacra;
+import dev.voidmc.hearth.build.kit.Garden;
+import dev.voidmc.hearth.build.kit.Rooms;
+import dev.voidmc.hearth.build.kit.craft.Hatch;
+import dev.voidmc.hearth.build.kit.craft.Rails;
+import dev.voidmc.hearth.build.kit.homestead.Adobe;
+import dev.voidmc.hearth.build.kit.industry.Works;
 import dev.voidmc.hearth.build.kit.learning.Studies;
 import dev.voidmc.hearth.build.kit.light.Lighting;
+import dev.voidmc.hearth.build.kit.trade.Floorplan;
+import dev.voidmc.hearth.build.kit.trade.Hall;
+import dev.voidmc.hearth.build.kit.trade.Props;
+import dev.voidmc.hearth.build.kit.trade.Shed;
+import dev.voidmc.hearth.build.kit.trade.Signs;
+import dev.voidmc.hearth.build.kit.trade.Yard;
 import dev.voidmc.hearth.build.style.Form;
-import dev.voidmc.hearth.build.style.Habits.WallKind;
+import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Role;
 import dev.voidmc.hearth.build.terrain.Groundwork;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.DoorHingeSide;
-import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
- * {@code hearth:work/alchemist_tower}: a narrow tower of laboratories by the library. Seven square in the culture's
- * best stone (whatever its houses are made of), on a chamfered plinth with toothed quoins and a string course at every
- * floor, a newel stair winding up one back corner the whole height. From the bottom:
+ * {@code hearth:work/alchemist_tower}: the alchemist's house, a squat tower of three storeys by the library with its
+ * laboratory beside it, built as each land builds its learned men's houses:
  * <ul>
- *   <li>the <b>workshop</b>: the athanor (a blast furnace and a furnace) against the side wall under its flue, coal and
- *   ores in barrels and chests, the grindstone, a crucible of water; slits for light;</li>
- *   <li>the <b>laboratory</b>: benches along the walls with brewing stands and their bottles, candles and jars, shelves
- *   of bottles over them, a cauldron, the alchemist's lectern with the book open (his job site) by an arched window;</li>
- *   <li>the <b>study</b> under the roof: his bed, a desk under the window, chiseled shelves of books, a chest and a
- *   reading lectern (in the mountains and the north this top storey is framed in boards or logs flush on the stone);</li>
- *   <li>the <b>roof platform</b> behind a corbelled parapet (battlements in stone, a railing in the timber traditions):
- *   herbs drying in pots, a still on a barrel, a bench where one can watch the town; the stair comes up into a little
- *   stair house in the back corner capped in the culture's manner (a needle spire, an onion, a cone, a dome, a curved
- *   hip), and the flue rises past the parapet with its smoke (out from the wall on a breast where the plot allows).</li>
+ *   <li><b>stone tower</b> (Bohemia, the moor, the coasts, the Mediterranean, the bayou): a square tower of the
+ *   culture's stone in a back corner of the plot under a steep pyramid roof oversailing its walls, and against its side
+ *   the laboratory, a long low wing under its own gable with the athanor's great chimney at its far end; a herb garden
+ *   before them;</li>
+ *   <li><b>tower house</b> (the north, the tundra, the mountains): a tower in the culture's walls (log or boarded over a
+ *   stone ground floor) in the middle of the plot under a steep gable, the still-room a lean-to against its flank with
+ *   its own chimney, a woodpile and kitchen beds before it;</li>
+ *   <li><b>walled laboratory</b> (the desert, the mesa, the steppe): a court behind a high wall with a gate, a squat
+ *   flat-roofed tower in its back corner, the laboratory range along the back wall, and in the court the still under a
+ *   reed shade, the water basin and the jars;</li>
+ *   <li><b>pavilion tower</b> (the karst, the wisteria vale, the tropics): a tower of three tiers under the culture's
+ *   tiered eaves in a back corner, before it on the other side an open shed over the elixir furnace with its cauldron,
+ *   a little pool among stones.</li>
  * </ul>
- * POIs: the SCHOLAR's JOB_SITE and a LECTERN at the laboratory lectern, a second LECTERN in the study, the BED, STORAGE
- * at the chests, a SEAT and TABLE in the study, a VIEWPOINT on the roof, DOOR.
+ * In the tower, from the bottom: the <b>workshop</b> (stores, the grindstone, a crucible), the <b>laboratory</b>
+ * (benches of brewing stands and bottles under shelves, the still on its barrel against a wall, the alchemist's lectern),
+ * the <b>study</b> under the roof (his bed, a desk, books, a chest, a reading lectern), a turning stair (a ladder where it
+ * will not fit) up through them. In the laboratory beside it, the athanor under the chimney and the crucible.
  *
- * <p>Params: {@code stair_right} (boolean: the stair in the back right corner; default by seed), {@code variant} (int).
+ * <p>POIs: the SCHOLAR's JOB_SITE at the lectern and the still, LECTERNs, the BED, STORAGE at the chests, a TABLE, DOOR.
+ *
+ * <p>Params: {@code plan} ({@code stone}, {@code timber}, {@code court}, {@code pavilion}; default by the culture),
+ * {@code tower_left} (boolean; default by seed), {@code variant}.
  */
 public final class AlchemistTower implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("work/alchemist_tower"), ArchetypeCategory.WORKPLACE, Set.of(JobType.SCHOLAR), 1,
-		7, 9, 7, 9, 14, 22, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.VERTICAL), List.of(), 1, 1.0);
+		11, 15, 10, 14, 14, 22, SettlementTier.TOWN, Set.of(), Set.of(ArchetypeInfo.SiteFlag.VERTICAL), List.of(), 1, 1.0);
 
-	/** The ring cells a newel stair's treads stand on (landmark.Shapes.SPIRAL), as offsets from the post. */
-	private static final int[][] RING = Shapes.SPIRAL;
+	/** The house a land builds for its alchemist. */
+	private enum Plan {
+		STONE, TIMBER, COURT, PAVILION
+	}
 
 	@Override
 	public ArchetypeInfo info() {
 		return INFO;
 	}
 
-	/** The plan, in local coordinates, mirrored when the stair is on the right. */
-	private static final class Plan {
-		int x0;
-		int z0;
-		int x1;
-		int z1;
-		boolean right;
-		int[] floors;     // standing level of the workshop, laboratory, study and roof
-		int start;        // the spiral's start index
-		boolean house;    // a stair house on the roof
-		int[] top;        // the top storey's walls: x0, z0, x1, z1
-
-		/** A canonical column a (0..4 across the interior, the stair on side a0..a2) to local x. */
-		int ax(int a) {
-			return this.right ? this.x1 - 1 - a : this.x0 + 1 + a;
+	private static Plan plan(Draft d) {
+		String p = d.param("plan", "");
+		if (!p.isEmpty()) {
+			try {
+				return Plan.valueOf(p.toUpperCase(Locale.ROOT));
+			} catch (IllegalArgumentException e) {
+				// by the culture below
+			}
 		}
-
-		/** A canonical row b (0 front .. 4 back) to local z. */
-		int bz(int b) {
-			return this.z0 + 1 + b;
-		}
-
-		/** The canonical "toward a4" direction (away from the stair across the tower). */
-		Direction across() {
-			return this.right ? Dirs.LEFT : Dirs.RIGHT;
-		}
-
-		int postX() {
-			return ax(1);
-		}
-
-		int postZ() {
-			return bz(3);
-		}
+		return switch (Works.culture(d)) {
+			case NORTHERN, TUNDRA, ALPINE -> Plan.TIMBER;
+			case DESERT, MESA, STEPPE -> Plan.COURT;
+			case KARST, WISTERIA, TROPICAL -> Plan.PAVILION;
+			default -> Hall.flatCulture(d) ? Plan.COURT : Plan.STONE;
+		};
 	}
 
 	@Override
 	public void draw(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
-		int top = d.maxHeight() - 1;
-		Tradition t = Tradition.of(d);
-		Plan p = new Plan();
-		p.x0 = (w - 7) / 2;
-		p.z0 = dp - 7;
-		p.x1 = p.x0 + 6;
-		p.z1 = p.z0 + 6;
-		p.right = d.param("stair_right", d.chance(0.5));
-		plan(d, p, top);
-		int cx = p.x0 + 3;
-		int fd = p.floors[3];
-		d.body(p.x0, p.z0, p.x1, p.z1);
-		d.eave(fd);
-
-		// the shaft in the walls' render or masonry, laid clean above the workshop (its main material: a big face mixed in
-		// patches reads as blotches), weathered in the base stone below
-		Stone body = t == Tradition.STONE || t == Tradition.LOG || t == Tradition.STILT ? Stone.panel(d) : Stone.panel(d).crisp();
-		Stone dress = dressing(d);
-		Stone base = Stone.stony(d, Role.PLINTH) ? Stone.of(d, Role.PLINTH) : Stone.footing(d);
-		Tower tw = new Tower(p.x0, p.z0, 7, body, dress, base, false);
-		Side front = tw.face(Dirs.FRONT);
-
-		// --- ground and walls: footings, a chamfered plinth, the workshop storey in the base stone, the shaft above with
-		// dressed corners, one string course over the workshop, a corbel table under the parapet
-		Grounds.footings(d, p.x0, p.z0, p.x1, p.z1, -1);
-		tw.plinth(d, 0, 0, true, front.outX(3, 1), front.outZ(3, 1));
-		// (the mountains' boarded and the north's log top; the timber towns build the whole shaft in stone, as their
-		// alchemists' towers were, a framed top jettied over it read top-heavy)
-		boolean timberTop = t == Tradition.ALPINE || t == Tradition.LOG;
-		int f1 = p.floors[1];
-		int f2 = p.floors[2];
-		int stoneTop = timberTop ? f2 - 1 : fd - 1;
-		try (var s = d.stage(StageKind.WALLS)) {
-			for (Side f : tw.faces()) {
-				for (int i = 0; i < f.length(); i++) {
-					boolean corner = f.isCorner(i);
-					for (int y = 1; y <= stoneTop; y++) {
-						Paint pt;
-						if (corner || y == f1 - 1) {
-							pt = dress.full();
-						} else if (y < f1 - 1) {
-							pt = base.full();
-						} else {
-							pt = body.full();
-						}
-						d.set(f.x(i), y, f.z(i), pt);
-					}
-				}
-			}
-		}
-		tw.course(d, f1 - 1, false);
-		// the top: framed in timber (boards in the mountains, logs in the north), or the stone carried up
-		int[] tr = {p.x0, p.z0, p.x1, p.z1};
-		if (timberTop) {
-			// framed flush on the stone: a top jettied out on three sides made the tower top-heavy
-			timberStorey(d, p, t, tr, f2, fd - 1);
-		} else {
-			try (var s = d.stage(StageKind.WALLS)) {
-				for (int[] c : Draft.ring(p.x0, p.z0, p.x1, p.z1)) {
-					d.set(c[0], fd - 1, c[1], dress.full());
-				}
-			}
-			tw.band(d, fd - 2);
-		}
-		p.top = tr;
-		for (int k = 0; k < 4; k++) {
-			Paint fl = k == 0 ? d.mat(Role.PAVING).full() : k == 3 ? dress.full() : d.mat(Role.FLOOR).full();
-			try (var s = d.stage(StageKind.FLOORS)) {
-				int[] r = k >= 2 ? tr : new int[]{p.x0, p.z0, p.x1, p.z1};
-				for (int z = r[1] + 1; z <= r[3] - 1; z++) {
-					for (int x = r[0] + 1; x <= r[2] - 1; x++) {
-						d.set(x, p.floors[k] - 1, z, fl);
-					}
-				}
-			}
-		}
-		d.carve(p.x0 + 1, 0, p.z0 + 1, p.x1 - 1, f2 - 2, p.z1 - 1);
-		d.carve(tr[0] + 1, f2, tr[1] + 1, tr[2] - 1, fd - 2, tr[3] - 1);
-
-		// --- the stair: a newel winding up the back corner from the workshop to the roof
-		Paint post = t == Tradition.TIMBER || t == Tradition.LOG || t == Tradition.STILT ? d.mat(Role.FRAME).log(Direction.Axis.Y) : dress.full();
-		Stone treads = Stone.stony(d, Role.WALL_ACCENT) ? dress : Stone.of(d, Role.FLOOR);
-		Shapes.spiral(d, p.postX(), p.postZ(), 0, fd, p.start, treads, post);
-
-		// --- openings: the door with its portal and lamp, slits on the stair and in the workshop, arched lights above
-		Grounds.door(d, front, 3, 0, dress);
-		windows(d, p, tw, timberTop);
-
-		// --- the roof: the parapet, the stair house and its cap, the flue
-		int peak = roof(d, p, t, tw, top);
-
-		// --- inside, floor by floor
-		workshop(d, p);
-		laboratory(d, p);
-		study(d, p);
-		platform(d, p);
-
-		// --- the way in
-		int ez = p.z0 - 1;
-		if (ez >= 0) {
-			Groundwork.approach(d, cx, 0, ez);
-			// lamps either side of the steps on a deep plot
-			if (ez >= 1) {
-				Lighting.post(d, Math.max(0, cx - 2), Groundwork.surface(d, Math.max(0, cx - 2), 0), 0);
-			}
-		}
-		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(top, peak + 2));
-	}
-
-	// ------------------------------------------------------------------------------------------------ the plan
-
-	/** The storeys (each a whole storey for the newel's turn to land on the room side) and the spiral's start. */
-	private static void plan(Draft d, Plan p, int top) {
-		// tallest first: a roof with a stair house wants six rows over the deck (walls, cap), a bare one two
-		int[][] tries = {{5, 5, 5}, {5, 5, 4}, {5, 4, 4}, {4, 5, 4}, {4, 4, 5}, {4, 4, 4}, {4, 4, 3}};
-		for (boolean house : new boolean[]{true, false}) {
-			for (int[] h : tries) {
-				int f1 = h[0];
-				int f2 = f1 + h[1];
-				int fd = f2 + h[2];
-				if (fd + (house ? 6 : 1) > top) {
-					continue;
-				}
-				int[] fl = {0, f1, f2, fd};
-				for (int s = 0; s < 8; s++) {
-					if (stairWorks(p, fl, s)) {
-						p.floors = fl;
-						p.start = s;
-						p.house = house;
-						return;
-					}
-				}
-			}
-		}
-		// fallback (never for the heights announced): the lowest storeys, a ladder-like start
-		p.floors = new int[]{0, 4, 8, 12};
-		p.start = 0;
-		p.house = false;
-	}
-
-	/** Whether every landing of a newel starting at ring index s comes out on the room side of the stair. */
-	private static boolean stairWorks(Plan p, int[] floors, int s) {
-		if (!roomSide(p, Math.floorMod(s + 1, 8))) {
-			return false;
-		}
-		for (int k = 1; k < floors.length; k++) {
-			if (!roomSide(p, Math.floorMod(s + 2 * floors[k], 8))) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	/** The ring offset of index idx across the tower (canonical: +1 toward the room), mirrored with the stair. */
-	private static int ringA(Plan p, int idx) {
-		return p.right ? -RING[idx][0] : RING[idx][0];
-	}
-
-	/** A ring cell that has a room cell beside it (its front row or its side across the tower). */
-	private static boolean roomSide(Plan p, int idx) {
-		return ringA(p, idx) == 1 || RING[idx][1] == -1;
-	}
-
-	/** The room cell outside the landing of floor k: next to the tread that is flush with that floor. */
-	private static int[] landing(Plan p, int k) {
-		int idx = Math.floorMod(p.start + 2 * p.floors[k], 8);
-		return outside(p, idx);
-	}
-
-	/** The room cell beside ring cell idx (canonical), as local {x, z}. */
-	private static int[] outside(Plan p, int idx) {
-		int a = 1 + ringA(p, idx);
-		int b = 3 + RING[idx][1];
-		if (RING[idx][1] == -1) {
-			b -= 1;      // the front row of the ring steps out forward
-		} else {
-			a += 1;      // the side column steps out across
-		}
-		return new int[]{p.ax(a), p.bz(b)};
-	}
-
-	/**
-	 * The framed top storey over the rectangle {@code r} from row {@code ya} (its sill) to {@code yg} (its head, the deck's
-	 * row): corner posts, a post either side of the middle panel, sill and head beams, render between (boards in the
-	 * mountains, laid logs in the north), a window in the middle panel of the open faces; where it is jettied over the
-	 * stone, joist ends and corbels carry it.
-	 */
-	private static void timberStorey(Draft d, Plan p, Tradition t, int[] r, int ya, int yg) {
-		Mat frame = d.mat(Role.FRAME);
-		Mat beam = d.mat(Role.BEAM);
-		Mat wall = d.mat(Role.WALL);
-		Mat boards = d.mat(Role.GABLE);
-		Paint glass = d.mat(Role.GLASS).pane();
-		Stone dress = dressing(d);
-		boolean logs = t == Tradition.LOG;
-		boolean planks = t == Tradition.ALPINE;
-		Direction stairSide = p.right ? Dirs.RIGHT : Dirs.LEFT;
-		try (var s = d.stage(StageKind.WALLS)) {
-			for (Side f : Side.of(r[0], r[1], r[2], r[3])) {
-				int n = f.length();
-				int pa = 2;
-				int pb = n - 3;
-				boolean open = f.out() != Dirs.BACK && f.out() != stairSide;
-				for (int i = 0; i < n; i++) {
-					boolean corner = f.isCorner(i);
-					boolean post = i == pa || i == pb;
-					for (int y = ya; y <= yg; y++) {
-						Paint pt;
-						if (corner) {
-							pt = logs ? frame.log((y & 1) == 0 ? f.axis() : (f.axis() == Direction.Axis.X ? Direction.Axis.Z : Direction.Axis.X))
-								: frame.log(Direction.Axis.Y);
-						} else if (y == ya || y == yg) {
-							pt = logs ? wall.log(f.axis()) : beam.log(f.axis());
-						} else if (logs) {
-							pt = post ? wall.strippedLog(Direction.Axis.Y) : wall.log(f.axis());
-						} else if (post) {
-							pt = frame.log(Direction.Axis.Y);
-						} else {
-							pt = planks ? boards.full() : wall.full();
-						}
-						d.set(f.x(i), y, f.z(i), pt);
-					}
-					// the middle panel's window on the open faces, a small one toward the stair
-					boolean mid = i > pa && i < pb;
-					if (mid && yg - ya >= 3) {
-						int wy0 = ya + 1;
-						int wy1 = Math.min(yg - 1, ya + 2);
-						if (open || i == f.middle()) {
-							for (int y = wy0; y <= (open ? wy1 : wy0); y++) {
-								d.set(f.x(i), y, f.z(i), glass);
-							}
-						}
-					}
-				}
-				// window sills of the open faces
-				if (open && yg - ya >= 3) {
-					for (int i = pa + 1; i < pb; i++) {
-						int ox = f.outX(i, 1);
-						int oz = f.outZ(i, 1);
-						if (Walls.inPlot(d, ox, oz) || oz == -1 && ya >= 3) {
-							d.set(ox, ya, oz, d.mat(Role.WINDOW).stairsOrSlab(f.out().getOpposite(), Half.TOP));
-						}
-					}
-				}
-			}
-			// the jetty: where the frame stands out past the stone, joist ends under its sill and corbels under them
-			for (Side f : Side.of(r[0], r[1], r[2], r[3])) {
-				boolean out = f.out() == Dirs.FRONT ? r[1] < p.z0 : f.out() == Dirs.LEFT ? r[0] < p.x0 : f.out() == Dirs.RIGHT && r[2] > p.x1;
-				if (!out) {
-					continue;
-				}
-				for (int i = 0; i < f.length(); i++) {
-					d.set(f.x(i), ya - 1, f.z(i), beam.log(f.out().getAxis()));
-					if ((i & 1) == 0) {
-						d.set(f.x(i), ya - 2, f.z(i), dress.stairsOrSlab(f.out().getOpposite(), Half.TOP));
-					}
-				}
-			}
-		}
-	}
-
-	// ------------------------------------------------------------------------------------------------ openings
-
-	private static void windows(Draft d, Plan p, Tower tw, boolean timberTop) {
-		Stone dress = dressing(d);
-		Paint glass = d.mat(Role.GLASS).pane();
-		int f1 = p.floors[1];
-		int f2 = p.floors[2];
-		int fd = p.floors[3];
-		Direction stairSide = p.right ? Dirs.RIGHT : Dirs.LEFT;
-		for (Side f : tw.faces()) {
-			boolean stair = f.out() == stairSide || f.out() == Dirs.BACK;
-			int mid = f.middle();
-			// the workshop: slits beside the door, one in each other face
-			if (f.out() == Dirs.FRONT) {
-				Details.slit(d, f, 1, 1, 2, dress, glass);
-				Details.slit(d, f, 5, 1, 2, dress, glass);
-			} else if (!stair) {
-				Details.slit(d, f, mid, 1, 2, dress, glass);
-			}
-			// the laboratory: an arched light (a slit where the stair winds behind the wall)
-			int h1 = Math.min(3, f2 - f1 - 2);
-			if (stair) {
-				Details.slit(d, f, mid, f1 + 1, Math.max(1, h1 - 1), dress, glass);
-			} else if (h1 >= 2) {
-				Details.lights(d, f, mid - 1, 2, f1 + 1, h1, dress, glass);
-			}
-			// the study: paired lights to the front, a single light elsewhere
-			int h2 = Math.min(2, fd - f2 - 2);
-			if (h2 >= 1 && !timberTop) {
-				if (f.out() == Dirs.FRONT) {
-					Details.lights(d, f, mid - 1, 2, f2 + 1, h2 + 1, dress, glass);
-				} else if (!stair) {
-					Details.arch(d, f, mid, 1, f2 + 1, h2, dress, glass);
-				}
-			}
-		}
-	}
-
-	// ------------------------------------------------------------------------------------------------ the roof
-
-	/** The parapet, the stair house with its cap, the flue. Returns the highest row. */
-	private static int roof(Draft d, Plan p, Tradition t, Tower tw, int top) {
-		int fd = p.floors[3];
-		Stone dress = dressing(d);
-		boolean rail = t == Tradition.TIMBER || t == Tradition.ALPINE || t == Tradition.KARST || t == Tradition.STILT || t == Tradition.LOG;
-		int peak = fd + 1;
-		// the parapet round the deck: battlements, or a railing over a coped kerb in the timber traditions
-		try (var s = d.stage(StageKind.WALLS)) {
-			int[] r = p.top;
-			for (int[] c : Draft.ring(r[0], r[1], r[2], r[3])) {
-				boolean corner = (c[0] == r[0] || c[0] == r[2]) && (c[1] == r[1] || c[1] == r[3]);
-				if (rail) {
-					d.set(c[0], fd, c[1], corner ? dress.full() : d.mat(Role.RAILING).has(Form.FENCE) ? d.mat(Role.RAILING).fence() : Sacra.fence(d));
-				} else {
-					d.set(c[0], fd, c[1], tw.body.full());
-					if (fd + 1 <= top && (((c[0] + c[1]) & 1) == 0 || corner)) {
-						d.set(c[0], fd + 1, c[1], dress.has(Form.SLAB) && !corner ? dress.slab(SlabType.BOTTOM) : dress.full());
-					}
-				}
-			}
-		}
-		// lanterns on the parapet's front corners
-		for (int x : new int[]{p.top[0], p.top[2]}) {
-			int y = rail ? fd + 1 : fd + 2;
-			if (y <= top) {
-				Sacra.standingLantern(d, x, y, p.top[1], StageKind.EXTERIOR);
-			}
-		}
-		// the stair house over the newel's head: the back corner's 5 × 5, walls three rows, its cap
-		int sx0 = p.right ? p.x1 - 4 : p.x0;
-		int sz0 = p.z0 + 2;
-		int[] exit = landing(p, 3);
-		if (p.house) {
-			Stone walls = tw.body;
-			try (var s = d.stage(StageKind.WALLS)) {
-				for (int[] c : Draft.ring(sx0, sz0, sx0 + 4, sz0 + 4)) {
-					for (int y = fd; y <= fd + 1; y++) {
-						boolean corner = (c[0] == sx0 || c[0] == sx0 + 4) && (c[1] == sz0 || c[1] == sz0 + 4);
-						d.set(c[0], y, c[1], corner ? dress.full() : walls.full());
-					}
-				}
-				// the door out onto the deck, from the newel's last turn
-			}
-			Side doorSide = exit[1] == sz0 ? Side.of(sx0, sz0, sx0 + 4, sz0 + 4, Dirs.FRONT) : Side.of(sx0, sz0, sx0 + 4, sz0 + 4, p.right ? Dirs.LEFT : Dirs.RIGHT);
-			int dx = exit[1] == sz0 ? exit[0] : exit[0];
-			int dz = exit[1] == sz0 ? exit[1] : exit[1];
-			d.inStage(StageKind.OPENINGS, () -> d.door(dx, fd, dz, d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), doorSide.out(),
-				DoorHingeSide.LEFT));
-			// slits in the stair house, its roof
-			for (Side f : Side.of(sx0, sz0, sx0 + 4, sz0 + 4)) {
-				if (f.out() != doorSide.out() && (f.out() == Dirs.BACK || f.out() == (p.right ? Dirs.RIGHT : Dirs.LEFT))) {
-					Details.slit(d, f, 2, fd + 1, 1, dress, d.mat(Role.GLASS).pane());
-				}
-			}
-			try (var s = d.stage(StageKind.ROOF)) {
-				for (int z = sz0 + 1; z <= sz0 + 3; z++) {
-					for (int x = sx0 + 1; x <= sx0 + 3; x++) {
-						d.set(x, fd + 2, z, dress.full());
-					}
-				}
-			}
-			Lighting.chandelier(d, p.postX(), p.postZ(), fd + 2, fd + 1);
-			Towers.Cap cap = cap(d, t);
-			boolean caphouse = t == Tradition.TIMBER || t == Tradition.STONE || t == Tradition.LOG || t == Tradition.STILT;
-			if (caphouse) {
-				// a caphouse: a little gabled room at the stair's head, its gable to the street
-				var o = dev.voidmc.hearth.build.kit.Roofs.Opts.of(d).withPitch(1.0).withEaves(0, 0);
-				var built = dev.voidmc.hearth.build.kit.Roofs.build(d, sx0, sz0, sx0 + 4, sz0 + 4, fd + 1,
-					dev.voidmc.hearth.build.style.Habits.RoofForm.GABLE, Direction.Axis.Z, o, false, false);
-				peak = Math.max(peak, built.roof().ridgeY);
-				int ry = built.roof().surfaceY(sx0 + 2, sz0);
-				if (ry != Integer.MIN_VALUE && ry + 3 <= top && t != Tradition.STONE) {
-					d.inStage(StageKind.ROOF, () -> d.set(sx0 + 2, ry + 1, sz0, Details.rod()));
-					peak = Math.max(peak, ry + 1);
-				}
-			} else if (cap == Towers.Cap.ONION || cap == Towers.Cap.DOME) {
-				// a drum three square on the stair house, coped round, the onion or the dome over it
-				try (var s = d.stage(StageKind.ROOF)) {
-					for (int[] c : Draft.ring(sx0, sz0, sx0 + 4, sz0 + 4)) {
-						d.set(c[0], fd + 2, c[1], dress.has(Form.SLAB) ? dress.slab(SlabType.BOTTOM) : dress.full());
-					}
-					for (int[] c : Draft.ring(sx0 + 1, sz0 + 1, sx0 + 3, sz0 + 3)) {
-						d.set(c[0], fd + 3, c[1], tw.body.full());
-					}
-					d.set(sx0 + 2, fd + 3, sz0 + 2, dress.full());
-				}
-				peak = Math.max(peak, Towers.cap(d, sx0 + 1, sz0 + 1, 3, fd + 3, cap, top));
-			} else {
-				peak = Math.max(peak, Towers.cap(d, sx0, sz0, 5, fd + 1, cap, top));
-			}
-		} else {
-			// no room for a stair house: a railing round the newel's head on the deck, open at its landing
-			try (var s = d.stage(StageKind.INTERIOR)) {
-				for (int a = 0; a <= 3; a++) {
-					for (int b = 1; b <= 4; b++) {
-						int x = p.ax(a);
-						int z = p.bz(b);
-						boolean edge = a == 3 || b == 1;
-						if (edge && !(x == exit[0] && z == exit[1]) && d.isEmpty(x, fd, z)) {
-							d.set(x, fd, z, Sacra.fence(d));
-						}
-					}
-				}
-			}
-		}
-		// the flue: up the side wall over the athanor, out on a breast where the plot has room, smoking over the parapet
-		int fx = p.right ? p.x0 : p.x1;
-		int ox = p.right ? fx - 1 : fx + 1;
-		int fz = p.bz(4);
-		boolean breast = ox >= 0 && ox < d.frontage();
-		Mat chimney = d.mat(Role.CHIMNEY);
-		int stackTop = Math.min(top - 1, fd + (p.house ? 2 : 2));
-		try (var s = d.stage(StageKind.WALLS)) {
-			// the flue in the wall over the athanor, and above the deck the stack
-			for (int y = 1; y < fd; y++) {
-				d.set(fx, y, fz, chimney.full());
-			}
-			if (breast) {
-				int g = d.site().ground(ox, fz);
-				for (int y = Math.min(0, g) - 1; y <= stackTop; y++) {
-					d.set(ox, y, fz, y < 0 ? d.mat(Role.FOUNDATION).full() : chimney.full());
-				}
-			} else {
-				for (int y = fd; y <= stackTop; y++) {
-					d.set(fx, y, fz, chimney.full());
-				}
-			}
-		}
-		int cxs = breast ? ox : fx;
-		if (stackTop + 1 <= top) {
-			d.inStage(StageKind.ROOF, () -> d.set(cxs, stackTop + 1, fz, States.lit(Blocks.CAMPFIRE, true)
-				.trySetValue(BlockStateProperties.SIGNAL_FIRE, false)));
-			peak = Math.max(peak, stackTop + 1);
-		}
-		return peak;
-	}
-
-	/**
-	 * The dressed stone of the quoins, courses, window surrounds and parapet: the culture's own dressing where the shaft is
-	 * its walls' stone or render; where the shaft falls back on plain masonry (a timber or log town's), the plinth stone
-	 * tooled crisp, so the tower is not salted with a pale accent stone that belongs to another wall.
-	 */
-	private static Stone dressing(Draft d) {
-		boolean render = d.habits().walls().kind() == WallKind.TIMBER_FRAME && !d.mat(Role.WALL).has(Form.LOG);
-		if (Stone.stony(d, Role.WALL) || render) {
-			return Stone.dressing(d);
-		}
-		return Stone.stony(d, Role.PLINTH) ? Stone.of(d, Role.PLINTH).crisp() : Stone.footing(d).crisp();
-	}
-
-	/** The cap a tradition puts on a little stair house. */
-	private static Towers.Cap cap(Draft d, Tradition t) {
-		return switch (t) {
-			case TIMBER, LOG -> Towers.Cap.SPIRE;
-			case ALPINE -> Towers.Cap.ONION;
-			case STONE -> d.style().culture() == Culture.MOORLAND ? Towers.Cap.CONE : Towers.Cap.PYRAMID;
-			case MEDITERRANEAN -> Towers.Cap.HIP;
-			case ADOBE -> Towers.Cap.DOME;
-			case STEPPE -> Towers.Cap.BATTLEMENT;
-			case KARST -> Towers.Cap.PAGODA;
-			case STILT -> Towers.Cap.PYRAMID;
+		boolean left = d.param("tower_left", d.chance(0.5));
+		int ex = Yard.entrance(d);
+		Groundwork.level(d, 0, 0, w - 1, dp - 1, 0, true);
+		int top = switch (plan(d)) {
+			case STONE -> stone(d, w, dp, ex, left);
+			case TIMBER -> timber(d, w, dp, ex, left);
+			case COURT -> court(d, w, dp, ex, left);
+			case PAVILION -> pavilion(d, w, dp, ex, left);
 		};
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
+		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
+		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
-	// ------------------------------------------------------------------------------------------------ inside
+	// ------------------------------------------------------------------------------------------------ the tower
+
+	/** A tower built: its hall, the stair or ladder of each storey (k: from k up to k + 1), its front door's column. */
+	private record Tower(Hall hall, int[][] wells, int[][] ladders, int door) {
+	}
 
 	/**
-	 * The cells every floor keeps free: the walk from the door (or the landing) along the stair's room side, so the newel
-	 * can be stepped onto and off at any of its turns.
+	 * A tower over [x0..x1] x [z0..z1]: as many of the storeys {@code want} as the plot's height takes under a roof of
+	 * {@code form}, its door in the front wall near {@code doorAt}, windows round it, a turning stair in the back corner
+	 * against {@code wellWall} storey by storey (a ladder through a hatch where it will not fit), its roof (a crowned
+	 * deck when flat).
 	 */
-	private static boolean walk(Plan p, int x, int z) {
-		for (int a = 0; a <= 3; a++) {
-			if (x == p.ax(a) && z == p.bz(1)) {
-				return true;
+	private static Tower tower(Draft d, int x0, int z0, int x1, int z1, int[] want, RoofForm form, Direction.Axis ridge, int doorAt, Direction wellWall) {
+		int[] heights = Hall.budget(d, x0, z0, x1, z1, 0, want, false, form, 1, ridge);
+		Hall t = Hall.of(d, x0, z0, x1, z1, 0, heights, false, false);
+		t.facade(doorAt, 1, 1, 0.45);
+		int door = t.door != null ? t.door : doorAt;
+		t.ground(false).shell().openings(true);
+		int n = t.storeys();
+		int[][] wells = new int[n][];
+		int[][] ladders = new int[n][];
+		for (int k = 0; k + 1 < n; k++) {
+			wells[k] = t.switchback(k, wellWall);
+		}
+		t.roof(form, ridge, 1, null);
+		if (t.roof == null) {
+			t.crown();
+		}
+		for (int k = 0; k + 1 < n; k++) {
+			if (wells[k] == null) {
+				ladders[k] = Hatch.ladder(d, t, k + 1, null, Dirs.BACK, wellWall, wellWall.getOpposite());
 			}
 		}
-		for (int b = 1; b <= 4; b++) {
-			if (x == p.ax(3) && z == p.bz(b)) {
-				return true;
-			}
-		}
-		return false;
+		return new Tower(t, wells, ladders, door);
 	}
 
-	/** The workshop: the athanor under its flue, the crucible, stores and tools; a lantern over the walk. */
-	private static void workshop(Draft d, Plan p) {
-		int y = 0;
-		Direction in = p.across().getOpposite();
-		// the athanor at the far side's back, under the flue
-		d.inStage(StageKind.INTERIOR, () -> {
-			d.set(p.ax(4), y, p.bz(4), States.facing(Blocks.BLAST_FURNACE, in));
-			d.set(p.ax(4), y, p.bz(3), States.facing(Blocks.FURNACE, in));
-			d.set(p.ax(4), y + 1, p.bz(4), d.mat(Role.CHIMNEY).full());
-			d.set(p.ax(4), y + 1, p.bz(3), d.mat(Role.CHIMNEY).slab(SlabType.BOTTOM));
-		});
-		Studies.crucible(d, p.ax(4), y, p.bz(2), true);
-		// stores along the front wall either side of the door
-		Furniture.chest(d, p.ax(0), y, p.bz(0), Dirs.BACK, List.of(new Object[]{"minecraft:coal", 16}, new Object[]{"minecraft:raw_iron", 6},
-			new Object[]{"minecraft:redstone", 8}));
-		Furniture.barrel(d, p.ax(1), y, p.bz(0), Direction.UP);
-		d.inStage(StageKind.INTERIOR, () -> d.set(p.ax(3), y, p.bz(0), States.attached(Blocks.GRINDSTONE,
-			net.minecraft.world.level.block.state.properties.AttachFace.FLOOR, Dirs.BACK)));
-		Furniture.chest(d, p.ax(4), y, p.bz(1), in, List.of(new Object[]{"minecraft:glass_bottle", 12}, new Object[]{"minecraft:sugar", 6}));
-		Furniture.barrel(d, p.ax(4), y, p.bz(0), Direction.UP);
-		Sacra.candles(d, p.ax(4), y + 1, p.bz(0), 3, StageKind.INTERIOR);
-		Sacra.candles(d, p.ax(1), y + 1, p.bz(0), 2, StageKind.INTERIOR);
-		int ceil = p.floors[1] - 1;
-		if (ceil - 2 >= 2) {
-			Lighting.chandelier(d, p.ax(3), p.bz(1), ceil, ceil - 1);
+	/**
+	 * A storey's floor plan with the way through it kept: the door's inside cell (on the ground floor), the foot of the
+	 * stair up and the head of the stair from below, the stairwells blocked (but for their feet), the ladders' cells.
+	 */
+	private static Floorplan floor(Draft d, Tower tw, int k, int[]... keep) {
+		Hall t = tw.hall();
+		Floorplan fp = t.floor(k).blockHoles(d);
+		int[] in = t.inner(k);
+		if (k == 0) {
+			fp.keep(tw.door(), in[1]);
+		}
+		if (k > 0 && tw.wells()[k - 1] != null) {
+			int[] b = tw.wells()[k - 1];
+			fp.keep(b[2], b[3]);
+			fp.keepArea(b[4], b[5], b[6], b[7]);
+		}
+		if (k > 0 && tw.ladders()[k - 1] != null) {
+			Hatch.keep(fp, tw.ladders()[k - 1]);
+		}
+		if (tw.wells()[k] != null) {
+			int[] wl = tw.wells()[k];
+			for (int x = wl[4]; x <= wl[6]; x++) {
+				for (int z = wl[5]; z <= wl[7]; z++) {
+					if (x != wl[0] || z != wl[1]) {
+						fp.block(x, z);
+					}
+				}
+			}
+			fp.keep(wl[0], wl[1]);
+		}
+		if (tw.ladders()[k] != null) {
+			fp.keep(tw.ladders()[k][0], tw.ladders()[k][1]);
+		}
+		for (int[] c : keep) {
+			fp.keep(c[0], c[1]);
+		}
+		return fp;
+	}
+
+	/**
+	 * Furnishes the tower: workshop, laboratory, study, as many as it has storeys (the study before all else). With
+	 * {@code athanor} (a wall), the athanor and its flue stand in the workshop (no laboratory wing to hold them).
+	 */
+	private static void furnish(Draft d, Tower tw, Direction athanor, int[]... groundKeep) {
+		int n = tw.hall().storeys();
+		for (int k = 0; k < n; k++) {
+			Floorplan fp = floor(d, tw, k, k == 0 ? groundKeep : new int[0][]);
+			int role = n == 1 ? 1 : k == 0 ? 0 : k == n - 1 ? 2 : 1;
+			if (k == 0 && athanor != null) {
+				athanorPieces(d, tw.hall(), fp, athanor);
+			}
+			if (n == 2 && k == 1) {
+				// two storeys: the laboratory and the study share the upper floor
+				laboratory(d, fp, 2);
+				study(d, fp);
+			} else if (role == 0) {
+				workshop(d, fp);
+			} else if (role == 1) {
+				laboratory(d, fp, 4);
+			} else {
+				study(d, fp);
+			}
+			Rooms.furnish(d, fp.room(), role == 2 ? Rooms.Type.BEDROOM : Rooms.Type.WORKSHOP, 0, JobType.NONE);
+		}
+		// the stairwells railed on the floors above, round what stands beside them too
+		for (int k = 0; k + 1 < n; k++) {
+			Rails.well(d, tw.hall(), k, tw.wells()[k]);
 		}
 	}
 
-	/** The laboratory: benches of brewing stands and shelves of bottles round the walls, the cauldron, his lectern. */
-	private static void laboratory(Draft d, Plan p) {
-		int y = p.floors[1];
-		Direction in = p.across().getOpposite();
-		int[] land = landing(p, 1);
-		// the front benches under the window, shelves of bottles over them
-		for (int a = 0; a <= 4; a++) {
-			int x = p.ax(a);
-			int z = p.bz(0);
-			if (a == 2) {
-				continue;
+	/** The workshop: chests and barrels of the stuff of the work, the grindstone, a crucible of water. */
+	private static void workshop(Draft d, Floorplan fp) {
+		int y = fp.y;
+		boolean chest = false;
+		boolean grind = false;
+		boolean crucible = false;
+		for (Direction wall : new Direction[]{Dirs.BACK, Dirs.LEFT, Dirs.RIGHT, Dirs.FRONT}) {
+			Direction into = wall.getOpposite();
+			for (int[] c : fp.along(wall)) {
+				if (!chest && fp.take(c[0], c[1], into)) {
+					Furniture.chest(d, c[0], y, c[1], into, List.of(new Object[]{"minecraft:coal", 16}, new Object[]{"minecraft:redstone", 8},
+						new Object[]{"minecraft:glass_bottle", 12}, new Object[]{"minecraft:sugar", 6}));
+					chest = true;
+				} else if (!grind && fp.take(c[0], c[1], into)) {
+					d.inStage(StageKind.INTERIOR, () -> d.set(c[0], y, c[1], States.attached(Blocks.GRINDSTONE,
+						net.minecraft.world.level.block.state.properties.AttachFace.FLOOR, Dirs.right(into))));
+					grind = true;
+				} else if (!crucible && fp.take(c[0], c[1], into)) {
+					Studies.crucible(d, c[0], y, c[1], true);
+					crucible = true;
+				} else if (fp.take(c[0], c[1], null)) {
+					Furniture.barrel(d, c[0], y, c[1], Direction.UP);
+				}
 			}
-			Studies.counter(d, x, y, z, Dirs.BACK, a);
-			if (y + 2 < p.floors[2] - 1) {
-				Studies.bottleShelf(d, x, y + 2, z, Dirs.BACK);
-			}
-		}
-		// the far wall: the cauldron, a still on a barrel, the lectern with the book
-		Studies.crucible(d, p.ax(4), y, p.bz(1), true);
-		Studies.counter(d, p.ax(4), y, p.bz(2), in, 0);
-		Studies.counter(d, p.ax(4), y, p.bz(3), in, 3);
-		Studies.lectern(d, p.ax(4), y, p.bz(4), in, JobType.SCHOLAR, "Of the Great Work");
-		for (int b : new int[]{1, 3}) {
-			if (y + 2 < p.floors[2] - 1) {
-				Studies.bottleShelf(d, p.ax(4), y + 2, p.bz(b), in);
-			}
-		}
-		// a brewing stand under the front window on its own bench
-		Studies.counter(d, p.ax(2), y, p.bz(0), Dirs.BACK, 4);
-		int ceil = p.floors[2] - 1;
-		if (ceil - y >= 3 && !(land[0] == p.ax(3) && land[1] == p.bz(1))) {
-			Lighting.chandelier(d, p.ax(3), p.bz(1), ceil, ceil - 1);
-		} else if (ceil - y >= 3) {
-			Lighting.chandelier(d, p.ax(2), p.bz(1), ceil, ceil - 1);
 		}
 	}
 
-	/** The study: the bed, the desk under the window, shelves of books, a chest, a reading lectern. */
-	private static void study(Draft d, Plan p) {
-		int y = p.floors[2];
-		Direction in = p.across().getOpposite();
-		Studies.books(d, p.ax(0), y, p.bz(0), 2, Dirs.BACK);
-		Furniture.chest(d, p.ax(1), y, p.bz(0), Dirs.BACK, List.of(new Object[]{"minecraft:book", 4}, new Object[]{"minecraft:paper", 12},
-			new Object[]{"minecraft:ink_sac", 3}));
-		Studies.desk(d, p.ax(2), y, p.bz(0), Dirs.BACK, false);
-		Furniture.chair(d, p.ax(3), y, p.bz(0), Dirs.FRONT);
-		Studies.books(d, p.ax(4), y, p.bz(0), 2, Dirs.BACK);
-		Studies.lectern(d, p.ax(4), y, p.bz(1), in, null, "Notes");
-		Studies.bookShelf(d, p.ax(4), y, p.bz(2), in);
-		Furniture.bed(d, p.ax(4), y, p.bz(4), Dirs.FRONT);
-		int ceil = p.floors[3] - 1;
-		if (ceil - y >= 3) {
-			Lighting.chandelier(d, p.ax(3), p.bz(2), ceil, ceil - 1);
+	/**
+	 * The laboratory: {@code benches} benches of brewing stands and jars along the walls with shelves of bottles over
+	 * them, the still (a stand on a barrel) against a wall with room before it, the alchemist's lectern with the book of
+	 * the Great Work: his place.
+	 */
+	private static void laboratory(Draft d, Floorplan fp, int benches) {
+		int y = fp.y;
+		boolean lectern = false;
+		boolean still = false;
+		int placed = 0;
+		for (Direction wall : new Direction[]{Dirs.FRONT, Dirs.RIGHT, Dirs.LEFT, Dirs.BACK}) {
+			Direction into = wall.getOpposite();
+			for (int[] c : fp.along(wall)) {
+				if (!lectern && fp.take(c[0], c[1], into)) {
+					Studies.lectern(d, c[0], y, c[1], into, JobType.SCHOLAR, "Of the Great Work");
+					lectern = true;
+				} else if (!still && fp.take(c[0], c[1], into)) {
+					// the still: a stand on its barrel, worked from the cell before it
+					d.inStage(StageKind.INTERIOR, () -> d.set(c[0], y, c[1], States.facing(Blocks.BARREL, into)));
+					Studies.brewingStand(d, c[0], y + 1, c[1]);
+					d.poi(PoiType.JOB_SITE, c[0] + Dirs.dx(into), y, c[1] + Dirs.dz(into), into.getOpposite(), JobType.SCHOLAR);
+					still = true;
+				} else if (placed < benches && fp.take(c[0], c[1], into)) {
+					Studies.counter(d, c[0], y, c[1], into, placed);
+					if (fp.height >= 4) {
+						Studies.bottleShelf(d, c[0], y + 2, c[1], into);
+					}
+					placed++;
+				}
+			}
+		}
+	}
+
+	/** The study: the bed with a free side, a desk, books and a chest, a reading lectern. */
+	private static void study(Draft d, Floorplan fp) {
+		int y = fp.y;
+		// his place at the study's window, looking out over the town (a window in the wall before it where there is one)
+		int[] look = null;
+		Direction lookOut = Dirs.FRONT;
+		for (int pass = 0; pass < 2 && look == null; pass++) {
+			for (Direction wall : new Direction[]{Dirs.FRONT, Dirs.LEFT, Dirs.RIGHT, Dirs.BACK}) {
+				for (int[] c : fp.along(wall)) {
+					var pane = d.get(c[0] + Dirs.dx(wall), y + 1, c[1] + Dirs.dz(wall));
+					boolean window = pane != null && !pane.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO);
+					if (look == null && fp.free(c[0], c[1]) && (window || pass == 1)) {
+						look = c;
+						lookOut = wall;
+					}
+				}
+			}
+		}
+		if (look != null) {
+			fp.keep(look[0], look[1]);
+			d.poi(PoiType.VIEWPOINT, look[0], y, look[1], lookOut);
+		}
+		Block bed = d.mat(Role.CLOTH).mainOr(Form.BED, Blocks.BED.pick(net.minecraft.world.item.DyeColor.RED));
+		boolean slept = false;
+		// the bed along a wall, its foot out, a free cell along its side
+		for (Direction wall : new Direction[]{Dirs.BACK, Dirs.RIGHT, Dirs.LEFT}) {
+			if (slept) {
+				break;
+			}
+			Direction along = Dirs.right(wall);
+			for (int[] c : fp.along(wall)) {
+				int hx = c[0] + Dirs.dx(along);
+				int hz = c[1] + Dirs.dz(along);
+				int[] side = {c[0] - Dirs.dx(wall), c[1] - Dirs.dz(wall)};
+				if (fp.take(new int[][]{{c[0], c[1]}, {hx, hz}}, side)) {
+					d.inStage(StageKind.INTERIOR, () -> d.bed(c[0], y, c[1], bed, along));
+					slept = true;
+					break;
+				}
+			}
+		}
+		boolean desk = false;
+		boolean books = false;
+		boolean chest = false;
+		boolean read = false;
+		for (Direction wall : new Direction[]{Dirs.FRONT, Dirs.LEFT, Dirs.RIGHT, Dirs.BACK}) {
+			Direction into = wall.getOpposite();
+			for (int[] c : fp.along(wall)) {
+				if (!desk && fp.take(c[0], c[1], into)) {
+					Studies.desk(d, c[0], y, c[1], into, false);
+					desk = true;
+				} else if (!books && fp.take(c[0], c[1], null)) {
+					Studies.books(d, c[0], y, c[1], Math.min(2, fp.height - 1), into);
+					books = true;
+				} else if (!chest && fp.take(c[0], c[1], into)) {
+					Furniture.chest(d, c[0], y, c[1], into, List.of(new Object[]{"minecraft:book", 4}, new Object[]{"minecraft:paper", 12},
+						new Object[]{"minecraft:ink_sac", 3}));
+					chest = true;
+				} else if (!read && fp.take(c[0], c[1], into)) {
+					Studies.lectern(d, c[0], y, c[1], into, null, "Notes");
+					read = true;
+				}
+			}
+		}
+	}
+
+	/**
+	 * The laboratory wing's hall: the athanor (a blast furnace and a furnace) against its far wall under the chimney, a
+	 * crucible, a still on a barrel and benches of stands, a chest of coal. {@code end}: the far wall.
+	 */
+	private static void athanor(Draft d, Hall h, Floorplan fp, Direction end) {
+		athanorPieces(d, h, fp, end);
+		Rooms.furnish(d, fp.room(), Rooms.Type.WORKSHOP, 0, JobType.NONE);
+	}
+
+	/** {@link #athanor}'s pieces on a floor plan, without the ordinary furniture round them. */
+	private static void athanorPieces(Draft d, Hall h, Floorplan fp, Direction end) {
+		int[] in = h.inner(0);
+		int y = fp.y;
+		Direction into = end.getOpposite();
+		int ax = end == Dirs.LEFT ? in[0] : end == Dirs.RIGHT ? in[2] : (in[0] + in[2]) / 2;
+		int az = end == Dirs.BACK ? in[3] : end == Dirs.FRONT ? in[1] : (in[1] + in[3]) / 2 + 1;
+		Direction along = Dirs.right(end);
+		int bx = ax + Dirs.dx(along);
+		int bz = az + Dirs.dz(along);
+		if (fp.take(new int[][]{{ax, az}, {bx, bz}}, new int[]{ax + Dirs.dx(into), az + Dirs.dz(into)})) {
+			d.inStage(StageKind.INTERIOR, () -> {
+				d.set(ax, y, az, States.facing(Blocks.BLAST_FURNACE, into).trySetValue(BlockStateProperties.LIT, true));
+				d.set(bx, y, bz, States.facing(Blocks.FURNACE, into));
+			});
+			d.poi(PoiType.JOB_SITE, ax + Dirs.dx(into), y, az + Dirs.dz(into), end, JobType.SCHOLAR);
+			if (h.roof != null || h.deck != Integer.MIN_VALUE) {
+				h.chimney(ax + Dirs.dx(end), az + Dirs.dz(end), y + 1);
+			}
+		}
+		int benches = 0;
+		boolean still = false;
+		boolean chest = false;
+		boolean crucible = false;
+		for (Direction wall : new Direction[]{Dirs.BACK, Dirs.FRONT, end, end.getOpposite()}) {
+			Direction in2 = wall.getOpposite();
+			for (int[] c : fp.along(wall)) {
+				if (!crucible && fp.take(c[0], c[1], in2)) {
+					Studies.crucible(d, c[0], y, c[1], true);
+					crucible = true;
+				} else if (!still && fp.take(c[0], c[1], in2)) {
+					d.inStage(StageKind.INTERIOR, () -> d.set(c[0], y, c[1], States.facing(Blocks.BARREL, in2)));
+					Studies.brewingStand(d, c[0], y + 1, c[1]);
+					still = true;
+				} else if (!chest && fp.take(c[0], c[1], in2)) {
+					Furniture.chest(d, c[0], y, c[1], in2, List.of(new Object[]{"minecraft:coal", 24}, new Object[]{"minecraft:charcoal", 16},
+						new Object[]{"minecraft:raw_iron", 4}));
+					chest = true;
+				} else if (benches < 2 && fp.take(c[0], c[1], in2)) {
+					Studies.counter(d, c[0], y, c[1], in2, benches + 2);
+					benches++;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Clears from a wing's rooms what the tower's walls put out on that side before the wing stood there (window sills,
+	 * hoods, shutters): anything inside the wing's walls that is not a full block goes.
+	 */
+	private static void clearInside(Draft d, Hall wing) {
+		int[] in = wing.inner(0);
+		int top = wing.floorY(1) - 1;
+		try (var s = d.stage(StageKind.INTERIOR)) {
+			for (int x = in[0]; x <= in[2]; x++) {
+				for (int z = in[1]; z <= in[3]; z++) {
+					for (int y = wing.floorY(0); y < top; y++) {
+						var st = d.get(x, y, z);
+						if (st != null && !st.isAir() && !st.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)) {
+							d.set(x, y, z, Blocks.AIR.defaultBlockState());
+						}
+					}
+				}
+			}
+		}
+	}
+
+	/** Herb beds before the house between the paths, a lamp by the gate, the fence along the street open at the paths. */
+	private static void frontGarden(Draft d, int w, int z1, List<Integer> paths, int ex) {
+		if (z1 >= 1) {
+			int[] cols = new int[paths.size() + 1];
+			for (int i = 0; i < paths.size(); i++) {
+				cols[i] = paths.get(i);
+			}
+			cols[paths.size()] = ex;
+			for (int x = 1; x <= w - 2; x++) {
+				boolean path = false;
+				for (int c : cols) {
+					path |= Math.abs(x - c) <= 0;
+				}
+				if (!path && z1 - 1 >= 1) {
+					Garden.kitchenRows(d, x, 1, x, z1 - 1, 0, Dirs.BACK);
+				}
+			}
+		}
+		List<int[]> gaps = new ArrayList<>();
+		for (int c : paths) {
+			gaps.add(new int[]{c, 0});
+		}
+		gaps.add(new int[]{ex, 0});
+		Yard.enclose(d, 0, 0, w - 1, 0, gaps, Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
+		Works.lampPost(d, ex + 1 < w - 1 ? ex + 1 : ex - 1, 0, 1);
+	}
+
+	/** A paved path from the street at column {@code from} to the door at (x, z) (the cell before it). */
+	private static void path(Draft d, int from, int x, int z) {
+		List<int[]> cells = new ArrayList<>();
+		int zz = 0;
+		for (; zz < z; zz++) {
+			cells.add(new int[]{from, zz});
+		}
+		for (int xx = Math.min(from, x); xx <= Math.max(from, x); xx++) {
+			cells.add(new int[]{xx, z - 1});
+		}
+		Garden.path(d, cells, 0);
+	}
+
+	// ------------------------------------------------------------------------------------------------ the stone tower
+
+	private static int stone(Draft d, int w, int dp, int ex, boolean left) {
+		int ts = w >= 13 && dp >= 11 ? 8 : 7;
+		int tx0 = left ? 0 : w - ts;
+		int tx1 = tx0 + ts - 1;
+		int tz1 = dp - 1;
+		int tz0 = dp - ts;
+		RoofForm form = Hall.pick(d, RoofForm.HIP, RoofForm.HIP, RoofForm.PAGODA);
+		Direction wellWall = left ? Dirs.LEFT : Dirs.RIGHT;
+		Tower tw = tower(d, tx0, tz0, tx1, tz1, new int[]{5, 4, 4}, form, Direction.Axis.X, (tx0 + tx1) / 2, wellWall);
+		Hall t = tw.hall();
+		// the laboratory wing against the tower's flank, a row shallower, its far wall to the street side's end
+		int wx0 = left ? tx1 : 0;
+		int wx1 = left ? w - 1 : tx0;
+		int wz0 = tz0 + 1;
+		int wz1 = dp - 1;
+		Hall wing = null;
+		if (wx1 - wx0 >= 4) {
+			wing = Hall.of(d, wx0, wz0, wx1, wz1, 0, Hall.budget(d, wx0, wz0, wx1, wz1, 0, new int[]{5}, false, RoofForm.GABLE, 1, Direction.Axis.X), left,
+				!left);
+			int[] win = wing.inner(0);
+			wing.facade((win[0] + win[2]) / 2, 1, 1, 0.5);
+			wing.ground(false).shell().openings(true);
+			wing.roof(Hall.pick(d, RoofForm.GABLE, RoofForm.HALF_HIP), Direction.Axis.X, 1, null);
+			if (wing.roof == null) {
+				wing.crown();
+			}
+			clearInside(d, wing);
+		}
+		int top = t.top;
+		int[] tin = t.inner(0);
+		// the door between them, through the tower's flank
+		int[] link = null;
+		if (wing != null) {
+			int[] win = wing.inner(0);
+			int lz = Math.max(win[1] + 1, Math.min(tin[3] - 1, (win[1] + win[3]) / 2));
+			if (wing.door(0, left ? Dirs.LEFT : Dirs.RIGHT, lz, 1, false, false)) {
+				link = new int[]{left ? tin[2] : tin[0], lz};
+			}
+			Floorplan fp = wing.floor(0).blockHoles(d);
+			int wd = wing.door != null ? wing.door : (win[0] + win[2]) / 2;
+			fp.keep(wd, win[1]);
+			if (link != null) {
+				fp.keep(left ? win[0] : win[2], lz);
+			}
+			athanor(d, wing, fp, left ? Dirs.RIGHT : Dirs.LEFT);
+			top = Math.max(top, wing.top);
+		}
+		Direction hearth = wing == null ? (left ? Dirs.RIGHT : Dirs.LEFT) : null;
+		if (link != null) {
+			furnish(d, tw, hearth, link);
 		} else {
-			Sacra.candles(d, p.ax(1), y + 1, p.bz(0), 3, StageKind.INTERIOR);
+			furnish(d, tw, hearth);
+		}
+		// before them: the herb garden, paths to the doors, the sign over the tower door
+		List<Integer> paths = new ArrayList<>();
+		paths.add(tw.door());
+		path(d, ex, tw.door(), tz0);
+		if (wing != null && wing.door != null) {
+			paths.add(wing.door);
+			path(d, ex, wing.door, wz0);
+		}
+		frontGarden(d, w, Math.min(tz0, wz0) - 1, paths, ex);
+		Signs.bracket(d, t.side(0, Dirs.FRONT), t.side(0, Dirs.FRONT).index(tw.door() + (left ? 1 : -1)), 3, "alchemist_tower", "Alchemist");
+		return top;
+	}
+
+	// ------------------------------------------------------------------------------------------------ the tower house
+
+	private static int timber(Draft d, int w, int dp, int ex, boolean left) {
+		int ts = 7;
+		int tx0 = (w - ts) / 2 + (left ? -1 : 1) * (w - ts >= 6 ? 1 : 0);
+		int tx1 = tx0 + ts - 1;
+		int tz1 = dp - 1;
+		int tz0 = Math.max(2, dp - ts - 1);
+		Direction wellWall = left ? Dirs.RIGHT : Dirs.LEFT;
+		Tower tw = tower(d, tx0, tz0, tx1, tz1, new int[]{5, 4, 4}, RoofForm.GABLE, Direction.Axis.Z, (tx0 + tx1) / 2, wellWall);
+		Hall t = tw.hall();
+		int top = t.top;
+		// the still-room: a lean-to against the flank away from the stair, its roof falling from the tower
+		int sx0 = left ? 0 : tx1;
+		int sx1 = left ? tx0 : w - 1;
+		int[] link = null;
+		boolean still = sx1 - sx0 >= 4;
+		if (still) {
+			int sz0 = tz0 + 2;
+			Hall lean = Hall.of(d, sx0, sz0, sx1, tz1, 0, new int[]{4}, !left, left);
+			int[] lin = lean.inner(0);
+			lean.facade((lin[0] + lin[2]) / 2, 1, 1, 0.4);
+			lean.ground(false).shell().openings(true);
+			// a little gable of its own, ridge running back from the street (a shed roof fell to a door too low to pass)
+			lean.roof(RoofForm.GABLE, Direction.Axis.Z, 1, null);
+			if (lean.roof == null) {
+				lean.crown();
+			}
+			clearInside(d, lean);
+			int lz = (lin[1] + lin[3]) / 2;
+			if (lean.door(0, left ? Dirs.RIGHT : Dirs.LEFT, lz, 1, false, false)) {
+				int[] tin = t.inner(0);
+				link = new int[]{left ? tin[0] : tin[2], lz};
+			}
+			Floorplan fp = lean.floor(0).blockHoles(d);
+			fp.keep(lean.door != null ? lean.door : (lin[0] + lin[2]) / 2, lin[1]);
+			if (link != null) {
+				fp.keep(left ? lin[2] : lin[0], lz);
+			}
+			athanor(d, lean, fp, Dirs.BACK);
+			top = Math.max(top, lean.top);
+			if (lean.door != null) {
+				path(d, ex, lean.door, sz0);
+			}
+		}
+		Direction hearth = still ? null : (left ? Dirs.LEFT : Dirs.RIGHT);
+		if (link != null) {
+			furnish(d, tw, hearth, link);
+		} else {
+			furnish(d, tw, hearth);
+		}
+		path(d, ex, tw.door(), tz0);
+		// a woodpile against the far flank, kitchen beds before the house, the fence along the street
+		int fx = left ? tx1 + 1 : tx0 - 1;
+		if (Works.in(d, fx, tz0 + 1) && d.isEmpty(fx, 0, tz0 + 1)) {
+			Garden.woodpile(d, fx, 0, tz0 + 1, Dirs.BACK, Math.min(3, ts - 2));
+		}
+		List<Integer> paths = new ArrayList<>();
+		paths.add(tw.door());
+		frontGarden(d, w, tz0 - 1, paths, ex);
+		Signs.bracket(d, t.side(0, Dirs.FRONT), t.side(0, Dirs.FRONT).index(tw.door() + (left ? 1 : -1)), 3, "alchemist_tower", "Alchemist");
+		if (d.habits().snow()) {
+			Garden.snowBanks(d, tx0, tz0, tx1, tz1, 0, tw.door());
+		}
+		return top;
+	}
+
+	// ------------------------------------------------------------------------------------------------ the walled laboratory
+
+	private static int court(Draft d, int w, int dp, int ex, boolean left) {
+		int ts = 7;
+		int tx0 = left ? 1 : w - 1 - ts;
+		int tx1 = tx0 + ts - 1;
+		int tz1 = dp - 2;
+		int tz0 = tz1 - ts + 1;
+		Direction wellWall = left ? Dirs.LEFT : Dirs.RIGHT;
+		Tower tw = tower(d, tx0, tz0, tx1, tz1, new int[]{4, 4, 4}, RoofForm.FLAT, Direction.Axis.X, (tx0 + tx1) / 2, wellWall);
+		Hall t = tw.hall();
+		int top = t.top;
+		// the laboratory range along the back wall, against the tower's flank
+		int rx0 = left ? tx1 : 1;
+		int rx1 = left ? w - 2 : tx0;
+		int rz0 = tz1 - 4;
+		int[] link = null;
+		Hall range = null;
+		if (rx1 - rx0 >= 4) {
+			range = Hall.of(d, rx0, rz0, rx1, tz1, 0, new int[]{4}, left, !left);
+			int[] rin = range.inner(0);
+			range.facade((rin[0] + rin[2]) / 2, 1, 1, 0.4);
+			range.ground(false).shell().openings(true);
+			range.roof(RoofForm.FLAT, Direction.Axis.X, 1, null);
+			range.crown();
+			clearInside(d, range);
+			int lz = (rin[1] + rin[3]) / 2;
+			if (range.door(0, left ? Dirs.LEFT : Dirs.RIGHT, lz, 1, false, false)) {
+				int[] tin = t.inner(0);
+				link = new int[]{left ? tin[2] : tin[0], lz};
+			}
+			Floorplan fp = range.floor(0).blockHoles(d);
+			fp.keep(range.door != null ? range.door : (rin[0] + rin[2]) / 2, rin[1]);
+			if (link != null) {
+				fp.keep(left ? rin[0] : rin[2], lz);
+			}
+			athanor(d, range, fp, left ? Dirs.RIGHT : Dirs.LEFT);
+			top = Math.max(top, range.top);
+		}
+		Direction hearth = range == null ? (left ? Dirs.RIGHT : Dirs.LEFT) : null;
+		if (link != null) {
+			furnish(d, tw, hearth, link);
+		} else {
+			furnish(d, tw, hearth);
+		}
+		// the court: the still under a reed shade by the range, the basin, jars, pots of herbs; paths from the gate
+		int cz0 = 2;
+		int cz1 = Math.min(tz0, rz0) - 2;
+		path(d, ex, tw.door(), tz0);
+		if (range != null && range.door != null) {
+			path(d, ex, range.door, rz0);
+		}
+		int sx = left ? w - 4 : 1;
+		if (cz1 - cz0 >= 2 && Adobe.ramada(d, sx, cz0, sx + 2, cz0 + 2, 0)) {
+			still(d, sx + 1, cz0 + 2, Dirs.FRONT);
+			if (d.isEmpty(sx, 0, cz0) && Math.abs(sx - ex) > 1) {
+				Props.jars(d, sx, 0, cz0, Dirs.RIGHT, 1);
+			}
+		}
+		int bx = left ? w - 3 : 2;
+		int bz = Math.max(cz0, cz1);
+		if (Works.in(d, bx, bz) && d.isEmpty(bx, 0, bz) && d.isEmpty(bx, 0, bz - 1) && Math.abs(bx - ex) > 1) {
+			d.inStage(StageKind.EXTERIOR, () -> d.set(bx, 0, bz, Blocks.WATER_CAULDRON.defaultBlockState().setValue(BlockStateProperties.LEVEL_CAULDRON, 3)));
+		}
+		for (int x = 2; x <= w - 3; x += 3) {
+			if (Math.abs(x - ex) > 1 && d.isEmpty(x, 0, 1) && d.isEmpty(x, 1, 1)) {
+				Garden.pot(d, x, 0, 1);
+			}
+		}
+		// the wall round the court, two high and coped, the gate at the street
+		courtWall(d, w, dp, ex);
+		return top;
+	}
+
+	/** The court's wall round the plot's edge, two courses and a coping, open at the gate (and where something stands). */
+	private static void courtWall(Draft d, int w, int dp, int ex) {
+		Mat wall = d.mat(Role.WALL);
+		Mat cap = d.mat(Role.WALL_ACCENT).has(Form.SLAB) ? d.mat(Role.WALL_ACCENT) : wall;
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int[] c : Draft.ring(0, 0, w - 1, dp - 1)) {
+				if (c[1] == 0 && Math.abs(c[0] - ex) <= 1) {
+					continue;
+				}
+				if (!d.isEmpty(c[0], 0, c[1]) || !d.isEmpty(c[0], 1, c[1])) {
+					continue;
+				}
+				d.set(c[0], -1, c[1], d.mat(Role.FOUNDATION).full());
+				d.set(c[0], 0, c[1], wall.full());
+				d.set(c[0], 1, c[1], wall.full());
+				d.set(c[0], 2, c[1], cap.has(Form.SLAB) ? cap.slab(SlabType.BOTTOM) : cap.full());
+			}
+		}
+		// the gate's posts and lamps
+		for (int x : new int[]{ex - 2, ex + 2}) {
+			if (Works.in(d, x, 0) && d.isSolid(x, 1, 0)) {
+				// a lantern stands on a whole block: the post's coping slab under it becomes the post's head
+				var head = d.get(x, 2, 0);
+				if (head == null || !head.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)) {
+					d.inStage(StageKind.WALLS, () -> d.set(x, 2, 0, d.mat(Role.WALL).full()));
+				}
+				Lighting.lamp(d, x, 3, 0);
+			}
 		}
 	}
 
-	/** The roof platform: herbs drying in pots along the parapet, a still on a barrel, a bench and the view. */
-	private static void platform(Draft d, Plan p) {
-		int y = p.floors[3];
-		int z = p.bz(0);
-		Studies.counter(d, p.ax(4), y, p.bz(1), p.across().getOpposite(), 0);
-		for (int a : new int[]{0, 2}) {
-			int x = p.ax(a);
-			if (d.isEmpty(x, y, z)) {
-				d.inStage(StageKind.EXTERIOR, () -> d.set(x, y, z, Blocks.FLOWER_POT.defaultBlockState()));
+	/** A still in the open: a stand on a barrel worked from {@code user}'s side, the scholar's place. */
+	private static void still(Draft d, int x, int z, Direction user) {
+		if (!d.isEmpty(x, 0, z) || !d.isEmpty(x + Dirs.dx(user), 0, z + Dirs.dz(user))) {
+			return;
+		}
+		d.inStage(StageKind.EXTERIOR, () -> d.set(x, 0, z, States.facing(Blocks.BARREL, user)));
+		Studies.brewingStand(d, x, 1, z);
+		d.poi(PoiType.JOB_SITE, x + Dirs.dx(user), 0, z + Dirs.dz(user), user.getOpposite(), JobType.SCHOLAR);
+	}
+
+	// ------------------------------------------------------------------------------------------------ the pavilion tower
+
+	private static int pavilion(Draft d, int w, int dp, int ex, boolean left) {
+		int ts = 7;
+		int tx0 = left ? 0 : w - ts;
+		int tx1 = tx0 + ts - 1;
+		int tz1 = dp - 1;
+		int tz0 = dp - ts;
+		Direction wellWall = left ? Dirs.LEFT : Dirs.RIGHT;
+		RoofForm form = Hall.pick(d, RoofForm.PAGODA, RoofForm.HIP);
+		Tower tw = tower(d, tx0, tz0, tx1, tz1, new int[]{4, 4, 4}, form, Direction.Axis.X, (tx0 + tx1) / 2, wellWall);
+		Hall t = tw.hall();
+		furnish(d, tw, null);
+		int top = t.top;
+		// the elixir furnace under an open shed before the tower on the other side: a lit furnace on a stone hearth, the
+		// cauldron over its fire, a bench with the still
+		int sx0 = left ? tx1 + 2 : 1;
+		int sx1 = left ? w - 2 : tx0 - 2;
+		int sz0 = 2;
+		int sz1 = Math.min(sz0 + 3, tz0 - 1);
+		if (sx1 - sx0 >= 3 && sz1 - sz0 >= 2) {
+			Shed.open(d, sx0, sz0, sx1, sz1, 0, 3, Hall.pick(d, RoofForm.PAGODA, RoofForm.HIP), Direction.Axis.X, 1, Dirs.BACK);
+			int fx = left ? sx1 - 1 : sx0 + 1;
+			int fz = sz1 - 1;
+			Direction into = Dirs.FRONT;
+			if (d.isEmpty(fx, 0, fz) && d.isEmpty(fx, 0, fz - 1)) {
+				d.inStage(StageKind.INTERIOR, () -> d.set(fx, 0, fz, States.facing(Blocks.BLAST_FURNACE, into).trySetValue(BlockStateProperties.LIT, true)));
+				d.poi(PoiType.JOB_SITE, fx, 0, fz - 1, Dirs.BACK, JobType.SCHOLAR);
+			}
+			int cx = fx + (left ? -1 : 1);
+			if (d.isEmpty(cx, 0, fz) && d.isEmpty(cx, 0, fz - 1)) {
+				d.inStage(StageKind.INTERIOR, () -> d.set(cx, 0, fz, Blocks.WATER_CAULDRON.defaultBlockState().setValue(BlockStateProperties.LEVEL_CAULDRON, 2)));
+			}
+			int bx = cx + (left ? -1 : 1);
+			if (d.isEmpty(bx, 0, fz) && d.isEmpty(bx, 0, fz - 1)) {
+				still(d, bx, fz, Dirs.FRONT);
+			}
+			int lx = (sx0 + sx1) / 2;
+			Props.hangLantern(d, lx, 3, sz0 + 1);
+			top = Math.max(top, 6);
+		}
+		// a little pool among stones in the corner by the street
+		int px = left ? w - 3 : 1;
+		if (Works.in(d, px + 1, 1) && Math.abs(px - ex) > 2 && Math.abs(px + 1 - ex) > 2) {
+			try (var s = d.stage(StageKind.EXTERIOR)) {
+				for (int x = px; x <= px + 1; x++) {
+					d.set(x, -1, 1, Blocks.WATER.defaultBlockState());
+					d.set(x, -2, 1, d.mat(Role.FOUNDATION).full());
+				}
+			}
+			for (int[] c : new int[][]{{px - 1, 1}, {px + 2, 1}, {px, 2}}) {
+				if (Works.in(d, c[0], c[1]) && d.isEmpty(c[0], 0, c[1])) {
+					d.inStage(StageKind.EXTERIOR, () -> d.set(c[0], 0, c[1], Blocks.MOSSY_COBBLESTONE_SLAB.defaultBlockState()));
+				}
 			}
 		}
-		if (d.isEmpty(p.ax(1), y, z)) {
-			dev.voidmc.hearth.build.kit.landscape.Benches.bench(d, p.ax(1), y, z, Dirs.FRONT, p.across(), 1, false);
-		}
-		d.poi(PoiType.VIEWPOINT, p.ax(3), y, z, Dirs.FRONT);
+		path(d, ex, tw.door(), tz0);
+		List<int[]> gaps = new ArrayList<>();
+		gaps.add(new int[]{ex, 0});
+		gaps.add(new int[]{tw.door(), 0});
+		Yard.enclose(d, 0, 0, w - 1, 0, gaps, Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
+		Works.lampPost(d, ex + 1 < w - 1 ? ex + 1 : ex - 1, 0, 1);
+		Signs.bracket(d, t.side(0, Dirs.FRONT), t.side(0, Dirs.FRONT).index(tw.door() + (left ? 1 : -1)), 3, "alchemist_tower", "Alchemist");
+		return top;
 	}
 }

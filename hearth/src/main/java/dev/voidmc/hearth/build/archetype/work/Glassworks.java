@@ -70,9 +70,11 @@ public final class Glassworks implements Archetype {
 		boolean yardLeft = d.chance(0.5);
 		RoofForm form = Hall.pick(d, FORMS);
 
-		// the hall: all but a strip down one side and the yard in front
-		int hx0 = yardLeft ? 2 : 0;
-		int hx1 = yardLeft ? w - 1 : w - 3;
+		// the hall: all but a strip down one side and the yard in front (a cell wider beside a log wall, whose corner
+		// ends stand out across the strip's mouth)
+		int strip = d.habits().walls().kind() == dev.voidmc.hearth.build.style.Habits.WallKind.LOG ? 3 : 2;
+		int hx0 = yardLeft ? strip : 0;
+		int hx1 = yardLeft ? w - 1 : w - 1 - strip;
 		int hz0 = 3;
 		int hz1 = dp - 1;
 		int[] heights = Hall.budget(d, hx0, hz0, hx1, hz1, 0, new int[]{6}, false, form, 2, Direction.Axis.Z);
@@ -206,6 +208,8 @@ public final class Glassworks implements Archetype {
 		}
 		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{w / 2, 0, 1}, new int[]{w / 2, 0, 0});
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(top, hall.top) + 1);
 	}
 }

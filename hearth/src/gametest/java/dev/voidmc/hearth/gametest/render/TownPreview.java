@@ -53,7 +53,8 @@ import net.minecraft.server.Bootstrap;
  * </pre>
  * Terrains are the synthetic kinds or {@code earth[:x:z]} (Expanse's Earth model, the seed as world seed). Output in
  * build/previews/town/: {@code town_<culture>_<terrain>_s<seed>_d<days>_overview[_night].png} and
- * {@code ..._close<n>_<what>[_night].png}, plus similarity.txt.
+ * {@code ..._close<n>_<what>[_night].png} and {@code ..._floating.txt} (the floating-piece probe, {@link TownFloat}), plus
+ * similarity.txt. The land round the town wears a stand-in for Expanse's vegetation ({@link TownCountry}).
  */
 public final class TownPreview {
 	private static final int DAY_BG = 0xFFE9E4DA;
@@ -128,7 +129,7 @@ public final class TownPreview {
 
 			// the overview: the bulk of the town, scaled to about 2400 px across
 			int half = townHalf(plots, state.heartX, state.heartZ);
-			Voxels town = TownScene.build(plots, service, terrain, state.heartX - half, state.heartZ - half, state.heartX + half, state.heartZ + half, culture);
+			Voxels town = scene(plots, service, terrain, state.heartX - half, state.heartZ - half, state.heartX + half, state.heartZ + half, culture);
 			int scale = Math.clamp(Math.round(2400f / ((2 * half + 1) * 1.414f)), 2, 10);
 			IsoRenderer.View view = facingDownhill(terrain, state.heartX, state.heartZ, half);
 			if (day) {
@@ -139,6 +140,15 @@ public final class TownPreview {
 					new File(out, tag + "_overview_night.png"));
 			}
 			town = null;
+
+			// the floating-piece probe (art review 2): each plot on the town's land, then the composed town
+			List<String> floating = TownFloat.report(plots, real, service, terrain, culture, state.heartX - half, state.heartZ - half, state.heartX + half,
+				state.heartZ + half);
+			java.nio.file.Files.write(new File(out, tag + "_floating.txt").toPath(), floating, java.nio.charset.StandardCharsets.UTF_8);
+			System.out.println("  " + floating.get(0) + " -> " + tag + "_floating.txt");
+			for (int i = 1; i < Math.min(floating.size(), 9); i++) {
+				System.out.println("    " + floating.get(i));
+			}
 
 			// close-ups: the heart, then the prominent buildings, spread apart
 			List<int[]> foci = new ArrayList<>();
@@ -168,8 +178,7 @@ public final class TownPreview {
 			int closeScale = Math.clamp(Math.round(900f / (window * 1.414f)), 6, 18);
 			for (int i = 0; i < foci.size(); i++) {
 				int[] f = foci.get(i);
-				Voxels v = TownScene.build(plots, service, terrain, f[0] - window / 2, f[1] - window / 2, f[0] + (window - 1) / 2, f[1] + (window - 1) / 2,
-					culture);
+				Voxels v = scene(plots, service, terrain, f[0] - window / 2, f[1] - window / 2, f[0] + (window - 1) / 2, f[1] + (window - 1) / 2, culture);
 				String what = labels.get(i) + " at " + f[0] + "," + f[1];
 				String file = tag + "_close" + i + "_" + labels.get(i);
 				if (day) {
@@ -188,6 +197,19 @@ public final class TownPreview {
 		if (similar) {
 			CultureSimilarity.write(CultureSimilarity.run(real, built, 2, 0.8), 0.8, new File(out, "similarity.txt").toPath());
 		}
+	}
+
+	/**
+	 * A window of the town as drawn: {@link TownScene} with the countryside round it ({@link TownCountry}, a stand-in for
+	 * Expanse's vegetation; {@code -Dhearth.town.country=false} leaves the land bare).
+	 */
+	private static Voxels scene(List<PlotView> plots, BlueprintService service, TerrainProbe terrain, int x0, int z0, int x1, int z1, Culture culture) {
+		it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap owner = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
+		Voxels v = TownScene.build(plots, service, terrain, x0, z0, x1, z1, culture, owner);
+		if (Boolean.parseBoolean(System.getProperty("hearth.town.country", "true"))) {
+			TownCountry.dress(v, owner, terrain, culture, x0, z0, x1, z1);
+		}
+		return v;
 	}
 
 	/** How much a close-up wants a building: the town's landmarks first, then its civic, noble and law houses, its inns and markets. */

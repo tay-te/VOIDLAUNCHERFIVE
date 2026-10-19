@@ -123,9 +123,11 @@ public final class Fishery implements Archetype {
 		if (base > 0) {
 			Groundwork.approach(d, door, base, hz0 - 1);
 		}
-		// the back door to the jetty
-		hall.door(0, Dirs.BACK, in[2] - 1 > door ? in[2] - 1 : in[0] + 1, 1, false, false);
+		// the back door to the jetty, where the land behind is no higher than the floor (a hillside behind gets none)
 		int backDoor = in[2] - 1 > door ? in[2] - 1 : in[0] + 1;
+		if (hz1 + 1 >= dp || d.site().ground(backDoor, hz1 + 1) <= base) {
+			hall.door(0, Dirs.BACK, backDoor, 1, false, false);
+		}
 
 		Direction.Axis ridge = tall || d.chance(Math.max(0.5, h.roof().frontGable())) ? Direction.Axis.Z : Direction.Axis.X;
 		hall.roof(form, ridge, 2, null);
@@ -168,6 +170,8 @@ public final class Fishery implements Archetype {
 			// a flat roof is a terrace: a stair up the side, a room set back, an awning
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

@@ -1,0 +1,11 @@
+# Known failures of the audit gate's play rules, noble/* (AUDIT.md lane L5; BUILDING_GUIDE.md §8, "The audit gate").
+# One line per archetype: its path, the rules it still breaks, a comment (audit cases breaking it / cases measured).
+# Rules: walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole (build/check/PlayChecks.java).
+# When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
+# breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
+# by an archetype not listed for it fails the tests.
+noble/castle door-sides ladder-top furnished-reached floating-piece roof-hole  # door-sides 18/84 (tests 141), ladder-top 72/84 (tests 639), furnished-reached 37/84 (tests 346), floating-piece 0/84 (tests 1), roof-hole 49/84 (tests 414)
+noble/hunting_lodge door-sides furnished-reached                               # door-sides 0/84 (tests 4), furnished-reached 2/84 (tests 24)
+noble/keep ladder-top furnished-reached roof-hole                              # ladder-top 36/84 (tests 463), furnished-reached 18/84 (tests 136), roof-hole 64/84 (tests 469)
+noble/palace ladder-top furnished-reached roof-hole                            # ladder-top 18/18 (tests 288), furnished-reached 0/18 (tests 194), roof-hole 12/18 (tests 683)
+noble/stables furnished-reached                                                # furnished-reached 2/84 (tests 21)

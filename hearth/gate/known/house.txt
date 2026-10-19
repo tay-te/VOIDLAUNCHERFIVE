@@ -1,0 +1,27 @@
+# Known failures of the audit gate's play rules, house/* (AUDIT.md lane L2; BUILDING_GUIDE.md §8, "The audit gate").
+# One line per archetype: its path, the rules it still breaks, a comment (audit cases breaking it / cases measured).
+# Rules: walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole (build/check/PlayChecks.java).
+# When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
+# breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
+# by an archetype not listed for it fails the tests.
+house/cliff_dwelling roof-hole                                                         # roof-hole 0/18 (tests 23)
+house/cottage walk door-sides ladder-top furnished-reached roof-hole                   # walk 0/84 (tests 18), door-sides 0/84 (tests 1), ladder-top 0/84 (tests 12), furnished-reached 3/84 (tests 7), roof-hole 10/84 (tests 39)
+house/courtyard_house walk door-sides furnished-reached floating-piece roof-hole       # walk 6/18 (tests 76), door-sides 0/18 (tests 113), furnished-reached 7/18 (tests 88), floating-piece 0/18 (tests 1), roof-hole 12/18 (tests 281)
+house/croft walk door-sides ladder-top furnished-reached roof-hole                     # walk 0/84 (tests 14), door-sides 8/84 (tests 104), ladder-top 0/84 (tests 39), furnished-reached 3/84 (tests 114), roof-hole 12/84 (tests 75)
+house/farmhouse walk door-sides ladder-top furnished-reached floating-piece roof-hole  # walk 9/84 (tests 75), door-sides 0/84 (tests 28), ladder-top 4/84 (tests 14), furnished-reached 0/84 (tests 10), floating-piece 8/84 (tests 37), roof-hole 7/84 (tests 67)
+house/hermit_hut furnished-reached                                                     # furnished-reached 0/84 (tests 2)
+house/hovel walk furnished-reached roof-hole                                           # walk 0/84 (tests 1), furnished-reached 0/84 (tests 4), roof-hole 0/84 (tests 2)
+house/hut roof-hole                                                                    # roof-hole 0/84 (tests 3)
+house/manor walk door-sides furnished-reached roof-hole                                # walk 0/84 (tests 2), door-sides 0/84 (tests 1), furnished-reached 0/84 (tests 2), roof-hole 0/84 (tests 32)
+house/merchant_house door-sides furnished-reached floating-piece                       # door-sides 0/84 (tests 24), furnished-reached 0/84 (tests 6), floating-piece 0/84 (tests 27)
+house/rectory door-sides furnished-reached floating-piece roof-hole                    # door-sides 0/84 (tests 3), furnished-reached 0/84 (tests 6), floating-piece 0/84 (tests 2), roof-hole 0/84 (tests 1)
+house/reeve_house door-sides furnished-reached                                         # door-sides 0/84 (tests 15), furnished-reached 0/84 (tests 10)
+house/round_house roof-hole                                                            # roof-hole 0/12 (tests 2)
+house/rowhouse door-sides roof-hole                                                    # door-sides 12/84 (tests 140), roof-hole 0/84 (tests 2)
+house/scribe_house door-sides furnished-reached floating-piece roof-hole               # door-sides 0/84 (tests 7), furnished-reached 0/84 (tests 2), floating-piece 0/84 (tests 12), roof-hole 12/84 (tests 19)
+house/shack door-sides roof-hole                                                       # door-sides 0/84 (tests 1), roof-hole 0/84 (tests 5)
+house/shophouse door-sides furnished-reached floating-piece roof-hole                  # door-sides 0/84 (tests 34), furnished-reached 0/84 (tests 1), floating-piece 0/84 (tests 25), roof-hole 3/84 (tests 5)
+house/stilt_house walk door-sides ladder-top furnished-reached                         # walk 0/18 (tests 46), door-sides 0/18 (tests 106), ladder-top 0/18 (tests 21), furnished-reached 0/18 (tests 13)
+house/tenement walk door-sides furnished-reached floating-piece roof-hole              # walk 0/84 (tests 4), door-sides 33/84 (tests 313), furnished-reached 0/84 (tests 1), floating-piece 0/84 (tests 55), roof-hole 0/84 (tests 12)
+house/tower_house door-sides roof-hole                                                 # door-sides 0/24 (tests 14), roof-hole 3/24 (tests 24)
+house/townhouse walk door-sides furnished-reached floating-piece roof-hole             # walk 0/84 (tests 6), door-sides 18/84 (tests 94), furnished-reached 0/84 (tests 6), floating-piece 0/84 (tests 3), roof-hole 0/84 (tests 4)

@@ -72,6 +72,11 @@ public final class EmbodimentManager {
 	private record CachedPlaces(ResidentPlaces places, long at) {
 	}
 
+	private record CachedSchedule(long day, dev.voidmc.hearth.api.JobType job, AgeStage age, dev.voidmc.hearth.npc.routine.Schedule schedule) {
+	}
+
+	private final Map<UUID, CachedSchedule> scheduleCache = new HashMap<>();
+
 	public TownState town(Settlement settlement) {
 		return this.towns.computeIfAbsent(settlement.id(), TownState::new);
 	}
@@ -575,6 +580,7 @@ public final class EmbodimentManager {
 				it.remove();
 			}
 		}
+		this.scheduleCache.keySet().retainAll(this.placeCache.keySet());
 		// markers sent for folk who have since gone
 		it.unimi.dsi.fastutil.ints.IntOpenHashSet ids = new it.unimi.dsi.fastutil.ints.IntOpenHashSet();
 		for (Folk f : this.embodied.values()) {
@@ -601,7 +607,14 @@ public final class EmbodimentManager {
 			c = new CachedPlaces(ResidentPlaces.resolve(level, s, r, town.places), now);
 			this.placeCache.put(r.id, c);
 		}
-		return RoutinePlacement.where(level, s, r, c.places, town);
+		// a resident's day is the same all day: made once, not on every pass for every record in town
+		long day = dev.voidmc.hearth.npc.NpcTime.today();
+		CachedSchedule cs = this.scheduleCache.get(r.id);
+		if (cs == null || cs.day != day || cs.job != r.job || cs.age != r.age) {
+			cs = new CachedSchedule(day, r.job, r.age, RoutinePlacement.schedule(s, r, day));
+			this.scheduleCache.put(r.id, cs);
+		}
+		return RoutinePlacement.where(level, s, r, c.places, town, cs.schedule);
 	}
 
 	public void onServerStopped() {
@@ -609,6 +622,7 @@ public final class EmbodimentManager {
 		this.embodied.clear();
 		this.lastDistance.clear();
 		this.placeCache.clear();
+		this.scheduleCache.clear();
 		this.queue.clear();
 		this.queued.clear();
 		this.cursors.clear();

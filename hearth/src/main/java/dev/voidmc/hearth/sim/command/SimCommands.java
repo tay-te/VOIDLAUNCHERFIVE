@@ -178,6 +178,11 @@ public final class SimCommands {
 					culture = k;
 				}
 			}
+			if (culture == null) {
+				// a typo is not a request for the land's own culture
+				c.getSource().sendFailure(Component.literal("No culture '" + cultureName + "'"));
+				return 0;
+			}
 		}
 		net.minecraft.core.BlockPos at = net.minecraft.core.BlockPos.containing(c.getSource().getPosition());
 		String why = w.whyNotFound(at, 200);

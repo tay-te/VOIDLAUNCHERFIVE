@@ -17,6 +17,8 @@ import dev.voidmc.hearth.build.kit.Openings;
 import dev.voidmc.hearth.build.kit.Porches;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.craft.Hatch;
+import dev.voidmc.hearth.build.kit.craft.Rails;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Lifts;
@@ -185,6 +187,7 @@ public final class Storehouse implements Archetype {
 		}
 
 		interior(d, hall, door, doorW, flight);
+		Rails.flight(d, hall, 0, flight);
 		yard(d, hall, w, dp, door, doorW, flat, raised || stilts);
 		if (h.snow()) {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, base, door);
@@ -193,6 +196,8 @@ public final class Storehouse implements Archetype {
 			// a flat roof is a terrace: a stair up the side, a room set back, an awning
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -242,14 +247,12 @@ public final class Storehouse implements Archetype {
 		if (top - y < 3) {
 			return;
 		}
-		Mat doorMat = d.mat(Role.DOOR);
-		var leaf = doorMat.mainOr(dev.voidmc.hearth.build.style.Form.DOOR, Blocks.SPRUCE_DOOR);
-		d.inStage(StageKind.OPENINGS, () -> d.door(gable.x(i), y, gable.z(i), leaf, Dirs.FRONT,
-			net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+		// a half door: a rail at the sill, the shutter above swung open for the hoist
+		Hatch.hoistDoor(d, gable.x(i), y, gable.z(i), Dirs.FRONT);
 		// the hoist beam over the loft door, its chain and a crate
 		int beamY = y + 2;
 		if (beamY < top) {
-			Lifts.hoist(d, gable, i, beamY, 2, Math.max(3, y - 1), States.facing(Blocks.BARREL, Direction.UP));
+			Lifts.hoist(d, gable, i, beamY, 2, Math.max(3, y - 1), d.mat(Role.FURNITURE).full().at(gable.x(i), y, gable.z(i)));
 		}
 	}
 
@@ -280,20 +283,25 @@ public final class Storehouse implements Archetype {
 
 	/** Chests and barrels along the walls, sacks and hay, stores in the loft. */
 	private static void interior(Draft d, Hall hall, int door, int doorW, int[] flight) {
-		if (hall.storeys() >= 2 && flight == null) {
-			// no stair fits: the loft is floored only round its edge, the store open to the rafters above the middle
-			int[] up = hall.inner(0);
-			int fy = hall.floorY(1) - 1;
-			for (int x = up[0] + 1; x <= up[2] - 1; x++) {
-				for (int z = up[1] + 1; z <= up[3] - 1; z++) {
-					d.set(x, fy, z, Blocks.AIR.defaultBlockState());
-				}
-			}
-		}
 		Floorplan fp = hall.floor(0).blockHoles(d);
 		int[] in = hall.inner(0);
 		for (int c = door; c < door + doorW; c++) {
 			fp.keep(c, in[1]);
+		}
+		int[] ladder = null;
+		if (hall.storeys() >= 2 && flight == null) {
+			// no flight fits: a ladder up through a hatch against the back or a side wall
+			ladder = Hatch.ladder(d, hall, 1, fp, Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
+			if (ladder == null) {
+				// not even a ladder: the loft is opened to the rafters over the whole store, nobody's floor
+				int[] up = hall.inner(1);
+				int fy = hall.floorY(1) - 1;
+				for (int x = up[0]; x <= up[2]; x++) {
+					for (int z = up[1]; z <= up[3]; z++) {
+						d.set(x, fy, z, Blocks.AIR.defaultBlockState());
+					}
+				}
+			}
 		}
 		if (flight != null) {
 			fp.keep(flight[0], flight[1]);
@@ -316,10 +324,16 @@ public final class Storehouse implements Archetype {
 		}
 		Rooms.furnish(d, fp.room(), Rooms.Type.STORAGE, 0, JobType.NONE);
 		// the loft: more stores under the roof
-		if (hall.storeys() >= 2 && flight != null) {
+		if (hall.storeys() >= 2 && (flight != null || ladder != null)) {
 			Floorplan up = hall.floor(hall.storeys() - 1).blockHoles(d);
-			up.keep(flight[2], flight[3]);
-			up.keepArea(flight[4], flight[5], flight[6], flight[7]);
+			if (flight != null) {
+				up.keep(flight[2], flight[3]);
+				up.keepArea(flight[4], flight[5], flight[6], flight[7]);
+			} else {
+				// the step off the ladder and the walk to the hoist door
+				Hatch.keep(up, ladder);
+				up.keep(door, up.z0);
+			}
 			Rooms.Room room = up.room();
 			Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		}
@@ -369,7 +383,18 @@ public final class Storehouse implements Archetype {
 		if (r[0] >= 1 && r[3] - r[1] >= 3 && d.chance(0.6)) {
 			Garden.woodpile(d, r[0] - 1, 0, r[3] - 1, Dirs.FRONT, Math.min(3, r[3] - r[1] - 1));
 		} else if (r[2] <= w - 2 && r[3] - r[1] >= 3) {
-			Props.crates(d, r[2] + 1, 0, r[3] - 1, Dirs.FRONT, 2);
+			// two deep only where the strip beside the wall is wide enough to reach the back one from its side; on
+			// level ground only, with a clear cell before them to work them from (a slope leaves them over a fall)
+			int cx = r[2] + 1;
+			int cz = r[3] - 1;
+			int n = r[2] <= w - 3 ? 2 : 1;
+			boolean level = true;
+			for (int k = 0; k <= n; k++) {
+				level &= d.site().ground(cx, cz - k) == 0 && d.isAbsent(cx, 0, cz - k);
+			}
+			if (level) {
+				Props.crates(d, cx, 0, cz, Dirs.FRONT, n);
+			}
 		}
 	}
 }

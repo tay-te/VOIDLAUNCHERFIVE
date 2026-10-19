@@ -607,11 +607,19 @@ cd hearth
 JAVA_HOME=C:/Users/bitto/VOID/.tools/jdk-25 bash C:/Users/bitto/VOID/.tools/locks/slot.sh ./gradlew structureAudit -Pmode=metrics -Parchetype=house/croft,house/cottage -Pseeds=2
 ```
 
+Or let it judge them: `-Pmode=gate` measures the same cases, then gives every archetype **PASS** or **FAIL** against the
+tables below, writes `build/audit/gate.md` and `gate.csv`, prints a `GATE PASS|FAIL <archetype>` line each, and exits 1
+when any archetype fails a hard column:
+
+```
+JAVA_HOME=C:/Users/bitto/VOID/.tools/jdk-25 bash C:/Users/bitto/VOID/.tools/locks/slot.sh ./gradlew structureAudit -Pmode=gate -Parchetype=house/croft,house/cottage -Pseeds=2
+```
+
 Read `build/audit/metrics.csv` (one row per case; `suits=1` are the cultures that build it; `where` gives the first
-location of each finding) and `build/audit/archetypes.csv` (per archetype: means and the worst case). Add
-`-Preach=<path>,<culture>,<seed>,<facing>,<level>` to print a case's walk map. Add `-Pmode=all` for the contact sheets
-and cutaways. Columns are explained in the run's `INDEX.md`. `docs/review/AUDIT.md` holds the October 2026 results and
-the systemic causes behind them.
+location of each finding; `gate` and `gate_text` the play rules a case breaks, with their first place) and
+`build/audit/archetypes.csv` (per archetype: means and the worst case). Add `-Preach=<path>,<culture>,<seed>,<facing>,<level>`
+to print a case's walk map. Add `-Pmode=all` for the contact sheets and cutaways. Columns are explained in the run's
+`INDEX.md`. `docs/review/AUDIT.md` holds the October 2026 results and the systemic causes behind them.
 
 **Hard: 0 in every suited case.** A failure here is a broken building. Fix it before you commit.
 
@@ -627,8 +635,14 @@ the systemic causes behind them.
 | `beds_no_free_side` | 0 | a bed nobody can get into |
 | `workstations_unusable`, `chest_lids_blocked` | 0 | a job block, chest or barrel with no reachable face; a chest under a solid block |
 | `dark_room_cells` (and `light_min_room` >= 8) | 0 | room floor under light 8 |
-| `fall_edge_cells` | 0 | a walked cell beside an unguarded drop of 4+ (rail, parapet or sill it; `Edges.guard` does most). Allowed only where the family page says the edge is the point: quarry faces, quay edges, the town side of a wall walk |
+| `fall_edge_cells` | 0 | a walked cell beside an unguarded drop of 4+ (rail, parapet or sill it; `Edges.guard` does most). Allowed only where the family page says the edge is the point: quarry faces, quay edges, the town side of a wall walk. Not counted: a ladder's rungs beside open air (the climber holds on) and a step from the floor's level onto the street before the plot (the planner lays it at the floor) |
 | `lava`, `water_roofed` | 0 unless the page says so | stray fluids |
+| `strict_reach` | 0 | a bed, job site, store or door reached only by standing on pots, candles, lanterns, cakes or skulls (the gate's `walk` rule) |
+| `floating_pieces` | 0 | a piece standing on nothing: structure on neither the ground nor other structure (a deck on a crown, a trunk on air, a roof fragment held by a lamp) |
+| `roof_gap_cells` | 0 (or a smoke hole, light well or patio the page names) | a gap of up to six cells in a roof over covered space, over a floor or not; hatches to a roof deck and smoke holes over a fire are left out |
+
+An edge, gap or fluid the family page says is the point (a quarry face, a quay, the town side of a wall walk) is excused
+for that archetype and column in `hearth/gate/allow.txt`; `-Pmode=gate` then shows it as `allowed`.
 
 **Soft: targets per archetype (means over suited cases).** Missing one is a reason to look again at the sheet, not
 an automatic fail. Each line names the habit it guards against.
@@ -653,11 +667,53 @@ an automatic fail. Each line names the habit it guards against.
 | `play_score`, `detail_score` | play mean >= 90 and worst case >= 75; detail mean >= 75 | the reviewer's summary |
 
 **In game.** For a building with upper storeys, beds or job sites, also run the walkthrough tour on it (`-Dhearth.tour=walk`,
-`gametest/walk/`). It must show every path walked by the real player and **the folk's pathfinder reaching every bed and
-job site**: the static walk climbs things the folk cannot (a flight that turns without a landing, a ladder and hatch).
-Known quirks of the metrics: tropical and karst lattice openings count as no window; round plans score no facade;
-decorative cauldrons (a well's bucket) count as workstations; BlueprintChecks' own walker still stands on pots and
-candles (`AUDIT.md` S3), so the audit is the stricter of the two.
+`gametest/walk/`; `-Dhearth.walk.types=house/croft,work/barn` walks those archetypes instead of the seventeen common
+ones, `-Dhearth.walk.cultures=`, `-Dhearth.walk.parts=a` to skip the grown town). It must show every path walked by the
+real player and **the folk's pathfinder reaching every bed and job site**: the static walk climbs things the folk cannot
+(a flight that turns without a landing, a ladder and hatch). The tour ends with a summary line, `folk reach: bed 12/12,
+job_site 9/9, storage 4/4, buildings PASS 6, WARN 1, FAIL 0`, a line per archetype the folk do not fully reach, and
+`walk_folk.tsv` beside `walk_results.md`.
+
+Quirks of the metrics fixed in wave 7: lattice and shutter openings (trapdoors set in the wall) count as windows; round
+and many-sided bodies are measured against each column's own wall depth; a cauldron with no POI beside it in an open
+space or out under the sky is decoration (a well's bucket), not a workstation; a one-wide tie beam over open space is not a floor; the dock is
+measured on its shore and the walkway between two house fronts. BlueprintChecks' own walk still stands on pots and
+candles, and the gate's `walk` rule is what holds the line (below).
+
+### The gate in the tests
+
+The audit found what the invariant tests passed: rooms sealed by a pot row, doors onto a rail, ladders under a lid.
+Six **play rules** (`build/check/PlayChecks.java`) now run inside `BlueprintChecks.all`, so in `BlueprintInvariantsTest`
+and every family test, on every case they build, reading the light check's walk (which never stands on a candle, a
+lantern, a pot, a cake or a skull):
+
+| rule | breaks when | audit column |
+|---|---|---|
+| `walk` | a bed, job site, store or the main door is reached only by standing on pots and candles, or a registered entrance cannot be walked to from the street | `strict_reach` |
+| `door-sides` | a door has no standable cell on one of its two sides | `blocked_doors` |
+| `ladder-top` | a ladder's top has no cell to step off onto | `dead_ladders` |
+| `furnished-reached` | a furnished room (furniture, a POI, a door) is never reached by the walk | `unreached_furnished_cells` |
+| `floating-piece` | a piece stands on nothing (structure rests on the ground or on structure; leaves, plants and fixtures hang on structure; a chain carries what hangs from it) | `floating_pieces` |
+| `roof-hole` | a gap of up to six cells in a roof opens onto covered space: closed by built blocks (not the hillside, not a railing), over open air (not a deck or a platform floor); smoke holes over a fire and hatches down to a ladder or stair aside | `roof_gap_cells` |
+
+The rules also run on planner-made specs: `TownLandGateTest` grows three towns on hills and checks every built plot on
+the town's land, and `townPreview` writes `..._floating.txt` for each town it draws (each plot's own pieces, then the
+composed town, where a neighbour's cut can take the ground from under a piece).
+
+**The switch.** `Gate.DEFAULT` in `build/check/Gate.java` decides what a broken rule does. While wave 7's fix lanes
+work it is `REPORT`: nothing fails, every (archetype, rule) that breaks is tallied, and the test JVM writes
+`build/reports/gate/gate-<pid>.tsv` (archetype, rule, cases, `known` or `NEW`, the first case) and prints one
+`[hearth gate]` line. At wave exit the coordinator sets it to `HARD`: a rule broken by an archetype **not listed for it**
+in `hearth/gate/known/` is then a test failure, with a `gate <rule>: ...` line naming the first place. `-Phearth.gate=hard`
+(or `report`) overrides the default for one run, so a lane can try the hard gate on its own archetypes early.
+
+**The known failures.** `hearth/gate/known/<category>.txt` (one file per first part of the path, so each lane edits its
+own) lists today's failures, one line per archetype: its path, the rules it still breaks, and a comment with the audit's
+count. When your fix lands, delete the rule from the line (the report's stale entries and `-Pmode=gate` show what no
+longer breaks), and delete the line when none is left. The list only shrinks: adding to it needs the coordinator. The
+audit gate does not excuse known failures; it marks them `known` and still says FAIL. A decayed building (any decay
+param) is tallied and looked up as `age/decay` in `age.txt`, whatever its archetype: what rot does to rails, steps and
+roofs is the decay pass's to answer, and an archetype's line speaks only of the building as built.
 
 ## 9. Previews
 
@@ -703,7 +759,11 @@ town, in textures, use `townPreview`:
 
 The planner grows the town offline (MiniSim, as `settlementPreview`), every plot is drawn from the real build module's
 blueprint, in id order with the sim's writer rule (a later plot replaces only ground, air, plants and its own blocks),
-as far as each plot is built, and the textured renderer of `blueprintPreview` draws it.
+as far as each plot is built, and the textured renderer of `blueprintPreview` draws it. The open land round and
+between the plots wears a stand-in for Expanse's vegetation (`gametest/render/TownCountry`: copses and meadow in the
+temperate lands, spruce in the north, scrub, savanna, sand, jungle, swamp and blossom by the culture, or by the Earth
+model's biome with `earth`), kept two blocks off anything built, so the edge where the town meets the countryside can
+be judged; `-Dhearth.town.country=false` leaves the land bare. The floating-piece probe never sees it.
 
 - `culture`: a culture, a comma list, `all`, or `culture/layout` to force a layout. `days`, `terrain` (the synthetic
   kinds or `earth[:x:z]`), `seed` as `settlementPreview`.
@@ -737,6 +797,11 @@ the style bible), not another palette.
   the materials bill, the service cache.
 - `StylesTest`: every culture has its style; every role of every tier and variant resolves and cuts the forms the kit
   needs; material families and fallbacks; palette mixing.
+- `GateRulesTest`: each of the gate's play rules on a small case that breaks it and one that keeps it; the known-failure
+  lists and the switch (§8, "The gate in the tests").
+- `TownLandGateTest`: towns grown 300 days on hills (alpine, mediterranean, mesa), every built plot's blueprint on the
+  town's own land through the gate: the specs a planner makes (floors on real slopes), where review 2 found festival
+  trees, tilt-yard fences and walkway decks hanging.
 
 A new archetype is covered by the invariant tests as soon as it is registered.
 

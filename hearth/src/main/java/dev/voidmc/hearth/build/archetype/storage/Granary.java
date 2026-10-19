@@ -127,6 +127,8 @@ public final class Granary implements Archetype {
 		if (h.snow()) {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, 0, door);
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -255,6 +257,8 @@ public final class Granary implements Archetype {
 			Yard.enclose(d, 0, 0, w - 1, dp - 1, gaps);
 			Props.jars(d, 1, 0, 1, Dirs.RIGHT, Math.min(2, gate - 2));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, d.maxHeight() - 1);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

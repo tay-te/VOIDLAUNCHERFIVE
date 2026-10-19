@@ -30,7 +30,9 @@ public final class SpatialIndex implements ChunkApplier.PlotIndex {
 	private final Long2ObjectOpenHashMap<LongArrayList> settlementsByCell = new Long2ObjectOpenHashMap<>();
 	private final Long2ObjectOpenHashMap<LongArrayList> cellsBySettlement = new Long2ObjectOpenHashMap<>();
 	private final Map<Long, long[]> planned = new ConcurrentHashMap<>();
-	private final Long2ObjectOpenHashMap<LongArrayList> maskChunksBySettlement = new Long2ObjectOpenHashMap<>();
+	/** Each settlement's own planned columns by chunk, and which settlements plan in each chunk: {@link #planned} is their union. */
+	private final Long2ObjectOpenHashMap<Long2ObjectMap<long[]>> masksBySettlement = new Long2ObjectOpenHashMap<>();
+	private final Long2ObjectOpenHashMap<LongArrayList> maskOwners = new Long2ObjectOpenHashMap<>();
 	private final Long2ObjectOpenHashMap<Map<Integer, PlotMask>> plotMasks = new Long2ObjectOpenHashMap<>();
 	private boolean updating;
 	private final int reach;
@@ -119,18 +121,51 @@ public final class SpatialIndex implements ChunkApplier.PlotIndex {
 			});
 		}
 		cache.keySet().retainAll(seen);
-		LongArrayList maskChunks = new LongArrayList();
-		masks.forEach((k, v) -> {
-			this.planned.merge(k, v, (a, c) -> {
-				long[] m = a.clone();
-				for (int i = 0; i < 4; i++) {
-					m[i] |= c[i];
+		setMasks(s.id(), masks);
+	}
+
+	/**
+	 * Replaces a settlement's planned columns (null: it is gone) and works out the union again in every chunk that changed,
+	 * from all the settlements planning there: two towns whose margins share a chunk both keep their ground guarded.
+	 */
+	private void setMasks(long id, @Nullable Long2ObjectMap<long[]> masks) {
+		Long2ObjectMap<long[]> old = masks == null ? this.masksBySettlement.remove(id) : this.masksBySettlement.put(id, masks);
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet touched = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+		if (old != null) {
+			for (long key : old.keySet()) {
+				LongArrayList owners = this.maskOwners.get(key);
+				if (owners != null) {
+					owners.rem(id);
 				}
-				return m;
-			});
-			maskChunks.add((long) k);
-		});
-		this.maskChunksBySettlement.put(s.id(), maskChunks);
+				touched.add(key);
+			}
+		}
+		if (masks != null) {
+			for (long key : masks.keySet()) {
+				this.maskOwners.computeIfAbsent(key, k -> new LongArrayList(1)).add(id);
+				touched.add(key);
+			}
+		}
+		for (long key : touched) {
+			LongArrayList owners = this.maskOwners.get(key);
+			if (owners == null || owners.isEmpty()) {
+				this.maskOwners.remove(key);
+				this.planned.remove(key);
+				continue;
+			}
+			long[] union = new long[4];
+			for (long owner : owners) {
+				Long2ObjectMap<long[]> theirs = this.masksBySettlement.get(owner);
+				long[] v = theirs == null ? null : theirs.get(key);
+				if (v != null) {
+					for (int i = 0; i < 4; i++) {
+						union[i] |= v[i];
+					}
+				}
+			}
+			// a fresh array each time: world generation threads read these without locks
+			this.planned.put(key, union);
+		}
 	}
 
 	public void remove(long id) {
@@ -159,14 +194,9 @@ public final class SpatialIndex implements ChunkApplier.PlotIndex {
 			}
 		}
 		if (!this.updating) {
+			// gone from the world (an update replaces its masks itself, with no moment of unguarded ground)
 			this.plotMasks.remove(id);
-		}
-		LongArrayList maskChunks = this.maskChunksBySettlement.remove(id);
-		if (maskChunks != null) {
-			// masks are merged across settlements; drop and let the others re-mark on their next update
-			for (long key : maskChunks) {
-				this.planned.remove(key);
-			}
+			setMasks(id, null);
 		}
 	}
 

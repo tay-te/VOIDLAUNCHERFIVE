@@ -9,6 +9,7 @@ import dev.voidmc.hearth.build.blueprint.BlueprintImpl;
 import dev.voidmc.hearth.build.blueprint.LocalFrame;
 import dev.voidmc.hearth.build.check.BlueprintChecks;
 import dev.voidmc.hearth.build.check.LightCheck;
+import dev.voidmc.hearth.build.check.PlayChecks;
 import dev.voidmc.hearth.build.kit.light.Grid;
 import dev.voidmc.hearth.build.kit.light.LightField;
 import dev.voidmc.hearth.build.kit.light.Spaces;
@@ -70,7 +71,33 @@ final class Measure {
 
 	static void playability(BlueprintImpl bp, TerrainProbe probe, Map<String, Object> m) {
 		PlotSpec spec = bp.spec();
-		List<String> problems = BlueprintChecks.all(bp, probe);
+		// the invariants as the tests run them; the gate's play rules apart (in hard mode they come back as "gate ..." lines)
+		List<String> problems = new ArrayList<>(BlueprintChecks.all(bp, probe));
+		problems.removeIf(p -> p.startsWith("gate "));
+		List<PlayChecks.Finding> gate = PlayChecks.evaluate(bp, probe);
+		List<String> gateIds = new ArrayList<>();
+		int strictReach = 0;
+		int pieces = 0;
+		int roofGaps = 0;
+		for (PlayChecks.Finding f : gate) {
+			gateIds.add(f.rule().id);
+			switch (f.rule()) {
+				case WALK -> strictReach = f.count();
+				case FLOATING_PIECE -> pieces = f.count();
+				case ROOF_HOLE -> roofGaps = f.count();
+				default -> {
+				}
+			}
+		}
+		m.put("gate", String.join(";", gateIds));
+		StringBuilder gateText = new StringBuilder();
+		for (PlayChecks.Finding f : gate) {
+			gateText.append(gateText.isEmpty() ? "" : " | ").append(f.rule().id).append(' ').append(f.count()).append(": ").append(f.where());
+		}
+		m.put("gate_text", gateText.length() > 400 ? gateText.substring(0, 400) + "..." : gateText.toString());
+		m.put("strict_reach", strictReach);
+		m.put("floating_pieces", pieces);
+		m.put("roof_gap_cells", roofGaps);
 		int floating = 0;
 		int unsupported = 0;
 		boolean mainUnreached = false;
@@ -147,12 +174,11 @@ final class Measure {
 		}
 		}
 
-		// --- walkable cells in the plot, rooms (enclosed), open-roofed cells
+		// --- walkable cells in the plot, open-roofed cells (rooms: PlayChecks.rooms, the gate's own)
 		int walk = 0;
 		int reached = 0;
 		int roofedReached = 0;
 		int openRoofed = 0;
-		LongOpenHashSet room = new LongOpenHashSet();
 		LongOpenHashSet unroofed = new LongOpenHashSet();
 		LongOpenHashSet reachedPlot = new LongOpenHashSet();
 		for (int y = g.y0 + 1; y < g.y0 + g.sy - 1; y++) {
@@ -170,13 +196,7 @@ final class Measure {
 					if (sp.wet(x, y, z)) {
 						continue;
 					}
-					boolean door = sp.doorway(x, y, z);
 					boolean roofed = sp.roofed(x, y, z);
-					BlockState under = g.at(x, y - 1, z);
-					boolean onFurniture = g.placed(x, y - 1, z) && !(under.getBlock() instanceof StairBlock) && furniture(under, 0);
-					if (roofed && sp.enclosed(x, y, z) && !door && !onFurniture) {
-						room.add(BlockPos.asLong(x, y, z));
-					}
 					if (roofed && rc) {
 						roofedReached++;
 						if (!sp.enclosed(x, y, z)) {
@@ -189,9 +209,14 @@ final class Measure {
 				}
 			}
 		}
+		List<PlayChecks.Room> roomList = PlayChecks.rooms(g, sp, spec, bp.pois());
+		int roomCellCount = 0;
+		for (PlayChecks.Room rm : roomList) {
+			roomCellCount += rm.cells().size();
+		}
 		m.put("walk_cells", walk);
 		m.put("reached_cells", reached);
-		m.put("room_cells", room.size());
+		m.put("room_cells", roomCellCount);
 		m.put("open_roofed_share", roofedReached == 0 ? Double.NaN : openRoofed / (double) roofedReached);
 
 		// POIs by cell
@@ -218,58 +243,18 @@ final class Measure {
 		int lightMin = Integer.MAX_VALUE;
 		long lightSum = 0;
 		Map<Integer, int[]> levels = new TreeMap<>();
-		LongOpenHashSet seen = new LongOpenHashSet();
-		for (long start : room) {
-			if (!seen.add(start)) {
-				continue;
-			}
-			LongArrayList comp = new LongArrayList();
-			LongArrayFIFOQueue q = new LongArrayFIFOQueue();
-			q.enqueue(start);
-			while (!q.isEmpty()) {
-				long k = q.dequeueLong();
-				comp.add(k);
-				int x = BlockPos.getX(k);
-				int y = BlockPos.getY(k);
-				int z = BlockPos.getZ(k);
-				for (Direction d : Direction.Plane.HORIZONTAL) {
-					long n = BlockPos.asLong(x + d.getStepX(), y, z + d.getStepZ());
-					if (room.contains(n) && seen.add(n)) {
-						q.enqueue(n);
-					}
-				}
-			}
-			int y = BlockPos.getY(comp.getLong(0));
-			boolean any = false;
-			for (int i = 0; i < comp.size(); i++) {
-				long k = comp.getLong(i);
-				any |= sp.reached(BlockPos.getX(k), y, BlockPos.getZ(k));
-			}
+		for (PlayChecks.Room rm : roomList) {
+			LongArrayList comp = rm.cells();
+			int y = rm.y();
 			int[] lv = levels.computeIfAbsent(y, k -> new int[2]);
 			lv[0] += comp.size();
-			if (!any) {
+			if (!rm.reached()) {
 				unreachedCells += comp.size();
 				if (comp.size() >= 4) {
 					pockets++;
 				}
 				// furnished (furniture, a POI or a door beside it: meant to be used) or a sealed void under a roof
-				boolean used = false;
-				for (int i = 0; i < comp.size() && !used && comp.size() >= 3; i++) {
-					long k = comp.getLong(i);
-					int x = BlockPos.getX(k);
-					int z = BlockPos.getZ(k);
-					for (int dy = -1; dy <= 1 && !used; dy++) {
-						used = poiCells.contains(BlockPos.asLong(x, y + dy, z));
-					}
-					for (int dx = -1; dx <= 1 && !used; dx++) {
-						for (int dz = -1; dz <= 1 && !used; dz++) {
-							BlockState fs = g.at(x + dx, y, z + dz);
-							used = g.placed(x + dx, y, z + dz) && (furniture(fs, 0) && !(fs.getBlock() instanceof StairBlock)
-								|| fs.getBlock() instanceof DoorBlock || fs.getBlock() instanceof BedBlock);
-						}
-					}
-				}
-				if (used) {
+				if (rm.furnished()) {
 					unreachedUsed += comp.size();
 					at(where, "unreached_furnished_room", lf0, comp.getLong(0));
 				} else {
@@ -459,7 +444,7 @@ final class Measure {
 							bedsBlocked++;
 							at(where, "bed_blocked", lf0, BlockPos.asLong(x, y, z));
 						}
-					} else if (workstation(s)) {
+					} else if (workstation(s) && !decorative(s, poiCells, x, y, z, spec, sp)) {
 						stations++;
 						boolean ok = false;
 						for (Direction d : Direction.Plane.HORIZONTAL) {
@@ -559,10 +544,19 @@ final class Measure {
 			if (sp.wet(x, y, z)) {
 				continue;
 			}
+			// a climber on a ladder holds on: the open air beside its rungs is not a ledge anyone stands at (w7-land §3)
+			if (g.at(x, y, z).getBlock() instanceof LadderBlock) {
+				continue;
+			}
 			for (Direction d : Direction.Plane.HORIZONTAL) {
 				int nx = x + d.getStepX();
 				int nz = z + d.getStepZ();
 				if (!Spaces.passable(g.at(nx, y, nz)) || !Spaces.passable(g.at(nx, y + 1, nz))) {
+					continue;
+				}
+				// the street before the plot: the planner lays it at the plot's floor, where the audit's slope and cliff may
+				// fall away; stepping onto it from the floor's level is no fall (w7-land §3)
+				if (lf0.f().localZ(nx, nz) < 0 && y - floor <= 1) {
 					continue;
 				}
 				// how far someone stepping off here falls: passable cells below the feet until something stops them
@@ -606,7 +600,7 @@ final class Measure {
 	}
 
 	private static boolean nearPlot(Grid g, int x, int z) {
-		return g.inPlot(x, z) || g.inPlot(x + 1, z) || g.inPlot(x - 1, z) || g.inPlot(x, z + 1) || g.inPlot(x, z - 1);
+		return PlayChecks.nearPlot(g, x, z);
 	}
 
 	private static boolean step(BlockState s) {
@@ -614,10 +608,9 @@ final class Measure {
 			|| s.getBlock() instanceof SlabBlock && s.getValue(SlabBlock.TYPE) == SlabType.BOTTOM;
 	}
 
-	/** Someone can stand on this side of a door: level, a step down, or a stair or slab up. */
+	/** Someone can stand on this side of a door (the gate's rule, {@link PlayChecks#doorSideOk}). */
 	private static boolean doorSideOk(Grid g, Spaces sp, int x, int y, int z) {
-		return sp.walkable(x, y, z) || sp.walkable(x, y - 1, z) && Spaces.passable(g.at(x, y, z)) || step(g.at(x, y, z)) && sp.walkable(x, y + 1, z)
-			|| g.at(x, y, z).getBlock() instanceof DoorBlock;
+		return PlayChecks.doorSideOk(g, sp, x, y, z);
 	}
 
 	/**
@@ -667,25 +660,9 @@ final class Measure {
 		return s.getBlock() instanceof StairBlock && s.getValue(StairBlock.HALF) == Half.BOTTOM && s.getValue(StairBlock.FACING) == f;
 	}
 
-	/** The top of a ladder lets someone off: a floor beside it, at its top or a block up. */
+	/** The top of a ladder lets someone off (the gate's rule, {@link PlayChecks#ladderExit}). */
 	private static boolean ladderExit(Grid g, Spaces sp, int x, int y, int z) {
-		if (sp.walkable(x, y + 1, z)) {
-			for (Direction d : Direction.Plane.HORIZONTAL) {
-				if (sp.walkable(x + d.getStepX(), y + 1, z + d.getStepZ()) || sp.walkable(x + d.getStepX(), y + 2, z + d.getStepZ())) {
-					return true;
-				}
-			}
-		}
-		for (Direction d : Direction.Plane.HORIZONTAL) {
-			int nx = x + d.getStepX();
-			int nz = z + d.getStepZ();
-			for (int dy = 0; dy <= 1; dy++) {
-				if (sp.walkable(nx, y + dy, nz) && !(g.at(nx, y + dy, nz).getBlock() instanceof LadderBlock)) {
-					return true;
-				}
-			}
-		}
-		return false;
+		return PlayChecks.ladderExit(g, sp, x, y, z);
 	}
 
 	/** The largest square of cells of one level (a room's clear floor). */
@@ -727,35 +704,36 @@ final class Measure {
 		return BuiltInRegistries.BLOCK.getKey(s.getBlock()).getPath();
 	}
 
-	/** A block a person works at or takes from (a job's block, a chest, a barrel). */
-	static boolean workstation(BlockState s) {
-		String p = path(s);
-		return switch (p) {
-			case "crafting_table", "furnace", "blast_furnace", "smoker", "grindstone", "stonecutter", "loom", "cartography_table", "fletching_table",
-				 "smithing_table", "brewing_stand", "composter", "lectern", "chest", "trapped_chest", "barrel" -> true;
-			default -> p.endsWith("anvil") || p.endsWith("cauldron");
-		};
-	}
-
-	/** Furniture in a room: what a person uses or sits at, and what dresses a room (rugs, pots, shelves, banners). */
-	static boolean furniture(BlockState s, int dy) {
-		Block b = s.getBlock();
-		if (s.isAir() || b instanceof DoorBlock || b instanceof IronBarsBlock || b instanceof LadderBlock || b instanceof FenceGateBlock || b instanceof LiquidBlock
-			|| b instanceof TrapDoorBlock && dy > 0) {
+	/**
+	 * A cauldron that is decoration, not a workstation: no POI at or beside it, and either in an open-space or
+	 * infrastructure plot (a well's bucket, a fountain's basin) or out under the sky (a yard's rain butt). A cauldron
+	 * indoors in a working building (a smelter's tap, a kitchen's pot) still counts.
+	 */
+	private static boolean decorative(BlockState s, LongOpenHashSet poiCells, int x, int y, int z, PlotSpec spec, Spaces sp) {
+		if (!path(s).endsWith("cauldron")) {
 			return false;
 		}
-		if (workstation(s) || b instanceof BedBlock || b instanceof CarpetBlock) {
-			return true;
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				for (int dy = -1; dy <= 1; dy++) {
+					if (poiCells.contains(BlockPos.asLong(x + dx, y + dy, z + dz))) {
+						return false;
+					}
+				}
+			}
 		}
-		String p = path(s);
-		if (p.contains("shelf") || p.endsWith("_table") || p.endsWith("pot") || p.contains("banner") || p.endsWith("_sign") || p.equals("jukebox")
-			|| p.equals("note_block") || p.equals("bell") || p.endsWith("campfire") || p.contains("pressure_plate") || p.endsWith("cake")
-			|| p.contains("candle") || p.equals("hay_block") || p.endsWith("_head") || p.endsWith("_skull") || p.equals("beehive") || p.equals("bee_nest")) {
-			return true;
-		}
-		// chairs and benches (stairs), tables and counters (top slabs), table legs (fences) at feet height
-		return dy == 0 && (b instanceof StairBlock || b instanceof SlabBlock && s.getValue(SlabBlock.TYPE) == SlabType.TOP || b instanceof FenceBlock
-			|| b instanceof TrapDoorBlock);
+		String p = spec.archetype().getPath();
+		return p.startsWith("landscape/") || p.startsWith("infra/") || !sp.roofed(x, y, z);
+	}
+
+	/** A block a person works at or takes from ({@link PlayChecks#workstation}). */
+	static boolean workstation(BlockState s) {
+		return PlayChecks.workstation(s);
+	}
+
+	/** Furniture in a room ({@link PlayChecks#furniture}). */
+	static boolean furniture(BlockState s, int dy) {
+		return PlayChecks.furniture(s, dy);
 	}
 
 	// =========================================================================================== detail
@@ -915,23 +893,42 @@ final class Measure {
 			if (hist.isEmpty()) {
 				continue;
 			}
-			int plane = hist.entrySet().stream().max(Map.Entry.comparingByValue()).get().getKey();
-			// rows of wall: at least 40% of the side at the plane (within a block)
+			int planeAll = hist.entrySet().stream().max(Map.Entry.comparingByValue()).get().getKey();
+			// the wall plane per column: one plane for a straight wall; a round or many-sided body (the round house, a
+			// tower's drum) has no plane across the side, so each column is measured against its own commonest wall depth
+			int[] planeOf = new int[f.n()];
+			java.util.Arrays.fill(planeOf, planeAll);
 			boolean[] zone = new boolean[f.rows()];
 			int zoneTop = -1;
 			int zoneRows = 0;
-			for (int r = 0; r < f.rows(); r++) {
-				int c = 0;
-				for (int u = 0; u < f.n(); u++) {
-					// the wall itself: blocks on the plane (glass and doors too), not eave courses of stairs and slabs
-					if (f.d(u, r) == plane && !(f.s(u, r).getBlock() instanceof StairBlock) && !(f.s(u, r).getBlock() instanceof SlabBlock)) {
-						c++;
+			for (int pass = 0; pass < 2 && zoneRows == 0; pass++) {
+				if (pass == 1) {
+					for (int u = 0; u < f.n(); u++) {
+						Map<Integer, Integer> col = new HashMap<>();
+						for (int r = 0; r < f.rows(); r++) {
+							if (f.d(u, r) >= 0 && full(f.s(u, r)) && !glass(f.s(u, r))) {
+								col.merge(f.d(u, r), 1, Integer::sum);
+							}
+						}
+						planeOf[u] = col.isEmpty() ? NO_PLANE : col.entrySet().stream().max(Map.Entry.<Integer, Integer>comparingByValue()
+							.thenComparing(Map.Entry.comparingByKey(java.util.Comparator.reverseOrder()))).get().getKey();
 					}
 				}
-				if (c >= 0.4 * f.n() && c >= 2) {
-					zone[r] = true;
-					zoneTop = r;
-					zoneRows++;
+				// rows of wall: at least 40% of the side at the plane (within a block)
+				for (int r = 0; r < f.rows(); r++) {
+					int c = 0;
+					for (int u = 0; u < f.n(); u++) {
+						// the wall itself: blocks on the plane (glass and doors too), not eave courses of stairs and slabs
+						if (f.d(u, r) == planeOf[u] && !(f.s(u, r).getBlock() instanceof StairBlock)
+							&& !(f.s(u, r).getBlock() instanceof SlabBlock)) {
+							c++;
+						}
+					}
+					if (c >= 0.4 * f.n() && c >= 2) {
+						zone[r] = true;
+						zoneTop = r;
+						zoneRows++;
+					}
 				}
 			}
 			if (zoneRows == 0) {
@@ -949,14 +946,16 @@ final class Measure {
 				for (int u = 0; u < f.n(); u++) {
 					int d = f.d(u, r);
 					BlockState s = f.s(u, r);
-					if (d >= 0 && Math.abs(d - plane) <= 2 && glass(s)) {
+					int plane = planeOf[u];
+					// glass, and a lattice or a shutter set in the wall (a trapdoor on the plane: karst, tropical, huts) is a window
+					if (d >= 0 && Math.abs(d - plane) <= 2 && glass(s) || d >= 0 && d == plane && s.getBlock() instanceof TrapDoorBlock) {
 						glassCell[r * f.n() + u] = true;
 						continue;
 					}
 					if (d < 0 || d > plane + 2) {
 						// a hole in the wall where the wall stands above and below it, or to both sides
 						boolean vert = r > 0 && r + 1 < f.rows() && near(f, u, r - 1, plane) && near(f, u, r + 1, plane);
-						boolean horiz = u > 0 && u + 1 < f.n() && near(f, u - 1, r, plane) && near(f, u + 1, r, plane);
+						boolean horiz = u > 0 && u + 1 < f.n() && near(f, u - 1, r, planeOf[u - 1]) && near(f, u + 1, r, planeOf[u + 1]);
 						if (vert && horiz) {
 							opening[r * f.n() + u] = true;
 						}
@@ -984,7 +983,7 @@ final class Measure {
 			for (int r = 0; r < f.rows(); r++) {
 				for (int u = 0; u < f.n(); u++) {
 					int i = r * f.n() + u;
-					if (seen[i] || !zone[r] || f.d(u, r) != plane || !full(f.s(u, r)) || glass(f.s(u, r))) {
+					if (seen[i] || !zone[r] || f.d(u, r) != planeOf[u] || !full(f.s(u, r)) || glass(f.s(u, r))) {
 						continue;
 					}
 					Block blk = f.s(u, r).getBlock();
@@ -1002,7 +1001,7 @@ final class Measure {
 								continue;
 							}
 							int j = nr * f.n() + nu;
-							if (!seen[j] && zone[nr] && f.d(nu, nr) == plane && f.s(nu, nr) != null && f.s(nu, nr).getBlock() == blk) {
+							if (!seen[j] && zone[nr] && f.d(nu, nr) == planeOf[nu] && f.s(nu, nr) != null && f.s(nu, nr).getBlock() == blk) {
 								seen[j] = true;
 								q.add(new int[]{nu, nr});
 							}
@@ -1029,8 +1028,8 @@ final class Measure {
 						min = Math.min(min, f.d(u, r));
 					}
 				}
-				if (min != Integer.MAX_VALUE) {
-					over.add(plane - min);
+				if (min != Integer.MAX_VALUE && planeOf[u] != NO_PLANE) {
+					over.add(planeOf[u] - min);
 				}
 			}
 			if (!over.isEmpty()) {
@@ -1048,7 +1047,7 @@ final class Measure {
 					if (zone[r]) {
 						int d = f.d(u, r);
 						anyHit |= d >= 0;
-						sb.append(d < 0 ? "-" : path(f.s(u, r)) + "@" + (d - plane)).append(';');
+						sb.append(d < 0 ? "-" : path(f.s(u, r)) + "@" + (d - planeOf[u])).append(';');
 					}
 				}
 				if (anyHit) {
@@ -1135,6 +1134,9 @@ final class Measure {
 			m.put("mirror_sym", Double.NaN);
 		}
 	}
+
+	/** A column of a round body with no wall of its own (its plane never matches a depth). */
+	private static final int NO_PLANE = -1000;
 
 	private static boolean near(Facade f, int u, int r, int plane) {
 		int d = f.d(u, r);

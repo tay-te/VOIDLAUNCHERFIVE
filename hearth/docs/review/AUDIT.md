@@ -538,10 +538,49 @@ cd hearth
 JAVA_HOME=C:/Users/bitto/VOID/.tools/jdk-25 bash C:/Users/bitto/VOID/.tools/locks/slot.sh ./gradlew structureAudit -Pmode=all -Pout=build/audit
 # one family while you work
 JAVA_HOME=C:/Users/bitto/VOID/.tools/jdk-25 bash C:/Users/bitto/VOID/.tools/locks/slot.sh ./gradlew structureAudit -Pmode=metrics -Parchetype=house/ -Pseeds=2
+# the gate: PASS or FAIL per archetype against BUILDING_GUIDE.md §8 (gate.md, gate.csv), exit 1 on a FAIL
+JAVA_HOME=C:/Users/bitto/VOID/.tools/jdk-25 bash C:/Users/bitto/VOID/.tools/locks/slot.sh ./gradlew structureAudit -Pmode=gate -Parchetype=house/ -Pseeds=2
 # a case's walk map at a level
 ... structureAudit -Pmode=metrics -Parchetype=house/croft -Preach=house/croft,temperate,1007,south,4
-# the game walk (branch hearth-audit-game until L0 merges it)
-JAVA_TOOL_OPTIONS="-Dhearth.tour=walk -Dhearth.walk.out=<dir>" ./gradlew runClientGameTest
+# the game walk: chosen archetypes, part A only; ends with a "folk reach:" line and walk_folk.tsv
+JAVA_TOOL_OPTIONS="-Dhearth.tour=walk -Dhearth.walk.out=<dir> -Dhearth.walk.types=house/merchant_house,house/tenement -Dhearth.walk.parts=a" ./gradlew runClientGameTest
+# the unit tests with the play rules hard (the coordinator's switch is Gate.DEFAULT; this tries it for one run)
+JAVA_HOME=C:/Users/bitto/VOID/.tools/jdk-25 bash C:/Users/bitto/VOID/.tools/locks/slot.sh ./gradlew test -Phearth.gate=hard
 ```
 
 The acceptance thresholds every architect runs before committing are in `BUILDING_GUIDE.md` §8, "The audit gate".
+
+**The gate (lane L0, wave 7).** What this report found the tests passing is now checked in them (`build/check/PlayChecks.java`,
+inside `BlueprintChecks.all`): the invariant walk with the light check's footing (`walk`), a standable cell on both sides
+of every door (`door-sides`), a step-off at every ladder top (`ladder-top`), every furnished room reached
+(`furnished-reached`), no piece standing on nothing (`floating-piece`, review 2's probe) and no gap in a roof, walkable
+or not (`roof-hole`). While the fix lanes work they are reported, not failed: `Gate.DEFAULT` is `REPORT`, the test run
+writes `build/reports/gate/`, and `hearth/gate/known/<category>.txt` lists the archetypes that break each rule today,
+one file per lane's categories. Each lane deletes its entries as its fixes land. **At wave exit the coordinator sets
+`Gate.DEFAULT = Mode.HARD`**: from then on a rule broken by an archetype not listed for it fails the tests. Review 2's
+probe also runs over whole towns: `townPreview` writes `..._floating.txt` (each plot on the town's own land, then the
+composed town, where a neighbour's cut can take the ground from under a piece).
+
+Metric quirks of §2 fixed with the gate: lattice and shutter windows count; round bodies are measured per column;
+decorative cauldrons (no POI beside them, in an open space or under the sky) are not workstations; a tie beam is not a floor; the dock is measured on
+its shore and the walkway between two house fronts (`gametest/audit/Demos.java`). `fall_edge_cells` no longer counts a ladder's
+rungs beside open air or a step from the floor's level onto the street before the plot (the synthetic slope and cliff
+fall away there; the planner lays the street at the floor). `roof-hole` reads a gap only where built blocks (not the
+hillside, not a railing) close it and open air lies under it: the gallows' drop, decks and hillside pockets were read
+as gaps in the first tally (roof-gap cases 1012 -> 814 of 11256 on the wave-7 `hearth`). The audit columns `strict_reach`,
+`floating_pieces`, `roof_gap_cells`, `gate` and `gate_text` are new and do not enter the scores; the scores' weights are
+unchanged, but the quirk fixes move some rows from §3 (karst and tropical windows, the round house, wells and the
+tavern's beams).
+
+**The gate's tally** (`structureAudit -Pmode=gate`, 134 archetypes, sum over archetypes of cases over a hard column):
+
+| run | PASS | blocked_doors | fall_edge_cells | unreached_furnished_cells | dead_ladders | strict_reach | floating_pieces | roof_gap_cells |
+|---|---|---|---|---|---|---|---|---|
+| first tally, wave-7 `hearth` before the fix lanes | 11 | 1214 | 3950 | 460 | 255 | 54 | 21 | 878 |
+| with the metric quirks fixed | 14 | 1198 | 3663 | 448 | 190 | 32 | 31 | 694 |
+| batch 1 merged (planner, land, styles, npc, access, sites, civic, commerce, town) | 34 | 216 | 2380 | 185 | 142 | 28 | 194 | 727 |
+
+The rise in `floating_pieces` after batch 1 is real: guards set on tree crowns (walls and rails on leaves: the school
+yard's oak, looked at block by block; by the pieces' blocks and places also the churchyard's yews, the orphanage, the
+wisteria gardens and parks), single rails on air (farmhouse, chapel); the gate catches them (`docs/requests/w7-gate.md`). The known lists in `hearth/gate/known/` were re-tallied on that merge; decayed buildings
+are tallied apart as `age/decay` (`age.txt`), so an archetype's line speaks only of the building as built.

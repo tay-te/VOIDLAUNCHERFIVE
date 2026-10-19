@@ -1,6 +1,7 @@
 package dev.voidmc.hearth.client.npc;
 
 import dev.voidmc.hearth.npc.entity.Folk;
+import dev.voidmc.hearth.npc.talk.Conversations;
 import dev.voidmc.hearth.npc.talk.TalkPayloads;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +51,9 @@ public class ConversationScreen extends Screen {
 	private int left;
 	private int top;
 	private int panelHeight;
+	/** The first option shown, and how many fit. */
+	private int scroll;
+	private int visible;
 
 	public ConversationScreen(TalkPayloads.Show show) {
 		super(Component.literal(show.name()));
@@ -75,6 +79,7 @@ public class ConversationScreen extends Screen {
 		this.options = show.options();
 		if (newSpeech) {
 			this.revealed = 0;
+			this.scroll = 0;
 		}
 		rebuildWidgets();
 	}
@@ -84,15 +89,32 @@ public class ConversationScreen extends Screen {
 		int textWidth = WIDTH - 24;
 		this.lines = this.font.split(Component.literal("“" + this.speech.getString() + "”"), textWidth);
 		int speechHeight = Math.max(2, this.lines.size()) * 10;
-		int optionsHeight = this.options.size() * 18;
-		this.panelHeight = 14 + FACE + 10 + speechHeight + 12 + optionsHeight + 10;
+		int head = 14 + FACE + 10 + speechHeight + 12;
+		// As many options as fit on the screen; the rest are scrolled to (training, quests and trade can make a long list).
+		int fit = Math.max(3, (this.height - 16 - head - 10) / 18);
+		this.visible = Math.min(this.options.size(), fit);
+		this.scroll = Math.max(0, Math.min(this.scroll, this.options.size() - this.visible));
+		this.panelHeight = head + this.visible * 18 + 10;
 		this.left = (this.width - WIDTH) / 2;
 		this.top = Math.max(8, (this.height - this.panelHeight) / 2);
-		int y = this.top + 14 + FACE + 10 + speechHeight + 12;
-		for (TalkPayloads.Option o : this.options) {
-			this.addRenderableWidget(new OptionEntry(this.left + 12, y, WIDTH - 24, 16, o));
+		int y = this.top + head;
+		for (int i = this.scroll; i < this.scroll + this.visible; i++) {
+			this.addRenderableWidget(new OptionEntry(this.left + 12, y, WIDTH - 24, 16, this.options.get(i)));
 			y += 18;
 		}
+	}
+
+	@Override
+	public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+		if (this.options.size() > this.visible && scrollY != 0) {
+			int next = Math.max(0, Math.min(this.scroll - (int) Math.signum(scrollY), this.options.size() - this.visible));
+			if (next != this.scroll) {
+				this.scroll = next;
+				rebuildWidgets();
+			}
+			return true;
+		}
+		return super.mouseScrolled(x, y, scrollX, scrollY);
 	}
 
 	@Override
@@ -100,7 +122,7 @@ public class ConversationScreen extends Screen {
 		super.tick();
 		this.revealed += REVEAL;
 		Entity e = Minecraft.getInstance().level == null ? null : Minecraft.getInstance().level.getEntity(this.entityId);
-		if (e == null || !e.isAlive() || this.minecraft.player == null || e.distanceToSqr(this.minecraft.player) > 10 * 10) {
+		if (e == null || !e.isAlive() || this.minecraft.player == null || e.distanceToSqr(this.minecraft.player) > Conversations.RANGE * Conversations.RANGE) {
 			this.onClose();
 		}
 	}
@@ -145,7 +167,7 @@ public class ConversationScreen extends Screen {
 
 		int tx = fx + FACE + 10;
 		g.text(this.font, Component.literal(this.name).withStyle(ChatFormatting.BOLD), tx, fy + 4, INK, false);
-		Component sub = Component.translatable(this.title).append(Component.literal(" of " + this.settlement));
+		Component sub = Component.translatable("hearth.npc.talk.title_of", Component.translatable(this.title), this.settlement);
 		g.text(this.font, sub, tx, fy + 17, INK_SOFT, false);
 		g.fill(tx, fy + 30, x1 - 12, fy + 31, PAPER_DARK);
 
@@ -160,6 +182,14 @@ public class ConversationScreen extends Screen {
 			budget -= length(line);
 			g.text(this.font, shown, x0 + 12, sy, INK, false);
 			sy += 10;
+		}
+		// More options above or below the ones shown: a mark at the right of the list.
+		int listTop = y1 - 10 - this.visible * 18;
+		if (this.scroll > 0) {
+			g.text(this.font, Component.literal("▲"), x1 - 14, listTop - 10, INK_SOFT, false);
+		}
+		if (this.scroll + this.visible < this.options.size()) {
+			g.text(this.font, Component.literal("▼"), x1 - 14, y1 - 10, INK_SOFT, false);
 		}
 	}
 

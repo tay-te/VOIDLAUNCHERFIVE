@@ -100,6 +100,23 @@ public final class Works {
 		return t.has(Form.LOG) ? t : d.mat(Role.FRAME);
 	}
 
+	/**
+	 * A billet of {@code log} lying along {@code axis}, for the cords, decks and stumps of a working yard: the culture's
+	 * own log, unless it is a wood burners and loggers never stack for its colour (pink cherry, red mangrove, white
+	 * birch, pale oak, bamboo, the stems of the nether), when spruce (in the cold) or oak stands in for it.
+	 */
+	public static net.minecraft.world.level.block.state.BlockState billet(Draft d, Mat log, net.minecraft.core.Direction.Axis axis) {
+		Block b = log.main(Form.LOG);
+		String id = b == null ? "" : net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).getPath();
+		boolean loud = id.isEmpty() || id.contains("cherry") || id.contains("mangrove") || id.contains("birch") || id.contains("pale_oak")
+			|| id.contains("bamboo") || id.contains("crimson") || id.contains("warped");
+		if (!loud) {
+			return log.log(axis).at(0, 0, 0);
+		}
+		Block sub = cold(d) || dry(d) ? Blocks.SPRUCE_LOG : Blocks.OAK_LOG;
+		return States.axis(sub, axis);
+	}
+
 	/** Whether a block is cut from wood (planks, logs and their cuts). */
 	public static boolean isWood(Block b) {
 		String p = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).getPath();

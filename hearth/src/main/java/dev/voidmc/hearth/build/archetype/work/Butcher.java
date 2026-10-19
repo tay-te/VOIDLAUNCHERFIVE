@@ -91,6 +91,8 @@ public final class Butcher implements Archetype {
 		if (hall.deck != Integer.MIN_VALUE) {
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, s.w - 1, s.dp - 1, hall.top + 2);
 	}
 

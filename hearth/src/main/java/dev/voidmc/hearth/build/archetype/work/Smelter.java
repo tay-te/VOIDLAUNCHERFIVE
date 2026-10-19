@@ -14,6 +14,7 @@ import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.homestead.Adobe;
 import dev.voidmc.hearth.build.kit.industry.Fam;
+import dev.voidmc.hearth.build.kit.craft.Rails;
 import dev.voidmc.hearth.build.kit.industry.Furnace;
 import dev.voidmc.hearth.build.kit.industry.Heap;
 import dev.voidmc.hearth.build.kit.industry.Pois;
@@ -79,6 +80,8 @@ public final class Smelter implements Archetype {
 		}
 		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{w / 2, 0, 1}, new int[]{w / 2, 0, 0});
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, top + 1);
 	}
 
@@ -106,8 +109,9 @@ public final class Smelter implements Archetype {
 			deck = Works.timber(d);
 		}
 		Mat frame = d.mat(Role.FRAME);
-		RoofForm houseForm = Hall.pick(d, RoofForm.GABLE, RoofForm.HIP, RoofForm.HALF_HIP, RoofForm.PAGODA);
-		Furnace.Tower tw = Furnace.tower(d, x0, z0, charge, gallery, d.maxHeight() - 1, Fam.of(stone), Fam.of(trim), Fam.of(flue), deck, frame, houseForm);
+		// the furnace all of stone, its gallery open behind a rail: timber is for the bridge and the bellows house (a
+		// charging house boarded round the stack read as a wooden house round a chimney)
+		Furnace.Tower tw = Furnace.tower(d, x0, z0, charge, gallery, d.maxHeight() - 1, Fam.of(stone), Fam.of(trim), Fam.of(flue), deck, frame, null);
 		pois.siteIf(d, tw.tapX(), 0, tw.tapZ(), Dirs.BACK, JobType.SMELTER);
 
 		// the ramp up the charging side to the gallery, and the bridge across to it
@@ -268,6 +272,13 @@ public final class Smelter implements Archetype {
 		Yard.enclose(d, 0, 0, w - 1, 0, gaps, Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
 		Signs.post(d, ex + 2 <= w - 1 ? ex + 2 : ex - 2, 0, 0, ex + 2 <= w - 1 ? Dirs.LEFT : Dirs.RIGHT, 3, "smelter", "Ironworks");
 		Works.lampPost(d, ex - 2 >= 0 ? ex - 2 : ex + 3, 0, 1);
+		// last, when all round it stands: rails along the ramp's open side, round the landing and the bridge, where the
+		// charger walks over the drop
+		int gx0 = Math.min(rx, bx) - 1;
+		int gx1 = Math.max(rx, bx) + 1;
+		for (int y = 1; y <= gallery + 1; y++) {
+			Rails.guard(d, gx0, start - 1, gx1, cz + 2, y, List.of());
+		}
 		return tw.top();
 	}
 

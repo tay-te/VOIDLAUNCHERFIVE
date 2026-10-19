@@ -88,16 +88,24 @@ public final class BlueprintChecks {
 		}
 	}
 
-	/** Runs every check; returns the problems found (empty when the blueprint is sound). */
+	/**
+	 * Runs every check; returns the problems found (empty when the blueprint is sound). The play rules of the audit gate
+	 * ({@link PlayChecks}) run too; the {@link Gate} decides whether they are problems here or only reported.
+	 */
 	public static List<String> all(BlueprintImpl bp, TerrainProbe probe) {
 		List<String> out = new ArrayList<>();
 		World w = new World(bp, probe);
 		bounds(bp, out);
 		floating(bp, w, out);
+		int before = out.size();
 		reach(bp, w, out);
+		boolean reachOk = out.size() == before;
 		chunks(bp, out);
 		order(bp, out);
-		LightCheck.light(bp, w, out);
+		LightCheck.Result light = LightCheck.evaluate(bp, w);
+		LightCheck.light(bp, w, light, out);
+		// the play rules of the audit gate: reported, or failed unless the archetype is listed as a known failure (Gate)
+		Gate.apply(bp.spec(), PlayChecks.evaluate(bp, w, light, reachOk), out);
 		return out;
 	}
 
@@ -137,7 +145,7 @@ public final class BlueprintChecks {
 	}
 
 	/** Offsets of the 18-neighbourhood: blocks sharing a face or an edge (a roof's stair courses touch along edges). */
-	private static final int[][] N18 = n18();
+	static final int[][] N18 = n18();
 
 	private static int[][] n18() {
 		List<int[]> l = new ArrayList<>();
@@ -246,7 +254,15 @@ public final class BlueprintChecks {
 			&& !(b instanceof net.minecraft.world.level.block.WallBlock) && s.getCollisionShape(EmptyBlockGetter.INSTANCE, BlockPos.ZERO).max(Direction.Axis.Y) <= 0.2;
 	}
 
-	private static boolean standable(BlockState s) {
+	/**
+	 * A block someone stands on. The lax footing (the invariants' own since 2025) stands on candles, lanterns, pots, cakes
+	 * and skulls; the strict one is the light check's ({@link dev.voidmc.hearth.build.kit.light.Spaces#standable}), which
+	 * a player's feet agree with: a candle on a table is no step up onto it (AUDIT.md S3).
+	 */
+	private static boolean standable(BlockState s, boolean strict) {
+		if (strict) {
+			return dev.voidmc.hearth.build.kit.light.Spaces.standable(s);
+		}
 		Block b = s.getBlock();
 		if (s.isAir() || b instanceof net.minecraft.world.level.block.FenceBlock || b instanceof net.minecraft.world.level.block.WallBlock
 			|| b instanceof FenceGateBlock) {
@@ -260,6 +276,10 @@ public final class BlueprintChecks {
 
 	/** Feet at p: the block there and above can be walked through and the block below stood on (or it is a ladder). */
 	private static boolean walkable(World w, int x, int y, int z) {
+		return walkable(w, x, y, z, false);
+	}
+
+	private static boolean walkable(World w, int x, int y, int z, boolean strict) {
 		BlockState feet = w.at(x, y, z);
 		BlockState head = w.at(x, y + 1, z);
 		if (!passable(feet) || !passable(head)) {
@@ -269,7 +289,7 @@ public final class BlueprintChecks {
 			return true;
 		}
 		BlockState below = w.at(x, y - 1, z);
-		return standable(below) || below.getBlock() instanceof LadderBlock || below.getBlock() instanceof ScaffoldingBlock;
+		return standable(below, strict) || below.getBlock() instanceof LadderBlock || below.getBlock() instanceof ScaffoldingBlock;
 	}
 
 	/** A stair, a bottom slab or similar low block that can be walked up onto from beside it. */
@@ -280,12 +300,16 @@ public final class BlueprintChecks {
 
 	/** Every cell walkable from the starts, within a box. */
 	static LongOpenHashSet walk(World w, List<BlockPos> starts, int[] box) {
+		return walk(w, starts, box, false);
+	}
+
+	static LongOpenHashSet walk(World w, List<BlockPos> starts, int[] box, boolean strict) {
 		LongOpenHashSet seen = new LongOpenHashSet();
 		LongArrayFIFOQueue q = new LongArrayFIFOQueue();
 		for (BlockPos p : starts) {
 			// a start may be given at the step level: settle it on what is walkable nearby
 			for (int dy = 0; dy >= -2; dy--) {
-				if (walkable(w, p.getX(), p.getY() + dy, p.getZ())) {
+				if (walkable(w, p.getX(), p.getY() + dy, p.getZ(), strict)) {
 					long k = BlockPos.asLong(p.getX(), p.getY() + dy, p.getZ());
 					if (seen.add(k)) {
 						q.enqueue(k);
@@ -293,7 +317,7 @@ public final class BlueprintChecks {
 					break;
 				}
 			}
-			if (walkable(w, p.getX(), p.getY() + 1, p.getZ())) {
+			if (walkable(w, p.getX(), p.getY() + 1, p.getZ(), strict)) {
 				long k = BlockPos.asLong(p.getX(), p.getY() + 1, p.getZ());
 				if (seen.add(k)) {
 					q.enqueue(k);
@@ -321,7 +345,7 @@ public final class BlueprintChecks {
 					if (dy == 1 && !passable(w.at(x, y + 2, z))) {
 						continue;
 					}
-					if (walkable(w, nx, ny, nz)) {
+					if (walkable(w, nx, ny, nz, strict)) {
 						long n = BlockPos.asLong(nx, ny, nz);
 						if (seen.add(n)) {
 							q.enqueue(n);
@@ -329,7 +353,7 @@ public final class BlueprintChecks {
 						break;
 					}
 					// stepping onto a stair or slab whose cell is the next feet position's floor
-					if (dy == 0 && step(w.at(nx, ny, nz)) && walkable(w, nx, ny + 1, nz) && passable(w.at(x, y + 2, z))) {
+					if (dy == 0 && step(w.at(nx, ny, nz)) && walkable(w, nx, ny + 1, nz, strict) && passable(w.at(x, y + 2, z))) {
 						long n = BlockPos.asLong(nx, ny + 1, nz);
 						if (seen.add(n)) {
 							q.enqueue(n);
@@ -345,7 +369,7 @@ public final class BlueprintChecks {
 			}
 			if (climb) {
 				for (int dy : new int[]{1, -1}) {
-					if (walkable(w, x, y + dy, z) || w.at(x, y + dy, z).getBlock() instanceof LadderBlock) {
+					if (walkable(w, x, y + dy, z, strict) || w.at(x, y + dy, z).getBlock() instanceof LadderBlock) {
 						long n = BlockPos.asLong(x, y + dy, z);
 						if (seen.add(n)) {
 							q.enqueue(n);
@@ -362,6 +386,11 @@ public final class BlueprintChecks {
 	 * entrances every bed, job site and store, and in an excavation every work face (where its gatherers stand).
 	 */
 	public static void reach(BlueprintImpl bp, World w, List<String> out) {
+		reach(bp, w, out, false);
+	}
+
+	/** As {@link #reach(BlueprintImpl, World, List)}, with the strict footing when {@code strict} (no standing on pots and candles). */
+	public static void reach(BlueprintImpl bp, World w, List<String> out, boolean strict) {
 		PlotSpec spec = bp.spec();
 		LocalFrame f = new LocalFrame(spec);
 		var b = bp.bounds();
@@ -373,7 +402,7 @@ public final class BlueprintChecks {
 			int wz = f.worldZ(lx, -1);
 			street.add(new BlockPos(wx, Math.max(w.probe.groundY(wx, wz), spec.floorY()), wz));
 		}
-		LongOpenHashSet fromStreet = walk(w, street, box);
+		LongOpenHashSet fromStreet = walk(w, street, box, strict);
 		if (!bp.entrances().isEmpty()) {
 			BlockPos main = bp.entrances().get(0);
 			if (!near(fromStreet, main)) {
@@ -381,7 +410,18 @@ public final class BlueprintChecks {
 					+ ", below: " + w.at(main.getX(), main.getY() - 1, main.getZ()) + ", above: " + w.at(main.getX(), main.getY() + 1, main.getZ()) + ")");
 			}
 		}
-		LongOpenHashSet inside = walk(w, bp.entrances().isEmpty() ? street : bp.entrances(), box);
+		LongOpenHashSet inside = walk(w, bp.entrances().isEmpty() ? street : bp.entrances(), box, strict);
+		if (strict) {
+			// the strict walk also wants every door the building registers walked to from the street
+			for (int i = 1; i < bp.entrances().size(); i++) {
+				BlockPos e = bp.entrances().get(i);
+				if (!near(fromStreet, e)) {
+					out.add("the entrance " + e + " cannot be walked to (there: " + w.at(e.getX(), e.getY(), e.getZ()) + ", below: "
+						+ w.at(e.getX(), e.getY() - 1, e.getZ()) + ")");
+					break;
+				}
+			}
+		}
 		int beds = 0;
 		int jobs = 0;
 		int faces = 0;

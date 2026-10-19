@@ -208,7 +208,9 @@ public final class Windmill implements Archetype {
 			}
 		}
 		if (!floors.isEmpty()) {
-			Stairs.spiral(d, icx, icz, 0, floors.get(floors.size() - 1), 4);
+			int rise = floors.get(floors.size() - 1);
+			Stairs.spiral(d, icx, icz, 0, rise, 4);
+			headroom(d, icx, icz, rise, 4);
 		}
 		// the door at the front of the base, windows up the tower
 		int dz = Integer.MAX_VALUE;
@@ -254,15 +256,23 @@ public final class Windmill implements Archetype {
 		int hubY = yt + 2;
 		int sz = Math.max(0, capBox[1] - 1);
 		Mat shaft = d.mat(Role.BEAM);
-		try (var s = d.stage(StageKind.FRAME)) {
-			for (int z = sz; z <= icz; z++) {
-				d.set(icx, hubY, z, shaft.log(Direction.Axis.Z));
-			}
-		}
 		int len = Math.min(arm, Math.min(hubY - 2, max - 1 - hubY));
+		// the sweep stands a block clear of everything below it (the stage, the curb, the bonnet's breast) and two over the
+		// yard: the windshaft runs out of the cap as far as that takes, the sails shorten where the plot ends first
+		int[] sweep = clearSweep(d, icx, hubY, sz, len, 3, true);
+		sz = sweep[0];
+		len = sweep[1];
 		Mills.SailPlan sp = plan(d);
 		Mat stock = Hall.woodFence(d);
 		Paint lattice = stock.has(Form.FENCE) ? stock.fence() : stock.full();
+		int fsz = sz;
+		try (var s = d.stage(StageKind.FRAME)) {
+			for (int z = fsz; z <= icz; z++) {
+				if (z == fsz || d.isEmpty(icx, hubY, z)) {
+					d.set(icx, hubY, z, shaft.log(Direction.Axis.Z));
+				}
+			}
+		}
 		Mills.sails(d, icx, hubY, sz, Direction.Axis.Z, len, 2, sp, d.mat(Role.FRAME), cloth(d), lattice, d.chance(0.5) ? 0.5 : 0.0);
 		// the cap is turned to the wind from behind: a fantail on a masonry tower's bonnet, a tail pole down to the stage
 		// on a smock mill or a cone
@@ -271,18 +281,16 @@ public final class Windmill implements Archetype {
 		} else if (staged) {
 			tailPole(d, icx, yt + 1, capBox[2], split + 1, rad.applyAsDouble(split) + 1.0, cz);
 		}
-		// the cap's hollow over the curb, boarded shut: a core of the floor's timber, not a dark void
+		// the cap's hollow over the curb, boarded solid under the roof: nobody climbs into it, and a hollow left by the seal
+		// round the windshaft read as a room nobody reaches
+		fillCap(d, cx, cz, rc, yt, capTop);
+		// what is left sealed off over it, a core of the floor's timber, not a dark void
 		dev.voidmc.hearth.build.kit.refine.Voids.seal(d, (int) Math.floor(cx - rc) - 2, yt + 2, (int) Math.floor(cz - rc) - 2,
 			(int) Math.ceil(cx + rc) + 2, capTop, (int) Math.ceil(cz + rc) + 2, d.mat(Role.FLOOR).full());
-		// what stays open in the cap (round the windshaft's way out) gets the miller's lamp, stood on the curb
-		for (int[] c : new int[][]{{icx + 1, icz}, {icx - 1, icz}, {icx, icz + 1}}) {
-			if (d.isEmpty(c[0], yt + 2, c[1]) && d.isEmpty(c[0], yt + 3, c[1]) && d.isSolid(c[0], yt + 1, c[1])) {
-				dev.voidmc.hearth.build.kit.light.Lighting.lamp(d, c[0], yt + 2, c[1]);
-				break;
-			}
-		}
 		interior(d, cx, cz, r0, icx, icz, fdz);
 		yard(d, w, dp, icx, ez);
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(capTop + 3, hubY + len) + 1);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -503,6 +511,80 @@ public final class Windmill implements Archetype {
 		}
 	}
 
+	/**
+	 * Clears a third block of headroom over every tread of the newel stair {@link Stairs#spiral} laid (same ring, same
+	 * start): its own two leave the floor above the first treads of each turn, so nobody can step up past them.
+	 */
+	private static void headroom(Draft d, int cx, int cz, int rise, int startAt) {
+		int[][] ring = {{-1, -1}, {0, -1}, {1, -1}, {1, 0}, {1, 1}, {0, 1}, {-1, 1}, {-1, 0}};
+		try (var s = d.stage(StageKind.FLOORS)) {
+			for (int k = 1; k <= rise * 2; k++) {
+				int[] c = ring[(startAt + k) % 8];
+				int y = (k - 1) / 2 + 3;
+				if (y < rise + 3) {
+					d.set(cx + c[0], y, cz + c[1], Blocks.AIR.defaultBlockState());
+				}
+			}
+		}
+	}
+
+	/**
+	 * Fills the cap's hollow: in every column over the curb disc (radius {@code r}), the empty cells from the curb up to
+	 * the highest block the cap drew there are boarded with the floor's timber.
+	 */
+	private static void fillCap(Draft d, double cx, double cz, double r, int yt, int capTop) {
+		Paint core = d.mat(Role.FLOOR).full();
+		try (var st = d.stage(StageKind.ROOF)) {
+			for (int[] c : Draft.ellipseCells(cx, cz, r, r, true)) {
+				int roof = Integer.MIN_VALUE;
+				for (int y = capTop; y >= yt + 2; y--) {
+					if (!d.isEmpty(c[0], y, c[1])) {
+						roof = y;
+						break;
+					}
+				}
+				for (int y = yt + 2; y < roof; y++) {
+					if (d.isEmpty(c[0], y, c[1]) && d.allowed(c[0], y, c[1])) {
+						d.set(c[0], y, c[1], core);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Where the sails can turn: from {@code z} (the cap's breast) forward, the first plane that is empty over the whole
+	 * sweep (a disc a block wider than the sails, down to two over the ground) with the plane behind it empty too, so the
+	 * sails clear the tower, stage and cap by a block ({@code gap}; a post mill's body starts a row behind {@code z}). The sails are shortened (down to {@code min}) when the plot's front
+	 * comes first. Returns {plane z, sail length}.
+	 */
+	private static int[] clearSweep(Draft d, int x, int hubY, int z, int len, int min, boolean gap) {
+		for (int l = len; l >= min; l--) {
+			for (int zz = z; zz >= 0; zz--) {
+				if (sweepClear(d, x, hubY, zz, l) && (!gap || sweepClear(d, x, hubY, zz + 1, l))) {
+					return new int[]{zz, l};
+				}
+			}
+		}
+		return new int[]{z, len};
+	}
+
+	private static boolean sweepClear(Draft d, int x, int hubY, int z, int len) {
+		double r = len + 1.5;
+		for (int u = -len - 1; u <= len + 1; u++) {
+			for (int v = -len - 1; v <= len + 1; v++) {
+				int y = hubY + v;
+				if (u * u + v * v > r * r || y < 2 || u == 0 && v == 0) {
+					continue;
+				}
+				if (!d.isEmpty(x + u, y, z)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	/** The ground floor: the miller's stones, the grain bin, the flour chest and sacks round the stair's foot. */
 	private static void interior(Draft d, double cx, double cz, double r, int icx, int icz, int fdz) {
 		List<int[]> ring = Draft.ellipseCells(cx, cz, r, r, false);
@@ -616,7 +698,8 @@ public final class Windmill implements Archetype {
 		int bw = w >= 11 ? 5 : 5;
 		int bx0 = (w - bw) / 2;
 		int bx1 = bx0 + bw - 1;
-		int bz0 = 1;
+		// the body set back two rows, so the sails turn before its breast with a block to spare
+		int bz0 = dp >= 12 ? 3 : 2;
 		int bz1 = bz0 + 4;
 		// the body high on its trestle (the stair down behind needs a row of plot for every step)
 		int yb = Math.min(5, dp - 2 - bz1);
@@ -689,16 +772,25 @@ public final class Windmill implements Archetype {
 		}
 		// the windshaft through the breast, the sails before it
 		int hubY = yb + 4;
-		int sz = bz0 - 1;
+		int len0 = Math.min(Math.min(cx, w - 1 - cx), Math.min(hubY - 2, max - 1 - hubY));
+		int[] sweep = clearSweep(d, cx, hubY, bz0 - 2, len0, 3, false);
+		int sz = sweep[0];
+		int len = sweep[1];
 		Mat shaft = d.mat(Role.BEAM);
 		d.inStage(StageKind.FRAME, () -> {
-			d.set(cx, hubY, sz, shaft.log(Direction.Axis.Z));
-			d.set(cx, hubY, bz0, shaft.log(Direction.Axis.Z));
+			for (int z = sz; z <= bz0; z++) {
+				if (z == sz || z == bz0 || d.isEmpty(cx, hubY, z)) {
+					d.set(cx, hubY, z, shaft.log(Direction.Axis.Z));
+				}
+			}
 		});
-		int len = Math.min(Math.min(cx, w - 1 - cx), Math.min(hubY - 2, max - 1 - hubY));
 		Mat stock = Hall.woodFence(d);
 		Mills.sails(d, cx, hubY, sz, Direction.Axis.Z, len, 2, d.chance(0.3) ? Mills.SailPlan.SALTIRE : Mills.SailPlan.CROSS, d.mat(Role.FRAME), cloth(d),
 			stock.fence(), 0.0);
+		// the sack floor over the stones: a ladder up the breast wall through a hatch
+		if (hall.storeys() >= 2) {
+			dev.voidmc.hearth.build.kit.craft.Hatch.ladder(d, hall, 1, null, Dirs.FRONT, Dirs.LEFT, Dirs.RIGHT);
+		}
 		// inside the box: the stones, sacks, the flour chest
 		int y = yb;
 		Props.grindstone(d, in[0], y, in[3] - 1, Dirs.RIGHT, JobType.BAKER);
@@ -715,6 +807,8 @@ public final class Windmill implements Archetype {
 		if (d.habits().snow()) {
 			Garden.snowBanks(d, bx0, bz0, bx1, bz1, 0, cx);
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, hubY + len) + 1);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

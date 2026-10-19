@@ -278,6 +278,13 @@ chunk whose blueprints are still being made waits (above).
   replaces) left there — every block above its floor still exactly as placed becomes air (containers drop their
   contents; foundations stay for the rebuild; a player's changes stay) — and sets its ledger cursor to zero.
 
+**Reachability** (wave 7): Fabric's `CHUNK_LOAD` fires before `getChunkNow` can see the chunk, so a chunk queued at its load
+could be dropped and stay unwritten until it loaded again. The applier now also queues a chunk when it becomes reachable
+(`FULL_CHUNK_STATUS_CHANGE` to `FULL` or above, which also covers a border chunk promoted later) and looks for a queued
+chunk that is not there a few more times. A chunk pass that throws is skipped; `/hearth sim stats` names the slowest
+chunk pass (chunk, time, plots, blocks) and the slowest part of a tick. Server-thread code asks `isPlannedNow`, never
+`isPlanned`: the latter works out a region's history in place when it is not cached (most of a second).
+
 ## 7. Embodiment and the construction contract (§4)
 
 Every 20 ticks each player's nearby settlements (a 256-block cell index of bounds grown by `radius + hysteresis`) are
@@ -319,6 +326,18 @@ regions, WORLD-scope data keys). A crash loses at most what changed since the la
 ledgers may disagree by one save either way, and both directions are safe (a ledger behind its record gets the
 difference written; a ledger ahead means those steps are already in the world and are not written again).
 
+Ids: live settlement ids come from the overworld's index whatever level the settlement is in, so they are unique on the
+server (other modules key per-player state by id alone); every settlement file loaded reserves its id, so an index saved
+before a settlement it counted (a crash between the two) never hands the id out again. Hamlets being laid out off the
+server thread when the server stops give their settlers back to the town they left before the last save.
+
+**Crash safety** (wave 7): one bad settlement must not break the world. Each part of a world's tick (the clock's step of
+one settlement, the applier, the hamlet search, caravans and felling, embodiment listeners) is caught and logged (the
+first failure with its trace, then at 2, 4, 8 ... failures) and tried again later; a chunk pass that throws is skipped
+until the chunk loads again; world generation leaves a historic plot whose blueprint throws unwritten (the applier tries
+it at load); a settlement file that decodes but will not register is left out of the session with its file kept; an
+adoption that fails is undone and tried again next session; a `FOUNDED` listener that throws does not unfound the town.
+
 ## 9. Terrain probe and cultures
 
 - `GeneratorProbe`: `ChunkGenerator.getBaseColumn` walks one column of noise (any noise world, Expanse included) and
@@ -336,7 +355,9 @@ difference written; a ledger ahead means those steps are already in the world an
 
 ## 10. Configuration — `config/hearth/sim.json`
 
-Written with the defaults on first run; every field optional. (Delete it to pick up new defaults after an update.)
+Written on first run; every field optional, and a field left at its default is not written out (so the file starts as
+`{}`: the knobs are the table below). A value that does not decode (out of range, the wrong type) is named in the log and
+falls back to its default; the file's other values are kept (`HearthConfig.parse`, every module's config).
 
 | key | default | |
 |---|---|---|
@@ -471,7 +492,8 @@ histories not yet adopted come from the atlas. Thread-safe and read-only for LOD
 ## 14. Client
 
 `ArrivalPayload` (`hearth:sim/arrival`) is sent when the settlement a player stands in (bounds + `banner_margin`)
-changes; the banner shows the name and "a timber-framed village of 34 souls" (culture flavour and tier from the lang
+changes, for every player on the server (one who goes through a portal into a level Hearth does not run in is told they
+left); the banner shows the name and "a timber-framed village of 34 souls" (culture flavour and tier from the lang
 fragment), fading in and out, at most once a minute per settlement. A debug screen entry `hearth:sim` shows the current
 settlement (enable it in the debug options).
 

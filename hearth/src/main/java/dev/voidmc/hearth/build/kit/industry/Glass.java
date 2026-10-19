@@ -114,8 +114,9 @@ public final class Glass {
 
 	/** The cullet heap: broken glass of every shade heaped against a wall. */
 	public static Block[] cullet() {
-		return new Block[]{Blocks.GLASS, Blocks.STAINED_GLASS.pick(DyeColor.GREEN), Blocks.GLASS, Blocks.STAINED_GLASS.pick(DyeColor.LIME),
-			Blocks.STAINED_GLASS.pick(DyeColor.LIGHT_BLUE), Blocks.GLASS};
+		// clear and bottle green with a little grey (no lime: a lime cube in the yard read as a slime block)
+		return new Block[]{Blocks.GLASS, Blocks.STAINED_GLASS.pick(DyeColor.GREEN), Blocks.GLASS, Blocks.STAINED_GLASS.pick(DyeColor.LIGHT_GRAY),
+			Blocks.TINTED_GLASS, Blocks.GLASS};
 	}
 
 	/**

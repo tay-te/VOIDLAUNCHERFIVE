@@ -35,10 +35,15 @@ public class FolkNavigation extends GroundPathNavigation {
 	public void tick() {
 		super.tick();
 		boolean descend = false;
-		if (this.path != null && !this.path.isDone()
-			&& (this.mob.getInBlockState().is(Blocks.SCAFFOLDING) || this.mob.getBlockStateOn().is(Blocks.SCAFFOLDING))) {
+		boolean scaffold = this.mob.getInBlockState().is(Blocks.SCAFFOLDING) || this.mob.getBlockStateOn().is(Blocks.SCAFFOLDING);
+		if (scaffold && this.path != null && !this.path.isDone()) {
 			Node next = this.path.getNextNode();
 			descend = next.y < this.mob.getBlockY();
+		}
+		if (scaffold && !descend && this.mob instanceof Folk folk && folk.job() != dev.voidmc.hearth.api.JobType.BUILDER) {
+			// Anyone but a builder who walks into a site's scaffold column is carried up it (a climbable block and a
+			// push against it), and up top no path leads anywhere: they keep low and come down instead.
+			descend = true;
 		}
 		// Only undo a sneak this navigation started: a builder climbing down its own scaffold sneaks on purpose.
 		if (descend != this.sneaking) {

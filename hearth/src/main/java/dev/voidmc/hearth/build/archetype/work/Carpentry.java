@@ -17,6 +17,7 @@ import dev.voidmc.hearth.build.kit.Garden;
 import dev.voidmc.hearth.build.kit.Roofs;
 import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
+import dev.voidmc.hearth.build.kit.craft.Hatch;
 import dev.voidmc.hearth.build.kit.trade.Floorplan;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Pentice;
@@ -104,13 +105,15 @@ public final class Carpentry implements Archetype {
 			int i = g.index(door + (doorW - 1) / 2);
 			int y = hall.floorY(1);
 			if (i > 0 && i < g.last() && hall.roof.bottomY(g.x(i), g.z(i)) - y >= 3) {
-				d.inStage(StageKind.OPENINGS, () -> d.door(g.x(i), y, g.z(i), d.mat(Role.DOOR).mainOr(Form.DOOR, Blocks.SPRUCE_DOOR), Dirs.FRONT,
-					net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT));
+				Hatch.hoistDoor(d, g.x(i), y, g.z(i), Dirs.FRONT);
 				dev.voidmc.hearth.build.kit.trade.Lifts.hoist(d, g, i, y + 2, 1, y - 2, Blocks.HAY_BLOCK.defaultBlockState());
 			}
 		}
 
-		interior(d, hall, door, doorW, loft);
+		// the side door into the lumber store (or the back door under the lean-to): its inside cell stays clear
+		int[] in0 = hall.inner(0);
+		int[] sideDoor = sideStore ? new int[]{storeLeft ? in0[0] : in0[2], in0[1] + 1} : new int[]{in0[2], in0[3]};
+		interior(d, hall, door, doorW, loft, ridge, sideDoor);
 		// the lumber store: along the side under the carried-on eave, or behind under a lean-to
 		if (sideStore) {
 			int sx0 = storeLeft ? 0 : hx1 + 1;
@@ -125,6 +128,8 @@ public final class Carpentry implements Archetype {
 			// a flat roof is a terrace: a stair up the side, a room set back, an awning
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
@@ -139,11 +144,18 @@ public final class Carpentry implements Archetype {
 	}
 
 	/** Benches under the windows, the plank chest, a tool rack, a chair and a table being made. */
-	private static void interior(Draft d, Hall hall, int door, int doorW, boolean loft) {
+	private static void interior(Draft d, Hall hall, int door, int doorW, boolean loft, Direction.Axis ridge, int[] sideDoor) {
 		int[] in = hall.inner(0);
 		Floorplan fp = hall.floor(0).blockHoles(d);
 		for (int c = door; c < door + doorW; c++) {
 			fp.keep(c, in[1]);
+		}
+		fp.keep(sideDoor[0], sideDoor[1]);
+		// the board loft: floored over the shop, a ladder up through a hatch against a gable wall (where the loft has its
+		// height), so the loft and its hoist door can be walked to
+		int[] ladder = null;
+		if (loft && hall.storeys() >= 2) {
+			ladder = ridge == Direction.Axis.Z ? Hatch.ladder(d, hall, 1, fp, Dirs.BACK, Dirs.FRONT) : Hatch.ladder(d, hall, 1, fp, Dirs.LEFT, Dirs.RIGHT);
 		}
 		// benches along the side walls and the back, facing into the room
 		int benches = 0;
@@ -197,29 +209,36 @@ public final class Carpentry implements Archetype {
 				d.inStage(StageKind.INTERIOR, () -> d.set(mx + 1, 0, mz, wood.stairsOrSlab(Dirs.BACK, Half.BOTTOM)));
 			}
 		}
-		// boards drying in the loft (open to the shop over the middle, floored at the edges)
-		if (loft) {
+		// boards drying in the loft: stacked along its eaves, clear of the hatch and the walk to the hoist door
+		if (loft && ladder != null) {
 			int fy = hall.floorY(1) - 1;
 			int[] up = hall.inner(1);
-			for (int x = up[0] + 1; x <= up[2] - 1; x++) {
-				for (int z = up[1] + 1; z <= up[3] - 1; z++) {
-					d.set(x, fy, z, Blocks.AIR.defaultBlockState());
-				}
-			}
 			Mat planks = d.mat(Role.FLOOR);
+			boolean alongZ = ridge == Direction.Axis.Z;
 			try (var s = d.stage(StageKind.INTERIOR)) {
-				for (int z = up[1] + 1; z < up[3]; z += 2) {
-					for (int x : new int[]{up[0], up[2]}) {
-						if (d.isEmpty(x, fy + 1, z)) {
+				for (int a = (alongZ ? up[1] : up[0]) + 1; a < (alongZ ? up[3] : up[2]); a += 2) {
+					for (int b : alongZ ? new int[]{up[0], up[2]} : new int[]{up[1], up[3]}) {
+						int x = alongZ ? b : a;
+						int z = alongZ ? a : b;
+						if (Math.abs(x - ladder[0]) + Math.abs(z - ladder[1]) > 1 && d.isSolid(x, fy, z) && d.isEmpty(x, fy + 1, z)) {
 							d.set(x, fy + 1, z, planks.slab(SlabType.BOTTOM));
 						}
 					}
 				}
 			}
+		} else if (loft) {
+			// no ladder fits: the loft is opened over the shop to its rafters, nobody's floor
+			int fy = hall.floorY(1) - 1;
+			int[] up = hall.inner(1);
+			for (int x = up[0]; x <= up[2]; x++) {
+				for (int z = up[1]; z <= up[3]; z++) {
+					d.set(x, fy, z, Blocks.AIR.defaultBlockState());
+				}
+			}
 		}
 		Rooms.furnish(d, fp.room(), Rooms.Type.STORAGE, 0, JobType.NONE);
 		// a lantern from the tie beam
-		int plate = hall.plateY();
+		int plate = loft && ladder != null ? hall.floorY(1) - 1 : hall.plateY();
 		Mat beam = d.mat(Role.BEAM);
 		int tz = (in[1] + in[3]) / 2;
 		try (var s = d.stage(StageKind.FRAME)) {
@@ -251,7 +270,9 @@ public final class Carpentry implements Archetype {
 		// under it: logs along the wall, boards beyond, a door from the shop
 		int near = left ? x1 : x0;
 		int far = left ? x0 : x1;
-		int len = Math.min(5, z1 - z0 - 1);
+		// the side door from the shop opens at dz: the logs start behind it, its outside cell and the chest's stay clear
+		int dz = hall.inner(0)[1] + 1;
+		int len = Math.min(5, z1 - dz - 1);
 		Mat log = bamboo ? null : timber(d);
 		int lz = z1 - len + 1;
 		if (len >= 2) {
@@ -264,8 +285,8 @@ public final class Carpentry implements Archetype {
 				Props.boardStack(d, near + (left ? -1 : 1), 0, lz, Direction.Axis.Z, Math.max(2, len - 2), 2, d.mat(Role.FLOOR));
 			}
 		}
-		int bz = Math.max(z0, lz - 1);
-		if (bz - 1 >= z0 && d.isEmpty(near, 0, bz) && d.isEmpty(near, 0, bz - 1) && d.isEmpty(near, 1, bz - 1)) {
+		int bz = lz - 1 > dz ? lz - 1 : dz - 1;
+		if (bz != dz && bz - 1 >= z0 && bz - 1 != dz && d.isEmpty(near, 0, bz) && d.isEmpty(near, 0, bz - 1) && d.isEmpty(near, 1, bz - 1)) {
 			Props.store(d, near, 0, bz, Dirs.FRONT, false, List.of(new Object[]{"minecraft:oak_log", 32}, new Object[]{"minecraft:stick", 24}));
 		}
 		// a side door from the shop into the store

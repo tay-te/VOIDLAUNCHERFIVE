@@ -1,0 +1,15 @@
+# Known failures of the audit gate's play rules, commerce/* (AUDIT.md lane L4b; BUILDING_GUIDE.md §8, "The audit gate").
+# One line per archetype: its path, the rules it still breaks, a comment (audit cases breaking it / cases measured).
+# Rules: walk, door-sides, ladder-top, furnished-reached, floating-piece, roof-hole (build/check/PlayChecks.java).
+# When a fix lands, delete the rule here (structureAudit -Pmode=gate and build/reports/gate/ show what no longer
+# breaks); delete the line when no rule is left. This list only shrinks: once Gate.DEFAULT is HARD, a rule broken
+# by an archetype not listed for it fails the tests.
+commerce/bank door-sides roof-hole                                # door-sides 0/84 (tests 10), roof-hole 3/84 (tests 13)
+commerce/caravan_yard furnished-reached floating-piece roof-hole  # furnished-reached 0/84 (tests 17), floating-piece 4/84 (tests 6), roof-hole 6/84 (tests 26)
+commerce/counting_house walk furnished-reached                    # walk 0/84 (tests 20), furnished-reached 0/84 (tests 3)
+commerce/hostel walk door-sides furnished-reached roof-hole       # walk 0/84 (tests 8), door-sides 0/84 (tests 27), furnished-reached 0/84 (tests 11), roof-hole 6/84 (tests 45)
+commerce/inn furnished-reached roof-hole                          # furnished-reached 0/84 (tests 2), roof-hole 0/84 (tests 20)
+commerce/market_hall furnished-reached roof-hole                  # furnished-reached 0/84 (tests 42), roof-hole 0/84 (tests 1)
+commerce/market_stall furnished-reached                           # furnished-reached 0/84 (tests 1)
+commerce/tavern furnished-reached roof-hole                       # furnished-reached 0/84 (tests 5), roof-hole 6/84 (tests 41)
+commerce/thieves_den furnished-reached                            # furnished-reached 0/84 (tests 16)

@@ -99,6 +99,15 @@ public final class Cemetery implements Archetype {
 		for (int z = Math.max(0, cz - 3); z <= (chapel ? dp - 1 : Math.min(dp - 1, cz + 3)); z++) {
 			level[z] = level[cz];
 		}
+		// (no flight may climb inside the lychgate's three rows, which the gate draws over afterwards and would cut it off:
+		// a rise of h at row z puts its steps on rows z-h+1..z, a fall on rows z-1..z+h-2, so the front band holds until
+		// both clear row 3)
+		for (int z = 1; z < dp; z++) {
+			int rise = Math.abs(level[z] - level[z - 1]);
+			if (rise > 0 && z < Math.max(4, rise + 2)) {
+				level[z] = level[z - 1];
+			}
+		}
 		Terraces.build(d, 0, w - 1, level);
 		Terraces.steps(d, cx - 1, 3, level);
 
@@ -295,6 +304,25 @@ public final class Cemetery implements Archetype {
 			}
 		}
 		dev.voidmc.hearth.build.kit.civic.Halls.finish(d);
+		// --- the terrace behind the lychgate rising two: its flight would start in the gate's back row, which the gate
+		// levels away, under the tie beam; it climbs on the high side instead, from the retaining wall's row in (laid last,
+		// so the hollows packed under the gate's roof and the paths take nothing of it)
+		if (gate && level[3] - level[0] >= 2 && 3 + level[3] - level[0] <= dp) {
+			Mat stone = dev.voidmc.hearth.build.kit.landscape.Manner.masonry(d);
+			int lo = level[0];
+			int hi = level[3];
+			try (var s = d.stage(StageKind.EXTERIOR)) {
+				for (int x = cx - 1; x <= cx + 1; x++) {
+					for (int k = 0; k < hi - lo; k++) {
+						d.set(x, lo + k, 3 + k, stone.has(dev.voidmc.hearth.build.style.Form.STAIRS)
+							? stone.stairs(Dirs.BACK, net.minecraft.world.level.block.state.properties.Half.BOTTOM) : stone.full());
+						for (int yy = lo + k + 1; yy <= hi + 2; yy++) {
+							d.set(x, yy, 3 + k, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+						}
+					}
+				}
+			}
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, maxH - 1);
 	}
 
