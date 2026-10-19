@@ -1005,6 +1005,17 @@ public class PlaythroughTour implements FabricClientGameTest {
 		}
 		note("reported after " + waited + " s: " + lawLine() + "; witness " + doing(witness));
 		ok(CRIMES_SEEN.get() > seen0 && wanted, "the player is reported (wanted)");
+		if (!wanted) {
+			// nobody reported it: the tour reports it (as a witness would) so the guards' answer can still be tried
+			srv(server -> {
+				ServerPlayer p = player(server);
+				HearthServices.law().report(new LawService.Crime(LawService.Offence.THEFT, p.getUUID(), this.townId, p.blockPosition(), null, 30, true,
+					server.overworld().getGameTime()));
+				return null;
+			});
+			wanted = srv(server -> HearthServices.law().wanted(player(server).getUUID(), this.townId));
+			note("reported by the tour to go on: wanted " + wanted);
+		}
 		// a guard comes: the watch sends one (GuardDispatch); the tour only watches
 		note("the watch: " + srv(server -> {
 			int all = 0;

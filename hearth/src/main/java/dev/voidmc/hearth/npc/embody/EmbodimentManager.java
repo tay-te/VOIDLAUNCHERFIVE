@@ -82,6 +82,10 @@ public final class EmbodimentManager {
 	}
 
 	private final Map<UUID, CachedSchedule> scheduleCache = new HashMap<>();
+	/** Folk made to appear on purpose ({@link #spawnNear}: a guard sent for, someone called over), kept until this game time. */
+	private final Map<UUID, Long> summoned = new HashMap<>();
+	/** How long folk made to appear on purpose are kept, whatever the caps and radii say. */
+	static final long SUMMON_TICKS = 20 * 90;
 
 	public TownState town(Settlement settlement) {
 		return this.towns.computeIfAbsent(settlement.id(), TownState::new);
@@ -178,9 +182,15 @@ public final class EmbodimentManager {
 		}
 		EmbodimentSelector.Plan plan = EmbodimentSelector.plan(candidates, cfg.maxPerSettlement(), Math.max(0, room), cfg.spawnRadius(),
 			cfg.despawnRadius(), STICKINESS, Math.min(LEAST, cfg.maxPerSettlement()), cfg.spawnRadius() * REACH_FACTOR);
+		long now = level.getGameTime();
 		for (UUID id : plan.fold()) {
 			Folk f = this.embodied.get(id);
-			if (f != null && !Escorts.pinned(id)) {
+			Long until = this.summoned.get(id);
+			if (until != null && (now >= until || now < until - SUMMON_TICKS)) {
+				this.summoned.remove(id);
+				until = null;
+			}
+			if (f != null && !Escorts.pinned(id) && until == null) {
 				fold(level, f, true);
 			}
 		}
@@ -284,6 +294,8 @@ public final class EmbodimentManager {
 			settlement.setResidentEmbodied(resident.id, false);
 			return null;
 		}
+		// made to appear for a purpose: the per-town cap does not fold them straight back while it lasts
+		this.summoned.put(resident.id, level.getGameTime() + SUMMON_TICKS);
 		return folk;
 	}
 
@@ -327,6 +339,7 @@ public final class EmbodimentManager {
 		if (id != null) {
 			this.embodied.remove(id, folk);
 			this.lastDistance.remove(id);
+			this.summoned.remove(id);
 			Escorts.gone(id);
 		}
 		folk.setBrain(null);
@@ -629,6 +642,7 @@ public final class EmbodimentManager {
 		this.lastDistance.clear();
 		this.placeCache.clear();
 		this.scheduleCache.clear();
+		this.summoned.clear();
 		this.queue.clear();
 		this.queued.clear();
 		this.cursors.clear();
