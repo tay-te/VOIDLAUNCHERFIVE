@@ -19,6 +19,8 @@ out vec2 texcoord;
 flat out vec3 wcSkyHorAwayS;
 flat out vec3 wcSkyHorSunS;
 flat out vec3 wcSkyZenS;
+// (Look D6) the veil inside and near a deck outside the dusk (lib/clouds/shade.glsl wcVeilColour), in scene light, once
+flat out vec3 wcVeilS;
 
 void main() {
 	gl_Position = ftransform();
@@ -26,6 +28,10 @@ void main() {
 	wcSkyHorAwayS = sceneFromAuthored(skyHorizon(false));
 	wcSkyHorSunS = sceneFromAuthored(skyHorizon(true));
 	wcSkyZenS = sceneFromAuthored(skyZenith());
+	// (as wcAlbedo(0) and wcShoulder in lib/clouds/shade.glsl)
+	vec3 veil = vec3(0.97, 0.97, 0.98) * (skyAmbientLight() * 0.82 + skyDirectLight() * 0.42);
+	veil = mix(veil, 0.8 + 0.2 * (1.0 - exp(-(veil - 0.8) * 5.0)), step(0.8, veil));
+	wcVeilS = sceneFromAuthored(veil);
 }
 
 #endif
@@ -38,6 +44,7 @@ void main() {
 #define WC_SKY_FLAT
 #include "/lib/clouds/shade.glsl"
 #include "/lib/hdr.glsl"
+#include "/lib/air.glsl"
 
 in vec2 texcoord;
 
@@ -153,10 +160,14 @@ void main() {
 	if (wcNearDeck(0, e) + wcNearDeck(1, e) + wcNearDeck(2, e) > 0.0) {
 		vec4 wHere = wcWeatherAt(vec2(0.0), true, e);
 		float seen = h.hit && opacity >= 0.99 ? h.t : tScene;
+		// (Look D6) once, not per deck; and laid on as the land's layered air is (lib/air.glsl airLayered): a deck at the
+		// eye's height seen edge-on to the horizon was a milky cream band the far land dissolved in (the mesa vista); it
+		// is a blue-grey bank away from the sun, warm toward it, a step under the band's light
+		vec3 veil = airLayered(wcVeilColour(rd, e), rd, e.sun);
 		for (int k = 0; k < 3; k++) {
 			float f = wcSlabFog(k, rd, seen, wcDeckShare(k, wHere, e), e);
 			if (f > 0.0) {
-				color.rgb = welkinCloudVeil(color.rgb, rd, 1e30, e) * f + color.rgb * (1.0 - f);
+				color.rgb = veil * f + color.rgb * (1.0 - f);
 				cloudT *= 1.0 - clamp(f, 0.0, 1.0);
 			}
 		}

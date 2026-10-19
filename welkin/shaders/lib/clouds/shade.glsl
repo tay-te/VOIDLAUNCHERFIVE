@@ -858,7 +858,9 @@ vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) 
 #elif CLOUD_DEBUG == 4
 	return vec3(b.rim, b.depth, 1.0 - abs(dot(n, rd))) * 0.5; // D5DBG
 #endif
-	return mix(c, wcFogTarget(rd, e), airCoverA(wcFog(h), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET) * wcFogBacklit(rd, e));
+	// (Look D6) the far fog's target (the luminous sky, the curve's inverse) only where there is fog: a near cloud has none
+	float fogA = airCoverA(wcFog(h), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET) * wcFogBacklit(rd, e);
+	return fogA > 0.0 ? mix(c, wcFogTarget(rd, e), fogA) : c;
 }
 
 // ------------------------------------------------------------------------------------------- the far band
@@ -971,7 +973,9 @@ vec3 welkinCloudShade(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle, 
 #elif CLOUD_DEBUG == 4
 	return vec3(b.rim, b.depth, 1.0 - abs(dot(n, rd))) * 0.5; // D5DBG
 #endif
-	return mix(c, wcFogTarget(rd, e), airCoverA(wcFog(h), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET) * wcFogBacklit(rd, e));
+	// (Look D6) the far fog's target (the luminous sky, the curve's inverse) only where there is fog: a near cloud has none
+	float fogA = airCoverA(wcFog(h), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET) * wcFogBacklit(rd, e);
+	return fogA > 0.0 ? mix(c, wcFogTarget(rd, e), fogA) : c;
 }
 
 // The band's colour for deck k met at tMid, `share` of it cloud, over the sky's horizon colour.
@@ -986,14 +990,30 @@ vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
 // Inside a cloud: a dense, smooth fog of the cloud's own light over the path through it, so what is seen out of a
 // cell fades into it instead of showing the cell's faces as flat halves. `path`: how far the ray stays in the cloud
 // (CloudHit.tOut: continuous over the screen, so the cell's outline never shows; the slab's fog takes over past it).
-vec3 welkinCloudVeil(vec3 scene, vec3 rd, float path, CloudEnv e) {
-	vec3 c = wcAlbedo(0) * (skyAmbientLight() * 0.82 + skyDirectLight() * 0.42);
+// (Look D6) the veil's colour in scene light, once a pixel (the slab fog's decks share it). Outside the dusk it is the
+// same over the screen: the clouds pass works it out in its vertex shader (wcVeilS), as the sky behind the clouds, so
+// the curve's inverse is not run per pixel (it was, up to three times, wherever the eye stood near a deck: about 0.3 ms
+// at the steppe vista)
+#ifdef WC_SKY_FLAT
+flat in vec3 wcVeilS;
+#endif
+vec3 wcVeilColour(vec3 rd, CloudEnv e) {
 	float dusk = wcDuskAmount(e.sun.y);
+#ifdef WC_SKY_FLAT
+	if (dusk <= 0.0) {
+		return wcVeilS;
+	}
+#endif
+	vec3 c = wcAlbedo(0) * (skyAmbientLight() * 0.82 + skyDirectLight() * 0.42);
 	if (dusk > 0.0) {
 		vec3 p = mix(WC_LILAC, WC_CREAM, wcSunward(rd, e));
 		c = mix(c, p * max(wcLuma(c), wcLuma(skyHorizon(false))) / wcLuma(p), dusk);
 	}
-	return mix(scene, sceneFromAuthored(wcShoulder(c)), 1.0 - exp(-min(path, 1e4) / 7.0)); // (scene light in and out)
+	return sceneFromAuthored(wcShoulder(c));
+}
+
+vec3 welkinCloudVeil(vec3 scene, vec3 rd, float path, CloudEnv e) {
+	return mix(scene, wcVeilColour(rd, e), 1.0 - exp(-min(path, 1e4) / 7.0)); // (scene light in and out)
 }
 
 // How near the eye is to deck k's slab, 1 inside or at its faces .. 0 from 30 blocks off: a deck at eye height is
