@@ -322,6 +322,16 @@ void main() {
 			h.back.rgb = mix(h.back.rgb, h.back.rgb * tw, wA);
 			h.front.rgb = mix(h.front.rgb, h.front.rgb * tw, wA);
 		}
+		// (look, welkin-look 2026-10-18) the air has body: by day the haze sits a little under the sky's horizon and
+		// leans a soft blue-grey away from the sun, so the far ridges and woods stand in layers against the sky instead
+		// of dissolving into one milky white; toward the sun it keeps its warm glow
+		{
+			float toSun = clamp(dot(normalize(eyePos), sunW) * 0.5 + 0.5, 0.0, 1.0);
+			vec3 body = mix(vec3(0.88, 0.91, 0.95), vec3(0.97, 0.95, 0.92), toSun * toSun);
+			float wB = lum.day * lum.up * (s.sky ? 0.0 : 1.0);
+			h.back.rgb = mix(h.back.rgb, h.back.rgb * body, wB);
+			h.front.rgb = mix(h.front.rgb, h.front.rgb * body, wB);
+		}
 		// M5 underground (P6): the surface air hands over to the cave air at cave mouths
 		h.back.a *= 1.0 - ug.amount;
 		h.front.a *= 1.0 - ug.amount;
