@@ -49,7 +49,8 @@ uniform float viewHeight;
 /* RENDERTARGETS: 13,9 */
 layout(location = 0) out vec4 outShaft;
 // (look5) colortex9 (half size, free between the occlusion's resolve and the bloom's gather): x the cloud lanes'
-// sunlit air, y all of it (lib/haze/volume.glsl hvCloudLanes), a the view distance (for the resolve)
+// sunlit air, y all of it (lib/haze/volume.glsl hvCloudLanes), z the near air's sunlit length over SHAFT_NEAR_R
+// (hvWalk's nearLit), a the view distance (for the resolve)
 layout(location = 1) out vec4 outLanes;
 
 void main() {
@@ -73,10 +74,12 @@ void main() {
 #if defined SUN_SHAFTS && defined WELKIN_SHADOWS_LIVE
 		shaftsOn = shaftGate(sunW) > 0.0 && sunAngle < 0.5;
 #endif
-		outShaft = hvWalk(q, dirP, dist, s.sky, shaftsOn);
+		float nearLit;
+		outShaft = hvWalk(q, dirP, dist, s.sky, shaftsOn, nearLit);
+		outLanes = vec4(0.0, 0.0, shaftsOn ? nearLit / SHAFT_NEAR_R : 0.0, dist);
 #ifdef HV_CLOUDS
 		if (shaftsOn) {
-			outLanes = vec4(hvCloudLanes(q, dirP, dist, s.sky), 0.0, dist);
+			outLanes.xy = hvCloudLanes(q, dirP, dist, s.sky);
 		}
 #endif
 		return;

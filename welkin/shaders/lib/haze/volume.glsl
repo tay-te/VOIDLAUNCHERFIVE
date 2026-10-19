@@ -57,7 +57,6 @@
 #define HV_MAX_OPACITY 0.70
 // the near steps' spacing: t grows as this power of the step (1 even)
 #define HV_NEAR_POW 1.6
-#define HV_PROBE 0
 
 float hvDensity(float y, float ground) {
 	float sea = exp(-clamp(y - HAZE_SEA_LEVEL, -40.0, 600.0) / HV_H_SEA);
@@ -82,7 +81,9 @@ float hvLineVis(float y, vec2 line, float w) {
 }
 
 // shaftsOn: whether the shafts' term is wanted (the sun up and SUN_SHAFTS on); 0 in r otherwise.
-vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
+// (look5) nearLit: the sunlit length (blocks) of the ray's first SHAFT_NEAR_R blocks, for the canopy's beams
+vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn, out float nearLit) {
+	nearLit = 0.0;
 	float tEnd = sky ? HV_SKY_END : min(dist, HV_LAND_END);
 #if defined WF_FAR_HAZE && defined DISTANT_HORIZONS
 	// the far haze (composite1) owns the air past the near tiles' band (lib/haze/haze.glsl's hand-over)
@@ -116,7 +117,6 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 #endif
 	float shaft = 0.0, hzSun = 0.0, hzAll = 0.0, tau = 0.0;
 	float cloudVis = 1.0;
-	float pr0 = 0.0, pr1 = 0.0, pr2 = 0.0; // HV_PROBE (temporary)
 	// (shafts and bloom step: the near steps crowd toward the eye, t growing as the 1.6th power of the step, so the beams
 	// between trunks a few blocks off are walked as finely as the long shadows further out)
 	for (int i = 0; i < NN; i++) {
@@ -130,8 +130,6 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 #else
 		float vis = 1.0;
 #endif
-		pr0 += vis / float(NN);
-		pr2 += hvLineVis(y, line0, w0) / float(NN);
 		vis *= hvLineVis(y, line0, w0);
 #ifdef HV_CLOUDS
 		// (a cloud's shadow changes slowly along the near air: read every other step, which halves the walk's cost of it)
@@ -139,9 +137,14 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 			cloudVis = welkinCloudShadow(dirP * (t + 0.5 * dtN), ce);
 		}
 		vis *= cloudVis;
-		pr1 += cloudVis / float(NN);
 #endif
 		shaft += vis * exp(-t / SHAFT_FALLOFF) * dtN;
+		// (look5) the near air's own sunlit length, apart from the long ray's: under a canopy a ray toward a bright gap
+		// runs on through the open, sunlit land beyond the wood, and that far light had swamped the few blocks of beam
+		// in front of the eye (the sky pixels through a crown kept no near beam at all)
+		// (the last blocks before a surface are left out: the air against a sunlit face, the crown's outer leaves right
+		// in front of the eye, is not a beam against shade, and the map's own depth at the face made a grid of noise)
+		nearLit += t < min(SHAFT_NEAR_R, sky ? 1e4 : dist - 3.0) ? vis * dtN : 0.0;
 		float rho = hvDensity(y, g0) * (t * t / (t * t + HV_NEAR_CLEAR * HV_NEAR_CLEAR));
 		float tr = exp(-tau);
 		hzSun += rho * vis * dtN * tr;
@@ -180,15 +183,6 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 			tau += rho * dt * HV_SIGMA_MARCH;
 		}
 	}
-#if HV_PROBE == 1
-	return vec4(pr0, hzSun, hzAll, dist);
-#elif HV_PROBE == 2
-	return vec4(pr1, hzSun, hzAll, dist);
-#elif HV_PROBE == 3
-	return vec4(pr2, hzSun, hzAll, dist);
-#elif HV_PROBE == 4
-	return vec4(nearEnd / 200.0, hzSun, hzAll, dist);
-#endif
 	return vec4(shaftsOn ? shaft / SHAFT_FALLOFF : 0.0, hzSun, hzAll, dist);
 }
 #endif
@@ -267,19 +261,19 @@ vec3 hvResolve(ivec2 p, float dist) {
 #define WU_colortex9
 uniform sampler2D colortex9;
 #endif
-vec2 hvLanesResolve(ivec2 p, float dist) {
+vec3 hvLanesResolve(ivec2 p, float dist) {
 	ivec2 qc = p >> 1;
 	ivec2 hi = textureSize(colortex9, 0) - 1;
-	vec2 sum = vec2(0.0), tileSum = vec2(0.0);
+	vec3 sum = vec3(0.0), tileSum = vec3(0.0);
 	float wsum = 0.0;
 	for (int y = -2; y < 2; y++) {
 		for (int x = -2; x < 2; x++) {
 			vec4 r = texelFetch(colortex9, clamp(qc + ivec2(x, y), ivec2(0), hi), 0);
 			float tol = 0.06 * min(dist, r.a) + 0.4;
 			float w = dist < 0.0 ? 1.0 : exp(-abs(r.a - dist) / tol);
-			sum += r.xy * w;
+			sum += r.xyz * w;
 			wsum += w;
-			tileSum += r.xy;
+			tileSum += r.xyz;
 		}
 	}
 	return mix(tileSum / 16.0, sum / max(wsum, 1e-6), smoothstep(0.02, 0.5, wsum));
@@ -292,9 +286,9 @@ vec2 hvLanesResolve(ivec2 p, float dist) {
 // dist its resolve distance, dirW the view (world, unit), thick the shafts' thickness of the air, lightAdd the sun's
 // light (display, luma about the sun-side horizon's).
 #define LANE_DARK 0.7
-#define LANE_GAIN 2.5
+#define LANE_GAIN 1.5
 vec3 hvCloudLaneLight(vec3 color, ivec2 p, float dist, vec3 dirW, vec3 sunW, SkyLum f, float thick, vec3 lightAdd, bool sky) {
-	vec2 ln = hvLanesResolve(p, dist);
+	vec2 ln = hvLanesResolve(p, dist).xy;
 	if (ln.y <= 1e-5) {
 		return color;
 	}
@@ -314,10 +308,9 @@ vec3 hvCloudLaneLight(vec3 color, ivec2 p, float dist, vec3 dirW, vec3 sunW, Sky
 	float lobe = 0.3 + 0.7 * (0.65 * skyLumHg(mu, 0.78) + 0.35 * skyLumHg(mu, 0.35));
 	float gate = smoothstep(-0.02, 0.06, sunW.y) * (1.0 - 0.6 * smoothstep(0.35, 0.85, sunW.y)) * f.day;
 	float amt = (1.0 - exp(-8.0 * ln.y)) * min(thick, 1.6);
-	float k = gate * lobe * amt * (sky ? 0.8 : 1.0);
-#ifdef LANE_PROBE
-	return vec3(k, ratio, broadShade);
-#endif
+	// (only over long rays: the lanes stand hundreds of blocks out, and a short ray's resolve borrows its neighbours'
+	// long ones at a crown's cutout edge against the sky, which had laid a gold veil over the leaves overhead)
+	float k = gate * lobe * amt * (sky ? 0.8 : smoothstep(120.0, 500.0, dist));
 	vec3 lin = pow(max(color, 0.0), vec3(2.2));
 	lin *= 1.0 - LANE_DARK * min(k, 1.0) * (1.0 - ratio);
 	vec3 add = pow(max(lightAdd, 0.0), vec3(2.2)) * LANE_GAIN * k * ratio * smoothstep(0.04, 0.3, broadShade);

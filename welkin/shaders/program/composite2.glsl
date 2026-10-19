@@ -472,7 +472,12 @@ void main() {
 			shThick *= 1.0 + 0.8 * clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
 #endif
 			shThick *= 1.0 + 0.9 * clamp(dawnAmt, 0.0, 1.5); // look2: thicker in the morning mist
-			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky, lum, shThick, s.sky ? 1e4 : length(eyePos)) * (cloud ? 0.0 : 1.0);
+			float litNear = -1.0;
+#ifdef HV_READ
+			// (look5) the near air's own sunlit length (blocks), for the canopy's beams
+			litNear = hvLanesResolve(p, pinholeWater(p) ? -1.0 : resolveDist(p, uv)).z * SHAFT_NEAR_R;
+#endif
+			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky, lum, shThick, s.sky ? 1e4 : length(eyePos), litNear) * (cloud ? 0.0 : 1.0);
 #ifdef HV_READ
 			// (look5) the cloud lanes: crepuscular rays from the gaps between the clouds
 			{
@@ -489,6 +494,8 @@ void main() {
 			color.rgb = vec3(clamp(lit * 20.0, 0.0, 1.0)); // (look4: x20) the resolved sunlit share of the near air
 #elif SHAFT_DEBUG == 2
 			color.rgb = vec3(texelFetch(colortex13, p >> 1, 0).r); // the raw term
+#elif SHAFT_DEBUG == 4
+			color.rgb = vec3(clamp(litNear / 4.0, 0.0, 1.0), clamp(litNear / min(s.sky ? 1e4 : length(eyePos), SHAFT_NEAR_R), 0.0, 1.0), 0.0); // look5: the near air's sunlit blocks / 4, its share
 #elif SHAFT_DEBUG == 3 && defined HV_READ
 			{
 				vec2 ln = hvLanesResolve(p, pinholeWater(p) ? -1.0 : resolveDist(p, uv));

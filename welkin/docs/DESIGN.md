@@ -1667,3 +1667,34 @@ then `welkin-water2` (water and weather).
 - **Still open:** the grove's canopy beams are faint (the sun stands behind the camera at 16:30); the cloud-gap beams
   at front 0.55 do not show (the far walk's cloud shadow is too soft at 17:00); the glitter path on the water is a gold
   column, not yet a blaze of glints; the haze walk still runs through the water at shore 05:30.
+
+### Look pass 5: why the god rays did not show (2026-10-19, branch `welkin-look5`)
+
+- **What the probes found** (SHAFT_DEBUG 1 to 4 and temporary walk probes):
+  - *Cloud gaps:* the shafts' term weights the air by exp(-t / 220 blocks), and the far walk reads the cloud shadow at
+    three points per ray. A cloud's shadow column stands hundreds to thousands of blocks out, so every ray saw the same
+    cloud shadow (the one over the eye's neighbourhood) and no lane could form. The cloud shadow is also the land's
+    (0.52 of the sun under one deck), which is too light for air.
+  - *Canopy:* the walk itself is fine (8 near steps x 16 noise offsets resolve beams to about a block). The canopy
+    lets little through: cutout leaves in the shadow map leave pinholes and a few one-block columns, so under the
+    grove the near air's sunlit length is 0.3 to 3 blocks. The near beams were judged against the long ray's sunlit
+    share, so a ray toward a bright gap, which runs on through the sunlit land past the wood, gave its beam back as an
+    "open field". Sky pixels seen through the crowns took no near beam at all. The `sunforest` eye sits inside a crown,
+    so no air shows there; the sun-facing grove eye `tp @a 3192 98 548 90 -8` is the one to judge.
+- **Cloud lanes** (`lib/haze/volume.glsl` hvCloudLanes, hvCloudLaneLight; `lib/clouds/shadow.glsl`
+  welkinCloudCoverAir): a walk of its own, 12 even steps out to 2400 blocks or the decks' top, reading the decks'
+  cover over each point (the air's own, without the land's light shade), weighted by density and a 900-block
+  extinction. It goes to colortex9 (half size, free between the occlusion's resolve and the bloom's gather) and is
+  resolved like the haze. composite2 darkens the sun's forward glow in the shadowed air and lights the sunlit lanes
+  that have shade beside them (an 8-tap ring). This applies only over long rays: on a short ray the resolve took
+  its neighbours' long rays at a crown's edge and laid a gold veil over the leaves. In a clear sky nothing changes.
+- **Canopy beams** (`lib/shafts.glsl`): the near air's own sunlit length over its first SHAFT_NEAR_R (40) blocks is
+  summed in the same walk (colortex9 z). The last 3 blocks before a surface are left out: the air against a sunlit
+  face is not a beam, and the map's own depth there made a grid of noise. The beam is that length over 6 blocks,
+  given back where the near air is mostly sunlit. It has a forward lobe with a side-on floor, humid wood air in the
+  warm hours, a third on the sky, nothing on surfaces within 6 to 16 blocks, and a soft cap (stronger settings
+  bloomed into balls of light at small gaps). It is the stronger of this and look4's near term.
+- **Still open:** canopy beams remain faint because the canopy really is nearly closed in the shadow map. Next:
+  a filtered, leaf-aware shadow read for the air (light through a leaf block as a fraction, not pinholes), or
+  thicker under-canopy mist. Composite3's near-land fade was tried off (it is not the cause) and restored. Sun glitter
+  on water and the sun behind thin cloud are untouched.

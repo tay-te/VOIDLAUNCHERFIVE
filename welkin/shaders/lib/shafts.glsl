@@ -40,6 +40,8 @@
 #define SHAFT_REACH 96.0
 // atmos: the 3D shafts' reach (lib/haze/volume.glsl): the air's weight falls by e over this many blocks from the eye
 #define SHAFT_FALLOFF 220.0
+// (look5) the near air's own reach for the canopy's beams (blocks): its sunlit length is walked apart from the long ray's
+#define SHAFT_NEAR_R 40.0
 
 #ifndef WU_sunPosition
 #define WU_sunPosition
@@ -64,6 +66,9 @@ float shaftGate(vec3 sunW) {
 #define SHAFT_CAP 0.50
 // (look4) the near air's beams, by the sunlit length (shaftLight)
 #define SHAFT_NEAR_BEAM 1.4
+// (look5) the canopy's beams: their strength (of the sun-side level), and the sunlit length that makes a full beam
+#define SHAFT_CANOPY 0.7
+#define SHAFT_NEAR_BLOCKS 6.0
 // (review round 1) on the open sky: the beams between clouds and over ridges toward a low sun
 // (golden, 2026-10-16: 0.25, was 0.4: on the open sky the sunlit air only whitened the glow round a 17:00 to 18:00 sun
 // into a milky disc; the beams (SHAFT_BEAMS) carry the rays over the sky)
@@ -107,7 +112,7 @@ float shaftResolve(ivec2 p, float dist) {
 // share of it in shadow is taken out more than in proportion, so the crowns', ridges' and clouds' shadows stand as dark
 // lanes between bright beams. (Before, the soft cap saturated every long ray toward the sun to the same level, a half
 // shadowed ray kept 0.35 of a lit one's 0.40, and no beam could be seen.)
-vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, float thick, float dist) {
+vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, float thick, float dist, float litNear) {
 	float mu = dot(dirW, sunW);
 	// a strong forward lobe (the beams toward the sun) and a broad one (side-on, a soft directional glow)
 	// (look, welkin-look 2026-10-18) the near air (a few dozen blocks: between trunks, under crowns) is treated apart from
@@ -155,7 +160,35 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, f
 	vec3 nearL = hue * level * SHAFT_NEAR_BEAM * colB * lobeN * gateN * thick * float(SHAFT_STRENGTH) * 0.01;
 	// (not at a grazing sun: then the near air over the field lies in the ridges' and the grass's long shadows, and the
 	// sunlit air above it read as a milky smear over the near ground, not as beams; the far shafts carry that hour)
-	return farL + nearL * nearW * smoothstep(0.08, 0.22, sunW.y);
+	if (litNear < 0.0) {
+		return farL + nearL * nearW * smoothstep(0.08, 0.22, sunW.y);
+	}
+	// (look5, 2026-10-19) the canopy's beams from the near air's own sunlit length (hvWalk's nearLit: the first
+	// SHAFT_NEAR_R blocks of the ray, walked with the rest but summed apart). Before, the near beams came from the long
+	// ray's term: under a crown a ray toward a bright gap runs on through the sunlit land past the wood, so its share in
+	// the sun was high and the beams in front of the eye were given back as an "open field"; the sky seen through the
+	// crowns took no near beam at all; and a column of light a block or two thick (what a canopy of cutout leaves lets
+	// through) gave colB 0.1 to 0.3 of a level that was already scaled to the open air. Now a block of sunlit air in
+	// front of the eye is a beam, in the deep shade under the crowns the beams stand out against it, and where the near
+	// air is mostly in the sun (a clearing, an open field) it is given back, so no veil comes over the open land.
+	float nearLen = max(min(sky ? SHAFT_NEAR_R : dist - 3.0, SHAFT_NEAR_R), 1.0);
+	float ratioN = clamp(litNear / nearLen, 0.0, 1.0);
+	float colN = min(litNear / SHAFT_NEAR_BLOCKS, 1.0) * (1.0 - 0.92 * smoothstep(0.3, 0.75, ratioN));
+	// most toward the sun (the light through the gaps streams at the eye), a third side-on
+	float lobeC = 0.45 + 0.55 * (0.5 * airHg(mu, 0.6) + 0.5 * airHg(mu, 0.85)) / (0.5 * airHg(1.0, 0.6) + 0.5 * airHg(1.0, 0.85));
+	// the woods' air is humid: in the golden hours and the mornings a little thicker in the shade under the crowns
+	float humid = 1.0 + 0.6 * f.warm * (1.0 - ratioN);
+	vec3 canopyL = hue * level * SHAFT_CANOPY * colN * lobeC * gateN * thick * humid * float(SHAFT_STRENGTH) * 0.01;
+	// (not on what stands a few blocks from the eye: a beam needs shaded air behind it; the crown's own leaves overhead
+	// took a gold veil, and their cutout holes against the sky left the resolve too few texels of their own depth)
+	// (on the sky seen through the crowns a third: the gaps are bright already, and a small hole's full beam bloomed
+	// into a ball of light)
+	canopyL *= sky ? 0.12 : smoothstep(6.0, 16.0, dist);
+	// (a soft cap: a beam is light in the shaded air, never a blaze that blooms into a ball)
+	float cl = dot(canopyL, vec3(0.2126, 0.7152, 0.0722));
+	canopyL *= 0.22 * (1.0 - exp(-cl / 0.22)) / max(cl, 1e-4);
+	// (with the long ray's near beams (look4) as they were, where they were the stronger: the beams across the floor)
+	return farL + max(canopyL * smoothstep(0.0, 0.06, sunW.y), nearL * nearW * smoothstep(0.08, 0.22, sunW.y));
 }
 #endif
 
