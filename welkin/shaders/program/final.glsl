@@ -368,9 +368,10 @@ void main() {
 	// ---- look (welkin-look): the colour grade (lib/grade.glsl), after the curve
 	gradeBlueHour = gradeBlue;
 #ifdef WORLD_OVERWORLD
-	// (Look D6) a storm: the closed sky with rain at the eye, or a strong front over it (a plain overcast stays calm)
+	// (Look D6) a storm: the closed sky under a strong front, or with rain at the eye (under a moderate front, about 0.6,
+	// rain takes half of it: cool and soft, not the storm's full depth); a plain overcast stays calm
 	gradeStorm = smoothstep(0.5, 0.95, skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a)
-		* max(smoothstep(0.2, 0.8, rainStrength), smoothstep(0.66, 0.8, void_front));
+		* max(smoothstep(0.2, 0.8, rainStrength) * mix(0.5, 1.0, smoothstep(0.62, 0.76, void_front)), smoothstep(0.66, 0.8, void_front));
 #endif
 	c = welkinGrade(c, gradeHour, gradeOpen);
 	// ---- end look
