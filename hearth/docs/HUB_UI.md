@@ -48,3 +48,15 @@ Figma: section 295:397 holds the Hub pages (an older "Hub · Quests (Hearth pane
 current chrome); section 295:1770 Kit has the hub components frame 268:50520 (slot set 269:50573, segments 268:50529);
 Mettle's cards are sections 2f (510:18631), 2g and 2h (546:23595). The user's UI rules: flat, rounded only, no blurred
 shadows, subtle colour (gamified screens may use colour and glow), pixel-art cards.
+
+## Decisions (user, 2026-10-19; Figma section 651:37945 on page 295:2)
+
+- Conversation: direction **A, the portrait card** (frame 653:37976) is the default, with **B, the cinematic bar**
+  (655:38485) as a per-player toggle in settings. Every other Hearth screen uses A's language.
+- Coins: **crowns, marks and bits with coin icons everywhere** prices and costs appear (not a single bits total).
+- Haggling: the merchant's limit band is **hidden by default and appears with higher Mettle Speech** (KCD-style).
+- Mettle training: **pay and train inline** in the conversation (the 300-399 training band; EconomyService.charge).
+- Coordinator's calls on the designer's other open questions: the quest HUD and law HUD stay Hearth-native (cheap, they
+  already reserve their rects for Atlas), restyled to the Hub look; event screens keep the VOID mark island and Esc;
+  portraits are generated per resident from their own skin (SkinComposer) at 16x16; wanted posters can be tracked;
+  Mettle skill names show on odds chips ("Persuade - Speech - 62 %").
