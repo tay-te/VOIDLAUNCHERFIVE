@@ -2321,3 +2321,72 @@ The march is about 0.8 ms of dependent reads, so the cost goes with the reads a 
   to the vertex shader as CloudEnv did; worth about 0.05 ms at most while the march dominates.
 - A temporal or half-resolution march is ruled out by the brief (crisp outline, no TAA on the image).
 - `tools/wrappers.sh` drops the hand-made composite5..7 shaft wrappers (`RAY_PASS`) when run: restore them from git.
+
+## D8: clouds performance, the step count ruled out (2026-10-19, branch `welkin-d8`)
+
+Goal: the clouds at or under 0.6 ms at 1600x900 with no visible change. **Not reached; nothing shipped in the shaders.**
+The shaders are byte-identical to 4756c263. The session was cut short so the studio could go to the next look pass.
+What it did find changes the plan: **the march's step count does not set its cost**, so D7's latency model was wrong.
+
+### Measured (probe, 1600x900, RTX 4060, interleaved, studio front 0.38, steppe 17:00)
+
+| | reading | the clouds' cost |
+|---|---|---|
+| base 4756c263 | 7.22 / 7.22 (and 7.21 / 7.25, 7.15 / 7.05, 7.14 / 7.13) ms | 1.10 ms |
+| CLOUDS off | 6.13 / 6.12 ms | |
+| superblock skip (below) | 7.34 / 7.32 ms | 1.21 ms: slower |
+| superblock pass written, skip not used | 7.15 / 7.26 ms | same as base |
+| WC_STEPS 12 (from 36) | 7.13 / 7.14 ms | same as base |
+| **WC_STEPS 1** (one column or jump a ray, then sheets) | 7.09 / 7.07 ms | **about 0.05 under base** |
+
+Readings of one build now spread by up to 0.1..0.2 ms between rounds, wider than in D7, so only differences of about
+0.1 ms or more can be trusted. Shore 18:30 was not timed again: other sessions' game tests were running.
+
+### What that means
+With the DDA cut to a single step, nearly all the cost remains, so the 0.8 ms that D7 put on "the march" is not in its
+loop or its dependent map reads. What is left once the loop is gone:
+- the sheets after the loop (`welkinCloudSheets`: up to 3 plane hits and map reads, which now run for almost every
+  ray);
+- the hit's light, which runs for every sheet hit;
+- the per-pixel setup (`surfaceAt`, `wcBandCut` x3, `wcBandOf` x3);
+- the program's size and registers.
+
+D7's "march without the cloud light +0.86" variant had removed the hit (and so the light) along with the march, so it
+measured the two together. **The next step is to profile the pass in its parts, not to shorten the march:**
+1. the march with the light kept but the sheets off;
+2. the light forced off for a fixed hit;
+3. CLOUD_RIMS off (settings.glsl says about 0.13 ms);
+4. `surfaceAt` alone.
+
+### Tried and taken back (patch: `scratchpad/welkin_look/d8/superblock_prefetch.patch`)
+- **Superblocks:**
+  - Built: prepare4 (`program/parts/cloudsuper.glsl`), reading colortex8 and writing it again through Iris's flip,
+    with each cell's 16 x 16-cell superblock in A's free bits 4..15 (decks, tallest tier, tallest rise rounded up).
+  - The march then crossed a superblock in one step, only while the ring held to its far side and within WC_REACH.
+  - Exact: at steppe 17:00 the 4K sky crop was identical (max 1 level).
+  - Result: about 0.1 ms slower. The extra arithmetic a deck-band step costs outweighed the steps it saved.
+- **The next column's texel read a step ahead (WC_PREFETCH):** written but never timed. With the step count not
+  setting the cost, it cannot win much.
+- **The cloud light's per-frame terms in the vertex shader:** not built. Worth at most 0.05 ms by D7's estimate, under
+  the probe's present spread.
+
+### Tooling
+- **`tools/wrappers.sh`:**
+  - It no longer deletes the shaft wrappers. It skips `composite_rays` in its per-program loop (before, it also wrote
+    stray `composite_rays.vsh/.fsh` into every dimension) and writes `world0/composite5..7` as `composite_rays` with
+    `RAY_PASS 1..3`.
+  - Checked: all 222 wrappers it writes are byte-identical to the committed blobs, and none is missing.
+  - Under `core.autocrlf` they come out LF, so `git status` lists them as modified until they are checked out again,
+    though the content is the same.
+- **`busy.ps1`** (the quiet gate, `scratchpad/welkin_look/d7|d8/tools/`):
+  - It no longer counts the studio's own Gradle launcher (`gradle-wrapper.jar runClientGameTest` in `welkin-studio`),
+    which is idle while its game runs.
+  - It skips our own game only by its control port (`reel.control=7351`, a parameter). Another studio's game, game
+    tests and builds still count.
+
+### No visible change
+The shaders are unchanged. 4K sky crops, base against D8 back to back with `SWAY_FREEZE 7`
+(`scratchpad/welkin_look/d8/final/pixel_diff.jpg`):
+- steppe 17:00 (rows 0..840): 0 pixels over 4 levels, max 1;
+- shore 18:30 (rows 0..860): 7912 pixels over 4 levels, all in rows 739..859, the far land and its reflection under the
+  horizon. That is the land's history across a reload, as in D7 (7345 there). None is on sky or cloud.
