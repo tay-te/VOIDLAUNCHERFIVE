@@ -3,6 +3,24 @@ package dev.voidmc.hearth.build.kit.refine;
 import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.kit.Doors;
 import dev.voidmc.hearth.build.kit.Guards;
+import dev.voidmc.hearth.build.kit.light.Spaces;
+import dev.voidmc.hearth.build.kit.noble.Mason;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import net.minecraft.world.level.block.AbstractBannerBlock;
+import net.minecraft.world.level.block.BaseTorchBlock;
+import net.minecraft.world.level.block.BellBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CandleBlock;
+import net.minecraft.world.level.block.ChainBlock;
+import net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock;
+import net.minecraft.world.level.block.LadderBlock;
+import net.minecraft.world.level.block.LanternBlock;
+import net.minecraft.world.level.block.SignBlock;
+import net.minecraft.world.level.block.TripWireHookBlock;
+import net.minecraft.world.level.block.VineBlock;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * The access pass every blueprint goes through when it compiles, after the archetype has drawn and before the sealed
@@ -27,6 +45,10 @@ public final class Access {
 		}
 		// -Dhearth.access.skip=doors,stairs,lofts,guards: leave steps out (to find which one did something)
 		String skip = System.getProperty("hearth.access.skip", "");
+		// what already stood apart before the steps ran (a hung lantern, a test's floating piece, a drawing's own choice):
+		// never the steps' doing, so never theirs to take away
+		boolean dropOrphans = !skip.contains("loose");
+		LongOpenHashSet attached = dropOrphans ? attached(d) : null;
 		Doors.Report r = skip.contains("doors") ? new Doors.Report(0, 0, 0, 0) : Doors.finish(d);
 		if (!skip.contains("stairs")) {
 			dev.voidmc.hearth.build.kit.Stairs.finish(d);
@@ -37,9 +59,50 @@ public final class Access {
 		int guards = skip.contains("guards") ? 0 : Guards.finish(d);
 		// the few blocks a step above left hanging (head room cut out of a floor leaving a pair of boards alone): taken away,
 		// as every seat's own last stroke does (requests/w7-landmark.md §10)
-		if (!skip.contains("loose")) {
-			dev.voidmc.hearth.build.kit.noble.Mason.dropLoose(d, 6);
+		if (dropOrphans) {
+			dropOrphans(d, attached, 6);
 		}
 		return new Report(r.doors(), r.cleared(), r.bricked(), r.lids(), guards);
+	}
+
+	/** Every drafted block joined to the ground right now. */
+	static LongOpenHashSet attached(Draft d) {
+		LongOpenHashSet loose = new LongOpenHashSet(Mason.loose(d));
+		LongOpenHashSet out = new LongOpenHashSet();
+		for (var e : d.cells().long2ObjectEntrySet()) {
+			if (!e.getValue().state().isAir() && !loose.contains(e.getLongKey())) {
+				out.add(e.getLongKey());
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * Takes away the blocks the steps orphaned: joined to the ground before them ({@code attached}), loose after, and
+	 * not a fixture that hangs or clings by design (lights, chains, signs, banners, ladders, vines, bells, torches,
+	 * buttons). Nothing at all when more than {@code most} were orphaned: that is a step's fault to show, not to hide.
+	 */
+	static void dropOrphans(Draft d, LongOpenHashSet attached, int most) {
+		LongArrayList orphans = new LongArrayList();
+		for (long k : Mason.loose(d)) {
+			if (attached.contains(k) && !byDesign(d.get(Draft.keyX(k), Draft.keyY(k), Draft.keyZ(k)))) {
+				orphans.add(k);
+			}
+		}
+		if (orphans.isEmpty() || orphans.size() > most) {
+			return;
+		}
+		for (long k : orphans) {
+			d.set(Draft.keyX(k), Draft.keyY(k), Draft.keyZ(k), Blocks.AIR.defaultBlockState());
+		}
+	}
+
+	/** Blocks that hang from or cling to what holds them: never taken for a stray piece of floor. */
+	static boolean byDesign(BlockState s) {
+		Block b = s.getBlock();
+		return Spaces.hangs(s) || b instanceof LanternBlock || b instanceof ChainBlock || b instanceof SignBlock
+			|| b instanceof AbstractBannerBlock || b instanceof BaseTorchBlock || b instanceof LadderBlock || b instanceof VineBlock
+			|| b instanceof BellBlock || b instanceof FaceAttachedHorizontalDirectionalBlock || b instanceof CandleBlock
+			|| b instanceof TripWireHookBlock || b instanceof net.minecraft.world.level.block.HangingRootsBlock;
 	}
 }
