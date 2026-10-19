@@ -67,6 +67,8 @@ vec3 welkinFarWeather(ivec2 p, vec2 uv, vec3 scene, inout float km) {
 	vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
 	vec3 air = sceneFromAuthored(skyHazeAir(st.kind, dir, sunW)); // (HDR stage B: scene light)
 	vec3 airM = airMie(air, dir, sunW, st.kind); // with the forward scatter, as composite2's haze
+	// (Look D6) the far land's air layered and coloured, as composite2's over the land (lib/air.glsl airLayered)
+	vec3 airLand = airLayered(air, dir, sunW);
 	CloudEnv e = welkinCloudEnv();
 	float hk = max(length(dir.xz), 1e-4);
 	float t0 = WF_SEAM / hk;
@@ -75,7 +77,7 @@ vec3 welkinFarWeather(ivec2 p, vec2 uv, vec3 scene, inout float km) {
 	WfAir a = wfNoAir();
 	if (land) {
 		float farRain = L > t0 ? wfFarRainAt(dir.xz * 0.5 * (t0 + L), e) : 0.0;
-		a = wfAirSetup(st, dir, L, air, farRain);
+		a = wfAirSetup(st, dir, L, airLand, farRain);
 		scene = wfAirOver(a, scene, L);
 	} else if (cloud && tCloud > t0) {
 		WfAir ak = wfAirSetup(st, dir, tCloud, airM, wfFarRainAt(dir.xz * 0.5 * (t0 + tCloud), e));

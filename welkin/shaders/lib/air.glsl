@@ -26,6 +26,12 @@
 #define AIR_LIN_DENS 1.0
 #define AIR_LIN_MIE_DENS 1.0
 #define AIR_LIN_ONSET 0.3
+// (Look D6) the air over the land (composite2): its hue away from the sun and toward it (linear), how much of the air's
+// own hue it takes, and its level against the sky's band
+#define AIR_LAYER_AWAY vec3(0.72, 0.94, 1.45)
+#define AIR_LAYER_SUN vec3(1.18, 0.98, 0.72)
+#define AIR_LAYER_HUE 0.9
+#define AIR_LAYER_LEVEL 0.8
 
 // One Henyey-Greenstein lobe of asymmetry g at mu = cos(angle to the sun), 1 at mu = 1.
 float airHg(float mu, float g) {
@@ -38,6 +44,25 @@ float airHg(float mu, float g) {
 float airLowSun(vec3 sunW) {
 	float h = sunW.y;
 	return smoothstep(-0.07, 0.01, h) * mix(0.12, 1.0, 1.0 - smoothstep(0.08, 0.45, h));
+}
+
+// (Look D6) The air over the land as layered, coloured air: blue-grey away from the sun, warm toward it, a step under the
+// sky band's own light, so far ridges stand in it one behind another instead of dissolving into a milky strip along the
+// horizon. By day and through the golden hours, less under an overcast. composite1's far air and composite2's near air
+// take the same, so they still meet without a ring at the seam.
+vec3 airLayered(vec3 air, vec3 dir, vec3 sunW) {
+	float overcast = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
+	float k = smoothstep(-0.04, 0.08, sunW.y) * (1.0 - 0.88 * overcast) * (1.0 - skyNightStep());
+	if (k <= 0.0) {
+		return air;
+	}
+	vec2 dz = dir.xz, sz = sunW.xz;
+	float az = dot(dz, dz) > 1e-8 && dot(sz, sz) > 1e-8 ? dot(normalize(dz), normalize(sz)) : 0.0;
+	float side = 0.5 + 0.5 * az;
+	vec3 hue = mix(AIR_LAYER_AWAY, AIR_LAYER_SUN, side * side * side);
+	hue /= dot(hue, vec3(0.2126, 0.7152, 0.0722));
+	float y = dot(air, vec3(0.2126, 0.7152, 0.0722));
+	return mix(air, hue * y, AIR_LAYER_HUE * k) * mix(1.0, AIR_LAYER_LEVEL, k);
 }
 
 vec3 airMie(vec3 air, vec3 dir, vec3 sunW, int kind) {

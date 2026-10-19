@@ -310,6 +310,10 @@ void main() {
 			dA = dA.y < 0.0 ? normalize(vec3(dA.x, 0.0, dA.z) + vec3(1e-5, 0.0, 0.0)) : dA;
 			air = skyLuminousLin(air, dA, lum, 0.8);
 		}
+		// (Look D6) over the land the air is layered, coloured air rather than the sky's band (lib/air.glsl airLayered)
+		if (!s.sky) {
+			air = airLayered(air, normalize(eyePos), sunW);
+		}
 		// ---- air and tone (D): the haze's forward scatter toward the sun (lib/air.glsl)
 		vec3 airPlain = air;
 		air = airMie(air, normalize(eyePos), sunW, st.kind);

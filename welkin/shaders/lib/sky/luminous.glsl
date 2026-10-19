@@ -47,6 +47,7 @@ uniform float sunAngle; // 0 sunrise, 0.25 noon, 0.5 sunset
 #define WS_BAND_GOLD 1.18
 #define WS_GOLD_LEAD 0.8
 #define WS_GLOW_DIM 0.25
+#define WS_BAND_WARM_AWAY 0.12 // (Look D6)
 
 // (HDR stage A) the aureole's strength in scene light (look4's terms x this), and its share by day against the golden
 // hours'
@@ -194,7 +195,9 @@ vec3 skyLuminousLin(vec3 L, vec3 d, SkyLum f, float amount) {
 		pale = mix(pale, airHue * skyLumLuma(pale), WS_AIR_HUE * f.up * (1.0 - 0.8 * eve));
 	}
 	vec3 coolPale = pale * vec3(0.98, 1.0, 1.03);
-	float warm = f.warm * f.up * mix(0.45, 1.0, side * side);
+	// (Look D6) the band's warmth keeps to the sun's side: away from it the golden hour's band stays blue-grey air (it had
+	// taken 0.45 of the gold all round, and the far land faded into one milky cream band)
+	float warm = f.warm * f.up * mix(WS_BAND_WARM_AWAY, 1.0, side * side * side);
 	vec3 bandC = mix(coolPale, f.gold * skyLumLuma(pale), clamp(0.80 * warm, 0.0, 1.0));
 	L = mix(L, bandC, clamp(band * mix(0.85, BAND_DAY.w, mid) * k, 0.0, 1.0));
 	y = skyLumLuma(L);
@@ -206,7 +209,9 @@ vec3 skyLuminousLin(vec3 L, vec3 d, SkyLum f, float amount) {
 	float dawnAir = mornD ? 0.38 : 0.20;
 	float upD = mornD ? max(f.up, smoothstep(-0.21, -0.03, f.sunW.y)) : f.up;
 	// (golden, 2026-10-16: the zenith none of it, was half: gold mixed into the blue overhead read as a cream-grey wash)
-	L = mix(L, f.gold * y, clamp(dawnAir * f.warm * upD * (1.0 - zen) * (1.0 - smoothstep(0.04, 0.4, hp)) * min(k, 1.0), 0.0, 1.0));
+	// (Look D6: an evening's warmth mostly on the sun's side, so the air away from it stays blue-grey)
+	float dawnSide = mornD ? 1.0 : mix(0.35, 1.0, side * side);
+	L = mix(L, f.gold * y, clamp(dawnAir * dawnSide * f.warm * upD * (1.0 - zen) * (1.0 - smoothstep(0.04, 0.4, hp)) * min(k, 1.0), 0.0, 1.0));
 	// (Look D3) the dawn's rose belt: from the first light until the sun is a few degrees up, a band of rose-gold light low
 	// over the horizon, most away from the sun (the earth's shadow's lit rim), so a twilit shore glows rose over its mist
 	// instead of hanging a mauve-grey sky
