@@ -19,6 +19,7 @@
 // the sky table (prepare, colortex5): ambient and direct light, dark nights and lightning already in
 #include "/lib/sky/table.glsl"
 #include "/lib/tone.glsl"
+#include "/lib/hdr.glsl"
 // ---- Light: ambient (B): the sky's irradiance from the dome (row 13 of the table)
 #include "/lib/sky/irradiance.glsl"
 
@@ -216,7 +217,9 @@ float blockLightDaylight(float skyLevel) {
 vec3 lightUgLin = vec3(0.0);
 vec3 lightEmitLin = vec3(0.0);
 
-vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
+// (HDR stage A) The lit colour as SCENE-LINEAR light (lib/hdr.glsl's unit): nothing tone-maps it here; final's one
+// output transform brings it to the screen.
+vec3 welkinLightGlowLin(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
 		float facing, float ao, float glow, float contact) {
 	vec3 a = toLinear(albedo);
 	// ---- Light: ambient (B): the occlusion of the fill and the torch light
@@ -296,14 +299,30 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 #else
 	vec3 lin = a * light + through + lightEmitLin;
 #endif
-	// the highlights' pull toward white only while the sun stands high (a face in the low sun keeps its amber)
-	toneHighlightDesat = LAND_HIGHLIGHT_DESAT * smoothstep(0.15, 0.4, sunHeight());
-	vec3 c = welkinTone(lin);
 	if (emission > 0.0) {
-		// a glowing texel keeps its hue into white (lib/tone.glsl welkinToneEmit): a flame stays yellow
-		c = mix(c, max(c, welkinToneEmit(lin + a * (emission * LAND_EMIT))), clamp(emission / 0.85, 0.0, 1.0));
+		// a glowing texel gives off its own light on top (HDR: a flame stands past white and keeps its hue under the
+		// output transform's colour-keeping shoulder)
+		lin += a * (emission * LAND_EMIT * clamp(emission / 0.85, 0.0, 1.0));
 	}
-	return c;
+	return lin;
+}
+
+vec3 welkinLightFullLin(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
+		float facing, float ao) {
+	return welkinLightGlowLin(albedo, n, lm, emission, sunShare, ambientTint, sunReach, facing, ao, 0.0, 1.0);
+}
+
+vec3 welkinLightLin(vec3 albedo, vec3 n, vec2 lm, float emission) {
+	return welkinLightFullLin(albedo, n, lm, emission, vec3(1.0), vec3(1.0), sunOpen(lm.y), sunFacing(dot(n, lightDirWorld())),
+		1.0);
+}
+
+// ---- (HDR stage A) the bridge: the old display-valued entry points, for the passes not yet in linear light (the
+// water: lib/ws/water.glsl, lib/watersurf.glsl, program/parts/ws_*water.glsl). Stage B deletes them.
+vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
+		float facing, float ao, float glow, float contact) {
+	return hdrBridgeToDisplay(welkinLightGlowLin(albedo, n, lm, emission, sunShare, ambientTint, sunReach, facing, ao, glow,
+		contact));
 }
 
 vec3 welkinLightFull(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,

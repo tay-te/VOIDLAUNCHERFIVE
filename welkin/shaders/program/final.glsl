@@ -1,6 +1,9 @@
-// VOID Welkin: final. A gentle shoulder for anything lit past white, then invisible anti-banding: one 8-bit step of
-// triangular noise, fixed per pixel, so the smooth gradients of the sky, the haze and the light leave the 8-bit
-// screen without contour lines. At that size the noise cannot be seen as a pattern. No TAA, no blur, no palette steps.
+// VOID Welkin: final. (HDR stage A, 2026-10-19) The ONE output transform (lib/hdr.glsl): the scene-linear light in
+// colortex0 is exposed (a per-hour and per-weather curve), brought to the screen by one filmic curve (hue kept, soft
+// toe, long shoulder), graded (lib/grade.glsl), then given invisible anti-banding: one 8-bit step of triangular noise,
+// fixed per pixel, so the smooth gradients of the sky, the haze and the light leave the 8-bit screen without contour
+// lines. At that size the noise cannot be seen as a pattern. No TAA, no blur, no palette steps. Nothing else in the
+// pack tone-maps or caps; the look3/look4 roll-offs and the old shoulder are gone (the curve's shoulder is the one).
 // atmos (welkin-atmos, shafts and bloom step): before the shoulder, the sun beams (composite3, colortex12: the 4x4
 // half-resolution texels round the pixel, each noise offset once) are added, then the bloom (composite4's halo in
 // colortex9, lib/bloom.glsl) is laid on in linear light with headroom.
@@ -155,16 +158,17 @@ uniform float viewHeight;
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
 
-vec3 shoulder(vec3 c) {
-	// linear to 0.8, then a soft roll into 1.0
-	vec3 over = max(c - 0.8, 0.0);
-	return min(c, 0.8) + 0.2 * (1.0 - exp(-over * 5.0));
-}
-
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
-	vec3 c = max(texelFetch(colortex0, p, 0).rgb, 0.0);
-	// ---- atmos (welkin-atmos): the sun beams, then the bloom
+	vec3 sc = max(texelFetch(colortex0, p, 0).rgb, 0.0); // scene-linear light (lib/hdr.glsl)
+#ifndef DEBUG_PLAIN
+	// the inner debug views draw their own colours: shown as they are
+	outColor = vec4(clamp(sc, 0.0, 1.0), 1.0);
+	return;
+#endif
+	float expo = hdrExposure();
+	// ---- atmos (welkin-atmos): the sun beams, then the bloom. (HDR stage A: both still made in display values; the
+	// beams are screened over the display value and come back through the bridge, the bloom's halo comes in as light)
 #ifdef FINAL_BEAMS
 	{
 		// four bilinear taps at the corners between texels: the 4x4 half-resolution texels round the pixel, evenly
@@ -174,9 +178,10 @@ void main() {
 		vec3 b = texture(colortex12, cu + vec2(-hp.x, -hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, -hp.y)).rgb
 			+ texture(colortex12, cu + vec2(-hp.x, hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, hp.y)).rgb;
 		// (look, welkin-look: laid on as a screen, so the beams stream bright through the dark lanes between trunks and
-		// over shaded land, and add little over what is already bright: open water and sky toward the sun take no veil;
-		// was c += b * 0.25)
-		c += b * 0.35 * (1.0 - clamp(c, 0.0, 1.0)); // (look2: 0.35, was 0.25)
+		// over shaded land, and add little over what is already bright; look2: 0.35)
+		vec3 d = hdrBridgeToDisplay(sc);
+		vec3 d2 = d + b * 0.35 * (1.0 - clamp(d, 0.0, 1.0));
+		sc = hdrBridgeBack(d2, d, sc);
 	}
 #endif
 #ifdef BLOOM
@@ -187,28 +192,28 @@ void main() {
 #ifdef DISTANT_HORIZONS
 		d = min(d, texelFetch(dhDepthTex0, p, 0).r);
 #endif
-		// (the sky lends nothing out: the pixel sun, moon and stars keep their whole brightness; the land half)
-		// (look2: 0.3, was 0.5: with the stronger scatter a small light, a lamp or a lit window, gave out more than its halo
-		// brought back and dimmed)
+		// (the sky lends nothing out: the pixel sun, moon and stars keep their whole brightness; the land a little)
 		float lend = d >= 1.0 ? 0.0 : 0.3;
 #ifdef WORLD_OVERWORLD
-		// (a cloud lends out as the land does, so a sunlit deck spreads its light rather than only gaining the halo over
-		// it; the merge of phase 2)
 		lend = d >= 1.0 && texelFetch(colortex6, p, 0).r <= 999.0 ? 0.3 : lend;
 #endif
 		vec4 glow = texture(colortex9, texcoord); // rgb the halo, a the frame's mean bright share (composite4)
-		// (review round 1: a lit surface that does not glow keeps its pale texels out of the halo, lib/bloom.glsl)
-		c = bloomApply(c, glow.rgb, emit, lend, glow.a,
+		vec3 add = bloomAdd(hdrBridgeToDisplay(sc), glow.rgb, emit, lend, glow.a,
 			d < 1.0 && emit <= 0.0 && texelFetch(colortex3, p, 0).a <= 0.25 ? 1.0 : 0.0);
+		// (the halo is light: it adds to the scene and the output transform's shoulder takes it, so a glow round the
+		// sun rolls off instead of clipping; what a pixel lends out never takes more than two fifths of it)
+		sc = max(sc + hdrBridgeLight(add), 0.6 * sc);
 	}
 #endif
 	// ---- end atmos
-	bool sunArt = false; // (look3) the pixel sun's own art pixels
+
+	// ======== the output transform: exposure, the one filmic curve, the grade, the dither ========
+	vec3 lin = hdrOutput(sc, expo); // linear display, 0..1
+	vec3 c = toDisplay(lin);
 #ifdef WORLD_OVERWORLD
-	// (look3, 2026-10-18) the evening sky's gradient across the whole dome, the clouds in it too: gold round the sun,
-	// then the hue turns through a dusky rose to lilac and a soft blue-grey as the view turns away from the sun (the
-	// sky and its decks had been one salmon from edge to edge: the sun-side glow, the haze and the warm decks all lean
-	// peach). The brightness is kept; only the open sky and the clouds (not the land)
+	// (look3, 2026-10-18; part of the grade since HDR stage A) the evening sky's gradient across the whole dome, the
+	// clouds in it too: gold round the sun, then the hue turns through a dusky rose to lilac and a soft blue-grey as the
+	// view turns away from the sun. The brightness is kept; only the open sky and the clouds (not the land)
 	if (gradeDusk > 0.0) {
 		float d = texelFetch(depthtex0, p, 0).r;
 #ifdef DISTANT_HORIZONS
@@ -232,65 +237,24 @@ void main() {
 			c *= 1.0 - (cl ? 0.10 : 0.20) * w;
 		}
 	}
-	// (look4, 2026-10-18) the pixel sun's own art pixels: they go on to a crisp white whatever lies round them (the
-	// glow round the disc no longer eases under it: golden, 2026-10-18 held the sky within 25 degrees of the sun under
-	// 0.97 of white, which with the roll-off below flattened the whole of a low sun's glow into one peach field)
-	{
-		vec3 v = normalize((gbufferProjectionInverse * vec4((vec2(p) + 0.5) / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0)).xyz);
-		vec3 sv = normalize(sunPosition);
-		if (dot(v, sv) > 0.99) {
-			float d = texelFetch(depthtex0, p, 0).r;
-#ifdef DISTANT_HORIZONS
-			d = min(d, texelFetch(dhDepthTex0, p, 0).r);
 #endif
-			mat3 toW = mat3(gbufferModelViewInverse);
-			vec3 sunW = normalize(toW * sv);
-			ivec2 ip;
-			if (d >= 1.0 && texelFetch(colortex6, p, 0).r > 999.0 && skyArtPixel(normalize(toW * v), sunW, skyPathAxis(sunW), ip)) {
-				int k = skySunPixel(ip);
-				sunArt = k >= 1 && k <= 3;
-			}
-		}
-	}
-#endif
-	// (look3, 2026-10-18) highlights roll off and hold their colour: whatever the light, the glow and the bloom have
-	// pushed past white eases under white with its hue kept, so a blazing gold stays gold instead of clipping channel by
-	// channel to white paper. By day only, and never on the pixel sun's own art pixels.
-	// (look4, 2026-10-18) a long shoulder, not a wall: from 0.7 the light eases toward white over a wide range (1 shows
-	// at 0.85, 2 at 0.94, 4 at 0.97), so a low sun's heart still stands over its glow and the glow over the sky round it,
-	// where look3's knee at 0.78 had sent anything from 1 to 5 to one 0.93. Through the warm hours the colour past white
-	// burns in as gold over the first stops (the glow, the glitter path), and the hottest light, the sun's heart, turns
-	// a gold-white, as film's highlights do: gold-white heart, gold, amber, then the rose air
-	{
-		float m = max(c.r, max(c.g, c.b));
-		// (the long shoulder through the warm hours; by day look3's knee, so a noon's white clouds keep their light)
-		float K = mix(0.78, 0.70, gradeHour.x);
-		float amt = gradeHour.y * gradeOpen * (sunArt ? 0.0 : 1.0);
-		if (m > K && amt > 0.0) {
-			float o = m - K;
-			float t = mix(K + (1.0 - K) * (1.0 - exp(-o / (1.0 - K))), K + (1.0 - K) * o / (o + (1.0 - K)), gradeHour.x);
-			vec3 r = c * (t / m);
-			float burn = smoothstep(0.9, 2.0, m) * (1.0 - smoothstep(2.2, 6.0, m)) * 0.35 * gradeHour.x;
-			r = mix(r, vec3(1.0, 0.70, 0.40) * t, burn);
-			float heart = smoothstep(2.0, 6.0, m) * 0.75;
-			r = mix(r, vec3(1.0, 0.90, 0.72) * t, heart);
-			c = mix(c, r, amt);
-		}
-	}
-	// ---- look (welkin-look): the colour grade (lib/grade.glsl)
+	// ---- look (welkin-look): the colour grade (lib/grade.glsl), after the curve
 	c = welkinGrade(c, gradeHour, gradeOpen);
 	// ---- end look
-	c = shoulder(c);
-	// two uniform values per pixel summed: a triangle from -1 to +1 of one 8-bit step, mean zero
-	uint h = pixelHash(p, 7u);
-	float tri = (float(h & 0xFFFFu) + float(h >> 16u)) / 65535.0 - 1.0;
-	c = clamp(c + tri / 255.0, 0.0, 1.0);
 #if DEBUG_VIEW == 23
-	// (HDR stage A) the scene's light in stops from mid grey (before the change: estimated back from the display value)
-	c = hdrFalseColour(hdrCurveInv(toLinear(max(texelFetch(colortex0, p, 0).rgb, 0.0))), p, ivec2(viewWidth, viewHeight));
+	// (HDR stage A) the scene's light before the output transform, in stops from mid grey (exposure in)
+	c = hdrFalseColour(sc * expo, p, ivec2(viewWidth, viewHeight));
 #elif DEBUG_VIEW == 24
+	// (HDR stage A) what the output transform (curve and grade) pushes to white or black
 	c = hdrClipView(toLinear(c));
 #endif
+	// the anti-banding: two uniform values per pixel summed, a triangle from -1 to +1 of one 8-bit step, mean zero
+	uint h = pixelHash(p, 7u);
+	float tri = (float(h & 0xFFFFu) + float(h >> 16u)) / 65535.0 - 1.0;
+#if DEBUG_VIEW == 23 || DEBUG_VIEW == 24
+	tri = 0.0;
+#endif
+	c = clamp(c + tri / 255.0, 0.0, 1.0);
 	outColor = vec4(c, 1.0);
 }
 

@@ -39,6 +39,8 @@ uniform float viewWidth;
 uniform float viewHeight;
 #endif
 
+#include "/lib/hdr.glsl"
+
 /* RENDERTARGETS: 0,2 */
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outFlags;
@@ -56,7 +58,7 @@ void main() {
 		}
 	}
 #endif
-	outColor = glcolor;
+	outColor = vec4(hdrBridgeToScene(glcolor.rgb), glcolor.a); // (HDR stage A: vanilla's clouds, bridged)
 	outFlags = vec4(0.0, float(MAT_CLOUD) / 255.0, 0.0, 1.0);
 }
 

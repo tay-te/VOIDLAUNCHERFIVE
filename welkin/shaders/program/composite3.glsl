@@ -17,6 +17,8 @@
 
 #include "/lib/common.glsl"
 #include "/lib/buffers.glsl"
+// (HDR stage A: the bridge)
+#include "/lib/hdr.glsl"
 
 #if defined SHAFT_BEAMS && defined WORLD_OVERWORLD
 #define C3_BEAMS
@@ -235,7 +237,7 @@ void main() {
 		float wsum = 0.0;
 		for (int k = 0; k < 4; k++) {
 			ivec2 p = min(q * 2 + ivec2(k & 1, k >> 1), hi);
-			vec3 c = texelFetch(colortex0, p, 0).rgb;
+			vec3 c = hdrBridgeToDisplay(texelFetch(colortex0, p, 0).rgb); // (HDR stage A: the bloom's source in display values, bridged)
 			vec4 fl = texelFetch(colortex2, p, 0);
 			float emit = fl.x > 0.5 ? unpackEmission(fl.z) : 0.0;
 			vec3 b = bloomSource(c, emit, bloomDiffuseAt(p, emit));

@@ -150,6 +150,8 @@ void main() {
 	outWater.a *= 1.0 - fade;
 	c = mix(c, vec4(horizonColor(), 1.0), fade);
 #endif
+	// (HDR stage A) the far water still shades in display values: into the scene's light through the bridge; stage B
+	c.rgb = hdrBridgeToScene(c.rgb / max(c.a, 1e-3)) * c.a;
 	outColor = c;
 }
 

@@ -201,6 +201,9 @@ void main() {
 		// (the defects pass) the mark's alpha: 1 level water, 0.5 a fall's sheet or a cascade's steep step (the valley
 		// mist takes a fall as the rock behind it, not as open water)
 		outWater = vec4(outColor.rgb / max(outColor.a, 1e-3), nW.y < 0.96 && nW.y > -0.5 ? 0.5 : 1.0);
+		// (HDR stage A) the water still shades in display values: its premultiplied colour into the scene's light
+		// through the bridge (the marks in colortex3 stay display values); stage B
+		outColor.rgb = hdrBridgeToScene(outColor.rgb / max(outColor.a, 1e-3)) * outColor.a;
 		return;
 	}
 
@@ -220,6 +223,7 @@ void main() {
 	float reach = welkinSunReach(eyePos, nW, lm.y, material, facing, sunShare);
 	vec3 lit = welkinLightFull(albedo.rgb, nW, lm, emission, sunShare, vec3(1.0), reach, facing, ao);
 	outColor = wsShadeGlass(lit, albedo.a, eyePos, nW, lm.y, material, sf, outInfo);
+	outColor.rgb = hdrBridgeToScene(outColor.rgb / max(outColor.a, 1e-3)) * outColor.a; // (HDR stage A: bridged)
 	outWater = vec4(0.0);
 }
 

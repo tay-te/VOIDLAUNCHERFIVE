@@ -127,7 +127,7 @@ vec3 wsWaterSSR(vec3 col, ivec2 px) {
 		vec3 skyS = skyDomeOnly(rwS, skyFrame());
 		// a short streak down the screen, as a reflection on a rippled surface stretches: five taps, any that leave the
 		// sky (a far shore's edge) take the centre's
-		vec3 pixS = texelFetch(colortex0, sq, 0).rgb;
+		vec3 pixS = hdrBridgeToDisplay(texelFetch(colortex0, sq, 0).rgb); // (HDR stage A: bridged)
 		vec3 accS = pixS * 0.32;
 		float sp = max(2.0, res.y * 0.0045);
 		for (int k = -2; k <= 2; k++) {
@@ -138,14 +138,14 @@ vec3 wsWaterSSR(vec3 col, ivec2 px) {
 			vec2 tu = (vec2(tq) + 0.5) / res;
 			float tk = texelFetch(colortex6, tq, 0).r;
 			bool ok = surfaceAt(tq, tu).sky || (tk > 0.0 && tk < 999.0);
-			accS += (ok ? texelFetch(colortex0, tq, 0).rgb : pixS) * (abs(k) == 1 ? 0.22 : 0.12);
+			accS += (ok ? hdrBridgeToDisplay(texelFetch(colortex0, tq, 0).rgb) : pixS) * (abs(k) == 1 ? 0.22 : 0.12);
 		}
 		pixS = accS;
 		return col + info.b * (pixS - skyS) * fS * WS_SSR_SKY_SHARE;
 	}
 	vec2 e = min(hit.xy, 1.0 - hit.xy);
 	float fade = smoothstep(0.0, 0.06, min(e.x, e.y)) * (1.0 - smoothstep(0.7, 1.0, travelled / WS_SSR_REACH));
-	vec3 hitCol = texelFetch(colortex0, clamp(ivec2(hit.xy * res), ivec2(0), ivec2(res) - 1), 0).rgb;
+	vec3 hitCol = hdrBridgeToDisplay(texelFetch(colortex0, clamp(ivec2(hit.xy * res), ivec2(0), ivec2(res) - 1), 0).rgb);
 	rw.y = abs(rw.y); // the same sky the water added
 	vec3 sky = skyDomeOnly(rw, skyFrame());
 	return col + info.b * (hitCol - sky) * fade;

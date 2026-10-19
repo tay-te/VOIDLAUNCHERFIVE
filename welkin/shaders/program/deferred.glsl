@@ -256,7 +256,8 @@ void main() {
 		// land's direct light: the tone rolls a glint into white, as it does a sunlit pale face)
 		lightEmitLin += wsDeferredSparkle(wsd, eyePos, n, material, skyLandDirect() * reach * facing * sunShare);
 #endif
-		color.rgb = welkinLightGlow(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, aoMc, glow,
+		// (HDR stage A) scene-linear light: no tone here (final's output transform)
+		color.rgb = welkinLightGlowLin(albedo, n, lm, unpackEmission(flags.z), sunShare, fill, reach, facing, aoMc, glow,
 			contact);
 #ifdef WELKIN_WS_DEFERRED
 		color.rgb = wsDeferredDebug(wsd, color.rgb); // M6 water: the WS_DEBUG views
@@ -280,7 +281,11 @@ void main() {
 			}
 #endif
 		}
-		color.rgb = welkinWetLight(st, color.rgb, wet, n, lightDir, skyDirectLight() * reach * sunShare, skyR);
+		// (HDR stage A: the wet ground still works in display values, bridged in and out where it is wet; stage B)
+		if (wet.wet > 0.0 || wet.puddle > 0) {
+			color.rgb = hdrBridgeToScene(welkinWetLight(st, hdrBridgeToDisplay(color.rgb), wet, n, lightDir,
+				skyDirectLight() * reach * sunShare, skyR));
+		}
 #if HAZE_DEBUG == 4
 		color.rgb = welkinWetDebug(wet);
 #endif
@@ -325,7 +330,8 @@ void main() {
 #endif
 	float d = 0.5; // the far fade's old dither threshold: no dither any more
 #if defined FAR_FADE && !(defined HAZE_ENABLED && defined WORLD_OVERWORLD) && defined DEBUG_PLAIN
-	color.rgb = mix(color.rgb, horizonColor(), farFade(length(eyePos.xz), d));
+	// (HDR stage A: the far fade's horizon is a display colour, bridged; stage B)
+	color.rgb = mix(color.rgb, hdrBridgeToScene(horizonColor()), farFade(length(eyePos.xz), d));
 #endif
 	outColor = color;
 }

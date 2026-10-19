@@ -44,6 +44,8 @@ uniform mat4 gbufferProjectionInverse;
 #endif
 #endif
 
+#include "/lib/hdr.glsl"
+
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
 
@@ -58,7 +60,7 @@ void main() {
 	vec4 ndc = vec4(gl_FragCoord.xy / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0);
 	vec4 view = gbufferProjectionInverse * ndc;
 	vec3 dir = mat3(gbufferModelViewInverse) * (view.xyz / view.w);
-	outColor = vec4(skyFull(dir), 1.0);
+	outColor = vec4(hdrBridgeToScene(skyFull(dir)), 1.0); // (HDR A2 interim: bridged)
 }
 
 #else
@@ -77,19 +79,15 @@ uniform mat4 gbufferModelViewInverse;
 #endif
 
 void main() {
-	if (renderStage == MC_RENDER_STAGE_STARS) {
-		outColor = glcolor;
-		return;
-	}
-	if (renderStage == MC_RENDER_STAGE_SUNSET) {
-		outColor = glcolor;
+	if (renderStage == MC_RENDER_STAGE_STARS || renderStage == MC_RENDER_STAGE_SUNSET) {
+		outColor = vec4(hdrBridgeToScene(glcolor.rgb), glcolor.a); // (HDR stage A: bridged)
 		return;
 	}
 	vec4 ndc = vec4(gl_FragCoord.xy / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0);
 	vec4 view = gbufferProjectionInverse * ndc;
 	vec3 dir = normalize(mat3(gbufferModelViewInverse) * (view.xyz / view.w));
 	float t = sqrt(clamp(dir.y * 2.4 + 0.08, 0.0, 1.0));
-	outColor = vec4(mix(fogColor, skyColor, softBands(t, 5.0)), 1.0);
+	outColor = vec4(hdrBridgeToScene(mix(fogColor, skyColor, softBands(t, 5.0))), 1.0); // (HDR stage A: bridged)
 }
 
 #endif

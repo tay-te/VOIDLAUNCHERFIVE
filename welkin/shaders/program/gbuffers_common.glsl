@@ -22,6 +22,7 @@
 // Without G_DEFERRED the program lights itself with the same light ramp deferred uses (lib/light.glsl).
 
 #include "/lib/common.glsl"
+#include "/lib/tone.glsl"
 
 #ifdef VERTEX_SHADER
 
@@ -277,7 +278,13 @@ void main() {
 	outFlags = vec4(1.0, float(material) / 255.0, packEmitClass(emission, lightClass), ao);
 #else
 #ifdef G_UNLIT
+	// (HDR stage A) a light of its own (the beacon's beam, a spider's eyes) in scene-linear light, a little past white;
+	// the glint and the cracks blend onto what is there (vanilla's blending), so they stay factors
+#if defined G_UNLIT_LIGHT
+	vec3 lit = toLinear(albedo.rgb) * LAND_EMIT;
+#else
 	vec3 lit = albedo.rgb;
+#endif
 #else
 	float d = 0.5; // no dither: the ramp is smooth
 	vec2 lm = lmcoord;
@@ -296,18 +303,18 @@ void main() {
 	float facing = sunFacingMat(nW, lightDirWorld(), material);
 	vec3 sunShare = vec3(1.0);
 	float reach = welkinSunReach(eyePos, nW, lm.y, material, facing, sunShare);
-	vec3 lit = welkinLightFull(albedo.rgb, nW, lm, emission, sunShare, vec3(1.0), reach, facing, ao);
+	vec3 lit = welkinLightFullLin(albedo.rgb, nW, lm, emission, sunShare, vec3(1.0), reach, facing, ao); // (HDR: linear)
 #ifdef G_WATERFLAG
 	vec3 waterDeep = vec3(0.0);
 	if (matIsWater(material)) {
 		WaterSurface ws = welkinWaterSurface(albedo, nFace, eyePos, lm, sunShare, reach, facing);
-		lit = ws.color;
+		lit = hdrBridgeToScene(ws.color); // (HDR stage A: bridged, unused path)
 		albedo.a = ws.alpha;
 		waterDeep = ws.deep;
 	}
 #endif
 #else
-	vec3 lit = welkinLight(albedo.rgb, normalize(normalW), lm, emission, d);
+	vec3 lit = welkinLightLin(albedo.rgb, normalize(normalW), lm, emission); // (HDR: linear)
 #endif
 #endif
 #ifdef G_WEATHER
@@ -317,7 +324,7 @@ void main() {
 		// half as opaque; snow keeps its white. The air's own haze still lies over them in composite2.
 		float lum = dot(albedo.rgb, vec3(0.2126, 0.7152, 0.0722));
 		float blue = clamp((albedo.b - max(albedo.r, albedo.g)) * 3.0, 0.0, 1.0); // rain's texture is blue, snow's white
-		vec3 veil = welkinLight(vec3(0.82, 0.85, 0.90), vec3(0.0, 1.0, 0.0), lm, 0.0, d);
+		vec3 veil = welkinLightLin(vec3(0.82, 0.85, 0.90), vec3(0.0, 1.0, 0.0), lm, 0.0); // (HDR: linear)
 		lit = mix(lit, veil * mix(1.0, 0.8 + 0.4 * lum, 0.5), blue);
 		albedo.a *= mix(1.0, 0.42, blue);
 	}

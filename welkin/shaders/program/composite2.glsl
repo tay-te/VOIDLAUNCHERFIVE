@@ -25,6 +25,8 @@
 #define WELKIN_DEPTH_BEHIND
 #include "/lib/common.glsl"
 #include "/lib/buffers.glsl"
+// (HDR stage A: the bridge)
+#include "/lib/hdr.glsl"
 
 #ifdef VERTEX_SHADER
 
@@ -251,6 +253,11 @@ void main() {
 	}
 #endif
 	vec4 color = texelFetch(colortex0, p, 0);
+	// (HDR stage A) the air (haze, mist, aerial perspective, shafts, the cave air) still works in display values:
+	// bridged in and out; stage B
+	vec3 hdrSceneIn = color.rgb;
+	color.rgb = hdrBridgeToDisplay(color.rgb);
+	vec3 hdrDispIn = color.rgb;
 #if defined DEBUG_PLAIN
 	// M3: a cloud drawn here (composite), nearer than whatever lies behind it; it fogged itself by ring
 	bool cloud = false;
@@ -517,7 +524,7 @@ void main() {
 #if SKY_DEBUG == 1
 	color.rgb = skyDebugOverlay(p, color.rgb); // the sky table, 8x, bottom left
 #endif
-	outColor = color;
+	outColor = vec4(hdrBridgeBack(color.rgb, hdrDispIn, hdrSceneIn), color.a);
 }
 
 #endif

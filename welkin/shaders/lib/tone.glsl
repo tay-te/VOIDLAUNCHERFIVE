@@ -1,4 +1,6 @@
-// VOID Welkin: exposure and tone for the land. No uniforms, so any program may include it.
+// VOID Welkin: the land's light model (its strengths) and the display conversions. No uniforms, so any program may
+// include it. (HDR stage A, 2026-10-19: the land is no longer toned here. The light pass writes scene-linear light and
+// final's one output transform, lib/hdr.glsl, brings everything to the screen; the history below is the old curve's.)
 //
 // The land (terrain, the LOD, entities, water's body, everything lib/light.glsl lights) is lit in LINEAR light: the
 // albedo taken to linear, the sun, the sky's fill, the ground's bounce and the torches summed as light adds, then
@@ -78,22 +80,8 @@ float landFillAt(float h) {
 // the darkest a lit face gets (a sealed cave wall still reads)
 #define LAND_FLOOR 0.0016
 
-// ---- the curve
-// exposure (a LAND_EXPOSURE of 1 maps a mid grey face lit by 1.0 to mid grey)
-#define LAND_EXPOSURE 1.0
-// the S round mid grey: 1 is none
-// (the balance step: 1.32, the sunlit half a little brighter and the shade a little deeper round the same mid grey)
-// (review round 2: 1.12: a luminous frame rather than a harsh one, p95/p5 4.6 to 6.0 against the references' 2.7 to 3.8)
-#define LAND_CONTRAST 1.12
-// where the shoulder starts (linear, about sRGB 177) and how much of it keeps the hue
-#define LAND_KNEE 0.45
-// (round 2: 0.92, so a face in the amber low sun keeps its amber: the per-channel roll greyed it toward cream)
-#define LAND_HUE_KEEP 0.92
-// saturation of the result, 1 as it comes
-// (round 2: 0.95, paying back the highlights' kept saturation, so noon's sunlit grass and sand do not turn louder)
-#define LAND_SATURATION 0.95
-// how much saturation a face gives up as it reaches white (round 3)
-#define LAND_HIGHLIGHT_DESAT 0.3
+// ---- the curve: moved to final's one output transform (lib/hdr.glsl, HDR stage A, 2026-10-19). welkinTone's S round
+// mid grey, its soft shoulder and its saturation live on there (HDR_CONTRAST, HDR_KNEE, HDR_SATURATION, ...).
 
 vec3 toLinear(vec3 c) {
 	return pow(max(c, 0.0), vec3(2.2));
@@ -105,64 +93,6 @@ vec3 toDisplay(vec3 c) {
 
 float lumaLin(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
-}
-
-// the soft shoulder for one value: linear to the knee, then a hyperbolic roll that meets 1 at infinity with the
-// same slope at the knee. Gentler than an exponential far up, so a pale face in full sun keeps its texture (sand and
-// snow at sRGB 220..240, not a flat white) and nothing clips.
-float toneShoulder(float x) {
-	float over = max(x - LAND_KNEE, 0.0);
-	return min(x, LAND_KNEE) + over / (1.0 + over / (1.0 - LAND_KNEE));
-}
-
-vec3 toneShoulder(vec3 x) {
-	return vec3(toneShoulder(x.r), toneShoulder(x.g), toneShoulder(x.b));
-}
-
-// The highlights' desaturation now (lib/light.glsl sets it from the sun's height before it tones; others keep this).
-float toneHighlightDesat = LAND_HIGHLIGHT_DESAT;
-
-// Linear light (albedo x irradiance) to the display value the rest of the pack works in.
-vec3 welkinTone(vec3 x) {
-	x = max(x, 0.0) * LAND_EXPOSURE;
-	// the S round mid grey, on luminance (the hue stays): it fades out in the deep dark, so a moonlit night or a dim
-	// cave keeps its level and only the daylight's shade deepens
-	float y0 = lumaLin(x);
-	// (and eases off in the highlights, so a sunlit pale face keeps its texture instead of being pushed into the shoulder)
-	float k = (LAND_CONTRAST - 1.0) * smoothstep(0.002, 0.03, y0) * (1.0 - smoothstep(0.3, 1.5, y0));
-	x *= pow(max(y0, 1e-6) / 0.18, k);
-	// the shoulder: per channel, and on luminance with the hue kept (then pulled back under white)
-	vec3 perChannel = toneShoulder(x);
-	float y = lumaLin(x);
-	vec3 hueKept = x * (toneShoulder(y) / max(y, 1e-6));
-	float peak = max(hueKept.r, max(hueKept.g, hueKept.b));
-	// a colour past white is brought back under it a quarter by giving up saturation (the luminance kept) and three
-	// quarters by giving up brightness (the hue and saturation kept): round 2, so a white trunk or a pale wall in an amber low sun reads
-	// amber, not a washed-out cream, and a back-lit crown glows gold-green, not white
-	if (peak > 1.0) {
-		vec3 desat = mix(vec3(toneShoulder(y)), hueKept, (1.0 - toneShoulder(y)) / max(peak - toneShoulder(y), 1e-4));
-		// (round 3: a tenth by saturation, nine tenths by brightness: a pale face in the strong low sun keeps its amber)
-		hueKept = mix(desat, hueKept / peak, 0.9);
-	}
-	x = mix(perChannel, hueKept, LAND_HUE_KEEP);
-	// round 3: the highlights give up a little saturation as they near white (up to LAND_HIGHLIGHT_DESAT at it), so
-	// sunlit pale stone and sand read a clean near-white, not cream; the mids and the shade keep their colour
-	float yl = lumaLin(x);
-	x = mix(vec3(yl), x, LAND_SATURATION * (1.0 - toneHighlightDesat * smoothstep(0.45, 0.9, yl)));
-	// (review round 2) the brightest faces a little under the shoulder's top, so pale stone in the morning sun keeps its
-	// texture and relief instead of a flat near white (valley 08:00's sunlit diorite)
-	x *= 1.0 - 0.14 * smoothstep(0.5, 1.0, yl);
-	return toDisplay(clamp(x, 0.0, 1.0));
-}
-
-// A glowing texel (a torch's flame, a lamp, lava) in linear light to display, keeping its hue: its brightest channel
-// rolls into white on the shoulder and the others follow in proportion, so a flame stays yellow-orange instead of
-// washing out to white as the per-channel and luminance shoulders would push it.
-vec3 welkinToneEmit(vec3 x) {
-	x = max(x, 0.0) * LAND_EXPOSURE;
-	float peak = max(x.r, max(x.g, x.b));
-	x *= toneShoulder(peak) / max(peak, 1e-6);
-	return toDisplay(clamp(x, 0.0, 1.0));
 }
 
 #endif

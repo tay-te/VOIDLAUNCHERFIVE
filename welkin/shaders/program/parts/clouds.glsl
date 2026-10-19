@@ -27,6 +27,7 @@ void main() {
 // the clouds rework (2026-10-16): this pass reads the raw map's smooth fields for the light inside the clouds
 #define WC_FIELD
 #include "/lib/clouds/shade.glsl"
+#include "/lib/hdr.glsl"
 
 in vec2 texcoord;
 
@@ -50,6 +51,10 @@ layout(location = 1) out vec4 outCloud;
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec4 color = texelFetch(colortex0, p, 0);
+	// (HDR stage A) the clouds still work in display values: the scene in through the bridge, back out at the end
+	vec3 hdrSceneIn = color.rgb;
+	color.rgb = hdrBridgeToDisplay(color.rgb);
+	vec3 hdrDispIn = color.rgb;
 	float km = WC_NO_CLOUD_KM;
 	vec3 steps = vec3(0.0); // columns and jumps the ray took, of them gap columns, jumps (the gltest cost map)
 #ifdef CLOUDS
@@ -64,7 +69,7 @@ void main() {
 	float eyeY = float(cameraPositionInt.y) + cameraPositionFract.y;
 	float lowest = cloudHeight - 1.0;
 	if (eyeY < lowest - 40.0 && (rd.y <= 0.0 || tScene * rd.y < lowest - eyeY)) {
-		outColor = color;
+		outColor = vec4(hdrSceneIn, color.a);
 		outCloud = vec4(km, steps);
 		return;
 	}
@@ -160,7 +165,7 @@ void main() {
 	}
 #endif
 #endif
-	outColor = color;
+	outColor = vec4(hdrBridgeBack(color.rgb, hdrDispIn, hdrSceneIn), color.a);
 	outCloud = vec4(km, steps); // colortex6 is R16F: only km is kept
 }
 

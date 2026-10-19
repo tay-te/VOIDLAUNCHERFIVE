@@ -7,7 +7,7 @@
 //                     (lib/common.glsl packEmitClass), w: Minecraft's corner shading (separateAo; 1 for none)
 // colortex3  RGBA8    water in front (gbuffers_water, dh_water): rgb its lit colour, a 1; 0 elsewhere
 // colortex4  RGBA8    water and shadow info (water_shadows); cleared to 0
-// colortex5  RGBA16   the sky table, 64x32 (prepare; lib/sky/table.glsl reads it); never cleared, rewritten each frame
+// colortex5  RGBA16F  the sky table, 64x32 (prepare; lib/sky/table.glsl reads it); never cleared, rewritten each frame
 // colortex9  RGBA16F  half size: the ambient occlusion's raw term, bent normal and view depth (deferred_ao; lib/ao.glsl)
 // colortex10 RGBA16F  the shadow's raw terms (deferred_shadow, run as deferred2): r the sun's reach, g what passes the
 //                     leaves, b water travel (>= 0) or -1 - the canopy over the point (0..1, workstream C), a view
@@ -39,7 +39,7 @@ const bool colortex3Clear = true;
 const int colortex4Format = RGBA8;
 const vec4 colortex4ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 const bool colortex4Clear = true;
-const int colortex5Format = RGBA16;
+const int colortex5Format = RGBA16F;
 const bool colortex5Clear = false;
 const int colortex10Format = RGBA16F;
 const bool colortex10Clear = false;

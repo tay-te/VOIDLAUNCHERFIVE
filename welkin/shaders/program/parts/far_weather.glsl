@@ -9,6 +9,8 @@
 #define WELKIN_DEPTH_BEHIND
 #include "/lib/common.glsl"
 #include "/lib/buffers.glsl"
+// (HDR stage A: the bridge)
+#include "/lib/hdr.glsl"
 #include "/lib/clouds/buffers.glsl"
 
 #ifdef VERTEX_SHADER
@@ -54,6 +56,10 @@ layout(location = 1) out vec4 outCloud;
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec4 color = texelFetch(colortex0, p, 0);
+	// (HDR stage A) far weather still works in display values: bridged in and out
+	vec3 hdrSceneIn = color.rgb;
+	color.rgb = hdrBridgeToDisplay(color.rgb);
+	vec3 hdrDispIn = color.rgb;
 	float km = texelFetch(colortex6, p, 0).r;
 #if defined DEBUG_PLAIN
 	// 1. water fog, as composite2 laid it before P5 (not over a cloud in front of a lake, seen from above the deck)
@@ -67,7 +73,7 @@ void main() {
 	color.rgb = welkinFarWeather(p, texcoord, color.rgb, km);
 	color.rgb = mix(color.rgb, fogged, ugState().amount);
 #endif
-	outColor = color;
+	outColor = vec4(hdrBridgeBack(color.rgb, hdrDispIn, hdrSceneIn), color.a);
 	outCloud = vec4(km, 0.0, 0.0, 1.0);
 }
 

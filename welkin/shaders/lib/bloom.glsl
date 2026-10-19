@@ -110,4 +110,16 @@ vec3 bloomApply(vec3 c, vec3 glow, float emit, float lend, float veil, float dif
 	return pow(lin, vec3(1.0 / 2.2));
 }
 
+// (HDR stage A) The light the halo adds to a pixel of display colour c (linear, display white's units with headroom):
+// bloomApply's sum without laying it back on in display values. final adds it to the scene's light (hdrBridgeLight),
+// where the output transform's shoulder rolls it off. Stage B feeds the bloom from the scene's light itself.
+vec3 bloomAdd(vec3 c, vec3 glow, float emit, float lend, float veil, float diffuse) {
+	float k = BLOOM_SCATTER * float(BLOOM_STRENGTH) * 0.01;
+	// (what the pixel lends out in its own units: bloomApply divided the sum by the headroom)
+	vec3 own = bloomSource(c, emit, diffuse) / bloomHeadroom(pow(max(c, 0.0), vec3(2.2)), emit, diffuse);
+	vec3 add = k * (glow - lend * own);
+	add -= min(vec3(k * BLOOM_FLAT * veil), max(add, 0.0));
+	return add;
+}
+
 #endif

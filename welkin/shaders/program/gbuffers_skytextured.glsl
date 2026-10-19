@@ -33,6 +33,8 @@ uniform sampler2D gtexture;
 uniform int renderStage;
 #endif
 
+#include "/lib/hdr.glsl"
+
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
 
@@ -43,6 +45,7 @@ void main() {
 	}
 #endif
 	outColor = texture(gtexture, texcoord) * glcolor;
+	outColor.rgb = hdrBridgeToScene(outColor.rgb); // (HDR stage A: an unlit sky texture, bridged)
 }
 
 #endif
