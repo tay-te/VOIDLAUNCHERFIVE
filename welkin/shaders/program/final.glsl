@@ -290,6 +290,14 @@ void main() {
 		lend = d >= 1.0 && texelFetch(colortex6, p, 0).r <= 999.0 ? 1.0 : lend;
 #endif
 		vec4 glow = texture(colortex9, texcoord); // rgb the halo, a the frame's mean bright share (composite4), exposed
+#ifdef WORLD_OVERWORLD
+		// (Look D9) at night the halo is the lamps', windows' and fires': bigger and warmer, so a village glows invitingly
+		// out of the dark (the moon's own halo is the sky's, lib/sky/luminous.glsl skyNightGlow)
+		{
+			float nB = smoothstep(0.5, 1.0, skyNightStep());
+			glow.rgb *= mix(vec3(1.0), BLOOM_NIGHT_GAIN * vec3(1.10, 0.98, 0.80), nB);
+		}
+#endif
 		vec3 add = bloomAddHdr(sc * expo, glow.rgb, emit, lend, glow.a,
 			d < 1.0 && emit <= 0.0 && texelFetch(colortex3, p, 0).a <= 0.25 ? 1.0 : 0.0);
 		// (what a pixel lends out never takes more than half its light: a flame keeps its own brightness under its glow)

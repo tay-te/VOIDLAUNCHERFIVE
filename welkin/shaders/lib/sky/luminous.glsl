@@ -282,4 +282,41 @@ vec3 skyLuminousLin(vec3 L, vec3 d, SkyLum f, float amount) {
 #endif
 }
 
+// ==== (Look D9) the moonlit night sky ====
+// Night had read as "dark Minecraft": one flat navy dome. A moonlit painting's sky has a gradient: a silver glow round
+// the moon (a tight halo and a broad glow over its side of the dome), lighter toward it, and a soft cool glow low along
+// the horizon all round (the moonlit air), so the land's far ridges stand dark against a paler band. All of it as a
+// share of the night dome's own horizon light (the table's), so a darker night is darker throughout, only in the deep
+// night (the dusk and the blue hour keep their own sky), and the moon's part by its visibility (cloud, overcast).
+// d: the view direction; moonW: the moon's direction (world); returns scene light to add.
+#define SKY_MOON_HALO 30.0      // the tight halo, a few degrees round the moon (x the horizon's light)
+#define SKY_MOON_GLOW 7.0      // the broad glow over the moon's side of the dome
+#define SKY_NIGHT_HORIZON 5.0 // the cool glow low over the horizon
+vec3 skyNightGlow(vec3 d, vec3 sunW, vec3 moonW) {
+	float deep = smoothstep(-0.05, -0.20, sunW.y);
+	if (deep <= 0.0) {
+		return vec3(0.0);
+	}
+	float overcast = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
+	float moonVis = skyTable(SKY_X_STATE_SHOW, SKY_ROW_LIGHT).g;
+	vec3 ref = skyTable(1, SKY_ROW_DOME_SCENE).rgb; // the night dome's horizon band, scene light
+	float lr = skyLumLuma(ref);
+	float mu = clamp(dot(d, moonW), -1.0, 1.0);
+	float ang = acos(mu);
+	float mUp = smoothstep(-0.04, 0.12, moonW.y);
+	float halo = exp(-ang / 0.10);
+	float wide = exp(-ang / 0.55);
+	// the horizon's glow: low along it, more on the moon's side (its light crossing the most air)
+	float az = 0.0;
+	if (dot(d.xz, d.xz) > 1e-8 && dot(moonW.xz, moonW.xz) > 1e-8) {
+		az = dot(normalize(d.xz), normalize(moonW.xz));
+	}
+	float hor = exp(-max(d.y, 0.0) / 0.09) * (1.0 - smoothstep(0.0, 0.08, -d.y)) * mix(0.55, 1.0, (0.5 + 0.5 * az) * mUp);
+	vec3 silver = vec3(0.82, 0.90, 1.0) / 0.8873;
+	vec3 coolA = vec3(0.70, 0.84, 1.0) / 0.8152;
+	vec3 g = silver * ((SKY_MOON_HALO * halo + SKY_MOON_GLOW * wide) * mUp * moonVis)
+		+ coolA * (SKY_NIGHT_HORIZON * hor * mix(0.5, 1.0, moonVis));
+	return g * lr * deep * (1.0 - 0.7 * overcast);
+}
+
 #endif

@@ -68,6 +68,8 @@ float bloomLuma(vec3 c) {
 #define BLOOM_DIFFUSE_THRESHOLD 6.0
 #define BLOOM_EMIT_GAIN 18.0 // (Look D1: 18, was 10: lamps and fire glow, the far village lamps too)
 #define BLOOM_SCATTER_HDR 0.5
+// (Look D9) the halo at night (the lamps' and fires'), and its warmth (final)
+#define BLOOM_NIGHT_GAIN 4.0
 // (Look D5) the bright share a source texel gives the halo eases under this (exposed scene light; a lamp's texel is far
 // under it)
 #define BLOOM_SRC_CAP 40.0

@@ -172,7 +172,8 @@ vec3 skyLowSunBandOverScene(vec3 col, vec3 d, SkyFrame f) {
 // The dome without bodies or stars, in scene light (water and glass reflections, the puddles, the SSR's sky).
 vec3 skyDomeOnly(vec3 dirW, SkyFrame f) {
 	vec3 d = normalize(dirW);
-	return skyLuminousLin(skyLowSunBandOverScene(skyDomeColourScene(skyDomePos(d, f)), d, f), d, skyLumFrame(f.sunW), 1.0);
+	return skyLuminousLin(skyLowSunBandOverScene(skyDomeColourScene(skyDomePos(d, f)), d, f), d, skyLumFrame(f.sunW), 1.0)
+		+ skyNightGlow(d, f.sunW, f.moonW); // (Look D9)
 }
 
 // The horizon band in eyeDir's azimuth, with the sun's glow there, in scene light (the far fade).
@@ -195,6 +196,7 @@ vec3 skyFullScene(vec3 dirW, SkyFrame f) {
 #endif
 	vec3 col = skyLowSunBandOverScene(skyDomeColourScene(q), d, f);
 	col = skyLuminousLin(col, d, skyLumFrame(f.sunW), 1.0);
+	col += skyNightGlow(d, f.sunW, f.moonW); // (Look D9)
 	if (d.y < SKY_BODY_CUTOFF) {
 		return col;
 	}

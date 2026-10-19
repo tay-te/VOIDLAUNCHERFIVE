@@ -41,7 +41,7 @@ vec3 varietyAlbedo(vec3 albedo, vec2 world) {
 	float mx = max(albedo.r, max(albedo.g, albedo.b));
 	float mn = min(albedo.r, min(albedo.g, albedo.b));
 	float sat = (mx - mn) / max(mx, 1e-4);
-	float grassy = smoothstep(0.12, 0.3, sat) * smoothstep(0.92, 1.05, albedo.g / max(albedo.r, 1e-4) + 0.25)
+	float grassy = smoothstep(0.12, 0.3, sat) * smoothstep(0.95, 1.08, albedo.g / max(albedo.r, 1e-4))
 		* step(albedo.b, albedo.g);
 	if (grassy <= 0.0) {
 		return albedo;

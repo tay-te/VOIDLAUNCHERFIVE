@@ -57,6 +57,8 @@ uniform float frameTimeCounter;
 // 128 m: in full within 64 m, fading out to 128 m). Fading nodes count raised by up to MIST_BASIN_RAISE blocks, so the
 // floor runs on without a step as the place moves.
 #define MIST_BASIN 8
+// (Look D9) the night's share of the mist (mistTiles)
+#define MIST_NIGHT 0.35
 #define MIST_BASIN_RAISE 40.0
 // The region's floor the same way, every MIST_REGION cells (512 m: in full within 256 m, fading out to 512 m). Ground more than
 // HIGH_FROM blocks over it pools less mist, none from HIGH_TO: no slab in the high valleys and gullies of a range.
@@ -126,6 +128,11 @@ MistTiles mistTiles() {
 		t.data = true;
 		t.centre = voidCentre(VOID_TILE_N0, t.camCell);
 		t.time = MIST_FORCE > 0 ? float(MIST_FORCE) / 100.0 : voidMistTime(mode);
+#if MIST_FORCE == 0
+		// (Look D9) a clear night's mist: the cool air settles in the hollows and the valleys from the deep night on (the
+		// dawn's mist grows out of it), a thin moonlit veil the land's shapes read through
+		t.time = max(t.time, MIST_NIGHT * smoothstep(0.6, 1.0, skyNightStep()) * (1.0 - rainStrength));
+#endif
 	}
 	t.on = t.data && t.time > 0.004;
 	return t;
@@ -357,7 +364,8 @@ vec3 mistColor(vec3 dir, float cover) {
 	// at night the mist is lit as the land is (the sky's moonlit or starlit fill and the moon), a little cooler, never
 	// brighter than open ground in the same light: a fixed grey was brighter than the land under a new moon and turned
 	// the valley into a flat murk
-	vec3 nightMist = 0.82 * (skyAmbientLight() + 0.6 * skyDirectLight()) * vec3(0.92, 0.96, 1.08) + vec3(0.003, 0.004, 0.006);
+	// (Look D9) catching the moonlight: a little over the land's own level, cool silver (was 0.82 x, the moon 0.6)
+	vec3 nightMist = 1.15 * (skyAmbientLight() + 0.9 * skyDirectLight()) * vec3(0.88, 0.95, 1.10) + vec3(0.003, 0.004, 0.006);
 	vec3 c = mix(nightMist, dayMist, light);
 	// toward a low sun the mist warms
 	vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);

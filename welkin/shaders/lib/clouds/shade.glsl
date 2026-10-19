@@ -105,10 +105,15 @@
 // (Look D3) the moonlit paint (night): against the night sky behind the cloud
 #define WN_SILVER vec3(0.84, 0.90, 1.0)
 #define WN_SHADE vec3(0.80, 0.83, 0.94)
-#define WN_LIT 1.9
-#define WN_BELLY 0.7
-#define WN_EDGE 1.4
-#define WN_PAINT 0.9
+// (Look D9) a moonlit painting's clouds: lit tops and flanks a clear silver (1.9 -> 3.2), bellies a cool grey a little
+// over the sky (0.7 -> 1.05: under the moon a cloud is lighter than the night sky behind it, never a black slab), the
+// silver edge toward the moon stronger (1.4 -> 3.0), and near the moon the thin parts and outline glow silver-white
+// (WN_NEAR, by the angle to the moon: the moon's own silver lining)
+#define WN_LIT 7.0
+#define WN_BELLY 3.5
+#define WN_EDGE 3.0
+#define WN_NEAR 9.0
+#define WN_PAINT 0.95
 #define WS_SHADE_SKY 0.35
 #define WS_DUSK_SHADE vec3(0.84, 0.80, 0.98) // (Look D3: less violet, was (0.78, 0.74, 1.0): in scene light it read lilac)
 #define WS_CLOSED_KEEP 0.75
@@ -682,6 +687,9 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		vec3 moonW = normalize(mat3(gbufferModelViewInverse) * moonPosition);
 		float mUp = smoothstep(-0.02, 0.15, moonW.y);
 		float yN = wcLuma(skyS);
+		// (Look D9) the sky behind it with the moon's glow (lib/sky/luminous.glsl): a cloud near the moon is lit as the sky
+		// round the moon is, so the decks lighten toward it
+		yN += 0.85 * wcLuma(skyNightGlow(rd, normalize(mat3(gbufferModelViewInverse) * sunPosition), moonW));
 		float hD = b.k >= 0 ? clamp((b.y - b.iv.x) / wcDeckSpan(b.k), 0.0, 1.0) : b.hIn;
 		float faceM = n.y > 0.5 ? mix(0.55, 1.0, clamp(moonW.y, 0.0, 1.0)) * mix(0.75, 1.0, b.depth)
 			: (n.y < -0.5 ? 0.0 : smoothstep(-0.45, 0.8, dot(n.xz, moonW.xz) / max(length(moonW.xz), 1e-3)) * mix(0.3, 1.0, hD));
@@ -693,8 +701,12 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		vec3 shadeN = toLinear(WN_SHADE);
 		shadeN /= wcLuma(shadeN);
 		float sM = smoothstep(0.0, 1.0, faceM) * mUp;
+		// (Look D9) near the moon: the thin parts and the outline catch its light (a tight lobe and a broad one)
+		float muM = max(dot(rd, moonW), 0.0);
+		float nearM = mUp * (0.7 * pow(muM, 60.0) + 0.3 * pow(muM, 8.0));
 		vec3 nightC = yN * (mix(shadeN * (WN_BELLY * mix(1.15, 0.8, sqrt(b.depth))), silver * WN_LIT, sM)
-			+ silver * (WN_EDGE * mUp * cm * cm * cm * max(thinM, 0.7 * b.rim)));
+			+ silver * (WN_EDGE * mUp * cm * cm * cm * max(thinM, 0.7 * b.rim))
+			+ silver * (WN_NEAR * nearM * max(thinM, b.rim)));
 		cS = mix(cS, nightC, nightP * WN_PAINT);
 	}
 	if (e.flash && tone == 2) {

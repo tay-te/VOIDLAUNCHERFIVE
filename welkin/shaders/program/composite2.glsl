@@ -113,6 +113,9 @@ void main() {
 #define AIR_CLOUD_DIM 0.42
 #define AIR_CLOUD_TINT vec3(0.86, 0.97, 1.16)
 #endif
+// (Look D9) the night's ground mist: its amount (as the morning's MORNING_MIST x 0.1) and its moonlit level
+#define NIGHT_MIST_AMT 0.42
+#define NIGHT_MIST_LEVEL 1.1
 
 in vec2 texcoord;
 #if defined WELKIN_VALLEY_MIST && defined DEBUG_PLAIN
@@ -127,6 +130,10 @@ uniform sampler2D colortex0;
 #ifndef WU_sunPosition
 #define WU_sunPosition
 uniform vec3 sunPosition;
+#endif
+#ifndef WU_moonPosition
+#define WU_moonPosition
+uniform vec3 moonPosition;
 #endif
 #if defined WORLD_OVERWORLD // P5 far weather: was `&& defined CLOUDS`; composite1 writes colortex6 too
 #ifndef WU_colortex6
@@ -330,6 +337,8 @@ void main() {
 			vec3 dA = normalize(eyePos);
 			dA = dA.y < 0.0 ? normalize(vec3(dA.x, 0.0, dA.z) + vec3(1e-5, 0.0, 0.0)) : dA;
 			air = skyLuminousLin(air, dA, lum, 0.8);
+			// (Look D9) the night's moonlit air: the far land fades into the same cool, moon-side glow the sky shows
+			air += skyNightGlow(dA, sunW, normalize(mat3(gbufferModelViewInverse) * moonPosition));
 		}
 		// (Look D6) over the land the air is layered, coloured air rather than the sky's band (lib/air.glsl airLayered)
 		if (!s.sky) {
@@ -481,6 +490,10 @@ void main() {
 		float dawnAmt = 0.0;
 #if MORNING_MIST > 0
 		dawnAmt = float(MORNING_MIST) * 0.1 * dawnMistHour() * (1.0 - ug.amount);
+		// (Look D9) a clear night's ground mist: the same low layer lies in the hollows, the valleys and the low distance from
+		// the deep night on, cool and catching the moonlight faintly (brighter on the moon's side), thinner than the dawn's
+		float nightMistW = smoothstep(-0.10, -0.25, sunW.y) * lum.clear;
+		dawnAmt = max(dawnAmt, NIGHT_MIST_AMT * nightMistW * (1.0 - ug.amount));
 		if (dawnAmt > 0.0 && !cloud && !finished) {
 			float camY = float(cameraPositionInt.y) + cameraPositionFract.y;
 			float T = s.sky ? 700.0 : length(eyePos);
@@ -510,7 +523,16 @@ void main() {
 #ifdef HV_READ
 				fsunM = clamp(hvRaw.g / max(hvRaw.b, 1e-4), 0.0, 1.0);
 #endif
-				color.rgb = mix(color.rgb, dawnMistColour(airPlainHv, normalize(eyePos), sunW, fsunM, lum), airCoverA(cover, AIR_DAWN_DENS, AIR_DAWN_ONSET));
+				vec3 dmc = dawnMistColour(airPlainHv, normalize(eyePos), sunW, fsunM, lum);
+				if (nightMistW > 0.0) {
+					vec3 moonW = normalize(mat3(gbufferModelViewInverse) * moonPosition);
+					float toMoon = clamp(dot(normalize(eyePos), moonW) * 0.5 + 0.5, 0.0, 1.0);
+					vec3 nmc = sceneFromAuthored(NIGHT_MIST_LEVEL * (skyAmbientLight() + 0.9 * skyDirectLight()) * vec3(0.92, 0.97, 1.06))
+						* mix(0.8, 1.5, toMoon * toMoon * smoothstep(-0.05, 0.15, moonW.y))
+						+ 0.5 * skyNightGlow(normalize(vec3(eyePos.x, 0.0, eyePos.z) + vec3(1e-5, 0.0, 0.0)), sunW, moonW);
+					dmc = mix(dmc, nmc, nightMistW);
+				}
+				color.rgb = mix(color.rgb, dmc, airCoverA(cover, AIR_DAWN_DENS, AIR_DAWN_ONSET));
 #ifdef DM_DEBUG
 				color.rgb = vec3(cover, dawnAmt, fract(ground / 16.0));
 #endif
