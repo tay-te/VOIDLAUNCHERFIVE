@@ -259,14 +259,20 @@ public final class HearthStateJson {
 		o.addProperty("lastCheck", standing == null ? "" : standing.result().getString());
 
 		JsonArray options = new JsonArray();
+		List<String> ids = new java.util.ArrayList<>(show.options().size());
+		for (TalkPayloads.Option opt : show.options()) {
+			ids.add(opt.id());
+		}
+		int[] keys = dev.voidmc.hearth.npc.talk.OptionKeys.assign(ids, id -> {
+			TalkPayloads.OptionInfo i = detail == null ? null : detail.info(id);
+			return i == null ? null : i.kind();
+		});
 		int index = 0;
 		for (TalkPayloads.Option opt : show.options()) {
 			TalkPayloads.OptionInfo info = detail == null ? null : detail.info(opt.id());
-			String kind = info == null ? "talk" : info.kind();
+			String kind = info == null ? opt.id().equals(dev.voidmc.hearth.npc.talk.NpcDialogue.BYE) ? "leave" : "talk" : info.kind();
 			JsonObject e = new JsonObject();
-			boolean leave = "leave".equals(kind);
-			int key = leave ? 0 : ++index <= 9 ? index : -1;
-			e.addProperty("key", key);
+			e.addProperty("key", keys[index++]);
 			e.addProperty("id", opt.id());
 			e.addProperty("label", opt.label().getString());
 			e.addProperty("hint", text(opt.hint()));

@@ -90,8 +90,15 @@ class HearthStateJsonTest {
 		assertEquals(-1, first.get("odds").getAsInt());
 		assertTrue(t.getAsJsonObject("resident").get("portrait").isJsonNull());
 		assertTrue(t.getAsJsonObject("standing").get("next").isJsonNull());
-		// with no detail nothing is known to be "leave", so keys simply count on
-		assertEquals(6, t.getAsJsonArray("options").get(5).getAsJsonObject().get("key").getAsInt());
+		// goodbye is known by its id, so the keys are the same before and after the detail arrives
+		JsonObject bye = t.getAsJsonArray("options").get(5).getAsJsonObject();
+		assertEquals(0, bye.get("key").getAsInt());
+		assertEquals("leave", bye.get("kind").getAsString());
+		JsonObject withDetail = HearthStateJson.talk(OverlayFixtures.talk(), OverlayFixtures.detail(), null, HearthStateJson.Lookups.NONE);
+		for (int i = 0; i < 6; i++) {
+			assertEquals(withDetail.getAsJsonArray("options").get(i).getAsJsonObject().get("key").getAsInt(),
+				t.getAsJsonArray("options").get(i).getAsJsonObject().get("key").getAsInt());
+		}
 	}
 
 	@Test
