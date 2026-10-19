@@ -351,6 +351,7 @@ public class LockpickScreen extends Screen {
 	@Override
 	public void removed() {
 		super.removed();
+		dev.voidmc.hearth.client.overlay.HearthViews.lockpickClosed();
 		if (!this.finished && Minecraft.getInstance().getConnection() != null) {
 			ClientPlayNetworking.send(new LawPayloads.LockpickEvent(this.session, LawPayloads.LockpickEvent.CANCEL, this.ticks));
 		}

@@ -57,6 +57,24 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 		this.tab = menu.view().tab();
 	}
 
+	/** Whether a host (the VOID Hub) was offered this screen yet: once, on the first init (docs/OVERLAY.md §openers). */
+	private boolean offered;
+
+	/** On the first init, a host that registered an opener takes over (the menu stays open under its screen). */
+	private boolean handedToHost(String screen) {
+		if (this.offered) {
+			return false;
+		}
+		this.offered = true;
+		return dev.voidmc.hearth.client.overlay.HearthScreens.offer(screen, this);
+	}
+
+	@Override
+	protected void init() {
+		super.init();
+		handedToHost(dev.voidmc.hearth.client.overlay.HearthScreens.BANK);
+	}
+
 	/** A new view arrived from the server: follow its tab (a purchase shows the property tab, a gift the works...). */
 	void onView(BankView view) {
 		if (view.tab() != this.tab) {

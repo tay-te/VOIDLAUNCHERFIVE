@@ -175,4 +175,41 @@ public final class Haggle {
 	long limit() {
 		return this.limit;
 	}
+
+	/** Offers the player may still make before the merchant has had enough, whatever their patience. */
+	public int offersLeft() {
+		return this.state == State.OPEN ? Math.max(0, MAX_ROUNDS - this.rounds) : 0;
+	}
+
+	/** The Speech level from which a talker reads the merchant's limit as a band (docs/HUB_UI.md: hidden below it, KCD-style). */
+	public static final int BAND_SPEECH = 5;
+	/** The Speech level at which the band has closed on the limit itself. */
+	public static final int EXACT_SPEECH = 15;
+
+	/**
+	 * Where a talker of this Speech guesses the merchant's limit lies: {@code {low, high}} in bits around the hidden limit,
+	 * as wide as 30 % of the deal's price at {@link #BAND_SPEECH} and closing to the limit itself at {@link #EXACT_SPEECH};
+	 * null below {@link #BAND_SPEECH} (the band stays hidden). The limit's place inside the band is fixed by the deal, so
+	 * looking again tells nothing new.
+	 */
+	public static long @org.jspecify.annotations.Nullable [] band(long list, long limit, int speech) {
+		if (speech < BAND_SPEECH) {
+			return null;
+		}
+		double share = 0.03 * Math.max(0, EXACT_SPEECH - Math.min(EXACT_SPEECH, speech));
+		long width = Math.round(Math.max(1, list) * share);
+		if (width <= 0) {
+			return new long[] {limit, limit};
+		}
+		long mix = list * 0x9E3779B97F4A7C15L ^ limit * 0xC2B2AE3D27D4EB4FL;
+		mix ^= mix >>> 29;
+		double at = ((mix & 0xFFFF) / 65535.0) * 0.8 + 0.1;  // the limit sits 10–90 % of the way across the band
+		long low = Math.max(0, limit - Math.round(width * at));
+		return new long[] {low, low + width};
+	}
+
+	/** {@link #band(long, long, int)} for this haggle. */
+	public long @org.jspecify.annotations.Nullable [] band(int speech) {
+		return band(this.list, this.limit, speech);
+	}
 }

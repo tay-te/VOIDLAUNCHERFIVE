@@ -359,6 +359,81 @@ public final class Confrontations {
 		if (ServerPlayNetworking.canSend(player, LawPayloads.Confront.TYPE)) {
 			ServerPlayNetworking.send(player, new LawPayloads.Confront(talk.entity, true, talk.name, talk.speech, bounty, choices));
 		}
+		if (ServerPlayNetworking.canSend(player, LawPayloads.ConfrontDetail.TYPE)) {
+			ServerPlayNetworking.send(player, detail(player, talk, s, folk, choices, bounty));
+		}
+	}
+
+	/** The card and each choice's facts for the richer screens (docs/OVERLAY.md {@code confront}). */
+	static LawPayloads.ConfrontDetail detail(ServerPlayer player, Talk talk, Settlement s, Resident folk, List<LawPayloads.Choice> choices, long bounty) {
+		Warrant w = Law.state(s).warrant(player.getUUID());
+		LawConfig cfg = Law.config();
+		List<LawState.PendingReport> reports = talk.kind == Kind.WITNESS ? CrimeDesk.reportsBy(s, folk.id, player.getUUID()) : List.of();
+		List<LawPayloads.ChoiceInfo> infos = new ArrayList<>(choices.size());
+		for (LawPayloads.Choice c : choices) {
+			infos.add(switch (c.id()) {
+				case "pay" -> new LawPayloads.ChoiceInfo("pay", "pay", -1, bounty, -1);
+				case "submit" -> {
+					boolean cell = cfg.justice().jail() && Jail.cell(s, player.blockPosition()) != null;
+					yield new LawPayloads.ChoiceInfo("submit", cell ? "cell" : "submit", -1, -1,
+						cell ? Offences.jailMinutes(bounty, w != null && w.murder(), cfg.justice()) : -1);
+				}
+				case "pillory" -> new LawPayloads.ChoiceInfo("pillory", "pillory", -1, -1, cfg.justice().pilloryMinutes());
+				case "persuade" -> new LawPayloads.ChoiceInfo("persuade", "persuade", SpeechCheck.percent(talk.kind == Kind.SEARCH
+					? searchPersuadeOdds(player, s, folk) : Justice.persuadeOdds(player, s, folk)), -1, -1);
+				case "bribe" -> {
+					long amount;
+					double odds;
+					if (talk.kind == Kind.ARREST) {
+						amount = Justice.bribeAmount(s, player.getUUID());
+						odds = Justice.bribeOdds(player, s, folk);
+					} else if (talk.kind == Kind.SEARCH) {
+						amount = searchBribe();
+						odds = LawSkills.speech(player, SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(folk).listener()));
+					} else {
+						long fine = reports.stream().mapToLong(p -> Offences.fine(p.crime(), cfg.fines())).max().orElse(10);
+						amount = SpeechCheck.witnessBribe(fine);
+						odds = LawSkills.speech(player, SpeechCheck.bribe(amount, amount, worst(reports), FolkTraits.of(folk).listener()));
+					}
+					yield new LawPayloads.ChoiceInfo("bribe", "bribe", SpeechCheck.percent(odds), amount, -1);
+				}
+				case "threaten" -> new LawPayloads.ChoiceInfo("threaten", "threaten", SpeechCheck.percent(threatenOdds(player, folk)), -1, -1);
+				case "flee" -> new LawPayloads.ChoiceInfo("flee", "run", -1, -1, -1);
+				case "resist" -> new LawPayloads.ChoiceInfo("resist", "fight", -1, -1, -1);
+				default -> new LawPayloads.ChoiceInfo(c.id(), c.id(), -1, -1, -1);
+			});
+		}
+		List<String> traits = new ArrayList<>();
+		net.minecraft.nbt.ListTag list = folk.extra.getCompoundOrEmpty("npc").getListOrEmpty("traits");
+		for (net.minecraft.nbt.Tag t : list) {
+			t.asString().ifPresent(traits::add);
+		}
+		java.util.Collections.sort(traits);
+		dev.voidmc.hearth.standing.speech.TalkCard card = dev.voidmc.hearth.standing.speech.TalkCard.of(player, s, folk);
+		String offence = "";
+		int offences = 0;
+		if (talk.kind == Kind.ARREST && w != null && w.active()) {
+			offence = w.worst().translationKey();
+			for (int n : w.offences().values()) {
+				offences += n;
+			}
+		} else if (talk.kind == Kind.WITNESS && !reports.isEmpty()) {
+			LawState.PendingReport worst = reports.getFirst();
+			for (LawState.PendingReport r : reports) {
+				if (Offences.severity(r.crime().offence()) > Offences.severity(worst.crime().offence())) {
+					worst = r;
+				}
+			}
+			offence = worst.crime().offence().translationKey();
+			offences = reports.size();
+		}
+		String kind = switch (talk.kind) {
+			case ARREST -> "arrest";
+			case SEARCH -> "search";
+			case WITNESS -> "witness";
+		};
+		return new LawPayloads.ConfrontDetail(talk.entity, kind, "hearth.npc.job." + folk.job.getSerializedName(), traits, card.opinion(), card.standing(),
+			card.title(), s.name(), offence, offences, talk.kind == Kind.WITNESS ? folk.fullName() : "", infos);
 	}
 
 	static List<LawPayloads.Choice> arrestChoices(ServerPlayer player, Settlement s, Resident guard) {

@@ -6,6 +6,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
+import dev.voidmc.hearth.client.overlay.HearthScreens;
+import dev.voidmc.hearth.client.overlay.HearthViews;
 import net.minecraft.client.Minecraft;
 
 /** Client side of the npc module: drawing folk (composed skins), and the conversation screen. */
@@ -23,14 +25,18 @@ public final class NpcClient {
 		ClientPlayNetworking.registerGlobalReceiver(TalkPayloads.Markers.TYPE, (payload, ctx) -> FolkMarkers.accept(payload));
 		ClientPlayNetworking.registerGlobalReceiver(TalkPayloads.Show.TYPE, (payload, ctx) -> {
 			Minecraft mc = ctx.client();
+			HearthViews.talk(payload);
 			if (mc.gui.screen() instanceof ConversationScreen open && open.entityId() == payload.entity()) {
 				open.update(payload);
 			} else if (payload.open()) {
-				mc.gui.setScreen(new ConversationScreen(payload));
+				// a host (the VOID Hub) shows it if it registered an opener; else the parchment screen
+				HearthScreens.show(HearthScreens.TALK, () -> new ConversationScreen(payload));
 			}
 		});
+		ClientPlayNetworking.registerGlobalReceiver(TalkPayloads.Detail.TYPE, (payload, ctx) -> HearthViews.talkDetail(payload));
 		ClientPlayNetworking.registerGlobalReceiver(TalkPayloads.Close.TYPE, (payload, ctx) -> {
 			Minecraft mc = ctx.client();
+			HearthViews.talkClosed(payload.entity());
 			if (mc.gui.screen() instanceof ConversationScreen open && open.entityId() == payload.entity()) {
 				open.onClose();
 			}

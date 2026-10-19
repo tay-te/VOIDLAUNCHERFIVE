@@ -29,6 +29,7 @@ public final class LawPayloads {
 		PayloadTypeRegistry.clientboundPlay().register(LockpickEnd.TYPE, LockpickEnd.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(Pocket.TYPE, Pocket.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(Confront.TYPE, Confront.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(ConfrontDetail.TYPE, ConfrontDetail.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(LockpickEvent.TYPE, LockpickEvent.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(PocketAction.TYPE, PocketAction.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(ConfrontChoice.TYPE, ConfrontChoice.CODEC);
@@ -302,6 +303,103 @@ public final class LawPayloads {
 		@Override
 		public Type<? extends CustomPacketPayload> type() {
 			return TYPE;
+		}
+	}
+
+	/**
+	 * What a choice in a confrontation does, for screens that show more than its label (docs/OVERLAY.md
+	 * {@code confront.choices[]}).
+	 *
+	 * @param kind    {@code pay, cell, submit, pillory, persuade, bribe, threaten, run, fight, allow, refuse, leave}
+	 * @param odds    a check's chance 0–100, or -1
+	 * @param cost    bits it costs, or -1
+	 * @param minutes time it costs (the cell, the pillory), or -1
+	 */
+	public record ChoiceInfo(String id, String kind, int odds, long cost, int minutes) {
+		static final StreamCodec<RegistryFriendlyByteBuf, ChoiceInfo> CODEC = StreamCodec.of((buf, c) -> {
+			buf.writeUtf(c.id, 64);
+			buf.writeUtf(c.kind, 64);
+			buf.writeVarInt(c.odds);
+			buf.writeVarLong(c.cost);
+			buf.writeVarInt(c.minutes);
+		}, buf -> new ChoiceInfo(buf.readUtf(64), buf.readUtf(64), buf.readVarInt(), buf.readVarLong(), buf.readVarInt()));
+	}
+
+	/**
+	 * The guard's (or witness's) card and each choice's facts, sent right after an open {@link Confront} for the same
+	 * entity (added 2026-10-19 for the Hub's screen; Hearth's own screen reads none of it).
+	 *
+	 * @param kind      {@code arrest}, {@code search} or {@code witness}
+	 * @param job       their trade as a translation key
+	 * @param traits    their traits' serialized names
+	 * @param opinion   what they think of the player, −100…100
+	 * @param standing  the player's standing in the town
+	 * @param title     the player's title there
+	 * @param town      the town's name
+	 * @param offence   the worst offence charged, as a translation key ({@code hearth.offence.theft}), or empty
+	 * @param offences  how many offences the warrant holds
+	 * @param witnesses who saw it (the witness's own name for a witness), or empty
+	 */
+	public record ConfrontDetail(int entity, String kind, String job, List<String> traits, int opinion, int standing, String title, String town,
+		String offence, int offences, String witnesses, List<ChoiceInfo> choices) implements CustomPacketPayload {
+		public static final Type<ConfrontDetail> TYPE = new Type<>(Hearth.id("law/confront_detail"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, ConfrontDetail> CODEC = StreamCodec.of((buf, p) -> {
+			buf.writeVarInt(p.entity);
+			buf.writeUtf(p.kind, 32);
+			buf.writeUtf(p.job, 256);
+			int nt = Math.min(p.traits.size(), 16);
+			buf.writeVarInt(nt);
+			for (String t : p.traits.subList(0, nt)) {
+				buf.writeUtf(t, 64);
+			}
+			buf.writeVarInt(p.opinion);
+			buf.writeVarInt(p.standing);
+			buf.writeUtf(p.title, 64);
+			buf.writeUtf(p.town, 256);
+			buf.writeUtf(p.offence, 256);
+			buf.writeVarInt(p.offences);
+			buf.writeUtf(p.witnesses, 256);
+			int nc = Math.min(p.choices.size(), 16);
+			buf.writeVarInt(nc);
+			for (ChoiceInfo c : p.choices.subList(0, nc)) {
+				ChoiceInfo.CODEC.encode(buf, c);
+			}
+		}, buf -> {
+			int entity = buf.readVarInt();
+			String kind = buf.readUtf(32);
+			String job = buf.readUtf(256);
+			int nt = Math.min(buf.readVarInt(), 16);
+			List<String> traits = new ArrayList<>(nt);
+			for (int i = 0; i < nt; i++) {
+				traits.add(buf.readUtf(64));
+			}
+			int opinion = buf.readVarInt();
+			int standing = buf.readVarInt();
+			String title = buf.readUtf(64);
+			String town = buf.readUtf(256);
+			String offence = buf.readUtf(256);
+			int offences = buf.readVarInt();
+			String witnesses = buf.readUtf(256);
+			int nc = Math.min(buf.readVarInt(), 16);
+			List<ChoiceInfo> choices = new ArrayList<>(nc);
+			for (int i = 0; i < nc; i++) {
+				choices.add(ChoiceInfo.CODEC.decode(buf));
+			}
+			return new ConfrontDetail(entity, kind, job, traits, opinion, standing, title, town, offence, offences, witnesses, choices);
+		});
+
+		@Override
+		public Type<? extends CustomPacketPayload> type() {
+			return TYPE;
+		}
+
+		public @org.jspecify.annotations.Nullable ChoiceInfo info(String id) {
+			for (ChoiceInfo c : this.choices) {
+				if (c.id.equals(id)) {
+					return c;
+				}
+			}
+			return null;
 		}
 	}
 }

@@ -47,6 +47,7 @@ public final class LawDialogue implements DialogueProvider {
 		if (guard && w != null && w.active()) {
 			if (economy != null) {
 				out.add(new Option("law:pay", Component.translatable("hearth.law.talk.pay", economy.format(w.bounty())), 150));
+				DialogueProvider.describe("law:pay", new DialogueProvider.Info("law", -1, w.bounty(), null));
 			}
 			out.add(new Option("law:submit", Component.translatable("hearth.law.talk.submit"), 151));
 		}
@@ -58,10 +59,12 @@ public final class LawDialogue implements DialogueProvider {
 				long amount = SpeechCheck.witnessBribe(fine);
 				int odds = SpeechCheck.percent(LawSkills.speech(player, SpeechCheck.bribe(amount, amount, worst, FolkTraits.of(r).listener())));
 				out.add(new Option("law:hush", Component.translatable("hearth.law.choice.hush", economy.format(amount), odds), 60));
+				DialogueProvider.describe("law:hush", new DialogueProvider.Info("bribe", odds, amount, dev.voidmc.hearth.api.PlayerSkills.SPEECH));
 			}
 			if (Law.config().witnesses().threats()) {
 				int odds = SpeechCheck.percent(LawSkills.speech(player, SpeechCheck.threaten(menace(player), FolkTraits.of(r).listener())));
 				out.add(new Option("law:threaten", Component.translatable("hearth.law.choice.threaten", odds), 61));
+				DialogueProvider.describe("law:threaten", new DialogueProvider.Info("intimidate", odds, -1, dev.voidmc.hearth.api.PlayerSkills.SPEECH));
 			}
 		}
 		if (economy != null && isFence(s, r) && stolenValue(player, s) > 0) {

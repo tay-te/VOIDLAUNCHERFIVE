@@ -97,16 +97,20 @@ public final class SocialDialogue implements DialogueProvider {
 			PlotView inn = ServiceSites.inn(s, r);
 			if (inn != null && !ServiceSites.pois(s, inn, dev.voidmc.hearth.api.PoiType.BED).isEmpty()) {
 				out.add(new Option(BED, label("bed", Hooks.coins(cfg.inn().bed())), 130));
+				DialogueProvider.describe(BED, new DialogueProvider.Info("service", -1, (long) (cfg.inn().bed()), null));
 				boolean hasRoom = false;
 				for (SocialLedger.Rental rent : s.data(SocialModule.LEDGER).rooms) {
 					hasRoom |= rent.player().equals(player.getUUID());
 				}
 				out.add(new Option(ROOM, label(hasRoom ? "room_more" : "room", Hooks.coins(cfg.inn().room())), 131));
+				DialogueProvider.describe(ROOM, new DialogueProvider.Info("service", -1, (long) (cfg.inn().room()), null));
 			}
 			out.add(new Option(MEAL, label("meal", Hooks.coins(cfg.inn().meal())), 132));
+			DialogueProvider.describe(MEAL, new DialogueProvider.Info("service", -1, (long) (cfg.inn().meal()), null));
 		}
 		if (cfg.bath().enabled() && ServiceSites.bathKeeper(s, r)) {
 			out.add(new Option(BATH, label("bath", Hooks.coins(cfg.bath().price())), 135));
+			DialogueProvider.describe(BATH, new DialogueProvider.Info("service", -1, (long) (cfg.bath().price()), null));
 		}
 		if (cfg.stables().enabled() && ServiceSites.stablemaster(s, r, cfg.stables().innsHire())) {
 			PlayerLife life = PlayerLife.of(player);
@@ -114,8 +118,10 @@ public final class SocialDialogue implements DialogueProvider {
 				out.add(opt(RETURN, "return_mount", 141));
 			} else {
 				out.add(new Option(HIRE, label("hire", Hooks.coins(cfg.stables().hirePerDay()), Hooks.coins(cfg.stables().deposit())), 140));
+				DialogueProvider.describe(HIRE, new DialogueProvider.Info("service", -1, (long) (cfg.stables().hirePerDay() + cfg.stables().deposit()), null));
 			}
 			out.add(new Option(BUY, label("buy_mount", Hooks.coins(cfg.stables().buy())), 142));
+			DialogueProvider.describe(BUY, new DialogueProvider.Info("service", -1, (long) (cfg.stables().buy()), null));
 		}
 		if (cfg.wages().enabled() && w != null && money) {
 			WageTask task = WageTasks.task(player);
@@ -178,6 +184,7 @@ public final class SocialDialogue implements DialogueProvider {
 			case GUARD_CAPTAIN -> out.add(opt(TROUBLE, "trouble", 183));
 			case PRIEST -> {
 				out.add(new Option(ALMS, label("alms", Hooks.coins(ALMS_BITS)), 184));
+				DialogueProvider.describe(ALMS, new DialogueProvider.Info("service", -1, (long) (ALMS_BITS), null));
 				out.add(opt(RITES, "rites", 185));
 			}
 			case MASTER_BUILDER -> out.add(opt(BUILDING, "building", 186));
@@ -189,6 +196,7 @@ public final class SocialDialogue implements DialogueProvider {
 			}
 			case STEWARD -> {
 				out.add(new Option(DONATE, label("donate", Hooks.coins(DONATION_BITS)), 189));
+				DialogueProvider.describe(DONATE, new DialogueProvider.Info("service", -1, (long) (DONATION_BITS), null));
 				out.add(opt(COFFERS, "coffers", 190));
 			}
 			case JUDGE, JAILER -> out.add(opt(LAW, "law", 191));

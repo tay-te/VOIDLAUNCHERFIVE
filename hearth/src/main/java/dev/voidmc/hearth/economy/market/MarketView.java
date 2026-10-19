@@ -27,7 +27,35 @@ import org.jspecify.annotations.Nullable;
  * @param haggle     the haggle under way, or null
  */
 public record MarketView(String settlement, String culture, int reputation, long balance, long treasury, Component note, Component status,
-	List<Offer> sells, List<Offer> buys, boolean shop, @Nullable HaggleView haggle) {
+	List<Offer> sells, List<Offer> buys, boolean shop, @Nullable HaggleView haggle, @Nullable Merchant merchant) {
+
+	/** A view with no merchant (the town's own market, or before 2026-10-19). */
+	public MarketView(String settlement, String culture, int reputation, long balance, long treasury, Component note, Component status,
+		List<Offer> sells, List<Offer> buys, boolean shop, @Nullable HaggleView haggle) {
+		this(settlement, culture, reputation, balance, treasury, note, status, sells, buys, shop, haggle, null);
+	}
+
+	/**
+	 * Who keeps the counter, for screens that show the merchant (docs/OVERLAY.md {@code market.merchant}).
+	 *
+	 * @param name    their name
+	 * @param job     their trade as a translation key ({@code hearth.npc.job.merchant})
+	 * @param entity  their folk's entity id where embodied (the client draws their face), or -1
+	 * @param traits  their traits' serialized names ({@code greedy}, {@code cheerful}...)
+	 * @param mood    their mood, −100…100
+	 * @param opinion what they think of the player, −100…100
+	 */
+	public record Merchant(String name, String job, int entity, List<String> traits, int mood, int opinion) {
+		static final StreamCodec<RegistryFriendlyByteBuf, Merchant> STREAM_CODEC = StreamCodec.of((buf, m) -> {
+			ByteBufCodecs.STRING_UTF8.encode(buf, m.name);
+			ByteBufCodecs.STRING_UTF8.encode(buf, m.job);
+			ByteBufCodecs.VAR_INT.encode(buf, m.entity);
+			ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(16)).encode(buf, m.traits);
+			ByteBufCodecs.VAR_INT.encode(buf, m.mood);
+			ByteBufCodecs.VAR_INT.encode(buf, m.opinion);
+		}, buf -> new Merchant(ByteBufCodecs.STRING_UTF8.decode(buf), ByteBufCodecs.STRING_UTF8.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
+			ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(16)).decode(buf), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf)));
+	}
 
 	public static final StreamCodec<RegistryFriendlyByteBuf, MarketView> STREAM_CODEC = StreamCodec.of(MarketView::write, MarketView::read);
 
@@ -84,8 +112,24 @@ public record MarketView(String settlement, String culture, int reputation, long
 	 * @param lastOffer  the player's last offer
 	 * @param patience   the merchant's patience left, 0..100
 	 * @param line       what the merchant just said
+	 * @param offersLeft offers the player may still make
+	 * @param bandLow    where the player's Speech guesses the merchant's limit lies, low end in bits ({@code Haggle#band}); -1
+	 *                   while their Speech is too low to read it (the band stays hidden)
+	 * @param bandHigh   the band's high end, or -1
+	 * @param speech     the player's Speech level (0 without a skills mod)
 	 */
-	public record HaggleView(int row, ItemStack stack, boolean playerBuys, long list, long counter, long lastOffer, int patience, Component line) {
+	public record HaggleView(int row, ItemStack stack, boolean playerBuys, long list, long counter, long lastOffer, int patience, Component line,
+		int offersLeft, long bandLow, long bandHigh, int speech) {
+		/** A view without the 2026-10-19 additions: offers left unknown, band hidden. */
+		public HaggleView(int row, ItemStack stack, boolean playerBuys, long list, long counter, long lastOffer, int patience, Component line) {
+			this(row, stack, playerBuys, list, counter, lastOffer, patience, line, -1, -1, -1, 0);
+		}
+
+		/** Whether the player's Speech reads the merchant's limit. */
+		public boolean bandShown() {
+			return this.bandLow >= 0 && this.bandHigh >= 0;
+		}
+
 		static final StreamCodec<RegistryFriendlyByteBuf, HaggleView> STREAM_CODEC = StreamCodec.of((buf, h) -> {
 			ByteBufCodecs.VAR_INT.encode(buf, h.row);
 			ItemStack.STREAM_CODEC.encode(buf, h.stack);
@@ -95,12 +139,18 @@ public record MarketView(String settlement, String culture, int reputation, long
 			ByteBufCodecs.VAR_LONG.encode(buf, h.lastOffer);
 			ByteBufCodecs.VAR_INT.encode(buf, h.patience);
 			ComponentSerialization.STREAM_CODEC.encode(buf, h.line);
+			ByteBufCodecs.VAR_INT.encode(buf, h.offersLeft);
+			ByteBufCodecs.VAR_LONG.encode(buf, h.bandLow);
+			ByteBufCodecs.VAR_LONG.encode(buf, h.bandHigh);
+			ByteBufCodecs.VAR_INT.encode(buf, h.speech);
 		}, buf -> new HaggleView(ByteBufCodecs.VAR_INT.decode(buf), ItemStack.STREAM_CODEC.decode(buf), ByteBufCodecs.BOOL.decode(buf),
 			ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
-			ComponentSerialization.STREAM_CODEC.decode(buf)));
+			ComponentSerialization.STREAM_CODEC.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf),
+			ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_INT.decode(buf)));
 	}
 
 	private static final StreamCodec<RegistryFriendlyByteBuf, Optional<HaggleView>> OPTIONAL_HAGGLE = ByteBufCodecs.optional(HaggleView.STREAM_CODEC);
+	private static final StreamCodec<RegistryFriendlyByteBuf, Optional<Merchant>> OPTIONAL_MERCHANT = ByteBufCodecs.optional(Merchant.STREAM_CODEC);
 
 	private static void write(RegistryFriendlyByteBuf buf, MarketView v) {
 		ByteBufCodecs.STRING_UTF8.encode(buf, v.settlement);
@@ -114,12 +164,14 @@ public record MarketView(String settlement, String culture, int reputation, long
 		Offer.STREAM_CODEC.apply(ByteBufCodecs.list(256)).encode(buf, v.buys);
 		ByteBufCodecs.BOOL.encode(buf, v.shop);
 		OPTIONAL_HAGGLE.encode(buf, Optional.ofNullable(v.haggle));
+		OPTIONAL_MERCHANT.encode(buf, Optional.ofNullable(v.merchant));
 	}
 
 	private static MarketView read(RegistryFriendlyByteBuf buf) {
 		return new MarketView(ByteBufCodecs.STRING_UTF8.decode(buf), ByteBufCodecs.STRING_UTF8.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
 			ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), ComponentSerialization.STREAM_CODEC.decode(buf),
 			ComponentSerialization.STREAM_CODEC.decode(buf), Offer.STREAM_CODEC.apply(ByteBufCodecs.list(256)).decode(buf),
-			Offer.STREAM_CODEC.apply(ByteBufCodecs.list(256)).decode(buf), ByteBufCodecs.BOOL.decode(buf), OPTIONAL_HAGGLE.decode(buf).orElse(null));
+			Offer.STREAM_CODEC.apply(ByteBufCodecs.list(256)).decode(buf), ByteBufCodecs.BOOL.decode(buf), OPTIONAL_HAGGLE.decode(buf).orElse(null),
+			OPTIONAL_MERCHANT.decode(buf).orElse(null));
 	}
 }

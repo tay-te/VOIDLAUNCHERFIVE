@@ -189,6 +189,7 @@ public class PickpocketScreen extends Screen {
 	@Override
 	public void removed() {
 		super.removed();
+		dev.voidmc.hearth.client.overlay.HearthViews.pocketClosed();
 		if (this.state.state() == LawPayloads.Pocket.OPEN && Minecraft.getInstance().getConnection() != null) {
 			ClientPlayNetworking.send(new LawPayloads.PocketAction(this.state.session(), LawPayloads.PocketAction.LEAVE, -1));
 		}

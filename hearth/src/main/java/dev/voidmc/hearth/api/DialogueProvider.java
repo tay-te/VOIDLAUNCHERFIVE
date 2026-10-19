@@ -65,10 +65,52 @@ public interface DialogueProvider {
 		return Registry.PROVIDERS;
 	}
 
+	/**
+	 * Structured facts about one option, for conversation screens that show more than a label and a hint (the VOID Hub's
+	 * portrait card: an odds chip, a coin cost, the skill a check reads). Optional: an option nobody describes is
+	 * classified by its id and order band. Added 2026-10-19; a provider calls {@link #describe} from {@link #collect}.
+	 *
+	 * @param kind  what the option does, one of {@code talk, trade, bank, quest, persuade, intimidate, bribe, flatter,
+	 *              train, service, law, fence, dice, repair, leave} (a screen picks its glyph by it; others are allowed)
+	 * @param odds  the chance of a check succeeding, 0–100, or -1 when the option is not a check
+	 * @param cost  what picking it costs in bits, or -1 when it costs nothing (or the provider does not say)
+	 * @param skill the skill the check or lesson reads ({@code mettle:speech}, {@link PlayerSkills} keys), or null
+	 */
+	record Info(String kind, int odds, long cost, @Nullable String skill) {
+		/** No check, no cost, no skill. */
+		public static Info of(String kind) {
+			return new Info(kind, -1, -1, null);
+		}
+	}
+
+	/**
+	 * Describes an option this provider is adding in {@link #collect} (call it next to {@code out.add}). Outside a
+	 * conversation's collection it does nothing. Server thread.
+	 */
+	static void describe(String optionId, Info info) {
+		java.util.Map<String, Info> sink = Registry.INFO.get();
+		if (sink != null && optionId != null && info != null) {
+			sink.put(optionId, info);
+		}
+	}
+
 	final class Registry {
 		private static final List<DialogueProvider> PROVIDERS = new CopyOnWriteArrayList<>();
+		private static final ThreadLocal<java.util.Map<String, Info>> INFO = new ThreadLocal<>();
 
 		private Registry() {
+		}
+
+		/**
+		 * Starts collecting {@link #describe} calls on this thread into {@code sink} (null stops). The conversation calls it
+		 * around asking the providers; nothing else should.
+		 */
+		public static void collectInfo(java.util.@Nullable Map<String, Info> sink) {
+			if (sink == null) {
+				INFO.remove();
+			} else {
+				INFO.set(sink);
+			}
 		}
 	}
 }
