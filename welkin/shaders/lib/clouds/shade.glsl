@@ -93,6 +93,13 @@
 // the silver lining's scene light at noon .. through the warm hours (times WC_RIM_SCENE)
 #define WD_RIM_NOON 0.5
 #define WD_RIM_WARM 1.5
+// (Look D3) the moonlit paint (night): against the night sky behind the cloud
+#define WN_SILVER vec3(0.84, 0.90, 1.0)
+#define WN_SHADE vec3(0.80, 0.83, 0.94)
+#define WN_LIT 1.9
+#define WN_BELLY 0.7
+#define WN_EDGE 1.4
+#define WN_PAINT 0.9
 #define WS_SHADE_SKY 0.35
 #define WS_DUSK_SHADE vec3(0.78, 0.74, 1.0)
 #define WS_CLOSED_KEEP 0.75
@@ -597,6 +604,29 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	}
 	// (Look D3) the light's colour into scene light, the paint over it
 	vec3 cS = mix(sceneFromAuthored(wcShoulder(c)), paintS, paintW);
+	// (Look D3) moonlit: at night the clouds are painted in the moon's light against the night sky behind them, as the
+	// day's are in the sun's: tops and flanks turned to the moon a cool silver over the sky, bellies a shade under it, and
+	// the thin parts and outlines toward the moon glow (the moon's silver lining), never one flat grey slab
+	float nightP = night * (1.0 - dusk) * (1.0 - 0.7 * closed);
+	if (nightP > 0.0) {
+		vec3 moonW = normalize(mat3(gbufferModelViewInverse) * moonPosition);
+		float mUp = smoothstep(-0.02, 0.15, moonW.y);
+		float yN = wcLuma(skyS);
+		float hD = b.k >= 0 ? clamp((b.y - b.iv.x) / wcDeckSpan(b.k), 0.0, 1.0) : b.hIn;
+		float faceM = n.y > 0.5 ? mix(0.55, 1.0, clamp(moonW.y, 0.0, 1.0)) * mix(0.75, 1.0, b.depth)
+			: (n.y < -0.5 ? 0.0 : smoothstep(-0.45, 0.8, dot(n.xz, moonW.xz) / max(length(moonW.xz), 1e-3)) * mix(0.3, 1.0, hD));
+		float cm = 0.5 + 0.5 * dot(normalize(rd.xz + vec2(1e-5)), normalize(moonW.xz + vec2(1e-5)));
+		cm = cm * cm * (3.0 - 2.0 * cm);
+		float thinM = (1.0 - b.depth) * (1.0 - b.depth);
+		vec3 silver = toLinear(WN_SILVER);
+		silver /= wcLuma(silver);
+		vec3 shadeN = toLinear(WN_SHADE);
+		shadeN /= wcLuma(shadeN);
+		float sM = smoothstep(0.0, 1.0, faceM) * mUp;
+		vec3 nightC = yN * (mix(shadeN * (WN_BELLY * mix(1.15, 0.8, sqrt(b.depth))), silver * WN_LIT, sM)
+			+ silver * (WN_EDGE * mUp * cm * cm * cm * max(thinM, 0.7 * b.rim)));
+		cS = mix(cS, nightC, nightP * WN_PAINT);
+	}
 	if (e.flash && tone == 2) {
 		cS = mix(cS, sceneFromAuthored(vec3(0.86, 0.86, 1.0)), 0.5);
 	}
