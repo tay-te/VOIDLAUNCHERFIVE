@@ -160,7 +160,10 @@ void main() {
 		vec2 cu = vec2(p >> 1) * hp;
 		vec3 b = texture(colortex12, cu + vec2(-hp.x, -hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, -hp.y)).rgb
 			+ texture(colortex12, cu + vec2(-hp.x, hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, hp.y)).rgb;
-		c += b * 0.25;
+		// (look, welkin-look: laid on as a screen, so the beams stream bright through the dark lanes between trunks and
+		// over shaded land, and add little over what is already bright: open water and sky toward the sun take no veil;
+		// was c += b * 0.25)
+		c += b * 0.25 * (1.0 - clamp(c, 0.0, 1.0));
 	}
 #endif
 #ifdef BLOOM

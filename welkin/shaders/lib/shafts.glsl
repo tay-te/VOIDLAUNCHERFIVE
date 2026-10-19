@@ -56,12 +56,12 @@ float shaftGate(vec3 sunW) {
 
 // ---- the resolve and the light, for composite2 (define WELKIN_SHAFTS_READ and include lib/air.glsl first)
 // atmos: the 3D shafts' gain and cap (shaftLight)
-// (look: 2.4, was 1.7)
-#define SHAFT_GAIN 2.4
+#define SHAFT_GAIN 1.7
+// (look) the near air's gain
+#define SHAFT_GAIN_NEAR 2.6
 // (look) the near air's own reach for the beams' strength (blocks)
 #define SHAFT_NEAR 32.0
-// (look: 0.6, was 0.5)
-#define SHAFT_CAP 0.60
+#define SHAFT_CAP 0.50
 // (review round 1) on the open sky: the beams between clouds and over ridges toward a low sun
 // (golden, 2026-10-16: 0.25, was 0.4: on the open sky the sunlit air only whitened the glow round a 17:00 to 18:00 sun
 // into a milky disc; the beams (SHAFT_BEAMS) carry the rays over the sky)
@@ -105,9 +105,12 @@ float shaftResolve(ivec2 p, float dist) {
 vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, float thick, float dist) {
 	float mu = dot(dirW, sunW);
 	// a strong forward lobe (the beams toward the sun) and a broad one (side-on, a soft directional glow)
-	// (look, welkin-look 2026-10-18: a broader lobe with a floor, so beams through a canopy read side-on too, was
-	// 0.75 * airHg(mu, 0.88) + 0.25 * airHg(mu, 0.5))
-	float lobe = 0.60 * airHg(mu, 0.85) + 0.28 * airHg(mu, 0.5) + 0.12;
+	// (look, welkin-look 2026-10-18) the near air (a few dozen blocks: between trunks, under crowns) is treated apart from
+	// the far: it counts for more, scatters over a broader lobe with a floor (beams through a canopy read side-on too),
+	// and keeps more of a half-shadowed ray. The far air (long rays over the open land, the water, the sky) stays as it
+	// was, so no veil comes over the frame toward a low sun.
+	float nearW = sky ? 0.0 : 1.0 - smoothstep(24.0, 110.0, dist);
+	float lobe = 0.75 * airHg(mu, 0.88) + 0.25 * airHg(mu, 0.5) + 0.15 * nearW;
 	// the sun's light: its own hue, led toward the warm gold through the golden hours (display, luma 1)
 	vec3 hue = pow(mix(f.hue, f.gold, 0.55) * 0.4, vec3(1.0 / 2.2));
 	hue /= max(dot(hue, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
@@ -127,9 +130,12 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, f
 	// blocks off show: by the physical weight alone a 20-block ray carried a twentieth of a long one's light and the
 	// beams under a canopy stayed at two 8-bit levels)
 	float amp = sky ? 1.0 : max(pow(open, 1.25), 1.0 - exp(-dist / SHAFT_NEAR));
-	float x = float(SHAFT_STRENGTH) * 0.01 * SHAFT_GAIN * lobe * gate * amp * thick * (sky ? SHAFT_SKY : 1.0);
+	float x = float(SHAFT_STRENGTH) * 0.01 * mix(SHAFT_GAIN, SHAFT_GAIN_NEAR, nearW) * lobe * gate * amp * thick * (sky ? SHAFT_SKY : 1.0);
 	// a soft cap on the open air's glow (never more than SHAFT_CAP of the sun-side level), then the shadowed share out
-	return hue * level * (SHAFT_CAP * (1.0 - exp(-x / SHAFT_CAP))) * pow(ratio, 1.6);
+	// (look) in the near air a wholly sunlit ray (an open field, open water) gives back much of its extra: the near
+	// air's strength is for the beams where light and shadow alternate (a canopy, trunks), not a veil over the open
+	float beamy = mix(1.0, 1.0 - 0.75 * smoothstep(0.45, 0.95, ratio), nearW);
+	return hue * level * (SHAFT_CAP * (1.0 - exp(-x / SHAFT_CAP))) * pow(ratio, mix(2.0, 1.5, nearW)) * beamy;
 }
 #endif
 
