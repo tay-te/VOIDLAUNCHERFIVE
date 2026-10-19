@@ -976,19 +976,15 @@ public class PlaythroughTour implements FabricClientGameTest {
 				return null;
 			});
 			settle(1_500);
-			srv(server -> {
-				Folk w = NpcModule.embodiment().entityOf(witness);
-				if (w != null && w.brain() != null) {
-					w.brain().handle().stop();
-					w.brain().handle().lookAt(player(server));
-				}
-				return null;
-			});
+			faceUs(witness);
 		}
 		note("witness " + doing(witness));
 		int seen0 = CRIMES_SEEN.get();
+		// (held looking our way through the theft: a witness walking on to work turns their back in a second)
+		faceUs(witness);
 		boolean opened = openContainer(chest);
 		ok(opened, "right-clicking the container opens it (" + chest.toShortString() + ")");
+		faceUs(witness);
 		takeFirst();
 		settle(800);
 		this.context.runOnClient(mc -> mc.player.closeContainer());
@@ -1439,30 +1435,54 @@ public class PlaythroughTour implements FabricClientGameTest {
 		BlockPos c = srv(server -> town(server).center());
 		stand(c, 0);
 		settle(30_000);
+		StringBuilder awake = new StringBuilder();
 		int[] n = srv(server -> {
 			SimSettlement s = town(server);
+			ServerLevel level = server.overworld();
 			int homed = 0;
 			int inBed = 0;
 			int asleep = 0;
 			int out = 0;
+			int homeless = 0;
+			for (Resident r : s.residents()) {
+				homeless += r.home == Resident.NO_PLOT ? 1 : 0;
+			}
+			int listed = 0;
 			for (Folk f : townFolk()) {
 				Resident r = f.brain().resident;
 				if (r.home == Resident.NO_PLOT || s.plot(r.home) == null) {
 					continue;
 				}
 				homed++;
+				boolean own = false;
 				if (f.isSleeping()) {
 					asleep++;
 					BlockPos bed = f.getSleepingPos().orElse(null);
 					if (bed != null && s.plot(r.home).reach().inflatedBy(1).isInside(bed)) {
 						inBed++;
+						own = true;
 					}
 				} else if (!s.plot(r.home).reach().inflatedBy(1).isInside(f.blockPosition())) {
 					out++;
 				}
+				if (!own && listed++ < 24) {
+					// why not abed: what they are doing, where their bed is and whether it can be slept in
+					BlockPos bed = f.brain().places(level).bed;
+					String bedSays = bed == null ? "no bed" : String.format(Locale.ROOT, "bed %s %.0f blocks off%s%s", bed.toShortString(),
+						Math.sqrt(f.blockPosition().distSqr(bed)),
+						level.getBlockState(bed).getBlock() instanceof net.minecraft.world.level.block.BedBlock ? "" : " (no bed block there)",
+						level.getEntitiesOfClass(Folk.class, new net.minecraft.world.phys.AABB(bed).inflate(0.5), o -> o != f && o.isSleeping()
+							&& bed.equals(o.getSleepingPos().orElse(null))).isEmpty() ? "" : " (taken)");
+					long sharing = s.residents().stream().filter(o -> o.home == r.home).count();
+					awake.append(System.lineSeparator()).append("  - ").append(f.folkName()).append(" (").append(r.job.getSerializedName()).append(", ").append(r.age.getSerializedName())
+						.append("): ").append(f.brain().describe()).append("; ").append(bedSays).append("; home #").append(r.home).append(' ')
+						.append(s.plot(r.home).spec().archetype().getPath()).append(" with ").append(sharing).append(" living there for ")
+						.append(s.plot(r.home).beds()).append(" beds");
+				}
 			}
-			return new int[]{homed, asleep, inBed, out};
+			return new int[]{homed, asleep, inBed, out, homeless, s.population()};
 		});
+		note("homeless: " + n[4] + " of " + n[5] + " residents; not in their own beds:" + awake);
 		note("midnight: " + n[0] + " embodied folk with homes, " + n[1] + " asleep, " + n[2] + " in a bed of their own home, " + n[3] + " still out");
 		ok(n[0] > 0 && n[2] * 2 >= n[0], "folk go home to bed (" + n[2] + "/" + n[0] + " in their own beds)");
 		// right-clicking a sleeper is never met with silence
@@ -1981,6 +2001,21 @@ public class PlaythroughTour implements FabricClientGameTest {
 
 	private String where() {
 		return srv(server -> player(server).blockPosition().toShortString());
+	}
+
+	/** Stops a folk where they stand and turns them to the player (a witness put a few steps off). */
+	private void faceUs(@Nullable UUID resident) {
+		if (resident == null) {
+			return;
+		}
+		srv(server -> {
+			Folk w = NpcModule.embodiment().entityOf(resident);
+			if (w != null && w.brain() != null) {
+				w.brain().handle().stop();
+				w.brain().handle().lookAt(player(server));
+			}
+			return null;
+		});
 	}
 
 	private String doing(@Nullable UUID resident) {
