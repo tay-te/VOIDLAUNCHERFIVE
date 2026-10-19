@@ -1029,6 +1029,12 @@
       h += "</div>";
       var s = towns[ui.town];
       h += '<div class="h-panel" style="left:360px;top:75px;width:598px;height:482px">';
+      if (!s) {
+        h += '<div class="h-eb" style="left:19px;top:17px">YOUR NAME ON THE ROADS</div>' +
+          '<div style="left:19px;top:33px;font-size:22px;color:#EDEEEF;white-space:nowrap">A stranger everywhere</div>' +
+          '<div style="left:19px;top:71px;width:558px;font-size:11.5px;color:#626569;line-height:16px">Towns learn your name as you trade, work and keep (or break) their law. Each one remembers you on its own.</div>' +
+          '<div class="h-hair" style="left:19px;top:127px;width:558px"></div>';
+      }
       if (s) {
         var at = 0;
         for (var l = 0; l < LADDER.length; l++) if (LADDER[l][0] === s.title) at = l;
@@ -1039,8 +1045,10 @@
           '<div class="' + titleTone(s.title) + '" style="right:19px;top:33px;font-size:22px">' + sgn(s.value) + "</div>" +
           '<div class="h-ladder flow" style="left:19px;top:71px">' + ladder + "</div>" +
           '<div style="left:19px;top:103px;font-size:11px;color:#626569;white-space:nowrap">' + esc(s.culture ? upperFirst(s.culture) + " folk" : "") + (s.owns ? "  ·  you own property here" : "") + "</div>" +
-          '<div class="h-hair" style="left:19px;top:127px;width:558px"></div>' +
-          '<div class="h-eb" style="left:19px;top:141px">WHAT FOLK NOTICE</div><div class="h-pills flow" style="left:19px;top:159px">';
+          '<div class="h-hair" style="left:19px;top:127px;width:558px"></div>';
+      }
+      {
+        h += '<div class="h-eb" style="left:19px;top:141px">WHAT FOLK NOTICE</div><div class="h-pills flow" style="left:19px;top:159px">';
         for (var n = 0; n < r.looks.length && n < 8; n++) h += '<div class="h-pill ink"><div class="h-dot ink"></div><span>' + esc(r.looks[n]) + "</span></div>";
         if (!r.looks.length) h += '<div class="h-pill">Nothing about you stands out</div>';
         var fameCells = "";

@@ -319,6 +319,8 @@ public final class HearthTest {
 	}
 
 	private void reputation() {
+		this.as("hearth standing set Player0 24");
+		this.context.waitTicks(5);
 		this.as("hearth standing");
 		boolean open = this.waitFor(() -> this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubInventoryScreen h && "quests".equals(h.page())), 80);
 		if (!open) {
