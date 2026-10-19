@@ -28,6 +28,17 @@ float gradeLuma(vec3 c) {
 
 // (look2) how strongly the yellow-greens are drawn to moss, 0..1
 #define GRADE_MOSS 0.85
+// (Look D5) the earthy day: the hue (degrees, of linear light) the sunlit yellow-greens are drawn to (an olive) and the
+// shaded ones (a moss), and the share of saturation the yellow-greens keep
+#define GRADE_OLIVE_HUE 66.0
+#define GRADE_MOSS_HUE 82.0
+#define GRADE_OLIVE_SAT 0.92
+#define GRADE_OLIVE_LIGHT 0.86
+// (Look D5) the day sky's blue keeps this much saturation; the mids' gamma by day (under 1: deeper)
+#define GRADE_SKY_SAT 0.74
+#define GRADE_DAY_GAMMA 0.93
+// (Look D5) the mid-afternoon's extra highlight roll
+#define GRADE_AFTERNOON_ROLL 0.2
 
 vec3 gradeHsv(vec3 c) {
 	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -108,10 +119,22 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 			float th = 96.0 + (hd - 96.0) * 0.2;
 			// (the true greens, past about 90 degrees: leaves, a savanna's crowns, keep more of their colour and depth)
 			float yg = 1.0 - smoothstep(75.0, 115.0, hd);
+			// (Look D5) the old target (about 92 degrees) drew a sunlit meadow's yellow-green toward a fresh green. By day the
+			// yellow-greens now go earthy by their light: the sunlit tops toward an olive (GRADE_OLIVE_HUE, red about equal to
+			// green), the shaded and darker grass toward a moss (GRADE_MOSS_HUE); the hue turns, the light is kept
+			// (by day only: through the golden hours, from warm about 0.3 to 0.55, the old moss target comes back, so 17:00
+			// and later are as they were; sand and straw, under about 58 degrees, keep their light)
+			float earthy = 1.0 - smoothstep(0.3, 0.55, warm);
+			float olive = earthy * smoothstep(54.0, 66.0, hd);
+			{
+				float ydl = pow(max(gradeLuma(L), 0.0), 1.0 / 2.2);
+				float thE = mix(GRADE_MOSS_HUE, GRADE_OLIVE_HUE, smoothstep(0.22, 0.62, ydl));
+				th = mix(th, thE, yg * earthy);
+			}
 			// (look3: a gentler pull, 0.88..0.76 of the saturation and 0.97..0.93 of the light, was 0.80..0.62 and 0.93..0.84:
 			// noon's meadow had gone a grey olive; it stays moss and olive, but alive)
-			vec3 m2 = gradeRgb(vec3(th / 360.0, hsv.y * mix(1.0, 0.97, yg), hsv.z));
-			m2 *= mix(0.97, 0.92, yg) * gradeLuma(L) / max(gradeLuma(m2), 1e-6);
+			vec3 m2 = gradeRgb(vec3(th / 360.0, hsv.y * mix(1.0, mix(0.97, GRADE_OLIVE_SAT, olive), yg), hsv.z));
+			m2 *= mix(0.97, mix(0.92, GRADE_OLIVE_LIGHT, olive), yg) * gradeLuma(L) / max(gradeLuma(m2), 1e-6);
 			L = mix(L, m2, band * GRADE_MOSS);
 		}
 		// blue-grey: a third of the saturation out, a breath of warmth in
@@ -141,7 +164,8 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		float s = mix(base, mix(mix(1.0, 0.94, warm), 1.04, night), keepWarm);
 		// (look3) the open sky's blue keeps more by day: a soft hazy blue, not a leaden grey
 		float blueK = clamp((L.b - max(L.r, L.g)) / max(L.b, 1e-4) * 3.0, 0.0, 1.0) * day * (1.0 - over);
-		s = mix(s, max(s, 0.90), blueK);
+		// (Look D5) a soft, slightly hazy blue by day, not a saturated one (was 0.90)
+		s = mix(s, GRADE_SKY_SAT, blueK);
 		// calmer highs and lows, richest in the mids
 		s *= 1.0 - 0.22 * smoothstep(0.62, 0.98, yd) * (1.0 - keepWarm) * (1.0 - 0.6 * blueK);
 		s *= 1.0 - mix(0.18, 0.06, day) * (1.0 - smoothstep(0.03, 0.22, yd)); // (look3: by day the shade keeps its colour)
@@ -206,6 +230,8 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		lift = mix(lift, lNight, night);
 		// gamma: the mids a little lower by day (calm), held at the golden hour, a little higher under an overcast
 		float gamma = mix(1.0, 1.03, over); // (look3: noon 0.98, was 0.95)
+		// (Look D5) by day the mids sit a little deeper (the tops and white kept): a calmer, earthier land with its form
+		gamma *= mix(1.0, GRADE_DAY_GAMMA, day * (1.0 - smoothstep(0.3, 0.55, warm)) * (1.0 - over) * open);
 		// (look2) moonlit nights a little more open in the mids, so the land reads under the moon
 		gamma = mix(gamma, mix(1.14, 1.0, nd), night * open);
 		d = d * gain + lift * (1.0 - d);
@@ -223,7 +249,10 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		// sunlit sand sit in a soft cream a step under white instead of a high-key glare (the golden hours keep more of
 		// their glow, night is untouched)
 		float roll = smoothstep(0.55, 1.0, x);
-		yd2 -= mix(0.04, 0.08, warm) * roll * roll * day * open * (1.0 - keepWarm); // (look3: 0.11, was 0.17)
+		// (Look D5) the mid-afternoon (warm about 0.1 to 0.4: 16:30) rolls its sunlit tops a little more, so they do not run
+		// hot before the golden hour's glow takes over (17:00 is at about 0.6)
+		float aft = smoothstep(0.04, 0.16, warm) * (1.0 - smoothstep(0.32, 0.52, warm));
+		yd2 -= (mix(0.04, 0.08, warm) + GRADE_AFTERNOON_ROLL * aft) * roll * roll * day * open * (1.0 - keepWarm); // (look3: 0.11, was 0.17)
 		d *= yd2 / max(yd, 1e-5);
 	}
 
