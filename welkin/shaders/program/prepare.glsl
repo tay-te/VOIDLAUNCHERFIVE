@@ -28,8 +28,12 @@ const bool colortex5Clear = false;
 /* RENDERTARGETS: 5 */
 layout(location = 0) out vec4 outTable;
 
-// (HDR stage C) the frame-time probe: texel (0, 30) keeps a slow running mean of Iris's frameTime (seconds / 0.1) over
-// the frames the studio does not film (its shots fix the clock at about 100 s); final shows it with DEBUG_VIEW 25
+// (HDR stage C) the frame-time probe: texel (0, 30) keeps the mean of Iris's frameTime (seconds / 0.1) over the frames
+// the studio does not film (its shots fix the clock at about 100 s); final shows it with DEBUG_VIEW 25.
+// (D7) A plain mean since the last filmed frame (a filmed frame marks a = 0.5 and the next idle frame starts over), up
+// to 2048 frames, then a running mean over about that many. RGBA16F holds 11 bits, which gave the old running mean a
+// dead zone of about 0.15 ms (an update under half a step was lost): the mean is now kept as r + b, r the value rounded
+// to a half float (exact, so the target's own rounding never moves it) and b the rest.
 #ifndef WU_frameTime
 #define WU_frameTime
 uniform float frameTime;
@@ -39,15 +43,27 @@ uniform float frameTime;
 uniform float frameTimeCounter;
 #endif
 
+// x (> 0, in a half float's normal range) rounded to a half float's 11 significant bits
+float probeHalf(float x) {
+	float ulp = exp2(floor(log2(x)) - 10.0);
+	return floor(x / ulp + 0.5) * ulp;
+}
+
 void main() {
 	outTable = skyBuildTexel(ivec2(gl_FragCoord.xy));
 	if (ivec2(gl_FragCoord.xy) == ivec2(0, 30)) {
 		vec4 prev = texelFetch(colortex5, ivec2(0, 30), 0);
 		bool filming = abs(frameTimeCounter - 100.0) < 2.0;
-		float ft = clamp(frameTime / 0.1, 0.0, 1.0);
-		float n = prev.g * 4096.0;
-		outTable = filming || frameTime <= 0.0 ? prev
-			: vec4(n < 1.0 ? ft : mix(prev.r, ft, max(0.02, 1.0 / (n + 1.0))), min(n + 1.0, 4000.0) / 4096.0, 0.0, 1.0);
+		if (filming || frameTime <= 0.0) {
+			outTable = vec4(prev.rgb, 0.5);
+		} else {
+			float ft = clamp(frameTime / 0.1, 1e-4, 1.0);
+			float n = prev.a > 0.75 ? clamp(prev.g, 0.0, 2048.0) : 0.0;
+			float m = n < 1.0 ? ft : prev.r + prev.b;
+			m += (ft - m) / (n + 1.0);
+			float hi = probeHalf(m);
+			outTable = vec4(hi, min(n + 1.0, 2048.0), m - hi, 1.0);
+		}
 	}
 }
 

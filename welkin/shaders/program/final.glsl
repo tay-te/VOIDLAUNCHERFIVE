@@ -390,12 +390,12 @@ void main() {
 #endif
 	c = clamp(c + tri / 255.0, 0.0, 1.0);
 #if DEBUG_VIEW == 25
-	// (HDR stage C) the frame-time probe (program/prepare.glsl): the top-left 8x8 pixels hold the mean frame time in
-	// tenths of a millisecond, r the high byte, g the low byte; b the frames counted / 16
+	// (HDR stage C) the frame-time probe (program/prepare.glsl): the top-left 8x8 pixels hold the mean frame time,
+	// (D7) in hundredths of a millisecond, r the high byte, g the low byte; b the frames counted / 16
 	if (p.x < 8 && p.y >= int(viewHeight) - 8) {
 		vec4 ftp = texelFetch(colortex5, ivec2(0, 30), 0);
-		float tenths = floor(ftp.r * 1000.0 + 0.5); // (seconds / 0.1) x 1000 = tenths of a ms
-		c = vec3(floor(tenths / 256.0), mod(tenths, 256.0), min(ftp.g * 4096.0 / 16.0, 255.0)) / 255.0;
+		float hund = floor((ftp.r + ftp.b) * 10000.0 + 0.5); // (seconds / 0.1) x 10000 = hundredths of a ms
+		c = vec3(floor(hund / 256.0), mod(hund, 256.0), min(ftp.g / 16.0, 128.0)) / 255.0;
 	}
 #endif
 	outColor = vec4(c, 1.0);
