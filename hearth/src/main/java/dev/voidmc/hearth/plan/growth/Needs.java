@@ -28,6 +28,8 @@ public final class Needs {
 	public final int beds;
 	/** Beds expected from housing planned, under way or queued. */
 	public int plannedBeds;
+	/** Residents with no home (no bed free for them: an old save's inn folk, newcomers past the beds). */
+	public final int homeless;
 	public final Map<Identifier, Integer> counts = new HashMap<>();
 	public final Map<ArchetypeCategory, Integer> categories = new EnumMap<>(ArchetypeCategory.class);
 	public final Map<JobType, Integer> workers = new EnumMap<>(JobType.class);
@@ -51,9 +53,13 @@ public final class Needs {
 		this.population = ctx.population;
 		this.beds = ctx.settlement.beds();
 		int a = 0;
+		int unhoused = 0;
 		for (Resident r : ctx.settlement.residents()) {
 			if (r.age != AgeStage.CHILD) {
 				a++;
+			}
+			if (r.home == Resident.NO_PLOT) {
+				unhoused++;
 			}
 			if (r.job != JobType.NONE) {
 				this.workers.merge(r.job, 1, Integer::sum);
@@ -66,6 +72,7 @@ public final class Needs {
 			}
 		}
 		this.adults = a;
+		this.homeless = unhoused;
 		for (PlotView plot : ctx.settlement.plots()) {
 			boolean built = plot.state() == PlotState.BUILT || plot.state() == PlotState.ABANDONED;
 			if (plot.state() == PlotState.DEMOLISHING) {

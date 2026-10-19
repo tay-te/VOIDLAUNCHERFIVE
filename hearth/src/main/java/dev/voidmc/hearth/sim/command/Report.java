@@ -58,13 +58,30 @@ public final class Report {
 		int pop = 0;
 		int plots = 0;
 		int built = 0;
+		int homeless = 0;
+		int beds = 0;
+		SimSettlement worst = null;
+		int worstHomeless = 0;
 		for (SimSettlement s : w.settlements()) {
 			pop += s.population();
 			plots += s.plots().size();
 			built += s.plotCounts().getOrDefault(PlotState.BUILT, 0);
+			beds += s.beds();
+			int h = 0;
+			for (dev.voidmc.hearth.api.Resident r : s.residents()) {
+				h += r.home == dev.voidmc.hearth.api.Resident.NO_PLOT ? 1 : 0;
+			}
+			homeless += h;
+			if (h > worstHomeless) {
+				worstHomeless = h;
+				worst = s;
+			}
 		}
 		out.add(String.format(Locale.ROOT, "world: %d live settlements, %d souls, %d plots (%d built), %d embodied, %d indexed chunks", w.settlements().size(),
 			pop, plots, built, server.embodiedCount(w), w.spatial().indexedChunks()));
+		// folk with no home sleep out (an inn's beds are guest beds, not homes): the planner puts homes for them first
+		out.add(String.format(Locale.ROOT, "housing: %d homeless of %d souls, %d beds in homes%s", homeless, pop, beds,
+			worst == null ? "" : String.format(Locale.ROOT, "; most in %s (%d of %d, %d beds)", worst.name(), worstHomeless, worst.population(), worst.beds())));
 		int sites = 0;
 		int rising = 0;
 		int declining = 0;

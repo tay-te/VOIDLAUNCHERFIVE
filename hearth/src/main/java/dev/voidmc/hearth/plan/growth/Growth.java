@@ -363,9 +363,14 @@ public final class Growth {
 			int ceiling = roof - needs.beds - needs.plannedBeds;
 			social = Math.max(0, Math.min(needs.stations(ctx).totalShortfall(ctx.config.housingMargin()), ceiling));
 		}
-		int deficit = Math.max(short_, social);
+		// folk with no home at all, beyond the beds already planned for them, come before anything else: they sleep out
+		int unhoused = Math.max(0, needs.homeless - needs.plannedBeds);
+		int deficit = Math.max(Math.max(short_, social), unhoused);
 		if (deficit > 0) {
 			double priority = short_ > 0 ? 600 + Math.min(300, short_ * 12) : 240 + Math.min(160, social * 4);
+			if (unhoused > 0) {
+				priority = Math.max(priority, HOMELESS_PRIORITY);
+			}
 			list.add(new Need("housing", priority, c -> Housing.plan(c, needs, deficit)));
 		}
 		int mouths = Math.max(pop, 3);
@@ -483,6 +488,9 @@ public final class Growth {
 			list.add(new Need("program/" + info.id().getPath(), priority, c -> program(c, e, info)));
 		}
 	}
+
+	/** Housing's priority while residents have no home and no beds are planned for them: above every other need. */
+	static final double HOMELESS_PRIORITY = 920;
 
 	/** A working's priority when a town twice its size has none open: above a field, below beds. */
 	static final double DIG_PRIORITY = 450;
