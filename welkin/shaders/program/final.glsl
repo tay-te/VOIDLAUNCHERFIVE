@@ -62,6 +62,10 @@ in vec2 texcoord;
 // ---- look (welkin-look): the colour grade
 #include "/lib/grade.glsl"
 #include "/lib/hdr.glsl"
+#ifndef WU_colortex5
+#define WU_colortex5
+uniform sampler2D colortex5;
+#endif
 #ifndef WU_viewWidth
 #define WU_viewWidth
 uniform float viewWidth;
@@ -83,10 +87,24 @@ uniform sampler2D colortex0;
 // ---- atmos (welkin-atmos): the sun beams and the bloom
 #if defined SHAFT_BEAMS && defined WORLD_OVERWORLD
 #define FINAL_BEAMS
-#define FINAL_BEAM_SCENE 0.3
-#ifndef WU_colortex12
-#define WU_colortex12
-uniform sampler2D colortex12;
+#include "/lib/rays.glsl"
+#ifndef WU_colortex13
+#define WU_colortex13
+uniform sampler2D colortex13;
+#endif
+#ifndef WU_depthtex0
+#define WU_depthtex0
+uniform sampler2D depthtex0;
+#endif
+#ifndef WU_gbufferProjectionInverse
+#define WU_gbufferProjectionInverse
+uniform mat4 gbufferProjectionInverse;
+#endif
+#ifdef DISTANT_HORIZONS
+#ifndef WU_dhDepthTex0
+#define WU_dhDepthTex0
+uniform sampler2D dhDepthTex0;
+#endif
 #endif
 #endif
 #ifdef BLOOM
@@ -171,19 +189,28 @@ void main() {
 	// ---- atmos (welkin-atmos): the sun beams, then the bloom, in scene light before the output transform (HDR stage B)
 #ifdef FINAL_BEAMS
 	{
-		// four bilinear taps at the corners between texels: the 4x4 half-resolution texels round the pixel, evenly
-		vec2 hp = 1.0 / vec2(textureSize(colortex12, 0));
-		// (the texel boundary between q - 2 | q - 1 and q | q + 1 in each axis)
-		vec2 cu = vec2(p >> 1) * hp;
-		vec3 b = texture(colortex12, cu + vec2(-hp.x, -hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, -hp.y)).rgb
-			+ texture(colortex12, cu + vec2(-hp.x, hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, hp.y)).rgb;
-		// (look, welkin-look: the beams' light, most over what is dark on screen and little over what is already bright:
-		// they stream through the dark lanes between trunks and over shaded land, and lay no veil on the sky round the
-		// sun; look2: 0.35)
-		float shown = clamp(hdrLuma(hdrOutput(sc, expo)), 0.0, 1.0);
-		// (HDR stage B: the beams' light is scene light at the sun-side horizon's level, several times its old display
-		// level: FINAL_BEAM_SCENE brings it back to a streak in the air, not a veil; stage C rebuilds them)
-		sc += b * (0.35 * FINAL_BEAM_SCENE * (1.0 - 0.75 * shown));
+		// (HDR stage C) the light shafts (lib/rays.glsl, composite5..7's radial blur in colortex13): in-scattered light,
+		// by how much air lies in front (a floor near the eye, so the beams under a crown keep the near air they live
+		// in), a share over the open sky
+		vec3 rays = texture(colortex13, texcoord).rgb;
+		float dR = texelFetch(depthtex0, p, 0).r;
+		float air;
+		if (dR < 1.0) {
+			vec4 vp = gbufferProjectionInverse * vec4(texcoord * 2.0 - 1.0, dR * 2.0 - 1.0, 1.0);
+			float dist = length(vp.xyz / vp.w);
+			air = max(1.0 - exp(-dist / RAY_AIR), RAY_NEAR_FLOOR);
+		} else {
+#ifdef DISTANT_HORIZONS
+			air = texelFetch(dhDepthTex0, p, 0).r < 1.0 ? 1.0 : RAY_SKY;
+#else
+			air = RAY_SKY;
+#endif
+		}
+		sc += rays * (RAY_GAIN * air / expo);
+#if SHAFT_DEBUG == 5 || SHAFT_DEBUG == 6
+		outColor = vec4(toDisplay(clamp(rays * 4.0, 0.0, 1.0)), 1.0); // the shafts' blurred light, x4
+		return;
+#endif
 	}
 #endif
 #ifdef BLOOM
@@ -253,10 +280,19 @@ void main() {
 	// the anti-banding: two uniform values per pixel summed, a triangle from -1 to +1 of one 8-bit step, mean zero
 	uint h = pixelHash(p, 7u);
 	float tri = (float(h & 0xFFFFu) + float(h >> 16u)) / 65535.0 - 1.0;
-#if DEBUG_VIEW == 23 || DEBUG_VIEW == 24
+#if DEBUG_VIEW == 23 || DEBUG_VIEW == 24 || DEBUG_VIEW == 25
 	tri = 0.0;
 #endif
 	c = clamp(c + tri / 255.0, 0.0, 1.0);
+#if DEBUG_VIEW == 25
+	// (HDR stage C) the frame-time probe (program/prepare.glsl): the top-left 8x8 pixels hold the mean frame time in
+	// tenths of a millisecond, r the high byte, g the low byte; b the frames counted / 16
+	if (p.x < 8 && p.y >= int(viewHeight) - 8) {
+		vec4 ftp = texelFetch(colortex5, ivec2(0, 30), 0);
+		float tenths = floor(ftp.r * 1000.0 + 0.5); // (seconds / 0.1) x 1000 = tenths of a ms
+		c = vec3(floor(tenths / 256.0), mod(tenths, 256.0), min(ftp.g * 4096.0 / 16.0, 255.0)) / 255.0;
+	}
+#endif
 	outColor = vec4(c, 1.0);
 }
 

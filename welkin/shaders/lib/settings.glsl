@@ -72,7 +72,7 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 // Sun shaft strength: How bright the sun shafts are.  [air]
 #define SHAFT_STRENGTH 100 // [50 75 100 125 150 200]
 // Sun shaft debug: 1 the resolved sunlit share of the near air, 2 the raw (noisy) term. For testing only; on no screen.  [air]
-#define SHAFT_DEBUG 0 // [0 1 2]
+#define SHAFT_DEBUG 0 // [0 1 2 5 6]
 // ---- Sky
 // Pixel sun and moon: Draws the sun and the moon, with all eight moon phases, as crisp pixel art in the sky instead of the vanilla pictures.  [sky]
 #define SKY_PIXEL_SUN
@@ -218,10 +218,10 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define SOFT_BANDS 50 // [0 25 50 75 100]
 // ---- Debug
 // Debug view: Shows one of the shader's inner pictures instead of the world. For testing only.  [skeleton]
-#define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24]
+#define DEBUG_VIEW 0 // [0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25]
 // (HDR stage A) the instruments in final, 23 the scene's light in stops (false colour) and 24 what the output transform
 // pushes to white or black, keep the whole frame running: DEBUG_PLAIN says the world is drawn as it is
-#if DEBUG_VIEW == 0 || DEBUG_VIEW == 23 || DEBUG_VIEW == 24
+#if DEBUG_VIEW == 0 || DEBUG_VIEW == 23 || DEBUG_VIEW == 24 || DEBUG_VIEW == 25
 #define DEBUG_PLAIN
 #endif
 // VOID Gloam link: Normal reads live data from VOID Gloam. Backup only reads the coarser backup copy, as if the link had failed. Off ignores Gloam. For testing only.  [plumbing]

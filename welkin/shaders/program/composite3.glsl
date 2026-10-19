@@ -66,7 +66,7 @@ void main() {
 	float h = sunW.y;
 	float gate = smoothstep(-0.03, 0.04, h) * mix(1.0, 0.35, smoothstep(0.3, 0.85, h)) * f.day * f.clear
 		* (isEyeInWater == 0 ? 1.0 : 0.0);
-	beamLight = hue * level * gate * float(SHAFT_STRENGTH) * 0.01;
+	beamLight = vec3(gate * float(SHAFT_STRENGTH) * 0.01); // (HDR stage C: the hour's strength only; the colour is the sky's)
 #endif
 }
 #endif
@@ -191,6 +191,11 @@ float bloomDiffuseAt(ivec2 p, float emit) {
 #endif
 
 #ifdef C3_BEAMS
+#include "/lib/rays.glsl"
+#ifndef WU_colortex0
+#define WU_colortex0
+uniform sampler2D colortex0;
+#endif
 #include "/lib/noise.glsl"
 #ifndef WU_gbufferProjectionInverse
 #define WU_gbufferProjectionInverse
@@ -258,44 +263,31 @@ void main() {
 
 	vec3 beams = vec3(0.0);
 #ifdef C3_BEAMS
-	if (beamSun.z > 0.5 && dot(beamLight, beamLight) > 1e-6) {
-		vec2 sunUV = beamSun.xy;
+	// (HDR stage C) the light shafts' source (lib/rays.glsl): the open sky's scene light near the sun, through the
+	// clouds' transmittance, for composite5..7's radial blur
+	float gate = dot(beamLight, vec3(0.2126, 0.7152, 0.0722));
+	if (beamSun.z > 0.5 && gate > 1e-4) {
 		vec2 uv = (vec2(q) * 2.0 + 1.0) / vec2(viewWidth, viewHeight);
-		vec2 aspect = vec2(viewWidth / viewHeight, 1.0);
-		float far = length((sunUV - uv) * aspect);
-		// the sun well off the screen sends fewer beams; none from more than about a screen height past the edge
-		float onScreen = 1.0 - smoothstep(0.25, 1.0, length(max(abs(sunUV - 0.5) - 0.5, 0.0) * aspect));
-		if (onScreen > 0.0 && far < BEAM_REACH + 3.0 * BEAM_GLOW) {
-			vec2 stp = (sunUV - uv) / float(BEAM_STEPS) * min(1.0, BEAM_REACH / max(far, 1e-3));
-			float stpLen = length(stp * aspect);
-			float u = lightNoise(q, 0);
-			float acc = 0.0, wsum = 0.0, w = 1.0, gl = 0.0;
-			for (int i = 0; i < BEAM_STEPS; i++) {
-				float t = float(i) + u;
-				vec2 s = uv + stp * t;
-				// the glow round the sun the step stands in: the beams carry the bright core's light
-				float g = exp(-max(far - stpLen * t, 0.0) / BEAM_GLOW);
-				acc += beamOpen(s) * g * w;
-				gl += g * w; // look: the same walk with nothing in the way
-				wsum += w;
-				w *= BEAM_DECAY;
-			}
-			// (look) the unbroken glow's share taken off, so the lanes between beams go dark and open water or land
-			// toward the sun takes no veil
-			float rays = acc / wsum * onScreen * (1.0 - BEAM_FLAT * clamp(acc / max(gl, 1e-5), 0.0, 1.0));
-			bool skyHere = beamOpen(uv) > 0.75;
-			beams = beamLight * (BEAM_GAIN * rays * (skyHere ? BEAM_SKY : 1.0));
-			// (look4, 2026-10-18) the beams are light in the air between the eye and what it sees: over the near land and
-			// the near water (the first hundred blocks or so) there is little air to light, so they fade there. Screened
-			// over the dark shallows at the shore's feet they had laid a milky veil over the whole foreground
-			if (!skyHere) {
-				float d0 = textureLod(depthtex0, uv, 0.0).r;
-				if (d0 < 1.0) {
-					vec4 vp = gbufferProjectionInverse * vec4(uv * 2.0 - 1.0, d0 * 2.0 - 1.0, 1.0);
-					float dist = length(vp.xyz / vp.w);
-					beams *= mix(0.25, 1.0, 1.0 - exp(-max(dist - 4.0, 0.0) / 40.0));
+		float aspect = viewWidth / viewHeight;
+		float near = rayNear(length((beamSun.xy - uv) * vec2(aspect, 1.0))) * rayOnScreen(beamSun.xy, aspect);
+		if (near > 1e-4) {
+			float expoR = hdrExposure();
+			ivec2 hi = ivec2(viewWidth, viewHeight) - 1;
+			for (int k = 0; k < 4; k++) {
+				ivec2 p = min(q * 2 + ivec2(k & 1, k >> 1), hi);
+				float d = texelFetch(depthtex0, p, 0).r;
+#ifdef DISTANT_HORIZONS
+				d = min(d, texelFetch(dhDepthTex0, p, 0).r);
+#endif
+				if (d >= 1.0) {
+					float T = texelFetch(colortex6, p, 0).g; // what the clouds in front let through
+					vec3 L = texelFetch(colortex0, p, 0).rgb * expoR;
+					float y = dot(L, vec3(0.2126, 0.7152, 0.0722));
+					L *= RAY_SRC_CAP / (RAY_SRC_CAP + y); // eased under the cap: the sky's light, not the disc's
+					beams += L * clamp(T, 0.0, 1.0);
 				}
 			}
+			beams *= 0.25 * near * gate;
 		}
 	}
 #endif

@@ -57,7 +57,8 @@ void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec4 color = texelFetch(colortex0, p, 0);
 	// (HDR stage B) scene light throughout: every layer is colour * T + its light
-	float km = texelFetch(colortex6, p, 0).r;
+	vec2 kmT = texelFetch(colortex6, p, 0).rg;
+	float km = kmT.x;
 #if defined DEBUG_PLAIN
 	// 1. water fog, as composite2 laid it before P5 (not over a cloud in front of a lake, seen from above the deck)
 	bool cloud = isEyeInWater == 0 && km < 999.0;
@@ -71,7 +72,7 @@ void main() {
 	color.rgb = mix(color.rgb, fogged, ugState().amount);
 #endif
 	outColor = color;
-	outCloud = vec4(km, 0.0, 0.0, 1.0);
+	outCloud = vec4(km, kmT.y, 0.0, 1.0);
 }
 
 #endif

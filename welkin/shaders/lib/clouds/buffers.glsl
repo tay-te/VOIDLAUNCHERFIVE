@@ -17,9 +17,9 @@ const int colortex8Format = RGBA16;
 const bool colortex8Clear = false;
 const int colortex7Format = RGBA8;
 const bool colortex7Clear = false;
-const int colortex6Format = R16F;
+const int colortex6Format = RG16F;
 const bool colortex6Clear = true;
-const vec4 colortex6ClearColor = vec4(1000.0, 0.0, 0.0, 0.0);
+const vec4 colortex6ClearColor = vec4(1000.0, 1.0, 0.0, 0.0);
 */
 
 #ifndef WELKIN_CLOUD_BUFFERS
