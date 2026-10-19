@@ -1639,3 +1639,31 @@ then `welkin-water2` (water and weather).
   - *Far weather:* the curtain tops fade out in mid-air with no cloud base above them at that distance; the far decks
     blocky and banded (the clouds' work). From far0 and storm0 (above the deck) the curtains show only as strips at the
     horizon, by design.
+
+### Look pass 4: golden-hour headroom and the near beams (2026-10-18, branch `welkin-look4`)
+
+- **Why:** after look3 the whole sun-side sky, its decks and the haze sat at white before final, so the sun at shore
+  18:30 read as a white cut-out on one flat peach field: nothing had room to peak.
+- **The sky's exposure** (`lib/sky/luminous.glsl` `skyGoldenHeadroom`, `skyGoldenTerms`): from about 28 degrees of
+  sun down to just under the horizon, the dome's light is first put under its cap, then lowered (up to 0.75 of it on
+  the sun's side, 0.45 away, nothing in the sun's own glow), and the sun's aureole is added in its own light: a
+  gold-white heart measured from the pixel disc's rim, a gold-amber glow to about 6 degrees, a faint amber to a quarter
+  of the sky. Only the heart and the near glow may pass white (a raised ceiling on the hue-keeping cap).
+- **The air:** composite2's forward scatter takes the same exposure and the same ceiling; the haze stays off the open
+  sky and the clouds above about 9 degrees of elevation through the golden hours (laid over the dimmer sky it lifted it
+  back to white).
+- **The decks** (`lib/clouds/shade.glsl`, end of `wcCloudLight`): through the golden hours a deck's exposure comes down
+  most toward the sun (a backlit body), its silver lining is raised into a gold rim, and a thin strip across the sun
+  glows with it.
+- **final:** the near-sun 0.97 cap (golden, 2026-10-18) is gone; the pixel sun's art pixels are found directly and stay
+  white. The roll-off is a long shoulder through the warm hours (knee 0.7: 1 shows at 0.85, 2 at 0.94, 4 at 0.97), the
+  first stops past white burn toward gold and the hottest light turns gold-white; by day look3's knee is kept.
+- **Bloom** (composite3): round a low sun the sky's aureole lends the bloom a third of its share and the water a fifth
+  (the broad reflected glow had bloomed into a soft orange ball over the lake). The pixel sun's brightness is unchanged
+  (a hotter disc, 140 pixels across, fed the same ball).
+- **Beams:** composite3's screen-space beams fade over the first few dozen blocks (a milky veil over the shore's dark
+  shallows). In `lib/shafts.glsl` the near air's shafts add a term by the sunlit length in blocks (a column of light a
+  few blocks thick reads as a beam from any side), given back where a ray is mostly in the sun and off at a grazing sun.
+- **Still open:** the grove's canopy beams are faint (the sun stands behind the camera at 16:30); the cloud-gap beams
+  at front 0.55 do not show (the far walk's cloud shadow is too soft at 17:00); the glitter path on the water is a gold
+  column, not yet a blaze of glints; the haze walk still runs through the water at shore 05:30.

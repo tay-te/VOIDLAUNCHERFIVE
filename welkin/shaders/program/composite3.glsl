@@ -289,7 +289,7 @@ void main() {
 				if (d0 < 1.0) {
 					vec4 vp = gbufferProjectionInverse * vec4(uv * 2.0 - 1.0, d0 * 2.0 - 1.0, 1.0);
 					float dist = length(vp.xyz / vp.w);
-					beams *= mix(0.12, 1.0, 1.0 - exp(-max(dist - 8.0, 0.0) / 140.0));
+					beams *= mix(0.25, 1.0, 1.0 - exp(-max(dist - 4.0, 0.0) / 40.0));
 				}
 			}
 		}

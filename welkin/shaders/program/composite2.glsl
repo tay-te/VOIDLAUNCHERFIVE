@@ -238,7 +238,6 @@ ivec2 pinholeFill(ivec2 p, vec2 uv) {
 	return p;
 }
 
-#define WL4_C2 0
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec2 uv = texcoord;
@@ -385,22 +384,7 @@ void main() {
 			h.back.a *= 1.0 - 0.85 * ghS;
 			h.front.a *= 1.0 - 0.85 * ghS;
 		}
-#if WL4_C2 == 1
-		outColor = color; return;
-#endif
-#if WL4_C2 == 7
-		outColor = vec4(h.back.rgb, 1.0); return;
-#elif WL4_C2 == 8
-		outColor = vec4(vec3(h.back.a * 4.0), 1.0); return;
-#elif WL4_C2 == 9
-		outColor = vec4(air, 1.0); return;
-#elif WL4_C2 == 6
-		outColor = vec4(ug.amount * 4.0, 0.0, 0.0, 1.0); return;
-#endif
 		color.rgb = welkinHazeBack(color.rgb, h);
-#if WL4_C2 == 2
-		outColor = color; return;
-#endif
 		vec3 ugBeforeMist = color.rgb;
 #ifdef WELKIN_VALLEY_MIST
 		// the mist lies far below the decks: in front of a cloud only when the cloud is against the sky
@@ -432,9 +416,6 @@ void main() {
 			color.rgb = mix(hvComposite(color.rgb, hvRaw, st, normalize(eyePos), sunW, airPlain, s.sky, hvMist, lum),
 				color.rgb, max(ug.amount, sunDisc));
 		}
-#endif
-#if WL4_C2 == 3
-		outColor = color; return;
 #endif
 		// ---- end atmos
 		// ---- look2: the morning mist (lib/haze/dawn.glsl), before the shafts, so the beams stream through it
@@ -477,9 +458,6 @@ void main() {
 			}
 		}
 #endif
-#if WL4_C2 == 4
-		outColor = color; return;
-#endif
 		// ---- air and tone (D): the sun shafts (lib/shafts.glsl), in the near air, before the haze in front of it
 #ifdef WELKIN_SHAFTS_READ
 		if (shaftGate(sunW) > 0.0 && sunAngle < 0.5) {
@@ -501,9 +479,6 @@ void main() {
 			color.rgb = vec3(texelFetch(colortex13, p >> 1, 0).r); // the raw term
 #endif
 		}
-#endif
-#if WL4_C2 == 5
-		outColor = color; return;
 #endif
 		color.rgb = mix(color.rgb, ugBeforeMist, ug.amount); // M5: the valley mist (and the shafts) hand over too
 		color.rgb = welkinHazeFront(color.rgb, h);

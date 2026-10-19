@@ -155,18 +155,6 @@ vec3 shoulder(vec3 c) {
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec3 c = max(texelFetch(colortex0, p, 0).rgb, 0.0);
-#define WL4_PROBE 0
-#if WL4_PROBE == 1
-	outColor = vec4(c * 0.25, 1.0); return;
-#elif WL4_PROBE == 2
-	{ vec2 hp = 1.0 / vec2(textureSize(colortex12, 0)); vec2 cu = vec2(p >> 1) * hp;
-	  vec3 b = texture(colortex12, cu - hp).rgb + texture(colortex12, cu + hp).rgb + texture(colortex12, cu + vec2(hp.x, -hp.y)).rgb + texture(colortex12, cu + vec2(-hp.x, hp.y)).rgb;
-	  outColor = vec4(b * 0.35 * (1.0 - clamp(c, 0.0, 1.0)) * 0.25 * 4.0, 1.0); return; }
-#elif WL4_PROBE == 5
-	{ vec4 glow = texture(colortex9, texcoord); outColor = vec4(glow.rgb * 0.25, 1.0); return; }
-#elif WL4_PROBE == 4
-	{ float ck = texelFetch(colortex6, p, 0).r; outColor = vec4(c * 0.25 + vec3(ck < 999.0 ? 0.5 : 0.0, 0.0, ck < 0.0 ? 0.5 : 0.0), 1.0); return; }
-#endif
 	// ---- atmos (welkin-atmos): the sun beams, then the bloom
 #ifdef FINAL_BEAMS
 	{
@@ -206,9 +194,6 @@ void main() {
 	}
 #endif
 	// ---- end atmos
-#if WL4_PROBE == 3
-	outColor = vec4(c * 0.25, 1.0); return;
-#endif
 	bool sunArt = false; // (look3) the pixel sun's own art pixels
 #ifdef WORLD_OVERWORLD
 	// (look3, 2026-10-18) the evening sky's gradient across the whole dome, the clouds in it too: gold round the sun,
@@ -269,11 +254,12 @@ void main() {
 	// a gold-white, as film's highlights do: gold-white heart, gold, amber, then the rose air
 	{
 		float m = max(c.r, max(c.g, c.b));
-		const float K = 0.70;
+		// (the long shoulder through the warm hours; by day look3's knee, so a noon's white clouds keep their light)
+		float K = mix(0.78, 0.70, gradeHour.x);
 		float amt = gradeHour.y * gradeOpen * (sunArt ? 0.0 : 1.0);
 		if (m > K && amt > 0.0) {
 			float o = m - K;
-			float t = K + (1.0 - K) * o / (o + (1.0 - K));
+			float t = mix(K + (1.0 - K) * (1.0 - exp(-o / (1.0 - K))), K + (1.0 - K) * o / (o + (1.0 - K)), gradeHour.x);
 			vec3 r = c * (t / m);
 			float burn = smoothstep(0.9, 2.0, m) * (1.0 - smoothstep(2.2, 6.0, m)) * 0.35 * gradeHour.x;
 			r = mix(r, vec3(1.0, 0.70, 0.40) * t, burn);
