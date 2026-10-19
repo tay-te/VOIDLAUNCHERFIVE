@@ -23,7 +23,8 @@ final class PaintProbe {
 	private static final String ADD = "(function(){var o=document.getElementById('__probe');if(o)o.parentNode.removeChild(o);"
 		+ "o=document.createElement('div');o.id='__probe';"
 		+ "o.style.cssText='position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:2147483647';"
-		+ "var W=window.innerWidth,H=window.innerHeight,s=" + SIZE + ",p=[[4,4],[W-4-s,4],[4,H-4-s],[W-4-s,H-4-s],[Math.round(W/2-s/2),Math.round(H/2-s/2)]],c=[];"
+		// The viewport in page px: under the page's own zoom (a layout scale under 1) innerWidth is view px, page px x HUBZ.
+		+ "var Z=window.HUBZ||1,W=window.innerWidth/Z,H=window.innerHeight/Z,s=" + SIZE + ",p=[[4,4],[W-4-s,4],[4,H-4-s],[W-4-s,H-4-s],[Math.round(W/2-s/2),Math.round(H/2-s/2)]],c=[];"
 		+ "for(var i=0;i<p.length;i++){var d=document.createElement('div');"
 		+ "d.style.cssText='position:absolute;background:#FF00FF;width:'+s+'px;height:'+s+'px;left:'+p[i][0]+'px;top:'+p[i][1]+'px';"
 		+ "o.appendChild(d);c.push([p[i][0]+s/2,p[i][1]+s/2]);}"

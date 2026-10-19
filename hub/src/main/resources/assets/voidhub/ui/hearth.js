@@ -365,7 +365,7 @@
         '<div style="right:' + (bw - 302) + 'px;top:189px;font-size:11px;color:#EDEEEF;white-space:pre">' + esc(st.titleName || "") + " " + sgn(st.value || 0) + "</div>" +
         standingCells(st.value || 0, 23, 209, 14, 4) +
         '<div style="left:23px;top:227px;width:279px;font-size:10.5px;color:#626569;white-space:nowrap;overflow:hidden">' + (r.memory ? "Remembers: " + esc(r.memory.text) : "") + "</div>" +
-        '<div style="left:323px;top:23px;width:1px;height:220px;background:rgba(255,255,255,0.07)"></div>' +
+        '<div style="left:323px;top:23px;width:var(--hair,1px);height:220px;background:rgba(255,255,255,0.07)"></div>' +
         '<div class="cols"><div class="col">' + c1 + '</div><div class="col">' + c2 + "</div></div>" +
         '<div class="h-eb" style="left:347px;top:239px">1–9 CHOOSE  ·  0 OR ESC LEAVES  ·  MOUSE LOOK STAYS LOCKED</div>' +
         '<div class="h-eb" style="right:23px;top:239px">HEARTH:TALK  ·  LIVE</div>' +

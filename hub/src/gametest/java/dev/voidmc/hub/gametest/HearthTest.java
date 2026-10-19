@@ -104,6 +104,7 @@ public final class HearthTest {
 		}
 		this.settle(20);
 		this.both("market");
+		this.shot("market", 1);
 		this.idleAndHover("market", ".h-row");
 		// Right-click the first row: haggling starts (the merchant's opening word arrives as state).
 		if (this.has(".h-row")) {
@@ -302,6 +303,7 @@ public final class HearthTest {
 		}
 		this.settle(20);
 		this.both("journal");
+		this.shot("journal", 1);
 		this.idleAndHover("journal", ".h-q");
 		this.wantedInJournal();
 		this.ui.clickPage("[data-ui=\"seg:finished\"]");
@@ -598,6 +600,22 @@ public final class HearthTest {
 
 	/** Idle paints (must be 0) and the cost of moving the pointer over the screen's rows (p95 under 10 ms). */
 	private void idleAndHover(String what, String selector) {
+		this.idleAndHoverAt(what, selector);
+		// And at 1920x1080 GUI scale 2, the common low scale (a layout unit under 1).
+		this.context.runOnClient(mc -> {
+			mc.options.guiScale().set(2);
+			mc.resizeGui();
+		});
+		this.context.waitTicks(8);
+		this.idleAndHoverAt(what + " gs2", selector);
+		this.context.runOnClient(mc -> {
+			mc.options.guiScale().set(0);
+			mc.resizeGui();
+		});
+		this.context.waitTicks(6);
+	}
+
+	private void idleAndHoverAt(String what, String selector) {
 		this.context.waitTicks(10);
 		long from = this.context.computeOnClient(mc -> HubStats.INSTANCE.frameCount());
 		this.context.waitTicks(60);

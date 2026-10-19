@@ -1,7 +1,8 @@
 /* VOID Hub — the VOID-drawn inventory (Figma 3c0Wgc4ZKFSpm98fWJoARS, 272:51688 / 272:52131).
    Flat: no blur, no gradients, no shadows. Rounded corners on every surface. Colour only on live
    values (the violet held/durability cell, the green live dot). One CSS px = one design unit;
-   Java sets the device scale so the design lands on the GUI scale the player chose.
+   Java sets the device scale so the design lands on the GUI scale the player chose (under 1 the page zooms
+   itself instead: CSS zoom on the root, window.HUBZ; --hair is then one device px, HubView.pageZoom).
    No transitions or animations: an idle page must not repaint. */
 
 @font-face { font-family: Outfit; font-weight: 300; src: url(fonts/outfit-300.ttf); }
@@ -61,7 +62,7 @@ html, body {
 .page { height: 34px; padding: 0 16px; border-radius: 17px; display: flex; align-items: center; font-size: 13px; color: var(--ink-2); }
 .page.active { background: var(--well); color: var(--ink); }
 .page:not(.active):hover { color: var(--ink); }
-#pages .sep { width: 1px; height: 20px; background: var(--line); }
+#pages .sep { width: var(--hair, 1px); height: 20px; background: var(--line); flex: none; }
 #pages .hint { padding: 0 10px; }
 .keycap {
   display: inline-flex; align-items: center; justify-content: center;
@@ -79,7 +80,7 @@ html, body {
 #strip .live { display: flex; align-items: center; gap: 6px; font-size: 12px; letter-spacing: 1.2px; color: var(--ink-2); white-space: nowrap; }
 #strip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 #strip .name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.vsep { width: 1px; height: 36px; background: rgba(255, 255, 255, 0.06); flex: none; }
+.vsep { width: var(--hair, 1px); height: 36px; background: rgba(255, 255, 255, 0.06); flex: none; }
 .pill-button {
   display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px 0 16px;
   border-radius: 22px; background: var(--raised); font-size: 14px; flex: none; white-space: nowrap;

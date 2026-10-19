@@ -99,11 +99,43 @@
    * move it; positions inside the window are the design's whole numbers), plus the window's fractional origin.
    */
   MC.abs = function (el) {
+    var b = zoomedBox(el);
+    if (b) return {x: b.x, y: b.y};
     var x = 0, y = 0, win = document.getElementById("win");
     while (el && el !== document.body && el !== win) { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; }
     if (el === win && win) { var w = MC.win(); x += w.x; y += w.y; }
     return {x: x, y: y};
   };
+  /** An element's untransformed size in page px (offsetWidth/Height, or exact under the page's zoom). */
+  MC.size = function (el) {
+    var b = zoomedBox(el);
+    return b ? {w: b.w, h: b.h} : {w: el.offsetWidth, h: el.offsetHeight};
+  };
+  /**
+   * Under the page's own zoom (window.HUBZ < 1: a layout scale under 1, Java's HubView.pageZoom) offsetLeft/Top/Width/
+   * Height are whole CSS px rounded from the zoomed layout, up to a CSS px off; boxes are exact. So the box, less the
+   * translations of the element and its ancestors (a lift's translateY), when every transform on the way is a plain
+   * translation; null otherwise (and at zoom 1), for the offset chain.
+   */
+  function zoomedBox(el) {
+    if (!(window.HUBZ < 1) || !el || !el.getBoundingClientRect) return null;
+    var tx = 0, ty = 0;
+    for (var e = el; e && e !== document.body && e !== document.documentElement; e = e.parentElement) {
+      var t = getComputedStyle(e).transform;
+      if (!t || t === "none") continue;
+      var m = /^matrix\(([^)]*)\)$/.exec(t);
+      if (!m) return null;
+      var v = m[1].split(",");
+      if (Math.abs(+v[0] - 1) > 1e-6 || Math.abs(+v[1]) > 1e-6 || Math.abs(+v[2]) > 1e-6 || Math.abs(+v[3] - 1) > 1e-6) return null;
+      tx += +v[4];
+      ty += +v[5];
+    }
+    var r = el.getBoundingClientRect();
+    return {x: r.left - tx, y: r.top - ty, w: r.width, h: r.height};
+  }
+  /** A pointer event's position in page px: Ultralight's event coordinates are view px, page px times the page zoom. */
+  MC.ex = function (ev) { return ev.clientX / (window.HUBZ || 1); };
+  MC.ey = function (ev) { return ev.clientY / (window.HUBZ || 1); };
 
   MC.toggle = function (el, cls, on) { if (el && el.classList.contains(cls) !== !!on) el.classList.toggle(cls, !!on); };
   MC.text = function (el, s) { if (el && el.textContent !== s) el.textContent = s; };

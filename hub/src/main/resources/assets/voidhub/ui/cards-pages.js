@@ -136,7 +136,8 @@
       var ds = cv.querySelectorAll(".slot.drop");
       for (var i = 0; i < ds.length; i++) {
         var a = MC.abs(ds[i]);
-        items.push({i: "pl" + ds[i].getAttribute("data-slot"), k: "pulse", x: a.x, y: a.y, w: ds[i].offsetWidth, h: ds[i].offsetHeight, c: "#F5B03C", a: 0.16});
+        var sz = MC.size(ds[i]);
+        items.push({i: "pl" + ds[i].getAttribute("data-slot"), k: "pulse", x: a.x, y: a.y, w: sz.w, h: sz.h, c: "#F5B03C", a: 0.16});
       }
     }
     MC.fxSet("pulse", items);
@@ -917,8 +918,8 @@
     for (var i = 0; i < els.length; i++) {
       var el = els[i];
       if (pick && el.getAttribute("data-titem") != null) continue;  // under the binder picker
-      var p = MC.abs(el);
-      out.push({id: el.getAttribute("data-itid"), n: +el.getAttribute("data-itc"), x: p.x, y: p.y, w: el.offsetWidth, h: el.offsetHeight});
+      var p = MC.abs(el), sz = MC.size(el);
+      out.push({id: el.getAttribute("data-itid"), n: +el.getAttribute("data-itc"), x: p.x, y: p.y, w: sz.w, h: sz.h});
     }
     return out;
   }
@@ -1167,7 +1168,7 @@
       if (id === "sound" && (el = closest(t, "data-sndvol"))) {
         var r = el.getBoundingClientRect();
         sv = sound();
-        setSound(true, (ev.clientX - r.left) / Math.max(1, r.width) * 100);
+        setSound(true, (MC.ex(ev) - r.left) / Math.max(1, r.width) * 100);
         ev.stopPropagation();
         MC.render();
         return;
@@ -1267,7 +1268,7 @@
     if (!el) return;
     var id = el.getAttribute("data-dcard") || el.getAttribute("data-scard");
     var r = el.getBoundingClientRect();
-    press = {id: id, x: ev.clientX, y: ev.clientY, ox: ev.clientX - r.left, oy: ev.clientY - r.top, from: el.getAttribute("data-scard") ? "slot" : "binder"};
+    press = {id: id, x: MC.ex(ev), y: MC.ey(ev), ox: MC.ex(ev) - r.left, oy: MC.ey(ev) - r.top, from: el.getAttribute("data-scard") ? "slot" : "binder"};
   }
   function onMove(ev) {
     if (MC.ov.kind() === "draft") { MC.ov.hover(ev.target); return; }
@@ -1279,7 +1280,7 @@
     }
     var d = st.deck.drag;
     if (!d) {
-      if (Math.abs(ev.clientX - press.x) + Math.abs(ev.clientY - press.y) < 5) return;
+      if (Math.abs(MC.ex(ev) - press.x) + Math.abs(MC.ey(ev) - press.y) < 5) return;
       var c = byId[press.id];
       if (!c) { press = null; return; }
       st.deck.drag = d = {id: press.id, from: press.from};
@@ -1290,9 +1291,9 @@
       MC.render();
     }
     var g = MC.$("c-ghost"), win = MC.$("win");
-    var wx = win ? win.offsetLeft : 0, wy = win ? win.offsetTop : 0;
-    if (g) g.style.transform = "translate(" + Math.round(ev.clientX - wx - press.ox) + "px," + Math.round(ev.clientY - wy - press.oy) + "px) rotate(-5deg)";
-    var over = slotUnder(ev.clientX, ev.clientY);
+    var wp = MC.win(), wx = wp.x, wy = wp.y;
+    if (g) g.style.transform = "translate(" + Math.round(MC.ex(ev) - wx - press.ox) + "px," + Math.round(MC.ey(ev) - wy - press.oy) + "px) rotate(-5deg)";
+    var over = slotUnder(MC.ex(ev), MC.ey(ev));
     if (over !== d.over) {
       var row = MC.$("dk-row");
       if (row) {
@@ -1479,7 +1480,7 @@
 
   MC.wheel = function (m) {
     if (MC.ov.active()) return;
-    var el = document.elementFromPoint(m.x, m.y), box = closest(el, "data-scroll");
+    var el = document.elementFromPoint(m.x * (window.HUBZ || 1), m.y * (window.HUBZ || 1)), box = closest(el, "data-scroll");
     if (!box) return;
     var step = m.dy > 0 ? -1 : 1, which = box.getAttribute("data-scroll");
     if (which === "coin") { var t = M().cards.trade; if (t && t.coin && !MC.textFocus) setCoin(t.me.coin + (step > 0 ? -10 : 10)); return; }

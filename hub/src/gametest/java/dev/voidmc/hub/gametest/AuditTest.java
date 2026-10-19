@@ -62,8 +62,8 @@ public final class AuditTest {
 
 	private void section(String name, Runnable r) {
 		String only = System.getProperty("voidhub.test.only", "");
-		if (!only.isEmpty() && !name.contains(only)) {
-			return;  // -Ponly=<part of a section name>: that section alone (a quick look while fixing it)
+		if (!only.isEmpty() && java.util.Arrays.stream(only.split(",")).noneMatch(name::contains)) {
+			return;  // -Ponly=<part of a section name>[,<another>]: those sections alone (a quick look while fixing one)
 		}
 		log("== " + name);
 		try {
@@ -332,7 +332,7 @@ public final class AuditTest {
 		+ "var f=MC.fxDebug();o.fx=f?JSON.parse(f):[];var w=document.getElementById('win').getBoundingClientRect();o.win=[w.left,w.top,w.width,w.height];"
 		+ "o.art=[];var as=document.querySelectorAll('.dr-hand .hc .hc-art .mc-img');for(var j=0;j<as.length;j++){var a=as[j].getBoundingClientRect();o.art.push([a.left,a.top,a.width,+as[j].getAttribute('data-tx')||0]);}"
 		+ "o.font=99;var ds=document.querySelectorAll('.dr-hand .hc .hc-desc');for(var k=0;k<ds.length;k++)o.font=Math.min(o.font,parseFloat(getComputedStyle(ds[k]).fontSize));"
-		+ "o.vw=window.innerWidth;o.vh=window.innerHeight;o.dpr=window.devicePixelRatio;return JSON.stringify(o);})()";
+		+ "o.vw=window.innerWidth/(window.HUBZ||1);o.vh=window.innerHeight/(window.HUBZ||1);o.dpr=window.devicePixelRatio+(window.HUBZ&&window.HUBZ<1?' zoom '+window.HUBZ:'');return JSON.stringify(o);})()";
 
 	private static final Pattern CARD_ID = Pattern.compile("^g\\d+c(\\d)");
 
@@ -495,6 +495,8 @@ public final class AuditTest {
 		this.section("the whole window paints after runtime size and GUI scale changes", this::paintsWholeWindow);
 		this.section("resize mid-burn", this::resizeMidBurn);
 		this.section("GUI scale change with a draft open", this::scaleMidDraft);
+		this.section("draft at 1920x1080 GUI scale 2", this::draftGuiScale2);
+		this.section("draft photographs at 1920x1080 GUI scale 1, 2, 3", this::draftPhotos);
 		this.section("double actions", this::doubleActions);
 		this.section("close mid-burn, reopen with K", this::closeMidBurn);
 		this.section("segment switch mid-burn", this::segmentMidBurn);
@@ -503,6 +505,7 @@ public final class AuditTest {
 		this.section("Esc in nested popovers", this::escNested);
 		this.section("keyboard: draft", this::keyboard);
 		this.section("400-card binder", this::bigBinder);
+		this.section("400-card binder at 1920x1080 GUI scale 2", this::bigBinderGuiScale2);
 		this.section("keyboard: binder and deck", this::keyboardBinder);
 		this.section("longest names", this::longNames);
 		this.section("other player starts a trade while a menu is open", this::incomingTrade);
@@ -647,6 +650,72 @@ public final class AuditTest {
 			mc.resizeGui();
 		});
 		this.context.waitTicks(6);
+	}
+
+	/**
+	 * The draft's budgets at 1920x1080 GUI scale 2, the common low scale (layout unit 0.75 on Classes, under 1): idle
+	 * paints nothing, a hover sweep stays under 10 ms p95 and a pick under 50 ms p95 on the UI thread.
+	 */
+	private void draftGuiScale2() {
+		this.setWindow(1920, 1080, 2);
+		if (this.hub() == null) {
+			this.openClasses();
+		}
+		this.check(this.ensureDraft(), "1920x1080 GUI 2 (" + this.actual() + "): a draft hand is up");
+		this.ui.parkMouse();
+		this.context.waitTicks(10);
+		Perf idle = this.perf("gs2 draft idle", () -> this.context.waitTicks(60));
+		this.check(idle.painted() == 0, "PERF gs2 draft idle paints nothing: " + idle);
+		int hand = Integer.parseInt(this.js("String(document.querySelectorAll('.dr-hand .hc').length)"));
+		Perf hover = this.perf("gs2 draft hover sweep", () -> {
+			for (int k = 0; k < 3; k++) {
+				for (int c = 0; c < hand; c++) {
+					this.hoverPage(".dr-hand .hc[data-hand=\"" + c + "\"] .hc-art");
+					this.context.waitTicks(4);
+				}
+			}
+		});
+		this.check(hover.painted() > 0 && hover.uiP95() < 10, "PERF gs2 draft hover sweep: UI p95 under 10 ms: " + hover);
+		this.hoverPage(".dr-hand .hc[data-hand=\"1\"] .hc-art");
+		this.context.waitTicks(8);
+		this.shot("audit_05g_gs2_draft_hover");
+		long w0 = this.waiting();
+		Perf pick = this.perf("gs2 draft pick", () -> {
+			this.context.getInput().pressKey(InputConstants.KEY_2);
+			this.context.waitTicks(40);
+		});
+		this.check(pick.uiP95() < 50, "PERF gs2 draft pick: UI p95 under 50 ms: " + pick);
+		this.check(this.waiting() == w0 - 1, "the pick at GUI scale 2 used one draft: " + w0 + " -> " + this.waiting());
+		this.ui.parkMouse();
+		this.setWindow(1920, 1080, 0);
+	}
+
+	/** The draft hand at 1920x1080 GUI scale 1, 2 and 3, copied out ({@code -Pshots=<dir>}) to look at for crispness. */
+	private void draftPhotos() {
+		java.nio.file.Path out = java.nio.file.Path.of(System.getProperty("voidhub.test.shots", "screenshots-audit"));
+		for (int gs = 1; gs <= 3; gs++) {
+			this.setWindow(1920, 1080, gs);
+			if (this.hub() == null) {
+				this.openClasses();
+			}
+			if (!this.ensureDraft()) {
+				this.check(false, "1920x1080 GUI " + gs + ": a draft hand is up for the photograph");
+				continue;
+			}
+			this.hoverPage(".dr-hand .hc[data-hand=\"0\"] .hc-art");
+			this.context.waitTicks(12);
+			String name = "mettle_draft_1080p_gs" + gs;
+			log("NOTE photograph " + name + ": " + this.actual() + ", u " + this.ui.layout().u + ", page zoom " + this.js("String(window.HUBZ||1)"));
+			java.nio.file.Path p = this.context.takeScreenshot(name);
+			try {
+				java.nio.file.Files.createDirectories(out);
+				java.nio.file.Files.copy(p, out.resolve(name + ".png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			} catch (java.io.IOException e) {
+				throw new java.io.UncheckedIOException(e);
+			}
+		}
+		this.ui.parkMouse();
+		this.setWindow(1920, 1080, 0);
 	}
 
 	// ---- 2. double actions -------------------------------------------------------------------------------------
@@ -938,6 +1007,49 @@ public final class AuditTest {
 		String missing = this.js("(function(){var need={},miss=[];JSON.stringify(MC.M,function(k,v){if((k==='icon'||k==='art')&&typeof v==='string'&&/\\.png$/.test(v))need[v]=1;return v});"
 			+ "for(var k in need)if(!MC.icons[k])miss.push(k);return miss.length+' '+miss.slice(0,5).join(',')})()");
 		this.check(missing.startsWith("0"), "every icon the state names reached the page: missing " + missing);
+	}
+
+	/** The full binder's wheel scroll and hover at 1920x1080 GUI scale 2 (unit under 1): the same budgets as at auto. */
+	private void bigBinderGuiScale2() {
+		this.setWindow(1920, 1080, 2);
+		if (this.hub() == null) {
+			this.openClasses();
+		}
+		this.clearDrafts();
+		this.dismiss();
+		this.js("MC.nav.view='home';MC.nav.tab='cards';MC.st.binder.scroll=0;MC.render();''");
+		this.ui.parkMouse();
+		this.context.waitTicks(10);
+		log("NOTE gs2 binder: " + this.actual() + ", " + this.binder().size() + " cards, u " + this.ui.layout().u);
+		Perf idle = this.perf("gs2 binder idle", () -> this.context.waitTicks(60));
+		this.check(idle.painted() == 0, "PERF gs2 binder idle paints nothing: " + idle);
+		Perf scroll = this.perf("gs2 binder wheel scroll", () -> {
+			this.hoverPage("#bg-5");
+			for (int k = 0; k < 20; k++) {
+				this.context.getInput().scroll(-1);
+				this.context.waitTicks(2);
+			}
+			for (int k = 0; k < 20; k++) {
+				this.context.getInput().scroll(1);
+				this.context.waitTicks(2);
+			}
+		});
+		this.check(scroll.painted() >= 20 && scroll.within(10, 60), "PERF gs2 binder wheel scroll (20+ paints): UI p95 under 10 ms and no paint over 60 ms: " + scroll);
+		Perf hover = this.perf("gs2 binder hover sweep", () -> {
+			for (int k = 0; k < 3; k++) {
+				for (int t = 0; t < 12; t++) {
+					if ("true".equals(this.js("String(!!document.getElementById('bg-" + t + "'))"))) {
+						this.hoverPage("#bg-" + t);
+						this.context.waitTicks(2);
+					}
+				}
+			}
+		});
+		this.check(hover.painted() >= 20 && hover.within(10, 30), "PERF gs2 binder hover sweep (20+ paints): UI p95 under 10 ms and no paint over 30 ms: " + hover);
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("audit_11g_gs2_binder_400");
+		this.setWindow(1920, 1080, 0);
 	}
 
 	private void longNames() {

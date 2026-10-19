@@ -14,8 +14,8 @@ import net.minecraft.client.renderer.texture.AbstractTexture;
  *
  * <p>Pixels are premultiplied (Ultralight paints premultiplied BGRA; the binding swaps to RGBA on
  * the way out), so it is drawn with {@code RenderPipelines.GUI_TEXTURED_PREMULTIPLIED_ALPHA}.
- * Sampled NEAREST and clamped: it is drawn 1:1 onto the framebuffer; LINEAR when it is larger than the framebuffer and
- * drawn down (a layout scale under 1, {@code HubView.surfaceSize}).
+ * Sampled NEAREST and clamped: it is drawn 1:1 onto the framebuffer at every GUI scale (under a layout scale of 1 the
+ * page zooms itself, {@code HubView.pageZoom}).
  */
 public final class HubTexture extends AbstractTexture {
 
@@ -23,17 +23,13 @@ public final class HubTexture extends AbstractTexture {
 	private final int height;
 
 	public HubTexture(int width, int height) {
-		this(width, height, false);
-	}
-
-	public HubTexture(int width, int height, boolean drawnDown) {
 		this.width = width;
 		this.height = height;
 		GpuDevice device = RenderSystem.getDevice();
 		this.texture = device.createTexture("VOID Hub view", GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
 			GpuFormat.RGBA8_UNORM, width, height, 1, 1);
 		this.textureView = device.createTextureView(this.texture);
-		this.sampler = RenderSystem.getSamplerCache().getClampToEdge(drawnDown ? FilterMode.LINEAR : FilterMode.NEAREST);
+		this.sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
 	}
 
 	public int width() {

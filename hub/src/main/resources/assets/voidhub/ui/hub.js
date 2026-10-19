@@ -93,17 +93,31 @@
   }
 
   // ---- pixel art (design cell sprites) ---------------------------------------------------------
-  function sprite(el, rows, size, gap, alpha, colour) {
+  /**
+   * Pixel art of small squares. Under the page's own zoom (window.HUBZ < 1, a layout scale under 1) every square and
+   * every gap is a whole number of device px, so the art stays even and crisp (fractional squares and gaps would round
+   * unevenly); the sprite is drawn again when the zoom changes (hub.zoomed).
+   */
+  function sprite(el, rows, size, gap, alpha, colour, off) {
     el.innerHTML = "";
+    el.__sp = [rows, size, gap, alpha, colour, off];
+    off = off || 0;
+    var z = window.HUBZ || 1, sq = size, pitch = size + gap;
+    if (z < 1) {
+      var px = Math.max(1, Math.round(size * z));
+      sq = px / z;
+      pitch = (px + Math.round(gap * z)) / z;
+      off = Math.round(off * z) / z;
+    }
     for (var y = 0; y < rows.length; y++) {
       for (var x = 0; x < rows[y].length; x++) {
         var ch = rows[y].charAt(x);
         if (ch === ".") continue;
         var i = document.createElement("i");
-        i.style.left = (x * (size + gap)) + "px";
-        i.style.top = (y * (size + gap)) + "px";
-        i.style.width = size + "px";
-        i.style.height = size + "px";
+        i.style.left = (off + x * pitch) + "px";
+        i.style.top = (off + y * pitch) + "px";
+        i.style.width = sq + "px";
+        i.style.height = sq + "px";
         var a = ch === "#" ? alpha[0] : ch === "+" ? alpha[1] : alpha[2];
         i.style.background = "rgba(" + colour + "," + a + ")";
         el.appendChild(i);
@@ -161,12 +175,7 @@
         if (el.classList.contains(defs[d][0])) {
           var small = el.classList.contains("small");
           var s = small ? 2.16 : 3, g = small ? 0.36 : 0.5;
-          sprite(el, COIN, s, g, ["0.62", "0.9", "0.3"], defs[d][1]);
-          var off = small ? 2.7 : 3.75;
-          for (var c = 0; c < el.children.length; c++) {
-            el.children[c].style.left = (parseFloat(el.children[c].style.left) + off) + "px";
-            el.children[c].style.top = (parseFloat(el.children[c].style.top) + off) + "px";
-          }
+          sprite(el, COIN, s, g, ["0.62", "0.9", "0.3"], defs[d][1], small ? 2.7 : 3.75);
         }
       }
     }
@@ -446,8 +455,10 @@
     toggle(tip, "off", false);
     var W = tip.offsetWidth, Hh = tip.offsetHeight;
     var x = well.offsetLeft + well.offsetWidth + 10;
-    if (x + W > window.innerWidth - 8) x = well.offsetLeft - 10 - W;
-    var y = Math.max(8, Math.min(well.offsetTop - 6, window.innerHeight - 8 - Hh));
+    // innerWidth is view px; page px under the page's own zoom are that over window.HUBZ.
+    var vw = window.innerWidth / (window.HUBZ || 1), vh = window.innerHeight / (window.HUBZ || 1);
+    if (x + W > vw - 8) x = well.offsetLeft - 10 - W;
+    var y = Math.max(8, Math.min(well.offsetTop - 6, vh - 8 - Hh));
     tip.style.left = x + "px";
     tip.style.top = y + "px";
     tipAt(x, y, W, Hh);
@@ -499,6 +510,17 @@
       return "ok";
     },
     wells: function () { return wells; },
+    /**
+     * Java changed the page's own zoom (HubView.zoomScript: a layout scale under 1 is CSS zoom on the root, window.HUBZ):
+     * the pixel-art sprites are laid out again on whole device px.
+     */
+    zoomed: function () {
+      var all = document.getElementsByTagName("*");
+      for (var k = 0; k < all.length; k++) {
+        var sp = all[k].__sp;
+        if (sp) sprite(all[k], sp[0], sp[1], sp[2], sp[3], sp[4], sp[5]);
+      }
+    },
     // Where the page actually drew each well (CSS px) — the in-game layout agreement check.
     wellRects: function () {
       var out = [];

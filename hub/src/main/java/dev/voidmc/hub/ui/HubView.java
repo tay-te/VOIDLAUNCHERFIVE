@@ -84,13 +84,12 @@ public final class HubView {
 	private HubTexture texture;
 	private ByteBuffer staging;
 	private final int[] rect = new int[6];
-	/** The framebuffer the view covers. */
+	/** The framebuffer the view, its surface and the texture cover, pixel for pixel. */
 	private int width;
 	private int height;
-	/** The view's surface and the texture: the framebuffer's size, or larger under a scale of 1 ({@link #surfaceSize}). */
-	private int surfaceW;
-	private int surfaceH;
 	private double scale = -1;
+	/** The page's own zoom ({@link #pageZoom}): what mouse positions in CSS px are multiplied by for Ultralight. */
+	private volatile double zoom = 1.0;
 	private boolean forceFull = true;
 	private Consumer<Bridge.Message> listener = m -> {
 	};
@@ -155,9 +154,8 @@ public final class HubView {
 			return;
 		}
 		instance = new HubView();
-		int[] surface = surfaceSize(fbW, fbH, scale);
 		instance.post(() -> {
-			instance.uiResize(surface[0], surface[1], ulScale(scale));
+			instance.uiResize(fbW, fbH, scale);
 			instance.view.evaluateScript(Bridge.call(layoutJson));
 			// A stand-in state and card build every meter and row the first real open would
 			// otherwise create (element creation is the expensive part of a first paint).
@@ -236,38 +234,56 @@ public final class HubView {
 	private int uiW = -1;
 	private int uiH = -1;
 	private double uiScale = -1;
+	private double uiZoom = -1;
 
-	/** UI thread: size the view, skipping no-op resizes (each one is a full repaint). */
+	/**
+	 * UI thread: size the view to the framebuffer at layout scale {@code scale} (physical px per CSS px), skipping no-op
+	 * resizes (each one is a full repaint). From 1 up the scale is Ultralight's device scale; under 1 Ultralight keeps
+	 * device scale 1 and the page zooms itself ({@link #pageZoom}), in the same pass, so no paint sees one without the other.
+	 */
 	private void uiResize(int w, int h, double scale) {
 		if (w != this.uiW || h != this.uiH) {
 			this.view.resize(w, h);
 			this.uiW = w;
 			this.uiH = h;
 		}
-		if (scale != this.uiScale) {
-			this.view.setDeviceScale(scale);
-			this.uiScale = scale;
+		double device = deviceScale(scale);
+		if (device != this.uiScale) {
+			this.view.setDeviceScale(device);
+			this.uiScale = device;
+		}
+		double z = pageZoom(scale);
+		if (z != this.uiZoom) {
+			this.view.evaluateScript(zoomScript(z));
+			this.uiZoom = z;
 		}
 	}
 
 	/**
-	 * The view's surface for a framebuffer and layout scale. Ultralight 1.4 paints nothing past {@code (w * s) x (h * s)}
-	 * CSS px when its device scale {@code s} is below 1: a 1920x1080 view at 0.667 (GUI scale 2) drew only its top-left
-	 * 1280 x 720 CSS px, in its own surface (a full readback showed the same), with the CSS viewport itself right. So a
-	 * scale under 1 is never given to it: the view gets device scale 1 ({@link #ulScale}) and the CSS viewport's size in
-	 * pixels ({@code fb / scale}; the page lays out exactly as before), and the texture is drawn down onto the framebuffer,
-	 * sampled LINEAR. At scale 1 and up nothing changes. hubAudit's paint gate guards it.
+	 * Ultralight's device scale for a layout scale: the scale itself from 1 up, else exactly 1. Ultralight 1.4 paints
+	 * nothing past {@code (w * s) x (h * s)} CSS px when its device scale {@code s} is below 1 (at 1920x1080 GUI scale 2,
+	 * u 0.667, only the top-left 1280 x 720 CSS px were drawn), so it never gets one.
 	 */
-	static int[] surfaceSize(int fbW, int fbH, double scale) {
-		if (scale >= 1.0) {
-			return new int[] {fbW, fbH};
-		}
-		return new int[] {Math.max(1, (int) Math.round(fbW / scale)), Math.max(1, (int) Math.round(fbH / scale))};
+	static double deviceScale(double scale) {
+		return scale >= 1.0 ? scale : 1.0;
 	}
 
-	/** The device scale Ultralight gets for a layout scale: never below 1 (see {@link #surfaceSize}). */
-	static double ulScale(double scale) {
-		return scale >= 1.0 ? scale : 1.0;
+	/**
+	 * The page's own zoom for a layout scale. Under 1 the view is the framebuffer's size at device scale 1 and the page
+	 * applies the scale itself, as CSS {@code zoom} on the root: Ultralight lays out at the zoomed size and paints only the
+	 * framebuffer's pixels, at native resolution (text rasterised at its real size, pixel art on whole device px as the
+	 * H9 snapping places it, no larger surface, no smoothing down). Boxes and offsets read in the page stay in CSS px
+	 * (what Java's rects expect); pointer positions are view px, so {@link #mouseMove} multiplies by this and the page
+	 * divides event coordinates by it ({@code window.HUBZ}). 1 from a scale of 1 up, where the device scale does it.
+	 */
+	static double pageZoom(double scale) {
+		return scale >= 1.0 ? 1.0 : scale;
+	}
+
+	/** Applies a page zoom: the root's CSS zoom, {@code window.HUBZ}, and {@code --hair} (one physical px, in CSS px). */
+	static String zoomScript(double z) {
+		return "(function(z){var d=document.documentElement;d.style.zoom=z===1?'':String(z);window.HUBZ=z;"
+			+ "d.style.setProperty('--hair',(1/z)+'px');if(window.hub&&hub.zoomed)hub.zoomed(z);return ''})(" + z + ")";
 	}
 
 	private void uiPass() {
@@ -415,42 +431,31 @@ public final class HubView {
 	}
 
 	/**
-	 * Makes the view and texture match the framebuffer, at {@code scale} physical px per CSS px.
-	 * A size change recreates the texture and forces a full upload. Under a scale of 1 the view and the texture are the
-	 * CSS viewport's size and are drawn down ({@link #surfaceSize}).
+	 * Makes the view and texture match the framebuffer, at {@code scale} physical px per CSS px (Ultralight's device
+	 * scale from 1 up, the page's own zoom under 1: {@link #pageZoom}). The view, its surface and the texture are always
+	 * the framebuffer's size. A size change recreates the texture and forces a full upload.
 	 */
 	public void ensureSize(int fbW, int fbH, double scale) {
-		int[] surface = surfaceSize(fbW, fbH, scale);
-		int sw = surface[0];
-		int sh = surface[1];
-		double ul = ulScale(scale);
-		boolean fb = fbW != this.width || fbH != this.height;
-		this.width = fbW;
-		this.height = fbH;
-		if (sw != this.surfaceW || sh != this.surfaceH || fb) {
+		if (fbW != this.width || fbH != this.height) {
 			long t0 = System.nanoTime();
-			this.surfaceW = sw;
-			this.surfaceH = sh;
-			this.post(() -> this.uiResize(sw, sh, ul));
+			this.width = fbW;
+			this.height = fbH;
+			this.post(() -> this.uiResize(fbW, fbH, scale));
 			if (this.texture != null) {
 				Minecraft.getInstance().getTextureManager().release(TEXTURE_ID);
 			}
-			this.texture = new HubTexture(sw, sh, sw != fbW || sh != fbH);
+			this.texture = new HubTexture(fbW, fbH);
 			Minecraft.getInstance().getTextureManager().register(TEXTURE_ID, this.texture);
-			this.staging = ByteBuffer.allocateDirect(sw * sh * 4).order(ByteOrder.nativeOrder());
+			this.staging = ByteBuffer.allocateDirect(fbW * fbH * 4).order(ByteOrder.nativeOrder());
 			this.forceFull = true;
 			this.stats.lastResizeNs = System.nanoTime() - t0;
 		}
 		if (scale != this.scale) {
 			this.scale = scale;
-			this.post(() -> this.uiResize(sw, sh, ul));
+			this.post(() -> this.uiResize(fbW, fbH, scale));
 			this.forceFull = true;
 		}
-	}
-
-	/** Texels of the hub texture per framebuffer pixel: 1, or more under a scale of 1 (see {@link #surfaceSize}). */
-	public double texelsPerPixel() {
-		return this.width <= 0 ? 1.0 : this.surfaceW / (double) this.width;
+		this.zoom = pageZoom(scale);
 	}
 
 	public int width() {
@@ -529,9 +534,10 @@ public final class HubView {
 		return this.eval("hub.wellRects()");
 	}
 
+	/** The pointer at a position in CSS px; Ultralight takes view px, CSS px times the page zoom ({@link #pageZoom}). */
 	public void mouseMove(double cssX, double cssY) {
-		int x = (int) Math.floor(cssX);
-		int y = (int) Math.floor(cssY);
+		int x = (int) Math.floor(cssX * this.zoom);
+		int y = (int) Math.floor(cssY * this.zoom);
 		this.post(() -> this.view.fireMouseEvent(View.MOUSE_MOVED, x, y, 0));
 	}
 
@@ -543,8 +549,8 @@ public final class HubView {
 			default -> 0;
 		};
 		if (button != 0) {
-			int x = (int) Math.floor(cssX);
-			int y = (int) Math.floor(cssY);
+			int x = (int) Math.floor(cssX * this.zoom);
+			int y = (int) Math.floor(cssY * this.zoom);
 			this.post(() -> this.view.fireMouseEvent(down ? View.MOUSE_DOWN : View.MOUSE_UP, x, y, button));
 		}
 	}
@@ -623,7 +629,7 @@ public final class HubView {
 			f.copyNs = System.nanoTime() - t0;
 			return false;
 		}
-		if (this.rect[4] != this.surfaceW || this.rect[5] != this.surfaceH) {
+		if (this.rect[4] != this.width || this.rect[5] != this.height) {
 			// The UI thread has not applied the resize yet; a rect from the old surface must
 			// not reach the new texture. Copy everything once it has.
 			f.copyNs = System.nanoTime() - t0;
@@ -651,7 +657,7 @@ public final class HubView {
 	private boolean uploadFull(HubStats.Frame f) {
 		long t0 = System.nanoTime();
 		synchronized (this.fullLock) {
-			if (!this.fullReady || this.fullW != this.surfaceW || this.fullH != this.surfaceH) {
+			if (!this.fullReady || this.fullW != this.width || this.fullH != this.height) {
 				f.copyNs = System.nanoTime() - t0;
 				return false;
 			}

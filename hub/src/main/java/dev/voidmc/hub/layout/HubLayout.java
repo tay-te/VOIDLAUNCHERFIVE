@@ -104,7 +104,7 @@ public final class HubLayout {
 	public final int fbW;
 	public final int fbH;
 	public final int guiScale;
-	/** Physical px per design unit (= Ultralight's device scale from 1 up; under 1 the view is drawn down instead, HubView.surfaceSize). */
+	/** Physical px per design unit (= Ultralight's device scale from 1 up; under 1 the page's own CSS zoom, HubView.pageZoom). */
 	public final double u;
 	public final Rect window;
 	public final Rect mark;

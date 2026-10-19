@@ -101,7 +101,7 @@
 .hc-desc { margin-top: 7px; font-size: 11px; line-height: 15px; color: #C9C2B8; text-align: center; width: 192px; }
 .hc-kws { margin-top: 7px; display: flex; gap: 6px; justify-content: center; }
 .hc-kw { height: 20px; border-radius: 10px; background: #231D1F; border: 1px solid rgba(216, 205, 187, 0.25); padding: 0 8px 0 4px; display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: #D8CDBB; white-space: nowrap; }
-.hc-div { margin-top: 7px; width: 192px; height: 1px; background: rgba(216, 205, 187, 0.15); flex: none; }
+.hc-div { margin-top: 7px; width: 192px; height: var(--hair, 1px); background: rgba(216, 205, 187, 0.15); flex: none; }
 .hc-price { margin-top: 7px; width: 192px; border-radius: 8px; background: #1F0508; border: 1px solid rgba(255, 46, 74, 0.4); padding: 5px 8px 6px; text-align: center; flex: none; }
 .hc-pl { font-size: 8px; letter-spacing: 1.44px; color: #FF4A60; }
 .hc-pt { margin-top: 2px; font-size: 11px; line-height: 14px; color: #FF9C9C; }
@@ -242,7 +242,7 @@
 .b-search { left: 204px; top: 91px; width: 280px; height: 28px; border-radius: 14px; background: #131315; border: 1px solid rgba(255, 255, 255, 0.06); font-size: 11px; padding: 6px 13px; color: #EDEEEF; white-space: nowrap; overflow: hidden; }
 .b-search.on { border-color: rgba(255, 255, 255, 0.25); }
 .b-search .ph { color: #626569; }
-.b-search .caret { display: inline-block; width: 1px; height: 12px; background: #EDEEEF; vertical-align: -2px; margin-left: 1px; }
+.b-search .caret { display: inline-block; width: var(--hair, 1px); height: 12px; background: #EDEEEF; vertical-align: -2px; margin-left: 1px; }
 .b-sort { left: 492px; top: 91px; width: 120px; height: 28px; border-radius: 14px; background: #131315; border: 1px solid rgba(255, 255, 255, 0.06); font-size: 11px; padding: 6px 13px; color: #C9C2B8; }
 .b-sort:hover, .b-search:hover { background: #18181B; }
 .b-note { position: absolute; width: 420px; font-size: 10.5px; line-height: 15px; color: #626569; white-space: nowrap; }
@@ -431,7 +431,7 @@
 .it-slot[data-titem]:hover, .it-slot[data-toffitem]:hover { border-color: rgba(255, 255, 255, 0.25); }
 .coinf { width: 160px; height: 34px; border-radius: 12px; background: #161618; border: 1px solid rgba(255, 255, 255, 0.08); font-size: 12.5px; padding: 8px 0 0 31px; white-space: nowrap; overflow: hidden; }
 .coinf i { position: absolute; left: 11px; top: 10px; width: 12px; height: 12px; border-radius: 6px; background: #E8C46A; }
-.tr-div { left: 492px; top: 91px; width: 1px; height: 380px; background: rgba(255, 255, 255, 0.06); }
+.tr-div { left: 492px; top: 91px; width: var(--hair, 1px); height: 380px; background: rgba(255, 255, 255, 0.06); }
 .tr-foot { left: 0; top: 0; }
 .tr-note { left: 28px; top: 489px; width: 600px; font-size: 10.5px; color: #8EC5FF; white-space: nowrap; }
 .tr-status { left: 28px; top: 539px; width: 200px; height: 36px; border-radius: 18px; background: #1C1C1F; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 11.5px; display: flex; align-items: center; gap: 9px; padding-left: 13px; white-space: nowrap; }
