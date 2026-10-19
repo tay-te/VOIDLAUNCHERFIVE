@@ -56,11 +56,19 @@ public record SettlementFeature() implements Feature {
 		}
 		long start = System.nanoTime();
 		ChunkPos pos = region.getCenter();
-		List<RegionPlan.HistoricPlot> plots = world.atlas().plotsInChunk(pos.x(), pos.z());
-		if (plots.isEmpty()) {
+		List<RegionPlan.HistoricPlot> plots;
+		RegionPlan plan;
+		try {
+			plots = world.atlas().plotsInChunk(pos.x(), pos.z());
+			if (plots.isEmpty()) {
+				return false;
+			}
+			plan = world.atlas().plan(pos.x() >> 6, pos.z() >> 6);
+		} catch (RuntimeException e) {
+			// a region whose history cannot be worked out (a planner bug) generates as wild land rather than crashing the world
+			LOG.error("hearth: the history over chunk {} could not be worked out", pos, e);
 			return false;
 		}
-		RegionPlan plan = world.atlas().plan(pos.x() >> 6, pos.z() >> 6);
 		long settlement = plan.site() == null ? 0 : plan.site().settlementId();
 		BlueprintService blueprints = HearthServices.blueprints();
 		ChunkAccess chunk = level.getChunk(pos.x(), pos.z());
@@ -74,20 +82,27 @@ public record SettlementFeature() implements Feature {
 				LOG.warn("hearth: cannot write historic plot {} ({}) of {}: {}", hp.id(), hp.spec().archetype(), settlement, e.toString());
 				continue;
 			}
-			bp.forEachInChunk(pos.x(), pos.z(), 0, hp.completed(), (x, y, z, state, tag) -> {
-				BlockPos at = new BlockPos(x, y, z);
-				if (y < level.getMinY() || y >= level.getMaxY()) {
-					return;
-				}
-				level.setBlock(at, state, FLAGS);
-				blocks[0]++;
-				if (tag != null) {
-					BlockEntity be = level.getBlockEntity(at);
-					if (be != null) {
-						be.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), tag));
+			try {
+				bp.forEachInChunk(pos.x(), pos.z(), 0, hp.completed(), (x, y, z, state, tag) -> {
+					BlockPos at = new BlockPos(x, y, z);
+					if (y < level.getMinY() || y >= level.getMaxY()) {
+						return;
 					}
-				}
-			});
+					level.setBlock(at, state, FLAGS);
+					blocks[0]++;
+					if (tag != null) {
+						BlockEntity be = level.getBlockEntity(at);
+						if (be != null) {
+							be.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), tag));
+						}
+					}
+				});
+			} catch (RuntimeException e) {
+				// a generator bug must not crash world generation: the plot is left unwritten here (no ledger entry), so the
+				// runtime applier tries it again when the chunk loads
+				LOG.warn("hearth: writing historic plot {} ({}) of {} into chunk {} failed: {}", hp.id(), hp.spec().archetype(), settlement, pos, e.toString());
+				continue;
+			}
 			ledger = ledger.with(settlement, hp.id(), Cursor.pack(hp.completed(), 0));
 		}
 		ChunkLedgers.store(chunk, ledger);

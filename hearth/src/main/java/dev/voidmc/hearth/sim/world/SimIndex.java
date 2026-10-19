@@ -66,6 +66,14 @@ public final class SimIndex extends SavedData {
 		return this.nextId++;
 	}
 
+	/** Makes sure {@code id} is never handed out again (a settlement loaded from its file). */
+	public void reserveId(long id) {
+		if (id >= this.nextId) {
+			this.nextId = id + 1;
+			setDirty();
+		}
+	}
+
 	public void put(Entry e) {
 		Entry old = this.entries.put(e.id, e);
 		if (!e.equals(old)) {
@@ -89,6 +97,13 @@ public final class SimIndex extends SavedData {
 
 	public void markAdopted(long regionKey) {
 		if (this.adopted.add(regionKey)) {
+			setDirty();
+		}
+	}
+
+	/** Forgets that a region was adopted (its adoption failed half way), so it is tried again. */
+	public void unmarkAdopted(long regionKey) {
+		if (this.adopted.remove(regionKey)) {
 			setDirty();
 		}
 	}

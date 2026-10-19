@@ -80,7 +80,7 @@ final class Woodcutter {
 			int px = area.minX() + this.random.nextInt(Math.max(1, area.getXSpan()));
 			int pz = area.minZ() + this.random.nextInt(Math.max(1, area.getZSpan()));
 			LevelChunk chunk = level.getChunkSource().getChunkNow(px >> 4, pz >> 4);
-			if (chunk == null || nearPlayer(level, px, pz, x.fellAway()) || this.world.isPlanned(px, pz)) {
+			if (chunk == null || nearPlayer(level, px, pz, x.fellAway()) || this.world.isPlannedNow(px, pz)) {
 				continue;
 			}
 			int logs = fell(level, chunk, px, pz, o.site.material());
