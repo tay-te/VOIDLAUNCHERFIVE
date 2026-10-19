@@ -1,0 +1,50 @@
+# Hearth on the VOID Hub (Ultralight)
+
+Decided by the user, 2026-10-19: all of Hearth's player-facing UI moves to the VOID Hub's Ultralight HTML layer, the
+way Mettle's Classes and Gear pages work. Hearth's own Java screens stay as a fallback when the Hub is not installed.
+Designs go to Figma first (file `3c0Wgc4ZKFSpm98fWJoARS`, page 295:2 "In game · All screens"), the user picks, then
+the Hub pages are built and page 295:2 is kept in sync with what ships.
+
+Screens to move: `ConversationScreen` (talk and dialogue), `JournalScreen` and `QuestHud` (quests), `NoticeBoardScreen`,
+`MarketScreen` (shop and haggling), `BankScreen`, `ConfrontScreen` (a guard stops you), `LockpickScreen`,
+`PickpocketScreen`, `DiceScreen`, `ReputationScreen`, `LawHud`.
+
+## The pattern (from the Mettle/Hub session, mettle/docs/OVERLAY.md on branch `mettle`)
+
+Hearth side (client), all static and reached by reflection, so neither mod depends on the other:
+- `HearthState.build()`: the whole page state as a JSON-able tree; `HearthState.revision()`: a cheap counter bumped
+  whenever build()'s output would change.
+- `HearthActions.*`: overlay -> Java calls, each only sends a C2S packet; the server re-validates everything
+  (ownership, distance, costs, standing). The page only asks.
+- `HearthScreens.set...Opener(BooleanSupplier)`: the Hub registers openers; Hearth calls the opener instead of its own
+  screen, and falls back to its own screen if it returns false or none is registered.
+
+Hub side (branch `claude/hub-hearth` off `claude/voidhub`, its own worktree; never edit the voidhub worktree directly):
+- `hub/.../hearth/HearthLink` (MethodHandles behind `FabricLoader.isModLoaded("hearth")`, every handle optional) and
+  `HearthSync` (the render thread checks revision once a tick; a worker serialises and diffs; nothing resent on reopen).
+  Generalise `MettleSync` and `CardFx` into mod-neutral classes first, in a separate small commit, so both mods share
+  one copy.
+- `model/Bridge.java`: a `HEARTH_OPS` whitelist with argument validation.
+- Page files `hearth.js` / `hearth.css`; the shared touch points are index.html, hub.js, Bridge and HubScreen.
+- Event-opened screens (right-click an NPC, a guard stops you): the server tells the client, Hearth calls the registered
+  Hub opener, and the Hub opens a screen on a Hearth page. Dialogue wants a lighter HubScreen variant without slots.
+  In-page modals report their state to Java (the `ui` message) so Esc/Tab go to the page; re-send the modal state on
+  every reopen, count every popover as modal, pause page timers while closed, drop stale queued messages on close.
+- Landing: merge `claude/voidhub` into the branch; run the unit tests, `hubFunctional` (also `-Patlas`), `hubMettle`,
+  `hubAudit`, `hubPerf -Patlas`; then `git merge --ff-only` in the voidhub worktree after checking it is clean.
+
+Performance: a small change paints in about 5-6 ms, DOM-heavy changes 20-40 ms, and CSS-animated layers with masks or
+gradients 30-60 ms per frame. So minigames (lockpicking, pickpocketing timing, dice) draw their moving parts natively
+in Java at full frame rate (the `CardFx` model: the page draws static chrome and reports rects), read input in the
+screen's own key and mouse handlers, keep timing and results authoritative in Java and on the server, and update the
+page only on discrete state changes. Never animate with CSS. Glows only as radial gradients or baked PNGs.
+
+## The chrome (current Hub)
+
+Window 987x606 design px (radius 32); top islands 42 px high at y 18 as pills; a pill segment bar 36 px high, 20 px from
+the window top; content from 76 px down. Panels #191A1C on #0B0B0C, 1 px hairlines at about 10 % white, cards radius
+20, Outfit Medium, spaced uppercase eyebrows 8.5-9.5 px, text floor 10.5 px, a 16 px text safe area inside cards.
+Figma: section 295:397 holds the Hub pages (an older "Hub · Quests (Hearth panel)" frame 295:1242 already on the
+current chrome); section 295:1770 Kit has the hub components frame 268:50520 (slot set 269:50573, segments 268:50529);
+Mettle's cards are sections 2f (510:18631), 2g and 2h (546:23595). The user's UI rules: flat, rounded only, no blurred
+shadows, subtle colour (gamified screens may use colour and glow), pixel-art cards.
