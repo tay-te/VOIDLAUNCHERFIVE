@@ -1,5 +1,6 @@
 package dev.voidmc.hearth.client.quest;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.hearth.quest.model.Objective;
 import dev.voidmc.hearth.quest.model.PlayerQuests;
 import dev.voidmc.hearth.quest.model.QuestInstance;
@@ -219,7 +220,7 @@ public class JournalScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (!this.history && event.button() == 0) {
+		if (!this.history && event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
 			PlayerQuests pq = this.quests();
 			int lx = this.left + 12;
 			int ly = this.top + 28;

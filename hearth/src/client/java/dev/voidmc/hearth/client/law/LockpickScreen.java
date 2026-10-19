@@ -305,7 +305,7 @@ public class LockpickScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (event.button() == 0) {
+		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
 			this.mouseTurn = true;
 			return true;
 		}
@@ -314,7 +314,7 @@ public class LockpickScreen extends Screen {
 
 	@Override
 	public boolean mouseReleased(MouseButtonEvent event) {
-		if (event.button() == 0) {
+		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
 			this.mouseTurn = false;
 			return true;
 		}

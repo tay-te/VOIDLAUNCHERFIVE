@@ -1,5 +1,6 @@
 package dev.voidmc.hearth.client.quest;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.hearth.quest.model.Objective;
 import dev.voidmc.hearth.quest.model.QuestInstance;
 import dev.voidmc.hearth.quest.net.QuestPayloads;
@@ -226,7 +227,7 @@ public class NoticeBoardScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (this.reading == null && event.button() == 0) {
+		if (this.reading == null && event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
 			List<QuestPayloads.Board.Entry> entries = this.board.entries();
 			for (int i = 0; i < entries.size() && i < 6; i++) {
 				int x = this.cardX(i);

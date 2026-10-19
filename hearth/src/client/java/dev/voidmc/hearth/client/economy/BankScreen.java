@@ -1,5 +1,6 @@
 package dev.voidmc.hearth.client.economy;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.economy.bank.BankMenu;
 import dev.voidmc.hearth.economy.bank.BankView;
@@ -501,7 +502,7 @@ public class BankScreen extends AbstractContainerScreen<BankMenu> {
 
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		if (event.button() == 0) {
+		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
 			double mx = event.x();
 			double my = event.y();
 			BankView v = this.menu.view();

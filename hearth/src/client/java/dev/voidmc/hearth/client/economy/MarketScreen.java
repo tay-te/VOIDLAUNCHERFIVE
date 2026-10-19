@@ -1,5 +1,6 @@
 package dev.voidmc.hearth.client.economy;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.economy.coin.CoinFormat;
 import dev.voidmc.hearth.economy.market.MarketMenu;
@@ -319,7 +320,7 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		MarketView v = this.menu.view();
 		if (v.haggle() != null) {
-			if (event.button() == 0) {
+			if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
 				for (Button b : this.buttons) {
 					if (b.enabled && EconomyGui.inside(event.x(), event.y(), b.x, b.y, b.w, BTN_H)) {
 						EconomyGui.click();
@@ -339,14 +340,14 @@ public class MarketScreen extends AbstractContainerScreen<MarketMenu> {
 			}
 			return super.mouseClicked(event, doubleClick);
 		}
-		if (event.button() == 0 || event.button() == 1) {
+		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT || event.button() == InputConstants.MOUSE_BUTTON_RIGHT) {
 			MarketView.Offer o = rowAt(v.sells(), this.scrollSells, this.leftPos + LEFT_X, event.x(), event.y());
 			if (o == null) {
 				o = rowAt(v.buys(), this.scrollBuys, this.leftPos + RIGHT_X, event.x(), event.y());
 			}
 			if (o != null) {
 				EconomyGui.click();
-				int action = event.button() == 1 ? EconomyActionPayload.HAGGLE_START : EconomyActionPayload.TRADE;
+				int action = event.button() == InputConstants.MOUSE_BUTTON_RIGHT ? EconomyActionPayload.HAGGLE_START : EconomyActionPayload.TRADE;
 				ClientPlayNetworking.send(new EconomyActionPayload(this.menu.containerId, action, o.id(), event.hasShiftDown() ? 1 : 0));
 				return true;
 			}
