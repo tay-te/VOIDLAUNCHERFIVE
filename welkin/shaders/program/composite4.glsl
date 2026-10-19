@@ -30,12 +30,36 @@ uniform sampler2D colortex14;
 /* RENDERTARGETS: 9 */
 layout(location = 0) out vec4 outGlow;
 
-// (review round 1: the 3x3 tent as four bilinear taps half a texel off each way, the same 1 2 1 weights per axis:
-// 24 fetches instead of 54)
+// (Look D5) Each level through a cubic B-spline over its own 4x4 texels, fetched exactly (texelFetch). The mip levels
+// are read without filtering between texels, so the old tent (four taps half a texel off) drew each coarse level as
+// nested hard-edged boxes: round the sun the halo showed as a cream rectangle with an outline. The B-spline is smooth in
+// value, slope and curve, and its weights add to 1 (each level stays energy-conserving)
 vec3 tentAt(vec2 uv, float lod) {
-	vec2 h = 0.5 / vec2(textureSize(colortex14, int(lod)));
-	return 0.25 * (textureLod(colortex14, uv + vec2(-h.x, -h.y), lod).rgb + textureLod(colortex14, uv + vec2(h.x, -h.y), lod).rgb
-		+ textureLod(colortex14, uv + vec2(-h.x, h.y), lod).rgb + textureLod(colortex14, uv + vec2(h.x, h.y), lod).rgb);
+	int l = int(lod);
+	ivec2 sz = textureSize(colortex14, l);
+	vec2 st = uv * vec2(sz) - 0.5;
+	vec2 i0 = floor(st);
+	vec2 f = st - i0;
+	vec2 f2 = f * f;
+	vec2 f3 = f2 * f;
+	vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0;
+	vec2 w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;
+	vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0;
+	vec2 w3 = f3 / 6.0;
+	vec4 wx = vec4(w0.x, w1.x, w2.x, w3.x);
+	vec4 wy = vec4(w0.y, w1.y, w2.y, w3.y);
+	ivec2 b = ivec2(i0) - 1;
+	ivec2 hi = sz - 1;
+	vec3 c = vec3(0.0);
+	for (int y = 0; y < 4; y++) {
+		vec3 row = vec3(0.0);
+		int ty = clamp(b.y + y, 0, hi.y);
+		for (int x = 0; x < 4; x++) {
+			row += wx[x] * texelFetch(colortex14, ivec2(clamp(b.x + x, 0, hi.x), ty), l).rgb;
+		}
+		c += wy[y] * row;
+	}
+	return c;
 }
 
 // (review round 1) the widest levels a little less saturated: a saturated light's broad halo (the amber realm's

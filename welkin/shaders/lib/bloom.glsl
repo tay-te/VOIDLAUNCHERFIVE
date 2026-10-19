@@ -68,6 +68,9 @@ float bloomLuma(vec3 c) {
 #define BLOOM_DIFFUSE_THRESHOLD 6.0
 #define BLOOM_EMIT_GAIN 18.0 // (Look D1: 18, was 10: lamps and fire glow, the far village lamps too)
 #define BLOOM_SCATTER_HDR 0.5
+// (Look D5) the bright share a source texel gives the halo eases under this (exposed scene light; a lamp's texel is far
+// under it)
+#define BLOOM_SRC_CAP 40.0
 
 // The bright share of exposed scene light x. emit 0..1 a glowing texel's own light; diffuse 1 a lit surface that does
 // not glow.
@@ -90,7 +93,12 @@ float bloomCloudShareHdr(vec3 x) {
 vec3 bloomAddHdr(vec3 x, vec3 glow, float emit, float lend, float veil, float diffuse) {
 	float k = BLOOM_SCATTER_HDR * float(BLOOM_STRENGTH) * 0.01;
 	vec3 add = k * (glow - lend * bloomSourceHdr(x, emit, diffuse));
-	add -= min(vec3(k * BLOOM_FLAT * veil), max(add, 0.0));
+	// (Look D5) the flat share comes off smoothly: add - min(veil, add) clipped the halo to nothing along the contour where
+	// it fell to the veil, a crease the output transform drew as a faint outline round the sun's glow. a^2 / (a + v) takes
+	// about the veil off a strong halo and fades a weak one to nothing with no crease
+	vec3 v = vec3(k * BLOOM_FLAT * veil);
+	vec3 pos = max(add, 0.0);
+	add = add - pos + pos * pos / (pos + v + 1e-6);
 	return add;
 }
 

@@ -250,6 +250,11 @@ void main() {
 			vec3 b = bloomSourceHdr(c, emit, bloomDiffuseAt(p, emit));
 			// (the open sky and the clouds' bodies only in part: lib/bloom.glsl BLOOM_SKY, BLOOM_CLOUD)
 			b *= bloomShareAt(p, c);
+			// (Look D5) a source texel's bright share eases under BLOOM_SRC_CAP: the pixel sun's disc (600 to 1500) spread
+			// into a glow that stayed past the curve's shoulder out to a contour, a cream disc with an edge over the leaves
+			// round it. Eased, the halo falls off gradually from the sun (the disc keeps its own light: the sky lends none)
+			// (a glowing texel, a lamp or a flame, keeps its whole glow)
+			b *= mix(BLOOM_SRC_CAP / (BLOOM_SRC_CAP + bloomLuma(b)), 1.0, smoothstep(0.0, 0.1, emit));
 			// (a soft brightness weight: the full 1 / (1 + brightness) also swallowed a lamp's few bright pixels, so the
 			// lamps barely glowed; this one still keeps a lone glint from flickering into a blotch)
 			float w = 1.0 / (1.0 + 0.01 * bloomLuma(b));
