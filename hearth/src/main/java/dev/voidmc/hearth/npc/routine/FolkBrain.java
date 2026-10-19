@@ -202,6 +202,12 @@ public final class FolkBrain {
 		if (this.task != null) {
 			bySteps = this.task.creditedBySteps();
 			Task.Status status = this.task.tick(this, level, elapsed);
+			if (this.slipAway) {
+				// gone home out of sight: the record takes them the rest of the way (to bed), and the entity is folded
+				this.slipAway = false;
+				NpcModule.embodiment().fold(level, this.folk, true);
+				return;
+			}
 			if (status != Task.Status.RUNNING) {
 				this.task.stop(this, level);
 				this.task = null;
@@ -727,6 +733,18 @@ public final class FolkBrain {
 		}
 		return true;
 	}
+
+	/**
+	 * Asks to be folded back into the record once this think is done: a folk with a long way home at bedtime and nobody
+	 * to see them go, whose record is then in bed ({@link RoutinePlacement}). Not while escorted.
+	 */
+	public void slipAway() {
+		if (!dev.voidmc.hearth.npc.service.Escorts.pinned(this.resident.id)) {
+			this.slipAway = true;
+		}
+	}
+
+	private boolean slipAway;
 
 	public boolean walkFailed() {
 		return this.walkFailed;

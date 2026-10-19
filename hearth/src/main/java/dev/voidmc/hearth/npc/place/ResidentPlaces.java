@@ -86,6 +86,23 @@ public final class ResidentPlaces {
 				}
 			}
 		}
+		// a bed that is gone (broken, burnt, taken) is no bed to go to: the others are shared out instead
+		beds.removeIf(p -> level.isLoaded(p.pos()) && !(level.getBlockState(p.pos()).getBlock() instanceof net.minecraft.world.level.block.BedBlock));
+		if (beds.isEmpty() && homePlot != null && !homePois.isEmpty() && data.bed().isEmpty()) {
+			// a home whose known points name no bed standing (a house rebuilt since its points were read, a drawing that marks
+			// none, its beds gone): the beds standing in it, so nobody with a home sleeps sitting up while there is one
+			net.minecraft.world.level.levelgen.structure.BoundingBox box = SettlementPlaces.bounds(homePlot.spec());
+			if (PoiScanner.loaded(level, box) && SettlementPlaces.takeScanBudget(level)) {
+				for (Poi poi : PoiScanner.scan(level, box)) {
+					if (poi.type() == PoiType.BED) {
+						beds.add(poi);
+					}
+				}
+			} else {
+				// (looked for again soon, when the chunks are in or the tick's scans not spent)
+				r.complete = false;
+			}
+		}
 		if (data.bed().isPresent()) {
 			r.bed = data.bed().get();
 		} else if (!beds.isEmpty()) {

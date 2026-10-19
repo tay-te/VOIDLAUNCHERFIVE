@@ -142,7 +142,7 @@ public final class Extraction {
 	 * stone is in store (the live tour's towns sat on thousands from their quarriers' surface work, so a reopening gated on
 	 * the stores alone never came, requests/w7-tour.md §3).
 	 */
-	static boolean employs(PlanContext ctx, Identifier id) {
+	public static boolean employs(PlanContext ctx, Identifier id) {
 		dev.voidmc.hearth.api.JobType job = trade(id);
 		if (job == null) {
 			return false;

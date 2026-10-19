@@ -194,6 +194,9 @@ public class PlaythroughTour implements FabricClientGameTest {
 			run(4, "Quest: take, do, turn in", this::quest);
 			run(5, "Crime: seen and unseen", this::crime);
 			run(6, "Night: folk abed, a rented inn bed", this::night);
+			// (the night just slept is the sim's to catch up first, a few days' work a tick: what it adds after the snapshot is
+			// the town living on, not something the save lost)
+			caughtUp();
 			Map<String, String> before = snapshot();
 			quit();
 			open = false;
@@ -967,7 +970,7 @@ public class PlaythroughTour implements FabricClientGameTest {
 			return f == null ? null : f.brain().resident.id;
 		});
 		if (witness != null) {
-			BlockPos spot = srv(server -> freeBeside(server.overworld(), here, 3));
+			BlockPos spot = srv(server -> inSight(server.overworld(), here, 4));
 			srv(server -> {
 				Folk w = NpcModule.embodiment().entityOf(witness);
 				if (w != null) {
@@ -976,20 +979,21 @@ public class PlaythroughTour implements FabricClientGameTest {
 				return null;
 			});
 			settle(1_500);
-			srv(server -> {
-				Folk w = NpcModule.embodiment().entityOf(witness);
-				if (w != null && w.brain() != null) {
-					w.brain().handle().stop();
-					w.brain().handle().lookAt(player(server));
-				}
-				return null;
-			});
+			faceUs(witness);
 		}
 		note("witness " + doing(witness));
 		int seen0 = CRIMES_SEEN.get();
+		// (held looking our way through the theft: a witness walking on to work turns their back in a second)
+		faceUs(witness);
 		boolean opened = openContainer(chest);
 		ok(opened, "right-clicking the container opens it (" + chest.toShortString() + ")");
+		// (turning takes the head a few ticks: held and turned until it faces us, then the theft)
+		for (int i = 0; i < 6; i++) {
+			faceUs(witness);
+			settle(100);
+		}
 		takeFirst();
+		faceUs(witness);
 		settle(800);
 		this.context.runOnClient(mc -> mc.player.closeContainer());
 		settle(1_500);
@@ -1439,30 +1443,65 @@ public class PlaythroughTour implements FabricClientGameTest {
 		BlockPos c = srv(server -> town(server).center());
 		stand(c, 0);
 		settle(30_000);
+		StringBuilder awake = new StringBuilder();
 		int[] n = srv(server -> {
 			SimSettlement s = town(server);
+			ServerLevel level = server.overworld();
 			int homed = 0;
 			int inBed = 0;
 			int asleep = 0;
 			int out = 0;
+			int homeless = 0;
+			for (Resident r : s.residents()) {
+				homeless += r.home == Resident.NO_PLOT ? 1 : 0;
+			}
+			int listed = 0;
 			for (Folk f : townFolk()) {
 				Resident r = f.brain().resident;
 				if (r.home == Resident.NO_PLOT || s.plot(r.home) == null) {
 					continue;
 				}
 				homed++;
+				boolean own = false;
 				if (f.isSleeping()) {
 					asleep++;
 					BlockPos bed = f.getSleepingPos().orElse(null);
 					if (bed != null && s.plot(r.home).reach().inflatedBy(1).isInside(bed)) {
 						inBed++;
+						own = true;
 					}
 				} else if (!s.plot(r.home).reach().inflatedBy(1).isInside(f.blockPosition())) {
 					out++;
 				}
+				if (!own && listed++ < 24) {
+					// why not abed: what they are doing, where their bed is and whether it can be slept in
+					BlockPos bed = f.brain().places(level).bed;
+					String bedSays = bed == null ? "no bed" : String.format(Locale.ROOT, "bed %s %.0f blocks off%s%s", bed.toShortString(),
+						Math.sqrt(f.blockPosition().distSqr(bed)),
+						level.getBlockState(bed).getBlock() instanceof net.minecraft.world.level.block.BedBlock ? "" : " (no bed block there)",
+						level.getEntitiesOfClass(Folk.class, new net.minecraft.world.phys.AABB(bed).inflate(0.5), o -> o != f && o.isSleeping()
+							&& bed.equals(o.getSleepingPos().orElse(null))).isEmpty() ? "" : " (taken)");
+					long sharing = s.residents().stream().filter(o -> o.home == r.home).count();
+					// the beds standing in the home's plot as the world has it, against those its drawing gave it
+					var box = dev.voidmc.hearth.npc.place.SettlementPlaces.bounds(s.plot(r.home).spec());
+					int standing = 0;
+					for (BlockPos q : BlockPos.betweenClosed(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ())) {
+						if (level.isLoaded(q) && level.getBlockState(q).getBlock() instanceof net.minecraft.world.level.block.BedBlock b
+							&& level.getBlockState(q).getValue(net.minecraft.world.level.block.BedBlock.PART) == net.minecraft.world.level.block.state.properties.BedPart.HEAD) {
+							standing++;
+						}
+					}
+					bedSays += "; " + standing + " beds standing in the plot (state " + s.plot(r.home).state().getSerializedName() + ", stage "
+						+ s.plot(r.home).stage() + ")";
+					awake.append(System.lineSeparator()).append("  - ").append(f.folkName()).append(" (").append(r.job.getSerializedName()).append(", ").append(r.age.getSerializedName())
+						.append("): ").append(f.brain().describe()).append("; ").append(bedSays).append("; home #").append(r.home).append(' ')
+						.append(s.plot(r.home).spec().archetype().getPath()).append(" with ").append(sharing).append(" living there for ")
+						.append(s.plot(r.home).beds()).append(" beds");
+				}
 			}
-			return new int[]{homed, asleep, inBed, out};
+			return new int[]{homed, asleep, inBed, out, homeless, s.population()};
 		});
+		note("homeless: " + n[4] + " of " + n[5] + " residents; not in their own beds:" + awake);
 		note("midnight: " + n[0] + " embodied folk with homes, " + n[1] + " asleep, " + n[2] + " in a bed of their own home, " + n[3] + " still out");
 		ok(n[0] > 0 && n[2] * 2 >= n[0], "folk go home to bed (" + n[2] + "/" + n[0] + " in their own beds)");
 		// right-clicking a sleeper is never met with silence
@@ -1558,6 +1597,21 @@ public class PlaythroughTour implements FabricClientGameTest {
 	}
 
 	// ---------------------------------------------------------------- 7. save and reload
+
+	/** Waits (up to 20 s) until the town's sim has caught up with the world's clock. */
+	private void caughtUp() {
+		for (int i = 0; i < 40; i++) {
+			boolean done = srv(server -> {
+				SimSettlement s = town(server);
+				return s.simTick() >= SimServer.world(server.overworld()).simNow(s);
+			});
+			if (done) {
+				return;
+			}
+			settle(500);
+		}
+		log("the town's sim is still behind the clock after 20 s");
+	}
 
 	private Map<String, String> snapshot() {
 		Map<String, String> m = new HashMap<>();
@@ -1808,7 +1862,7 @@ public class PlaythroughTour implements FabricClientGameTest {
 				if (i == 0) {
 					note("(" + srv(server -> town(server).resident(resident) == null ? "?" : town(server).resident(resident).fullName()) + " is not about; called over)");
 				}
-				spawnNear(resident, srv(server -> town(server).center()));
+				spawnNear(resident, srv(server -> player(server).blockPosition()));
 				settle(1_500);
 				continue;
 			}
@@ -1983,6 +2037,21 @@ public class PlaythroughTour implements FabricClientGameTest {
 		return srv(server -> player(server).blockPosition().toShortString());
 	}
 
+	/** Stops a folk where they stand and turns them to the player (a witness put a few steps off). */
+	private void faceUs(@Nullable UUID resident) {
+		if (resident == null) {
+			return;
+		}
+		srv(server -> {
+			Folk w = NpcModule.embodiment().entityOf(resident);
+			if (w != null && w.brain() != null) {
+				w.brain().handle().stop();
+				w.brain().handle().lookAt(player(server));
+			}
+			return null;
+		});
+	}
+
 	private String doing(@Nullable UUID resident) {
 		if (resident == null) {
 			return "nobody";
@@ -2037,6 +2106,29 @@ public class PlaythroughTour implements FabricClientGameTest {
 	}
 
 	/** A spot a player can stand {@code r} (or fewer) blocks from a block, on the same level if it can. */
+	/**
+	 * A spot to stand a few steps from {@code target} with a clear line from head to head (a witness put behind the wall
+	 * of the next room sees nothing), or {@link #freeBeside} when there is none.
+	 */
+	private static BlockPos inSight(ServerLevel level, BlockPos target, int r) {
+		Vec3 eye = Vec3.atBottomCenterOf(target).add(0, 1.62, 0);
+		for (int d = 2; d <= r; d++) {
+			for (Direction dir : Direction.Plane.HORIZONTAL) {
+				for (int dy : new int[]{0, -1, 1}) {
+					BlockPos at = target.relative(dir, d).above(dy);
+					if (level.getBlockState(at).getCollisionShape(level, at).isEmpty() && level.getBlockState(at.above()).getCollisionShape(level, at.above()).isEmpty()
+						&& !level.getBlockState(at.below()).getCollisionShape(level, at.below()).isEmpty()
+						&& level.clip(new net.minecraft.world.level.ClipContext(Vec3.atBottomCenterOf(at).add(0, 1.62, 0), eye,
+						net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE,
+						net.minecraft.world.phys.shapes.CollisionContext.empty())).getType() == net.minecraft.world.phys.HitResult.Type.MISS) {
+						return at;
+					}
+				}
+			}
+		}
+		return freeBeside(level, target, r);
+	}
+
 	private static BlockPos freeBeside(ServerLevel level, BlockPos target, int r) {
 		for (int d = r; d >= 1; d--) {
 			for (Direction dir : Direction.Plane.HORIZONTAL) {
