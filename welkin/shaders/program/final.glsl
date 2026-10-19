@@ -58,6 +58,15 @@ void main() {
 in vec2 texcoord;
 // ---- look (welkin-look): the colour grade
 #include "/lib/grade.glsl"
+#include "/lib/hdr.glsl"
+#ifndef WU_viewWidth
+#define WU_viewWidth
+uniform float viewWidth;
+#endif
+#ifndef WU_viewHeight
+#define WU_viewHeight
+uniform float viewHeight;
+#endif
 flat in vec4 gradeHour;
 flat in float gradeOpen;
 flat in float gradeDusk;
@@ -276,6 +285,12 @@ void main() {
 	uint h = pixelHash(p, 7u);
 	float tri = (float(h & 0xFFFFu) + float(h >> 16u)) / 65535.0 - 1.0;
 	c = clamp(c + tri / 255.0, 0.0, 1.0);
+#if DEBUG_VIEW == 23
+	// (HDR stage A) the scene's light in stops from mid grey (before the change: estimated back from the display value)
+	c = hdrFalseColour(hdrCurveInv(toLinear(max(texelFetch(colortex0, p, 0).rgb, 0.0))), p, ivec2(viewWidth, viewHeight));
+#elif DEBUG_VIEW == 24
+	c = hdrClipView(toLinear(c));
+#endif
 	outColor = vec4(c, 1.0);
 }
 

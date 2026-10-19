@@ -30,7 +30,7 @@
 
 out vec2 texcoord;
 
-#if defined VALLEY_MIST && defined WORLD_OVERWORLD && DEBUG_VIEW == 0
+#if defined VALLEY_MIST && defined WORLD_OVERWORLD && defined DEBUG_PLAIN
 // the valley mist's camera sample, the same for every pixel: worked out here, once a corner, not once a pixel
 #include "/lib/mist.glsl"
 flat out vec4 mistCam;    // the camera's slab top, its density, the hour's mist, the mist on
@@ -40,7 +40,7 @@ flat out ivec4 mistCamCells; // the camera's cell, the tiles' centre
 void main() {
 	gl_Position = ftransform();
 	texcoord = gl_MultiTexCoord0.xy;
-#if defined VALLEY_MIST && defined WORLD_OVERWORLD && DEBUG_VIEW == 0
+#if defined VALLEY_MIST && defined WORLD_OVERWORLD && defined DEBUG_PLAIN
 	MistTiles t = mistTiles();
 	MistPoint a = mistAt(vec2(0.0), t);
 	mistCam = vec4(a.top, a.density, t.time, t.on ? 1.0 : 0.0);
@@ -92,7 +92,7 @@ void main() {
 #endif
 
 in vec2 texcoord;
-#if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
+#if defined WELKIN_VALLEY_MIST && defined DEBUG_PLAIN
 flat in vec4 mistCam;
 flat in ivec4 mistCamCells;
 #endif
@@ -132,7 +132,7 @@ uniform float viewWidth;
 #endif
 // ---- end M6 water
 
-#if DEBUG_VIEW != 0
+#if !defined DEBUG_PLAIN
 #include "/lib/debug.glsl"
 #endif
 #if SKY_DEBUG == 1
@@ -241,7 +241,7 @@ ivec2 pinholeFill(ivec2 p, vec2 uv) {
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec2 uv = texcoord;
-#if DEBUG_VIEW == 0
+#if defined DEBUG_PLAIN
 	{
 		ivec2 q = pinholeFill(p, uv);
 		if (q != p) {
@@ -251,7 +251,7 @@ void main() {
 	}
 #endif
 	vec4 color = texelFetch(colortex0, p, 0);
-#if DEBUG_VIEW == 0
+#if defined DEBUG_PLAIN
 	// M3: a cloud drawn here (composite), nearer than whatever lies behind it; it fogged itself by ring
 	bool cloud = false;
 	float cloudKm = 1000.0;
@@ -410,7 +410,7 @@ void main() {
 		if (!cloud && !finished) {
 			hvRaw = hvResolve(p, pinholeWater(p) ? -1.0 : resolveDist(p, uv)); // look3: the walk's own (opaque) distance; water: the tile's mean
 			float hvMist = 0.0;
-#if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
+#if defined WELKIN_VALLEY_MIST && defined DEBUG_PLAIN
 			hvMist = clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
 #endif
 			color.rgb = mix(hvComposite(color.rgb, hvRaw, st, normalize(eyePos), sunW, airPlain, s.sky, hvMist, lum),
@@ -427,7 +427,7 @@ void main() {
 			float T = s.sky ? 700.0 : length(eyePos);
 			float ground = s.sky ? min(camY - 2.0, HAZE_SEA_LEVEL + 8.0) : camY + eyePos.y;
 			float weight = 0.5 * dawnMistLow(ground);
-#if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
+#if defined WELKIN_VALLEY_MIST && defined DEBUG_PLAIN
 			if (mistCam.w > 0.5) {
 				// Gloam's near tiles: the valleys, the hollows and the water (the valley mist's pool and potential, with
 				// its soft billows), read at the ray's end (a sky ray: a few hundred blocks out)
@@ -468,7 +468,7 @@ void main() {
 #endif
 			// atmos (shafts and bloom): thicker in hazy air and where the morning's valley mist lies, thinner in rain
 			float shThick = mix(0.85, 1.5, clamp(st.haze.x, 0.0, 1.0)) * (1.0 - 0.5 * st.rain);
-#if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
+#if defined WELKIN_VALLEY_MIST && defined DEBUG_PLAIN
 			shThick *= 1.0 + 0.8 * clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
 #endif
 			shThick *= 1.0 + 0.9 * clamp(dawnAmt, 0.0, 1.5); // look2: thicker in the morning mist

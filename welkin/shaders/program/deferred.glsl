@@ -324,7 +324,7 @@ void main() {
 	}
 #endif
 	float d = 0.5; // the far fade's old dither threshold: no dither any more
-#if defined FAR_FADE && !(defined HAZE_ENABLED && defined WORLD_OVERWORLD) && DEBUG_VIEW == 0
+#if defined FAR_FADE && !(defined HAZE_ENABLED && defined WORLD_OVERWORLD) && defined DEBUG_PLAIN
 	color.rgb = mix(color.rgb, horizonColor(), farFade(length(eyePos.xz), d));
 #endif
 	outColor = color;

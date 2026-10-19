@@ -55,7 +55,7 @@ void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec4 color = texelFetch(colortex0, p, 0);
 	float km = texelFetch(colortex6, p, 0).r;
-#if DEBUG_VIEW == 0
+#if defined DEBUG_PLAIN
 	// 1. water fog, as composite2 laid it before P5 (not over a cloud in front of a lake, seen from above the deck)
 	bool cloud = isEyeInWater == 0 && km < 999.0;
 	if (!cloud) {

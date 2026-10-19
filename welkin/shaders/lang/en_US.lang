@@ -365,6 +365,8 @@ value.DEBUG_VIEW.18=Ambient occlusion
 value.DEBUG_VIEW.19=Bent normals
 value.DEBUG_VIEW.20=Sky light by direction
 value.DEBUG_VIEW.22=Far land's own shade
+value.DEBUG_VIEW.23=Scene light in stops (false colour)
+value.DEBUG_VIEW.24=Clipping (to white or black)
 # ---- Light: foliage (C)
 option.LEAF_TRANSLUCENCY=Light through leaves
 option.LEAF_TRANSLUCENCY.comment=How strongly sunlit leaves glow when you look toward the sun through a crown. The thin edges of a crown glow; its heart stays dark.
