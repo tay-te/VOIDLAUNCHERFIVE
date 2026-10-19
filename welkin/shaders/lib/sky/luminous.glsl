@@ -37,6 +37,15 @@ uniform float rainStrength;
 uniform float sunAngle; // 0 sunrise, 0.25 noon, 0.5 sunset
 #endif
 
+// skies2 (welkin-skies, 2026-10-18): the day's air and zenith
+#define WS_ZEN_SAT 0.80
+#define WS_ZEN_LEVEL 0.96
+#define WS_BAND_GREY 0.22
+#define WS_BAND_BRIGHT 1.22
+#define WS_AIR_HUE 0.75
+#define WS_AIR_SUN 0.85
+#define WS_BAND_GOLD 1.18
+
 struct SkyLum {
 	vec3 sunW;
 	vec3 hue;    // the sun's glow hue, linear, luma 1
@@ -133,7 +142,9 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 
 	// the zenith: deeper and a little richer overhead (less while the sun is low: a golden-hour zenith stays light)
 	float zen = smoothstep(0.15, 0.95, hp);
-	vec3 rich = max(mix(vec3(y), L, 1.15), 0.0) * 0.84;
+	// (skies2, 2026-10-18: a softer, hazier blue overhead, less saturated, not deeper: the direction's blue-grey sky, never
+	// a saturated cyan. Was 1.15 saturation at 0.84 brightness)
+	vec3 rich = max(mix(vec3(y), L, WS_ZEN_SAT), 0.0) * WS_ZEN_LEVEL * vec3(1.02, 1.0, 0.97);
 	// (and none at dusk and dawn: it darkened the 18:30 sky below the sunset's own light)
 	L = mix(L, rich, zen * 0.6 * min(k, 1.0) * (1.0 - 0.5 * f.low) * (1.0 - 0.85 * f.warm) * smoothstep(-0.02, 0.10, f.sunW.y));
 
@@ -143,10 +154,23 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// (review round 2: by day, away from the golden hours, the band is wider and whiter, the luminous haze over a midday
 	// horizon both reference packs show; the golden hours keep round 1's coloured band)
 	float mid = (1.0 - f.warm) * f.up;
-	const vec4 BAND_DAY = vec4(0.46, 0.46, 1.62, 0.9);
+	// (skies2, 2026-10-18: the day's band is coloured air, not a milky white strip: grey 0.46 and 1.62 times the sky
+	// were a near-white band the far land dissolved into. Now a little paler than the sky, a soft blue-grey away from
+	// the sun warming to a gold glow toward it, so far ridges stand in layered, coloured air)
+	const vec4 BAND_DAY = vec4(0.46, WS_BAND_GREY, WS_BAND_BRIGHT, 0.9);
 	float band = exp(-hp / mix(0.36, BAND_DAY.x, mid)) * (1.0 - 0.45 * smoothstep(0.0, 0.12, -d.y));
 	// (review round 1: less grey in it, so the band keeps the sky's colour instead of a near white strip)
-	vec3 pale = mix(L, vec3(y), mix(0.28, BAND_DAY.y, mid)) * mix(1.45, BAND_DAY.z, mid);
+	// (skies2: the golden hours' band 1.2 the sky, was 1.45: it read as a cream-white wash the mesa's far land vanished in)
+	vec3 pale = mix(L, vec3(y), mix(0.16, BAND_DAY.y, mid)) * mix(WS_BAND_GOLD, BAND_DAY.z, mid);
+	{
+		// (skies2) the day's air hue: blue-grey away from the sun, a soft gold toward it (linear, luma 1)
+		const vec3 AIR_AWAY = vec3(0.86, 1.00, 1.30);
+		const vec3 AIR_SUN = vec3(1.20, 0.98, 0.66);
+		vec3 airHue = mix(AIR_AWAY, AIR_SUN, side * side * side * WS_AIR_SUN);
+		// (by day and through the golden hours; the last degrees of a sunset keep their rose and lilac)
+		float eve = 1.0 - smoothstep(0.03, 0.2, f.sunW.y);
+		pale = mix(pale, airHue * skyLumLuma(pale), WS_AIR_HUE * f.up * (1.0 - 0.8 * eve));
+	}
 	vec3 coolPale = pale * vec3(0.98, 1.0, 1.03);
 	float warm = f.warm * f.up * mix(0.45, 1.0, side * side);
 	vec3 bandC = mix(coolPale, f.gold * skyLumLuma(pale), clamp(0.80 * warm, 0.0, 1.0));
