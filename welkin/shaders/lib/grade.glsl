@@ -63,7 +63,9 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 	float chroma = (mx - mn) / max(mx, 1e-4);
 
 	// how warm-led the colour is: red led, over blue (fire, lamps, the golden light, straw, ochre, brick)
-	float warmHue = clamp((L.r - L.b) / max(mx, 1e-4) * 1.6, 0.0, 1.0) * smoothstep(0.85, 1.0, L.r / max(L.g, 1e-4));
+	// (look3: red clearly over green, 0.98..1.12, was 0.85..1.0: a yellow-green meadow, red about equal to green, counted as
+	// warm and kept its lime; straw, ochre, fire and the golden light all stand well past it)
+	float warmHue = clamp((L.r - L.b) / max(mx, 1e-4) * 1.6, 0.0, 1.0) * smoothstep(0.98, 1.12, L.r / max(L.g, 1e-4));
 	// a glowing or lamp-lit warm pixel at night keeps its colour wholly (the fire must stand out)
 	float keepWarm = warmHue * mix(0.5, 1.0, night);
 
@@ -79,7 +81,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		// moss-olive, not a lime)
 		vec3 moss = mix(vec3(y), L, 0.80) * vec3(1.0, 1.0, 1.06);
 		moss *= 0.93 * y / max(gradeLuma(moss), 1e-6);
-		L = mix(L, moss, 0.75 * green * (1.0 - night));
+		L = mix(L, moss, 0.50 * green * (1.0 - night)); // (look3: 0.50, was 0.75: the woods' greens had gone grey)
 		// (look2, 2026-10-18) the yellow-greens: a sunlit meadow at noon is a chartreuse with red near green (155, 152, 90),
 		// which the green-led weight above barely sees. By hue: from a yellow-green (about 55 degrees) to a green (about
 		// 160) the hue is drawn toward an olive-moss (86 degrees), a quarter of the saturation out and a little deeper.
@@ -92,12 +94,14 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 			float th = 96.0 + (hd - 96.0) * 0.2;
 			// (the true greens, past about 90 degrees: leaves, a savanna's crowns, keep more of their colour and depth)
 			float yg = 1.0 - smoothstep(75.0, 115.0, hd);
-			vec3 m2 = gradeRgb(vec3(th / 360.0, hsv.y * mix(0.80, 0.62, yg), hsv.z));
-			m2 *= mix(0.93, 0.84, yg) * gradeLuma(L) / max(gradeLuma(m2), 1e-6);
+			// (look3: a gentler pull, 0.88..0.76 of the saturation and 0.97..0.93 of the light, was 0.80..0.62 and 0.93..0.84:
+			// noon's meadow had gone a grey olive; it stays moss and olive, but alive)
+			vec3 m2 = gradeRgb(vec3(th / 360.0, hsv.y * mix(1.0, 0.97, yg), hsv.z));
+			m2 *= mix(0.90, 0.80, yg) * gradeLuma(L) / max(gradeLuma(m2), 1e-6);
 			L = mix(L, m2, band * GRADE_MOSS);
 		}
 		// blue-grey: a third of the saturation out, a breath of warmth in
-		vec3 bg = mix(vec3(y), L, 0.58) * vec3(1.03, 1.0, 0.97); // (look2: 0.58, was 0.70)
+		vec3 bg = mix(vec3(y), L, 0.90) * vec3(1.03, 1.0, 0.97); // (look3: 0.80: noon's sky had gone a leaden grey; look2 0.58)
 		bg *= y / max(gradeLuma(bg), 1e-6);
 		L = mix(L, bg, min(0.85 * blue + 0.7 * cyan, 1.0) * (1.0 - 0.5 * night));
 	}
@@ -105,13 +109,16 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 	// ---- 2. saturation: a restrained curve; the warm hues keep more
 	{
 		float yd = pow(max(gradeLuma(L), 0.0), 1.0 / 2.2);
-		float base = mix(0.68, 0.90, warm);         // midday muted (look2: 0.68, was 0.80), golden hours richer
+		float base = mix(0.80, 0.90, warm);         // midday muted (look3: 0.80, look2's 0.68 read grey and dead), golden hours richer
 		base = mix(base, 0.74, over);                 // overcast and rain greyer
 		base = mix(base, 0.70, night * open);         // moonlight is nearly colourless
 		float s = mix(base, 1.04, keepWarm);
+		// (look3) the open sky's blue keeps more by day: a soft hazy blue, not a leaden grey
+		float blueK = clamp((L.b - max(L.r, L.g)) / max(L.b, 1e-4) * 3.0, 0.0, 1.0) * day * (1.0 - over);
+		s = mix(s, max(s, 0.94), blueK);
 		// calmer highs and lows, richest in the mids
-		s *= 1.0 - 0.22 * smoothstep(0.62, 0.98, yd) * (1.0 - keepWarm);
-		s *= 1.0 - 0.18 * (1.0 - smoothstep(0.03, 0.22, yd));
+		s *= 1.0 - 0.22 * smoothstep(0.62, 0.98, yd) * (1.0 - keepWarm) * (1.0 - 0.6 * blueK);
+		s *= 1.0 - mix(0.18, 0.06, day) * (1.0 - smoothstep(0.03, 0.22, yd)); // (look3: by day the shade keeps its colour)
 		float yl = gradeLuma(L);
 		L = max(mix(vec3(yl), L, s), 0.0);
 	}
@@ -123,7 +130,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		float wHi = smoothstep(0.30, 0.75, yd) * (1.0 - 0.7 * smoothstep(0.82, 1.0, yd));
 		float wLo = 1.0 - smoothstep(0.06, 0.42, yd);
 		// the highlights: a neutral warmth by day, gold through the golden hours (rose-gold in the morning)
-		vec3 hiDay = vec3(1.035, 1.0, 0.94);
+		vec3 hiDay = vec3(1.05, 1.0, 0.92); // (look3: a warmer sunlit side, was 1.035 1.0 0.94)
 		vec3 hiGold = mix(vec3(1.10, 0.99, 0.80), vec3(1.07, 0.98, 0.88), morn); // (look2: richer gold)
 		vec3 hiOver = vec3(1.0, 1.0, 0.99);
 		vec3 hiNight = vec3(0.96, 0.99, 1.04);
@@ -136,7 +143,9 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 lo = mix(mix(loDay, loGold, warm), loNight, night);
 		hi /= gradeLuma(hi);
 		lo /= gradeLuma(lo);
-		L *= mix(vec3(1.0), hi, wHi * open) * mix(vec3(1.0), lo, wLo);
+		// (look3) the open sky's blue takes half the warm highlight, so it stays a blue
+		float blueS = clamp((L.b - max(L.r, L.g)) / max(L.b, 1e-4) * 3.0, 0.0, 1.0) * day;
+		L *= mix(vec3(1.0), hi, wHi * open * (1.0 - 0.5 * blueS)) * mix(vec3(1.0), lo, wLo);
 	}
 
 	// ---- 4. lift / gamma / gain (display values)
@@ -144,7 +153,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 	{
 		// gain: midday calmer and a touch lower; golden hours warm and full; dawn pearly; overcast cool and soft; night
 		// moonlit
-		vec3 gDay = vec3(0.86, 0.85, 0.82); // (look2: about 0.85, a touch warm-grey, was 0.92)
+		vec3 gDay = vec3(0.95, 0.935, 0.90); // (look3: sunlit, warm-neutral, was look2's 0.86 0.85 0.82, which killed the sun)
 		vec3 gGold = mix(vec3(1.03, 0.985, 0.92), vec3(1.015, 0.975, 0.95), morn);
 		vec3 gOver = vec3(0.94, 0.95, 0.96);
 		vec3 gNight = vec3(1.04, 1.10, 1.20); // (look2: moonlit and readable, was 0.92 0.97 1.04)
@@ -159,7 +168,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 lift = mix(mix(lDay, lGold, warm), lOver, over);
 		lift = mix(lift, lNight, night);
 		// gamma: the mids a little lower by day (calm), held at the golden hour, a little higher under an overcast
-		float gamma = mix(mix(0.95, 1.0, warm), 1.03, over);
+		float gamma = mix(mix(0.98, 1.0, warm), 1.03, over); // (look3: noon 0.98, was 0.95)
 		// (look2) moonlit nights a little more open in the mids, so the land reads under the moon
 		gamma = mix(gamma, 1.14, night * open);
 		d = d * gain + lift * (1.0 - d);
@@ -169,7 +178,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 	// ---- 5. the filmic S round the mids (on luminance, the hue kept)
 	{
 		float yd = gradeLuma(d);
-		float amt = mix(0.10, 0.20, warm) * (1.0 - 0.6 * over) * mix(0.5, 1.0, day);
+		float amt = mix(0.22, 0.20, warm) * (1.0 - 0.6 * over) * mix(0.5, 1.0, day); // (look3: noon 0.16, was 0.10: the light models the land)
 		float x = clamp(yd, 0.0, 1.0);
 		float sx = x * x * (3.0 - 2.0 * x);
 		float yd2 = mix(x, sx, amt);
@@ -177,7 +186,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		// sunlit sand sit in a soft cream a step under white instead of a high-key glare (the golden hours keep more of
 		// their glow, night is untouched)
 		float roll = smoothstep(0.55, 1.0, x);
-		yd2 -= mix(0.17, 0.08, warm) * roll * roll * day * open * (1.0 - keepWarm);
+		yd2 -= mix(0.11, 0.08, warm) * roll * roll * day * open * (1.0 - keepWarm); // (look3: 0.11, was 0.17)
 		d *= yd2 / max(yd, 1e-5);
 	}
 
