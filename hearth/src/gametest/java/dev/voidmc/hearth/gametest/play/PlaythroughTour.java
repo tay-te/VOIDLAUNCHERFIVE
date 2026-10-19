@@ -194,6 +194,9 @@ public class PlaythroughTour implements FabricClientGameTest {
 			run(4, "Quest: take, do, turn in", this::quest);
 			run(5, "Crime: seen and unseen", this::crime);
 			run(6, "Night: folk abed, a rented inn bed", this::night);
+			// (the night just slept is the sim's to catch up first, a few days' work a tick: what it adds after the snapshot is
+			// the town living on, not something the save lost)
+			caughtUp();
 			Map<String, String> before = snapshot();
 			quit();
 			open = false;
@@ -1479,6 +1482,17 @@ public class PlaythroughTour implements FabricClientGameTest {
 						level.getEntitiesOfClass(Folk.class, new net.minecraft.world.phys.AABB(bed).inflate(0.5), o -> o != f && o.isSleeping()
 							&& bed.equals(o.getSleepingPos().orElse(null))).isEmpty() ? "" : " (taken)");
 					long sharing = s.residents().stream().filter(o -> o.home == r.home).count();
+					// the beds standing in the home's plot as the world has it, against those its drawing gave it
+					var box = dev.voidmc.hearth.npc.place.SettlementPlaces.bounds(s.plot(r.home).spec());
+					int standing = 0;
+					for (BlockPos q : BlockPos.betweenClosed(box.minX(), box.minY(), box.minZ(), box.maxX(), box.maxY(), box.maxZ())) {
+						if (level.isLoaded(q) && level.getBlockState(q).getBlock() instanceof net.minecraft.world.level.block.BedBlock b
+							&& level.getBlockState(q).getValue(net.minecraft.world.level.block.BedBlock.PART) == net.minecraft.world.level.block.state.properties.BedPart.HEAD) {
+							standing++;
+						}
+					}
+					bedSays += "; " + standing + " beds standing in the plot (state " + s.plot(r.home).state().getSerializedName() + ", stage "
+						+ s.plot(r.home).stage() + ")";
 					awake.append(System.lineSeparator()).append("  - ").append(f.folkName()).append(" (").append(r.job.getSerializedName()).append(", ").append(r.age.getSerializedName())
 						.append("): ").append(f.brain().describe()).append("; ").append(bedSays).append("; home #").append(r.home).append(' ')
 						.append(s.plot(r.home).spec().archetype().getPath()).append(" with ").append(sharing).append(" living there for ")
@@ -1583,6 +1597,21 @@ public class PlaythroughTour implements FabricClientGameTest {
 	}
 
 	// ---------------------------------------------------------------- 7. save and reload
+
+	/** Waits (up to 20 s) until the town's sim has caught up with the world's clock. */
+	private void caughtUp() {
+		for (int i = 0; i < 40; i++) {
+			boolean done = srv(server -> {
+				SimSettlement s = town(server);
+				return s.simTick() >= SimServer.world(server.overworld()).simNow(s);
+			});
+			if (done) {
+				return;
+			}
+			settle(500);
+		}
+		log("the town's sim is still behind the clock after 20 s");
+	}
 
 	private Map<String, String> snapshot() {
 		Map<String, String> m = new HashMap<>();
