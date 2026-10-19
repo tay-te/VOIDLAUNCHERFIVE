@@ -130,7 +130,7 @@ vec3 rayBlurLog(sampler2D src, vec2 uv, vec2 sunUV, float step, bool hollow) {
 vec3 rayStructure(sampler2D tex, vec2 uv, vec2 sunUV, float aspect, vec3 r0, float hp) {
 	const vec3 W = vec3(0.2126, 0.7152, 0.0722);
 	float y0 = dot(r0, W);
-	if (y0 < 1e-6) return vec3(0.0);
+	if (y0 < 1e-6 || hp <= 0.0) return r0; // (no beam here, or nothing to take off: no taps)
 	vec2 v = (uv - sunUV) * vec2(aspect, 1.0);
 	float sum = 0.0;
 	float wsum = 0.0;
