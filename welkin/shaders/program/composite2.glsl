@@ -536,6 +536,9 @@ void main() {
 #if SKY_DEBUG == 1
 	color.rgb = skyDebugOverlay(p, color.rgb); // the sky table, 8x, bottom left
 #endif
+	// (the cave air and the rest that do not say what shows through: a large change loses the HDR share)
+	vec3 hdrDd = abs(color.rgb - hdrDispIn);
+	hdrKeep = min(hdrKeep, 1.0 - max(hdrDd.r, max(hdrDd.g, hdrDd.b)) / 0.25);
 	outColor = vec4(hdrBridgeBack(color.rgb, hdrDispIn, hdrSceneIn, hdrKeep), color.a);
 }
 

@@ -1667,3 +1667,82 @@ then `welkin-water2` (water and weather).
 - **Still open:** the grove's canopy beams are faint (the sun stands behind the camera at 16:30); the cloud-gap beams
   at front 0.55 do not show (the far walk's cloud shadow is too soft at 17:00); the glitter path on the water is a gold
   column, not yet a blaze of glints; the haze walk still runs through the water at shore 05:30.
+
+## The HDR foundation, stage A (2026-10-19, branch `welkin-hdr`)
+
+The approved rework (plan: one scene-linear HDR pipeline, ONE output transform at the end). Stage A is the backbone;
+stages B (the air, water, bloom natively linear), C (shafts, temporal) and D (the look) follow.
+
+### The scene's unit
+colortex0 holds scene-linear light from the light pass and the sky until `final`. **1.0 is the light a white
+(albedo 1) face sends back under an irradiance of 1**, the light model's own unit (`lib/tone.glsl`: the noon sun
+LAND_SUN 2.7, the open sky's fill on an upward face LAND_FILL 0.215). A mid grey (0.18) face under that unit light is
+0.18 and shows at mid grey (display 0.46) at exposure 1. On the same scale: a noon sky about 0.3 to 0.8, a sunlit pale
+stone face 1.5 to 3, the pixel sun's disc 600 (on the horizon) to 1500 (high) at its core (`lib/sky/dome.glsl`
+SKY_SUN_RADIANCE*), the moon's face 2 x its palette, the brightest star 1.5, a flame's texel its albedo x 1.6 on top of
+its light (LAND_EMIT).
+
+### The exposure curve (`lib/hdr.glsl` hdrExposure)
+A multiplier on the scene, worked out from the sky table in every program (the same everywhere in a frame):
+`mix(mix(DAY, GOLDEN, golden hour), NIGHT, night step) x mix(1, OVERCAST, max(overcast, rain))`, and OTHER in the
+Nether and the End. Stage A ships all of them at **1.0**: the land's light model was tuned at exposure 1 hour by hour
+(its per-hour strengths and LAND_NIGHT are the exposure in disguise), so 1.0 keeps the baseline. The constants are the
+hooks for stage D (and a slow auto-exposure later); no auto-exposure yet.
+
+### The output transform (final, in this order)
+1. exposure (above);
+2. the ONE filmic curve `hdrCurve`: welkinTone's S round mid grey on luminance (HDR_CONTRAST 1.12, fading out in the
+   deep dark: the soft toe; and in the highlights), then a long shoulder: linear to HDR_KNEE 0.45, then
+   `1 - A (1 + o / (A m))^-m` (A 0.55, m 0.4: slope 1 at the knee, white only at infinity; 1 -> 0.68, 5 -> 0.84,
+   100 -> 0.95 linear display). The chroma is kept (hue-preserving), a little saturation out (0.95, and 0.3 more in
+   the highlights while the sun is high, as the land had it), the last few percent under white burn toward white
+   (HDR_BURN: the sun's heart a gold-white), and a colour whose brightest channel passes HDR_PEAK 0.85 eases under
+   white by brightness, its hue and saturation kept (a flame stays orange). Exactly invertible (`hdrCurveInv`);
+3. the grade (`lib/grade.glsl` welkinGrade, unchanged, display values; look3's dusk sky gradient now sits with it);
+4. the dither.
+
+Removed: welkinTone/welkinToneEmit at lighting time, final's look3/look4 roll-offs and its shoulder, the sky dome's
+skyLumCap and look4 golden headroom (`skyLuminousLin`), the cap of the glow under a low sun's disc. Instruments:
+DEBUG_VIEW 23 (the scene's light before the transform, false colour, one colour a stop from -8 to +8, mid grey grey
+and hatched within a sixth of a stop, legend strip at the bottom) and 24 (red: a channel past 0.98 on screen,
+magenta: the luminance, blue: under 0.02). Both keep the whole frame running (DEBUG_PLAIN).
+
+### What is natively linear now
+- the light pass (`welkinLightGlowLin`): land, LOD, emissives (their light added, no welkinToneEmit), the underground's
+  light and glow, frost glints;
+- forward-lit entities, hand, particles, rain (`welkinLightFullLin`, `welkinLightLin`); beacon beams and spider eyes as
+  emitters (G_UNLIT_LIGHT);
+- the sky dome (`skyFullScene`): the table's new rows 14..21 hold the dome's colour points in scene light (the palette
+  through `hdrSceneFromPalette`: the old final shoulder, then the curve's inverse at exposure 1, so the tuned colours
+  show as they did), blended in linear light; the luminous sky in linear light (`skyLuminousLin`) with the aureole at
+  every hour (SKY_AUREOLE, SKY_AUREOLE_DAY); stars, moon and sun as HDR emitters (crisp art). The sky table is RGBA16F;
+  its old rows keep their 0..1 values, the land's light rows (x 12..14 of row 5) and the irradiance as before, so the
+  land's fill, bounce and direct light are unchanged.
+
+### The bridge (stage B deletes every use: `grep -rn hdrBridge`)
+Helpers in `lib/hdr.glsl`: `hdrBridgeToDisplay` (scene -> the old display value: exposure and curve),
+`hdrBridgeToScene` (display -> scene: a channel past 0.88 rolled toward 0.96, then the inverse, clamped at HDR_T_MAX),
+`hdrBridgeBack(dOut, dIn, sceneIn[, keep])` (an untouched pixel keeps its scene light exactly; a touched one comes back
+through the inverse, and the light past what a display value holds, the sun's disc, passes in the pass's transmittance
+`keep`), `hdrBridgeLight` (light an old pass adds; unused now). Uses:
+- `program/parts/clouds.glsl` (composite): in at the read, back with the cells' and bands' transmittance;
+- `program/parts/far_weather.glsl` (composite1): in and back;
+- `program/composite2.glsl`: in and back (the haze's alphas, eased over the disc; a large change loses the HDR share);
+  `lib/ws/ssr.glsl` reads its reflections through hdrBridgeToDisplay (3 reads);
+- `program/composite3.glsl`: the bloom's source read in display values;
+- `program/final.glsl`: the beams (screened) and the bloom (`bloomApply`) laid on in display values and back;
+- `program/deferred.glsl`: the wet ground (`welkinWetLight`, where wet) and the far fade's horizon (haze off only);
+- the water: `program/parts/ws_gbuffers_water.glsl` (water and glass), `program/parts/ws_dh_water.glsl`: their
+  premultiplied display colour into scene light; they light through the display wrappers `welkinLightGlow`,
+  `welkinLightFull`, `welkinLightCore`, `welkinLightEx`, `welkinLight` (`lib/light.glsl`, also used by
+  `lib/ws/water.glsl`, `lib/watersurf.glsl`); colortex3 stays RGBA8 display;
+- `program/gbuffers_skybasic.glsl` (Nether/End sky and vanilla's sky stages), `gbuffers_skytextured.glsl`,
+  `gbuffers_clouds.glsl` (vanilla clouds with CLOUDS off), `gbuffers_common.glsl`'s unused G_WATERFLAG path.
+Still in display values behind the bridge, for stage B: `skyLuminous` (display, with skyLumCap and the golden
+headroom, for the haze's air and the clouds), `skyDomeOnly`, `skyHorizonFor`, the old dome rows 0..12.
+
+### Known in stage A
+- The low sun's side of the sky reads lighter and a little pinker than the baseline (the golden headroom is gone
+  from the dome, and the bridged haze and cloud bands round the sun sit near white): the disc glows above it, but
+  with less margin than it will have once the air is linear.
+- The underground's glowing pools (amber) bloom wider than before.
