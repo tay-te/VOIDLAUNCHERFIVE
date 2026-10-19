@@ -23,7 +23,11 @@ import java.util.List;
 public final class HubLayout {
 
 	public enum Kind {
-		INVENTORY, CHEST, GEAR, CLASSES, MAP
+		INVENTORY, CHEST, GEAR, CLASSES, MAP,
+		/** VOID Hearth's Quests page (journal, notice board, reputation): the hub's window, no slots. */
+		QUESTS,
+		/** A Hearth event screen (talk, guard, market, bank, dice, lockpicking, pickpocketing): the window alone, no slots. */
+		HEARTH
 	}
 
 	public enum Role {
@@ -197,7 +201,7 @@ public final class HubLayout {
 			this.player = null;
 			this.detailIcon = null;  // hovering shows the tooltip; the column holds load, worn gear and the purse
 			this.containerGrid = null;
-		} else if (kind == Kind.CLASSES || kind == Kind.MAP) {
+		} else if (kind == Kind.CLASSES || kind == Kind.MAP || kind == Kind.QUESTS || kind == Kind.HEARTH) {
 			// Mettle's Classes page and the Map page draw no slots: the menu stays open underneath, untouched.
 			this.player = null;
 			this.detailIcon = null;
@@ -253,6 +257,16 @@ public final class HubLayout {
 	/** Mettle's Classes page: no slots. */
 	public static HubLayout classes(int fbW, int fbH, int guiScale) {
 		return new HubLayout(Kind.CLASSES, fbW, fbH, guiScale, 0, 0, null, null);
+	}
+
+	/** VOID Hearth's Quests page: the window, no slots (the menu underneath is the player's, untouched). */
+	public static HubLayout quests(int fbW, int fbH, int guiScale) {
+		return new HubLayout(Kind.QUESTS, fbW, fbH, guiScale, 0, 0, null, null);
+	}
+
+	/** A Hearth event screen: the window, no slots. */
+	public static HubLayout hearth(int fbW, int fbH, int guiScale) {
+		return new HubLayout(Kind.HEARTH, fbW, fbH, guiScale, 0, 0, null, null);
 	}
 
 	public static HubLayout chest(int fbW, int fbH, int guiScale, int rows, int scrollRow) {

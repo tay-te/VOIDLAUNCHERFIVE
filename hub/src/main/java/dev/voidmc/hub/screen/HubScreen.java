@@ -853,10 +853,16 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 	/** The pages Tab steps through: the ones that are built. */
 	private static final List<String> PAGES = List.of("map", "inventory");
 
+	/** The pages Tab steps through on this screen (the hub adds Quests with VOID Hearth). */
+	protected List<String> pages() {
+		return PAGES;
+	}
+
 	protected void cyclePage(boolean back) {
-		int i = Math.max(0, PAGES.indexOf(this.page()));
-		int n = PAGES.size();
-		this.showPage(PAGES.get((i + (back ? n - 1 : 1)) % n));
+		List<String> pages = this.pages();
+		int i = Math.max(0, pages.indexOf(this.page()));
+		int n = pages.size();
+		this.showPage(pages.get((i + (back ? n - 1 : 1)) % n));
 	}
 
 	@Override

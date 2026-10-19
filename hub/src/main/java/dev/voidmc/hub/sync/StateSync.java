@@ -52,6 +52,11 @@ public final class StateSync {
 		default int texels(String id) {
 			return 0;
 		}
+
+		/** Rewrites the state's text before it is compared and sent (worker thread): e.g. inline images pre-scaled. */
+		default String transform(String json) {
+			return json;
+		}
 	}
 
 	private final String type;
@@ -153,7 +158,7 @@ public final class StateSync {
 
 	/** Worker: the text, the icons the page lacks, and the state if it differs from the page's. */
 	private void write(Object tree, int ep) {
-		String json = String.valueOf(tree);
+		String json = this.source.transform(String.valueOf(tree));
 		if (this.icon != null) {
 			if (ep != this.iconsEpoch) {
 				this.iconsEpoch = ep;

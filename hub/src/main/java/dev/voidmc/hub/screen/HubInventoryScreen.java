@@ -49,6 +49,15 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	public static final String MAP = "map";
 	public static final String INVENTORY = "inventory";
+	/** VOID Hearth's Quests page: journal, notice board, reputation and finished quests (with Hearth installed). */
+	public static final String QUESTS = "quests";
+
+	/** The Quests page's segment: "journal", "board", "reputation" or "finished" (the page keeps it; Java sets it on open). */
+	private String questSeg = "journal";
+	/** The Quests page was told its screen and segment for this open (or this page switch). */
+	private boolean questsSent;
+	/** A tick passed: Hearth's revision is read again (HearthSync). */
+	private boolean hearthCheck = true;
 
 	/** The page the hub was last left on (R-Shift opens there); null until the hub first opens. */
 	private static String lastPage;
@@ -84,7 +93,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	public HubInventoryScreen(Player player, String page) {
 		// Vanilla's InventoryScreen panel size: the pointer mapping uses vanilla's own geometry.
 		super(player.inventoryMenu, player.getInventory(), Component.translatable("container.crafting"), 176, 166);
-		this.page = MAP.equals(page) ? MAP : INVENTORY;
+		this.page = MAP.equals(page) ? MAP : QUESTS.equals(page) && dev.voidmc.hub.hearth.HearthLink.present() ? QUESTS : INVENTORY;
 		boolean seg = "gear".equals(page) || "classes".equals(page);
 		this.segment = seg && MettleLink.hasGear(player.inventoryMenu) ? page : INVENTORY;
 		lastPage = this.page;
@@ -108,7 +117,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	/** Sets the page the next R-Shift opens on (tests). */
 	public static void rememberPage(String page) {
-		lastPage = MAP.equals(page) ? MAP : INVENTORY;
+		lastPage = MAP.equals(page) ? MAP : QUESTS.equals(page) ? QUESTS : INVENTORY;
 	}
 
 	/** The hub page: "map" or "inventory". */
@@ -133,14 +142,55 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	@Override
 	public void showPage(String page) {
-		if (!MAP.equals(page) && !INVENTORY.equals(page) || page.equals(this.page)) {
-			return;  // Quests, Mods and Friends are not built yet
+		boolean quests = QUESTS.equals(page) && dev.voidmc.hub.hearth.HearthLink.present();
+		if (!MAP.equals(page) && !INVENTORY.equals(page) && !quests || page.equals(this.page)) {
+			return;  // Mods and Friends are not built yet; Quests needs Hearth
+		}
+		if (QUESTS.equals(this.page)) {
+			this.leaveQuests();
 		}
 		this.page = page;
 		lastPage = page;
+		this.questsSent = false;
 		this.leaveSegment();
 		this.pageChanged();
 		this.resendLayout();
+	}
+
+	private static final List<String> PAGES_HEARTH = List.of(MAP, INVENTORY, QUESTS);
+
+	@Override
+	protected List<String> pages() {
+		return dev.voidmc.hub.hearth.HearthLink.present() ? PAGES_HEARTH : super.pages();
+	}
+
+	/** Sets the Quests page's segment before this screen opens (Hearth's journal, board or reputation opener). */
+	public void questSegment(String seg) {
+		this.questSeg = seg;
+	}
+
+	/** Shows the Quests page on a segment (an opener while the hub is open). */
+	public void showQuests(String seg) {
+		this.questSeg = seg;
+		this.questsSent = false;
+		this.showPage(QUESTS);
+	}
+
+	public String questSeg() {
+		return this.questSeg;
+	}
+
+	/**
+	 * Leaving the Quests page: a board or reputation page Hearth handed the hub is done with (Hearth forgets the board's
+	 * view), and the page's keyboard claims go.
+	 */
+	private void leaveQuests() {
+		String hosted = dev.voidmc.hub.hearth.HearthLink.hosted();
+		if ("board".equals(hosted) || "journal".equals(hosted) || "reputation".equals(hosted)) {
+			dev.voidmc.hub.hearth.HearthLink.close(hosted);
+		}
+		this.pageModal = false;
+		this.pageText = false;
 	}
 
 	/** The Classes page's moving parts and keyboard claims end with it. */
@@ -166,6 +216,9 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		if (MAP.equals(this.page)) {
 			return HubLayout.map(fbW, fbH, guiScale, HubMap.scale());
 		}
+		if (QUESTS.equals(this.page)) {
+			return HubLayout.quests(fbW, fbH, guiScale);
+		}
 		HubLayout.GearSlots gear = MettleLink.hasGear(this.menu) ? HubLayout.GearSlots.METTLE : null;
 		return switch (this.segment) {
 			case "gear" -> gear == null ? HubLayout.inventory(fbW, fbH, guiScale) : HubLayout.gear(fbW, fbH, guiScale, gear);
@@ -176,7 +229,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	/** Switches the Inventory page's segment in place: same menu, same carried stack, a new layout. */
 	public void setSegment(String next) {
-		if (MAP.equals(this.page) || next.equals(this.segment) || !("inventory".equals(next) || MettleLink.hasGear(this.menu))) {
+		if (!INVENTORY.equals(this.page) || next.equals(this.segment) || !("inventory".equals(next) || MettleLink.hasGear(this.menu))) {
 			return;
 		}
 		this.segment = next;
@@ -203,8 +256,18 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 				}
 			}
 			case Bridge.MettleUi ui -> {
-				this.pageModal = ui.modal();
-				this.pageText = ui.text();
+				if (this.onClasses()) {
+					this.pageModal = ui.modal();
+					this.pageText = ui.text();
+				}
+			}
+			// The Quests page: Hearth's server answers in the state, which HearthSync sends within a tick.
+			case Bridge.HearthCall call -> dev.voidmc.hub.hearth.HearthLink.act(call.op(), call.arg());
+			case Bridge.HearthUi ui -> {
+				if (QUESTS.equals(this.page)) {
+					this.pageModal = ui.modal();
+					this.pageText = ui.text();
+				}
 			}
 			default -> {
 			}
@@ -215,6 +278,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	protected void containerTick() {
 		super.containerTick();
 		this.mettleCheck = true;
+		this.hearthCheck = true;
 		if (this.nearbyAge < Integer.MAX_VALUE) {
 			this.nearbyAge++;
 		}
@@ -227,6 +291,16 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	 */
 	@Override
 	protected void pushExtra() {
+		if (QUESTS.equals(this.page)) {
+			if (!this.questsSent) {
+				// Every open and page switch tells the page its screen and segment; it answers with its keyboard claims.
+				this.questsSent = true;
+				this.hub.sendLatest("hearthScreen", Json.object().put("type", "hearthScreen").put("screen", QUESTS).put("seg", this.questSeg).end());
+			}
+			dev.voidmc.hub.hearth.HearthSync.frame(this.hub, this.hearthCheck);
+			this.hearthCheck = false;
+			return;
+		}
 		if (!MettleLink.hasGear(this.menu) || MAP.equals(this.page)) {
 			return;
 		}
@@ -317,6 +391,19 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	@Override
 	public boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
+		if (QUESTS.equals(this.page)) {
+			String name = HubEventScreen.pageKey(event.key());
+			if (event.isEscape() && this.pageModal) {
+				this.hub.send(Json.object().put("type", "hkey").put("key", "Escape").end());
+				return true;
+			}
+			if (name != null && !event.isEscape()) {
+				this.hub.send(Json.object().put("type", "hkey").put("key", name).end());
+				if (!Character.isDigit(name.charAt(0))) {
+					return true;  // arrows and Enter move the page's selection; digits still swap the hotbar
+				}
+			}
+		}
 		if (this.onClasses() && MettleLink.present()) {
 			String name = pageKey(event.key());
 			if (this.pageText) {
@@ -362,6 +449,9 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 
 	@Override
 	public void removed() {
+		if (QUESTS.equals(this.page)) {
+			this.leaveQuests();
+		}
 		super.removed();
 		// What the page sent in this screen's last frame: a pick or a click still counts; native layers, keyboard
 		// claims and animation sounds were this screen's and are dropped (the next screen gets the page's own resend).
@@ -370,6 +460,8 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 				MettleLink.act(call.op(), call.arg());
 			} else if (m instanceof Bridge.MettleChoose choose) {
 				MettleLink.chooseBackground(choose.json());
+			} else if (m instanceof Bridge.HearthCall call) {
+				dev.voidmc.hub.hearth.HearthLink.act(call.op(), call.arg());
 			}
 		});
 		this.fx.clear();

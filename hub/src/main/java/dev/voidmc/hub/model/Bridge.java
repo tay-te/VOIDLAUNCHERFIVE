@@ -22,7 +22,7 @@ public final class Bridge {
 	}
 
 	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Page, Waypoint, Tip, MettleCall, MettleChoose, MettleUi, Fx,
-		Items, Invalid {
+		Items, HearthCall, HearthUi, HearthFx, Invalid {
 	}
 
 	/** The page finished loading and installed {@code hub.apply}. */
@@ -121,13 +121,17 @@ public final class Bridge {
 	private static final java.util.regex.Pattern RGB = java.util.regex.Pattern.compile("#[0-9A-Fa-f]{6}");
 
 	private static Message fx(Map<String, Object> m) {
-		if (!(m.get("items") instanceof List<?> list) || list.size() > 128) {
+		return fx(m, FX_KINDS, 128);
+	}
+
+	private static Message fx(Map<String, Object> m, Set<String> kinds, int max) {
+		if (!(m.get("items") instanceof List<?> list) || list.size() > max) {
 			return new Invalid("fx items");
 		}
 		java.util.ArrayList<FxItem> out = new java.util.ArrayList<>();
 		for (Object o : list) {
 			if (!(o instanceof Map<?, ?> it) || !(it.get("i") instanceof String id) || !FX_ID.matcher(id).matches() || !(it.get("k") instanceof String k)
-				|| !FX_KINDS.contains(k)) {
+				|| !kinds.contains(k)) {
 				return new Invalid("fx item");
 			}
 			double[] v = new double[8];
@@ -204,6 +208,105 @@ public final class Bridge {
 			out.add(new ItemIcon(id, (int) v[0], v[1], v[2], v[3], v[4]));
 		}
 		return new Items(List.copyOf(out));
+	}
+
+
+	// ---- VOID Hearth (hearth/docs/OVERLAY.md on branch hearth-ui) -------------------------------------------------------
+
+	/**
+	 * A VOID Hearth action from a Hearth page ({@link #HEARTH_OPS}: the {@code HearthActions} call and the shape its one
+	 * string argument must have; two arguments are joined by {@code #}). Hearth's {@code ActionRules} and its server
+	 * validate everything again; the bridge only checks shapes.
+	 */
+	public record HearthCall(String op, String arg) implements Message {
+	}
+
+	/** A Hearth page says what owns the keyboard: {@code modal} (a popover is up: Esc closes it) and {@code text}. */
+	public record HearthUi(boolean modal, boolean text) implements Message {
+	}
+
+	/**
+	 * A Hearth event screen's native parts (the minigames' moving parts, docs/HUB_UI.md): the rects the page reserved for
+	 * them ({@link #HEARTH_FX_KINDS}) and item stacks Minecraft draws in the page's wells. The whole set each time.
+	 */
+	public record HearthFx(List<FxItem> items, List<ItemIcon> stacks) implements Message {
+	}
+
+	/** The rects a Hearth page reserves for native parts: dice, the lock and its strain, awareness, the hand ring, a lift. */
+	static final Set<String> HEARTH_FX_KINDS = Set.of("dice", "lock", "strain", "awareness", "hand", "liftfill");
+
+	static final String SCREEN_NAMES = "talk|market|bank|board|journal|confront|lockpick|pickpocket|dice|reputation";
+	private static final String UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
+	/** Conversation option and confrontation choice ids ("npc:news", "mettle:train/speech"). */
+	private static final String OPTION = "[A-Za-z0-9_.:/+-]{1,128}";
+	private static final String INT = "\\d{1,9}";
+	private static final String BITS = "\\d{1,12}";
+
+	/** Every Hearth action a page may ask for and the exact shape of its argument (empty for none). */
+	static final Map<String, java.util.regex.Pattern> HEARTH_OPS = Map.ofEntries(
+		op("choose", OPTION),
+		op("train", "[a-z0-9_.-]+(?::[a-z0-9_./-]+)?"),
+		op("close", SCREEN_NAMES),
+		op("trade", INT + "#[01]"),
+		op("haggle", INT + "#[01]"),
+		op("haggleOffer", BITS),
+		op("haggleAccept", ""),
+		op("haggleCancel", ""),
+		op("deposit", "-1|" + BITS),
+		op("withdraw", "-1|" + BITS),
+		op("sellEmeralds", "[1-9]\\d{0,4}"),
+		op("buyEmeralds", "[1-9]\\d{0,4}"),
+		op("buyPlot", INT),
+		op("hire", INT),
+		op("fund", INT + "#" + BITS),
+		op("acceptContract", INT),
+		op("deliver", INT),
+		op("accept", UUID),
+		op("handIn", UUID),
+		op("refreshBoard", ""),
+		op("track", UUID),
+		op("abandon", UUID),
+		op("confront", "(?:" + OPTION + ")?"),
+		op("lift", "\\d{1,2}"),
+		op("stopLifting", ""),
+		op("slipAway", ""),
+		op("stopPicking", ""),
+		op("diceStake", "\\d{1,2}"),
+		op("diceToggle", "[0-5]"),
+		op("diceRoll", ""),
+		op("diceBank", ""),
+		op("dicePass", ""),
+		op("diceLoaded", "[01]"),
+		op("diceAgain", ""),
+		op("requestReputation", ""),
+		op("setConversationStyle", "card|cinematic"));
+
+	private static Message hearth(Map<String, Object> m) {
+		if (!(m.get("op") instanceof String op) || !HEARTH_OPS.containsKey(op)) {
+			return new Invalid("hearth op");
+		}
+		Object a = m.get("arg");
+		String arg = a == null ? "" : a instanceof String s ? s : a instanceof Double d && d == Math.floor(d) && Math.abs(d) < 1e12 ? String.valueOf(d.longValue()) : null;
+		if (arg == null || arg.length() > 256 || !HEARTH_OPS.get(op).matcher(arg).matches()) {
+			return new Invalid("hearth " + op + " arg");
+		}
+		return new HearthCall(op, arg);
+	}
+
+	private static Message hearthFx(Map<String, Object> m) {
+		Map<String, Object> layers = new java.util.HashMap<>();
+		layers.put("items", m.get("items") == null ? List.of() : m.get("items"));
+		Message f = fx(layers, HEARTH_FX_KINDS, 32);
+		if (!(f instanceof Fx fx)) {
+			return f;
+		}
+		Map<String, Object> st = new java.util.HashMap<>();
+		st.put("items", m.get("stacks") == null ? List.of() : m.get("stacks"));
+		Message s = items(st);
+		if (!(s instanceof Items it)) {
+			return s;
+		}
+		return new HearthFx(fx.items(), it.items());
 	}
 
 	static final Set<String> FILTERS = Set.of("all", "tools", "blocks", "food");
@@ -303,6 +406,9 @@ public final class Bridge {
 			case "fx" -> fx(m);
 			case "items" -> items(m);
 			case "mettleUi" -> new MettleUi(Boolean.TRUE.equals(m.get("modal")), Boolean.TRUE.equals(m.get("text")));
+			case "hearth" -> hearth(m);
+			case "hearthUi" -> new HearthUi(Boolean.TRUE.equals(m.get("modal")), Boolean.TRUE.equals(m.get("text")));
+			case "hearthFx" -> hearthFx(m);
 			default -> new Invalid("unknown type " + t);
 		};
 	}

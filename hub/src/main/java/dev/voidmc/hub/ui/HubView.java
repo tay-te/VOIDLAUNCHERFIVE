@@ -323,6 +323,7 @@ public final class HubView {
 	 */
 	static boolean screenOnly(Bridge.Message m) {
 		return m instanceof Bridge.Fx || m instanceof Bridge.Items || m instanceof Bridge.MettleUi || m instanceof Bridge.Tip
+			|| m instanceof Bridge.HearthFx || m instanceof Bridge.HearthUi
 			|| m instanceof Bridge.MettleCall c && "cardSound".equals(c.op());
 	}
 

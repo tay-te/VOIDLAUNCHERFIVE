@@ -58,6 +58,10 @@ public final class VoidHub implements ClientModInitializer {
 			return true;
 		});
 
+		// VOID Hearth's screens (talk, guard, market, bank, dice, lockpicking, pickpocketing, journal, board, reputation)
+		// open in the hub: every opener registered once, here.
+		dev.voidmc.hub.hearth.HearthHost.register();
+
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (openHub.consumeClick()) {
 				if (mc.player != null && mc.gui.screen() == null && HubView.available()) {

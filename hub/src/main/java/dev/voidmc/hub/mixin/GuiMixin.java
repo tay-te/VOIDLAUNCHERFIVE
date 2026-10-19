@@ -59,6 +59,6 @@ public abstract class GuiMixin {
 	@WrapWithCondition(method = "extractRenderState", at = @At(value = "INVOKE",
 		target = "Lnet/minecraft/client/gui/Hud;extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V"))
 	private boolean voidhub$hideHud(Hud hud, GuiGraphicsExtractor graphics, DeltaTracker deltaTracker) {
-		return !(this.screen instanceof HubScreen<?> && HubConfig.hideHud());
+		return !((this.screen instanceof HubScreen<?> || this.screen instanceof dev.voidmc.hub.screen.HubEventScreen) && HubConfig.hideHud());
 	}
 }
