@@ -60,3 +60,12 @@ shadows, subtle colour (gamified screens may use colour and glow), pixel-art car
   already reserve their rects for Atlas), restyled to the Hub look; event screens keep the VOID mark island and Esc;
   portraits are generated per resident from their own skin (SkinComposer) at 16x16; wanted posters can be tracked;
   Mettle skill names show on odds chips ("Persuade - Speech - 62 %").
+
+## Keeping Mettle green when generalising MettleSync and CardFx (from the Mettle session, 2026-10-19)
+
+Keep green: `hubMettle`, `hubAudit` (fails on any of the 13 UI audit regressions), `hubFunctional` (plain and
+`-Patlas`) and `hubPerf -Patlas`, and the card PERF budgets in MettleTest's PERF lines: draft idle 0 page paints,
+settled Mythic 0 paints, hover p95 under 10 ms, pick p95 under 50 ms, 400-card binder idle 0 state rebuilds.
+Subtleties: CardFx rects are fractional (getBoundingClientRect, within 0.6 px at ultrawide/4K) and textures must clear on
+F3+T; MettleSync keeps what the page holds across screen opens (one shared view), so reopening sends nothing. Ping the
+Mettle session with the generalisation commit for review before it lands in `claude/voidhub`.
