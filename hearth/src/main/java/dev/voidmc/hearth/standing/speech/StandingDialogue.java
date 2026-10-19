@@ -48,6 +48,8 @@ public final class StandingDialogue implements DialogueProvider {
 	private static final Map<UUID, UUID> REFUSED = new ConcurrentHashMap<>();
 	/** Per player: who they last talked to and how the last check went, for the screen's line. */
 	private static final Map<UUID, Last> LAST = new ConcurrentHashMap<>();
+	/** What the resident just answered this player, for the conversation's {@link #reply} right after {@link #select}. */
+	private static final Map<UUID, Component> ANSWER = new ConcurrentHashMap<>();
 
 	private record Last(UUID resident, Component result) {
 	}
@@ -55,6 +57,7 @@ public final class StandingDialogue implements DialogueProvider {
 	public static void forget(UUID player) {
 		REFUSED.remove(player);
 		LAST.remove(player);
+		ANSWER.remove(player);
 	}
 
 	@Override
@@ -120,6 +123,7 @@ public final class StandingDialogue implements DialogueProvider {
 			return false;
 		}
 		UUID id = player.getUUID();
+		ANSWER.remove(id);
 		RandomGenerator random = new java.util.Random(player.getRandom().nextLong());
 		switch (optionId) {
 			case FLATTER -> {
@@ -264,7 +268,13 @@ public final class StandingDialogue implements DialogueProvider {
 	}
 
 	/** The resident says it (their folk speaks if embodied; otherwise it is written in chat), and the screen's line shows the outcome. */
+	@Override
+	public @Nullable Component reply(ServerPlayer player, Settlement settlement, Resident resident, String optionId) {
+		return optionId.startsWith(PREFIX) ? ANSWER.remove(player.getUUID()) : null;
+	}
+
 	private static void reply(ServerPlayer player, Resident resident, Component line, SpeechCheck.@Nullable Outcome outcome) {
+		ANSWER.put(player.getUUID(), line);
 		NpcService npc = HearthServices.npc();
 		NpcService.FolkHandle f = npc == null ? null : npc.folk(resident.id);
 		if (f != null) {
