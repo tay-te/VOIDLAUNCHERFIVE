@@ -69,3 +69,12 @@ settled Mythic 0 paints, hover p95 under 10 ms, pick p95 under 50 ms, 400-card b
 Subtleties: CardFx rects are fractional (getBoundingClientRect, within 0.6 px at ultrawide/4K) and textures must clear on
 F3+T; MettleSync keeps what the page holds across screen opens (one shared view), so reopening sends nothing. Ping the
 Mettle session with the generalisation commit for review before it lands in `claude/voidhub`.
+
+## Open follow-ups (2026-10-19)
+
+- Hub under CSS zoom (GUI scales 1-2): spaces between inline elements collapse ("fromHearth"); use explicit gaps or
+  non-breaking spaces, and add a hubAudit text check at GUI 2.
+- Mettle draft hover at 1080p GUI 2 measures 13.9 ms UI-thread CPU per paint, above the 10 ms card hover budget (fine at
+  GUI 3+). Make the perf gate measure that UI-thread paint cost at GUI 2, not only the render thread; accepted for now.
+- Hearth conversation: with training offered, two options share key 8.
+- Not yet in game captures for Figma: the quest HUD and law HUD (still DESIGN on 295:2).
