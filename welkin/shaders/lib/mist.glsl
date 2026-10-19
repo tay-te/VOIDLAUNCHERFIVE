@@ -154,6 +154,7 @@ struct MistPoint {
 	float density; // mist 0..1, faded toward the tiles' edge
 	float pool;    // how readily mist gathers here, 0..1 (for the debug view)
 	float rise;    // how high the ground stands over its basin's floor, blocks (for the debug view)
+	float ground;  // (look2) the land's ground here (bilinear over the 16 m cells; -1e4 without data)
 };
 
 // The lowest ground round a place (`cells` from the corner of cell `base`) among the four nodes of a lattice every
@@ -193,6 +194,7 @@ MistPoint mistAt(vec2 eyeXZ, MistTiles t) {
 	m.density = 0.0;
 	m.pool = 0.0;
 	m.rise = 0.0;
+	m.ground = -1e4;
 	// the lattices are anchored to world cells, so they do not shift as the camera crosses a cell
 	ivec2 base = t.camCell;
 	vec2 cells = mistCells(eyeXZ, t.camCell, base);
@@ -229,6 +231,7 @@ MistPoint mistAt(vec2 eyeXZ, MistTiles t) {
 		return m;
 	}
 	float here = sh / wp;
+	m.ground = here;
 	float fill = clamp(wp * 2.0, 0.0, 1.0);
 	float mist = clamp(sp / wp, 0.0, 1.0) * t.time;
 	float low = sLow / wp;

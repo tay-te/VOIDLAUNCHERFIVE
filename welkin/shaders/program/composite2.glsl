@@ -76,6 +76,10 @@ void main() {
 #define HV_READ
 #include "/lib/haze/volume.glsl"
 #endif
+// (look2) the morning mist
+#if MORNING_MIST > 0
+#include "/lib/haze/dawn.glsl"
+#endif
 // ---- end atmos
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 #include "/lib/haze/haze_debug.glsl"
@@ -368,6 +372,7 @@ void main() {
 			ma.density = mistCam.y;
 			ma.pool = 0.0;
 			ma.rise = 0.0;
+			ma.ground = -1e4;
 			color.rgb = valleyMistWith(p, uv, color.rgb, mt, ma);
 		}
 #endif
@@ -385,6 +390,46 @@ void main() {
 		}
 #endif
 		// ---- end atmos
+		// ---- look2: the morning mist (lib/haze/dawn.glsl), before the shafts, so the beams stream through it
+		float dawnAmt = 0.0;
+#if MORNING_MIST > 0
+		dawnAmt = float(MORNING_MIST) * 0.1 * dawnMistHour() * (1.0 - ug.amount);
+		if (dawnAmt > 0.0 && !cloud && !finished) {
+			float camY = float(cameraPositionInt.y) + cameraPositionFract.y;
+			float T = s.sky ? 1200.0 : length(eyePos);
+			float ground = s.sky ? min(camY - 2.0, HAZE_SEA_LEVEL + 8.0) : camY + eyePos.y;
+			float weight = 0.45 * dawnMistLow(ground);
+#if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
+			if (mistCam.w > 0.5) {
+				// Gloam's near tiles: the valleys, the hollows and the water (the valley mist's pool and potential, with
+				// its soft billows), read at the ray's end (a sky ray: a few hundred blocks out)
+				MistTiles mt;
+				mt.data = true;
+				mt.on = true;
+				mt.time = 1.0;
+				mt.camCell = mistCamCells.xy;
+				mt.centre = mistCamCells.zw;
+				MistPoint mp = mistAt(normalize(eyePos).xz * min(T, 600.0), mt);
+				weight = max(weight, clamp(mp.density * 1.4, 0.0, 1.6));
+				// the mist lies on the land's ground, not on whatever the ray ends on (a fall, a cliff's face, a crown)
+				ground = mp.ground > -1e3 ? min(ground, mp.ground) : ground;
+			}
+#endif
+			float cover = dawnMistCover(normalize(eyePos), T, camY, ground, dawnAmt, weight);
+			// on the sky the bank sits low on the horizon
+			cover *= s.sky ? 1.0 - smoothstep(-0.01, 0.06, normalize(eyePos).y) : 1.0;
+			if (cover > 0.0) {
+				float fsunM = 1.0;
+#ifdef HV_READ
+				fsunM = clamp(hvRaw.g / max(hvRaw.b, 1e-4), 0.0, 1.0);
+#endif
+				color.rgb = mix(color.rgb, dawnMistColour(airPlain, normalize(eyePos), sunW, fsunM, lum), cover * (1.0 - sunDisc));
+#ifdef DM_DEBUG
+				color.rgb = vec3(cover, dawnAmt, fract(ground / 16.0));
+#endif
+			}
+		}
+#endif
 		// ---- air and tone (D): the sun shafts (lib/shafts.glsl), in the near air, before the haze in front of it
 #ifdef WELKIN_SHAFTS_READ
 		if (shaftGate(sunW) > 0.0 && sunAngle < 0.5) {
@@ -398,6 +443,7 @@ void main() {
 #if defined WELKIN_VALLEY_MIST && DEBUG_VIEW == 0
 			shThick *= 1.0 + 0.8 * clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
 #endif
+			shThick *= 1.0 + 0.9 * clamp(dawnAmt, 0.0, 1.5); // look2: thicker in the morning mist
 			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky, lum, shThick, s.sky ? 1e4 : length(eyePos)) * (cloud ? 0.0 : 1.0);
 #if SHAFT_DEBUG == 1
 			color.rgb = vec3(lit); // the resolved sunlit share of the near air

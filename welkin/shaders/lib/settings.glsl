@@ -124,6 +124,8 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define HAZE_VOLUME_STRENGTH 100 // [50 75 100 125 150 200]
 // Volumetric haze detail: How many points along each view the volumetric haze looks at. More gives cleaner light and shadow in the air.  [haze]
 #define HAZE_VOLUME_STEPS 14 // [10 14 20 28]
+// Morning mist: how thick the dawn's mist lies in the low ground and over the water (walked with the volumetric haze).  [haze]
+#define MORNING_MIST 10 // [0 5 10 15 20 30]
 // ---- atmos (welkin-atmos, shafts and bloom): the god rays toward the sun and the bloom (lib/shafts.glsl, lib/bloom.glsl)
 // Sun beams: When the sun stands in or near the view, beams of its light stream from gaps in the crowns, between the clouds and over ridges toward the eye. Smooth, no grain.  [air]
 #define SHAFT_BEAMS
