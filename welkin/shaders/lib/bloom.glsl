@@ -66,7 +66,7 @@ float bloomLuma(vec3 c) {
 #define BLOOM_THRESHOLD_HDR 1.4
 #define BLOOM_KNEE_HDR 0.7
 #define BLOOM_DIFFUSE_THRESHOLD 6.0
-#define BLOOM_EMIT_GAIN 10.0
+#define BLOOM_EMIT_GAIN 18.0 // (Look D1: 18, was 10: lamps and fire glow, the far village lamps too)
 #define BLOOM_SCATTER_HDR 0.5
 
 // The bright share of exposed scene light x. emit 0..1 a glowing texel's own light; diffuse 1 a lit surface that does

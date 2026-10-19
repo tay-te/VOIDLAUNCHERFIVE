@@ -83,6 +83,10 @@ flat in float gradeDusk;
 #define WU_colortex0
 uniform sampler2D colortex0;
 #endif
+#ifndef WU_colortex2
+#define WU_colortex2
+uniform sampler2D colortex2;
+#endif
 
 // ---- atmos (welkin-atmos): the sun beams and the bloom
 #if defined SHAFT_BEAMS && defined WORLD_OVERWORLD
@@ -199,6 +203,10 @@ void main() {
 			vec4 vp = gbufferProjectionInverse * vec4(texcoord * 2.0 - 1.0, dR * 2.0 - 1.0, 1.0);
 			float dist = length(vp.xyz / vp.w);
 			air = max(1.0 - exp(-dist / RAY_AIR), RAY_NEAR_FLOOR);
+			// (Look D1) over the far land and water the beams' broad, unbroken part is the haze's own forward scatter
+			// (lib/air.glsl, the haze volume), already there: laid on again it read as a veil over the water toward a
+			// low sun. Past RAY_FAR_START the beams thin to RAY_FAR_SHARE; the near beams (crowns, houses) keep it all
+			air *= mix(1.0, RAY_FAR_SHARE, smoothstep(RAY_FAR_START, RAY_FAR_END, dist));
 		} else {
 #ifdef DISTANT_HORIZONS
 			air = texelFetch(dhDepthTex0, p, 0).r < 1.0 ? 1.0 : RAY_SKY;
@@ -237,7 +245,14 @@ void main() {
 	// ---- end atmos
 
 	// ======== the output transform: exposure, the one filmic curve, the grade, the dither ========
-	vec3 lin = hdrOutput(sc, expo); // linear display, 0..1
+	vec3 lin;
+	{
+		// (Look D1) a glowing texel (a flame, a lamp, lava) keeps its own colour: its light eases toward HDR_EMIT_PEAK
+		// before the curve, so the path to white never bleaches a flame's tip; its glow is the bloom's halo
+		vec4 fe = texelFetch(colortex2, p, 0);
+		float em = fe.x > 0.5 ? smoothstep(0.05, 0.4, unpackEmission(fe.z)) : 0.0;
+		lin = hdrOutput(em > 0.0 ? hdrEmitterLight(sc * expo, em) : sc, em > 0.0 ? 1.0 : expo);
+	}
 	vec3 c = toDisplay(lin);
 #ifdef WORLD_OVERWORLD
 	// (look3, 2026-10-18; part of the grade since HDR stage A) the evening sky's gradient across the whole dome, the

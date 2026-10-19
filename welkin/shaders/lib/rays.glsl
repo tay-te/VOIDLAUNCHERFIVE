@@ -32,6 +32,10 @@
 #define RAY_AIR 90.0
 #define RAY_NEAR_FLOOR 0.3
 #define RAY_SKY 0.25
+// (Look D1) the beams over the far land and water: from RAY_FAR_START to RAY_FAR_END blocks they thin to this share
+#define RAY_FAR_SHARE 0.3
+#define RAY_FAR_START 60.0
+#define RAY_FAR_END 400.0
 
 // The sun's place on the screen (xy, 0..1) and whether it stands in front of the eye (z).
 vec3 raySunScreen(mat4 proj, vec3 sunView) {

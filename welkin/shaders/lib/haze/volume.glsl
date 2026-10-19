@@ -56,7 +56,7 @@
 // the most the volumetric haze covers (the land always reads through)
 #define HV_MAX_OPACITY 0.70
 // (Look D1) the volume's density and onset in linear light (lib/hdr.glsl airCover)
-#define HV_LIN_DENS 0.8
+#define HV_LIN_DENS 0.65
 #define HV_LIN_ONSET 0.35
 // the near steps' spacing: t grows as this power of the step (1 even)
 #define HV_NEAR_POW 1.6

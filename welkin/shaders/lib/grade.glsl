@@ -118,6 +118,16 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 bg = mix(vec3(y), L, 0.90) * vec3(1.03, 1.0, 0.97); // (look3: 0.80: noon's sky had gone a leaden grey; look2 0.58)
 		bg *= y / max(gradeLuma(bg), 1e-6);
 		L = mix(L, bg, min(0.85 * blue + 0.7 * cyan, 1.0) * (1.0 - 0.5 * night));
+		// (D1) lavender and lilac (blue-led with red over green: the clouds' shaded flanks, a hazy dawn) by day: most of
+		// their violet out toward a warm blue-grey, so the clouds and the air are never a cold lilac (the dusk's last
+		// degrees keep theirs: final's dusk gradient lays them on after)
+		{
+			float vio = clamp((L.b - L.g) / max(L.b, 1e-4) * 3.0, 0.0, 1.0) * clamp((L.r - L.g) / max(L.b, 1e-4) * 4.0, 0.0, 1.0);
+			float yv = gradeLuma(L);
+			vec3 wg = mix(vec3(yv), L, 0.45) * vec3(1.02, 1.0, 0.97);
+			wg *= yv / max(gradeLuma(wg), 1e-6);
+			L = mix(L, wg, 0.75 * vio * day * (1.0 - 0.3 * warm));
+		}
 	}
 
 	// ---- 2. saturation: a restrained curve; the warm hues keep more
@@ -156,7 +166,9 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 loDay = vec3(0.955, 1.0, 1.06); // (look2: cooler, was 0.97 1.0 1.035)
 		vec3 loGold = vec3(0.93, 0.98, 1.11); // (look2: cooler against the gold, was 0.95 0.985 1.07)
 		vec3 loNight = vec3(0.93, 0.98, 1.10);
-		vec3 lo = mix(mix(loDay, loGold, warm), loNight, night);
+		// (D1) the morning's shade a soft rose-violet rather than the evening's cool blue: a misty, pink-gold dawn
+		vec3 loMorn = vec3(0.98, 0.97, 1.06);
+		vec3 lo = mix(mix(loDay, mix(loGold, loMorn, morn), warm), loNight, night);
 		hi /= gradeLuma(hi);
 		lo /= gradeLuma(lo);
 		// (look3) the open sky's blue takes a fifth of the warm highlight, so it stays a blue (the warm light is on the land)
@@ -172,7 +184,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		// gain: midday calmer and a touch lower; golden hours warm and full; dawn pearly; overcast cool and soft; night
 		// moonlit
 		vec3 gDay = vec3(0.95, 0.935, 0.90); // (look3: sunlit, warm-neutral, was look2's 0.86 0.85 0.82, which killed the sun)
-		vec3 gGold = mix(vec3(1.03, 0.985, 0.92), vec3(1.015, 0.975, 0.95), morn);
+		vec3 gGold = mix(vec3(1.03, 0.985, 0.92), vec3(1.03, 0.975, 0.95), morn); // (D1: the morning a touch rosier)
 		vec3 gOver = vec3(0.94, 0.95, 0.96);
 		vec3 gNight = vec3(1.04, 1.10, 1.20); // (look2: moonlit and readable, was 0.92 0.97 1.04)
 		vec3 gain = mix(mix(gDay, gGold, warm), gOver, over);

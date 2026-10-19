@@ -55,7 +55,7 @@ uniform float sunAngle;
 // through the golden hours (the sky table's golden hour, 0..1)
 #define HDR_EXPOSURE_GOLDEN 1.0
 // at night (the moonlit land's lift lives in the light model, LAND_NIGHT; this is on top)
-#define HDR_EXPOSURE_NIGHT 1.0
+#define HDR_EXPOSURE_NIGHT 1.1
 // under a full overcast or in rain
 #define HDR_EXPOSURE_OVERCAST 0.9
 // the Nether and the End
@@ -229,7 +229,7 @@ float airCoverA(float a, float dens, float onset) {
 // (lib/haze/volume.glsl HV_LIN_*, lib/air.glsl AIR_LIN_*).
 #define AIR_HAZE_DENS 1.0
 #define AIR_HAZE_ONSET 0.3
-#define AIR_FAR_DENS 1.0
+#define AIR_FAR_DENS 0.8
 #define AIR_FAR_ONSET 0.3
 #define AIR_MIST_DENS 1.0
 #define AIR_MIST_ONSET 0.25
@@ -239,6 +239,22 @@ float airCoverA(float a, float dens, float onset) {
 #define AIR_CLOUDFOG_ONSET 0.3
 #define AIR_BODY_DENS 1.0
 #define AIR_BODY_ONSET 0.3
+
+// ---- (Look D1) the emitters' gentler path to white: a glowing texel's exposed light eases toward HDR_EMIT_PEAK (its
+// luminance; slope 1 in the dim), and keeps a little more of its colour, so a flame stays orange and gold (its yellow
+// core pale gold) rather than running to white; the bloom's halo carries its glow. em: how much it glows (0..1).
+#define HDR_EMIT_PEAK 0.85
+#define HDR_EMIT_SAT 1.15
+vec3 hdrEmitterLight(vec3 x, float em) {
+	float y = hdrLuma(x);
+	if (y <= 1e-6) {
+		return x;
+	}
+	float yl = HDR_EMIT_PEAK * (1.0 - exp(-y / HDR_EMIT_PEAK));
+	vec3 e = x * (yl / y);
+	e = max(yl + (e - yl) * HDR_EMIT_SAT, 0.0);
+	return mix(x, e, em);
+}
 
 // ---- the output transform's first two steps (final): scene light to linear display
 vec3 hdrOutput(vec3 scene, float exposure) {
