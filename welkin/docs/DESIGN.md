@@ -1845,3 +1845,38 @@ Shafts on against off at shore 18:30: 9.0 ms both, so the chain costs under the 
 ### Not done in stage C
 Temporal accumulation for the half-resolution haze, shaft and AO buffers (reprojection, disocclusion and depth
 rejection, neighbourhood clamp) was not built.
+
+### Stage C, temporal accumulation (TEMPORAL_AIR, on by default)
+- **What:** the half-resolution lighting terms in the air (the haze volume's walk, which also carries the shafts' term,
+  colortex13 from deferred5) and the ambient occlusion (colortex12 from deferred1). The image itself is never blended
+  over time (no TAA); textures stay crisp.
+- **Noise:** with TEMPORAL_AIR the walks' noise moves along its R2 sequence frame by frame (`airFrame`, lib/noise.glsl);
+  the shadow keeps `lightFrame` (TEMPORAL_LIGHT, off).
+- **Reprojection** (`lib/temporal.glsl`): tReproject uses gbufferPreviousModelView, gbufferPreviousProjection and the
+  camera's move (previousCameraPosition), for the sky by the turn only. History is rejected:
+  - off the screen;
+  - on a camera jump of more than 6 blocks (a teleport or a cut: a fast reset);
+  - where the depth there last frame does not match (both sky, or within 0.05 + 3% of the view depth).
+- **Clamp and blend:** the history is clamped to the current neighbourhood's range (the haze: the 4x4 tile's matching
+  texels; the AO: the raw term's 3x3) and blended at 0.88. `TEMPORAL_AIR_STRESS` holds 0.995, the ghosting test.
+- **History storage:** colortex11 became RGBA32F (still never cleared). At the end of each frame composite2 writes
+  (RENDERTARGETS 0,11):
+  - r: the shadow's (reach, passes) packed;
+  - g: (occlusion, 0) packed;
+  - b: the air's three terms (`tPackAir`: all the haze in 12 bits, the shafts' term in 11, the sunlit share in the
+    exponent's 8);
+  - a: the view depth.
+
+  The packing is GLSL 330 bit packing that is never a denormal, infinity or NaN. deferred1 reads the occlusion's
+  history before deferred3 runs. deferred3 rewrites r, g and a for the light pass and carries b through for
+  composite2. With TEMPORAL_LIGHT, deferred3 unpacks r as its own history.
+- **Less spatial blur, not shipped:** `TEMPORAL_AIR_SHARP` takes only the inner 2x2 of the tile where the history is
+  valid. It is experimental and off: the studio films with the noise's phase frozen, so a still frame keeps a faint
+  2x2 pattern (12% of a 2x2 gather's noise). The shipped resolve keeps the 4x4 tile, so a still frame stays
+  grain-free. The temporal gain is stability in motion, not sharper edges yet.
+- **Motion proof** (stress 0.995):
+  - a teleport from the village to the valley shows no ghost of the village;
+  - a 6 degree turn and a 2-block step in the grove leave no trails on the tree edges (1% of pixels more than 8 levels
+    off the settled frame: particles and leaves).
+- **Cost** (frame-time probe, 1600x900): shore 18:30 8.8 ms on against 8.7 off; plain 12:00 7.0 against 7.0. That is
+  about 0.1 ms, at the probe's resolution.
