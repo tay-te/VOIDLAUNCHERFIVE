@@ -3,6 +3,7 @@ package dev.voidmc.hearth.build.kit.age;
 import dev.voidmc.hearth.build.draft.Draft;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
@@ -55,6 +56,60 @@ public final class Settle {
 				}
 			}
 		}
+		// a rail left with nothing to stand on (the fences and the lip of slabs round a gallery or a deck an addition took
+		// up): every run of rail pieces next to what changed that no longer touches anything else comes down whole
+		LongOpenHashSet tried = new LongOpenHashSet();
+		for (long k : changed) {
+			for (int[] o : new int[][]{{0, -1, 0}, {0, 1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}}) {
+				int nx = Draft.keyX(k) + o[0];
+				int ny = Draft.keyY(k) + o[1];
+				int nz = Draft.keyZ(k) + o[2];
+				long nk = Draft.key(nx, ny, nz);
+				Draft.Cell c = d.cell(nx, ny, nz);
+				if (c == null || !railPiece(c.state()) || !tried.add(nk)) {
+					continue;
+				}
+				LongArrayList run = new LongArrayList();
+				LongArrayFIFOQueue q = new LongArrayFIFOQueue();
+				q.enqueue(nk);
+				boolean held = false;
+				while (!q.isEmpty() && !held && run.size() < 48) {
+					long r = q.dequeueLong();
+					run.add(r);
+					for (int[] p : new int[][]{{0, -1, 0}, {0, 1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}}) {
+						int px = Draft.keyX(r) + p[0];
+						int py = Draft.keyY(r) + p[1];
+						int pz = Draft.keyZ(r) + p[2];
+						long pk = Draft.key(px, py, pz);
+						Draft.Cell pc = d.cell(px, py, pz);
+						if (pc == null || pc.state().isAir()) {
+							if (pc == null && py < d.site().ground(px, pz)) {
+								held = true;
+							}
+							continue;
+						}
+						if (!railPiece(pc.state())) {
+							held = true;
+						} else if (tried.add(pk)) {
+							q.enqueue(pk);
+						}
+					}
+				}
+				if (!held && run.size() < 48) {
+					for (long r : run) {
+						d.remove(Draft.keyX(r), Draft.keyY(r), Draft.keyZ(r));
+					}
+				}
+			}
+		}
+	}
+
+	/** A piece of a rail: a fence, a wall, a top slab (a rail's lip), a trapdoor. */
+	private static boolean railPiece(BlockState s) {
+		Block b = s.getBlock();
+		return b instanceof net.minecraft.world.level.block.FenceBlock || b instanceof net.minecraft.world.level.block.WallBlock
+			|| b instanceof net.minecraft.world.level.block.SlabBlock && s.getValue(net.minecraft.world.level.block.SlabBlock.TYPE) == net.minecraft.world.level.block.state.properties.SlabType.TOP
+			|| b instanceof net.minecraft.world.level.block.TrapDoorBlock;
 	}
 
 	/** Whether a block that needs holding has lost what held it. */

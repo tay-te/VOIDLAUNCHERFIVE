@@ -47,11 +47,45 @@ class HomeSliceDebugTest {
 			ArchetypeInfo info = service.archetypes().stream().filter(i -> i.id().getPath().equals(a[0])).findFirst().orElseThrow();
 			Culture c = Culture.valueOf(a[1].toUpperCase(Locale.ROOT));
 			float temperature = c == Culture.TUNDRA ? -0.3F : c == Culture.ALPINE || c == Culture.NORTHERN ? 0.3F : 0.8F;
-			SyntheticTerrain probe = new SyntheticTerrain(SyntheticTerrain.Kind.valueOf(a[2].toUpperCase(Locale.ROOT)), 42, temperature);
+			TerrainProbe probe = new SyntheticTerrain(SyntheticTerrain.Kind.valueOf(a[2].toUpperCase(Locale.ROOT)), 42, temperature);
 			long seed = Long.parseLong(a[3]);
 			int index = (int) ((seed - 7) / 1000 - 1);
 			PlotSpec spec = spec(info, StyleRegistry.styleId(c), seed, index, probe);
+			if (a.length == 7 && (a[4].equals("age") || a[4].equals("inv"))) {
+				// <archetype>,<culture>,<terrain>,<seed>,age,<facing>,<additions>: an AccretionTest case
+				probe = SyntheticTerrain.named(a[2], 42);
+				Random r = new Random(seed * 31 + info.id().hashCode());
+				int fr = info.minFrontage() + r.nextInt(info.maxFrontage() - info.minFrontage() + 1);
+				int dp = info.minDepth() + r.nextInt(info.maxDepth() - info.minDepth() + 1);
+				PlotSpec p0 = plot(info, StyleRegistry.styleId(c), seed, Direction.valueOf(a[5].toUpperCase(Locale.ROOT)), probe, fr, dp,
+					Math.max(info.maxHeight(), 8));
+				CompoundTag add = new CompoundTag();
+				if (a[4].equals("age")) {
+					// (inv: an invariants test's case, the same plot without params)
+					add.putInt("additions", Integer.parseInt(a[6]));
+				}
+				spec = new PlotSpec(p0.archetype(), p0.style(), p0.seed(), p0.origin(), p0.sizeX(), p0.sizeZ(), p0.facing(), p0.maxHeight(), 2, add);
+			} else if (a.length >= 7) {
+				// <archetype>,<culture>,<terrain>,<seed>,<frontage>,<depth>,<height>[,<facing>]: a station test's plot, south
+				// facing unless named, on the named terrain (seed 42)
+				probe = SyntheticTerrain.named(a[2], 42);
+				spec = plot(info, StyleRegistry.styleId(c), seed, a.length > 7 ? Direction.valueOf(a[7].toUpperCase(Locale.ROOT)) : Direction.SOUTH, probe,
+					Integer.parseInt(a[4]), Integer.parseInt(a[5]), Integer.parseInt(a[6]));
+				if (a.length > 8) {
+					// ,k=v:k=v: params (station=peasant)
+					CompoundTag ps = new CompoundTag();
+					for (String kv : a[8].split(":")) {
+						String[] p = kv.split("=", 2);
+						ps.putString(p[0], p[1]);
+					}
+					spec = new PlotSpec(spec.archetype(), spec.style(), spec.seed(), spec.origin(), spec.sizeX(), spec.sizeZ(), spec.facing(), spec.maxHeight(),
+						spec.tier(), ps);
+				}
+			}
 			BlueprintImpl bp = service.compiled(spec, probe);
+			for (String pr : dev.voidmc.hearth.build.check.BlueprintChecks.all(bp, probe)) {
+				System.out.println("CHECK " + pr);
+			}
 			Map<BlockPos, BlockState> last = new HashMap<>();
 			for (int st = 0; st < bp.stageCount(); st++) {
 				for (int i = 0; i < bp.stepCount(st); i++) {
@@ -87,6 +121,30 @@ class HomeSliceDebugTest {
 			legend.forEach((k, v) -> out.append(v).append('=').append(k).append("  "));
 			System.out.println(out);
 		}
+	}
+
+	private static PlotSpec plot(ArchetypeInfo info, net.minecraft.resources.Identifier style, long seed, Direction facing, TerrainProbe probe, int frontage,
+		int depth, int height) {
+		boolean zAxis = facing.getAxis() == Direction.Axis.Z;
+		int sizeX = zAxis ? frontage : depth;
+		int sizeZ = zAxis ? depth : frontage;
+		int ox = -sizeX / 2;
+		int oz = -sizeZ / 2;
+		int fx = switch (facing) {
+			case EAST -> ox + sizeX;
+			case WEST -> ox - 1;
+			default -> ox + sizeX / 2;
+		};
+		int fz = switch (facing) {
+			case SOUTH -> oz + sizeZ;
+			case NORTH -> oz - 1;
+			default -> oz + sizeZ / 2;
+		};
+		int floor = probe.groundY(fx, fz);
+		if (probe.waterY(fx, fz) != TerrainProbe.NO_WATER) {
+			floor = Math.max(floor, probe.waterY(fx, fz) + 1);
+		}
+		return new PlotSpec(info.id(), style, seed, new BlockPos(ox, floor, oz), sizeX, sizeZ, facing, height, 2, new CompoundTag());
 	}
 
 	private static PlotSpec spec(ArchetypeInfo info, net.minecraft.resources.Identifier style, long seed, int index, TerrainProbe probe) {

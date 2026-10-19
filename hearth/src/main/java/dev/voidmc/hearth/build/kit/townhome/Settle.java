@@ -64,16 +64,39 @@ public final class Settle {
 
 	/** The door sweep, the edge guards and the sealed voids, in that order: the last stroke of a home. */
 	public static void finish(Draft d) {
-		doors(d);
-		yardDoors(d);
-		reachThings(d);
-		openPockets(d);
-		pockets(d);
-		guards(d);
-		ledges(d);
+		// -Dhearth.settle.off=true: the home as drawn (to see what the walk-round does)
+		if (Boolean.getBoolean("hearth.settle.off")) {
+			dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+			return;
+		}
+		// -Dhearth.settle.skip=doors,yard,reach,open,pockets,guards,ledges: leave steps out (to find which one did something)
+		String skip = System.getProperty("hearth.settle.skip", "");
+		if (!skip.contains("doors")) {
+			doors(d);
+		}
+		if (!skip.contains("yard")) {
+			yardDoors(d);
+		}
+		if (!skip.contains("reach")) {
+			reachThings(d);
+		}
+		if (!skip.contains("open")) {
+			openPockets(d);
+		}
+		if (!skip.contains("pockets")) {
+			pockets(d);
+		}
+		if (!skip.contains("guards")) {
+			guards(d);
+		}
+		if (!skip.contains("ledges")) {
+			ledges(d);
+		}
 		// (a gallery door whose lattice became a rail is a window now; a yard thing a rail cut off is not put out)
-		doors(d);
-		if (yardDoors(d) > 0) {
+		if (!skip.contains("doors")) {
+			doors(d);
+		}
+		if (!skip.contains("yard") && yardDoors(d) > 0) {
 			// (a door cut to the yard this late may open onto an edge nobody walked before)
 			guards(d);
 			ledges(d);
@@ -695,6 +718,8 @@ public final class Settle {
 		int taken = 0;
 		int[] b = {0, 0, d.frontage() - 1, d.depth() - 1};
 		LongOpenHashSet reached = walk(d);
+		// (a step of the way in is no bench: nothing is taken that cuts the door from the street or a flight's top)
+		int broken = brokenWays(d, reached);
 		for (int y = 0; y < d.maxHeight() - 1; y++) {
 			for (int z = b[1]; z <= b[3]; z++) {
 				for (int x = b[0]; x <= b[2]; x++) {
@@ -725,7 +750,7 @@ public final class Settle {
 						}
 					});
 					LongOpenHashSet again = walk(d);
-					if (again.size() >= reached.size() + 3) {
+					if (again.size() >= reached.size() + 3 && brokenWays(d, again) <= broken) {
 						reached = again;
 						d.retainPois(p -> !(p.x() == fx && p.z() == fz && Math.abs(p.y() - fy) <= 1 && p.type() == dev.voidmc.hearth.api.PoiType.STORAGE));
 						taken++;
@@ -1167,9 +1192,35 @@ public final class Settle {
 			}
 			return false;
 		}
-		// a view nobody can reach any more is no view
+		// a view nobody can reach any more moves to the walked cell nearest it on its level (inside the door walled up to a
+		// window, the view is from the window), else is no view
+		List<Draft.LocalPoi> moved = new ArrayList<>();
+		for (Draft.LocalPoi p : d.pois()) {
+			if (p.type() != dev.voidmc.hearth.api.PoiType.VIEWPOINT || after.contains(Draft.key(p.x(), p.y(), p.z()))
+				|| after.contains(Draft.key(p.x(), p.y() + 1, p.z())) || after.contains(Draft.key(p.x(), p.y() - 1, p.z()))) {
+				continue;
+			}
+			long near = Long.MIN_VALUE;
+			int best = Integer.MAX_VALUE;
+			for (int dz = -2; dz <= 2; dz++) {
+				for (int dx = -2; dx <= 2; dx++) {
+					long k = Draft.key(p.x() + dx, p.y(), p.z() + dz);
+					int dist = Math.abs(dx) + Math.abs(dz);
+					if (after.contains(k) && dist < best && inPlot(d, p.x() + dx, p.z() + dz)) {
+						best = dist;
+						near = k;
+					}
+				}
+			}
+			if (near != Long.MIN_VALUE) {
+				moved.add(new Draft.LocalPoi(p.type(), Draft.keyX(near), p.y(), Draft.keyZ(near), p.facing(), p.job()));
+			}
+		}
 		d.retainPois(p -> p.type() != dev.voidmc.hearth.api.PoiType.VIEWPOINT || after.contains(Draft.key(p.x(), p.y(), p.z()))
 			|| after.contains(Draft.key(p.x(), p.y() + 1, p.z())) || after.contains(Draft.key(p.x(), p.y() - 1, p.z())));
+		for (Draft.LocalPoi p : moved) {
+			d.poi(p.type(), p.x(), p.y(), p.z(), p.facing());
+		}
 		return true;
 	}
 
@@ -1235,6 +1286,15 @@ public final class Settle {
 				if (!exit) {
 					bad++;
 				}
+			}
+		}
+		// the main entrance walked to from the street, as the blueprint checks walk (the walk-round's own walk starts at
+		// the entrances too, so it never misses one): a change that cuts it counts as a thousand broken ways
+		if (!d.entrances().isEmpty()) {
+			int[] e = d.entrances().get(0);
+			LongOpenHashSet street = walk(d, null, false, true);
+			if (!street.contains(Draft.key(e[0], e[1], e[2])) && !street.contains(Draft.key(e[0], e[1] + 1, e[2])) && !street.contains(Draft.key(e[0], e[1] - 1, e[2]))) {
+				bad += 1000;
 			}
 		}
 		return bad;
@@ -1311,7 +1371,9 @@ public final class Settle {
 				if (drop(d, nx, y, nz) < 4 || reached.contains(Draft.key(nx, y, nz))) {
 					continue;
 				}
-				if (!d.allowed(nx, y, nz) || at(d, x, y, z).getBlock() instanceof TrapDoorBlock) {
+				// (beyond the plot, where only an overhang may go, the edge is railed in itself: a rail out over the street
+				// hung on a lip of nothing)
+				if (!d.allowed(nx, y, nz) || !inPlot(d, nx, nz) || at(d, x, y, z).getBlock() instanceof TrapDoorBlock) {
 					if (!edge.contains(k)) {
 						edge.add(k);
 					}
@@ -1320,15 +1382,30 @@ public final class Settle {
 				if (!d.isEmpty(nx, y, nz) && !(at(d, nx, y, nz).getBlock() instanceof CarpetBlock)) {
 					continue;
 				}
+				boolean doorFront = false;
+				for (Direction dd : Dirs.HORIZONTAL) {
+					for (int dy = -1; dy <= 0; dy++) {
+						doorFront |= at(d, nx + Dirs.dx(dd), y + dy, nz + Dirs.dz(dd)).getBlock() instanceof DoorBlock;
+					}
+				}
+				if (doorFront) {
+					// (never in a door's front cells: the doors' pass clears them, and took the lip from under the rail)
+					continue;
+				}
 				if (guarded.add(Draft.key(nx, y, nz))) {
 					int gx = nx;
 					int gz = nz;
-					d.inStage(StageKind.EXTERIOR, () -> d.set(gx, y, gz, guard));
+					// (a rail goes with the floor it guards: drawn in that floor's stage, so a later addition that takes the
+					// floor up (a storey lifting a roof deck, a bay over a gallery) takes the rail and its lip too, instead of
+					// leaving them in the air)
+					Draft.Cell floorCell = d.cell(x, y - 1, z);
+					StageKind gs = floorCell != null && floorCell.stage() != StageKind.FOUNDATION ? floorCell.stage() : StageKind.EXTERIOR;
+					d.inStage(gs, () -> d.set(gx, y, gz, guard));
 					// the floor carried out a lip under the rail, so it stands on something rather than hanging off the edge
 					if (d.allowed(gx, y - 1, gz) && d.isEmpty(gx, y - 1, gz) && !reached.contains(Draft.key(gx, y - 2, gz))
 						&& !reached.contains(Draft.key(gx, y - 3, gz))) {
 						// (not where it would take the head room of someone walking under it)
-						d.inStage(StageKind.EXTERIOR, () -> d.set(gx, y - 1, gz, lip));
+						d.inStage(gs, () -> d.set(gx, y - 1, gz, lip));
 					}
 				}
 			}
@@ -1614,9 +1691,9 @@ public final class Settle {
 			|| s.getBlock() instanceof SlabBlock && s.getValue(SlabBlock.TYPE) == SlabType.BOTTOM || s.getBlock() instanceof BedBlock;
 	}
 
-	/** Every cell walked to from the entrances and the street, within the plot and four round it. */
+	/** Every cell walked to from the entrances and the street, within the plot and two round it. */
 	public static LongOpenHashSet walk(Draft d) {
-		return walk(d, null, false);
+		return walk(d, null, false, false);
 	}
 
 	/**
@@ -1624,16 +1701,19 @@ public final class Settle {
 	 * walks (a lattice filling a window is no way out to the yard). The yard's things are judged by this walk.
 	 */
 	static LongOpenHashSet walkLeaves(Draft d) {
-		return walk(d, null, true);
+		return walk(d, null, true, false);
 	}
 
 	static LongOpenHashSet walk(Draft d, it.unimi.dsi.fastutil.longs.@org.jspecify.annotations.Nullable Long2LongOpenHashMap from) {
-		return walk(d, from, false);
+		return walk(d, from, false, false);
 	}
 
 	/** As {@link #walk(Draft)}; {@code from}, when given, gets each walked cell's predecessor (a start's is itself). */
-	private static LongOpenHashSet walk(Draft d, it.unimi.dsi.fastutil.longs.@org.jspecify.annotations.Nullable Long2LongOpenHashMap from, boolean leaves) {
-		int m = 4;
+	private static LongOpenHashSet walk(Draft d, it.unimi.dsi.fastutil.longs.@org.jspecify.annotations.Nullable Long2LongOpenHashMap from, boolean leaves,
+		boolean streetOnly) {
+		// (two round the plot, as the blueprint checks walk: a way round wider than that, through the neighbours' plots,
+		// let the ledge pass rail the only way to a side door on a steep plot)
+		int m = 2;
 		int x0 = -m;
 		int x1 = d.frontage() - 1 + m;
 		int z0 = -m;
@@ -1642,7 +1722,7 @@ public final class Settle {
 		int y1 = d.maxHeight() + 2;
 		LongOpenHashSet seen = new LongOpenHashSet();
 		LongArrayFIFOQueue q = new LongArrayFIFOQueue();
-		List<int[]> starts = new ArrayList<>(d.entrances());
+		List<int[]> starts = streetOnly ? new ArrayList<>() : new ArrayList<>(d.entrances());
 		// (the light check's starts: the entrances and the street row at the plot's floor or above)
 		for (int x = 0; x < d.frontage(); x++) {
 			starts.add(new int[]{x, Math.max(d.site().ground(x, -1), 0), -1});

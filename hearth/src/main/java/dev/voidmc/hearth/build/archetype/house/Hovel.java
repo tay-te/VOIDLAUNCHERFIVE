@@ -62,7 +62,7 @@ import net.minecraft.world.level.block.state.properties.DoorHingeSide;
  * <p>Params:
  * <ul>
  *   <li>{@code station}, {@code household} (shared, see {@link Household}): the household's trade dresses the room</li>
- *   <li>{@code lean_to} (boolean): a lean-to against a side (default true; needs a plot 7 wide)</li>
+ *   <li>{@code lean_to} (boolean): a lean-to against a side (default true; needs a plot 8 wide)</li>
  *   <li>{@code roof} (RoofForm name): the main roof's form (gable, hip, half_hip; default by culture and seed)</li>
  *   <li>{@code variant} (int): the style variant</li>
  * </ul>
@@ -108,8 +108,9 @@ public final class Hovel implements Archetype {
 		int front = dp - bd;
 		// raised over water or by habit: on piles over a deck, no lean-to
 		boolean raised = StationHomes.raised(d, 0, front, w - 1, dp - 1);
-		boolean lean = !raised && d.param("lean_to", true) && w >= 7;
-		int lw = lean ? Math.clamp(w - 5, 2, 3) : 0;
+		// (the lean-to only where the room keeps six wide beside it: a room four by three sleeps two by their fire)
+		boolean lean = !raised && d.param("lean_to", true) && w >= 8;
+		int lw = lean ? Math.clamp(w - 6, 2, 3) : 0;
 		int bw = raised ? Math.min(w - 2, 6) : Math.min(6, w - lw);
 		boolean leanLeft = d.chance(0.5);
 		int bx0 = lean ? (leanLeft ? w - bw : 0) : (w - bw) / 2;

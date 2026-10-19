@@ -320,10 +320,8 @@ final class StationHomes {
 	/** {@link #fireAndBeds} with the cell inside the door at row {@code frontZ} (a round room's front is its door). */
 	static int fireAndBeds(Draft d, dev.voidmc.hearth.build.kit.Rooms.Room room, int door, int frontZ, int want, boolean fire) {
 		int y = room.y;
-		// a room under twelve cells sleeps its household in one bed: two beds and a fire would leave nowhere to stand
-		if (room.width() * room.length() < 12) {
-			want = Math.min(want, 1);
-		}
+		// (every bed the house is counted for is put in: a household sleeps a bed each; the room keeps its walk from the
+		// door to the fire and a free side to each bed, and roomToTurn clears what else crowds it)
 		room.keep(door, frontZ);
 		for (int z = frontZ + 1; z < room.z1; z++) {
 			room.keep(door, z);
@@ -524,7 +522,8 @@ final class StationHomes {
 	 */
 	static void windows(Draft d, int x0, int z0, int x1, int z1, int y) {
 		for (Side s : Side.of(x0, z0, x1, z1)) {
-			if (s.length() < 5 || hasOpening(d, s, y)) {
+			// (never in a party wall)
+			if (s.length() < 5 || hasOpening(d, s, y) || s.out() == Dirs.LEFT && d.partyLocalLeft() || s.out() == Dirs.RIGHT && d.partyLocalRight()) {
 				continue;
 			}
 			for (int i : new int[]{s.middle(), s.middle() - 1, s.middle() + 1}) {
