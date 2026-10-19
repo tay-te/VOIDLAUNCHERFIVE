@@ -78,6 +78,29 @@ public final class NpcServiceImpl implements NpcService {
 	}
 
 	@Override
+	public boolean onDuty(Settlement settlement, Resident resident) {
+		net.minecraft.server.MinecraftServer server = dev.voidmc.hearth.npc.NpcTime.server();
+		if (server == null) {
+			return true;
+		}
+		dev.voidmc.hearth.npc.routine.Schedule day = dev.voidmc.hearth.npc.routine.RoutinePlacement.schedule(settlement, resident,
+			dev.voidmc.hearth.npc.NpcTime.today());
+		return day.at(dev.voidmc.hearth.npc.NpcTime.minuteOfDay(server.overworld())).activity() == dev.voidmc.hearth.npc.routine.Activity.WORK;
+	}
+
+	@Override
+	public @Nullable FolkHandle embodyNear(ServerLevel level, Settlement settlement, Resident resident, BlockPos near) {
+		if (level.dimension() != settlement.dimension() || settlement.resident(resident.id) == null) {
+			return null;
+		}
+		Folk f = this.embodiment.entityOf(resident.id);
+		if (f == null || f.isFolded()) {
+			f = this.embodiment.spawnNear(level, settlement, resident, near);
+		}
+		return f == null || f.brain() == null ? null : f.brain().handle();
+	}
+
+	@Override
 	public java.util.Set<String> traits(Resident resident) {
 		java.util.Set<String> out = new java.util.HashSet<>();
 		for (dev.voidmc.hearth.npc.person.Trait t : dev.voidmc.hearth.npc.person.NpcData.of(resident).traits()) {

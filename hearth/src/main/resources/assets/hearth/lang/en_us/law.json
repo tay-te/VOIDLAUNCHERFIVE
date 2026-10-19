@@ -43,6 +43,7 @@
 	"hearth.law.hud.pillory": "In the pillory at %s · %s",
 
 	"hearth.law.seen_by": "%s saw you!",
+	"hearth.law.notice_posted": "No guard could be spared to come for you. The watch of %s posts your bounty, %s bits: every guard will know your face.",
 	"hearth.law.wanted_now": "Word has reached the guard of %s: you are wanted for %s. Bounty: %s bits.",
 	"hearth.law.locked": "Locked (%s). You need the key, or a lockpick in hand.",
 	"hearth.law.trespass.warned": "You are not welcome here at this hour.",

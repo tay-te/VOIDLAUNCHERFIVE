@@ -56,6 +56,12 @@ import org.jspecify.annotations.Nullable;
 public final class EmbodimentManager {
 	/** Blocks of head start an existing entity gets over a record at a similar distance. */
 	private static final double STICKINESS = 16.0;
+	/**
+	 * Folk a town with a player near always has about, however far its people are from where the player stands (the end
+	 * of a long road out of town), and how far beyond the spawn radius they may be found for it.
+	 */
+	static final int LEAST = 6;
+	static final double REACH_FACTOR = 2.0;
 
 	private final Map<Long, TownState> towns = new HashMap<>();
 	private final Map<UUID, Folk> embodied = new HashMap<>();
@@ -171,7 +177,7 @@ public final class EmbodimentManager {
 			room += makeRoom(level.getServer(), nearestWish);
 		}
 		EmbodimentSelector.Plan plan = EmbodimentSelector.plan(candidates, cfg.maxPerSettlement(), Math.max(0, room), cfg.spawnRadius(),
-			cfg.despawnRadius(), STICKINESS);
+			cfg.despawnRadius(), STICKINESS, Math.min(LEAST, cfg.maxPerSettlement()), cfg.spawnRadius() * REACH_FACTOR);
 		for (UUID id : plan.fold()) {
 			Folk f = this.embodied.get(id);
 			if (f != null && !Escorts.pinned(id)) {

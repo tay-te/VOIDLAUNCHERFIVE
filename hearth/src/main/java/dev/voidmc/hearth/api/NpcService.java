@@ -82,6 +82,22 @@ public interface NpcService {
 		return null;
 	}
 
+	/**
+	 * Whether the resident's day has them at work right now (a guard on the watch rather than abed or off duty), by the
+	 * NPC module's schedules. True when there is no NPC module to say otherwise.
+	 */
+	default boolean onDuty(Settlement settlement, Resident resident) {
+		return true;
+	}
+
+	/**
+	 * Makes a resident who is only a record into folk at standing room near {@code near} (a guard sent for), within the
+	 * server's cap. Returns their folk (the one already about, if they are), or null if there is no room or no place.
+	 */
+	default @Nullable FolkHandle embodyNear(ServerLevel level, Settlement settlement, Resident resident, BlockPos near) {
+		return null;
+	}
+
 	/** A resident's traits by name ({@code brave}, {@code greedy}, {@code shy}...), from the npc module's personality. */
 	default java.util.Set<String> traits(Resident resident) {
 		return java.util.Set.of();
