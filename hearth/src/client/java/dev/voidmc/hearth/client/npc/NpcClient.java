@@ -29,5 +29,11 @@ public final class NpcClient {
 				mc.gui.setScreen(new ConversationScreen(payload));
 			}
 		});
+		ClientPlayNetworking.registerGlobalReceiver(TalkPayloads.Close.TYPE, (payload, ctx) -> {
+			Minecraft mc = ctx.client();
+			if (mc.gui.screen() instanceof ConversationScreen open && open.entityId() == payload.entity()) {
+				open.onClose();
+			}
+		});
 	}
 }

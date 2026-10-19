@@ -392,6 +392,15 @@ public class Folk extends PathfinderMob {
 
 	@Override
 	public boolean hurtServer(ServerLevel level, DamageSource source, float damage) {
+		if (source.is(net.minecraft.world.damagesource.DamageTypes.IN_WALL)) {
+			// A block put where they stood (a builder's step, the chunk applier, a player): they step out of it rather
+			// than die in it, since a resident's death is for good.
+			BlockPos out = FolkSpots.standableNear(level, this.blockPosition(), 3);
+			if (out != null && !this.isSleeping()) {
+				this.teleportTo(out.getX() + 0.5, out.getY(), out.getZ() + 0.5);
+			}
+			return false;
+		}
 		boolean hurt = super.hurtServer(level, source, damage);
 		if (hurt && this.brain != null) {
 			this.brain.onHurt(level, source);
@@ -446,6 +455,12 @@ public class Folk extends PathfinderMob {
 
 	@Override
 	public boolean canBeLeashed() {
+		return false;
+	}
+
+	/** Folk belong to their town: a portal would carry the entity off to where no settlement can take it back. */
+	@Override
+	public boolean canUsePortal(boolean ignorePassenger) {
 		return false;
 	}
 

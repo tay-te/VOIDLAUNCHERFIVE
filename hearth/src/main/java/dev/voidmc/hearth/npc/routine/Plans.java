@@ -31,7 +31,7 @@ public final class Plans {
 	static @Nullable Task plan(FolkBrain brain, ServerLevel level) {
 		ResidentPlaces p = brain.places(level);
 		return switch (brain.activity()) {
-			case SLEEP -> new Tasks.Sleep(p.bed, p.home);
+			case SLEEP -> sleep(brain, p);
 			case WAKE -> new Tasks.Sequence("getting up", Tasks.Linger.at(p.bed != null ? p.home : null, 120 + brain.random.nextInt(200), "getting up"),
 				doorstep(brain, level, p, 200));
 			case EAT -> eat(brain, level, p);
@@ -47,6 +47,24 @@ public final class Plans {
 			// One folk rings the bell; the rest get indoors.
 			case ALARM -> new Tasks.Alarm(brain.town.claimBell(level.getGameTime()) ? nearestBell(brain, level) : null);
 		};
+	}
+
+	/**
+	 * To bed; someone with no home of their own (the sim has not housed them yet) dozes on a bench at the inn (a tavern,
+	 * a hostel; else any public bench) rather than standing about the town's centre all night.
+	 */
+	private static Task sleep(FolkBrain brain, ResidentPlaces p) {
+		if (p.bed == null && brain.resident.home == Resident.NO_PLOT && NpcData.of(brain.resident).anchor().isEmpty()) {
+			Poi seat = pick(brain, brain.town.places.inn(brain.settlement), PoiType.SEAT);
+			if (seat == null && brain.folk.level() instanceof ServerLevel level) {
+				// no inn: a bench somewhere public
+				seat = pick(brain, brain.town.places.all(level, brain.settlement, PoiType.SEAT));
+			}
+			if (seat != null) {
+				return new Tasks.Sit(seat, 20 * 60 * 5, ItemStack.EMPTY, null);
+			}
+		}
+		return new Tasks.Sleep(p.bed, p.home);
 	}
 
 	private static Task eat(FolkBrain brain, ServerLevel level, ResidentPlaces p) {

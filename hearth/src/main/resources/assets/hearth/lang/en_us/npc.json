@@ -7,6 +7,7 @@
 	"hearth.npc.talk.rumours": "Heard any rumours?",
 	"hearth.npc.talk.about": "Tell me about yourself.",
 	"hearth.npc.talk.bye": "Goodbye.",
+	"hearth.npc.talk.title_of": "%s of %s",
 	"hearth.npc.job.none": "Villager",
 	"hearth.npc.job.builder": "Builder",
 	"hearth.npc.job.farmer": "Farmer",

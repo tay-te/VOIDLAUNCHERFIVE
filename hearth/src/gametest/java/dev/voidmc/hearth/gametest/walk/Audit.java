@@ -303,7 +303,10 @@ public final class Audit {
 				this.folk.computeIfAbsent(p.type(), k -> new int[2])[1]++;
 				folk.snapTo(street.x() + 0.5, street.floor(), street.z() + 0.5, 0, 0);
 				folk.setOnGround(true);
-				Path path = folk.getNavigation().createPath(p.pos(), 1);
+				// as a folk asks: for a spot beside the bed or bench (npc FolkSpots.approaches), with a wider search for another storey
+				java.util.List<BlockPos> spots = dev.voidmc.hearth.npc.entity.FolkSpots.approaches(level, p.pos());
+				folk.getNavigation().setRequiredPathLength(Math.abs(p.pos().getY() - street.floor()) >= 3 ? 96.0F : 48.0F);
+				Path path = spots.isEmpty() ? folk.getNavigation().createPath(p.pos(), 1) : folk.getNavigation().createPath(new java.util.HashSet<>(spots), 0);
 				if (path != null && path.canReach()) {
 					this.folkPathsOk++;
 					this.folk.get(p.type())[0]++;
