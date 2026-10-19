@@ -2168,3 +2168,76 @@ outline, and the 05:30 shore a slate sky over taupe bellies. Sheets: `scratchpad
     and the rims are gold-cream rather than blazing white;
   - the 05:30 bellies are a grey-violet under the blue-violet sky, and the mist is still peach rather than catching rose;
   - storms, the mesa's pale horizon band, the clouds pass's cost (about 1.1 ms).
+
+## Look D6: storms, the mesa's horizon, the clouds' cost (2026-10-19, branch `welkin-d6`)
+
+Storms had not been worked on since the HDR rework: under front 0.8 the sky, the clouds, the land and the rain were one
+mid grey. Sheets: `scratchpad/welkin_look/d6/` (`mid/mid_sheet.jpg`, `final/hero_before_after.jpg`: before
+(5c48b3b0), D6 and a reference pack where one exists). 4K frames `d6_k4_stormg`, `d6_k4_mesa_1648`,
+`d6_k4_countryside_0630` in the studio's renders. Guards shot with `SWAY_FREEZE 7`.
+
+What front 0.8 is: at the eye the sky table's overcast is 1.0, Gloam's cloud cover 1.0, `void_storm` 0 (no thunder),
+rain 0 on the peak (storm0, far0) and 0.2..1 in the valley (stormg, rain0). The decks still have gaps.
+
+- **The sun over the storm** (`lib/clouds/shadow.glsl`): under a closed overcast the sky table dims the land's sun to
+  what comes through a closed deck (weatherSun, 0.12 of it). The decks' shadow now gives it back where they open:
+  `welkinCloudShadow` returns, under a closed sky, WC_GAP_SUN 0.75 of a clear day's sun in a gap and WC_STORM_ONE /
+  TWO / THREE 0.12 / 0.07 / 0.05 under one, two, three decks, as a share of the table's sun (so it can pass 1). The
+  land, the water, the haze volume's sunlit air and the clouds' tops (`wcSelfShadow`, 0.8 of the lift) all read it:
+  a lit patch of land or of deck tops under a gap, the storm's edge. A low sun (no cloud shadows) is as before.
+- **Storm bellies** (`lib/clouds/shade.glsl`, the closed-cover base): the paint takes WS_STORM_PAINT 0.85 of a
+  belly under a closed sky (was 0.25), at WS_STORM_BELLY 0.72 of the sky behind, the thick heart down to
+  WS_STORM_DEEP 0.55 of that, the thin seams (depth under 0.15) and the rim up to WS_STORM_SEAM 1.05: layered dark
+  masses with lighter seams, not one flat grey ceiling. The high deck and towers (no field) take a third of the seams.
+- **The storm grade** (`lib/grade.glsl` gradeStorm, set in final): the closed sky (overcast 0.5..0.95) times the
+  larger of the rain at the eye (half of it under a front under about 0.62, so moderate rain stays cool and soft) and
+  the front at the eye (0.66..0.8). It sets saturation GRADE_STORM_SAT 0.84, gain GRADE_STORM_GAIN (0.91, 0.95, 1.0),
+  no lifted toe, gamma GRADE_STORM_GAMMA 0.90 (deeper mids), the S GRADE_STORM_S 0.30, a cool slate shade split
+  (0.90, 0.97, 1.13). A plain overcast keeps the old calm grade.
+- **The land under a closed sky** (`lib/light.glsl`, `lib/sky/build.glsl`): the fill by orientation, a top
+  LAND_OVERCAST_TOP 1.1, a wall LAND_OVERCAST_SIDE 0.68, a bottom a quarter under the wall (an overcast's zenith is
+  about three times its horizon); the contact occlusion 1.35x deeper; the fill under rain a cooler slate
+  (0.74, 0.85, 1.0). The land keeps its form in deep, cool shade.
+- **The mesa's horizon** (`lib/air.glsl` airLayered, used by composite2's air over the land, composite1's far air and
+  the clouds pass's eye-height bank): the air over the land is layered, coloured air, AIR_LAYER_HUE 0.9 of a hue
+  from AIR_LAYER_AWAY (0.72, 0.94, 1.45) away from the sun to AIR_LAYER_SUN (1.18, 0.98, 0.72) toward it (by the
+  cube of the azimuth), at AIR_LAYER_LEVEL 0.8 of the air's light, by day, less under an overcast. Near and far take
+  the same, so the seam stays invisible. The mesa's far ridges now stand blue-grey in the air, one behind another;
+  the countryside's far range too. The sky's band itself keeps its warmth on the sun's side only
+  (`lib/sky/luminous.glsl` WS_BAND_WARM_AWAY 0.12, was 0.45 all round; an evening's dome warmth mostly sunward).
+  Ruled out on the way (no effect on the band): composite2's haze (HAZE_STRENGTH 0), the haze volume (50), the valley
+  mist (0.5), the aerial perspective (0). The grade's warm highlight split then turns what is left of a pale band
+  cream, which is why the hue had to be strong.
+- **Clouds pass** (`program/parts/clouds.glsl`, `lib/clouds/shade.glsl`): the veil colour of the eye-height fog bank
+  is worked out once a pixel (it was once per deck, each with the curve's inverse) and outside the dusk in the vertex
+  shader (wcVeilS); the far fog's target (the luminous sky and a curve inverse) only where a cloud has fog. 4K sky and
+  cloud crops of shore 18:30 and plain 12:00 against the commit before: identical but for 458 pixels of leaves.
+- **The clouds' cost, measured** (probe, 1600x900; this session, steppe 17:00 / shore 18:30):
+
+| | steppe 17:00 | shore 18:30 |
+|---|---|---|
+| base 5c48b3b0 | 7.0 / 7.1 ms | 9.0 / 9.0 ms |
+| D6 | 7.1 / 7.1 ms | 9.0 / 9.1 ms |
+| D6, CLOUDS off | 6.0 / 6.0 ms | 8.0 / 8.0 ms |
+| the clouds pass returning before its work (probe) | 6.0 | 8.3 |
+| no march, no shading (env, bands, fog bank) | 6.3 | 8.3 |
+| march, no shading | 6.7 | 8.7 |
+| shading, no march | 6.7 | 8.7 |
+| CLOUD_SHADOWS 0 | 7.0 | 8.7 |
+| CLOUD_QUALITY 1 (20 steps, 2 light samples) | 7.1 | 9.0 |
+| no billows / no light-path samples | 7.0 / 7.0 | 9.0 / 9.0 |
+
+  So the clouds still cost about 1.1 ms (steppe) and 1.0 ms (shore): the pass about 1.1 / 0.7 (env and bands 0.3 /
+  0, the march 0.4 / 0.3, the shading 0.4 / 0.3), the map passes and the cloud shadows elsewhere 0.1 / 0.3. Neither
+  the step count nor the light samples nor the billows move it: it is the per-pixel cost of one very large shader
+  (registers, occupancy), not its loops. The D6 refactors are exact and under the probe's resolution.
+- **Still open:**
+  - the clouds' cost: the next step is structural: split the pass into a march (writing the hit: t, normal, cell,
+    level, tone, band choice, into a buffer) and a shading pass over hit pixels only, or hoist CloudEnv and the
+    per-frame sky terms (wcCloudSun, the ambient, the closed and dusk terms) into the vertex shader as flat values;
+  - storm0 and far0's lit deck tops in gaps read a cool white more than a warm silver; the storm grade leans cool-blue
+    (the brief allows cool, not cold: watch it); the rain curtains were not touched (rain0's near rain reads, the far
+    curtains were not checked);
+  - the gap sun only shows where the decks open: under a uniform front pin there is no true storm edge with a clear
+    sky beyond; a non-uniform front (Gloam's own weather) should be checked;
+  - not reached: blazing gold-white rims next to a low sun at shore 18:30, rose light in the 05:30 dawn mist.
