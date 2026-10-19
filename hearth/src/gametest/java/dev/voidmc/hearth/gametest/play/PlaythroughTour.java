@@ -984,8 +984,13 @@ public class PlaythroughTour implements FabricClientGameTest {
 		faceUs(witness);
 		boolean opened = openContainer(chest);
 		ok(opened, "right-clicking the container opens it (" + chest.toShortString() + ")");
-		faceUs(witness);
+		// (turning takes the head a few ticks: held and turned until it faces us, then the theft)
+		for (int i = 0; i < 6; i++) {
+			faceUs(witness);
+			settle(100);
+		}
 		takeFirst();
+		faceUs(witness);
 		settle(800);
 		this.context.runOnClient(mc -> mc.player.closeContainer());
 		settle(1_500);
@@ -1828,7 +1833,7 @@ public class PlaythroughTour implements FabricClientGameTest {
 				if (i == 0) {
 					note("(" + srv(server -> town(server).resident(resident) == null ? "?" : town(server).resident(resident).fullName()) + " is not about; called over)");
 				}
-				spawnNear(resident, srv(server -> town(server).center()));
+				spawnNear(resident, srv(server -> player(server).blockPosition()));
 				settle(1_500);
 				continue;
 			}
