@@ -13,6 +13,7 @@
 #ifdef VERTEX_SHADER
 
 #include "/lib/hdr.glsl"
+#include "/lib/clouds/envflat.glsl"
 
 out vec2 texcoord;
 // (Look D3) the sky's horizon (away, toward the sun) and zenith in scene light, once (lib/clouds/shade.glsl wcDomeScene)
@@ -32,6 +33,8 @@ void main() {
 	vec3 veil = vec3(0.97, 0.97, 0.98) * (skyAmbientLight() * 0.82 + skyDirectLight() * 0.42);
 	veil = mix(veil, 0.8 + 0.2 * (1.0 - exp(-(veil - 0.8) * 5.0)), step(0.8, veil));
 	wcVeilS = sceneFromAuthored(veil);
+	// (D7) the clouds' frame and weather, once (lib/clouds/envflat.glsl)
+	wcEnvWrite(welkinCloudEnv());
 }
 
 #endif
@@ -45,6 +48,7 @@ void main() {
 #include "/lib/clouds/shade.glsl"
 #include "/lib/hdr.glsl"
 #include "/lib/air.glsl"
+#include "/lib/clouds/envflat.glsl"
 
 in vec2 texcoord;
 
@@ -89,9 +93,14 @@ void main() {
 		return;
 	}
 
-	CloudEnv e = welkinCloudEnv();
+	CloudEnv e = wcEnvRead(); // (D7) worked out in the vertex shader
 	// where each deck turns into a far band (lib/clouds/shade.glsl wcBandOf): past a deck that is all band the march
-	// has nothing left to draw, so it stops there
+	// has nothing left to draw, so it stops there. (D7) Only the cut before the march (wcBandCut, the same arithmetic),
+	// the bands after it: held through the march's loop they cost registers
+	float tCut = min(tScene, min(wcBandCut(0, ro, rd, pixAngle, e), min(wcBandCut(1, ro, rd, pixAngle, e),
+		wcBandCut(2, ro, rd, pixAngle, e))));
+	CloudHit h = welkinCloudMarch(ro, rd, tCut, pixAngle, e);
+	steps = vec3(h.steps, h.gapCols, h.jumps);
 	vec4 band0 = wcBandOf(0, ro, rd, pixAngle, tScene, e);
 	vec4 band1 = wcBandOf(1, ro, rd, pixAngle, tScene, e);
 	vec4 band2 = wcBandOf(2, ro, rd, pixAngle, tScene, e);
@@ -100,12 +109,6 @@ void main() {
 	band0.z *= 1.0 - wcNearDeck(0, e);
 	band1.z *= 1.0 - wcNearDeck(1, e);
 	band2.z *= 1.0 - wcNearDeck(2, e);
-	float tCut = tScene;
-	tCut = band0.z >= 0.999 ? min(tCut, band0.x) : tCut;
-	tCut = band1.z >= 0.999 ? min(tCut, band1.x) : tCut;
-	tCut = band2.z >= 0.999 ? min(tCut, band2.x) : tCut;
-	CloudHit h = welkinCloudMarch(ro, rd, tCut, pixAngle, e);
-	steps = vec3(h.steps, h.gapCols, h.jumps);
 	// the far bands, the farthest first; each lies over what is behind it (a gap's sky, or the cell hit inside it)
 	if (band0.x < band1.x) { vec4 t = band0; band0 = band1; band1 = t; }
 	if (band1.x < band2.x) { vec4 t = band1; band1 = band2; band2 = t; }
