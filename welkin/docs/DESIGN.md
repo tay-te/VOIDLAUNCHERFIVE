@@ -1912,3 +1912,41 @@ atmospheric, not cheerful, not cold). Sheets: `scratchpad/welkin_look/d1/` (`mid
 - **Still open:** the clouds' look (bright, cool white bodies; they dominate the vistas and are the next lever), the
   cloud-gap beams at front 0.55 are still faint in the sky (the near canopy beams carry the sunplain frame), the far
   haze over the mesa's horizon is still pale, the countryside dawn still reads more pastel than misty gold, storms.
+
+## Look D2: robust rays (2026-10-19, branch `welkin-d2`)
+
+The canopy beams read as rays in one leaf configuration and as a cream blob with an outline in another (leaf sway
+moves the gaps). Sheets: `scratchpad/welkin_look/d2/` (`mid/mid_sheet.jpg`, `final/robust_before_after.jpg`,
+`final/motion.jpg`, `final/sway_variants_after.jpg`).
+
+- **Repeatable shots:** `SWAY_FREEZE` (lib/settings.glsl, on no screen, 0 for players) holds the sway's clock at that
+  many seconds; each value is another set of gaps. The robustness set: sunforest at ticks 155300..155700 and 18:30, the
+  grove sun eye (`tp @a 3192 98 548 90 -8`, 154300..154700), sunplain 11500 and 18:30, plain 12:00, shore 18:30,
+  suncountry dawn, plus sunforest at SWAY_FREEZE 29, 61, 89 and with the sun sinking behind the crowns.
+- **Why the blob:** the old blur stepped evenly toward the sun and stopped at 0.92 of the way, so the last stretch to
+  the sun was a single tap. A gap near the sun lit every line only up to some ten times its distance, then the beam
+  ended in a lobe of the gap's own shape, and coverage holes drew ghost copies down the beam. And a large gap (or the
+  disc in one) smears radially into a cone as wide as the gap seen from the sun: a solid fan over the near leaves.
+- **The blur in log distance** (`rayBlurLog`): each pass's taps step toward the sun by a fixed factor of the distance
+  (composite7 the coarse step, 6 and 5 RAY_LOG_OVERLAP 2 of the next pass's step each; RAY_LOG_SPAN 5.6, to 1/270 of
+  the way). The same at every scale: no holes, no ghosts, every line reaches the sun. Taps weigh their distance to the
+  sun to the power RAY_WEIGHT_POW 0.9 (1 is the plain mean), and the coarse pass leaves out the stretch nearest the sun
+  softly (RAY_HOLLOW_IN 0.03 .. OUT 0.2 of the way): the disc and aureole, the same in every direction, do not wash the
+  lines, and a gap's beam fades out gently rather than ending in a lobe.
+- **Structure, not mass** (`rayStructure`, final): over the near land each pixel's shafts lose the mean of the shafts
+  at the same distance from the sun up to 24 degrees round either way (8 bilinear taps, a Gaussian over 6-degree steps),
+  keeping RAY_FLAT_KEEP 0.12 of that shared part. A beam narrower than the kernel keeps most of its light, a wide fan
+  keeps its edges as beams and a faint glow (the bloom and the aureole draw the glow). The amount runs from 1 within
+  RAY_HP_START 24 blocks to 0 past RAY_HP_END 120 and over the sky: a broad beam over the far land, the water and the
+  open sky is the air's own glow (the shore's fan and the dawn mist rays stay), and no taps are spent there.
+- RAY_GAIN 13 (was 10): the high-pass takes the dark between beams and a share of each; the canopy beams keep their
+  level.
+- **Motion:** with the sway live, shots a few seconds apart show the beams shifting like dappled light; no pops, no
+  blobs.
+- **Cost** (probe, 1600x900): shore 18:30 9.1 ms (9.0 with the shafts off), sunforest 11500 7.6 (7.4 off), plain
+  12:00 7.3 (7.3 off). D1: shore 8.9, plain 7.0 (a different session).
+- **Still open:** the bloom of the sun and its bright gap still lays a soft cream glow over the leaves next to the sun
+  when the disc stands in a gap (it is there with the shafts off too: composite3/4's bloom, not the rays). The grove's
+  side-lit shafts are a little fainter than in D1. With the sun wholly behind the crowns there are no beams (rays from
+  rim gaps show only while the disc is still near a gap's edge).
+- `SHAFT_DEBUG 7` shows the shafts' light linear at a quarter (to measure from a frame).
