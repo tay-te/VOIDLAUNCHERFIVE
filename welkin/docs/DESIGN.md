@@ -1797,3 +1797,51 @@ far band). Rows 14..21 hold the dome in scene light.
   cloud decks and the haze round the sun now hold their colour (dark backlit decks, gold air).
 - The beams are weak placeholders until stage C.
 - The thin-haze knob `airLin` and the cloud and air constants above are stage A/B balances, not the look.
+
+## The HDR foundation, stage C: path to white, light shafts, cost (2026-10-19, branch `welkin-hdr`)
+
+### The output transform's path to white
+`lib/hdr.glsl` hdrCurve no longer eases a colour under white by brightness (look at HDR_PEAK in stage A/B). The chroma
+(the colour minus its luminance t) is measured against the headroom over t, r = (brightest channel - t) / (1 - t), and
+compressed smoothly toward HDR_GAMUT_MAX 0.92 (r / (1 + (r / M)^4)^(1/4)), the luminance kept: a mildly coloured light
+keeps its colour, a saturated one gives up saturation as its brightest channel nears the top, and as t nears white
+the colour runs out of room and whitens. Still exactly invertible (sceneFromAuthored needs that). After the grade,
+`gradeLimit` (lib/grade.glsl) eases any channel the grade's gain lifts past 0.93 back toward 0.975 by saturation, its
+luminance kept. Shore 18:30's clip view went from about 20% red to the sun's core only (magenta, 0.09% of the frame).
+A hot flame's tip now runs toward a pale yellow-white rather than orange.
+
+### Light shafts in scene light (`lib/rays.glsl`, after look pass 6's three-pass radial blur)
+- **composite3** writes the source into colortex12 (half size): the open sky's exposed scene light (the sun and its
+  aureole included, eased under RAY_SRC_CAP 6) through the clouds' transmittance, by how near the sun the texel is
+  on screen (RAY_CORE / RAY_TAIL), at the hour's strength (low sun strongest, none at night, under an overcast or
+  with the eye in water). Land, leaves and the far land give nothing.
+- **The clouds' transmittance** is new: the clouds pass writes it into colortex6 g (now RG16F; far weather keeps it).
+- **composite5, 6, 7** (world0 only, with SHAFT_BEAMS): three chained radial blurs toward the sun's screen position
+  (12 -> 13 -> 12 -> 13), RAY_TAPS 16 each. Each pass reaches RAY_OVERLAP 4 times the next pass's step, so the copies
+  join without steps: 4096 points a line, smooth, no noise. The last pass applies the fall-off from the sun.
+- **final** adds them as in-scattered light before the output transform: RAY_GAIN 8, times the air in front
+  (1 - exp(-distance / 90 blocks), at least 0.3 near the eye), and RAY_SKY 0.25 over the open sky.
+- The old screen beams walk is gone.
+- `SHAFT_DEBUG 5` shows the blurred shafts, 6 the source.
+
+### Frame-time probe and costs
+- DEBUG_VIEW 25: prepare keeps a running mean of Iris's frameTime over the frames the studio does not film (texel
+  0,30 of the table), and final shows it in the top-left 8x8 pixels (tenths of a ms in r and g).
+- `scratchpad/welkin_hdr/A/tools/measure.sh` shoots a view, lets the game idle 12 s on it and reads the mean.
+- The B and C readings come out in whole milliseconds (the RGBA16F table's running mean, or Iris's timer); the
+  pre-A one (RGBA16 table) in tenths.
+- Studio 1600x900, RTX 4060. Pre-A was measured from a temporary worktree at 709c62bc, and B at 502be4b5, each with
+  the probe patched in:
+
+| view | pre-A 709c62bc | stage B | stage C |
+|---|---|---|---|
+| shore 18:30 | 8.4 ms | 9.3 ms | 9.0 ms |
+| plain 12:00 | 6.8 ms | 7.0 ms | 7.0 ms |
+| steppe 17:00 | 6.9 ms | 7.0 ms | 7.0 ms |
+
+Shafts on against off at shore 18:30: 9.0 ms both, so the chain costs under the probe's resolution (well under
+1 ms; expected about 0.2 ms: 48 bilinear taps per half-size texel).
+
+### Not done in stage C
+Temporal accumulation for the half-resolution haze, shaft and AO buffers (reprojection, disocclusion and depth
+rejection, neighbourhood clamp) was not built.
