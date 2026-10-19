@@ -79,13 +79,13 @@ vec3 rayBlur(sampler2D src, vec2 uv, vec2 sunUV, float frac) {
 //   mean, the sun's own disc does not dominate.
 #define RAY_LOG_SPAN 5.6   // the three passes' reach in log distance: the line runs to exp(-5.6) = 1/270 of the way
 #define RAY_LOG_OVERLAP 2.0 // each pass's span over the next pass's step
-#define RAY_WEIGHT_POW 0.8
+#define RAY_WEIGHT_POW 0.9
 // `hollow`: the coarse pass leaves out the stretch nearest the sun, softly (its taps' weight fades from RAY_HOLLOW_OUT
 // of the way down to RAY_HOLLOW_IN): the sun's own disc and aureole, the same in every direction, do not wash each line
 // (a beam is a gap's light against its dark neighbours), and a gap's beam fades out gently at some ten times its
 // distance from the sun.
-#define RAY_HOLLOW_IN 0.02
-#define RAY_HOLLOW_OUT 0.15
+#define RAY_HOLLOW_IN 0.03
+#define RAY_HOLLOW_OUT 0.2
 vec3 rayBlurLog(sampler2D src, vec2 uv, vec2 sunUV, float step, bool hollow) {
 	vec2 v = uv - sunUV;
 	float f = 1.0;
