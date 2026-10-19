@@ -17,10 +17,21 @@ import net.minecraft.network.codec.StreamCodec;
  * @param line       the folk's last words
  * @param status     what just happened ("Edda banks 450.")
  * @param loaded     0 = no loaded dice carried, 1 = carried and put away, 2 = in play
+ * @param folkEntity the opponent's folk entity id where embodied, or -1
+ * @param folkLook   the opponent's look ({@link dev.voidmc.hearth.npc.look.FolkLook#key()}) for their portrait, or -1
  */
 public record DiceView(int phase, String folkName, String personality, long stake, int target, int playerScore, int folkScore, int turnPoints,
 	int turn, int[] dice, int keptMask, int selectedMask, int scoringMask, int selectionScore, int rolledMask, int rollSerial, List<Integer> stakes,
-	Component line, Component status, int winner, boolean cheatCaught, int loaded, long balance, boolean canRoll, boolean canBank) {
+	Component line, Component status, int winner, boolean cheatCaught, int loaded, long balance, boolean canRoll, boolean canBank,
+	int folkEntity, long folkLook) {
+
+	/** A view without the opponent's face (2026-10-19 additions). */
+	public DiceView(int phase, String folkName, String personality, long stake, int target, int playerScore, int folkScore, int turnPoints,
+		int turn, int[] dice, int keptMask, int selectedMask, int scoringMask, int selectionScore, int rolledMask, int rollSerial, List<Integer> stakes,
+		Component line, Component status, int winner, boolean cheatCaught, int loaded, long balance, boolean canRoll, boolean canBank) {
+		this(phase, folkName, personality, stake, target, playerScore, folkScore, turnPoints, turn, dice, keptMask, selectedMask, scoringMask,
+			selectionScore, rolledMask, rollSerial, stakes, line, status, winner, cheatCaught, loaded, balance, canRoll, canBank, -1, -1L);
+	}
 
 	public static final StreamCodec<RegistryFriendlyByteBuf, DiceView> STREAM_CODEC = StreamCodec.of(DiceView::write, DiceView::read);
 
@@ -59,6 +70,8 @@ public record DiceView(int phase, String folkName, String personality, long stak
 		buf.writeVarLong(v.balance);
 		buf.writeBoolean(v.canRoll);
 		buf.writeBoolean(v.canBank);
+		buf.writeVarInt(v.folkEntity + 1);
+		buf.writeLong(v.folkLook);
 	}
 
 	private static DiceView read(RegistryFriendlyByteBuf buf) {
@@ -94,7 +107,9 @@ public record DiceView(int phase, String folkName, String personality, long stak
 		long balance = buf.readVarLong();
 		boolean canRoll = buf.readBoolean();
 		boolean canBank = buf.readBoolean();
+		int entity = buf.readVarInt() - 1;
+		long look = buf.readLong();
 		return new DiceView(phase, name, personality, stake, target, ps, fs, tp, turn, dice, kept, sel, scoring, selScore, rolled, serial, stakes, line,
-			status, winner, cheat, loaded, balance, canRoll, canBank);
+			status, winner, cheat, loaded, balance, canRoll, canBank, entity, look);
 	}
 }

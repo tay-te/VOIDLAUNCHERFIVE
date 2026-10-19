@@ -212,7 +212,7 @@ public final class Market {
 		traits.sort(null);
 		int mood = keeper.extra.getCompoundOrEmpty("npc").getIntOr("mood", 0);
 		return new MarketView.Merchant(keeper.fullName(), "hearth.npc.job." + keeper.job.getSerializedName(), folk == null ? -1 : folk.entity().getId(),
-			traits, mood, Reputation.opinion(keeper.id, player.getUUID()));
+			traits, mood, Reputation.opinion(keeper.id, player.getUUID()), dev.voidmc.hearth.npc.look.ResidentLooks.key(this.settlement, keeper));
 	}
 
 	/** One item's price at this counter for this player: the town's price, moved by sourness, greed and the fence's rate. */

@@ -66,7 +66,7 @@ public final class Bank {
 			PlayerPurse.balance(player), this.settlement.treasury(), countEmeralds(player), reserve(), cfg.emeraldBuyPrice(), cfg.emeraldSellPrice(),
 			Reputation.standing(this.settlement, player.getUUID()), this.hasBank, plots, this.status, this.hasWorks,
 			this.hasWorks ? Projects.listings(this.settlement, player, world) : List.of(),
-			this.hasWorks ? Contracts.listings(this.settlement, player, day) : List.of());
+			this.hasWorks ? Contracts.listings(this.settlement, player, day) : List.of(), BankLedger.lines(player));
 	}
 
 	public void handle(ServerPlayer player, EconomyActionPayload a) {
@@ -77,6 +77,10 @@ public final class Bank {
 			return;
 		}
 		long day = EconomyModule.day(player.level());
+		long purseBefore = PlayerPurse.balance(player);
+		long depositBefore = DepositStore.balance(player.level().getServer(), player.getUUID());
+		int emeraldsBefore = countEmeralds(player);
+		String subject = subject(player, a, day);
 		this.status = switch (a.action()) {
 			case EconomyActionPayload.DEPOSIT -> deposit(player, a.amount());
 			case EconomyActionPayload.WITHDRAW -> withdraw(player, a.amount());
@@ -94,12 +98,44 @@ public final class Bank {
 			case EconomyActionPayload.DELIVER -> Contracts.deliver(this.settlement, player, a.index());
 			default -> this.status;
 		};
+		String kind = BankLedger.kindOf(a.action());
+		if (kind != null) {
+			int emeraldsMoved = Math.abs(countEmeralds(player) - emeraldsBefore);
+			BankLedger.add(player, new BankLedger.Line(day, kind, PlayerPurse.balance(player) - purseBefore,
+				DepositStore.balance(player.level().getServer(), player.getUUID()) - depositBefore, this.settlement.name(),
+				emeraldsMoved > 0 ? Integer.toString(emeraldsMoved) : subject));
+		}
 		this.tab = switch (a.action()) {
 			case EconomyActionPayload.BUY_PLOT, EconomyActionPayload.HIRE -> BankView.TAB_PROPERTY;
 			case EconomyActionPayload.FUND -> BankView.TAB_WORKS;
 			case EconomyActionPayload.ACCEPT_CONTRACT, EconomyActionPayload.DELIVER -> BankView.TAB_CONTRACTS;
 			default -> BankView.TAB_BANK;
 		};
+	}
+
+	/** What an action is about, for its ledger line: the building on a plot, a contract's goods, or empty. */
+	private String subject(ServerPlayer player, EconomyActionPayload a, long day) {
+		try {
+			switch (a.action()) {
+				case EconomyActionPayload.BUY_PLOT, EconomyActionPayload.HIRE, EconomyActionPayload.FUND -> {
+					PlotView plot = this.settlement.plot(a.index());
+					return plot == null ? "" : plot.spec().archetype().getPath();
+				}
+				case EconomyActionPayload.DELIVER -> {
+					for (BankView.ContractOffer c : Contracts.listings(this.settlement, player, day)) {
+						if (c.id() == a.index()) {
+							return c.goods();
+						}
+					}
+					return "";
+				}
+				default -> {
+					return "";
+				}
+			}
+		} catch (RuntimeException e) {
+			return "";
+		}
 	}
 
 	Component deposit(ServerPlayer player, long amount) {

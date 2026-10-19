@@ -33,8 +33,8 @@ updates only on discrete state changes. No CSS animation.
 checks it once a tick, and calls `build()` only when it changed. It never goes down within a session. It goes up with
 every Hearth payload (talk, talk detail, standing line, board, confrontation and its detail, lockpick start/end,
 pockets, reputation page, law hint/status/stealth, town arrival), any change of the open menu or its view, the synced
-quests, the inventory's change count (the purse), the client options and the hosted screen; while a quest is tracked
-also with the player's block, facing (5° steps) and the in-game hour (compass and time left); once a second while a jail
+quests, the inventory's change count (the purse), the client options and the hosted screen, the tracked wanted poster;
+while a quest or a wanted poster is tracked also with the player's block, facing (5° steps) and the in-game hour (compass and time left); once a second while a jail
 sentence counts down.
 
 **`HearthState.build()`**: the whole tree below. Text is translated; ids are namespaced strings; every amount of coin
@@ -66,6 +66,7 @@ type HearthState = {
   pickpocket: null | Pickpocket;             // pockets are being picked
   reputation: null | Reputation;             // the reputation page arrived (K, /hearth standing)
   law: Law;                                  // the law HUD's facts (the HUD itself stays native)
+  wantedTrack: null | WantedTrack;           // a wanted poster is tracked (trackPoster); 2026-10-19
 };
 type ScreenName = "talk" | "market" | "bank" | "board" | "journal" | "confront" | "lockpick" | "pickpocket" | "dice" | "reputation";
 type Coins = { total: number /* bits, may be negative */; crowns: number; marks: number; bits: number; text: string /* "4 crowns, 5 marks, 4 bits" */ };
@@ -77,7 +78,10 @@ type Pos = { x: number; y: number; z: number };
 Portraits: `portrait` is a 16×16 PNG as `data:image/png;base64,...` (a bust cut from the resident's own composed skin,
 `npc/look/Portrait`; scale by whole numbers with `image-rendering: pixelated`), or null when the folk is not loaded on
 the client. `portraitKey` (the look's key, 16 hex digits, "" for none) is stable per face, so a host can cache images
-by it and skip resending.
+by it and skip resending. A resident whose folk is not loaded on the client (a shopkeeper away from the counter, a
+dice partner out of view) still has a portrait: the server sends their look (`FolkLook.key()`) and the client composes the
+face from it, `portraitKey` then being that key. Every resident-backed screen carries one: `talk.resident`,
+`market.merchant`, `confront`, `confront.folk`, `dice.opponent` and `pickpocket` (2026-10-19).
 
 ### Talk (`talk`) — Figma 653:37976 (A, default) and 655:38485 (B)
 
@@ -118,8 +122,14 @@ type Talk = {
 `kind`, `odds`, `cost` and `skill` come from the server's `talk detail` payload. Hearth's speech checks, fines, bribes, services and repairs describe their
 options (`DialogueProvider.describe`, an API addition); others are classified by id and order band (`npc/talk/OptionKinds`:
 `mettle:train/<skill>` is `train` with skill `mettle:<skill>`, 300–399 is `train`, 200–299 `quest`, 10 000 `leave`).
-Mettle's trainer options are inline training: `cost` is null until Mettle describes them (the fee is in `label`), the
-level is the server's. A server without the detail payload leaves every option `talk` with `odds` −1.
+Mettle's trainer options are inline training: when Mettle does not describe them, the server reads the fee back from
+the option's label (or hint), which Mettle writes with Hearth's `EconomyService.format`, so `cost` is the lesson's fee
+(2026-10-19); the level is the server's.
+
+Options that ask the same thing from different providers are sent once, the better kept (`npc/talk/OptionIntents`,
+2026-10-19): "What's new in town?" gives way to town life's "Anything on in town?" (it has the coming events and the
+market day), the law's fence line to the fence's shop, an open option beats a locked one, and two providers offering the
+very same words collapse. One provider's own options are never folded. A server without the detail payload leaves every option `talk` with `odds` −1.
 
 ### Journal (`journal`), quest HUD (`questHud`) and notice board (`board`)
 
@@ -158,13 +168,29 @@ type Board = {
   settlementId: number; pos: Pos; town: string; tier: string; reputation: number; title: string /* "Friend of the town" */;
   posts: { state: "open" | "locked" | "taken"; lock: string /* why locked, "" */; quest: Quest }[];
   handIns: string[];                         // quest ids this board takes in
-  wanted: { name: string; owed: string; outlaw: boolean; crime: string; crimeKey: string }[];
+  wanted: { name: string; owed: string; outlaw: boolean; crime: string; crimeKey: string;
+            player: string /* the quarry's uuid: what trackPoster takes, "" from an older server */; tracked: boolean }[];
   counts: { open: number; locked: number; wanted: number; handIns: number };
 };
 ```
 
-Not yet sent by the server: per-objective `optional` (always false), poster tracking (the decision says wanted posters can
-be tracked: needs a server action; planned).
+```ts
+type WantedTrack = {                         // the tracked wanted poster, followed like a quest (2026-10-19)
+  player: string; name: string; owed: Coins; outlaw: boolean; crime: string; crimeKey: string;
+  settlementId: number; town: string;        // whose posters it came from
+  online: boolean;                           // the quarry is on the server
+  near: Pos | null;                          // where they are, to the nearest 32 blocks, only in the player's dimension
+  distance: number;                          // blocks (horizontal), -1 while not placed
+  bearing: number | null;                    // degrees from where the player looks, clockwise, -180...180
+};
+```
+
+Tracking a poster lets go of the tracked quest and tracking a quest lets go of the poster (one thing tracked at a time);
+the same poster again untracks it. The server checks the warrant once a second and drops the track when it is paid or
+gone (`wantedTrack` goes null). Not saved: a poster is tracked for the session. With Atlas, the tracked poster is the
+tracked marker (`hearth:wanted:<uuid>`, on the quests layer), ahead of the quest. The HUD tracker stays the quest's.
+
+Not yet sent by the server: per-objective `optional` (always false).
 
 ### Market (`market`) — Figma 3_market
 
@@ -172,7 +198,7 @@ be tracked: needs a server action; planned).
 type Market = {
   containerId: number; town: string; culture: string; shop: boolean /* a shop with its own till, else the town's market */;
   reputation: number; purse: Coins; till: Coins;
-  note: string;                              // the merchant's word ("Iron's dear this month.")
+  note: string;                              // the merchant's word, bare: no quote marks, the page adds its own ("Iron's dear this month.")
   status: string;                            // the last trade's result, or ""
   sour: boolean;                             // soured by haggling: dearer, no haggling for a day
   merchant: null | { name: string; job: string; jobKey: string; entity: number; traits: Trait[]; mood: number; moodWord: string;
@@ -189,6 +215,9 @@ type Market = {
     line: string;
     band: null | { low: Coins; high: Coins };   // where the merchant's limit lies, as the player's Speech reads it; null = hidden
     speech: number; bandSpeech: 5; exactSpeech: 15;   // the band appears at Speech 5 (30 % of the price wide) and closes on the limit at 15
+    takes: { bits: number; odds: number /* 0-100 */ }[];   // "he takes it" odds for offers from the far end of his possible limit
+                                             // up to his word, ascending by bits (up to 17 points): read the point at or below the offer
+    takesLast: number;                       // the odds the player's last offer had, -1 before any offer
   };
 };
 type Row = { id: number; item: string; name: string; lot: number /* items per lot */; price: Coins /* a lot */;
@@ -198,8 +227,11 @@ type Row = { id: number; item: string; name: string; lot: number /* items per lo
 ```
 
 The limit band is the user's decision: hidden by default, shown with higher Mettle Speech (KCD-style). It is fixed per
-deal (looking again tells nothing new). The design's "58 % he takes it" has no server number: haggling is deterministic
-(`economy/haggle/Haggle`); a page can say "inside his band" from `band` once shown.
+deal (looking again tells nothing new). "58 % he takes it" (2026-10-19): haggling itself is deterministic
+(`economy/haggle/Haggle`), so the doubt is only where his limit lies, taken as even across the band the player reads, or
+across every limit a merchant could have while the band is hidden (`Haggle.takesOdds`: an offer as good as his word is
+100 %; within his limit and a fifth of his room from his word, he closes). Better Speech, sharper odds; at Speech 15
+they are 0 or 100. `merchant.portrait` is there even when the keeper's folk is not loaded (`Merchant.look`).
 
 ### Bank (`bank`)
 
@@ -215,13 +247,25 @@ type Bank = {
               cost: Coins; given: Coins; yours: Coins; fund: Coins; stalled: boolean }[];
   contracts: { id: number; goods: string; goodsName: string; units: number; delivered: number; pays: Coins; daysLeft: number;
                taken: boolean; carrying: boolean }[];
+  ledger: LedgerLine[];                      // the player's last 24 bank dealings, newest first, at every bank alike (2026-10-19)
+};
+type LedgerLine = {
+  day: number;                               // the game day
+  kind: "deposit" | "withdraw" | "sell_emeralds" | "buy_emeralds" | "buy_plot" | "hire" | "fund" | "deliver";
+  purse: Coins;                              // into (+) or out of (-) the coin carried
+  deposit: Coins;                            // onto (+) or off (-) the deposit
+  town: string;                              // where
+  subject: string; subjectName: string;      // the building (buy_plot, hire, fund: archetype path / its name), the goods (deliver),
+                                             // the emeralds' count (sell/buy_emeralds), or ""
+  text: string;                              // the line in words ("Deposited 2 marks", "Gave 5 marks toward the Chapel")
 };
 type Plot = { plot: number; archetype: string; name: string; built: boolean; sizeX: number; sizeZ: number; storeys: number;
               price: Coins /* yours + business: the hiring cost */; minStanding: number; yours: boolean; lowStanding: boolean;
               cannotAfford: boolean; business: boolean; canHire: boolean; income: Coins; workers: number };
 ```
 
-Not sent: a ledger of past transactions (the design's "ledger lines").
+Only actions that moved coin make a ledger line (a refused deposit does not). Kept with the player
+(`economy/bank/BankLedger`, an attachment that survives death).
 
 ### Guard confrontation (`confront`) — Figma 4_guard_confrontation
 
@@ -250,11 +294,13 @@ type Lockpick = { session: number; what: string /* "Edda Miller's chest" */; tie
 type Pickpocket = { session: number; victim: string; asleep: boolean;
                     items: { slot: number; item: string; name: string; count: number; empty: boolean /* taken */ }[];
                     taken: number;
+                    entity: number /* the victim's folk, -1 */; portrait: string | null; portraitKey: string;
                     awareness: number; awarenessRate: number;   // 0–1 and per tick: animate natively between updates
                     lifting: number /* slot, −1 */; liftProgress: number; liftRate: number;
                     state: "open" | "caught" | "done" };
 type Dice = { containerId: number; phase: "stake" | "player_rolled" | "player_bust" | "folk_turn" | "over";
-              opponent: { name: string; temper: string }; stake: Coins; target: number;
+              opponent: { name: string; temper: string; entity: number /* -1 */; portrait: string | null; portraitKey: string };
+              stake: Coins; target: number;
               scores: { player: number; folk: number }; turnPoints: number; turn: number;
               dice: { index: number; face: number /* 1–6 */; kept: boolean; selected: boolean; scoring: boolean; rolled: boolean }[];
               selectionScore: number; rollSerial: number /* changes with every roll: tumble the rolled dice */;
@@ -299,6 +345,7 @@ All static, client thread, plain arguments; each returns whether a packet went o
 | `acceptContract(id)` · `deliver(id)` | supply contracts |
 | `accept(questId)` · `handIn(questId)` · `refreshBoard()` | the open notice board |
 | `track(questId)` · `abandon(questId)` | the journal |
+| `trackPoster(player)` · `untrackPoster()` | tracks the quarry of a wanted poster on the open board (`board.wanted[].player`; the same one again untracks), or stops; `state.wantedTrack` follows (2026-10-19) |
 | `confront(choiceId)` | answers a guard or witness (`""` walks away) |
 | `lift(slot)` · `stopLifting()` · `slipAway()` | pickpocketing |
 | `stopPicking()` | gives up on a lock (the pick itself is played natively, see `nativeScreen`) |
@@ -306,7 +353,7 @@ All static, client thread, plain arguments; each returns whether a packet went o
 | `requestReputation()` | asks for the reputation page (it opens through the opener) |
 | `setConversationStyle(style)` | `"card"` or `"cinematic"`; saved in `config/hearth-client.properties` |
 
-Answers arrive as state: a new `talk.line` and `talk.lastCheck`, `market.status` and a new `market.haggle`, `bank.status`,
+Answers arrive as state (a tracked poster as `wantedTrack` and `board.wanted[].tracked`): a new `talk.line` and `talk.lastCheck`, `market.status` and a new `market.haggle`, `bank.status`,
 board and journal changes, and so on. There are no separate result events; watch `revision()`.
 
 ---
@@ -353,3 +400,17 @@ Additions only; nothing a partner mod copies changed signature.
   `speech` (`Haggle.band`, `Haggle.BAND_SPEECH` 5, `Haggle.EXACT_SPEECH` 15). The old constructors remain.
 - `standing/speech/TalkCard`, `standing/logic/Titles.next`: the standing facts for the cards.
 - `npc/look/Portrait`: the 16×16 bust and its PNG encoding; the client caches per look (`overlay/Portraits`, 256 faces).
+
+2026-10-19 (the Hub's gaps), additions only:
+- `npc/look/FolkLook.fromKey`, `npc/look/ResidentLooks.key`: a resident's look from the resident alone; sent as
+  `MarketView.Merchant.look`, `DiceView.folkEntity`/`folkLook`, `LawPayloads.Pocket.entity`/`look` (old constructors remain).
+- `economy/haggle/Haggle.takesOdds`: the "he takes it" odds.
+- `economy/bank/BankLedger` (`hearth:economy/bank_ledger` player attachment) and `BankView.ledger`.
+- `economy/coin/CoinFormat.read` and `npc/talk/OptionKinds.withCost`: a lesson's fee read back from a partner's label.
+- `npc/talk/OptionIntents`: one option per intent across providers.
+- `quest/net/QuestPayloads.PosterAction` (`hearth:quest/poster_action`, C2S) and `PosterTrack` (`hearth:quest/poster_track`,
+  S2C), `Board.Poster.player`; `quest/service/PosterTracks` (once a second, only what changed).
+- Hearth's own fallback screens read mouse buttons through `InputConstants.MOUSE_BUTTON_LEFT`/`_RIGHT` (26.x sends 1
+  for left and 3 for right, not GLFW's 0 and 1): the lockpick hold-to-turn, the dice, the market's right-click haggle, the
+  pickpocket's right-click stop, the bank, the board and the journal. A host forwarding a click passes the event as it came;
+  the extra button-0 copy the Hub sends the lockpick is now ignored.

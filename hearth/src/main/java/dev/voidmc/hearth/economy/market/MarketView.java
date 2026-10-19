@@ -44,8 +44,14 @@ public record MarketView(String settlement, String culture, int reputation, long
 	 * @param traits  their traits' serialized names ({@code greedy}, {@code cheerful}...)
 	 * @param mood    their mood, −100…100
 	 * @param opinion what they think of the player, −100…100
+	 * @param look    their look's {@link dev.voidmc.hearth.npc.look.FolkLook#key()} (a portrait when the folk is not loaded), or -1
 	 */
-	public record Merchant(String name, String job, int entity, List<String> traits, int mood, int opinion) {
+	public record Merchant(String name, String job, int entity, List<String> traits, int mood, int opinion, long look) {
+		/** A merchant without the look (the client then needs their folk loaded for a portrait). */
+		public Merchant(String name, String job, int entity, List<String> traits, int mood, int opinion) {
+			this(name, job, entity, traits, mood, opinion, -1L);
+		}
+
 		static final StreamCodec<RegistryFriendlyByteBuf, Merchant> STREAM_CODEC = StreamCodec.of((buf, m) -> {
 			ByteBufCodecs.STRING_UTF8.encode(buf, m.name);
 			ByteBufCodecs.STRING_UTF8.encode(buf, m.job);
@@ -53,8 +59,10 @@ public record MarketView(String settlement, String culture, int reputation, long
 			ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(16)).encode(buf, m.traits);
 			ByteBufCodecs.VAR_INT.encode(buf, m.mood);
 			ByteBufCodecs.VAR_INT.encode(buf, m.opinion);
+			buf.writeLong(m.look);
 		}, buf -> new Merchant(ByteBufCodecs.STRING_UTF8.decode(buf), ByteBufCodecs.STRING_UTF8.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
-			ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(16)).decode(buf), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf)));
+			ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list(16)).decode(buf), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
+			buf.readLong()));
 	}
 
 	public static final StreamCodec<RegistryFriendlyByteBuf, MarketView> STREAM_CODEC = StreamCodec.of(MarketView::write, MarketView::read);

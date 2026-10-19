@@ -1,5 +1,6 @@
 package dev.voidmc.hearth.client.social;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.hearth.social.dice.DiceGame;
 import dev.voidmc.hearth.social.dice.DiceMenu;
 import dev.voidmc.hearth.social.dice.DicePayloads;
@@ -430,7 +431,7 @@ public class DiceScreen extends AbstractContainerScreen<DiceMenu> {
 	@Override
 	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
 		DiceView v = this.menu.view();
-		if (event.button() == 0 && v.phaseEnum() == DiceGame.Phase.PLAYER_ROLLED && this.tumble <= 0 && !this.showRules) {
+		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && v.phaseEnum() == DiceGame.Phase.PLAYER_ROLLED && this.tumble <= 0 && !this.showRules) {
 			int mx = (int) event.x() - this.leftPos;
 			int my = (int) event.y() - this.topPos;
 			for (int i = 0; i < Farkle.DICE; i++) {

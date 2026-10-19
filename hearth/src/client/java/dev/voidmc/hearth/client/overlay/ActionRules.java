@@ -138,4 +138,18 @@ public final class ActionRules {
 			default -> false;
 		};
 	}
+
+	/** Whether a wanted poster for this player (a UUID string) hangs on the open board. */
+	static boolean posterListed(dev.voidmc.hearth.quest.net.QuestPayloads.@org.jspecify.annotations.Nullable Board board, @org.jspecify.annotations.Nullable String player) {
+		if (board == null || player == null || player.isBlank()) {
+			return false;
+		}
+		String p = player.trim();
+		for (dev.voidmc.hearth.quest.net.QuestPayloads.Board.Poster poster : board.posters()) {
+			if (p.equals(poster.player())) {
+				return true;
+			}
+		}
+		return false;
+	}
 }

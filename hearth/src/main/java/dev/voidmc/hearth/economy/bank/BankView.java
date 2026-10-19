@@ -27,10 +27,19 @@ import net.minecraft.network.codec.StreamCodec;
  * @param hasWorks        whether this counter also takes funding and contracts (a bank or a town hall)
  * @param projects        public works the player may fund
  * @param contracts       supply contracts on offer, and the player's own
+ * @param ledger          the player's last bank dealings, newest first ({@link BankLedger})
  */
 public record BankView(String settlement, int tab, long deposit, long carried, long treasury, int emeralds, int emeraldReserve, int emeraldBuy,
 	int emeraldSell, int reputation, boolean hasBank, List<PlotOffer> plots, Component status, boolean hasWorks, List<ProjectOffer> projects,
-	List<ContractOffer> contracts) {
+	List<ContractOffer> contracts, List<BankLedger.Line> ledger) {
+
+	/** A view without the ledger (2026-10-19 addition). */
+	public BankView(String settlement, int tab, long deposit, long carried, long treasury, int emeralds, int emeraldReserve, int emeraldBuy,
+		int emeraldSell, int reputation, boolean hasBank, List<PlotOffer> plots, Component status, boolean hasWorks, List<ProjectOffer> projects,
+		List<ContractOffer> contracts) {
+		this(settlement, tab, deposit, carried, treasury, emeralds, emeraldReserve, emeraldBuy, emeraldSell, reputation, hasBank, plots, status,
+			hasWorks, projects, contracts, List.of());
+	}
 
 	public static final int TAB_BANK = 0;
 	public static final int TAB_PROPERTY = 1;
@@ -170,6 +179,7 @@ public record BankView(String settlement, int tab, long deposit, long carried, l
 		ByteBufCodecs.BOOL.encode(buf, v.hasWorks);
 		ProjectOffer.STREAM_CODEC.apply(ByteBufCodecs.list(256)).encode(buf, v.projects);
 		ContractOffer.STREAM_CODEC.apply(ByteBufCodecs.list(64)).encode(buf, v.contracts);
+		BankLedger.Line.STREAM_CODEC.apply(ByteBufCodecs.list(BankLedger.MAX)).encode(buf, v.ledger.size() > BankLedger.MAX ? v.ledger.subList(0, BankLedger.MAX) : v.ledger);
 	}
 
 	private static BankView read(RegistryFriendlyByteBuf buf) {
@@ -177,6 +187,7 @@ public record BankView(String settlement, int tab, long deposit, long carried, l
 			ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
 			ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), ByteBufCodecs.BOOL.decode(buf),
 			PlotOffer.STREAM_CODEC.apply(ByteBufCodecs.list(256)).decode(buf), ComponentSerialization.STREAM_CODEC.decode(buf), ByteBufCodecs.BOOL.decode(buf),
-			ProjectOffer.STREAM_CODEC.apply(ByteBufCodecs.list(256)).decode(buf), ContractOffer.STREAM_CODEC.apply(ByteBufCodecs.list(64)).decode(buf));
+			ProjectOffer.STREAM_CODEC.apply(ByteBufCodecs.list(256)).decode(buf), ContractOffer.STREAM_CODEC.apply(ByteBufCodecs.list(64)).decode(buf),
+			BankLedger.Line.STREAM_CODEC.apply(ByteBufCodecs.list(BankLedger.MAX)).decode(buf));
 	}
 }

@@ -191,9 +191,17 @@ public final class LawPayloads {
 	 *
 	 * @param items    what the pockets hold (empty stacks where something was taken); coin shows as coin
 	 * @param state    {@link #OPEN}, {@link #CAUGHT}, {@link #DONE}
+	 * @param entity   the victim's folk entity id, or -1
+	 * @param look     the victim's look ({@link dev.voidmc.hearth.npc.look.FolkLook#key()}) for their portrait, or -1
 	 */
 	public record Pocket(int session, String victim, boolean asleep, List<ItemStack> items, float awareness, float awarenessRate, int lifting,
-		float liftProgress, float liftRate, int state) implements CustomPacketPayload {
+		float liftProgress, float liftRate, int state, int entity, long look) implements CustomPacketPayload {
+		/** Without the victim's face (2026-10-19 additions). */
+		public Pocket(int session, String victim, boolean asleep, List<ItemStack> items, float awareness, float awarenessRate, int lifting,
+			float liftProgress, float liftRate, int state) {
+			this(session, victim, asleep, items, awareness, awarenessRate, lifting, liftProgress, liftRate, state, -1, -1L);
+		}
+
 		public static final Type<Pocket> TYPE = new Type<>(Hearth.id("law/pocket"));
 		public static final int OPEN = 0;
 		public static final int CAUGHT = 1;
@@ -212,6 +220,8 @@ public final class LawPayloads {
 			buf.writeFloat(p.liftProgress);
 			buf.writeFloat(p.liftRate);
 			buf.writeByte(p.state);
+			buf.writeVarInt(p.entity + 1);
+			buf.writeLong(p.look);
 		}, buf -> {
 			int session = buf.readVarInt();
 			String victim = buf.readUtf();
@@ -222,7 +232,7 @@ public final class LawPayloads {
 				items.add(ItemStack.OPTIONAL_STREAM_CODEC.decode(buf));
 			}
 			return new Pocket(session, victim, asleep, items, buf.readFloat(), buf.readFloat(), buf.readVarInt() - 1, buf.readFloat(), buf.readFloat(),
-				buf.readByte());
+				buf.readByte(), buf.readVarInt() - 1, buf.readLong());
 		});
 
 		@Override

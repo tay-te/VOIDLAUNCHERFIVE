@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.function.IntFunction;
+import java.util.function.LongFunction;
 import java.util.function.ToIntFunction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -43,9 +44,15 @@ public final class HearthStateJson {
 	}
 
 	/** Looks things up that only the running client knows: portraits by entity id, what the player carries of an item. */
-	public record Lookups(IntFunction<@Nullable String> portrait, IntFunction<String> portraitKey, ToIntFunction<String> carried) {
+	public record Lookups(IntFunction<@Nullable String> portrait, IntFunction<String> portraitKey, ToIntFunction<String> carried,
+		LongFunction<@Nullable String> lookPortrait) {
 		/** No portraits, nothing carried (tests, a world not loaded). */
 		public static final Lookups NONE = new Lookups(e -> null, e -> "", t -> 0);
+
+		/** Without portraits by look (a resident whose folk is not loaded then has none). */
+		public Lookups(IntFunction<@Nullable String> portrait, IntFunction<String> portraitKey, ToIntFunction<String> carried) {
+			this(portrait, portraitKey, carried, k -> null);
+		}
 	}
 
 	// ---------------------------------------------------------------- shared shapes
@@ -74,6 +81,26 @@ public final class HearthStateJson {
 
 	static JsonElement textOrNull(@Nullable Component c) {
 		return c == null ? JsonNull.INSTANCE : new com.google.gson.JsonPrimitive(c.getString());
+	}
+
+	/**
+	 * Speech without the quote marks around it ({@code "Have a look."} → {@code Have a look.}): Hearth's own screens draw
+	 * some lines quoted, while the state's lines are bare and a page adds its own marks (docs/OVERLAY.md).
+	 */
+	public static String unquoted(String line) {
+		String t = line.strip();
+		if (t.length() >= 2) {
+			char a = t.charAt(0);
+			char b = t.charAt(t.length() - 1);
+			if (a == '"' && b == '"' || a == '\u201C' && b == '\u201D' || a == '\u00AB' && b == '\u00BB' || a == '\u201E' && b == '\u201C') {
+				String inner = t.substring(1, t.length() - 1);
+				// only one quoted stretch: "a" and "b" keeps its marks
+				if (inner.indexOf(a) < 0 && inner.indexOf(b) < 0) {
+					return inner.strip();
+				}
+			}
+		}
+		return t;
 	}
 
 	static String tr(String key) {
@@ -109,9 +136,22 @@ public final class HearthStateJson {
 	}
 
 	static JsonObject portrait(JsonObject into, int entity, Lookups look) {
+		return portrait(into, entity, -1L, look);
+	}
+
+	/**
+	 * {@code portrait} and {@code portraitKey}: from the folk in the client's world, else from the look the server sent
+	 * ({@code lookKey}, a {@code FolkLook.key()}, −1 none), so a resident out of view still has their face.
+	 */
+	static JsonObject portrait(JsonObject into, int entity, long lookKey, Lookups look) {
 		String url = entity < 0 ? null : look.portrait().apply(entity);
+		String key = entity < 0 || url == null ? "" : look.portraitKey().apply(entity);
+		if (url == null && lookKey != -1L) {
+			url = look.lookPortrait().apply(lookKey);
+			key = url == null ? "" : String.format(Locale.ROOT, "%016x", lookKey);
+		}
 		into.add("portrait", url == null ? JsonNull.INSTANCE : new com.google.gson.JsonPrimitive(url));
-		into.addProperty("portraitKey", entity < 0 ? "" : look.portraitKey().apply(entity));
+		into.addProperty("portraitKey", key);
 		return into;
 	}
 
@@ -421,6 +461,36 @@ public final class HearthStateJson {
 		return o;
 	}
 
+	/**
+	 * {@code state.wantedTrack}: the wanted poster the player tracks (docs/OVERLAY.md), where its quarry was last placed
+	 * (to {@link QuestPayloads.PosterTrack#GRID} blocks) with the compass's bearing and distance, or null.
+	 */
+	public static JsonElement wantedTrack(QuestPayloads.@Nullable PosterTrack t, @Nullable BlockPos from, float yaw) {
+		if (t == null || !t.active()) {
+			return JsonNull.INSTANCE;
+		}
+		JsonObject o = new JsonObject();
+		o.addProperty("player", t.player());
+		o.addProperty("name", t.name());
+		o.add("owed", coins(t.owed()));
+		o.addProperty("outlaw", t.outlaw());
+		o.addProperty("crimeKey", t.crime());
+		o.addProperty("crime", t.crime().isEmpty() ? "" : tr(t.crime()));
+		o.addProperty("settlementId", t.settlementId());
+		o.addProperty("town", t.town());
+		o.addProperty("online", t.online());
+		BlockPos near = t.located() ? t.near() : null;
+		o.add("near", pos(near));
+		o.addProperty("distance", distance(from, near));
+		if (from != null && near != null) {
+			double angle = Math.toDegrees(Math.atan2(-(near.getX() - from.getX()), near.getZ() - from.getZ()));
+			o.addProperty("bearing", (int) Math.round(wrap(angle - yaw)));
+		} else {
+			o.add("bearing", JsonNull.INSTANCE);
+		}
+		return o;
+	}
+
 	static double wrap(double degrees) {
 		double d = degrees % 360;
 		if (d > 180) {
@@ -433,6 +503,12 @@ public final class HearthStateJson {
 
 	/** {@code state.board}: a settlement's notice board as this player sees it. */
 	public static JsonObject board(QuestPayloads.Board b, @Nullable PlayerQuests mine, long gameTime, @Nullable BlockPos from, Lookups look) {
+		return board(b, mine, gameTime, from, look, null);
+	}
+
+	/** {@link #board} marking the wanted poster the player tracks ({@code wanted[].tracked}; {@code trackedPoster} a UUID string). */
+	public static JsonObject board(QuestPayloads.Board b, @Nullable PlayerQuests mine, long gameTime, @Nullable BlockPos from, Lookups look,
+		@Nullable String trackedPoster) {
 		JsonObject o = new JsonObject();
 		o.addProperty("settlementId", b.settlementId());
 		o.add("pos", pos(b.boardPos()));
@@ -471,6 +547,8 @@ public final class HearthStateJson {
 			w.addProperty("outlaw", p.outlaw());
 			w.addProperty("crimeKey", p.crime());
 			w.addProperty("crime", p.crime().isEmpty() ? "" : tr(p.crime()));
+			w.addProperty("player", p.player());
+			w.addProperty("tracked", !p.player().isEmpty() && p.player().equals(trackedPoster));
 			wanted.add(w);
 		}
 		o.add("wanted", wanted);
@@ -529,7 +607,7 @@ public final class HearthStateJson {
 		o.addProperty("reputation", v.reputation());
 		o.add("purse", coins(v.balance()));
 		o.add("till", coins(v.treasury()));
-		o.addProperty("note", v.note().getString());
+		o.addProperty("note", unquoted(v.note().getString()));
 		o.addProperty("status", v.status().getString());
 		boolean sour = v.sells().stream().anyMatch(r -> r.has(MarketView.SOUR)) || v.buys().stream().anyMatch(r -> r.has(MarketView.SOUR));
 		o.addProperty("sour", sour);
@@ -546,7 +624,7 @@ public final class HearthStateJson {
 			j.addProperty("opinion", m.opinion());
 			j.addProperty("opinionWord", opinionWord(m.opinion()));
 			j.addProperty("sour", sour);
-			portrait(j, m.entity(), look);
+			portrait(j, m.entity(), m.look(), look);
 			o.add("merchant", j);
 		} else {
 			o.add("merchant", JsonNull.INSTANCE);
@@ -579,6 +657,9 @@ public final class HearthStateJson {
 			j.addProperty("speech", h.speech());
 			j.addProperty("bandSpeech", Haggle.BAND_SPEECH);
 			j.addProperty("exactSpeech", Haggle.EXACT_SPEECH);
+			j.add("takes", takes(h));
+			j.addProperty("takesLast", h.lastOffer() == h.list() ? -1
+				: Haggle.takesOdds(h.playerBuys(), h.list(), h.counter(), h.bandLow(), h.bandHigh(), h.lastOffer()));
 			o.add("haggle", j);
 		} else {
 			o.add("haggle", JsonNull.INSTANCE);
@@ -670,7 +751,69 @@ public final class HearthStateJson {
 			contracts.add(j);
 		}
 		o.add("contracts", contracts);
+		JsonArray ledger = new JsonArray();
+		for (dev.voidmc.hearth.economy.bank.BankLedger.Line l : v.ledger()) {
+			ledger.add(ledgerLine(l));
+		}
+		o.add("ledger", ledger);
 		return o;
+	}
+
+	/** One {@code bank.ledger} line: what moved, where, about what, and the line in words. */
+	static JsonObject ledgerLine(dev.voidmc.hearth.economy.bank.BankLedger.Line l) {
+		JsonObject j = new JsonObject();
+		j.addProperty("day", l.day());
+		j.addProperty("kind", l.kind());
+		j.add("purse", coins(l.purse()));
+		j.add("deposit", coins(l.deposit()));
+		j.addProperty("town", l.town());
+		j.addProperty("subject", l.subject());
+		String subjectName = switch (l.kind()) {
+			case "buy_plot", "hire", "fund" -> l.subject().isEmpty() ? "" : PropertyNames.building(l.subject()).getString();
+			case "deliver" -> l.subject().isEmpty() ? ""
+				: Component.translatableWithFallback("hearth.economy.goods." + l.subject(), pretty(l.subject())).getString();
+			default -> l.subject();
+		};
+		j.addProperty("subjectName", subjectName);
+		// the amount that matters to the player: what left or reached the purse, else the deposit's change
+		long moved = l.kind().equals("deposit") || l.kind().equals("withdraw") ? Math.abs(l.deposit()) : Math.abs(l.purse());
+		j.addProperty("text", Component.translatableWithFallback("hearth.economy.bank.ledger." + l.kind(), l.kind() + " %s",
+			CoinFormat.format(moved), subjectName).getString());
+		return j;
+	}
+
+	/** How many offers {@link #takes} lists at most. */
+	static final int TAKES_POINTS = 17;
+
+	/**
+	 * {@code haggle.takes}: "he takes it" odds for offers from the far end of the merchant's possible limit up to his word,
+	 * ascending by bits; a page reads the point at or below its offer (or interpolates).
+	 */
+	static JsonArray takes(MarketView.HaggleView h) {
+		long list = Math.max(1, h.list());
+		long counter = h.counter();
+		long far;
+		if (h.bandShown()) {
+			far = h.playerBuys() ? h.bandLow() : h.bandHigh();
+		} else {
+			far = h.playerBuys() ? Math.max(0, (long) Math.floor(list * 0.4)) : (long) Math.ceil(list * 1.6);
+		}
+		long lo = Math.min(far, counter);
+		long hi = Math.max(far, counter);
+		JsonArray out = new JsonArray();
+		long last = Long.MIN_VALUE;
+		for (int k = 0; k < TAKES_POINTS; k++) {
+			long bits = lo + Math.round((hi - lo) * (k / (double) (TAKES_POINTS - 1)));
+			if (bits == last) {
+				continue;
+			}
+			last = bits;
+			JsonObject p = new JsonObject();
+			p.addProperty("bits", bits);
+			p.addProperty("odds", Haggle.takesOdds(h.playerBuys(), h.list(), counter, h.bandLow(), h.bandHigh(), bits));
+			out.add(p);
+		}
+		return out;
 	}
 
 	// ---------------------------------------------------------------- the law
@@ -746,9 +889,16 @@ public final class HearthStateJson {
 
 	/** {@code state.pickpocket}: the pockets, the mark's awareness and the lift under way (rates let a host animate natively). */
 	public static JsonObject pickpocket(LawPayloads.Pocket p) {
+		return pickpocket(p, Lookups.NONE);
+	}
+
+	/** {@link #pickpocket(LawPayloads.Pocket)} with the victim's face ({@code entity}, {@code portrait}, {@code portraitKey}). */
+	public static JsonObject pickpocket(LawPayloads.Pocket p, Lookups look) {
 		JsonObject o = new JsonObject();
 		o.addProperty("session", p.session());
 		o.addProperty("victim", p.victim());
+		o.addProperty("entity", p.entity());
+		portrait(o, p.entity(), p.look(), look);
 		o.addProperty("asleep", p.asleep());
 		JsonArray items = new JsonArray();
 		int taken = 0;
@@ -816,6 +966,11 @@ public final class HearthStateJson {
 
 	/** {@code state.dice}: the table (the open menu's view); the dice tumble natively. */
 	public static JsonObject dice(int containerId, DiceView v) {
+		return dice(containerId, v, Lookups.NONE);
+	}
+
+	/** {@link #dice(int, DiceView)} with the opponent's face ({@code opponent.entity}, {@code portrait}, {@code portraitKey}). */
+	public static JsonObject dice(int containerId, DiceView v, Lookups look) {
 		JsonObject o = new JsonObject();
 		o.addProperty("containerId", containerId);
 		DiceGame.Phase[] phases = DiceGame.Phase.values();
@@ -823,6 +978,8 @@ public final class HearthStateJson {
 		JsonObject opp = new JsonObject();
 		opp.addProperty("name", v.folkName());
 		opp.addProperty("temper", v.personality());
+		opp.addProperty("entity", v.folkEntity());
+		portrait(opp, v.folkEntity(), v.folkLook(), look);
 		o.add("opponent", opp);
 		o.add("stake", coins(v.stake()));
 		o.addProperty("target", v.target());

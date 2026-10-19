@@ -287,6 +287,24 @@ public final class HearthActions {
 		return journal(questId, QuestPayloads.JournalAction.Action.ABANDON);
 	}
 
+	/**
+	 * Tracks the quarry of a wanted poster on the open notice board ({@code board.wanted[].player}), quest-like: the
+	 * tracked quest is let go, and {@code state.wantedTrack} (and the map) follow them. The same poster again untracks.
+	 */
+	public static boolean trackPoster(String player) {
+		QuestPayloads.Board board = HearthViews.board();
+		if (!ActionRules.posterListed(board, player)) {
+			return false;
+		}
+		return send(new QuestPayloads.PosterAction(board.settlementId(), player.trim()));
+	}
+
+	/** Stops tracking the wanted poster ({@code state.wantedTrack} goes null). */
+	public static boolean untrackPoster() {
+		QuestPayloads.PosterTrack t = HearthViews.posterTrack();
+		return t != null && send(new QuestPayloads.PosterAction(t.settlementId(), ""));
+	}
+
 	private static boolean journal(String questId, QuestPayloads.JournalAction.Action action) {
 		LocalPlayer p = player();
 		UUID id = uuid(questId);

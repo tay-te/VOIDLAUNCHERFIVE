@@ -75,6 +75,9 @@ public final class HearthAtlas implements AtlasPlugin {
 
 	// the tracked quest
 	private Object questFrom;
+	// the tracked wanted poster (docs/OVERLAY.md wantedTrack): followed like a quest, ahead of it while tracked
+	private Object posterFrom;
+	private Marker poster;
 	private Marker quest;
 	private String trackedId;
 	private boolean trackPending;
@@ -106,6 +109,8 @@ public final class HearthAtlas implements AtlasPlugin {
 		this.syncedVersion = -1;
 		this.questFrom = null;
 		this.quest = null;
+		this.posterFrom = null;
+		this.poster = null;
 		this.trackedId = null;
 		this.trackPending = false;
 		QuestHudHook.setCompassCovered(false);
@@ -226,6 +231,14 @@ public final class HearthAtlas implements AtlasPlugin {
 		if (player == null) {
 			return null;
 		}
+		dev.voidmc.hearth.quest.net.QuestPayloads.PosterTrack wanted = dev.voidmc.hearth.client.overlay.HearthViews.posterTrack();
+		if (wanted != this.posterFrom) {
+			this.posterFrom = wanted;
+			this.poster = posterMarker(wanted, player.level().dimension().identifier().toString());
+		}
+		if (this.poster != null) {
+			return this.poster;
+		}
 		Object from = player.getAttached(dev.voidmc.hearth.quest.service.QuestStore.PLAYER);
 		if (from != this.questFrom) {
 			this.questFrom = from;
@@ -288,6 +301,25 @@ public final class HearthAtlas implements AtlasPlugin {
 		// Hearth's quests are all in the overworld, where its settlements are
 		return new Marker("hearth:quest:" + t.id(), QUESTS, t.step(), progress, subtitle, t.target().getX() + 0.5, t.target().getY(),
 			t.target().getZ() + 0.5, OVERWORLD, MarkerGlyph.QUEST, Marker.Style.QUEST, 0, detail, Source.plugin("hearth:quest"), Tier.MAJOR);
+	}
+
+	/** The tracked wanted poster's marker: where its quarry was last placed (to the server's grid), or null while unplaced. */
+	private static Marker posterMarker(dev.voidmc.hearth.quest.net.QuestPayloads.PosterTrack t, String dimension) {
+		if (t == null || !t.active() || !t.located()) {
+			return null;
+		}
+		List<MarkerDetail.Row> rows = new ArrayList<>();
+		if (!t.crime().isEmpty()) {
+			rows.add(new MarkerDetail.Row(tr(t.crime()), "", true));
+		}
+		if (t.owed() > 0) {
+			rows.add(new MarkerDetail.Row(dev.voidmc.hearth.economy.coin.CoinFormat.format(t.owed()).getString(), "", false));
+		}
+		MarkerDetail detail = new MarkerDetail(List.of(), null, List.of(new MarkerDetail.Section(tr("hearth.map.wanted.section"), rows)));
+		String subtitle = Component.translatable(t.outlaw() ? "hearth.map.wanted.subtitle.outlaw" : "hearth.map.wanted.subtitle",
+			t.town().toUpperCase(Locale.ROOT)).getString();
+		return new Marker("hearth:wanted:" + t.player(), QUESTS, t.name(), "", subtitle, t.near().getX() + 0.5, t.near().getY(), t.near().getZ() + 0.5,
+			dimension, MarkerGlyph.QUEST, Marker.Style.QUEST, 0, detail, Source.plugin("hearth:quest"), Tier.MAJOR);
 	}
 
 	// ---------------------------------------------------------------- words

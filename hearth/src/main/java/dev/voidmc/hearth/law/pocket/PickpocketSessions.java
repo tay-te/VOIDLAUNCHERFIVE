@@ -306,7 +306,8 @@ public final class PickpocketSessions {
 			shown.add(s.taken[i] ? ItemStack.EMPTY : display(s.items.get(i), settlement, r, s.keyPlot));
 		}
 		LawPayloads.Pocket payload = new LawPayloads.Pocket(s.id, r == null ? "" : r.fullName(), s.asleep, shown, (float) s.model.awareness(),
-			(float) s.model.awarenessRate(), s.model.lifting(), (float) s.model.liftProgress(), (float) s.model.liftRate(), state);
+			(float) s.model.awarenessRate(), s.model.lifting(), (float) s.model.liftProgress(), (float) s.model.liftRate(), state, s.entity,
+			dev.voidmc.hearth.npc.look.ResidentLooks.key(settlement, r));
 		if (ServerPlayNetworking.canSend(player, LawPayloads.Pocket.TYPE)) {
 			ServerPlayNetworking.send(player, payload);
 		}

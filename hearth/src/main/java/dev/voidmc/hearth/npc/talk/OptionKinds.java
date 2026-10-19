@@ -72,4 +72,20 @@ public final class OptionKinds {
 		}
 		return given;
 	}
+
+	/**
+	 * A training option's fee where its provider did not describe one (Mettle's trainers put it in the label, written with
+	 * {@code EconomyService.format}): read back from the label, else the hint, so the chip can show the coins
+	 * (docs/OVERLAY.md, {@code talk.options[].cost}). Other kinds and described costs are left as they are.
+	 */
+	public static DialogueProvider.Info withCost(DialogueProvider.Info info, DialogueProvider.Option option) {
+		if (info.cost() >= 0 || !"train".equals(info.kind())) {
+			return info;
+		}
+		long fee = dev.voidmc.hearth.economy.coin.CoinFormat.read(option.label());
+		if (fee < 0) {
+			fee = dev.voidmc.hearth.economy.coin.CoinFormat.read(option.hint());
+		}
+		return fee < 0 ? info : new DialogueProvider.Info(info.kind(), info.odds(), fee, info.skill());
+	}
 }

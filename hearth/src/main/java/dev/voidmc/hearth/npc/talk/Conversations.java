@@ -195,6 +195,18 @@ public final class Conversations {
 				}
 			}
 		}
+		// the same question from two providers is asked once (docs/OVERLAY.md: the better kept)
+		List<Ranked> kept = OptionIntents.dedupe(ranked, k -> k.option.id(), k -> k.option.label().getString(), k -> k.option.locked(),
+			k -> session.owners.get(k.option.id()));
+		if (kept.size() != ranked.size()) {
+			for (Ranked k : ranked) {
+				if (!kept.contains(k)) {
+					session.owners.remove(k.option.id());
+					session.locked.remove(k.option.id());
+				}
+			}
+			ranked = new ArrayList<>(kept);
+		}
 		ranked.sort(Comparator.<Ranked>comparingInt(r -> r.option.order()).thenComparingInt(r -> r.index));
 		if (ranked.size() > TalkPayloads.MAX_OPTIONS) {
 			// too many to send: the last (goodbye) stays
@@ -224,7 +236,7 @@ public final class Conversations {
 		for (Ranked k : ranked) {
 			DialogueProvider.Option o = k.option;
 			DialogueProvider.Info given = described.get(o.id());
-			DialogueProvider.Info info = OptionKinds.complete(given != null ? given : OptionKinds.infer(o.id(), o.order()));
+			DialogueProvider.Info info = OptionKinds.withCost(OptionKinds.complete(given != null ? given : OptionKinds.infer(o.id(), o.order())), o);
 			int level = info.skill() == null ? -1 : skills.level(player, info.skill());
 			infos.add(new TalkPayloads.OptionInfo(o.id(), info.kind(), info.odds(), info.cost(), info.skill() == null ? "" : info.skill(), level));
 		}

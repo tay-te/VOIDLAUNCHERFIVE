@@ -1,5 +1,6 @@
 package dev.voidmc.hearth.client.law;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.hearth.law.net.LawPayloads;
 import java.util.List;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -170,7 +171,7 @@ public class PickpocketScreen extends Screen {
 				int x = slotX(i);
 				int y = slotY(i);
 				if (event.x() >= x && event.x() < x + 18 && event.y() >= y && event.y() < y + 18 && !items.get(i).isEmpty()) {
-					boolean stop = i == this.state.lifting() || event.button() == 1;
+					boolean stop = i == this.state.lifting() || event.button() == InputConstants.MOUSE_BUTTON_RIGHT;
 					ClientPlayNetworking.send(new LawPayloads.PocketAction(this.state.session(), stop ? LawPayloads.PocketAction.STOP
 						: LawPayloads.PocketAction.LIFT, i));
 					LawGui.sound(SoundEvents.ARMOR_EQUIP_LEATHER, 1.6F, 0.25F);

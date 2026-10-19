@@ -22,6 +22,10 @@ public final class QuestNetwork {
 		PayloadTypeRegistry.clientboundPlay().register(QuestPayloads.Toast.TYPE, QuestPayloads.Toast.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(QuestPayloads.BoardAction.TYPE, QuestPayloads.BoardAction.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(QuestPayloads.JournalAction.TYPE, QuestPayloads.JournalAction.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(QuestPayloads.PosterAction.TYPE, QuestPayloads.PosterAction.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(QuestPayloads.PosterTrack.TYPE, QuestPayloads.PosterTrack.STREAM_CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(QuestPayloads.PosterAction.TYPE,
+			(payload, context) -> dev.voidmc.hearth.quest.service.PosterTracks.track(context.player(), payload.settlementId(), payload.player()));
 		ServerPlayNetworking.registerGlobalReceiver(QuestPayloads.BoardAction.TYPE, (payload, context) -> onBoardAction(context.player(), payload));
 		ServerPlayNetworking.registerGlobalReceiver(QuestPayloads.JournalAction.TYPE, (payload, context) -> onJournalAction(context.player(), payload));
 	}
@@ -47,7 +51,13 @@ public final class QuestNetwork {
 
 	private static void onJournalAction(ServerPlayer player, QuestPayloads.JournalAction action) {
 		switch (action.action()) {
-			case TRACK -> QuestManager.track(player, action.quest());
+			case TRACK -> {
+				QuestManager.track(player, action.quest());
+				// one thing tracked at a time: a quest takes over from a wanted poster
+				if (dev.voidmc.hearth.quest.service.QuestStore.get(player).tracked != null) {
+					dev.voidmc.hearth.quest.service.PosterTracks.untrack(player);
+				}
+			}
 			case ABANDON -> QuestManager.abandon(player, action.quest());
 		}
 	}
