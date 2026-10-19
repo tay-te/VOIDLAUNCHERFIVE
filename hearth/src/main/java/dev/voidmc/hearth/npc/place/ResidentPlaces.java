@@ -86,6 +86,21 @@ public final class ResidentPlaces {
 				}
 			}
 		}
+		if (beds.isEmpty() && homePlot != null && !homePois.isEmpty() && data.bed().isEmpty()) {
+			// a home whose known points name no bed (a house rebuilt since its points were read, a drawing that marks none):
+			// the beds standing in it, so nobody with a home sleeps sitting up
+			net.minecraft.world.level.levelgen.structure.BoundingBox box = SettlementPlaces.bounds(homePlot.spec());
+			if (PoiScanner.loaded(level, box) && SettlementPlaces.takeScanBudget(level)) {
+				for (Poi poi : PoiScanner.scan(level, box)) {
+					if (poi.type() == PoiType.BED) {
+						beds.add(poi);
+					}
+				}
+			} else {
+				// (looked for again soon, when the chunks are in or the tick's scans not spent)
+				r.complete = false;
+			}
+		}
 		if (data.bed().isPresent()) {
 			r.bed = data.bed().get();
 		} else if (!beds.isEmpty()) {

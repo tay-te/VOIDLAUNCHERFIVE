@@ -235,6 +235,8 @@ public final class Tasks {
 
 	/** Goes to bed and sleeps until the day moves on. */
 	public static final class Sleep implements Task {
+		/** How far from bed a folk going to bed out of sight is taken home by their record instead of walking. */
+		static final int FAR_HOME = 32;
 		private final @Nullable BlockPos bed;
 		private final BlockPos home;
 		private boolean asleep;
@@ -264,11 +266,17 @@ public final class Tasks {
 			}
 			this.walkTimeout -= elapsed;
 			BlockPos target = this.bed != null ? this.bed : this.home;
+			if (target.distSqr(folk.blockPosition()) > FAR_HOME * FAR_HOME && brain.nearestPlayer() > 16 && brain.unseen(level, folk.blockPosition())) {
+				// a long way home at bedtime and nobody to see them go: they are home (their record goes to bed)
+				brain.slipAway();
+				return Status.RUNNING;
+			}
 			boolean there = brain.walk(level, target, this.bed != null ? 1.8 : 1.5, 0.6);
 			if (there || brain.walkFailed() || this.walkTimeout < 0) {
 				brain.resetWalk();
-				// in bed if they got there, or if nobody would see them slip into it (a stair the pathfinder will not take)
-				if (this.bed != null && (there || brain.nearestPlayer() > 24 || brain.unseen(level, this.bed))
+				// in bed if they got there or as good as (a step from it), or if nobody would see them slip into it (a stair
+				// the pathfinder will not take)
+				if (this.bed != null && (there || folk.blockPosition().closerThan(this.bed, 4) || brain.nearestPlayer() > 24 || brain.unseen(level, this.bed))
 					&& level.getBlockState(this.bed).getBlock() instanceof net.minecraft.world.level.block.AbstractBedBlock && !bedTaken(level, folk)) {
 					folk.sleepIn(this.bed);
 					this.asleep = true;
