@@ -320,6 +320,8 @@ final class StationHomes {
 	/** {@link #fireAndBeds} with the cell inside the door at row {@code frontZ} (a round room's front is its door). */
 	static int fireAndBeds(Draft d, dev.voidmc.hearth.build.kit.Rooms.Room room, int door, int frontZ, int want, boolean fire) {
 		int y = room.y;
+		// (every bed the house is counted for is put in: a household sleeps a bed each; the room keeps its walk from the
+		// door to the fire and a free side to each bed, and roomToTurn clears what else crowds it)
 		room.keep(door, frontZ);
 		for (int z = frontZ + 1; z < room.z1; z++) {
 			room.keep(door, z);
@@ -346,6 +348,213 @@ final class StationHomes {
 			beds += TownHouses.bedsIn(d, room) - before;
 		}
 		return beds;
+	}
+
+	/**
+	 * Room to turn round in: a small home's one room keeps six cells someone can stand in, all of a piece (the bed and the
+	 * fire are its own; a chest, a barrel or the trade's things beyond that crowd it), and no corner of its floor shut off
+	 * behind them. What crowds it goes, first what stands between the open floor and a shut-off corner: the stores into a
+	 * niche in the wall (a barrel set in the wall's thickness, opened from inside), the rest out. Beds, fires, ladders,
+	 * doors and job sites stay. Answers how many cells were freed.
+	 */
+	static int roomToTurn(Draft d, dev.voidmc.hearth.build.kit.Rooms.Room room) {
+		int freed = 0;
+		for (int round = 0; round < 12; round++) {
+			it.unimi.dsi.fastutil.longs.LongOpenHashSet main = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+			it.unimi.dsi.fastutil.longs.LongOpenHashSet pockets = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+			floor(d, room, main, pockets);
+			if (main.size() >= 6 && pockets.isEmpty()) {
+				break;
+			}
+			int[] pick = null;
+			int best = Integer.MAX_VALUE;
+			for (int z = room.z0; z <= room.z1; z++) {
+				for (int x = room.x0; x <= room.x1; x++) {
+					var st = d.get(x, room.y, z);
+					int rank = st == null ? -1 : crowding(st);
+					if (rank < 0 || jobAt(d, x, room.y, z)) {
+						continue;
+					}
+					boolean byMain = false;
+					boolean byPocket = false;
+					for (Direction dir : Dirs.HORIZONTAL) {
+						long n = dev.voidmc.hearth.build.draft.Draft.key(x + Dirs.dx(dir), room.y, z + Dirs.dz(dir));
+						byMain |= main.contains(n);
+						byPocket |= pockets.contains(n);
+					}
+					// (what opens a shut-off corner onto the floor first, then what stands on the floor's edge)
+					int score = (byMain && byPocket ? 0 : byMain ? 10 : 20) + rank;
+					if (main.size() >= 6 && !(byMain && byPocket)) {
+						continue;
+					}
+					if (score < best) {
+						best = score;
+						pick = new int[]{x, z};
+					}
+				}
+			}
+			if (pick == null) {
+				break;
+			}
+			int px = pick[0];
+			int pz = pick[1];
+			var st = d.get(px, room.y, pz);
+			boolean store = st.getBlock() instanceof net.minecraft.world.level.block.ChestBlock || st.getBlock() instanceof net.minecraft.world.level.block.BarrelBlock;
+			if (store) {
+				niche(d, room, px, pz);
+			}
+			dev.voidmc.hearth.build.kit.townhome.Settle.lift(d, px, room.y, pz);
+			d.retainPois(p -> !(p.x() == px && p.z() == pz && Math.abs(p.y() - room.y) <= 1 && p.type() == dev.voidmc.hearth.api.PoiType.STORAGE));
+			freed++;
+		}
+		return freed;
+	}
+
+	/**
+	 * The cells of a room someone can stand in (feet and head free, a floor under them): the biggest piece of them in
+	 * {@code main}, the rest (corners shut off behind the furniture) in {@code pockets}.
+	 */
+	private static void floor(Draft d, dev.voidmc.hearth.build.kit.Rooms.Room room, it.unimi.dsi.fastutil.longs.LongOpenHashSet main,
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet pockets) {
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet all = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+		for (int z = room.z0; z <= room.z1; z++) {
+			for (int x = room.x0; x <= room.x1; x++) {
+				if (dev.voidmc.hearth.build.kit.townhome.Settle.walkable(d, x, room.y, z)) {
+					all.add(dev.voidmc.hearth.build.draft.Draft.key(x, room.y, z));
+				}
+			}
+		}
+		it.unimi.dsi.fastutil.longs.LongOpenHashSet seen = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+		for (long start : all) {
+			if (seen.contains(start)) {
+				continue;
+			}
+			it.unimi.dsi.fastutil.longs.LongOpenHashSet comp = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+			it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue q = new it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue();
+			q.enqueue(start);
+			seen.add(start);
+			while (!q.isEmpty()) {
+				long k = q.dequeueLong();
+				comp.add(k);
+				for (Direction dir : Dirs.HORIZONTAL) {
+					long n = dev.voidmc.hearth.build.draft.Draft.key(dev.voidmc.hearth.build.draft.Draft.keyX(k) + Dirs.dx(dir), room.y,
+						dev.voidmc.hearth.build.draft.Draft.keyZ(k) + Dirs.dz(dir));
+					if (all.contains(n) && seen.add(n)) {
+						q.enqueue(n);
+					}
+				}
+			}
+			if (comp.size() > main.size()) {
+				pockets.addAll(main);
+				main.clear();
+				main.addAll(comp);
+			} else {
+				pockets.addAll(comp);
+			}
+		}
+	}
+
+	/** How readily a thing on a small room's floor makes way (lower first), or -1 if it stays (beds, fires, ladders). */
+	private static int crowding(net.minecraft.world.level.block.state.BlockState s) {
+		var b = s.getBlock();
+		if (s.isAir() || b instanceof net.minecraft.world.level.block.BedBlock || b instanceof net.minecraft.world.level.block.CampfireBlock
+			|| b instanceof net.minecraft.world.level.block.LadderBlock || b instanceof net.minecraft.world.level.block.DoorBlock
+			|| b instanceof net.minecraft.world.level.block.AbstractFurnaceBlock || b instanceof net.minecraft.world.level.block.CarpetBlock
+			|| dev.voidmc.hearth.build.kit.townhome.Settle.passable(s)) {
+			return -1;
+		}
+		if (b instanceof net.minecraft.world.level.block.FlowerPotBlock || b instanceof net.minecraft.world.level.block.DecoratedPotBlock
+			|| b instanceof net.minecraft.world.level.block.LanternBlock || b instanceof net.minecraft.world.level.block.CandleBlock) {
+			return 0;
+		}
+		if (b instanceof net.minecraft.world.level.block.StairBlock || b instanceof net.minecraft.world.level.block.SlabBlock
+			|| b instanceof net.minecraft.world.level.block.FenceBlock) {
+			// a stool, a bench, a table
+			return 1;
+		}
+		if (b instanceof net.minecraft.world.level.block.ChestBlock || b instanceof net.minecraft.world.level.block.BarrelBlock) {
+			return 2;
+		}
+		if (s.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)
+			&& !(b instanceof net.minecraft.world.level.block.CraftingTableBlock)) {
+			// a hay bale, a log, a pumpkin: the trade's things
+			return 3;
+		}
+		return 4;
+	}
+
+	/** Whether a job site (or a seat folk are sent to) stands at the cell. */
+	private static boolean jobAt(Draft d, int x, int y, int z) {
+		for (Draft.LocalPoi p : d.pois()) {
+			if (p.x() == x && p.z() == z && Math.abs(p.y() - y) <= 1 && p.type() == dev.voidmc.hearth.api.PoiType.JOB_SITE) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** A barrel set into the wall beside a room cell (an outer wall cell, solid above and below, no opening). */
+	private static void niche(Draft d, dev.voidmc.hearth.build.kit.Rooms.Room room, int x, int z) {
+		for (Direction dir : Dirs.HORIZONTAL) {
+			int wx = x + Dirs.dx(dir);
+			int wz = z + Dirs.dz(dir);
+			if (room.inside(wx, wz) || !d.isSolid(wx, room.y, wz) || !d.isSolid(wx, room.y + 1, wz) || !d.isSolid(wx, room.y - 1, wz)) {
+				continue;
+			}
+			// never at a corner (where two walls meet: the wall's post) nor through to the outside's door
+			int sx = wx + Dirs.dx(dir.getClockWise());
+			int sz = wz + Dirs.dz(dir.getClockWise());
+			int tx = wx - Dirs.dx(dir.getClockWise());
+			int tz = wz - Dirs.dz(dir.getClockWise());
+			if (!d.isSolid(sx, room.y, sz) || !d.isSolid(tx, room.y, tz) || !room.inside(sx - Dirs.dx(dir), sz - Dirs.dz(dir))
+				|| !room.inside(tx - Dirs.dx(dir), tz - Dirs.dz(dir))) {
+				continue;
+			}
+			d.inStage(StageKind.INTERIOR, () -> d.set(wx, room.y, wz, dev.voidmc.hearth.build.draft.States.facing(Blocks.BARREL, dir.getOpposite())));
+			d.poi(dev.voidmc.hearth.api.PoiType.STORAGE, x, room.y, z, dir);
+			return;
+		}
+	}
+
+	/**
+	 * A shuttered window in the middle of every wall of a small home's room five or more long that has none (a hut in the
+	 * woods has a window by the bed and one by the hearth): glass in the wall at {@code y}, shutters either side.
+	 */
+	static void windows(Draft d, int x0, int z0, int x1, int z1, int y) {
+		for (Side s : Side.of(x0, z0, x1, z1)) {
+			// (never in a party wall)
+			if (s.length() < 5 || hasOpening(d, s, y) || s.out() == Dirs.LEFT && d.partyLocalLeft() || s.out() == Dirs.RIGHT && d.partyLocalRight()) {
+				continue;
+			}
+			for (int i : new int[]{s.middle(), s.middle() - 1, s.middle() + 1}) {
+				if (i <= 0 || i >= s.last()) {
+					continue;
+				}
+				int x = s.x(i);
+				int z = s.z(i);
+				int ox = s.outX(i, 1);
+				int oz = s.outZ(i, 1);
+				if (!d.isSolid(x, y, z) || !d.isSolid(x, y + 1, z) || !d.isSolid(x, y - 1, z) || !d.isAbsent(ox, y, oz) && !d.isEmpty(ox, y, oz)
+					|| !d.isEmpty(x - Dirs.dx(s.out()), y, z - Dirs.dz(s.out())) && !(d.get(x - Dirs.dx(s.out()), y, z - Dirs.dz(s.out())).getBlock() instanceof net.minecraft.world.level.block.BedBlock)) {
+					continue;
+				}
+				Openings.window(d, s, s.column(i), y, 1, 1, Openings.WindowStyle.PLAIN, new Openings.WindowOpts(true, false, true, false));
+				break;
+			}
+		}
+	}
+
+	private static boolean hasOpening(Draft d, Side s, int y) {
+		for (int i = 1; i < s.last(); i++) {
+			for (int yy = y - 1; yy <= y + 1; yy++) {
+				var st = d.get(s.x(i), yy, s.z(i));
+				if (st != null && (st.isAir() || st.getBlock() instanceof net.minecraft.world.level.block.IronBarsBlock
+					|| net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(st.getBlock()).getPath().contains("glass"))) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/**

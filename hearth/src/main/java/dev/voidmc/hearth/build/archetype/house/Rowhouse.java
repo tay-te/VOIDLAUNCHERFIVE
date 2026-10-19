@@ -68,6 +68,12 @@ public final class Rowhouse implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
 		Habits h = d.habits();
@@ -207,7 +213,7 @@ public final class Rowhouse implements Archetype {
 			if (t.pueblo() && body.outset(full - 1, Dirs.FRONT) != 0) {
 				TownHouses.terraces(d, body, full);
 			}
-			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.4));
+			deck = TownHouses.flat(d, body, false);
 		} else {
 			boolean dormers = d.chance(Math.max(0.4, h.roof().dormers()));
 			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, dormers, t.stoneGables() && ridge == Direction.Axis.Z && d.chance(0.5));

@@ -83,6 +83,12 @@ public final class Farmhouse implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
 		Layout layout = layout(d);
@@ -276,6 +282,11 @@ public final class Farmhouse implements Archetype {
 		int z0 = z1 - depth + 1;
 		int len = x1 - x0 + 1;
 		int houseLen = Math.clamp(len / 2 + 1, 8, 9);
+		if (len - houseLen < 5) {
+			// no room for a barn end (it needs five): the house takes the whole range, rather than leave a strip a block
+			// or two wide under the roof between its gable and the yard wall that nobody could get into
+			houseLen = len;
+		}
 		boolean houseLeft = d.chance(0.5);
 		// the yard before the range levelled to the floor
 		Land.yard(d, 0, 0, w - 1, z0 - 1, 0);
@@ -464,8 +475,8 @@ public final class Farmhouse implements Archetype {
 				int lx0 = stableLeft ? w - 1 - sw : 1;
 				int lx1 = stableLeft ? w - 2 : sw;
 				int deck = Math.max(4, d.habits().walls().storeyHeight()) - 1 + 1;
-				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, rx0, sz0, rx1, sz1, deck, kind);
-				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, lx0, sz0, lx1, sz1, deck, kind);
+				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, rx0, sz0, rx1, sz1, deck, kind, true);
+				dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, lx0, sz0, lx1, sz1, deck, kind, true);
 			}
 			gate(d, gateX);
 		}

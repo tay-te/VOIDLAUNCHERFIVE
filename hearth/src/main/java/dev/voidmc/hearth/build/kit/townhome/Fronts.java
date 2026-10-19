@@ -123,7 +123,11 @@ public final class Fronts {
 	 * block per block back to the wall, on brackets: the tiered eaves of the karst tradition, the pentice over a shop.
 	 */
 	public static void pent(Draft d, Side s, int i0, int i1, int y, int depth) {
-		Mat roof = d.mat(Role.ROOF);
+		pent(d, s, i0, i1, y, depth, d.mat(Role.ROOF));
+	}
+
+	/** {@link #pent(Draft, Side, int, int, int, int)} covered in {@code roof}. */
+	public static void pent(Draft d, Side s, int i0, int i1, int y, int depth, Mat roof) {
 		Mat beam = d.mat(Role.BEAM);
 		Direction in = s.out().getOpposite();
 		try (var st = d.stage(StageKind.ROOF)) {

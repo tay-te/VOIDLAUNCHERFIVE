@@ -62,7 +62,7 @@ import net.minecraft.world.level.block.state.properties.DoorHingeSide;
  * <p>Params:
  * <ul>
  *   <li>{@code station}, {@code household} (shared, see {@link Household}): the household's trade dresses the room</li>
- *   <li>{@code lean_to} (boolean): a lean-to against a side (default true; needs a plot 7 wide)</li>
+ *   <li>{@code lean_to} (boolean): a lean-to against a side (default true; needs a plot 8 wide)</li>
  *   <li>{@code roof} (RoofForm name): the main roof's form (gable, hip, half_hip; default by culture and seed)</li>
  *   <li>{@code variant} (int): the style variant</li>
  * </ul>
@@ -81,6 +81,12 @@ public final class Hovel implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		Traits t = Traits.of(d);
 		Habits h = d.habits();
 		if (t.flat()) {
@@ -102,8 +108,9 @@ public final class Hovel implements Archetype {
 		int front = dp - bd;
 		// raised over water or by habit: on piles over a deck, no lean-to
 		boolean raised = StationHomes.raised(d, 0, front, w - 1, dp - 1);
-		boolean lean = !raised && d.param("lean_to", true) && w >= 7;
-		int lw = lean ? Math.clamp(w - 5, 2, 3) : 0;
+		// (the lean-to only where the room keeps six wide beside it: a room four by three sleeps two by their fire)
+		boolean lean = !raised && d.param("lean_to", true) && w >= 8;
+		int lw = lean ? Math.clamp(w - 6, 2, 3) : 0;
 		int bw = raised ? Math.min(w - 2, 6) : Math.min(6, w - lw);
 		boolean leanLeft = d.chance(0.5);
 		int bx0 = lean ? (leanLeft ? w - bw : 0) : (w - bw) / 2;
@@ -211,6 +218,8 @@ public final class Hovel implements Archetype {
 		Household.first(d, room, new int[]{door, bz1 - 1});
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		Household.dress(d, room, room, new int[]{door, bz1 - 1});
+		StationHomes.roomToTurn(d, room);
+		StationHomes.windows(d, bx0, bz0, bx1, bz1, base + 1);
 		doorLight(d, door, base, bz0 - 1, lean && leanLeft);
 
 		// the doorstep's life, the green at the foot of the walls
@@ -489,6 +498,8 @@ public final class Hovel implements Archetype {
 		Household.first(d, room, null);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		Household.dress(d, room, room, null);
+		StationHomes.roomToTurn(d, room);
+		StationHomes.windows(d, bx0, bz0, bx1, bz1, base + 1);
 		Lighting.room(d, room);
 		if (yardFire) {
 			// the fire pit beside the shade
@@ -624,6 +635,7 @@ public final class Hovel implements Archetype {
 		StationHomes.fireAndBeds(d, room, doorX, dz + 1, 2, true);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		Household.dress(d, room, room, null);
+		StationHomes.roomToTurn(d, room);
 		if (dz >= 1) {
 			Groundwork.approach(d, doorX, 0, dz - 1);
 			Garden.path(d, Garden.line(doorX, dz - 1, doorX, 0), 0);

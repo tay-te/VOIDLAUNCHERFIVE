@@ -80,6 +80,12 @@ public final class MerchantHouse implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
 		Habits h = d.habits();
@@ -100,7 +106,7 @@ public final class MerchantHouse implements Archetype {
 		boolean frame = h.walls().kind(1) == WallKind.TIMBER_FRAME || h.walls().kind() == WallKind.TIMBER_FRAME;
 		boolean jetties = frame && d.chance(Math.max(0.5, h.walls().jetty()));
 		int sh = Math.max(4, h.walls().storeyHeight());
-		int wanted = TownHouses.storeys(d, 3, 4, flat ? 4 : d.chance(0.5) ? 4 : 3);
+		int wanted = TownHouses.storeys(d, 3, 4, flat ? 4 : d.chance(0.5) ? 4 : 3, 2);
 
 		int bx0 = cornerL && jetties ? 1 : 0;
 		int bx1 = cornerR && jetties ? w - 2 : w - 1;
@@ -226,7 +232,7 @@ public final class MerchantHouse implements Archetype {
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
 		if (flat) {
-			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.6));
+			deck = TownHouses.flat(d, body, false);
 			flatHoist(d, body);
 		} else {
 			boolean dormers = d.chance(Math.max(0.5, h.roof().dormers()));

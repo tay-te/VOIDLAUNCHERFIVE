@@ -136,6 +136,12 @@ public final class Croft implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		Traits t = Traits.of(d);
 		if (t.flat()) {
 			flat(d, t);
@@ -444,6 +450,28 @@ public final class Croft implements Archetype {
 		if (len - 2 - p2 < 3) {
 			return;
 		}
+		// the ladder against the partition, where the roof stands highest over its hole and the loft boards beyond it (under
+		// the ridge, not at the eaves: one steps off it onto the boards upright), beside the partition's door, not in front
+		int lu = p2 + 1;
+		int dv = (wid - 1) / 2;
+		int lv = wid - 2;
+		int best = Integer.MIN_VALUE;
+		for (int v = 1; v <= wid - 2; v++) {
+			if (v == dv) {
+				continue;
+			}
+			int room = Math.min(headroom(L, roof, lu, v, plate), headroom(L, roof, lu + 1, v, plate));
+			// (ties go to the cell nearer the ridge)
+			int score = room * 10 - Math.abs(v - dv);
+			if (score > best) {
+				best = score;
+				lv = v;
+			}
+		}
+		if (best < 20) {
+			// the roof is too low over the byre for anyone to stand on a loft: the byre is open to its rafters
+			return;
+		}
 		int[] lr = L.rect(p2 + 1, len - 2, 1, wid - 2);
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int z = lr[1]; z <= lr[3]; z++) {
@@ -452,9 +480,6 @@ public final class Croft implements Archetype {
 				}
 			}
 		}
-		// the ladder's hole by the partition on the far side
-		int lu = p2 + 1;
-		int lv = wid - 2;
 		int lx = L.x(lu, lv);
 		int lz = L.z(lu, lv);
 		d.set(lx, plate, lz, Blocks.AIR.defaultBlockState());
@@ -462,18 +487,27 @@ public final class Croft implements Archetype {
 		// hay stacked against the far end, under the roof
 		long seed = Noise.hash(d.seed(), 0x4A11);
 		try (var s = d.stage(StageKind.INTERIOR)) {
-			for (int u = len - 3; u <= len - 2; u++) {
+			// (clear of the ladder's landing)
+			for (int u = Math.max(lu + 2, len - 3); u <= len - 2; u++) {
 				for (int v = 1; v <= wid - 2; v++) {
 					int x = L.x(u, v);
 					int z = L.z(u, v);
 					int under = roof.covers(x, z) ? roof.bottomY(x, z) : plate + 1;
-					int h = Noise.unit(seed, x, 0, z) < 0.5 ? 2 : 1;
+					// stacked up to the rafters (a half-height stack would leave a ledge one could stand on but not reach)
+					int h = under - plate - 1 > 4 && Noise.unit(seed, x, 0, z) < 0.3 ? 4 : 3;
 					for (int y = plate + 1; y <= plate + h && y < under; y++) {
 						d.set(x, y, z, Blocks.HAY_BLOCK.defaultBlockState());
 					}
 				}
 			}
 		}
+	}
+
+	/** The air over the loft boards at (u, v): from the boards to the roof's underside. */
+	private static int headroom(Long L, Roofs.Roof roof, int u, int v, int plate) {
+		int x = L.x(u, v);
+		int z = L.z(u, v);
+		return roof.covers(x, z) ? roof.bottomY(x, z) - (plate + 1) : 3;
 	}
 
 	/**
@@ -803,7 +837,7 @@ public final class Croft implements Archetype {
 		byreDoor(d, L, yardWall, byreU, base);
 		windows(d, L, p1, p2, hall, base, plate, doorU);
 		int deck = Roofs.flat(d, L.x0(), L.z0(), L.x1(), L.z1(), plate, true);
-		Adobe.parapet(d, L.x0(), L.z0(), L.x1(), L.z1(), deck, Adobe.Parapet.ROUNDED);
+		Adobe.parapet(d, L.x0(), L.z0(), L.x1(), L.z1(), deck, Adobe.Parapet.ROUNDED, true);
 		int hu = hall ? p1 + 1 : p1 - 1;
 		int hx = L.x(hu, wid - 2);
 		int hz = L.z(hu, wid - 2);

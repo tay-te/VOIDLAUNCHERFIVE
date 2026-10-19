@@ -54,6 +54,12 @@ public final class Hut implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		Habits h = d.habits();
 		boolean round = d.chance(h.plan().round()) && d.frontage() >= 5 && d.depth() >= 5;
 		if (round) {
@@ -130,6 +136,7 @@ public final class Hut implements Archetype {
 			topY = roof.ridgeY;
 		}
 		furnish(d, bx0 + 1, bz0 + 1, bx1 - 1, bz1 - 1, base, door, roof, h);
+		StationHomes.windows(d, bx0, bz0, bx1, bz1, base + 1);
 		// a woodpile or a log store against the side, a path to the door
 		if (bx0 >= 1 && !yard && d.chance(h.yard().woodpile())) {
 			Garden.woodpile(d, bx0 - 1, 0, bz1 - 1, Dirs.FRONT, Math.min(3, bz1 - bz0));
@@ -154,7 +161,7 @@ public final class Hut implements Archetype {
 	 */
 	private static void flatDress(Draft d, int x0, int z0, int x1, int z1, int base, int deck, int door, boolean stilted) {
 		// a mud cell's parapet is rounded over (pinnacles on a hut five wide would make it a tower)
-		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, x0, z0, x1, z1, deck, dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED);
+		dev.voidmc.hearth.build.kit.homestead.Adobe.parapet(d, x0, z0, x1, z1, deck, dev.voidmc.hearth.build.kit.homestead.Adobe.Parapet.ROUNDED, true);
 		if (stilted) {
 			return;
 		}
@@ -248,6 +255,7 @@ public final class Hut implements Archetype {
 		Rooms.furnish(d, room, Rooms.Type.BEDROOM, 1, JobType.NONE);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
 		dev.voidmc.hearth.build.kit.homestead.Household.dress(d, room, room, null);
+		StationHomes.roomToTurn(d, room);
 	}
 
 	/**
@@ -319,6 +327,7 @@ public final class Hut implements Archetype {
 		}
 		dev.voidmc.hearth.build.kit.homestead.Round.fire(d, ring, room, 0);
 		Rooms.furnish(d, room, Rooms.Type.STORAGE, 0, JobType.NONE);
+		StationHomes.roomToTurn(d, room);
 		if (dz >= 1) {
 			Groundwork.approach(d, doorX, 0, dz - 1);
 			Garden.path(d, Garden.line(doorX, dz - 1, doorX, 0), 0);

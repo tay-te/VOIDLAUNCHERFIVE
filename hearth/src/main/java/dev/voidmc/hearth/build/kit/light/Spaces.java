@@ -214,12 +214,13 @@ public final class Spaces {
 
 	/**
 	 * A block a person can stand on: not a fence, a wall or a gate, nor the small things set on furniture (candles, a
-	 * lantern, a flower pot, a cake, a skull) — a candle stood on a table makes no step up onto it.
+	 * lantern, a flower pot, a cake, a skull) — a candle stood on a table makes no step up onto it. Nor a chain: a lamp's
+	 * chain hung from a ridge is no ladder (on one of three links or more the walk found a floor in the open roof).
 	 */
 	public static boolean standable(BlockState s) {
 		Block b = s.getBlock();
-		// (nobody stands on a door's lower half, inside its upper one)
-		if (s.isAir() || b instanceof FenceBlock || b instanceof WallBlock || b instanceof FenceGateBlock || b instanceof DoorBlock
+		// (nobody stands on a door's lower half, inside its upper one, nor on a chain)
+		if (s.isAir() || b instanceof ChainBlock || b instanceof FenceBlock || b instanceof WallBlock || b instanceof FenceGateBlock || b instanceof DoorBlock
 			|| b instanceof net.minecraft.world.level.block.CandleBlock
 			|| b instanceof LanternBlock || b instanceof net.minecraft.world.level.block.FlowerPotBlock || b instanceof net.minecraft.world.level.block.CakeBlock
 			|| b instanceof net.minecraft.world.level.block.CandleCakeBlock || b instanceof net.minecraft.world.level.block.AbstractSkullBlock

@@ -71,6 +71,12 @@ public final class Shack implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
 		Traits t = Traits.of(d);
@@ -148,6 +154,17 @@ public final class Shack implements Archetype {
 			int deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], plate, false);
 			Adobe.parapet(d, tr[0], tr[1], tr[2], tr[3], deck - 1, Adobe.Parapet.ROUNDED);
 			top = deck + 2;
+			// a shade of poles and reed mats over the door, a jar beside it, a sill stone at the step, where a row is left
+			// before the door (art review 2 item 7)
+			if (bz0 >= 1 && !raised) {
+				Adobe.doorShade(d, door, bz0, base);
+				for (int x : new int[]{door - 2, door + 2}) {
+					if (x >= 0 && x < w) {
+						Adobe.jar(d, x, base, bz0 - 1);
+					}
+				}
+				Adobe.threshold(d, door, base, bz0 - 1);
+			}
 		} else {
 			roof = roof(d, body, t);
 			Paint boards = StationHomes.boardAndBatten(d, d.mat(Role.DOOR), d.mat(Role.FRAME), Direction.Axis.X);
@@ -194,6 +211,8 @@ public final class Shack implements Archetype {
 		Household.first(d, down, new int[]{fx, fz});
 		Rooms.furnish(d, down, Rooms.Type.KITCHEN, 0, JobType.NONE);
 		Household.dress(d, down, down, new int[]{fx, fz});
+		StationHomes.roomToTurn(d, down);
+		StationHomes.windows(d, r0[0], r0[1], r0[2], r0[3], base + 1);
 		Lighting.room(d, down);
 		if (two) {
 			int[] r1 = body.rect(1);
@@ -208,6 +227,7 @@ public final class Shack implements Archetype {
 				TownHouses.bedroom(d, up, 1);
 			}
 			Rooms.furnish(d, up, Rooms.Type.STORAGE, 0, JobType.NONE);
+			StationHomes.roomToTurn(d, up);
 			Lighting.room(d, up);
 		}
 

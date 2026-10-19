@@ -20,6 +20,7 @@ import dev.voidmc.hearth.build.kit.townhome.Fronts;
 import dev.voidmc.hearth.build.kit.townhome.Life;
 import dev.voidmc.hearth.build.kit.townhome.Rooflines;
 import dev.voidmc.hearth.build.kit.townhome.StairCore;
+import dev.voidmc.hearth.build.kit.homestead.Adobe;
 import dev.voidmc.hearth.build.kit.townhome.Traits;
 import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
@@ -59,6 +60,18 @@ final class TownHouses {
 	 * houses asked for at one height still steps its eaves, clamped to {@code [lo, hi]}.
 	 */
 	static int storeys(Draft d, int lo, int hi, int dflt) {
+		return storeys(d, lo, hi, dflt, lo);
+	}
+
+	/**
+	 * {@link #storeys(Draft, int, int, int)}, where the planner asks for fewer than {@code lo} (a village, the outskirts:
+	 * two storeys), as few as {@code floor}: the edges of a town are not three- and four-storey boxes (art review 2 item
+	 * 9). Unasked, {@code lo} holds.
+	 */
+	static int storeys(Draft d, int lo, int hi, int dflt, int floor) {
+		if (d.hasParam("storeys")) {
+			lo = Math.max(floor, Math.min(lo, d.param("storeys", dflt)));
+		}
 		int s = d.param("storeys", dflt);
 		double u = d.random().nextDouble();
 		if (u < 0.2) {
@@ -470,13 +483,15 @@ final class TownHouses {
 	}
 
 	/**
-	 * A flat roof deck over the top storey with its parapet (crenellated where the culture builds merlons), returning
-	 * the deck's standing level.
+	 * A flat roof deck over the top storey with its parapet. A town home's deck is lived on (washing, beds set out in the
+	 * heat), so its parapet stands breast high under a plain coping with rounded shoulders, the pueblo's coping rounded
+	 * over ({@link Adobe#parapet}): never merlons, which make a street of homes a street of little forts (art review 2
+	 * item 7), except on the tower house, a fortified house ({@code merlons}).
 	 */
-	static int flat(Draft d, Body b, boolean crenels) {
+	static int flat(Draft d, Body b, boolean merlons) {
 		int[] tr = b.topRect();
 		int deck = Roofs.flat(d, tr[0], tr[1], tr[2], tr[3], b.plateY(), true);
-		if (crenels && deck + 2 < d.maxHeight()) {
+		if (merlons && deck + 2 < d.maxHeight()) {
 			Mat wall = d.mat(Role.WALL);
 			try (var s = d.stage(StageKind.ROOF)) {
 				for (Side side : Side.of(tr[0], tr[1], tr[2], tr[3])) {
@@ -495,6 +510,8 @@ final class TownHouses {
 					}
 				}
 			}
+		} else if (!merlons) {
+			Adobe.parapet(d, tr[0], tr[1], tr[2], tr[3], deck, Traits.of(d).pueblo() ? Adobe.Parapet.ROUNDED : Adobe.Parapet.SHOULDERED, true);
 		}
 		return deck;
 	}
@@ -534,16 +551,19 @@ final class TownHouses {
 				dev.voidmc.hearth.build.kit.Chimneys.stack(d, hx, hz, hy + 2, roof, Math.min(roof.ridgeY + 1, d.maxHeight() - 1));
 			}
 		} else if (deck != Integer.MIN_VALUE) {
-			if (deck + 2 >= d.maxHeight()) {
+			// the stack stands two courses over the deck and the fire on it, so its crown's corbels and cap (Chimneys) are
+			// over head height: a fire at head height had its corbels a step up from a planter on the deck, and from them
+			// one climbed the coping onto the roof over a stair head or a mirador
+			if (deck + 3 >= d.maxHeight()) {
 				return null;
 			}
 			Mat stone = d.mat(Role.CHIMNEY);
 			int x = party ? wallX : hx;
 			try (var s = d.stage(StageKind.ROOF)) {
-				for (int y = party ? b.plateY() - 1 : hy + 2; y < deck + 1; y++) {
+				for (int y = party ? b.plateY() - 1 : hy + 2; y < deck + 2; y++) {
 					d.set(x, y, hz, stone.full());
 				}
-				d.set(x, deck + 1, hz, dev.voidmc.hearth.build.draft.States.lit(Blocks.CAMPFIRE, true)
+				d.set(x, deck + 2, hz, dev.voidmc.hearth.build.draft.States.lit(Blocks.CAMPFIRE, true)
 					.trySetValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.SIGNAL_FIRE, false));
 			}
 		} else {

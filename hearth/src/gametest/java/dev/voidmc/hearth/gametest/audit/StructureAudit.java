@@ -246,6 +246,24 @@ public final class StructureAudit {
 			Demos.Case cs = Demos.of(e.info(), style, seed(index), index, probe(terrain, c), terrain);
 			dev.voidmc.hearth.api.TerrainProbe probe = cs.probe();
 			PlotSpec spec = cs.spec();
+			// -Daudit.params=k=v;k=v: params every case is drawn with (storeys=2: the planner's village height)
+			CompoundTag params = spec.params().copy();
+			boolean extra = false;
+			for (String kv : System.getProperty("audit.params", "").split(";")) {
+				if (kv.contains("=")) {
+					String[] p = kv.split("=", 2);
+					extra = true;
+					try {
+						params.putInt(p[0], Integer.parseInt(p[1]));
+					} catch (NumberFormatException ex) {
+						params.putString(p[0], p[1]);
+					}
+				}
+			}
+			if (extra) {
+				spec = new PlotSpec(spec.archetype(), spec.style(), spec.seed(), spec.origin(), spec.sizeX(), spec.sizeZ(), spec.facing(), spec.maxHeight(),
+					spec.tier(), params);
+			}
 			m.put("facing", spec.facing().getSerializedName());
 			m.put("frontage", spec.frontage());
 			m.put("depth", spec.depth());

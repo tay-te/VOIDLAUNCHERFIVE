@@ -65,6 +65,12 @@ public final class ScribeHouse implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
 		Habits h = d.habits();
@@ -83,9 +89,12 @@ public final class ScribeHouse implements Archetype {
 		boolean flat = form == RoofForm.FLAT;
 		boolean frame = h.walls().kind(1) == WallKind.TIMBER_FRAME || h.walls().kind() == WallKind.TIMBER_FRAME;
 		boolean jetties = frame && d.chance(Math.max(0.5, h.walls().jetty()));
-		// low storeys, as the narrow houses of a crowded street have them (three garrets' worth of rooms on one plot)
+		// low storeys, as the narrow houses of a crowded street have them: three in a row, two and the garret standing
+		// alone where they sleep three (a narrow house of three storeys and a garret, seen whole, was a tower: art review 2 item 25)
 		int sh = 4;
-		int wanted = TownHouses.storeys(d, 3, 3, 3);
+		// (two only under a pitched roof on a plot ten deep: the garret and the kitchen then sleep the household)
+		int low = dev.voidmc.hearth.build.kit.townhome.Proportions.detached(d) && !flat && dp >= 10 ? 2 : 3;
+		int wanted = TownHouses.storeys(d, low, 3, low);
 
 		int door = StationHomes.townDoor(d, 0, w - 1, partyL, partyR);
 		boolean awkward = TownHouses.misfit(d, door) > 0;
@@ -178,7 +187,7 @@ public final class ScribeHouse implements Archetype {
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
 		if (flat) {
-			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.5));
+			deck = TownHouses.flat(d, body, false);
 		} else {
 			boolean dormers = d.chance(Math.max(0.5, h.roof().dormers()));
 			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, dormers, false);

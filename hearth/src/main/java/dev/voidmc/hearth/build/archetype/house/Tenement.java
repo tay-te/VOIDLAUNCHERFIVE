@@ -72,6 +72,12 @@ public final class Tenement implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
 		Habits h = d.habits();
@@ -197,7 +203,7 @@ public final class Tenement implements Archetype {
 		Roofs.Roof roof = null;
 		int deck = Integer.MIN_VALUE;
 		if (flat) {
-			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.5));
+			deck = TownHouses.flat(d, body, false);
 		} else {
 			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, true, false, true);
 		}

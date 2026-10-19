@@ -74,6 +74,12 @@ public final class CliffDwelling implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
 		int maxH = d.maxHeight();
@@ -136,14 +142,19 @@ public final class CliffDwelling implements Archetype {
 		if (eastern || mountain) {
 			eaves(d, body);
 		}
-		if (mountain) {
-			// a timber rail round the deck instead of a stone parapet
+		{
+			// the parapet round the deck is one course under the plot's height, no room for a coping over it: a solid course
+			// would be a ledge one steps up onto from the deck and walks round over the drop. In the mountains (and wherever
+			// the wall has no wall-top form) a timber rail stands round the deck instead; else the course is laid as a wall's
+			// rounded top, which nobody stands on
 			Mat rail = d.mat(Role.RAILING);
-			try (var st = d.stage(StageKind.EXTERIOR)) {
+			Mat wall = d.mat(Role.WALL);
+			boolean masonry = !mountain && wall.has(Form.WALL);
+			try (var st = d.stage(masonry ? StageKind.ROOF : StageKind.EXTERIOR)) {
 				for (Side side : Side.of(tr[0], tr[1], tr[2], tr[3])) {
 					for (int i = 0; i < side.length(); i++) {
 						if (d.get(side.x(i), deck, side.z(i)) != null && !d.isEmpty(side.x(i), deck, side.z(i))) {
-							d.set(side.x(i), deck, side.z(i), rail.fence());
+							d.set(side.x(i), deck, side.z(i), masonry ? wall.wall() : rail.fence());
 						}
 					}
 				}
@@ -290,10 +301,43 @@ public final class CliffDwelling implements Archetype {
 	}
 
 	/** The karst gallery: a curved pent roof of the roof's tiles along the front over the door, on posts. */
+	/** Whether a material is timber or bamboo (its full block a plank, a log, a wood or a bamboo block). */
+	private static boolean wooden(Mat m) {
+		net.minecraft.world.level.block.Block b = m.main(Form.FULL);
+		if (b == null) {
+			return false;
+		}
+		String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b).getPath();
+		return id.contains("planks") || id.contains("_wood") || id.contains("_log") || id.contains("bamboo") || id.contains("_stem") || id.contains("hyphae");
+	}
+
 	private static void eaves(Draft d, Body b) {
 		Side s = b.side(0, Dirs.FRONT);
 		int y = b.floorY(0) + 3;
-		Fronts.pent(d, s, 0, s.last(), y, 2);
+		// in the karst the pent is tiled: where the culture roofs a poor house in boards or bamboo, the cliff's rows of
+		// pents read as hay bales on the face (art review 2 item 29), so they take the grey stone of the stacks instead
+		Mat cover = d.mat(Role.ROOF);
+		if (Traits.of(d).eastern() && wooden(cover)) {
+			Mat stone = d.mat(Role.CHIMNEY);
+			if (stone.has(Form.STAIRS) && !wooden(stone)) {
+				cover = stone;
+			}
+		}
+		Fronts.pent(d, s, 0, s.last(), y, 2, cover);
+		// the pent's upper course closed at both ends by a cheek of the roof's stuff: the ladder up to the deck passes the
+		// pent and folk step off onto it, and its end treads, railed over the drop beside the house, made a flight with no
+		// head room (the rail stands on the cheek instead)
+		Mat roofMat = cover;
+		try (var st = d.stage(StageKind.ROOF)) {
+			for (int i : new int[]{0, s.last()}) {
+				int x = s.outX(i, 1);
+				int z = s.outZ(i, 1);
+				net.minecraft.world.level.block.state.BlockState was = d.get(x, y + 1, z);
+				if (was != null && was.getBlock() instanceof net.minecraft.world.level.block.StairBlock && roofMat.has(Form.FULL)) {
+					d.set(x, y + 1, z, roofMat.full());
+				}
+			}
+		}
 		Mat post = d.mat(Role.FRAME);
 		try (var st = d.stage(StageKind.FRAME)) {
 			for (int i : new int[]{0, s.last()}) {

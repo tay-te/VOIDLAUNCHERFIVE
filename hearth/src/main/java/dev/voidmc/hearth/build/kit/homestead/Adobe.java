@@ -50,19 +50,76 @@ public final class Adobe {
 	 * level {@code y} (the parapet is the course at y with its coping at y + 1).
 	 */
 	public static void parapet(Draft d, int x0, int z0, int x1, int z1, int y, Parapet kind) {
-		if (y + 3 >= d.maxHeight()) {
-			return;
-		}
+		parapet(d, x0, z0, x1, z1, y, kind, false);
+	}
+
+	/**
+	 * As {@link #parapet(Draft, int, int, int, int, int, Parapet)}; {@code lived}: the deck is lived on (a roof terrace,
+	 * beds set out on it in the heat), so the parapet stands breast high, a second course under the coping, as the dry
+	 * lands build it for privacy and as a guard: nobody steps from a bed or a jar at its foot over its top.
+	 */
+	public static void parapet(Draft d, int x0, int z0, int x1, int z1, int y, Parapet kind, boolean lived) {
 		Mat wall = d.mat(Role.WALL);
 		Mat accent = d.mat(Role.WALL_ACCENT);
 		Mat cap = accent.has(Form.SLAB) ? accent : wall;
+		if (lived && y + 3 > d.maxHeight()) {
+			// no room for the second course under the plot's height: the coping is a wall's rounded top instead, which
+			// nobody stands on (or, without one, the plain parapet)
+			Mat round = wall.has(Form.WALL) ? wall : accent.has(Form.WALL) ? accent : d.mat(Role.ROOF_TRIM).has(Form.WALL) ? d.mat(Role.ROOF_TRIM) : null;
+			if (round != null && y + 2 <= d.maxHeight()) {
+				try (var s = d.stage(StageKind.ROOF)) {
+					for (Side side : Side.of(x0, z0, x1, z1)) {
+						for (int i = 0; i < side.length(); i++) {
+							if (d.isSolid(side.x(i), y, side.z(i))) {
+								d.set(side.x(i), y + 1, side.z(i), round.wall());
+							}
+						}
+					}
+				}
+				return;
+			}
+			lived = false;
+		}
+		if (y + 3 >= d.maxHeight() && !lived) {
+			return;
+		}
+		// a rounded coping is a stair a full block high on the deck's side: over one course it stands two high, which
+		// nobody climbs from a bed at its foot, so a lived deck under it needs no second course (with it the parapet
+		// stood three high over the deck: the dry cottage's top storey read as a hollow cube, art review 2 item 7)
+		Mat roundStair = wall.has(Form.STAIRS) ? wall : accent.has(Form.STAIRS) ? accent : d.mat(Role.ROOF_TRIM).has(Form.STAIRS) ? d.mat(Role.ROOF_TRIM) : null;
+		boolean second = lived && !(kind == Parapet.ROUNDED && roundStair != null);
 		try (var s = d.stage(StageKind.ROOF)) {
+			for (Side side : Side.of(x0, z0, x1, z1)) {
+				for (int i = 0; i < side.length(); i++) {
+					int x = side.x(i);
+					int z0w = side.z(i);
+					if (!d.isSolid(x, y, z0w)) {
+						continue;
+					}
+					net.minecraft.world.level.block.state.BlockState laid = d.get(x, y + 1, z0w);
+					boolean coping = laid != null && (laid.getBlock() instanceof net.minecraft.world.level.block.SlabBlock
+						|| laid.getBlock() instanceof net.minecraft.world.level.block.StairBlock);
+					if (second && (d.isAbsent(x, y + 1, z0w) || coping) && !ladderBeside(d, x, y, z0w)) {
+						// (a coping laid already by the roof is lifted a course)
+						// the second course, of the wall's own stuff
+						net.minecraft.world.level.block.state.BlockState under = d.get(x, y, z0w);
+						d.set(x, y + 1, z0w, under != null && under.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO)
+							? under : wall.block(Form.FULL, x, y + 1, z0w).defaultBlockState());
+					}
+				}
+			}
+			int top = second ? y + 1 : y;
 			for (Side side : Side.of(x0, z0, x1, z1)) {
 				int mid = side.middle();
 				for (int i = 0; i < side.length(); i++) {
 					int x = side.x(i);
 					int z = side.z(i);
-					if (!d.isSolid(x, y, z)) {
+					if (lived && (!second || !d.isSolid(x, top, z)) && d.isSolid(x, y, z) && ladderBeside(d, x, y, z)) {
+						// where a ladder comes up past the parapet it stays one course high, so one steps off over it
+						d.set(x, y + 1, z, cap.slab(SlabType.BOTTOM));
+						continue;
+					}
+					if (!d.isSolid(x, top, z) || second && !d.isSolid(x, y, z)) {
 						continue;
 					}
 					boolean corner = side.isCorner(i);
@@ -71,24 +128,37 @@ public final class Adobe {
 						Mat trim = d.mat(Role.ROOF_TRIM);
 						Mat round = wall.has(Form.STAIRS) ? wall : accent.has(Form.STAIRS) ? accent : trim.has(Form.STAIRS) ? trim : null;
 						if (round != null) {
-							d.set(x, y + 1, z, round.stairs(side.out().getOpposite(), Half.BOTTOM));
+							d.set(x, top + 1, z, round.stairs(side.out().getOpposite(), Half.BOTTOM));
 						}
 					} else if (kind == Parapet.SHOULDERED) {
 						// at the corner the coping turned over outward, a stair of its own stone easing the corner round
 						// (the shape resolver turns the pair at each corner into one rounded quarter); no pinnacle stands on it
 						Mat round = cap.has(Form.STAIRS) ? cap : wall.has(Form.STAIRS) ? wall : null;
 						if (corner && round != null) {
-							d.set(x, y + 1, z, round.stairs(side.out().getOpposite(), Half.BOTTOM));
-						} else if (d.isAbsent(x, y + 1, z)) {
-							d.set(x, y + 1, z, cap.slab(SlabType.BOTTOM));
+							d.set(x, top + 1, z, round.stairs(side.out().getOpposite(), Half.BOTTOM));
+						} else if (d.isAbsent(x, top + 1, z)) {
+							d.set(x, top + 1, z, cap.slab(SlabType.BOTTOM));
 						}
 					} else if (corner || side.length() >= 8 && i == mid) {
-						d.set(x, y + 1, z, wall.full());
-						d.set(x, y + 2, z, cap.slab(SlabType.BOTTOM));
+						d.set(x, top + 1, z, wall.full());
+						d.set(x, top + 2, z, cap.slab(SlabType.BOTTOM));
 					}
 				}
 			}
 		}
+	}
+
+	/** Whether a ladder stands beside (x, z) at the parapet's course or the one under it. */
+	private static boolean ladderBeside(Draft d, int x, int y, int z) {
+		for (Direction dir : Dirs.HORIZONTAL) {
+			for (int dy = -1; dy <= 1; dy++) {
+				var s = d.get(x + Dirs.dx(dir), y + dy, z + Dirs.dz(dir));
+				if (s != null && s.getBlock() instanceof net.minecraft.world.level.block.LadderBlock) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -400,6 +470,18 @@ public final class Adobe {
 				d.set(x, yy, z, States.facing(Blocks.LADDER, out));
 			}
 			d.set(x, deck + 1, z, pole.fence());
+		}
+		// the gap in the parapet where it arrives, so one steps off it onto the roof (H16)
+		int px = x - Dirs.dx(out);
+		int pz = z - Dirs.dz(out);
+		if (d.isSolid(px, deck - 1, pz)) {
+			try (var s = d.stage(StageKind.ROOF)) {
+				for (int yy = deck; yy <= deck + 1; yy++) {
+					if (d.get(px, yy, pz) != null && !d.isEmpty(px, yy, pz)) {
+						d.set(px, yy, pz, Blocks.AIR.defaultBlockState());
+					}
+				}
+			}
 		}
 		return true;
 	}

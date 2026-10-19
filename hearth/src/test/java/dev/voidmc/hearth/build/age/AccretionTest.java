@@ -110,8 +110,11 @@ class AccretionTest {
 					if (a.beds() < beds) {
 						problems.add(info.id().getPath() + " " + c.getSerializedName() + " loses beds at " + k + ": " + beds + " -> " + a.beds());
 					}
-					// (an oriel or a dormer opens a few blocks of wall or roof into itself: never more than a handful)
-					if (solid < bulk - 10) {
+					// (an oriel or a dormer opens a few blocks of wall or roof into itself: never more than a handful; and a house
+					// drawn smaller to leave room for an addition has the rails of its galleries and decks at the plot's edge
+					// standing in the walk, not over the drop on a lip: a block a railed cell fewer, a score or so in a karst
+					// house of galleries)
+					if (solid < bulk - 25) {
 						problems.add(info.id().getPath() + " " + c.getSerializedName() + " shrinks at " + k + ": " + bulk + " -> " + solid);
 					}
 					beds = a.beds();

@@ -71,6 +71,12 @@ public final class Townhouse implements Archetype {
 
 	@Override
 	public void draw(Draft d) {
+		raise(d);
+		dev.voidmc.hearth.build.kit.townhome.Settle.finish(d);
+	}
+
+	/** The house as drawn, before its last walk-round ({@link dev.voidmc.hearth.build.kit.townhome.Settle}). */
+	private void raise(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
 		Habits h = d.habits();
@@ -91,7 +97,8 @@ public final class Townhouse implements Archetype {
 		boolean shop = d.param("shop", d.chance(0.4));
 		int sh = Math.max(4, h.walls().storeyHeight());
 		// three storeys and the roof, the burgher house's measure; a fourth now and then where a city street steps up
-		int wanted = TownHouses.storeys(d, 3, 4, 3);
+		// (two where the planner asks for a village's height)
+		int wanted = TownHouses.storeys(d, 3, 4, 3, 2);
 
 		// the door, where the street meets the floor; a row in front for steps when it does not
 		int bx0 = cornerL && jetties ? 1 : 0;
@@ -218,7 +225,7 @@ public final class Townhouse implements Archetype {
 			if (terraced) {
 				terraceDoor = TownHouses.setbackTerrace(d, body, full);
 			}
-			deck = TownHouses.flat(d, body, t.walls() == WallKind.ADOBE && !t.pueblo() && d.chance(0.6));
+			deck = TownHouses.flat(d, body, false);
 		} else {
 			boolean dormers = d.chance(Math.max(0.5, h.roof().dormers()));
 			roof = TownHouses.pitched(d, body, form, ridge, opts, t, facade, dormers, crow);
