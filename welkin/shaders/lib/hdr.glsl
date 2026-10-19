@@ -55,7 +55,10 @@ uniform float sunAngle;
 // through the golden hours (the sky table's golden hour, 0..1)
 #define HDR_EXPOSURE_GOLDEN 1.0
 // at night (the moonlit land's lift lives in the light model, LAND_NIGHT; this is on top)
-#define HDR_EXPOSURE_NIGHT 0.8
+#define HDR_EXPOSURE_NIGHT 0.52
+// (Look D4) round sunset and in the blue hour, while the night step is in but the sun is only a little under (the old
+// night exposure: the dusk's glow and the blue hour keep their level)
+#define HDR_EXPOSURE_TWILIGHT 1.1
 // under a full overcast or in rain
 #define HDR_EXPOSURE_OVERCAST 0.9
 // the Nether and the End
@@ -92,7 +95,11 @@ float hdrExposure() {
 	vec4 st = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT); // g night, a overcast
 	float golden = skyTable(SKY_X_STATE_TIME, SKY_ROW_LIGHT).r;
 	float night = clamp(st.g, 0.0, 1.0);
-	float e = mix(mix(HDR_EXPOSURE_DAY, HDR_EXPOSURE_GOLDEN, clamp(golden, 0.0, 1.0)), HDR_EXPOSURE_NIGHT, night);
+	// (Look D4) the night step is already most of the way in round sunset and in the blue hour: those keep the twilight's
+	// exposure, and the deep night's lower one comes in only once the sun is well under (about 5 to 15 degrees down)
+	float deep = 1.0 - smoothstep(-0.26, -0.09, sin(sunAngle * 6.2831853));
+	float e = mix(mix(HDR_EXPOSURE_DAY, HDR_EXPOSURE_GOLDEN, clamp(golden, 0.0, 1.0)),
+		mix(HDR_EXPOSURE_TWILIGHT, HDR_EXPOSURE_NIGHT, deep), night);
 	return e * mix(1.0, HDR_EXPOSURE_OVERCAST, max(clamp(st.a, 0.0, 1.0), clamp(rainStrength, 0.0, 1.0)));
 #else
 	return HDR_EXPOSURE_OTHER;

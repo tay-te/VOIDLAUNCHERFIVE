@@ -187,7 +187,11 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 gDay = vec3(1.03, 1.01, 0.96); // (look3: sunlit, warm-neutral, was look2's 0.86 0.85 0.82, which killed the sun)
 		vec3 gGold = mix(vec3(1.03, 0.985, 0.92), vec3(1.04, 0.98, 0.915), morn); // (D1: the morning a touch rosier; D3: rose-gold)
 		vec3 gOver = vec3(0.94, 0.95, 0.96);
-		vec3 gNight = vec3(0.97, 1.02, 1.12); // (look2: moonlit and readable, was 0.92 0.97 1.04)
+		// (Look D4) the deep night: no lift, no opening of the mids, a near-neutral moon-blue gain, so the blacks sit deep
+		// and the moonlit faces and lamps carry the frame; the dusk and the blue hour (night part way in) keep the old
+		// moonlit-readable terms
+		float nd = smoothstep(0.5, 1.0, night);
+		vec3 gNight = mix(vec3(1.04, 1.10, 1.20), vec3(0.97, 1.02, 1.12), nd); // (look2: moonlit and readable, was 0.92 0.97 1.04)
 		vec3 gain = mix(mix(gDay, gGold, warm), gOver, over);
 		gain = mix(gain, gNight, night * open * (1.0 - keepWarm));
 		gain = mix(gain, vec3(dot(gain, vec3(0.2126, 0.7152, 0.0722))), 0.5 * blueG * (1.0 - night));
@@ -196,14 +200,14 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 lDay = vec3(0.003, 0.005, 0.009);
 		vec3 lGold = vec3(0.014, 0.011, 0.018);
 		vec3 lOver = vec3(0.016, 0.017, 0.019);
-		vec3 lNight = vec3(0.0015, 0.0025, 0.005); // (look2: a moonlit blue-grey toe, was 0.004 0.006 0.011)
+		vec3 lNight = mix(vec3(0.009, 0.012, 0.020), vec3(0.0015, 0.0025, 0.005), nd); // (look2: a moonlit blue-grey toe, was 0.004 0.006 0.011)
 		vec3 lMorn = vec3(0.018, 0.013, 0.014); // (D3: the dawn's toe a soft rose, the mist's shade)
 		vec3 lift = mix(mix(lDay, mix(lGold, lMorn, morn), warm), lOver, over);
 		lift = mix(lift, lNight, night);
 		// gamma: the mids a little lower by day (calm), held at the golden hour, a little higher under an overcast
 		float gamma = mix(1.0, 1.03, over); // (look3: noon 0.98, was 0.95)
 		// (look2) moonlit nights a little more open in the mids, so the land reads under the moon
-		gamma = mix(gamma, 1.0, night * open);
+		gamma = mix(gamma, mix(1.14, 1.0, nd), night * open);
 		d = d * gain + lift * (1.0 - d);
 		d = pow(max(d, 0.0), vec3(1.0 / gamma));
 	}

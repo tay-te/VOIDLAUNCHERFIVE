@@ -234,6 +234,11 @@ vec3 welkinLightGlowLin(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunSh
 	vec3 aoBlock = mix(vec3(aoFar), aoNear * mix(vec3(1.0), aoPack, 0.5), lightAoCover);
 	float lv = rampLevel(lm.x);
 	vec3 block = torchColour(lv) * (1.35 * rampBlockLin(lm.x) * blockLightDaylight(lm.y) * pow(BLOCKLIGHT_STRENGTH, 2.2));
+#ifdef WORLD_OVERWORLD
+	// (Look D4) the night's exposure fell to 0.52 (deep blacks, the moon as the key); the lamps keep most of their pool,
+	// so they pop warm out of the darker land
+	block *= mix(1.0, 1.5, skyNightStep());
+#endif
 #if defined WORLD_NETHER
 	vec3 ambient = toLinear(vec3(0.52, 0.40, 0.34) * faceShade(n));
 	vec3 direct = vec3(0.0);

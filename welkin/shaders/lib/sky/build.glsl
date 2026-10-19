@@ -318,7 +318,7 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 	vec3 nightAmb = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
 	// (air and tone (D): the night's shade a deeper, clearer moon blue (was greyed by 0.3, which read grey-green on the
 	// grass), and a fifth less of it, so the moonlit side carries the night's form and the shade sinks blue)
-	nightAmb = mix(nightAmb, vec3(dot(nightAmb, vec3(0.2126, 0.7152, 0.0722))), 0.05) * 0.55;
+	nightAmb = mix(nightAmb, vec3(dot(nightAmb, vec3(0.2126, 0.7152, 0.0722))), 0.05) * 0.42;
 	float moonFill = 1.2 + 0.36 * clamp(s.moon, 0.0, 1.0) * m.clear;
 	vec3 nightFill = skyToLinear(nightAmb * (NIGHT_SKYLIGHT * moonFill * pow(lightScale, 0.25) * (1.0 - 0.28 * m.rainStep)))
 		* LAND_NIGHT;
@@ -331,7 +331,7 @@ SkyLand skyLand(SkyMood m, SkyInputs s, vec3 sunW, vec3 moonW) {
 	// the moon: its old display strength to linear, lifted like the night's fill
 	vec3 moonCol = mix(SKY_CLOUDED_MOONLIGHT, SKY_MOONLIGHT, smoothstep(0.3, 0.7, m.clear));
 	// (air and tone (D): 0.36, was 0.34: the moonlit side a little brighter as the night's shade deepened)
-	vec3 moonLin = skyToLinear(moonCol * 0.5) * (m.moonStrength * LAND_NIGHT) * (1.0 - s.blind);
+	vec3 moonLin = skyToLinear(moonCol * 0.6) * (m.moonStrength * LAND_NIGHT) * (1.0 - s.blind);
 	l.direct = sunAngle < 0.5 ? sunLin : moonLin; // Iris's shadowLightPosition switches at sunset
 
 	// the bright western (or eastern) sky round a low sun: its share of the fill falls on what faces it
