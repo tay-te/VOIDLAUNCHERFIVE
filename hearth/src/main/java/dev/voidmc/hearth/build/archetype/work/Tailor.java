@@ -162,6 +162,10 @@ public final class Tailor implements Archetype {
 		}
 
 		interior(d, hall, door, wells, palette);
+		// a rail round each stairwell on the floor above (the workroom's floor stood open over the stair)
+		for (int k = 0; k < wells.length; k++) {
+			dev.voidmc.hearth.build.kit.craft.Rails.well(d, hall, k, wells[k]);
+		}
 		if (!Signs.bracket(d, front, front.index(doorLeft ? door + 1 : door - 1), 3, "tailor", "Tailor")) {
 			Signs.bracket(d, front, front.index(win + winW / 2), 4, "tailor", "Tailor");
 		}
@@ -174,6 +178,8 @@ public final class Tailor implements Archetype {
 			// a flat roof is a terrace: a stair up the side, a room set back, an awning
 			hall.terrace(d.chance(0.5) ? Dirs.LEFT : Dirs.RIGHT, d.chance(0.7));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

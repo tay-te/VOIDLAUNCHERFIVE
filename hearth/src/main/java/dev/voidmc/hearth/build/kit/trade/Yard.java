@@ -193,7 +193,29 @@ public final class Yard {
 				line.add(c);
 			}
 		}
-		Garden.fence(d, line, -1, Dirs.FRONT);
+		// the yard's own trodden ground and paving count as ground for the fence (Garden's rule takes only soil, so the
+		// fence broke off wherever the yard was trodden into mud or sandstone, and on a slope the plot's edge stood open
+		// over the drop)
+		Block[] mix = trodden(d);
+		Block paving = d.mat(Role.PAVING).mainOr(Form.FULL, Blocks.COBBLESTONE);
+		List<int[]> rest = new ArrayList<>();
+		Mat fence = d.mat(Role.FENCE);
+		Mat found = d.mat(Role.FOUNDATION);
+		Habits.FenceKind kind = d.habits().yard().fence();
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int[] c : line) {
+				int g = Garden.groundAt(d, c[0], c[1]);
+				BlockState under = d.get(c[0], g - 1, c[1]);
+				boolean trod = under != null && (under.is(paving) || java.util.Arrays.stream(mix).anyMatch(under::is));
+				if (!trod || !d.isEmpty(c[0], g, c[1]) || kind == Habits.FenceKind.HEDGE || kind == Habits.FenceKind.NONE) {
+					rest.add(c);
+					continue;
+				}
+				d.set(c[0], g, c[1], kind == Habits.FenceKind.WALL ? fence.has(Form.WALL) ? fence.wall() : found.has(Form.WALL) ? found.wall() : found.full()
+					: fence.fence());
+			}
+		}
+		Garden.fence(d, rest, -1, Dirs.FRONT);
 	}
 
 	/** Whether the culture bounds its yards with walls (desert, mesa, mediterranean, moorland, maritime). */

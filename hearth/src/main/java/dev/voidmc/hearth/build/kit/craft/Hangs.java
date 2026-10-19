@@ -30,6 +30,18 @@ public final class Hangs {
 	/** The dyers' colours: woad blue, madder red, weld yellow and the undyed cloth between, the colours of a real dye works. */
 	public static final String[] DYED = {"red", "blue", "yellow", "red", "blue", "white", "yellow", "red", "blue", "brown"};
 
+	/**
+	 * One works' cloth: its two dyes of the day (two of madder, woad and weld, chosen by the seed) hung among lengths of
+	 * undyed, greyed and brown cloth, two in three pieces undyed or brown, so the rails read as cloth drying and not as a
+	 * flag of the three primaries.
+	 */
+	public static String[] dyed(Draft d) {
+		String[] dyes = {"red", "blue", "yellow"};
+		int a = (int) Math.floorMod(d.seed() ^ 0x0DD1E, 3L);
+		int b = (a + 1 + (int) Math.floorMod(d.seed() >>> 7, 2L)) % 3;
+		return new String[]{"white", dyes[a], "white", "brown", "light_gray", dyes[b], "white", "brown", dyes[a], "white", "light_gray", dyes[b]};
+	}
+
 	/** A wall banner block of a colour by name. */
 	public static Block banner(String colour) {
 		return States.block("minecraft:" + colour + "_wall_banner", Blocks.WALL_BANNER.pick(DyeColor.WHITE));
@@ -54,7 +66,8 @@ public final class Hangs {
 			};
 			return dev.voidmc.hearth.build.draft.BlockEntities.banner(java.util.List.of(new String[][]{{"curly_border", edge}}));
 		}
-		if (colours == DYED) {
+		if (colours != PAPER) {
+			// a length of cloth (the dyers' or one works' own palette): its selvedge
 			return dev.voidmc.hearth.build.draft.BlockEntities.banner(java.util.List.of(new String[][]{{"stripe_bottom", colour.equals("white") ? "light_gray" : "white"}}));
 		}
 		return null;

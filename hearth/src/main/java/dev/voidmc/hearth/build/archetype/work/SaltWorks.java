@@ -146,7 +146,8 @@ public final class SaltWorks implements Archetype {
 		int step = 3;
 		List<Salt.Pan> pans = new ArrayList<>();
 		if (pz1 - pz0 >= 3) {
-			pans = Salt.pans(d, fx0, pz0, fx1, pz1, step, lane, Works.rubble(d));
+			// long pans three across, as long as the strip allows (five back where it is deep)
+			pans = Salt.pans(d, fx0, pz0, fx1, pz1, 4, Math.min(6, Math.max(step, pz1 - pz0)), lane, Works.rubble(d));
 		}
 		int raking = 0;
 		for (Salt.Pan p : pans) {
@@ -182,6 +183,8 @@ public final class SaltWorks implements Archetype {
 		Works.lampPost(d, lane + (lane < w / 2 ? -1 : 1), 0, hz0 - 1);
 		Works.keepDoors(d);
 		pois.commit(d, INFO.jobs().toArray(JobType[]::new), new int[]{lane, 0, hz0 - 1}, new int[]{lane, 0, 1});
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, top + 2));
 	}
 }

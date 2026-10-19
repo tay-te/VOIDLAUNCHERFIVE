@@ -38,23 +38,37 @@ those whenever the build module is present.
   smoke from the crown), a second going up (billets on end round a pole, the covering half on) or the last raked open
   into a black heap; cords of billets between stakes; the burner's A-frame bark hut (a round mud hut in the thatch
   cultures), barrels of charcoal by the track. Param `clamps` (1 or 2).
-- **Brick kiln.** A vaulted brick chamber with firemouths under hoods and a banded, corbelled chimney (the bottle that
-  reads from across the valley); a pentice for the stokers, an open drying shed with hacks of green brick, a pug mill
-  with its sweep, clay heap and pallets of fired brick. Mud brick with a brick throat in the earthen cultures.
+- **Brick kiln.** Four kilns by culture (param `kiln`): the **chamber** (temperate, wisteria, maritime, bayou), a
+  vaulted brick chamber with firemouths under hoods over a stoking pit a block deep where the firers stand, and a banded,
+  corbelled chimney (the bottle that reads from across the valley), a pentice for the stokers, an open drying shed with
+  hacks of green brick; the **clamp** (north, tundra, alpine, moorland, tropical under a thatched shade), the season's
+  green brick stacked in a battered block cased in clay with its fire eyes along the foot and embers in its top, capped
+  hacks down both sides; the **beehive** (desert, mesa, Mediterranean, steppe), a dome of mud brick (brick by the sea)
+  with its firemouth over a pit, a vent at the crown, a reed shade, green brick drying in rows in the sun; the
+  **dragon** (karst), a vaulted tunnel climbing an earth bank under one long roof, a stoking hole in every step with a
+  walk climbing beside it. Every firemouth has a firer's cell before it (`Clayworks.Mouth`). Pug mill, clay heap and
+  pallets of fired brick by the gate.
 - **Glassworks.** A tall hall gable-on to the street, wide doorway; inside, the round brick furnace with glory holes on
   three sides and its flue rising through the ridge as a tall stack; the annealing oven, blowpipe racks, chests of
   glassware; in the yard racks of sheet glass, sand and cullet heaps, cordwood.
-- **Smelter.** Forest and stone cultures: a battered rubble blast furnace with quoins, a glowing tapping arch, a
-  charging gallery reached by a trestled ramp, a tall banded stack, a bellows house (water wheel where water lies behind),
+- **Smelter.** Forest and stone cultures: a battered rubble blast furnace with quoins, a glowing tapping arch with the
+  tap (a lava cauldron) in its leg on the casting floor, an open charging gallery behind its rail (no timber house round
+  the stack), a grate over the throat, reached by a trestled ramp railed on its open side, a tall banded stack, a
+  bellows house (water wheel where water lies behind),
   a casting shed with pigs cooling, ore, charcoal and slag heaps. Dry lands and tropics: clay shaft furnaces with
   goatskin bellows under a ramada or thatched shade. Params `furnace` (`tower`/`clay`), `wheel`.
-- **Salt works.** Fields of stone-kerbed pans flush with the ground, flooded, drying and crusted; white salt cones; the
+- **Salt works.** Fields of stone-kerbed pans flush with the ground, long strips three across, each in one state (flooded,
+  drying from its far end, crusted); smooth white salt cones (calcite under salt layers); the
   boiling house (a sack store in the sun cultures); a graduation tower of brushwood on its frame in the timber cultures
   where the plot is large. Param `tower`.
 - **Shipyard.** A slipway into the water behind, a hull on the stocks (keel blocks, stem toward the street, the fore part
-  planked, the after part bare frames), shores and a staging; a crane over the slip head; timber racks and a keel-timber
-  deck; the two-floor sail loft with chandlery below, sail cloth above, a hoist in its gable; steam box and pitch
-  kettle. On dry ground the ways stop at the plot's end.
+  planked, the after part bare frames), shores and a staging, the hull's gunwale railed; timber racks and a keel-timber
+  deck; steam box and pitch kettle. By culture (param `plan`): **stocks** (temperate, wisteria, bayou) with a crane over
+  the slip head and the two-floor sail loft (chandlery below, sail cloth above, a hoist in its gable, a ladder where the
+  stair will not fit); **boathouse** (north, tundra, maritime, moorland, alpine) with a long open shed down the side of
+  the slip instead of loft and crane; **beach** (Mediterranean, dry lands, steppe) with a rope walk and the pitch kettle
+  under a reed shade; **junk** (karst, tropics), a broad shallow hull with staging on both sides. On dry ground the ways
+  stop at the plot's end.
 - **Caravan yard.** A roofed gateway with a hanging sign, a walled or fenced yard; a warehouse with cart doors, barrel
   racks and a hoist; pens with troughs, hay and a lit shelter (fenced on the plot's edge too, a gate from the yard into
   each run and a gate through each divider, the shelter a block higher where the land beyond rises beside it); the

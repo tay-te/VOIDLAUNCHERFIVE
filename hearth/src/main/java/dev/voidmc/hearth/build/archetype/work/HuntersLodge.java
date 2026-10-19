@@ -22,6 +22,7 @@ import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Pentice;
 import dev.voidmc.hearth.build.kit.trade.Props;
 import dev.voidmc.hearth.build.kit.trade.Yard;
+import dev.voidmc.hearth.build.style.Form;
 import dev.voidmc.hearth.build.style.Habits;
 import dev.voidmc.hearth.build.style.Habits.RoofForm;
 import dev.voidmc.hearth.build.style.Role;
@@ -104,11 +105,12 @@ public final class HuntersLodge implements Archetype {
 		if (porch == null) {
 			Pentice.awning(d, front, r[0], r[2], Math.min(2, fz), 0, 3, false, door);
 		}
+		closeGable(d, hall);
 		trophy(d, front, door);
 		hides(d, hall, door, fz);
 
 		interior(d, hall, door, hx);
-		yard(d, hall, w, dp, side, yardLeft, fz);
+		int[] rack = yard(d, hall, w, dp, side, yardLeft, fz);
 		Yard.trodden(d, 0, 0, w - 1, fz - 1, 0);
 		if (h.snow()) {
 			Garden.snowBanks(d, r[0], r[1], r[2], r[3], 0, door);
@@ -122,8 +124,40 @@ public final class HuntersLodge implements Archetype {
 		if (logs) {
 			dev.voidmc.hearth.build.kit.refine.LogWalls.keepWays(d, r[0], r[1], r[2], r[3], Math.max(0, h.walls().plinth()));
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
+		if (rack != null) {
+			tend(d, rack[0], rack[1], rack[2] == 1, fz);
+		}
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, hall.top + 2);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	/**
+	 * The front gable closed up to the roof: boards in every cell of the triangle the roof and the porch left open (it
+	 * read as a hole in the roof with the trophies seen through it), a little window in its middle.
+	 */
+	private static void closeGable(Draft d, Hall hall) {
+		if (hall.roof == null) {
+			return;
+		}
+		int[] r = hall.rect(0);
+		int z = r[1];
+		int mid = (r[0] + r[2]) / 2;
+		Mat boards = d.mat(Role.GABLE).has(Form.FULL) ? d.mat(Role.GABLE) : d.mat(Role.WALL);
+		try (var s = d.stage(StageKind.WALLS)) {
+			for (int x = r[0]; x <= r[2]; x++) {
+				if (!hall.roof.covers(x, z)) {
+					continue;
+				}
+				int under = hall.roof.bottomY(x, z);
+				for (int y = hall.plateY() + 1; y < under; y++) {
+					if (d.isEmpty(x, y, z)) {
+						d.set(x, y, z, x == mid && y == hall.plateY() + 2 ? d.mat(Role.GLASS).pane() : boards.full());
+					}
+				}
+			}
+		}
 	}
 
 	/** Over the door: a skull mounted on the wall between two antlers of bleached wood. */
@@ -215,8 +249,9 @@ public final class HuntersLodge implements Archetype {
 	}
 
 	/** The yard: a smoking rack over a slow fire, an archery butt, a chopping block, the woodpile. */
-	private static void yard(Draft d, Hall hall, int w, int dp, int side, boolean left, int fz) {
+	private static int[] yard(Draft d, Hall hall, int w, int dp, int side, boolean left, int fz) {
 		int[] r = hall.rect(0);
+		int[] rack = null;
 		Mat post = Hall.woodFence(d);
 		Mat beam = d.mat(Role.BEAM);
 		if (side > 0) {
@@ -251,9 +286,8 @@ public final class HuntersLodge implements Archetype {
 						}
 					}
 				}
-				if (!Props.site(d, cx + (left ? 1 : -1), 0, cz + 1, left ? Dirs.LEFT : Dirs.RIGHT, JobType.HUNTER)) {
-					Props.site(d, cx - (left ? 1 : -1), 0, cz + 1, left ? Dirs.RIGHT : Dirs.LEFT, JobType.HUNTER);
-				}
+				// the hunter's place at it is chosen when the yard is railed ({@link #tend})
+				rack = new int[]{cx, cz, left ? 1 : 0};
 			}
 			// the archery butt at the back of the yard
 			int tz = dp - 1;
@@ -272,5 +306,41 @@ public final class HuntersLodge implements Archetype {
 				Garden.woodpile(d, x, 0, r[3], Dirs.FRONT, 2);
 			}
 		}
+		return rack;
+	}
+
+	/**
+	 * The hunter's place at the smoking rack (posts at (cx, cz) and (cx, cz + 2), the fire between): beside the fire on
+	 * the house side, before the rack, beside the fire on the outer side, behind it; the first one folk can walk to from
+	 * the street once the yard is railed (on a hillside the plot's edge is railed, a snow bank or the porch's corner can
+	 * shut the side yard off). Where none can be, his place is the free cell of the front yard nearest the side yard's
+	 * mouth, where he hangs the game before it goes to the rack.
+	 */
+	private static void tend(Draft d, int cx, int cz, boolean left, int fz) {
+		dev.voidmc.hearth.build.kit.light.Spaces walk = dev.voidmc.hearth.build.kit.light.Spaces.of(d, false);
+		int in = left ? 1 : -1;
+		int[][] cells = {{cx + in, cz + 1}, {cx, cz - 1}, {cx - in, cz + 1}, {cx, cz + 3}};
+		Direction[] faces = {left ? Dirs.LEFT : Dirs.RIGHT, Dirs.BACK, left ? Dirs.RIGHT : Dirs.LEFT, Dirs.FRONT};
+		for (int i = 0; i < cells.length; i++) {
+			int x = cells[i][0];
+			int z = cells[i][1];
+			if (free(d, x, z) && walk.reached(x, 0, z)) {
+				d.poi(dev.voidmc.hearth.api.PoiType.JOB_SITE, x, 0, z, faces[i], JobType.HUNTER);
+				return;
+			}
+		}
+		for (int z = fz - 1; z >= 0; z--) {
+			for (int o = 0; o < d.frontage(); o++) {
+				int x = left ? o : d.frontage() - 1 - o;
+				if (free(d, x, z) && walk.reached(x, 0, z)) {
+					d.poi(dev.voidmc.hearth.api.PoiType.JOB_SITE, x, 0, z, Dirs.BACK, JobType.HUNTER);
+					return;
+				}
+			}
+		}
+	}
+
+	private static boolean free(Draft d, int x, int z) {
+		return x >= 0 && z >= 0 && x < d.frontage() && z < d.depth() && d.isEmpty(x, 0, z) && d.isEmpty(x, 1, z);
 	}
 }

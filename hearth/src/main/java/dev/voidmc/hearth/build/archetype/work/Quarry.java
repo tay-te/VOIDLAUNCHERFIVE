@@ -34,14 +34,22 @@ import net.minecraft.world.level.block.state.properties.Half;
 /**
  * {@code hearth:work/quarry}: a stone pit at the edge of town. Its working face is cut in benches two blocks high and
  * two wide, stepping down to the floor where the quarrymen work the rock; on a hillside the benches eat back into the
- * slope and the face behind stands as a cliff of fresh stone. A ramp of steps leads down from the yard; a gantry over
- * the pit lowers a block on its chain; at the top the masons' shed holds the stonecutters, and blocks wait in stacks
- * by the spoil heaps for the carts. A fence keeps the rim.
+ * slope and the face behind stands as a cliff of fresh stone. A ramp of steps leads down from the yard; blocks wait in
+ * stacks by the spoil heaps for the carts. By culture:
+ * <ul>
+ *   <li><b>pit</b> (Bohemia, the wisteria vale, the coasts, the bayou): benches on every side, a gantry over the pit
+ *   lowering a block on its chain, the masons' open shed at the top, a fence round the rim;</li>
+ *   <li><b>crane</b> (the north, the moor, the mountains): the pit cut from one side across, its benches stepping down
+ *   toward a jib crane at its edge that lifts the blocks out;</li>
+ *   <li><b>face</b> (the dry lands, the Mediterranean, the steppe, the tropics, the karst): one long face cut back into
+ *   the rock across the back of the plot in terraces, its blocks scored out in rows on the floor, a dry-stone wall along
+ *   the rim and the masons working under a reed shade in the yard.</li>
+ * </ul>
  *
  * <p>Job sites: QUARRIER on the pit floor at the face, MASON at the stonecutters. Storage: the shed's chest and the
  * block stacks.
  *
- * <p>Params: {@code roof}, {@code variant}.
+ * <p>Params: {@code plan} ({@code pit}, {@code crane}, {@code face}; default by culture), {@code roof}, {@code variant}.
  */
 public final class Quarry implements Archetype {
 	public static final ArchetypeInfo INFO = new ArchetypeInfo(Hearth.id("work/quarry"), ArchetypeCategory.WORKPLACE,
@@ -49,6 +57,27 @@ public final class Quarry implements Archetype {
 		Set.of(ArchetypeInfo.SiteFlag.OUTSKIRTS), List.of(), 0, 1.0);
 
 	private static final int NONE = Integer.MIN_VALUE;
+
+	/** How a land works its stone. */
+	private enum Plan {
+		PIT, CRANE, FACE
+	}
+
+	private static Plan plan(Draft d) {
+		String p = d.param("plan", "");
+		if (!p.isEmpty()) {
+			try {
+				return Plan.valueOf(p.toUpperCase(java.util.Locale.ROOT));
+			} catch (IllegalArgumentException e) {
+				// by the culture below
+			}
+		}
+		return switch (dev.voidmc.hearth.build.kit.industry.Works.culture(d)) {
+			case NORTHERN, TUNDRA, ALPINE, MOORLAND -> Plan.CRANE;
+			case DESERT, MESA, MEDITERRANEAN, STEPPE, TROPICAL, KARST -> Plan.FACE;
+			default -> Hall.flatCulture(d) ? Plan.FACE : Plan.PIT;
+		};
+	}
 
 	@Override
 	public ArchetypeInfo info() {
@@ -59,6 +88,7 @@ public final class Quarry implements Archetype {
 	public void draw(Draft d) {
 		int w = d.frontage();
 		int dp = d.depth();
+		Plan plan = plan(d);
 		int gate = w / 2;
 		Yard.entrance(d);
 		int fz = 4;
@@ -78,15 +108,18 @@ public final class Quarry implements Archetype {
 		for (int x = 0; x < pw; x++) {
 			for (int z = 0; z < pd; z++) {
 				int dist = Math.min(Math.min(x, pw - 1 - x), Math.min(z, pd - 1 - z));
-				int ring = Math.min(rings - 1, dist / 2);
+				// a face plan cuts back into the rock in terraces from the front edge only, every three rows a bench down
+				// (the crane plan's pit is cut from one side across, its benches stepping down toward the crane)
+				int ring = plan == Plan.FACE ? Math.min(rings - 1, z / 3)
+					: plan == Plan.CRANE ? Math.min(rings - 1, (gate > w / 2 ? x : pw - 1 - x) / 3) : Math.min(rings - 1, dist / 2);
 				// a bench is cut only where the ground stands above it; where it falls away, the ground is left as it lies
 				int g = d.site().ground(px0 + x, pz0 + z);
 				lev[x][z] = d.site().isWater(px0 + x, pz0 + z) ? NONE : Math.min(-2 - 2 * ring, g);
 			}
 		}
 		int bottom = -2 - 2 * (rings - 1);
-		// the ramp down the middle from the yard's edge
-		int rx = gate - px0;
+		// the ramp down the middle from the yard's edge (down one side where the face is cut across the plot)
+		int rx = plan == Plan.FACE ? (gate > w / 2 ? pw - 1 : 0) : gate - px0;
 		List<int[]> ramp = new ArrayList<>();
 		for (int z = 0; z < pd; z++) {
 			int l = -(z + 1);
@@ -108,9 +141,15 @@ public final class Quarry implements Archetype {
 			}
 		}
 
-		// the gantry across the pit, lowering a block to the floor
+		// the gantry across the pit, lowering a block to the floor (a jib crane at the rim in the north; the face plan's
+		// blocks are levered out and dragged up the ramp)
 		int gz = pz0 + pd / 2;
-		if (lev[0][gz - pz0] != NONE && lev[pw - 1][gz - pz0] != NONE && rings >= 2) {
+		if (plan == Plan.CRANE) {
+			int cx = gate > w / 2 ? 1 : w - 2;
+			Lifts.crane(d, cx, fz - 1, 0, Math.min(8, d.maxHeight() - 2), Dirs.BACK, 3, rock[1].defaultBlockState());
+		} else if (plan == Plan.FACE) {
+			scored(d, lev, px0, pz0, pw, pd, rx, rock);
+		} else if (lev[0][gz - pz0] != NONE && lev[pw - 1][gz - pz0] != NONE && rings >= 2) {
 			int gy = lev[0][gz - pz0];
 			int top = Math.min(4, d.maxHeight() - 1) - gy;
 			// the chain hangs clear of the ramp
@@ -174,7 +213,15 @@ public final class Quarry implements Archetype {
 			sx1 = shedLeft ? Math.min(3, gate - 2) : w - 2;
 		}
 		Roofs.Roof roof = null;
-		if (sx1 - sx0 >= 2) {
+		int lodgeTop = 0;
+		if (plan == Plan.FACE && sx1 - sx0 >= 2) {
+			// the masons under a reed shade in the yard, the banker and the block chest beneath it
+			dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, sx0, 1, sx1, fz - 1, 0);
+			Props.station(d, Blocks.STONECUTTER, sx0 + 1, 0, fz - 2, Dirs.FRONT, JobType.MASON);
+			Props.store(d, sx1 - 1, 0, fz - 2, Dirs.FRONT, true, List.of(new Object[]{"minecraft:cobblestone", 64}, new Object[]{"minecraft:stone", 32},
+				new Object[]{"minecraft:iron_pickaxe", 2}));
+			lodgeTop = 3;
+		} else if (sx1 - sx0 >= 2) {
 			roof = Shed.open(d, sx0, 1, sx1, fz - 1, 0, 3, Hall.pick(d, RoofForm.GABLE, RoofForm.HIP, RoofForm.SHED, RoofForm.PAGODA), Direction.Axis.X, 1,
 				d.mat(Role.FOUNDATION), Dirs.BACK);
 			d.carve(sx0 + 1, 0, 2, sx1 - 1, 2, fz - 2);
@@ -199,27 +246,68 @@ public final class Quarry implements Archetype {
 			d.poi(PoiType.JOB_SITE, gate, 0, 2, Dirs.BACK, JobType.QUARRIER);
 		}
 		int hx = shedLeft ? w - 3 : 2;
-		Props.heap(d, hx - 1, 3, hx + 1, fz, 0, new Block[]{Blocks.GRAVEL, rock[2], Blocks.COBBLESTONE}, null);
-
-		// the fence round the plot, open at the gate
-		List<int[]> gaps = new ArrayList<>();
-		for (int x = gate - 1; x <= gate + 1; x++) {
-			gaps.add(new int[]{x, 0});
+		// the spoil heap stands clear of the ramp's head, so the ramp climbs out onto the yard (where it would not, there is
+		// none: moved beside the ramp it shut off the yard's corner)
+		int rampX = px0 + rx;
+		if (Math.abs(hx - rampX) >= 3) {
+			Props.heap(d, hx - 1, 3, hx + 1, fz, 0, new Block[]{Blocks.GRAVEL, rock[2], Blocks.COBBLESTONE}, null);
 		}
-		Yard.enclose(d, 0, 0, w - 1, dp - 1, gaps);
-		// a rail at the pit's edge either side of the ramp head
+
+		// the fence round the plot, open at the gate (the face plan's rim a dry-stone wall, the plot otherwise open)
+		int head = px0 + rx;
+		if (plan != Plan.FACE) {
+			List<int[]> gaps = new ArrayList<>();
+			for (int x = gate - 1; x <= gate + 1; x++) {
+				gaps.add(new int[]{x, 0});
+			}
+			Yard.enclose(d, 0, 0, w - 1, dp - 1, gaps);
+			head = gate;
+		}
+		// a rail at the pit's edge either side of the ramp head: a fence, or a dry-stone wall
 		Mat fence = Hall.woodFence(d);
+		Mat stone = d.mat(Role.FOUNDATION);
+		int reach = plan == Plan.FACE ? 1 : 0;
 		try (var s = d.stage(StageKind.EXTERIOR)) {
-			for (int x = px0; x <= px1; x++) {
-				if (Math.abs(x - gate) <= 0 || !d.isAbsent(x, 0, fz)) {
+			for (int x = px0 - reach; x <= px1 + reach; x++) {
+				if (x == head || x < 0 || x >= w || !d.isAbsent(x, 0, fz)) {
 					continue;
 				}
-				d.set(x, 0, fz, fence.fence());
+				d.set(x, 0, fz, plan == Plan.FACE ? stone.has(Form.WALL) ? stone.wall() : stone.full() : fence.fence());
 			}
 		}
-		Signs.post(d, gate + 2, 0, 0, Dirs.LEFT, 3, "quarry", "Quarry");
-		Groundwork.clear(d, 0, 0, w - 1, fz, (roof != null ? roof.ridgeY : 4) + 3);
+		// the sign's post on the gate's side away from the shed (beside the shade's corner post it shut the shed's front off)
+		if (shedLeft) {
+			Signs.post(d, gate + 2, 0, 0, Dirs.LEFT, 3, "quarry", "Quarry");
+		} else {
+			Signs.post(d, gate - 2, 0, 0, Dirs.RIGHT, 3, "quarry", "Quarry");
+		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
+		Groundwork.clear(d, 0, 0, w - 1, fz, Math.max(lodgeTop, roof != null ? roof.ridgeY : 4) + 3);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
+	}
+
+	/**
+	 * The face plan's floor: blocks scored out of the rock in rows on each terrace (a block standing proud, the next cut
+	 * half free, a gap), as the quarrymen leave them to be levered up; never on the ramp or the cells beside it.
+	 */
+	private static void scored(Draft d, int[][] lev, int px0, int pz0, int pw, int pd, int rx, Block[] rock) {
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int z = 1; z < pd - 1; z += 3) {
+				for (int x = 1; x < pw - 1; x++) {
+					int l = lev[x][z];
+					if (l == NONE || Math.abs(x - rx) <= 1 || x % 3 == 0) {
+						continue;
+					}
+					int wx = px0 + x;
+					int wz = pz0 + z;
+					if (!d.isEmpty(wx, l, wz) || !d.isEmpty(wx, l + 1, wz)) {
+						continue;
+					}
+					d.set(wx, l, wz, x % 3 == 1 ? rock[0].defaultBlockState() : rock[2].defaultBlockState());
+				}
+			}
+		}
 	}
 
 	/** The rock the face is cut in: the culture's footing stone, or stone where its footings are timber. */

@@ -13,6 +13,8 @@ import dev.voidmc.hearth.build.draft.Draft;
 import dev.voidmc.hearth.build.draft.Mat;
 import dev.voidmc.hearth.build.kit.Furniture;
 import dev.voidmc.hearth.build.kit.Roofs;
+import dev.voidmc.hearth.build.kit.craft.Craft;
+import dev.voidmc.hearth.build.kit.industry.Works;
 import dev.voidmc.hearth.build.kit.trade.Hall;
 import dev.voidmc.hearth.build.kit.trade.Lifts;
 import dev.voidmc.hearth.build.kit.trade.Props;
@@ -29,10 +31,12 @@ import java.util.Set;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.properties.SlabType;
 
 /**
- * {@code hearth:work/masonry}: the stone yard. A long banker shed along the back, its back and ends of dressed stone,
- * its front open on posts, the masons' stonecutters in a row beneath it; before it a paved yard of work in hand —
+ * {@code hearth:work/masonry}: the stone yard. A long banker shed along the back, its back and ends of dressed stone
+ * with lights in them, its front open on posts, the masons' stonecutters in a row beneath it (where the sun is strong, a
+ * walled stone court with the bankers under a reed shade instead); before it a paved yard of work in hand —
  * ashlar stacked on pallets, a column being carved from its base to its capital, a gantry swinging a block on its
  * chain, a heap of spalls — all inside a low dry-stone wall with the gate to the street and the sign on its post.
  *
@@ -68,26 +72,54 @@ public final class Masonry implements Archetype {
 		Mat ashlar = d.mat(Role.WALL_ACCENT).has(Form.FULL) ? d.mat(Role.WALL_ACCENT) : stone;
 		Groundwork.footings(d, 0, sz0, w - 1, sz1, -1);
 		Yard.pave(d, 1, sz0 + 1, w - 2, sz1 - 1, 0);
-		Roofs.Roof roof = Shed.open(d, 0, sz0, w - 1, sz1, 0, 4, form == RoofForm.FLAT ? RoofForm.SHED : form, Direction.Axis.X, 1, stone,
-			Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
-		d.carve(1, 0, sz0 + 1, w - 2, 3, sz1 - 1);
-		d.body(0, sz0, w - 1, sz1);
-		d.eave(4);
+		// where the sun is strong the bankers work under a reed shade inside a walled stone court (the south, the dry
+		// lands, the tropics, the karst); elsewhere in the banker shed
+		boolean court = Craft.southern(d) || Works.culture(d) == dev.voidmc.hearth.api.Culture.TROPICAL
+			|| Works.culture(d) == dev.voidmc.hearth.api.Culture.KARST;
+		Roofs.Roof roof = null;
+		if (court) {
+			try (var s = d.stage(StageKind.WALLS)) {
+				for (int[] c : Draft.ring(0, sz0, w - 1, sz1)) {
+					if (c[1] == sz0) {
+						continue;
+					}
+					for (int y = 0; y <= 1; y++) {
+						d.set(c[0], y, c[1], stone.full());
+					}
+					d.set(c[0], 2, c[1], stone.has(Form.SLAB) ? stone.slab(SlabType.BOTTOM) : stone.full());
+				}
+			}
+			// the shade's front posts in the court's open front, so none stands where a mason works at his bench
+			dev.voidmc.hearth.build.kit.homestead.Adobe.ramada(d, 1, sz0, w - 2, sz1 - 1, 0);
+		} else {
+			roof = Shed.open(d, 0, sz0, w - 1, sz1, 0, 4, form == RoofForm.FLAT ? RoofForm.SHED : form, Direction.Axis.X, 1, stone,
+				Dirs.BACK, Dirs.LEFT, Dirs.RIGHT);
+			d.carve(1, 0, sz0 + 1, w - 2, 3, sz1 - 1);
+			// lights in the back and the ends, so the bankers work in daylight (a blind stone box from three sides before)
+			Shed.windows(d, 0, sz0, w - 1, sz1, 0, Dirs.BACK, 3);
+			Shed.windows(d, 0, sz0, w - 1, sz1, 0, Dirs.LEFT, 2);
+			Shed.windows(d, 0, sz0, w - 1, sz1, 0, Dirs.RIGHT, 2);
+			d.body(0, sz0, w - 1, sz1);
+			d.eave(4);
+		}
 		// under it: stonecutters along the back wall, a chest, a rack of chisels
 		int cutters = 0;
 		boolean chest = false;
-		for (int x = 1; x <= w - 2; x++) {
+		// (in the court the shade's back posts stand in the row's end cells)
+		int xa = court ? 2 : 1;
+		int xb = court ? w - 3 : w - 2;
+		for (int x = xa; x <= xb; x++) {
 			int z = sz1 - 1;
-			if (x == w / 2 - 1 && !chest || !chest && x == w - 2) {
+			if (x == w / 2 - 1 && !chest || !chest && x == xb) {
 				Props.store(d, x, 0, z, Dirs.FRONT, true, List.of(new Object[]{"minecraft:stone_bricks", 48}, new Object[]{"minecraft:chiseled_stone_bricks", 8},
 					new Object[]{"minecraft:smooth_stone", 32}, new Object[]{"minecraft:iron_pickaxe", 1}));
 				Props.toolRack(d, x, 2, z, Dirs.FRONT, List.of(new Object[]{"minecraft:iron_pickaxe", 1, 0}, new Object[]{"minecraft:brush", 1, 1},
 					new Object[]{"minecraft:iron_shovel", 1, 2}));
 				chest = true;
-			} else if ((x - 1) % 2 == 0 && cutters < 4) {
+			} else if ((x - xa) % 2 == 0 && cutters < 4) {
 				Props.station(d, Blocks.STONECUTTER, x, 0, z, Dirs.FRONT, JobType.MASON);
 				cutters++;
-			} else if (d.isEmpty(x, 0, z) && x + 1 != w / 2 - 1 && x + 1 <= w - 3) {
+			} else if (d.isEmpty(x, 0, z) && x + 1 != w / 2 - 1 && x + 1 <= xb - 1) {
 				Props.stonePallet(d, x, 0, z, ashlar, d.mat(Role.FLOOR));
 				x++;
 			}
@@ -107,6 +139,8 @@ public final class Masonry implements Archetype {
 		gaps.add(new int[]{gate - 1, 0});
 		wall(d, w, sz0, gaps);
 		Signs.post(d, gate + 1, 0, 0, Dirs.LEFT, 3, "masonry", "Mason");
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, (roof != null ? roof.ridgeY : 6) + 3);
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}

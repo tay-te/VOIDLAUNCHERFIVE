@@ -16,6 +16,7 @@ import dev.voidmc.hearth.build.kit.Rooms;
 import dev.voidmc.hearth.build.kit.Side;
 import dev.voidmc.hearth.build.kit.craft.Craft;
 import dev.voidmc.hearth.build.kit.craft.Hangs;
+import dev.voidmc.hearth.build.kit.craft.Hatch;
 import dev.voidmc.hearth.build.kit.craft.Lofts;
 import dev.voidmc.hearth.build.kit.craft.Relief;
 import dev.voidmc.hearth.build.kit.craft.Vats;
@@ -106,7 +107,7 @@ public final class DyeWorks implements Archetype {
 		}
 		// the loft: open to the yard between its posts and hung with cloth; a gallery of cloth on the street gable
 		if (loft) {
-			Lofts.gallery(d, hall.body, 1, toYard, 3, Hangs.DYED);
+			Lofts.gallery(d, hall.body, 1, toYard, 3, Hangs.dyed(d));
 		}
 		Craft.roof(d, hall, form, Direction.Axis.Z, 1, null);
 		if (flat) {
@@ -120,6 +121,10 @@ public final class DyeWorks implements Archetype {
 		}
 
 		dyeHouse(d, hall, door, flight, toYard, yardWall, bayC, bayW);
+		// no flight fits: a ladder up through a hatch to the drying loft
+		if (loft && flight == null) {
+			Hatch.ladder(d, hall, 1, null, outer, Dirs.BACK, Dirs.FRONT);
+		}
 		if (loft) {
 			loftFloor(d, hall, flight, toYard);
 		}
@@ -135,6 +140,8 @@ public final class DyeWorks implements Archetype {
 		if (!Signs.bracket(d, front, si, 3, "dye_works", "Dyer")) {
 			Signs.bracket(d, front, front.index(door + (houseLeft ? -1 : 1)), 3, "dye_works", "Dyer");
 		}
+		// a rail wherever the levelled yard ends over a drop
+		dev.voidmc.hearth.build.kit.craft.Rails.yard(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.max(hall.top, 8) + 2);
 	}
 
@@ -167,7 +174,7 @@ public final class DyeWorks implements Archetype {
 			int hx = c[0] + Dirs.dx(s.out());
 			int hz = c[1] + Dirs.dz(s.out());
 			if (hz >= -1 && d.allowed(hx, y, hz) && (hz >= 0 || y - 1 >= 3)) {
-				Hangs.hang(d, hx, y, hz, s.out(), Hangs.DYED);
+				Hangs.hang(d, hx, y, hz, s.out(), Hangs.dyed(d));
 			}
 		}
 	}
@@ -270,7 +277,7 @@ public final class DyeWorks implements Archetype {
 		int rx = (in[0] + in[2]) / 2 + (toYard == Dirs.RIGHT ? -1 : 1);
 		if (in[3] - in[1] >= 3 && rx > in[0] && rx < in[2]) {
 			// the rail runs the loft's length, its ends let into the gables
-			Hangs.rail(d, rx, top, in[1], Dirs.BACK, in[3] - in[1] + 1, Hangs.DYED, true, true);
+			Hangs.rail(d, rx, top, in[1], Dirs.BACK, in[3] - in[1] + 1, Hangs.dyed(d), true, true);
 		}
 		for (int[] c : flight == null ? List.<int[]>of() : up.along(Dirs.FRONT)) {
 			int fz = c[1] + 1;
@@ -426,9 +433,9 @@ public final class DyeWorks implements Archetype {
 	 */
 	private static void tenter(Draft d, int x0, int z0, Direction run, int length, int height) {
 		int top = Math.max(4, height);
-		Hangs.frame(d, x0, 0, z0, run, length, top, Hangs.DYED, true);
+		Hangs.frame(d, x0, 0, z0, run, length, top, Hangs.dyed(d), true);
 		if (top >= 6 && length >= 3) {
-			Hangs.rail(d, x0 + Dirs.dx(run), 3, z0 + Dirs.dz(run), run, length - 2, Hangs.DYED, false, true);
+			Hangs.rail(d, x0 + Dirs.dx(run), 3, z0 + Dirs.dz(run), run, length - 2, Hangs.dyed(d), true, true);
 		}
 	}
 
@@ -460,7 +467,7 @@ public final class DyeWorks implements Archetype {
 		int z0 = r[1] + 2;
 		int z1 = r[3] - 2;
 		if (z1 - z0 >= 2) {
-			Hangs.frame(d, x, y, z0, Dirs.BACK, z1 - z0 + 1, 2, Hangs.DYED, false);
+			Hangs.frame(d, x, y, z0, Dirs.BACK, z1 - z0 + 1, 2, Hangs.dyed(d), false);
 		}
 	}
 }
