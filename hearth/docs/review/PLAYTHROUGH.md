@@ -78,3 +78,15 @@ where they differ.
   the house has `BED` points (`SocialDialogue.collect`). The last run predates the tour's matching change, which skips
   bedless taverns instead of failing on them.
 - Targeted tests `dev.voidmc.hearth.social.*` and `dev.voidmc.hearth.standing.*` pass.
+
+## Life fixes (branch hearth-fix-life, 2026-10-19): steps 1, 5 and 6
+
+Three tours were run on this branch (raw output of the last: `results.md` and JPEGs in
+`C:/Users/bitto/AppData/Local/Temp/claude/C--Users-bitto-VOID/564c6839-160a-4660-85ef-00c49dcb634f/scratchpad/life/play/`).
+Last run: 1 PASS, 2 PASS, 3 FAIL (tills, not this branch), 4 PASS, 5 PASS, 6 FAIL (inn beds only), 7 PASS, 8 PASS.
+
+| Step | Result | What changed |
+|---|---|---|
+| 1 Arrive | PASS | Cause found in the save: the town's bounds run 120 blocks out along a road to a bridge at -2340, and the nearest house is at -2459, beyond the 96-block spawn radius, so nobody's routine put them within reach. Embodiment itself (budget, ordering) was prompt. Now a town with a player near always has its 6 nearest residents (within twice the radius) about: 5–6 folk out at the bridge after 5 s (0 before). The tour then walks on to the first houses: 14–16 folk, 5–6 walking, 3 at work. |
+| 5 Crime | PASS | Guards now keep overlapping watches (night 17:30–07:00, day 06:35–18:00, lunch in two sittings), so some are always on duty. A filed crime calls `law/folk/GuardDispatch`. It sends the nearest awake guard on duty within 64 blocks. Failing that, it makes one on duty appear about 22 blocks off, in the open and out of the player's sight. A guard sent comes without needing to see the player, and moves closer, out of sight, when stuck for 6 s. If nobody can come in 45 s, the bounty is posted and the player told. Last run: a guard was sent 1 s after the report and confronted the player 2 s later (it was 35 s, or never). In run 1 of this branch, a guard made to appear stood 75 s with no path to the player. That led to the open-air spawn and close-in. |
+| 6 Night | FAIL (inn beds) | Right-clicking a sleeper now gets a mumble in chat ("Hnn? ...go 'way...") and an overlay hint "X is asleep. Sneak and use to wake them". Sneak-waking gets a grumpy greeting. Schedules were checked for every trade, age, trait and culture: only the night watch, night jailers and a lazy entertainer sleep between 09:00 and 19:00. Innkeepers "not embodied" when called came from the per-town cap of 48 nearest, which folded a called-over folk straight back. Folk made to appear on purpose are now kept 90 s, and both innkeepers opened a conversation. Renting a bed still fails: every bed is taken (failure 1 above). |
