@@ -677,7 +677,7 @@ vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) 
 #elif CLOUD_DEBUG == 3
 	return vec3(wcLightPath(b, e.sun, e) / 64.0);
 #endif
-	return mix(c, wcFogTarget(rd, e), airLin(wcFog(h)));
+	return mix(c, wcFogTarget(rd, e), airCoverA(wcFog(h), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET));
 }
 
 // ------------------------------------------------------------------------------------------- the far band
@@ -788,7 +788,7 @@ vec3 welkinCloudShade(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle, 
 #elif CLOUD_DEBUG == 3
 	return vec3(wcLightPath(b, e.sun, e) / 64.0);
 #endif
-	return mix(c, wcFogTarget(rd, e), airLin(wcFog(h)));
+	return mix(c, wcFogTarget(rd, e), airCoverA(wcFog(h), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET));
 }
 
 // The band's colour for deck k met at tMid, `share` of it cloud, over the sky's horizon colour.
@@ -796,7 +796,7 @@ vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
 	CloudHit f = wcBandHit(rd, tMid, e);
 	float y = e.camY + rd.y * tMid;
 	vec3 hor = sceneFromAuthored(wcHorizon(rd, e));
-	vec3 cloud = mix(welkinCloudFace(f, rd, y, 0.5, e), wcFogTarget(rd, e), airLin(wcFog(f)));
+	vec3 cloud = mix(welkinCloudFace(f, rd, y, 0.5, e), wcFogTarget(rd, e), airCoverA(wcFog(f), AIR_CLOUDFOG_DENS, AIR_CLOUDFOG_ONSET));
 	return mix(hor, cloud, share);
 }
 

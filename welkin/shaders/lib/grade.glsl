@@ -126,7 +126,9 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		float base = mix(0.80, 0.90, warm);         // midday muted (look3: 0.80, look2's 0.68 read grey and dead), golden hours richer
 		base = mix(base, 0.74, over);                 // overcast and rain greyer
 		base = mix(base, 0.70, night * open);         // moonlight is nearly colourless
-		float s = mix(base, 1.04, keepWarm);
+		// (D1) the warm-led colours keep more than the rest, but by day only a little: a golden hour's whole land is warm-lit
+		// (red sand, straw, brick), and wholly kept it read a saturated orange; fire and lamps at night keep all of theirs
+		float s = mix(base, mix(mix(0.92, 0.94, warm), 1.04, night), keepWarm);
 		// (look3) the open sky's blue keeps more by day: a soft hazy blue, not a leaden grey
 		float blueK = clamp((L.b - max(L.r, L.g)) / max(L.b, 1e-4) * 3.0, 0.0, 1.0) * day * (1.0 - over);
 		s = mix(s, max(s, 0.90), blueK);
@@ -145,7 +147,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		float wLo = 1.0 - smoothstep(0.06, 0.42, yd);
 		// the highlights: a neutral warmth by day, gold through the golden hours (rose-gold in the morning)
 		vec3 hiDay = vec3(1.05, 1.0, 0.92); // (look3: a warmer sunlit side, was 1.035 1.0 0.94)
-		vec3 hiGold = mix(vec3(1.10, 0.99, 0.80), vec3(1.07, 0.98, 0.88), morn); // (look2: richer gold)
+		vec3 hiGold = mix(vec3(1.09, 0.99, 0.82), vec3(1.08, 0.965, 0.90), morn); // (look2: richer gold; D1: the morning a pink-gold)
 		vec3 hiOver = vec3(1.0, 1.0, 0.99);
 		vec3 hiNight = vec3(0.96, 0.99, 1.04);
 		vec3 hi = mix(mix(hiDay, hiGold, warm), hiOver, over * 0.7);

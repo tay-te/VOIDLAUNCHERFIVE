@@ -43,7 +43,7 @@ float wfFarRainAt(vec2 q, CloudEnv e) {
 }
 
 vec3 wfOver(vec3 base, WfLayer layer) {
-	return mix(base, layer.color, airLin(layer.alpha)); // (HDR stage B: scene light)
+	return mix(base, layer.color, airCoverA(layer.alpha, AIR_FAR_DENS, AIR_FAR_ONSET)); // (HDR stage B: scene light)
 }
 
 #if WF_DEBUG != 0

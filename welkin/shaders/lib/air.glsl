@@ -22,6 +22,11 @@
 #include "/lib/sky/table.glsl"
 #include "/lib/hdr.glsl"
 
+// (Look D1) the aerial perspective's and the forward scatter's density and onset in linear light (lib/hdr.glsl airCover)
+#define AIR_LIN_DENS 1.0
+#define AIR_LIN_MIE_DENS 1.0
+#define AIR_LIN_ONSET 0.3
+
 // One Henyey-Greenstein lobe of asymmetry g at mu = cos(angle to the sun), 1 at mu = 1.
 float airHg(float mu, float g) {
 	float a = 1.0 + g * g;
@@ -56,9 +61,9 @@ vec3 airMie(vec3 air, vec3 dir, vec3 sunW, int kind) {
 // over the near and middle land (the clear near air); the droplets that scatter the low sun forward fill the air from
 // a hundred blocks or so out, so the middle land toward the sun takes the warm light over about a kilometre.
 vec3 airPerspective(vec3 c, vec3 air, vec3 mie, float dist, vec3 dir, vec3 sunW) {
-	c += mie * airLin(1.0 - exp(-max(dist - 96.0, 0.0) / 1400.0)); // (HDR stage B: scene light)
+	c += mie * airCover(max(dist - 96.0, 0.0) / 1400.0, AIR_LIN_MIE_DENS, AIR_LIN_ONSET); // (Look D1: optical depth)
 #if AERIAL_PERSPECTIVE > 0
-	float w = float(AERIAL_PERSPECTIVE) * 0.01 * airLin(1.0 - exp(-max(dist - 120.0, 0.0) / 1800.0));
+	float w = float(AERIAL_PERSPECTIVE) * 0.01 * airCover(max(dist - 120.0, 0.0) / 1800.0, AIR_LIN_DENS, AIR_LIN_ONSET);
 	w *= 1.0 - 0.6 * skyNightStep();
 	if (w <= 0.0) {
 		return c;

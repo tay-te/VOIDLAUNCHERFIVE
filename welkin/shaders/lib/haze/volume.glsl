@@ -55,6 +55,9 @@
 #define HV_NEAR_CLEAR 72.0
 // the most the volumetric haze covers (the land always reads through)
 #define HV_MAX_OPACITY 0.70
+// (Look D1) the volume's density and onset in linear light (lib/hdr.glsl airCover)
+#define HV_LIN_DENS 0.8
+#define HV_LIN_ONSET 0.35
 // the near steps' spacing: t grows as this power of the step (1 even)
 #define HV_NEAR_POW 1.6
 
@@ -276,15 +279,15 @@ vec3 hvColour(vec3 air, float fsun, float mu, SkyLum f) {
 	vec3 A = max(air, 0.0);
 	float y = skyLumLuma(A);
 	// in shadow: the sky's light only, cooler and dimmer
-	vec3 shade = A * vec3(0.80, 0.90, 1.06) * 0.50;
+	vec3 shade = A * vec3(0.82, 0.90, 1.04) * 0.42; // (Look D1: 0.42, was 0.50: the shaded air over the land a soft blue-grey, not milk)
 	// (review round 2) from mid-afternoon into the golden hours the air warms sooner and more (a warm cream at 16:30
 	// to 17:00, rose-peach on a clear morning), and its shaded part keeps a little of that warmth instead of a cool grey
 	float warmK = smoothstep(0.0, 0.6, f.warm) * f.up;
-	shade = mix(shade, A * vec3(0.96, 0.90, 0.92) * 0.52, 0.5 * warmK);
+	shade = mix(shade, A * vec3(0.96, 0.90, 0.92) * 0.46, 0.5 * warmK);
 	// in the sun: brighter, and in the sun's own light: the sunlit share of the in-scatter takes the sun's hue (amber
 	// through the golden hours, plain at noon), most toward the sun (the forward scatter), less side-on
 	float fwd = (0.30 + 0.70 * f.low) * (0.55 * skyLumHg(mu, 0.80) + 0.45 * skyLumHg(mu, 0.40)) * f.up;
-	vec3 lit = A * (1.12 + 0.55 * fwd);
+	vec3 lit = A * (0.90 + 0.75 * fwd); // (Look D1: the sunlit air at the air's own level side-on, glowing toward the sun; was 1.12 + 0.55)
 	float sunShare = clamp((0.42 + 0.45 * fwd) * warmK, 0.0, 0.85);
 	lit = mix(lit, f.gold * skyLumLuma(lit), sunShare);
 	vec3 L = mix(shade, lit, fsun);
@@ -298,12 +301,13 @@ vec3 hvColour(vec3 air, float fsun, float mu, SkyLum f) {
 vec3 hvComposite(vec3 color, vec3 raw, HzState st, vec3 dir, vec3 sunW, vec3 air, bool sky, float mist, SkyLum f) {
 #ifdef HAZE_VOLUME
 	float dens = hvDensityMul(st, mist, sunW);
-	float a = (1.0 - exp(-HV_SIGMA * dens * raw.b)) * (sky ? 0.16 : 1.0);
+	// (Look D1) its optical depth laid on in linear light (lib/hdr.glsl airCover)
+	float a = airCover(HV_SIGMA * dens * raw.b, HV_LIN_DENS, HV_LIN_ONSET) * (sky ? 0.16 : 1.0);
 	if (a <= 0.0) {
 		return color;
 	}
 	float fsun = clamp(raw.g / max(raw.b, 1e-4), 0.0, 1.0);
-	return mix(color, hvColour(air, fsun, dot(dir, sunW), f), airLin(min(a, HV_MAX_OPACITY))); // (scene light)
+	return mix(color, hvColour(air, fsun, dot(dir, sunW), f), min(a, HV_MAX_OPACITY)); // (scene light)
 #else
 	return color;
 #endif

@@ -482,7 +482,7 @@ vec3 valleyMistWith(ivec2 p, vec2 uv, vec3 scene, MistTiles t, MistPoint a) {
 		}
 	}
 #endif
-	return mix(scene, sceneFromAuthored(mc), airLin(MIST_OPACITY * mix(0.5, 1.0, day) * cover)); // (HDR stage B: scene light)
+	return mix(scene, sceneFromAuthored(mc), airCoverA(MIST_OPACITY * mix(0.5, 1.0, day) * cover, AIR_MIST_DENS, AIR_MIST_ONSET)); // (HDR stage B: scene light)
 }
 
 // DEBUG_VIEW 7: the near tiles projected onto the land. Red: mist potential; green: the pool weight the mist uses

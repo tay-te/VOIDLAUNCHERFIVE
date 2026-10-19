@@ -51,13 +51,13 @@ uniform float sunAngle;
 
 // ---- the exposure curve (a multiplier on scene light; 1 shows the land as the light model was tuned)
 // by day (the land's light model was tuned at exposure 1: the reference)
-#define HDR_EXPOSURE_DAY 1.0
+#define HDR_EXPOSURE_DAY 0.84
 // through the golden hours (the sky table's golden hour, 0..1)
 #define HDR_EXPOSURE_GOLDEN 1.0
 // at night (the moonlit land's lift lives in the light model, LAND_NIGHT; this is on top)
 #define HDR_EXPOSURE_NIGHT 1.0
 // under a full overcast or in rain
-#define HDR_EXPOSURE_OVERCAST 1.0
+#define HDR_EXPOSURE_OVERCAST 0.9
 // the Nether and the End
 #define HDR_EXPOSURE_OTHER 1.0
 
@@ -204,14 +204,41 @@ vec3 sceneFromAuthored(vec3 display) {
 	return hdrCurveInv(toLinear(d));
 }
 
-// The air's opacities (the haze, the far air, the mists, the haze volume, the far fade of the clouds) were tuned as mixes
-// in display values, where a mix lays far less light over the dark land than the same mix in linear light. Laid on in
-// scene light (colour * T + in-scatter) they take this power of their old opacity: thin air thinner, dense air as it
-// was. A tuning knob for stage D, which re-tunes the densities themselves.
-#define HDR_AIR_ALPHA_POW 1.7
-float airLin(float a) {
-	return pow(clamp(a, 0.0, 1.0), HDR_AIR_ALPHA_POW);
+// ---- (Look D1) the air in linear light: optical depth, not a mix
+// Laid on in scene light (colour * T + in-scatter), a layer's cover is 1 - exp(-tau) of its optical depth. Each layer
+// keeps its own density (`dens`, against what it was tuned to as a display-value mix) and its own onset: the first
+// `onset` of optical depth counts by tau / (tau + onset), so the thin near air stays clear (the near land keeps its
+// darks, no milk) while the far air takes its whole depth (each ridge a step paler than the one in front). This
+// replaces stage B's stopgap, a power 1.7 of the old opacity over every layer alike.
+float airTau(float a) {
+	return -log(max(1.0 - clamp(a, 0.0, 1.0), 1e-5));
 }
+
+float airCover(float tau, float dens, float onset) {
+	float t = max(tau * dens, 0.0);
+	return 1.0 - exp(-t * t / (t + onset));
+}
+
+// the same for an opacity worked out as 1 - exp(-tau) (or near enough)
+float airCoverA(float a, float dens, float onset) {
+	return airCover(airTau(a), dens, onset);
+}
+
+// the layers' density and onset (the country haze; the far air of far weather; the valley mist; the morning mist; the
+// clouds' far fog; the day's blue-grey body). The haze volume's and the aerial perspective's live with them
+// (lib/haze/volume.glsl HV_LIN_*, lib/air.glsl AIR_LIN_*).
+#define AIR_HAZE_DENS 1.0
+#define AIR_HAZE_ONSET 0.3
+#define AIR_FAR_DENS 1.0
+#define AIR_FAR_ONSET 0.3
+#define AIR_MIST_DENS 1.0
+#define AIR_MIST_ONSET 0.25
+#define AIR_DAWN_DENS 0.9
+#define AIR_DAWN_ONSET 0.3
+#define AIR_CLOUDFOG_DENS 1.0
+#define AIR_CLOUDFOG_ONSET 0.3
+#define AIR_BODY_DENS 1.0
+#define AIR_BODY_ONSET 0.3
 
 // ---- the output transform's first two steps (final): scene light to linear display
 vec3 hdrOutput(vec3 scene, float exposure) {

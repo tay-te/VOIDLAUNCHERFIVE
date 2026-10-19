@@ -336,11 +336,11 @@ WelkinHaze welkinHaze(HzState s, vec3 rel, vec3 n, bool isSky, float split, vec3
 }
 
 vec3 welkinHazeBack(vec3 c, WelkinHaze h) {
-    return mix(c, h.back.rgb, airLin(h.back.a)); // (HDR stage B: scene light)
+    return mix(c, h.back.rgb, airCoverA(h.back.a, AIR_HAZE_DENS, AIR_HAZE_ONSET)); // (HDR stage B: scene light)
 }
 
 vec3 welkinHazeFront(vec3 c, WelkinHaze h) {
-    return mix(c, h.front.rgb, airLin(h.front.a));
+    return mix(c, h.front.rgb, airCoverA(h.front.a, AIR_HAZE_DENS, AIR_HAZE_ONSET));
 }
 
 // Without M1's mist (or before it lands): the whole haze at once.

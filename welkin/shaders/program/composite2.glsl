@@ -467,7 +467,7 @@ void main() {
 #ifdef HV_READ
 				fsunM = clamp(hvRaw.g / max(hvRaw.b, 1e-4), 0.0, 1.0);
 #endif
-				color.rgb = mix(color.rgb, dawnMistColour(airPlain, normalize(eyePos), sunW, fsunM, lum), airLin(cover));
+				color.rgb = mix(color.rgb, dawnMistColour(airPlain, normalize(eyePos), sunW, fsunM, lum), airCoverA(cover, AIR_DAWN_DENS, AIR_DAWN_ONSET));
 #ifdef DM_DEBUG
 				color.rgb = vec3(cover, dawnAmt, fract(ground / 16.0));
 #endif
@@ -512,7 +512,7 @@ void main() {
 			float aY = dot(h.air, vec3(0.2126, 0.7152, 0.0722));
 			// (a soft warm grey: the air's own light, most of its colour out, a breath of warmth)
 			vec3 veil = mix(vec3(aY), h.air, 0.35) * vec3(1.03, 1.0, 0.95) * 0.80;
-			color.rgb = mix(color.rgb, veil, airLin(wN));
+			color.rgb = mix(color.rgb, veil, airCoverA(wN, AIR_BODY_DENS, AIR_BODY_ONSET));
 		}
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 		welkinHazeDebug(st, h, eyePos, s.sky, color.rgb);
