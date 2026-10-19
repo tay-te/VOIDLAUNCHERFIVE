@@ -1719,30 +1719,81 @@ magenta: the luminance, blue: under 0.02). Both keep the whole frame running (DE
   its old rows keep their 0..1 values, the land's light rows (x 12..14 of row 5) and the irradiance as before, so the
   land's fill, bounce and direct light are unchanged.
 
-### The bridge (stage B deletes every use: `grep -rn hdrBridge`)
-Helpers in `lib/hdr.glsl`: `hdrBridgeToDisplay` (scene -> the old display value: exposure and curve),
-`hdrBridgeToScene` (display -> scene: a channel past 0.88 rolled toward 0.96, then the inverse, clamped at HDR_T_MAX),
-`hdrBridgeBack(dOut, dIn, sceneIn[, keep])` (an untouched pixel keeps its scene light exactly; a touched one comes back
-through the inverse, and the light past what a display value holds, the sun's disc, passes in the pass's transmittance
-`keep`), `hdrBridgeLight` (light an old pass adds; unused now). Uses:
-- `program/parts/clouds.glsl` (composite): in at the read, back with the cells' and bands' transmittance;
-- `program/parts/far_weather.glsl` (composite1): in and back;
-- `program/composite2.glsl`: in and back (the haze's alphas, eased over the disc; a large change loses the HDR share);
-  `lib/ws/ssr.glsl` reads its reflections through hdrBridgeToDisplay (3 reads);
-- `program/composite3.glsl`: the bloom's source read in display values;
-- `program/final.glsl`: the beams (screened) and the bloom (`bloomApply`) laid on in display values and back;
-- `program/deferred.glsl`: the wet ground (`welkinWetLight`, where wet) and the far fade's horizon (haze off only);
-- the water: `program/parts/ws_gbuffers_water.glsl` (water and glass), `program/parts/ws_dh_water.glsl`: their
-  premultiplied display colour into scene light; they light through the display wrappers `welkinLightGlow`,
-  `welkinLightFull`, `welkinLightCore`, `welkinLightEx`, `welkinLight` (`lib/light.glsl`, also used by
-  `lib/ws/water.glsl`, `lib/watersurf.glsl`); colortex3 stays RGBA8 display;
-- `program/gbuffers_skybasic.glsl` (Nether/End sky and vanilla's sky stages), `gbuffers_skytextured.glsl`,
-  `gbuffers_clouds.glsl` (vanilla clouds with CLOUDS off), `gbuffers_common.glsl`'s unused G_WATERFLAG path.
-Still in display values behind the bridge, for stage B: `skyLuminous` (display, with skyLumCap and the golden
-headroom, for the haze's air and the clouds), `skyDomeOnly`, `skyHorizonFor`, the old dome rows 0..12.
+### The bridge (stage A; deleted in stage B)
+Stage A ran the passes not yet in linear light through `hdrBridgeToDisplay` / `hdrBridgeToScene` / `hdrBridgeBack`.
+Stage B migrated every one of them; `grep -rn hdrBridge` returns nothing.
 
-### Known in stage A
+### Known in stage A (as it stood then)
 - The low sun's side of the sky reads lighter and a little pinker than the baseline (the golden headroom is gone
   from the dome, and the bridged haze and cloud bands round the sun sit near white): the disc glows above it, but
   with less margin than it will have once the air is linear.
 - The underground's glowing pools (amber) bloom wider than before.
+
+## The HDR foundation, stage B: the air (2026-10-19, branch `welkin-hdr`)
+
+### The optics
+Every pass after the light pass works in scene light; nothing converts the frame to display values before `final`.
+- **Authored colours at their source.** The modules that still author colours in display values (the clouds' light,
+  the haze's and mists' colours, the rain curtains, the cave air, the sky table's palette, vanilla's sky stages and
+  textures, the far fade's horizon) convert them once, where they are made, with `sceneFromAuthored` (`lib/hdr.glsl`:
+  the old final shoulder, then the curve's inverse at exposure 1). Stage D re-authors them in linear light.
+- **Compositing is `colour * T + in-scatter` in scene light:** clouds over the scene by their cover (cells, bands, fog
+  banks, the veil inside a deck); far weather (far air, far valley mist, curtains, water fog); composite2's haze (back
+  and front), haze volume, valley and dawn mist, aerial perspective and the air's body. The cave air
+  (`ugComposite`) is read off as a transmittance and its own light (evaluated over black and white) and laid on in
+  scene light.
+- **The air's opacities** were tuned as display-value mixes; laid on in linear light they take `airLin(a) = a^1.7`
+  (`HDR_AIR_ALPHA_POW`), thin air thinner, dense air as it was. A knob for stage D, which tunes the densities.
+- **The haze over the open sky and the cloud decks** thins with the ray's elevation (0.85 from 1 to 9 degrees up) at
+  every hour: a ray up leaves the dense low air within a short way. This replaces look4's golden-hour exposure.
+- **The forward scatter** (`lib/air.glsl` airMie) is in-scattered light in the sun-side hue at the air's own level,
+  uncapped; the haze volume's sunlit air and the dawn mist are uncapped; the shafts add scene light.
+- **Clouds:** the body's authored light into scene light. The silver lining is light on top of it
+  (`WC_RIM_SCENE` 6 per unit of its authored strength). A thin cloud over the sun glows with the sun's forward-scattered
+  light (`WC_THROUGH_SUN` 6) at every hour the sun is up. A deck toward a low sun is backlit (darker toward the sun:
+  look4's term kept as the cloud's own light). The far fog goes into the luminous air in scene light.
+- **The sky:** `skyLuminousLin` only. The aureole is the dome's own (amount 1; the air and the clouds' fog take the
+  forward scatter their own way). Round a low sun the glow's level is `SKY_GLOW_LOW_SUN` 0.9, so the sky holds its
+  gold and the disc and aureole stand above it.
+- **Water and glass:**
+  - the body is lit in scene light (`welkinLightCoreLin`), the reflection is the scene dome (`skyDomeOnly`), and the
+    SSR reads the scene directly;
+  - the sun's glint and glitter path use the land's direct light (`skyLandDirect`), so a low sun's path on the water
+    is HDR gold;
+  - colortex3 (the water marks) is RGBA16F scene light.
+- **The wet ground** mirrors the scene dome and clouds, with its glint in scene light.
+
+### Bloom and beams in scene light
+- **composite3:**
+  - the source is the exposed scene light (`bloomSourceHdr`): a soft threshold at 1.4 (knee 0.7), lit surfaces that
+    do not glow only past 6 (glints), glowing texels x (1 + 10 x emission), the sky and the cloud bodies in part;
+  - a gentle anti-flicker weight;
+  - composite4's gather is unchanged (energy-conserving).
+- **final:** adds `BLOOM_SCATTER_HDR` 0.5 of the halo to the scene light, each land or cloud pixel lending out the same
+  share of its own (never more than half its light), before the output transform. The amber realm's pools glow
+  without blobbing.
+- **The beams** are scene light at the sun-side horizon's level (`FINAL_BEAM_SCENE` 0.3, laid mostly over what is
+  dark on screen), added before the output transform; stage C rebuilds them.
+
+### Deleted
+- the bridge helpers and every use;
+- `skyLuminous`'s display path, `skyLumCap` / `skyLumCapLin`, the golden headroom (`skyGoldenHeadroom`, the expo and
+  ceiling of `skyGoldenTerms`, now `skyGoldenHour` and `skyAureole`), look4's golden-hour cases in composite2 (the
+  air's exposure and cap, the sky's haze cut) and in the clouds (exposure and rim boost, made light instead);
+- the display `skyDomeOnly`, `skyFull`, `skyHorizonFor` and `skyLowSunBandOver`;
+- the display light wrappers `welkinLightGlow`, `welkinLightFull`, `welkinLightCore`, `welkinLightEx` and
+  `welkinLight` (their `...Lin` forms stay);
+- `bloomApply`, `bloomSource`, `bloomHeadroom` and `bloomCloudShare` (their HDR forms replace them);
+- `composite2`'s special case over the sun's disc.
+
+The sky table's display rows 0..12 stay: the clouds still author their light from them (`skyDomeColour`, night tint,
+far band). Rows 14..21 hold the dome in scene light.
+
+### Known after stage B
+- **Shore 18:30:** the clip view still shows the sun-side sky's red channel at or past 0.98 (about 20% of the frame;
+  no luminance clip, magenta 0%). That sky is only 1 to 2 stops over mid grey in the EV view: the curve's
+  hue-keeping peak, plus the grade's warm gain, puts a saturated orange's red channel at the top. This is for the
+  output transform and grade in stage D: a hue-aware roll of the red channel, or a lower golden-hour exposure. The
+  cloud decks and the haze round the sun now hold their colour (dark backlit decks, gold air).
+- The beams are weak placeholders until stage C.
+- The thin-haze knob `airLin` and the cloud and air constants above are stage A/B balances, not the look.
