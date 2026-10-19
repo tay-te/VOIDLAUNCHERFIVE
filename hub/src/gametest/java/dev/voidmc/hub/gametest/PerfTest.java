@@ -46,6 +46,14 @@ public final class PerfTest {
 	// The Map page with VOID Atlas, against Atlas's own map screen panned the same way.
 	static final double BUDGET_MAP_AVG_MS = 1.0;
 	static final double BUDGET_MAP_P99_MS = 2.0;
+	/**
+	 * Ultralight's CPU work on its own (UI) thread per uploaded change while the pointer sweeps the wells at 1920x1080
+	 * GUI 2 (a unit under 1: the page's own CSS zoom). The render thread never waits for it, but a slow paint is a late
+	 * hover: over 10 ms the highlight trails the pointer by a frame or more at 100 fps.
+	 */
+	static final double BUDGET_UI_PAINT_MS = 10.0;
+	/** The GUI 2 scenarios' suffix (UI-thread paint cost; frame time is gated at auto scale against vanilla). */
+	static final String GS2 = "_gs2";
 
 	private final ClientGameTestContext context;
 	private final TestSingleplayerContext world;
@@ -78,6 +86,8 @@ public final class PerfTest {
 		double wallSeconds;
 		final List<Double> roundAvg = new ArrayList<>();
 		final List<Dist> rounds = new ArrayList<>();
+		/** CPU time of the "VOID Hub UI" thread over the scenario's windows, ns (-1: not readable). */
+		long uiCpuNs;
 
 		long[] arr(List<Long> l) {
 			return l.stream().mapToLong(Long::longValue).toArray();
@@ -216,6 +226,34 @@ public final class PerfTest {
 				HubView.get().setUploadMode(HubView.UploadMode.DIRTY);
 			});
 		});
+
+		// ---- UI-thread paint cost at 1920x1080 GUI 2 (the page's own zoom) -----------------------
+		this.context.runOnClient(mc -> {
+			mc.options.guiScale().set(2);
+			mc.resizeGui();
+		});
+		this.context.waitTicks(8);
+		for (int round = 0; round < 2; round++) {
+			this.scenario("void_inventory_hover" + GS2, per, () -> {
+				this.openVoidInventory();
+				this.startSweep(false);
+			}, () -> {
+				FrameHooks.sweepPath = null;
+				this.closeScreen();
+			});
+			this.scenario("void_chest_hover" + GS2, per, () -> {
+				this.openChest(true);
+				this.startSweep(true);
+			}, () -> {
+				FrameHooks.sweepPath = null;
+				this.closeScreen();
+			});
+		}
+		this.context.runOnClient(mc -> {
+			mc.options.guiScale().set(0);
+			mc.resizeGui();
+		});
+		this.context.waitTicks(8);
 
 		// ---- the Map page with VOID Atlas ---------------------------------------------------------
 		MapNumbers map = this.atlas ? this.mapScenarios(per) : null;
@@ -403,12 +441,15 @@ public final class PerfTest {
 		this.context.waitTicks(10);  // let the first paints and any GC from opening settle
 		long hubFrom = HubStats.INSTANCE.frameCount();
 		this.context.runOnClient(mc -> FrameRecorder.INSTANCE.start());
+		long cpu0 = uiCpuNs();
 		long t0 = System.nanoTime();
 		this.context.waitTicks((int) Math.round(secs * 20));
+		long cpu1 = uiCpuNs();
 		this.context.runOnClient(mc -> FrameRecorder.INSTANCE.stop());
 		double wall = (System.nanoTime() - t0) / 1e9;
 		FrameRecorder fr = FrameRecorder.INSTANCE;
 		Samples s = this.samples.computeIfAbsent(name, k -> new Samples());
+		s.uiCpuNs = s.uiCpuNs < 0 || cpu0 < 0 || cpu1 < 0 ? -1 : s.uiCpuNs + (cpu1 - cpu0);
 		long[] iv = this.context.computeOnClient(mc -> fr.intervals());
 		long[] rd = this.context.computeOnClient(mc -> fr.renders());
 		long[] gp = this.context.computeOnClient(mc -> fr.gpus());
@@ -430,6 +471,17 @@ public final class PerfTest {
 			iv.length == 0 ? 0 : sum / iv.length / 1e6, iv.length / Math.max(1e-9, sum / 1e9));
 		teardown.run();
 		this.context.waitTicks(5);
+	}
+
+	/** CPU time of the hub's UI thread ("VOID Hub UI": Ultralight's update, script and paint), ns; -1 when it cannot be read. */
+	static long uiCpuNs() {
+		var mx = java.lang.management.ManagementFactory.getThreadMXBean();
+		for (Thread t : Thread.getAllStackTraces().keySet()) {
+			if ("VOID Hub UI".equals(t.getName())) {
+				return mx.getThreadCpuTime(t.threadId());
+			}
+		}
+		return -1;
 	}
 
 	private void openVanillaInventory() {
@@ -516,7 +568,7 @@ public final class PerfTest {
 	record Scenario(String name, int frames, double fps, Dist interval, Dist intervalNoTick, Dist render, Dist gpu, int hitches,
 		int renderHitches, Dist hubRenderThread, double postMs, double waitMs, double copyMs, double uploadMs, double uiUpdateMs,
 		double uiRenderMs, double uiScriptMs, Dist uiPerChange, long uploads, double uploadKbAvg, long busyFrames, List<Double> roundAvg,
-		Dist mapDraw) {
+		Dist mapDraw, double uiCpuPerPaintMs) {
 
 		static Scenario of(String name, Samples s) {
 			long[] iv = s.arr(s.interval);
@@ -578,7 +630,8 @@ public final class PerfTest {
 				Dist.ofNanos(noTick.stream().mapToLong(Long::longValue).toArray()), Dist.ofNanos(rd), Dist.ofNanos(gp), hitches, renderHitches,
 				s.hub.isEmpty() ? Dist.EMPTY : Dist.ofNanos(tot), post / hn / 1e6, wait / hn / 1e6, copy / hn / 1e6, up / hn / 1e6,
 				uu / hn / 1e6, ur / hn / 1e6, us / hn / 1e6, Dist.ofNanos(uiChanges.stream().mapToLong(Long::longValue).toArray()),
-				uploads, uploads == 0 ? 0 : bytes / uploads / 1024.0, busy, s.roundAvg, s.hub.isEmpty() ? Dist.EMPTY : Dist.ofNanos(mapNs));
+				uploads, uploads == 0 ? 0 : bytes / uploads / 1024.0, busy, s.roundAvg, s.hub.isEmpty() ? Dist.EMPTY : Dist.ofNanos(mapNs),
+				s.uiCpuNs < 0 ? -1 : uploads == 0 ? 0 : s.uiCpuNs / 1e6 / uploads);
 		}
 
 		String json() {
@@ -593,6 +646,7 @@ public final class PerfTest {
 			w.raw("ultralightUiThreadMsPerFrame", Json.object().put("update", Dist.r(this.uiUpdateMs)).put("render", Dist.r(this.uiRenderMs))
 				.put("script", Dist.r(this.uiScriptMs)).end());
 			w.raw("ultralightMsPerPageChange", this.uiPerChange.json());
+			w.put("uiThreadCpuMsPerPaint", Dist.r(this.uiCpuPerPaintMs));
 			w.put("uploads", this.uploads).put("uploadKbAvg", Dist.r(this.uploadKbAvg)).put("busySkips", this.busyFrames);
 			w.raw("atlasWidgetDrawMs", this.mapDraw.json());
 			w.raw("roundAvgMs", "[" + String.join(",", this.roundAvg.stream().map(d -> Json.number(Dist.r(d))).toList()) + "]");
@@ -708,6 +762,14 @@ public final class PerfTest {
 			if (this.voidOpen.max() > BUDGET_REOPEN_MS) {
 				this.failures.add(String.format(Locale.ROOT, "re-open worst %.1f ms > %.0f", this.voidOpen.max(), BUDGET_REOPEN_MS));
 			}
+			for (Scenario s : this.scenarios.values()) {
+				if (s.name().endsWith(GS2) && s.uiCpuPerPaintMs() > BUDGET_UI_PAINT_MS) {
+					this.failures.add(String.format(Locale.ROOT, "%s: UI thread %.2f ms CPU per paint > %.1f", s.name(), s.uiCpuPerPaintMs(), BUDGET_UI_PAINT_MS));
+				}
+				if (s.name().endsWith(GS2) && s.uploads() == 0) {
+					this.failures.add(s.name() + ": nothing painted while hovering (the sweep did not reach the page)");
+				}
+			}
 			if (this.map != null) {
 				this.evaluateMap();
 			}
@@ -797,7 +859,7 @@ public final class PerfTest {
 			w.put("verdict", this.verdict());
 			w.putStrings("failures", this.failures);
 			w.raw("budget", Json.object().put("avgMs", BUDGET_AVG_MS).put("p99Ms", BUDGET_P99_MS).put("hitchMs", BUDGET_HITCH_MS)
-				.put("firstOpenMs", BUDGET_FIRST_OPEN_MS).put("reopenMs", BUDGET_REOPEN_MS).end());
+				.put("firstOpenMs", BUDGET_FIRST_OPEN_MS).put("reopenMs", BUDGET_REOPEN_MS).put("uiPaintGs2Ms", BUDGET_UI_PAINT_MS).end());
 			w.raw("delta", Json.object().put("inventoryAvgMs", Dist.r(this.avgDelta)).put("inventoryP99Ms", Dist.r(this.p99Delta))
 				.put("chestAvgMs", Dist.r(this.chestAvgDelta)).put("chestP99Ms", Dist.r(this.chestP99Delta))
 				.put("inventoryHoverAvgMs", Dist.r(this.hoverAvgDelta)).put("inventoryHoverP99Ms", Dist.r(this.hoverP99Delta))
@@ -878,17 +940,20 @@ public final class PerfTest {
 					.append(signed(this.mapFrozenAvgDelta)).append(" ms [").append(this.rounds("mapFrozenAvg")).append("], p99 ").append(signed(this.mapFrozenP99Delta))
 					.append(" ms [").append(this.rounds("mapFrozenP99")).append("]\n\n");
 			}
-			m.append("| VOID cost (ms / frame) | render thread: avg / p99 / max | post | wait | copy | upload | uploads | avg upload | Ultralight on its thread | per page change: avg / p99 | Atlas widget draw avg / p99 |\n");
-			m.append("|---|---|---:|---:|---:|---:|---:|---:|---:|---|---|\n");
+			m.append("| VOID cost (ms / frame) | render thread: avg / p99 / max | post | wait | copy | upload | uploads | avg upload | Ultralight on its thread | per page change: avg / p99 | UI thread CPU per paint | Atlas widget draw avg / p99 |\n");
+			m.append("|---|---|---:|---:|---:|---:|---:|---:|---:|---|---:|---|\n");
 			for (Scenario s : this.scenarios.values()) {
 				if (!s.name().startsWith("void")) {
 					continue;
 				}
-				m.append(String.format(Locale.ROOT, "| %s | %.3f / %.3f / %.2f | %.3f | %.3f | %.3f | %.3f | %d | %.0f KB | %.3f | %.2f / %.2f | %s |\n", s.name(),
+				m.append(String.format(Locale.ROOT, "| %s | %.3f / %.3f / %.2f | %.3f | %.3f | %.3f | %.3f | %d | %.0f KB | %.3f | %.2f / %.2f | %s | %s |\n", s.name(),
 					s.hubRenderThread().avg(), s.hubRenderThread().p99(), s.hubRenderThread().max(), s.postMs(), s.waitMs(), s.copyMs(), s.uploadMs(),
 					s.uploads(), s.uploadKbAvg(), s.uiUpdateMs() + s.uiRenderMs() + s.uiScriptMs(), s.uiPerChange().avg(), s.uiPerChange().p99(),
+					s.uiCpuPerPaintMs() < 0 ? "n/a" : String.format(Locale.ROOT, "%.2f ms", s.uiCpuPerPaintMs()),
 					s.mapDraw().max() > 0 ? String.format(Locale.ROOT, "%.3f / %.3f", s.mapDraw().avg(), s.mapDraw().p99()) : "—"));
 			}
+			m.append(String.format(Locale.ROOT, "\n`*%s` rows: 1920×1080 at GUI scale 2 (layout unit under 1: the page's own CSS zoom), there for the UI thread's cost "
+				+ "(Ultralight's CPU update, script and paint per uploaded change, gated at %.0f ms); their frame times are not compared with vanilla.\n", GS2, BUDGET_UI_PAINT_MS));
 			m.append("\n| open latency (ms, key → first painted frame) | avg | p50 | max |\n|---|---:|---:|---:|\n");
 			m.append(row("vanilla inventory (E)", this.vanillaOpen)).append(row("VOID inventory (E)", this.voidOpen))
 				.append(row("VOID inventory (R-Shift)", this.voidOpenRShift)).append(row("VOID screen init → first frame", this.voidInitToFrame))

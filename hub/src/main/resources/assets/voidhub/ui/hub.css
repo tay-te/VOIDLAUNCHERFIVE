@@ -43,6 +43,12 @@ html, body {
   cursor: default;
 }
 
+/* Under the page's own zoom (html.hz, a layout unit under 1: GUI 1 and 2 at 1080p) Ultralight lays glyphs out on whole
+   device px, so a small font's 0.2 em space came out one px wide and read as none ("fromHearth"). Every word space
+   on every page gains 1.5 device px (--hair is one), inherited from here: about what the space is at GUI 3. Labels
+   that need a gap between inline parts keep relying on a real space or an explicit gap/margin, never on luck. */
+html.hz { word-spacing: calc(var(--hair) * 1.5); }
+
 #dim { position: absolute; inset: 0; background: rgba(11, 11, 12, 0.34); }
 
 /* ---- islands ------------------------------------------------------------------------------ */

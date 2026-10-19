@@ -582,6 +582,12 @@ public final class HearthTest {
 		}
 		this.context.waitTicks(4);
 		String file = "hearth_" + name + "_gs" + gs;
+		if (gs < 3) {
+			// Where the page zooms itself (GUI 1 and 2 at 1080p): no word space collapsed to a px (Spaces, hubAudit's probe).
+			Spaces.Result sp = Spaces.run(this.context);
+			this.log("spaces " + name + " gs" + gs + ": " + sp);
+			this.expect(sp.collapsed().isEmpty(), "no collapsed spaces on " + name + " at GUI " + gs + ": " + sp.collapsed());
+		}
 		this.log("shot " + file + " u " + (l == null ? "-" : l.u) + " page " + this.js("window.innerWidth+'x'+window.innerHeight+' dpr '+window.devicePixelRatio"));
 		Path p = this.context.takeScreenshot(file);
 		try {

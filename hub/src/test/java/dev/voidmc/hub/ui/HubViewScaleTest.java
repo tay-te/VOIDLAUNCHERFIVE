@@ -36,5 +36,6 @@ class HubViewScaleTest {
 		assertEquals(1.0, HubView.deviceScale(u), 0);
 		assertTrue(HubView.zoomScript(u).contains("window.HUBZ=z") && HubView.zoomScript(u).endsWith("(" + u + ")"));
 		assertTrue(HubView.zoomScript(1.0).contains("z===1?''"), "zoom 1 clears the root's zoom");
+		assertTrue(HubView.zoomScript(u).contains("classList.toggle('hz',z!==1)"), "the root says it is zoomed (hub.css widens word spaces)");
 	}
 }

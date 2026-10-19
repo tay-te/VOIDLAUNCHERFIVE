@@ -280,10 +280,14 @@ public final class HubView {
 		return scale >= 1.0 ? 1.0 : scale;
 	}
 
-	/** Applies a page zoom: the root's CSS zoom, {@code window.HUBZ}, and {@code --hair} (one physical px, in CSS px). */
+	/**
+	 * Applies a page zoom: the root's CSS zoom, {@code window.HUBZ}, {@code --hair} (one physical px, in CSS px) and the
+	 * root's {@code hz} class while zoomed (hub.css: word spaces gain 1.5 device px, as Ultralight's whole-px advances
+	 * left a small font's space one px wide, which reads as none).
+	 */
 	static String zoomScript(double z) {
 		return "(function(z){var d=document.documentElement;d.style.zoom=z===1?'':String(z);window.HUBZ=z;"
-			+ "d.style.setProperty('--hair',(1/z)+'px');if(window.hub&&hub.zoomed)hub.zoomed(z);return ''})(" + z + ")";
+			+ "d.style.setProperty('--hair',(1/z)+'px');d.classList.toggle('hz',z!==1);if(window.hub&&hub.zoomed)hub.zoomed(z);return ''})(" + z + ")";
 	}
 
 	private void uiPass() {

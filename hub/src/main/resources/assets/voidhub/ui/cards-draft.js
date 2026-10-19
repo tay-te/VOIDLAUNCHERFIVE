@@ -233,16 +233,30 @@
     later(80 * 2 + 260, function () { if (cur && cur.kind === "draft") { cur.lock = false; ov.onState(); } });
   };
 
+  /**
+   * The keycaps under the hand: built once per hand, then a hover only restyles one cap and swaps its label in place.
+   * Rebuilding the row (innerHTML) on every hover made Ultralight repaint the whole view (8 MB, ~14 ms on its thread).
+   */
   function keys() {
-    var h = "", n = Math.min(3, cur.hand.length);
-    for (var i = 0; i < n; i++) {
-      if (cur.pos[i] == null) continue;
-      var on = cur.hover === i, c = cur.hand[i];
-      var x = cur.pos[i] + 124;
-      h += '<div class="dr-key' + (on ? " on" : "") + '" style="left:' + (x - 40) + "px;" + (on ? "--c:" + tintOf(c) : "") + '"><span class="kc">' + (i + 1) +
-        '</span><span class="kl">' + (on ? "Keep " + esc(c.baseName || c.name) : "Keep") + "</span></div>";
+    var row = MC.$("dr-keys"), n = Math.min(3, cur.hand.length);
+    if (!row) return;
+    var key = cur.gen + ":" + cur.handKey;
+    if (row.__k !== key) {
+      var h = "";
+      for (var i = 0; i < n; i++) {
+        if (cur.pos[i] == null) continue;
+        h += '<div class="dr-key" data-key="' + i + '" style="left:' + (cur.pos[i] + 124 - 40) + 'px"><span class="kc">' + (i + 1) +
+          '</span><span class="kl">Keep</span></div>';
+      }
+      row.__k = key;
+      row.innerHTML = h;
     }
-    MC.patch(MC.$("dr-keys"), cur.hover + ":" + cur.handKey, h);
+    for (var el = row.firstChild; el; el = el.nextSibling) {
+      var k = +el.getAttribute("data-key"), on = cur.hover === k, c = cur.hand[k];
+      if (on) el.style.setProperty("--c", tintOf(c));
+      MC.toggle(el, "on", on);
+      MC.text(el.lastChild, on ? "Keep " + (c.baseName || c.name) : "Keep");
+    }
   }
 
   function redeal(s) {
@@ -307,6 +321,7 @@
     MC.$("dr-title").innerHTML = title("KEPT  ·  " + burnText(Math.min(3, cur.hand.length)), (c.baseName || c.name) + " JOINS YOUR HAND");
     MC.$("dr-badge").innerHTML = badge(more - 1 < 0 ? 0 : more);
     MC.$("dr-keys").innerHTML = "";
+    MC.$("dr-keys").__k = null;
     MC.$("dr-act").innerHTML = '<div class="dr-toast" style="--c:' + tintOf(c) + '">Kept ' + esc(c.baseName || c.name) + "  ·  " +
       (more > 0 ? "next draft deals in a moment" : "back to your cards") + "</div>";
     MC.text(MC.$("dr-fl"), MC.upper(skill(cur.skill).name) + "  ·  DRAFT " + cur.n + " OF " + Math.max(cur.n, cur.total) + " DONE");

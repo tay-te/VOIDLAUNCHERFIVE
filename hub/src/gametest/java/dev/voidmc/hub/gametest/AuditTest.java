@@ -497,6 +497,7 @@ public final class AuditTest {
 		this.section("GUI scale change with a draft open", this::scaleMidDraft);
 		this.section("draft at 1920x1080 GUI scale 2", this::draftGuiScale2);
 		this.section("draft photographs at 1920x1080 GUI scale 1, 2, 3", this::draftPhotos);
+		this.section("spaces between words at 1920x1080 GUI scale 1, 2, 3", this::spaces);
 		this.section("double actions", this::doubleActions);
 		this.section("close mid-burn, reopen with K", this::closeMidBurn);
 		this.section("segment switch mid-burn", this::segmentMidBurn);
@@ -675,7 +676,9 @@ public final class AuditTest {
 				}
 			}
 		});
-		this.check(hover.painted() > 0 && hover.uiP95() < 10, "PERF gs2 draft hover sweep: UI p95 under 10 ms: " + hover);
+		// The UI thread's CPU per paint (Ultralight's update, script and paint: what a hover costs it), not the render
+		// thread's p95 over every frame (most frames paint nothing): 13.9 ms before the keycaps stopped rebuilding.
+		this.check(hover.painted() > 0 && hover.cpuPerPaint() < 10 && hover.uiMax() < 30, "PERF gs2 draft hover sweep: UI thread under 10 ms CPU per paint, no paint over 30 ms: " + hover);
 		this.hoverPage(".dr-hand .hc[data-hand=\"1\"] .hc-art");
 		this.context.waitTicks(8);
 		this.shot("audit_05g_gs2_draft_hover");
@@ -716,6 +719,50 @@ public final class AuditTest {
 		}
 		this.ui.parkMouse();
 		this.setWindow(1920, 1080, 0);
+	}
+
+	/**
+	 * No collapsed spaces at GUI 1-3 (under the page's own zoom Ultralight rounded a small font's space advance to
+	 * nothing: "fromHearth"): every space between two words the Inventory, the Classes home and the draft show is at
+	 * least {@link Spaces#MIN_EM} em wide as laid out.
+	 */
+	private void spaces() {
+		for (int gs = 1; gs <= 3; gs++) {
+			// Gated where the page zooms itself (GUI 1 and 2 at 1080p); GUI 3 (device scale) is logged to compare.
+			boolean gate = gs < 3;
+			this.setWindow(1920, 1080, gs);
+			if (this.hub() == null) {
+				this.openClasses();
+			}
+			String tag = "1920x1080 GUI " + gs + " (" + this.actual() + ")";
+			this.ui.clickPage("[data-seg=\"inventory\"]");
+			this.context.waitTicks(4);
+			Spaces.Result inv = Spaces.run(this.context);
+			this.spaceCheck(gate, inv.spaces() > 5 && inv.collapsed().isEmpty(), tag + " Inventory: spaces between words are not collapsed: " + inv);
+			this.ui.clickPage("[data-seg=\"classes\"]");
+			this.context.waitTicks(8);
+			this.dismiss();
+			this.js("MC.nav.view='home';MC.nav.tab='cards';MC.render();''");
+			this.context.waitTicks(4);
+			Spaces.Result home = Spaces.run(this.context);
+			this.spaceCheck(gate, home.spaces() > 5 && home.collapsed().isEmpty(), tag + " Classes home: spaces between words are not collapsed: " + home);
+			if (this.ensureDraft()) {
+				this.context.waitTicks(4);
+				Spaces.Result draft = Spaces.run(this.context);
+				this.spaceCheck(gate, draft.spaces() > 5 && draft.collapsed().isEmpty(), tag + " draft: spaces between words are not collapsed: " + draft);
+			}
+			this.dismiss();
+		}
+		this.ui.parkMouse();
+		this.setWindow(1920, 1080, 0);
+	}
+
+	private void spaceCheck(boolean gate, boolean ok, String what) {
+		if (gate) {
+			this.check(ok, what);
+		} else {
+			log2((ok ? "ok " : "narrow ") + what);
+		}
 	}
 
 	// ---- 2. double actions -------------------------------------------------------------------------------------
