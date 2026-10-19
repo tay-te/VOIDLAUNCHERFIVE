@@ -551,7 +551,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// had sat at white with the sky, one flat peach field the sun could not outshine. Now a deck's exposure comes down
 	// with the sky's, most toward the sun, where a cloud hangs against the light as a darker, backlit body, and its thin
 	// edges blaze: the silver lining toward the sun turns a gold rim that passes white and blooms
-	float gh = smoothstep(0.30, 0.0, e.sun.y) * smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - closed);
+	float gh = smoothstep(0.50, 0.05, e.sun.y) * smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - closed);
 	float rimK = 1.0;
 	float expo = 1.0;
 	if (gh > 0.0) {
@@ -559,7 +559,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		float swk = wcSunward(rd, e);
 		float nearS = smoothstep(0.75, 0.995, mu);
 		expo = 1.0 - gh * (0.08 + 0.32 * swk * swk + 0.18 * nearS);
-		rimK = 1.0 + gh * (1.5 + 5.0 * nearS);
+		rimK = 1.0 + gh * (0.8 + 2.2 * nearS);
 	}
 	vec3 outC = wcShoulder(c) * expo + min(wcAlbedo(tone) * glint * rimK * (1.0 - 0.7 * closed), vec3(0.55 * rimK));
 	if (gh > 0.0) {
@@ -568,9 +568,9 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		// dark bar across it)
 		float ang = acos(clamp(dot(rd, e.sun), -1.0, 1.0));
 		float rS = float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4;
-		float through = exp(-max(ang - rS, 0.0) / 0.06) + 0.35 * exp(-ang / 0.18);
+		float through = exp(-max(ang - rS, 0.0) / 0.045) + 0.15 * exp(-ang / 0.15);
 		vec3 sunHue = mix(vec3(1.0, 0.86, 0.62) / 0.8810, vec3(1.0, 0.62, 0.32) / 0.6626, smoothstep(0.0, 0.25, ang));
-		outC += sunHue * gh * through * mix(2.2, 0.25, b.depth) * (n.y < -0.5 ? 1.0 : 0.6);
+		outC += sunHue * gh * through * mix(1.1, 0.12, b.depth) * (n.y < -0.5 ? 1.0 : 0.6);
 	}
 	return outC;
 }

@@ -179,9 +179,7 @@ vec3 skyFull(vec3 dirW, SkyFrame f) {
 			// (review round 2) a low sun's core and middle stand past display white, so the disc outshines its glow and
 			// the bloom gives it a bright heart
 			float lowSun = 1.0 - smoothstep(0.0, 0.35, f.sunW.y);
-			// (look4: hotter still, the heart of the frame: 2.2 and 1.6 at the horizon, was 1.45 and 1.25; the disc's art
-			// stays crisp, final keeps its pixels white, and the bloom spreads its light into the aureole round it)
-			float hot = k == 1 ? 1.0 + 1.2 * lowSun : (k == 2 ? 1.0 + 0.6 * lowSun : 1.0 + 0.2 * lowSun);
+			float hot = k == 1 ? 1.0 + 0.45 * lowSun : (k == 2 ? 1.0 + 0.25 * lowSun : 1.0);
 			col = mix(col, skyTable(k - 1, SKY_ROW_SPRITE).rgb * hot, f.show.r);
 		}
 	}

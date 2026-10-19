@@ -113,9 +113,10 @@ SkyLum skyLumFrame(vec3 sunW) {
 }
 
 // (look4) How much of the golden hour's headroom the sky takes (0..1): the warm hours with the sun up, under a clear
-// sky (k carries the clear and the day), from about 15 degrees of sun down to just under the horizon.
+// sky (k carries the clear and the day), from about 28 degrees of sun down to just under the horizon.
 float skyGoldenHeadroom(SkyLum f) {
-	return f.up * smoothstep(0.30, 0.0, f.sunW.y) * smoothstep(-0.10, 0.0, f.sunW.y + 0.04);
+	// (from about 28 degrees: the late afternoon takes a little of it, the last 10 degrees all)
+	return f.up * smoothstep(0.50, 0.05, f.sunW.y) * smoothstep(-0.10, 0.0, f.sunW.y + 0.04);
 }
 
 // (look4) The golden hour's exposure and aureole toward unit direction d at headroom gh (0..1): `expo` multiplies the
@@ -130,15 +131,15 @@ void skyGoldenTerms(vec3 d, SkyLum f, float gh, out float expo, out vec3 aur, ou
 	float ang = acos(clamp(mu, -1.0, 1.0));
 	// (measured from the pixel disc's rim, SUN_SIZE art pixels: about 0.066 radians at the defaults)
 	float a = max(ang - float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4 * 0.85, 0.0);
-	float heart = exp(-a / 0.045);
-	float near = exp(-a / 0.15);
+	float heart = exp(-a / 0.028);
+	float near = exp(-a / 0.10);
 	float wide = exp(-ang / 0.40);
 	expo = 1.0 - gh * max(0.75 * mix(0.6, 1.0, side * side) - 0.35 * wide, 0.0);
 	const vec3 AMBER4 = vec3(1.0, 0.56, 0.24) / 0.6119;
 	const vec3 WHITE_GOLD = vec3(1.0, 0.86, 0.62) / 0.8810;
 	vec3 aurC = mix(mix(f.gold, AMBER4, 0.6), WHITE_GOLD, heart);
-	aur = gh * aurC * (2.6 * heart + 0.55 * near + 0.10 * wide);
-	ceilL = 1.0 + gh * (3.0 * heart + 0.6 * near);
+	aur = gh * aurC * (1.9 * heart + 0.55 * near + 0.10 * wide);
+	ceilL = 1.0 + gh * (2.4 * heart + 0.6 * near);
 }
 
 // The hue-keeping shoulder in linear light: past `knee` the brightest channel eases toward 1 and the colour is scaled

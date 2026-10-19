@@ -140,7 +140,7 @@ uniform vec3 upPosition;
 float waterGolden() {
 #ifdef WORLD_OVERWORLD
 	float y = dot(normalize(sunPosition), normalize(upPosition));
-	return smoothstep(0.30, 0.0, y) * smoothstep(-0.14, -0.04, y);
+	return smoothstep(0.50, 0.05, y) * smoothstep(-0.14, -0.04, y);
 #else
 	return 0.0;
 #endif
@@ -157,7 +157,7 @@ float bloomShareAt(ivec2 p, vec3 c) {
 	if (d < 1.0) {
 		// (look4, 2026-10-18) the water round a low sun a little less: the glitter path's broad field of reflected glow
 		// had bloomed into a soft orange ball over the lake; its glints still bloom
-		return texelFetch(colortex3, p, 0).a > 0.25 ? mix(1.0, 0.45, waterGolden()) : 1.0;
+		return texelFetch(colortex3, p, 0).a > 0.25 ? mix(1.0, 0.2, waterGolden()) : 1.0;
 	}
 #ifdef WORLD_OVERWORLD
 	if (texelFetch(colortex6, p, 0).r <= 999.0) {
@@ -167,7 +167,9 @@ float bloomShareAt(ivec2 p, vec3 c) {
 #ifdef WORLD_OVERWORLD
 	// (review round 1) the pixel sun's disc and rim wholly: a low sun through the haze still blooms into a halo
 	vec3 v = normalize((gbufferProjectionInverse * vec4((vec2(p) + 0.5) / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0)).xyz);
-	return mix(BLOOM_SKY, 1.0, bloomSunDisc(v, normalize(sunPosition)));
+	// (look4) round a low sun the sky's aureole is the glow itself (lib/sky/luminous.glsl): it lends the bloom less, or
+	// its broad bright field spread into a soft ball over the sun and the lake; the disc still blooms wholly
+	return mix(BLOOM_SKY * mix(1.0, 0.35, waterGolden()), 1.0, bloomSunDisc(v, normalize(sunPosition)));
 #else
 	return BLOOM_SKY;
 #endif

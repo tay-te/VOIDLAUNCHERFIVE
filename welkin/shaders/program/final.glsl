@@ -275,7 +275,7 @@ void main() {
 			float o = m - K;
 			float t = K + (1.0 - K) * o / (o + (1.0 - K));
 			vec3 r = c * (t / m);
-			float burn = smoothstep(1.0, 1.7, m) * (1.0 - smoothstep(2.4, 5.0, m)) * 0.45 * gradeHour.x;
+			float burn = smoothstep(0.9, 2.0, m) * (1.0 - smoothstep(2.2, 6.0, m)) * 0.35 * gradeHour.x;
 			r = mix(r, vec3(1.0, 0.70, 0.40) * t, burn);
 			float heart = smoothstep(2.0, 6.0, m) * 0.75;
 			r = mix(r, vec3(1.0, 0.90, 0.72) * t, heart);
