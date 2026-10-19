@@ -2064,3 +2064,107 @@ studio's renders). The golden-hour, storm and blue-hour items first planned for 
   - the forest floor at noon stays darker than Complementary (by design: canopy shade);
   - the D4 items set aside: backlit decks toward a low sun, the bloom's halo by the sun in a leaf gap, storms, the blue
     hour's palette, the mesa's pale horizon band, the clouds pass's cost.
+
+## Look D5: earthy noon, backlit decks, the sun's halo, the blue hour (2026-10-19, branch `welkin-d5`)
+
+The user's last word was still "Daylight and night still look very flat". D4 gave the day its form, but the noon meadow
+read a fresh, bright green, the decks toward a low sun a soft peach, the sun's bloom in a leaf gap a cream shape with an
+outline, and the 05:30 shore a slate sky over taupe bellies. Sheets: `scratchpad/welkin_look/d5/` (`mid/mid_sheet.jpg`,
+`final/hero_before_after.jpg`: before (6b71432a), D5 and a reference pack where one exists, land stats in the labels;
+4K frames `d5_k4_shore_1830`, `d5_k4_shore_0530`, `d5_k4_plain_1200` in the studio's renders). All shots with
+`SWAY_FREEZE 7`.
+
+- **An earthy noon** (`lib/grade.glsl`):
+  - the palette's yellow-green band had drawn a sunlit meadow toward about 92 degrees (a fresh green). By day (warm
+    under about 0.3, so 17:00 and later are untouched) the yellow-greens are now drawn by their light: the sunlit
+    tops toward an olive (GRADE_OLIVE_HUE 63, red about equal to green), shaded and darker grass toward a moss
+    (GRADE_MOSS_HUE 82). The green-leaning ones (past about 58 degrees, so sand and straw keep theirs) go a little
+    deeper (GRADE_OLIVE_LIGHT 0.86) and a little calmer (GRADE_OLIVE_SAT 0.92). The leaves (true greens) keep the old
+    moss pull;
+  - the day sky's blue is held at GRADE_SKY_SAT 0.74 of its saturation (it had kept 0.96): a soft, hazy blue;
+  - by day the mids sit a little deeper (GRADE_DAY_GAMMA 0.93; tops and white kept), fading out from warm 0.3 to 0.55;
+  - the mid-afternoon (warm about 0.1 to 0.4: 16:30 is 0.19, 17:00 is 0.58) rolls its sunlit tops more
+    (GRADE_AFTERNOON_ROLL 0.2): plain 16:30 p95 205 -> 193.
+
+  The S-curve and the light are D4's; the lit top against the shade stays 2 to 3 stops.
+- **Backlit decks toward a low sun** (`lib/clouds/shade.glsl`, `program/final.glsl`):
+  - D3 suspected composite2's haze, but taking it off the clouds changed nothing. The causes were the clouds' own light
+    and what final lays over them:
+    - a small cell is "thin" and "rim" all through (a side face is the cell's outline in the world), so the thin-body
+      light, the back glow, the ember under-glow and the silver lining (x1.5 through the warm hours) lit its shaded side
+      facing the eye a soft peach;
+    - the far fog mixed the blazing glow over far decks;
+    - the beams over a cloud (RAY_SKY_CLOUD) washed the deck next to the sun;
+  - `wcBackEdge`: toward a low sun the outline is the outline on screen, meaning side faces seen nearly edge-on and a
+    belly's own rim and thinnest part.
+    - A face turned from the sun keeps its lit share only there (WD_BACKLIT_SHADE takes 0.8 off the rest).
+    - The back glow, ember glow and silver lining keep to the outline.
+    - A gold-white rim of WD_BACKLIT_RIM 1.6 x the sky behind is laid along it.
+    - The body darkens by WD_BACKLIT_HEAVY 0.45 more toward the sun (less at the edge);
+  - the far fog sheds WD_BACKLIT_FOG 0.75 toward a low sun (`wcFogBacklit`), from a few degrees up (a strip right on
+    the horizon keeps its fog, or it stood as a black bar);
+  - final: within about 35 degrees of a sun under about 25 degrees up, the beams over a cloud keep RAY_CLOUD_BACKLIT
+    0.3.
+
+  At shore 18:30 the decks are dark and heavy with gold rims, and the thin deck over the sun glows through. Looking up
+  from the plain, the cells are dark shapes with bright edges.
+- **The sun's bloom** (`program/composite3.glsl`, `program/composite4.glsl`, `lib/bloom.glsl`):
+  - shown alone (glow x 0.15 in final), the halo was nested hard-edged rectangles: composite4 reads colortex14's mip
+    levels with no filtering between texels, so the four-tap tent drew boxes. The broad levels (3..6) now go through a
+    quadratic B-spline over 3x3 texels by texelFetch (smooth in value and slope; weights add to 1, energy kept). The
+    fine levels keep the tent (a cubic 4x4 on every level looked the same and cost 0.4 ms);
+  - the flat veil came off as `add - min(veil, add)`, a crease along the contour where the halo met the veil. It is now
+    `a^2 / (a + veil)`, with no crease;
+  - the pixel sun's disc (600..1500) fed the halo wholly and kept the glow past the curve's shoulder out to a contour:
+    a cream disc with an edge over the leaves. A source texel's bright share now eases under BLOOM_SRC_CAP 40 (glowing
+    texels, lamps and fire, exempt);
+  - sunforest 155700 and 155850 show no shape round the sun, and the canopy beams read through it. The D2 god rays
+    (11500) and the lamps are as they were;
+  - checked and ruled out on the way: the shafts (SHAFT_BEAMS off), composite2's shaft light and haze volume, the
+    leaves' transmission lobe.
+- **The blue hour** (`program/final.glsl`, `lib/grade.glsl`): at 05:30 the sun is already some 4 degrees up behind the
+  shore's eye (sunW.y 0.074). So the window (`gradeBlue`) runs from about 11 degrees under to 5..9 up, mornings only,
+  clear:
+  - the grade eases its day pulls of blue toward blue-grey and of lavender toward warm grey, keeps the sky's blue
+    saturation, and gives the shade a blue-violet split (`gradeBlueHour`);
+  - a dome gradient like the dusk one:
+    - blue-violet overhead (GRADE_BLUE_DEEP: 0.18 deeper), a rose belt low away from the sun, gold low toward it;
+    - the sky takes GRADE_BLUE_SKY 0.7 of the hue, the clouds GRADE_BLUE_CLOUD 0.6;
+    - nothing within about 30 degrees of the sun, and less on the bright sky round it, so the sunrise's gold glow stays;
+  - 06:30 is outside the window and unchanged.
+- **Figures** (land, lower 55%; before = 6b71432a in a temporary worktree, after = D5, same studio, same world):
+
+| view | before p5 / med / p95 | D5 | reference |
+|---|---|---|---|
+| plain 12:00 | 33 / 127 / 189 | 28 / 121 / 185 | Hysteria 12 / 50 / 94 |
+| plain 16:30 | 39 / 127 / 205 | 35 / 122 / 193 | Hysteria 9 / 29 / 81 |
+| forest 12:00 | 23 / 49 / 140 | 19 / 43 / 133 | |
+| valley 08:00 | 51 / 116 / 224 | 45 / 108 / 222 | |
+| grove 16:30 | 18 / 48 / 98 | 14 / 42 / 90 | |
+| shore 18:30 | 54 / 75 / 201 | 54 / 74 / 199 | |
+| up 18:30 | 22 / 47 / 194 | 23 / 47 / 192 | |
+| shore 05:30 | 47 / 66 / 172 | 47 / 66 / 171 | |
+| steppe 17:00 (guard) | 48 / 87 / 165 | 48 / 86 / 165 | |
+| countryside 06:30 (guard) | 66 / 103 / 197 | 66 / 103 / 197 | |
+| village night (guard) | 10 / 31 / 46 | 10 / 31 / 46 | |
+| torch night (guard) | 7 / 36 / 76 | 8 / 37 / 84 (a villager walked in) | |
+| sunforest 11500 (guard) | 15 / 32 / 85 | 15 / 32 / 86 | |
+
+  Plain 12:00's meadow: the lit tops went from (169, 184, 105), hue 71, to (180, 175, 96), hue 58. The sky went from
+  (159, 171, 193), saturation 0.22, to (158, 166, 181), saturation 0.18.
+- **Cost** (probe, 1600x900, same session against 6b71432a):
+
+| view | before | D5 |
+|---|---|---|
+| shore 18:30 | 8.7 ms | 8.7..8.9 ms |
+| plain 12:00 | 7.0 ms | 7.0 ms |
+| sunforest 11500 | 7.3..7.4 ms | 7.6 ms |
+
+  The broad levels' B-spline is the 0.2..0.3 ms; the rest is under the probe's resolution.
+- **Still open:**
+  - noon is earthier but still lighter and fresher than Hysteria's khaki (by design: D4's light and form are kept).
+    16:30's tall grass still reads a yellow-chartreuse under the warm light;
+  - decks within about 25 degrees of a low sun still glow cream (the sun's through-light and the halo on thin parts),
+    and the rims are gold-cream rather than blazing white;
+  - the 05:30 bellies are a grey-violet under the blue-violet sky, and the mist is still peach rather than catching rose;
+  - storms, the mesa's pale horizon band, the clouds pass's cost (about 1.1 ms).
