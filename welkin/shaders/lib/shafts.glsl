@@ -62,6 +62,8 @@ float shaftGate(vec3 sunW) {
 // (look) the near air's own reach for the beams' strength (blocks)
 #define SHAFT_NEAR 32.0
 #define SHAFT_CAP 0.50
+// (look4) the near air's beams, by the sunlit length (shaftLight)
+#define SHAFT_NEAR_BEAM 1.4
 // (review round 1) on the open sky: the beams between clouds and over ridges toward a low sun
 // (golden, 2026-10-16: 0.25, was 0.4: on the open sky the sunlit air only whitened the glow round a 17:00 to 18:00 sun
 // into a milky disc; the beams (SHAFT_BEAMS) carry the rays over the sky)
@@ -138,7 +140,22 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, f
 	// (look) in the near air a wholly sunlit ray (an open field, open water) gives back much of its extra: the near
 	// air's strength is for the beams where light and shadow alternate (a canopy, trunks), not a veil over the open
 	float beamy = mix(1.0, 1.0 - 0.75 * smoothstep(0.45, 0.95, ratio), nearW);
-	return hue * level * (SHAFT_CAP * (1.0 - exp(-x / SHAFT_CAP))) * pow(ratio, mix(2.0, 1.5, nearW)) * beamy;
+	vec3 farL = hue * level * (SHAFT_CAP * (1.0 - exp(-x / SHAFT_CAP))) * pow(ratio, mix(2.0, 1.5, nearW)) * beamy;
+	// (look4, 2026-10-18) the near air's beams by the sunlit length itself, in blocks: a ray under a canopy that crosses a
+	// column of light a few blocks thick, where the sun comes through a gap onto the floor, shows that column as a beam
+	// (the share of the ray, to the 1.5th power, left such a column at a few percent: a 30-block ray crossing a 3-block
+	// beam kept 0.035 of the light). Seen toward the sun most, but side-on and from behind too (the air's broad lobe):
+	// light falling through a canopy reads as shafts from any side. A ray mostly in the sun (a clearing, the open
+	// field) gives it back: the beams are where light and shade alternate
+	float litB = max(lit, 0.0) * SHAFT_FALLOFF;
+	float colB = (1.0 - exp(-litB / 6.0)) * (1.0 - 0.9 * smoothstep(0.12, 0.55, ratio));
+	float lobeN = 0.45 + 0.55 * airHg(mu, 0.55);
+	// (the canopy's beams stay through the afternoon: the gate's noon quarter only from about 40 degrees of sun)
+	float gateN = max(gate, 0.7 * smoothstep(-0.02, 0.05, sunW.y) * (1.0 - smoothstep(0.55, 0.8, sunW.y)) * f.clear * f.day);
+	vec3 nearL = hue * level * SHAFT_NEAR_BEAM * colB * lobeN * gateN * thick * float(SHAFT_STRENGTH) * 0.01;
+	// (not at a grazing sun: then the near air over the field lies in the ridges' and the grass's long shadows, and the
+	// sunlit air above it read as a milky smear over the near ground, not as beams; the far shafts carry that hour)
+	return farL + nearL * nearW * smoothstep(0.08, 0.22, sunW.y);
 }
 #endif
 

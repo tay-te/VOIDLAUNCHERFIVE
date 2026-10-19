@@ -394,6 +394,8 @@ void main() {
 		outColor = vec4(vec3(h.back.a * 4.0), 1.0); return;
 #elif WL4_C2 == 9
 		outColor = vec4(air, 1.0); return;
+#elif WL4_C2 == 6
+		outColor = vec4(ug.amount * 4.0, 0.0, 0.0, 1.0); return;
 #endif
 		color.rgb = welkinHazeBack(color.rgb, h);
 #if WL4_C2 == 2
@@ -494,7 +496,7 @@ void main() {
 			shThick *= 1.0 + 0.9 * clamp(dawnAmt, 0.0, 1.5); // look2: thicker in the morning mist
 			color.rgb += shaftLight(normalize(eyePos), sunW, st.kind, lit, s.sky, lum, shThick, s.sky ? 1e4 : length(eyePos)) * (cloud ? 0.0 : 1.0);
 #if SHAFT_DEBUG == 1
-			color.rgb = vec3(lit); // the resolved sunlit share of the near air
+			color.rgb = vec3(lit * 20.0); // (look4: x20) the resolved sunlit share of the near air
 #elif SHAFT_DEBUG == 2
 			color.rgb = vec3(texelFetch(colortex13, p >> 1, 0).r); // the raw term
 #endif
@@ -505,9 +507,6 @@ void main() {
 #endif
 		color.rgb = mix(color.rgb, ugBeforeMist, ug.amount); // M5: the valley mist (and the shafts) hand over too
 		color.rgb = welkinHazeFront(color.rgb, h);
-#if WL4_C2 == 6
-		outColor = color; return;
-#endif
 		// ---- air and tone (D): the land's aerial perspective (lib/air.glsl)
 		if (!s.sky && !cloud) {
 			// (M5: it hands over to the cave air at cave mouths, as the haze does)
