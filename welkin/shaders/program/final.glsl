@@ -18,6 +18,7 @@ out vec2 texcoord;
 flat out vec4 gradeHour; // warm, day, clear, morning
 flat out float gradeOpen; // the eye's openness to the sky
 flat out float gradeDusk; // (look3) the evening's last degrees, clear sky: 0..1
+flat out float gradeBlue; // (Look D5) the morning's blue hour, clear sky: 0..1
 #if defined SHAFT_BEAMS && defined WORLD_OVERWORLD
 #include "/lib/rays.glsl"
 #ifndef WU_gbufferProjection
@@ -58,11 +59,15 @@ void main() {
 		gradeHour = vec4(f.warm * upG, dayG, f.clear, mornK);
 		gradeOpen = smoothstep(0.15, 0.7, float(eyeBrightnessSmooth.y) / 240.0);
 		gradeDusk = sunAngle < 0.5 ? (1.0 - smoothstep(0.03, 0.30, f.sunW.y)) * f.up * f.clear : 0.0;
+		// (Look D5) the blue hour and the first minutes of the sunrise (05:30 has the sun some 4 degrees up): from about 11
+		// degrees under until it is some 5 to 9 degrees up
+		gradeBlue = mornK * smoothstep(-0.20, -0.10, f.sunW.y) * (1.0 - smoothstep(0.08, 0.16, f.sunW.y)) * f.clear;
 	}
 #else
 	gradeHour = vec4(0.0, 1.0, 1.0, 0.0);
 	gradeOpen = 0.0;
 	gradeDusk = 0.0;
+	gradeBlue = 0.0;
 #endif
 	// ---- end look
 #if defined SHAFT_BEAMS && defined WORLD_OVERWORLD
@@ -93,6 +98,7 @@ uniform float viewHeight;
 flat in vec4 gradeHour;
 flat in float gradeOpen;
 flat in float gradeDusk;
+flat in float gradeBlue;
 // ---- end look
 
 #ifndef WU_colortex0
@@ -326,7 +332,37 @@ void main() {
 		}
 	}
 #endif
+#ifdef WORLD_OVERWORLD
+	// (Look D5) the morning's blue hour across the dome, the clouds in it too: a deep blue-violet overhead, a rose belt low
+	// away from the coming sun, gold low toward it. The brightness is kept (only the hue moves), a little deeper overhead
+	if (gradeBlue > 0.0) {
+		float d = texelFetch(depthtex0, p, 0).r;
+#ifdef DISTANT_HORIZONS
+		d = min(d, texelFetch(dhDepthTex0, p, 0).r);
+#endif
+		if (d >= 1.0) {
+			vec3 v = normalize((gbufferProjectionInverse * vec4((vec2(p) + 0.5) / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0)).xyz);
+			vec3 vW = mat3(gbufferModelViewInverse) * v;
+			vec3 sW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
+			float toward = dot(normalize(vW.xz + vec2(1e-5)), normalize(sW.xz + vec2(1e-5))) * 0.5 + 0.5;
+			float low = 1.0 - smoothstep(0.02, 0.38, vW.y);
+			// display-value hues at luma 1
+			vec3 violet = vec3(0.80, 0.84, 1.24) / 0.8487;
+			vec3 rose = vec3(1.12, 0.88, 0.94) / 0.9356;
+			vec3 gold = vec3(1.14, 0.96, 0.78) / 0.9853;
+			vec3 hue = mix(violet, mix(rose, gold, smoothstep(0.55, 0.95, toward)), low);
+			bool cl = texelFetch(colortex6, p, 0).r <= 999.0;
+			float y = dot(c, vec3(0.2126, 0.7152, 0.0722));
+			// (the sun's side of the dome keeps its gold glow: none within about 30 degrees of the sun, and less on the bright
+			// sky round it)
+			float wB = gradeBlue * (1.0 - smoothstep(0.45, 0.88, dot(vW, sW))) * (1.0 - smoothstep(0.5, 0.85, y));
+			c = mix(c, hue * y, (cl ? GRADE_BLUE_CLOUD : GRADE_BLUE_SKY) * wB);
+			c *= 1.0 - GRADE_BLUE_DEEP * wB * (1.0 - low) * (cl ? 0.5 : 1.0);
+		}
+	}
+#endif
 	// ---- look (welkin-look): the colour grade (lib/grade.glsl), after the curve
+	gradeBlueHour = gradeBlue;
 	c = welkinGrade(c, gradeHour, gradeOpen);
 	// ---- end look
 #if DEBUG_VIEW == 23

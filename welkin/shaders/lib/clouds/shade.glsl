@@ -756,7 +756,9 @@ vec3 wcFogTarget(vec3 rd, CloudEnv e) {
 float wcFogBacklit(vec3 rd, CloudEnv e) {
 	float backlit = smoothstep(0.50, 0.05, e.sun.y) * smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - wcClosed());
 	float swk = wcSunward(rd, e);
-	return 1.0 - WD_BACKLIT_FOG * backlit * swk * swk;
+	// (a strip of deck right on the horizon is far off through the low air: it keeps its fog, the shed comes in from a few
+	// degrees up)
+	return 1.0 - WD_BACKLIT_FOG * backlit * swk * swk * smoothstep(0.01, 0.09, rd.y);
 }
 
 // How far a hit sinks into the horizon colour: a little from a few hundred blocks out, then smoothly more with each

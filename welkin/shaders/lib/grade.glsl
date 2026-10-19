@@ -22,6 +22,11 @@
 
 #include "/lib/settings.glsl"
 
+// (Look D5) the blue hour, 0..1: the sun from some 11 degrees under to 5 up before noon, clear (final sets it before the grade).
+// The day's pulls of the sky's blue toward a blue-grey and of lavender toward a warm grey ease off, and the shade takes a
+// blue-violet: the twilight's deep blue overhead stays
+float gradeBlueHour = 0.0;
+
 float gradeLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
@@ -39,6 +44,11 @@ float gradeLuma(vec3 c) {
 #define GRADE_DAY_GAMMA 0.93
 // (Look D5) the mid-afternoon's extra highlight roll
 #define GRADE_AFTERNOON_ROLL 0.2
+// (Look D5) the blue hour's sky gradient (final): how much of the hue the open sky and the clouds take, how much deeper
+// overhead
+#define GRADE_BLUE_SKY 0.7
+#define GRADE_BLUE_CLOUD 0.6
+#define GRADE_BLUE_DEEP 0.18
 
 vec3 gradeHsv(vec3 c) {
 	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -140,7 +150,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		// blue-grey: a third of the saturation out, a breath of warmth in
 		vec3 bg = mix(vec3(y), L, 0.90) * vec3(1.03, 1.0, 0.97); // (look3: 0.80: noon's sky had gone a leaden grey; look2 0.58)
 		bg *= y / max(gradeLuma(bg), 1e-6);
-		L = mix(L, bg, min(0.85 * blue + 0.7 * cyan, 1.0) * (1.0 - 0.5 * night));
+		L = mix(L, bg, min(0.85 * blue + 0.7 * cyan, 1.0) * (1.0 - 0.5 * night) * (1.0 - 0.85 * gradeBlueHour));
 		// (D1) lavender and lilac (blue-led with red over green: the clouds' shaded flanks, a hazy dawn) by day: most of
 		// their violet out toward a warm blue-grey, so the clouds and the air are never a cold lilac (the dusk's last
 		// degrees keep theirs: final's dusk gradient lays them on after)
@@ -149,7 +159,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 			float yv = gradeLuma(L);
 			vec3 wg = mix(vec3(yv), L, 0.45) * vec3(1.02, 1.0, 0.97);
 			wg *= yv / max(gradeLuma(wg), 1e-6);
-			L = mix(L, wg, 0.75 * vio * day * (1.0 - 0.3 * warm));
+			L = mix(L, wg, 0.75 * vio * day * (1.0 - 0.3 * warm) * (1.0 - gradeBlueHour));
 		}
 	}
 
@@ -166,6 +176,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		float blueK = clamp((L.b - max(L.r, L.g)) / max(L.b, 1e-4) * 3.0, 0.0, 1.0) * day * (1.0 - over);
 		// (Look D5) a soft, slightly hazy blue by day, not a saturated one (was 0.90)
 		s = mix(s, GRADE_SKY_SAT, blueK);
+		s = mix(s, 1.0, gradeBlueHour * clamp((L.b - max(L.r, L.g)) / max(L.b, 1e-4) * 3.0, 0.0, 1.0)); // (Look D5)
 		// calmer highs and lows, richest in the mids
 		s *= 1.0 - 0.22 * smoothstep(0.62, 0.98, yd) * (1.0 - keepWarm) * (1.0 - 0.6 * blueK);
 		s *= 1.0 - mix(0.18, 0.06, day) * (1.0 - smoothstep(0.03, 0.22, yd)); // (look3: by day the shade keeps its colour)
@@ -194,6 +205,8 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		// (D3) a rose shade, not a violet: misty gold and rose, never a mauve-grey
 		vec3 loMorn = vec3(1.02, 0.965, 1.0);
 		vec3 lo = mix(mix(loDay, mix(loGold, loMorn, morn), warm), loNight, night);
+		// (Look D5) the blue hour's shade a blue-violet (the land and the clouds' bellies under the twilit sky)
+		lo = mix(lo, vec3(0.92, 0.93, 1.16), gradeBlueHour);
 		hi /= gradeLuma(hi);
 		lo /= gradeLuma(lo);
 		// (look3) the open sky's blue takes a fifth of the warm highlight, so it stays a blue (the warm light is on the land)
