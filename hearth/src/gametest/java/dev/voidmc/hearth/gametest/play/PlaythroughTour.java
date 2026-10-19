@@ -1417,6 +1417,43 @@ public class PlaythroughTour implements FabricClientGameTest {
 		});
 		note("midnight: " + n[0] + " embodied folk with homes, " + n[1] + " asleep, " + n[2] + " in a bed of their own home, " + n[3] + " still out");
 		ok(n[0] > 0 && n[2] * 2 >= n[0], "folk go home to bed (" + n[2] + "/" + n[0] + " in their own beds)");
+		// right-clicking a sleeper is never met with silence
+		Integer sleeper = srv(server -> {
+			ServerLevel level = server.overworld();
+			for (Folk f : townFolk()) {
+				if (!f.isSleeping()) {
+					continue;
+				}
+				BlockPos at = freeBeside(level, f.blockPosition(), 2);
+				if (at.equals(f.blockPosition().above())) {
+					continue;
+				}
+				ServerPlayer p = player(server);
+				Vec3 eye = Vec3.atBottomCenterOf(at).add(0, 1.62, 0);
+				Vec3 to = f.position().add(0, 0.3, 0);
+				float yaw = (float) Math.toDegrees(Math.atan2(-(to.x - eye.x), to.z - eye.z));
+				float pitch = (float) -Math.toDegrees(Math.atan2(to.y - eye.y, Math.hypot(to.x - eye.x, to.z - eye.z)));
+				p.teleportTo(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, Set.of(), yaw, pitch, true);
+				return f.getId();
+			}
+			return null;
+		});
+		if (sleeper != null) {
+			settle(1_000);
+			int chat0 = chatSize();
+			boolean sent = this.context.computeOnClient(mc -> {
+				Entity e = mc.level.getEntity(sleeper);
+				if (e == null) {
+					return false;
+				}
+				mc.gameMode.interact(mc.player, e, new EntityHitResult(e), InteractionHand.MAIN_HAND);
+				return true;
+			});
+			settle(1_000);
+			List<String> said = chatSince(chat0);
+			note("right-clicked a sleeper (sent " + sent + "): chat " + said);
+			ok(!said.isEmpty(), "a sleeper right-clicked mumbles back rather than nothing");
+		}
 		double[] cam = srv(server -> {
 			ServerLevel level = server.overworld();
 			for (Folk f : townFolk()) {
