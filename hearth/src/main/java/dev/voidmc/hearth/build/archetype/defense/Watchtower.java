@@ -247,9 +247,14 @@ public final class Watchtower implements Archetype {
 		Towers.spiral(d, cx, cz, 0, p, 0);
 		cabin(d, l, 0, 0, w - 1, dp - 1, p, cx, cz, null);
 		try (var s = d.stage(StageKind.FLOORS)) {
-			// the foot of the stair on a path of the paving from the street
+			// the foot of the stair on a path of the paving from the street, on a footing down to the ground where the
+			// ground dips under it (a river bank: the path is the way in, and a path on nothing falls at the first decay)
+			Mat footing = d.mat(Role.FOUNDATION);
 			for (int z = 0; z < cz - 1; z++) {
 				d.set(cx, -1, z, d.mat(Role.PAVING).full());
+				for (int y = Math.min(d.site().ground(cx, z), -1) - 1; y < -1; y++) {
+					d.set(cx, y, z, footing.full());
+				}
 			}
 		}
 		d.entrance(cx, 0, 0);
