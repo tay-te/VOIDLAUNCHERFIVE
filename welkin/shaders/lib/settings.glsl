@@ -189,6 +189,8 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define WAVING_WATER_PLANTS
 // Wind strength: How far leaves and plants move. They never move more than two texture pixels.  [plumbing]
 #define WAVE_STRENGTH 1.0 // [0.5 0.75 1.0 1.25 1.5]
+// Sway freeze: For testing only; on no screen. 0 lets leaves and plants move with the clock. Any other value holds the sway at that many seconds, the same in every frame and every session, so test shots repeat; each value gives another set of gaps in a crown.  [plumbing]
+#define SWAY_FREEZE 0 // [0 1 7 13 29 47 61 89]
 // ---- Underground
 // Cave fog: Caves fill with a smooth fog that closes in tight passages and reaches far in great caverns and over buried seas. Needs VOID Gloam for all but a plain cave fog.  [underground]
 #define UG_FOG

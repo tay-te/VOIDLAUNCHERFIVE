@@ -21,6 +21,9 @@ bool welkinTopVertex(vec3 midBlock)    { return midBlock.y < 0.0; }
 vec3 welkinSway(int m, vec3 worldPos, vec3 midBlock, float t, vec4 wind) {
     int kind = matSway(m);
     if (kind == SWAY_NONE) return vec3(0.0);
+#if SWAY_FREEZE != 0
+    t = float(SWAY_FREEZE); // (Look D2) a test clock: the sway held, so a shot repeats (lib/settings.glsl)
+#endif
 #ifndef WAVING_LEAVES
     if (kind == SWAY_LEAVES) return vec3(0.0);
 #endif
