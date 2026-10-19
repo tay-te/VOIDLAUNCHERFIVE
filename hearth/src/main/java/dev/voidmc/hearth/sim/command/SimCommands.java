@@ -14,6 +14,7 @@ import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.sim.SimServer;
 import dev.voidmc.hearth.sim.atlas.Atlas;
+import dev.voidmc.hearth.sim.atlas.NearbySites;
 import dev.voidmc.hearth.sim.atlas.RegionPlan;
 import dev.voidmc.hearth.sim.model.SimRules;
 import dev.voidmc.hearth.sim.settlement.Cursor;
@@ -90,18 +91,33 @@ public final class SimCommands {
 		source.sendSuccess(() -> Component.literal(text), false);
 	}
 
+	/** How far {@code /hearth settlement list} looks for histories nobody has visited yet. */
+	static final int UNVISITED_RADIUS = 2048;
+
 	private static int list(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
 		SimWorld w = world(c.getSource());
 		Vec3 at = c.getSource().getPosition();
 		List<SimSettlement> all = new ArrayList<>(w.settlements());
 		all.sort(Comparator.comparingDouble(s -> s.center().distToCenterSqr(at)));
-		say(c.getSource(), all.size() + " settlements, " + w.index().adoptedCount() + " historic regions adopted");
+		NearbySites.Result near = NearbySites.around(w.atlas(), (int) Math.floor(at.x), (int) Math.floor(at.z), UNVISITED_RADIUS,
+			id -> w.settlement(id) != null || w.index().isAdopted(Atlas.regionKey(Atlas.historicRegionX(id), Atlas.historicRegionZ(id))), true);
+		say(c.getSource(), all.size() + " settlements, " + w.index().adoptedCount() + " historic regions adopted, " + near.sites().size()
+			+ " not yet visited within " + UNVISITED_RADIUS + " m" + (near.surveying() > 0 ? " (" + near.surveying() + " regions still being surveyed)" : ""));
 		for (SimSettlement s : all) {
 			say(c.getSource(), String.format(Locale.ROOT, "  #%d %s — %s %s, %d souls, %d/%d plots built, %d m away%s", s.id(), s.name(),
 				s.culture().getSerializedName(), s.tier().getSerializedName(), s.population(), s.plotCounts().getOrDefault(PlotState.BUILT, 0),
 				s.plots().size(), (int) Math.sqrt(s.center().distToCenterSqr(at)), s.embodied() ? " (embodied)" : ""));
 		}
-		return all.size();
+		for (NearbySites.Unvisited u : near.sites()) {
+			say(c.getSource(), unvisitedLine(u));
+		}
+		return all.size() + near.sites().size();
+	}
+
+	static String unvisitedLine(NearbySites.Unvisited u) {
+		return String.format(Locale.ROOT, "  #%d %s — %s %s, about %d souls, not yet visited, %d m away at %d, %d, %d", u.id(), u.name(),
+			u.culture().getSerializedName(), u.tier().getSerializedName(), u.souls(), u.distance(), u.center().getX(), u.center().getY(),
+			u.center().getZ());
 	}
 
 	private static SimSettlement pick(CommandContext<CommandSourceStack> c, SimWorld w, @Nullable Long id) throws CommandSyntaxException {
@@ -160,13 +176,54 @@ public final class SimCommands {
 
 	private static int tp(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
 		SimWorld w = world(c.getSource());
-		SimSettlement s = pick(c, w, LongArgumentType.getLong(c, "id"));
+		long id = LongArgumentType.getLong(c, "id");
 		var player = c.getSource().getPlayerOrException();
-		int y = w.probe().groundY(s.center().getX(), s.center().getZ()) + 6;
-		player.teleportTo(c.getSource().getLevel(), s.center().getX() + 0.5, y, s.center().getZ() + 0.5, java.util.Set.of(), player.getYRot(),
-			player.getXRot(), true);
-		say(c.getSource(), "To " + s.name());
+		SimSettlement s = w.settlement(id);
+		if (s != null) {
+			teleport(w, player, s.center());
+			say(c.getSource(), "To " + s.name());
+			return 1;
+		}
+		if (!Atlas.isHistoric(id)) {
+			throw NO_SETTLEMENT.create();
+		}
+		// a world generation history nobody has visited: go there and adopt it, as arriving on foot would
+		int rx = Atlas.historicRegionX(id);
+		int rz = Atlas.historicRegionZ(id);
+		if (w.index().isAdopted(Atlas.regionKey(rx, rz))) {
+			throw NO_SETTLEMENT.create(); // adopted once and since gone
+		}
+		CommandSourceStack source = c.getSource();
+		RegionPlan ready = w.atlas().planIfReady(rx, rz);
+		if (ready != null) {
+			return tpHistory(source, w, player, id, ready);
+		}
+		say(source, "Surveying the region…");
+		w.atlas().planAsync(rx, rz).whenComplete((plan, t) -> source.getServer().execute(() -> {
+			if (t != null || plan == null || SimServer.world(source.getLevel()) != w || player.isRemoved()) {
+				source.sendFailure(Component.literal("Could not work out that region"));
+				return;
+			}
+			tpHistory(source, w, player, id, plan);
+		}));
 		return 1;
+	}
+
+	private static int tpHistory(CommandSourceStack source, SimWorld w, net.minecraft.server.level.ServerPlayer player, long id, RegionPlan plan) {
+		RegionPlan.Site site = plan.site();
+		if (site == null || site.settlementId() != id) {
+			source.sendFailure(Component.literal("No such settlement"));
+			return 0;
+		}
+		teleport(w, player, site.center());
+		SimSettlement s = w.adopt(plan);
+		say(source, s == null ? "To " + site.name() + " (not adopted)" : "To " + s.name());
+		return 1;
+	}
+
+	private static void teleport(SimWorld w, net.minecraft.server.level.ServerPlayer player, net.minecraft.core.BlockPos center) {
+		int y = w.probe().groundY(center.getX(), center.getZ()) + 6;
+		player.teleportTo(w.level(), center.getX() + 0.5, y, center.getZ() + 0.5, java.util.Set.of(), player.getYRot(), player.getXRot(), true);
 	}
 
 	private static int found(CommandContext<CommandSourceStack> c, @Nullable String cultureName) throws CommandSyntaxException {
