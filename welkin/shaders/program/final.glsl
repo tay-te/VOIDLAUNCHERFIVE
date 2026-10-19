@@ -294,7 +294,7 @@ void main() {
 		// (Look D9) at night the halo is the lamps', windows' and fires': bigger and warmer, so a village glows invitingly
 		// out of the dark (the moon's own halo is the sky's, lib/sky/luminous.glsl skyNightGlow)
 		{
-			float nB = smoothstep(0.5, 1.0, skyNightStep());
+			float nB = smoothstep(-0.05, -0.20, sin(sunAngle * 6.2831853));
 			glow.rgb *= mix(vec3(1.0), BLOOM_NIGHT_GAIN * vec3(1.10, 0.98, 0.80), nB);
 		}
 #endif

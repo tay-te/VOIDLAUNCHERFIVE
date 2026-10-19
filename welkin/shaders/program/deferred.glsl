@@ -118,7 +118,7 @@ void main() {
 		}
 #if defined WORLD_OVERWORLD
 		// (Look D9) the meadow's patchwork: drier and lusher swathes over a field (lib/variety.glsl)
-		if (varietyMaterial(material)) {
+		if (VARIETY_AMOUNT > 0.0 && varietyMaterial(material)) {
 			albedo = varietyAlbedo(albedo, vec2(cameraPositionInt.xz) + (cameraPositionFract.xz + eyePos.xz));
 		}
 #endif

@@ -350,11 +350,10 @@ void main() {
 		vec3 airPlainHv = airPlain; // (the haze volume and the dawn mist take their own cloud shadows)
 #ifdef C2_AIR_SHADOW
 		// (Look D9) the air over the land in a cloud's shadow: read where the in-scatter that reaches the eye mostly comes
-		// from, over the far part of the ray (the land's own point twice), as a share of the sun (lib/clouds/shadow.glsl)
+		// from, at the land's own point and seven tenths of the way to it, as a share of the sun (lib/clouds/shadow.glsl)
 		if (!s.sky && !cloud && !finished && sunW.y > 0.05) {
 			CloudEnv ce = wcEnvRead();
-			float sh = 0.25 * (welkinCloudShadow(eyePos * 0.55, ce) + welkinCloudShadow(eyePos * 0.8, ce))
-				+ 0.5 * welkinCloudShadow(eyePos, ce);
+			float sh = 0.4 * welkinCloudShadow(eyePos * 0.7, ce) + 0.6 * welkinCloudShadow(eyePos, ce);
 			float closed = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
 			float u = (1.0 - clamp(sh, 0.0, 1.0)) * (1.0 - closed) * smoothstep(0.05, 0.25, sunW.y);
 			vec3 tintA = AIR_CLOUD_TINT / dot(AIR_CLOUD_TINT, vec3(0.2126, 0.7152, 0.0722));

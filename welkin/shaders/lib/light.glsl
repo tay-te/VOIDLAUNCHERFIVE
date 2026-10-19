@@ -241,7 +241,7 @@ vec3 welkinLightGlowLin(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunSh
 #ifdef WORLD_OVERWORLD
 	// (Look D9) at night the lamps' light reaches further (a softer fall-off, the same at the source), so a lit window or a
 	// torch lays a wide warm pool on the walls and the ground round it
-	block *= mix(1.0, pow(rampLevel(lm.x), 1.5) / max(rampBlockLin(lm.x), 1e-6), smoothstep(0.5, 1.0, skyNightStep()) * step(1e-4, rampBlockLin(lm.x)));
+	block *= mix(1.0, pow(rampLevel(lm.x), 1.5) / max(rampBlockLin(lm.x), 1e-6), smoothstep(-0.05, -0.20, sunHeight()) * step(1e-4, rampBlockLin(lm.x)));
 	// (Look D4) the night's exposure fell to 0.52 (deep blacks, the moon as the key); the lamps keep most of their pool,
 	// so they pop warm out of the darker land
 	block *= mix(1.0, 1.5, skyNightStep());
