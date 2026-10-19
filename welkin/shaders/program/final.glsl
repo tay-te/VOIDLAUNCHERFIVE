@@ -208,14 +208,19 @@ void main() {
 		if (d >= 1.0) {
 			vec3 v = normalize((gbufferProjectionInverse * vec4((vec2(p) + 0.5) / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0)).xyz);
 			float mu = dot(v, normalize(sunPosition));
-			float w = smoothstep(0.92, 0.40, mu) * gradeDusk;
+			// (it fades out down to the horizon, where the sky meets the far haze over the land: no seam there)
+			float elev = (mat3(gbufferModelViewInverse) * v).y;
+			float w = smoothstep(0.92, 0.40, mu) * gradeDusk * smoothstep(0.0, 0.18, elev);
 			float y = dot(c, vec3(0.2126, 0.7152, 0.0722));
 			// display-value hues at luma 1: a dusky rose-lilac across, a blue-grey far from the sun
 			vec3 lilac = vec3(1.02, 0.93, 1.10) / 0.9631;
 			vec3 dusk = vec3(0.84, 0.92, 1.08) / 0.9158;
 			vec3 hue = mix(lilac, dusk, smoothstep(0.55, -0.1, mu));
 			// (a cloud less: its sunset-lit flanks keep their peach and gold)
-			c = mix(c, hue * y, (texelFetch(colortex6, p, 0).r <= 999.0 ? 0.36 : 0.62) * w);
+			bool cl = texelFetch(colortex6, p, 0).r <= 999.0;
+			c = mix(c, hue * y, (cl ? 0.36 : 0.62) * w);
+			// and a little dimmer away from the sun, so the glow round it reads as light in the air, not a sheet at white
+			c *= 1.0 - (cl ? 0.10 : 0.20) * w;
 		}
 	}
 	// (golden, 2026-10-18) the pixel sun a crisp solid disc in its glow: round the sun (within about 25 degrees) the
@@ -259,7 +264,13 @@ void main() {
 		float amt = gradeHour.y * gradeOpen * (sunArt ? 0.0 : 1.0);
 		if (m > K && amt > 0.0) {
 			float t = K + (1.0 - K) * (1.0 - exp(-(m - K) / (1.0 - K)));
-			c = mix(c, c * (t / m), amt);
+			vec3 r = c * (t / m);
+			// through the warm hours the light past white burns in as colour, as film's highlights do at sunset: the
+			// further past white, the more of it turns to a deep gold, so the sun's glow and its path on the water read
+			// as a blazing gold-orange core, not a pale cream
+			float burn = clamp((m - 1.0) / 1.2, 0.0, 1.0) * 0.55 * gradeHour.x;
+			r = mix(r, vec3(1.0, 0.70, 0.40) * t, burn);
+			c = mix(c, r, amt);
 		}
 	}
 	// ---- look (welkin-look): the colour grade (lib/grade.glsl)
