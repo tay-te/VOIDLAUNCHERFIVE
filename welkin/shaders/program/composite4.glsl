@@ -44,18 +44,29 @@ vec3 wideTint(vec3 c, float k) {
 	return mix(c, vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), k);
 }
 
+// (look2) a broad level's light toward a warm amber at its own luminance, by k
+vec3 wideWarm(vec3 c, float k) {
+	float y = dot(c, vec3(0.2126, 0.7152, 0.0722));
+	vec3 amber = vec3(1.16, 0.98, 0.74);
+	amber /= dot(amber, vec3(0.2126, 0.7152, 0.0722));
+	return mix(c, amber * y, k);
+}
+
 void main() {
 	vec3 g = vec3(0.0);
 #ifdef BLOOM
 	vec2 uv = gl_FragCoord.xy / vec2(textureSize(colortex14, 0));
 	// the core (levels 1, 2) and the halo (3 .. 6); the weights sum to 1
 	// (review round 1: a little more in the core and less in the widest level, a tighter halo)
-	g += tentAt(uv, 1.0) * 0.16;
-	g += tentAt(uv, 2.0) * 0.20;
-	g += tentAt(uv, 3.0) * 0.23;
+	// (look2, 2026-10-18: wider and warmer, a painterly glow in the air: the weight moved toward the broad levels, and
+	// the broad levels lean toward a warm amber instead of a neutral grey, so a low sun's, a lamp's or a fire's glow
+	// spreads as warm light, never a grey wash; was 0.16 0.20 0.23 0.21 0.12 0.08, the wide levels greyed 0.25 and 0.4)
+	g += tentAt(uv, 1.0) * 0.09;
+	g += tentAt(uv, 2.0) * 0.13;
+	g += tentAt(uv, 3.0) * 0.18;
 	g += tentAt(uv, 4.0) * 0.21;
-	g += wideTint(tentAt(uv, 5.0), 0.25) * 0.12;
-	g += wideTint(tentAt(uv, 6.0), 0.4) * 0.08;
+	g += wideWarm(tentAt(uv, 5.0), 0.30) * 0.21;
+	g += wideWarm(tentAt(uv, 6.0), 0.45) * 0.18;
 	// alpha: the frame's mean bright share (the 1x1 level), its luminance, for final's flat veil (lib/bloom.glsl
 	// bloomApply; the merge of phase 2)
 	ivec2 size = textureSize(colortex14, 0);

@@ -28,13 +28,16 @@
 #include "/lib/settings.glsl"
 
 // the threshold and its knee, in linear light with headroom (1 = display white without headroom)
-#define BLOOM_THRESHOLD 1.0
+// (look2: 0.85, was 1.0)
+#define BLOOM_THRESHOLD 0.85
 #define BLOOM_KNEE 0.4
 // how much of the bright share scatters into the halo at strength 100
-#define BLOOM_SCATTER 0.5
+// (look2: 1.3, was 0.5: the glow part of the air)
+#define BLOOM_SCATTER 1.3
 // the open sky's share of the source: a bright sky is a broad source, and wholly it washed the land under a grey-gold
 // veil whenever the sun stood in the view; the sun and its glow still bloom
-#define BLOOM_SKY 0.2
+// (look2: 0.32, was 0.2: the golden-hour sky round the sun glows)
+#define BLOOM_SKY 0.32
 // the clouds' share of the source (the merge of phase 2, with welkin-clouds' lit clouds): a sunlit deck sits just under
 // white over half the view, and wholly it veiled a peak over the cloud sea in milk; a cloud's body gives this share, a
 // rim past white (the silver lining, added past the clouds' shoulder) its whole light
@@ -70,7 +73,7 @@ float bloomHeadroom(vec3 lin, float emit, float diffuse) {
 	float h = 1.0 + 5.0 * s * s * s;
 	float past = smoothstep(1.0, 1.35, max(lin.r, max(lin.g, lin.b)));
 	h = mix(h, 1.0 + 5.0 * past, diffuse * (1.0 - smoothstep(0.0, 0.2, emit)));
-	return h * (1.0 + 8.0 * emit);
+	return h * (1.0 + 16.0 * emit); // (look2: 16, was 8: lamps and fire glow at night)
 }
 
 float bloomHeadroom(vec3 lin, float emit) {

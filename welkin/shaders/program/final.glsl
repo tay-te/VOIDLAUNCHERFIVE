@@ -175,11 +175,13 @@ void main() {
 		d = min(d, texelFetch(dhDepthTex0, p, 0).r);
 #endif
 		// (the sky lends nothing out: the pixel sun, moon and stars keep their whole brightness; the land half)
-		float lend = d >= 1.0 ? 0.0 : 0.5;
+		// (look2: 0.3, was 0.5: with the stronger scatter a small light, a lamp or a lit window, gave out more than its halo
+		// brought back and dimmed)
+		float lend = d >= 1.0 ? 0.0 : 0.3;
 #ifdef WORLD_OVERWORLD
 		// (a cloud lends out as the land does, so a sunlit deck spreads its light rather than only gaining the halo over
 		// it; the merge of phase 2)
-		lend = d >= 1.0 && texelFetch(colortex6, p, 0).r <= 999.0 ? 0.5 : lend;
+		lend = d >= 1.0 && texelFetch(colortex6, p, 0).r <= 999.0 ? 0.3 : lend;
 #endif
 		vec4 glow = texture(colortex9, texcoord); // rgb the halo, a the frame's mean bright share (composite4)
 		// (review round 1: a lit surface that does not glow keeps its pale texels out of the halo, lib/bloom.glsl)
