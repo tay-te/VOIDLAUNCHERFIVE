@@ -16,10 +16,9 @@ declare -A dims=([world0]=WORLD_OVERWORLD [world-1]=WORLD_NETHER [world1]=WORLD_
 #   deferred3  deferred_resolve   the shadow's resolve (colortex11)
 #   deferred4  deferred           the light
 #   deferred5  deferred_shafts    the sun shafts' raw term (colortex13, half resolution; workstream D)
-#   deferred6  deferred_cloudmarch the clouds' march (colortex10, its hit; D7)
 #   prepare3   prepare_terrain   the terrain's light (colortex15; prepare1/2 are the clouds')
 declare -A passes=([deferred_ao]=deferred [deferred_aoresolve]=deferred1 [deferred_shadow]=deferred2
-	[deferred_resolve]=deferred3 [deferred]=deferred4 [deferred_shafts]=deferred5 [deferred_cloudmarch]=deferred6
+	[deferred_resolve]=deferred3 [deferred]=deferred4 [deferred_shafts]=deferred5
 	[prepare_terrain]=prepare3)
 
 programs=()

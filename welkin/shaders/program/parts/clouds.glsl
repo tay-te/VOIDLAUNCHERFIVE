@@ -49,14 +49,8 @@ void main() {
 #include "/lib/hdr.glsl"
 #include "/lib/air.glsl"
 #include "/lib/clouds/envflat.glsl"
-#include "/lib/clouds/hitbuf.glsl"
 
 in vec2 texcoord;
-
-#ifndef WU_colortex10
-#define WU_colortex10
-uniform sampler2D colortex10; // (D7) the march's hit (program/deferred_cloudmarch.glsl, lib/clouds/hitbuf.glsl)
-#endif
 
 #ifndef WU_colortex0
 #define WU_colortex0
@@ -105,14 +99,7 @@ void main() {
 	// the bands after it: held through the march's loop they cost registers
 	float tCut = min(tScene, min(wcBandCut(0, ro, rd, pixAngle, e), min(wcBandCut(1, ro, rd, pixAngle, e),
 		wcBandCut(2, ro, rd, pixAngle, e))));
-	// (D7) the march ran in its own pass (deferred6) against the opaque land, never nearer than tScene here: the same
-	// steps, kept only nearer than this pass's cut
-	CloudHit h = wcHitDecode(texelFetch(colortex10, p, 0), rd, e);
-	if (h.hit && h.t >= tCut) {
-		h.hit = false;
-		h.sheet = false;
-		h.t = 1e30;
-	}
+	CloudHit h = welkinCloudMarch(ro, rd, tCut, pixAngle, e);
 	steps = vec3(h.steps, h.gapCols, h.jumps);
 	vec4 band0 = wcBandOf(0, ro, rd, pixAngle, tScene, e);
 	vec4 band1 = wcBandOf(1, ro, rd, pixAngle, tScene, e);
