@@ -14,8 +14,13 @@
   var roles = {};        // slot index -> role
   var prev = {};         // last applied state, for diffing
   var layout = null;
-  // VOID Mettle's page parts (mettle.js), when loaded: gear and classes pages, extra placeholders.
-  var ext = window.hubMettle || null;
+  // Partner mods' page parts, when loaded: VOID Mettle's (mettle.js: gear and classes pages, extra placeholders) and
+  // VOID Hearth's (hearth.js: the Quests page and Hearth's event screens). Each gets every layout, state and message.
+  var exts = [window.hubMettle, window.hubHearth].filter(function (e) { return !!e; });
+  function placeholder(role) {
+    for (var i = 0; i < exts.length; i++) if (exts[i].placeholders && exts[i].placeholders[role]) return exts[i].placeholders[role];
+    return null;
+  }
 
   function send(msg) {
     try {
@@ -210,7 +215,7 @@
         roles[s.i] = s.r;
         el.setAttribute("data-role", s.r);
         el.innerHTML = "";
-        var art = PLACEHOLDER[s.r] || (ext && ext.placeholders[s.r]);
+        var art = PLACEHOLDER[s.r] || placeholder(s.r);
         if (art) {
           var ph = document.createElement("div");
           ph.className = "ph";
@@ -243,7 +248,7 @@
       toggle(wells[w], "drag", false);
     }
     prev = {};
-    if (ext) ext.layout(l);
+    for (var x = 0; x < exts.length; x++) exts[x].layout(l);
   }
 
   // ---- state ----------------------------------------------------------------------------------
@@ -325,7 +330,7 @@
       if (s.carrying) hideTip();
     }
     prev = {hover: s.hover, heldSlot: heldSlot, drag: drag, dragList: s.drag, filled: filled, filter: s.filter, page: s.page};
-    if (ext) ext.state(s);
+    for (var x = 0; x < exts.length; x++) exts[x].state(s);
   }
 
   // ---- Effects: rows rebuilt only when the set of effects changes; times and bars update in place.
@@ -486,7 +491,7 @@
         else if (m.type === "state") applyState(m);
         else if (m.type === "detail") applyDetail(m);
         else if (m.type === "held") applyHeld(m);
-        else if (ext) ext.apply(m);
+        else for (var x = 0; x < exts.length; x++) exts[x].apply(m);
       } catch (e) {
         window.__hubError = String(e) + (e && e.stack ? " @ " + String(e.stack).split("\n")[0] : "");
         return "error: " + e;

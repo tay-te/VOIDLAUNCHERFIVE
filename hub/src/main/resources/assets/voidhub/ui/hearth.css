@@ -1,0 +1,272 @@
+/* VOID Hearth on the hub (Figma 3c0Wgc4ZKFSpm98fWJoARS, page 295:2, section 651:37945).
+   Event screens (talk A/B, guard, market, bank, dice, lockpicking, pickpocketing) and the Quests page (journal, notice
+   board, reputation, finished). Every number is the design's, in CSS px = design units, inside the 987 x 606 window.
+   Flat, rounded, no shadows, no transitions or animations; colour only for meaning; glows only as radial gradients.
+   The minigames' moving parts are drawn natively by Java over the rects marked data-nfx. */
+
+:root {
+  --h-win: rgba(11, 11, 12, 0.96);
+  --h-good: #7FAE7A;
+  --h-wary: #D6A85A;
+  --h-bad: #C2645A;
+  --h-violet: #9F8BFF;
+  --h-brass: #C9A35B;
+  --h-crown: #E3C47E;
+  --h-mark: #B9BDC2;
+  --h-bit: #D9A07E;
+  --h-active: #26272B;
+}
+
+#hearth { position: absolute; left: 0; top: 0; width: 987px; height: 606px; display: none; }
+body.hearth #hearth, body.quests #hearth { display: block; }
+body.hearth #win, body.quests #win, body.hearth #wells, body.quests #wells, body.hearth #tip, body.quests #tip { display: none; }
+body.hearth #pages, body.hearth #strip { display: none; }
+body.hearth #close { width: 89px; }
+body.cinematic #mark { display: none; }
+body.cinematic #dim { background: rgba(11, 11, 12, 0.10); }
+body.hearth #hearth.cine { left: 0; top: 0; width: 100%; height: 100%; }
+
+#hearth * { position: absolute; }
+/* A part: a layer the size of its host, so percentages and centring inside it are the window's; it takes no clicks. */
+#hearth .h-part { left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+#hearth .h-part > * { pointer-events: auto; }
+#hearth .flow * { position: static; }
+#hearth .rel { position: relative !important; }
+
+/* ---- shared parts ------------------------------------------------------------------------------------------------ */
+/* No overflow clip on the window or the bar (nothing inside reaches past their edges; the guard's glow stays inside). */
+.hw { left: 0; top: 0; width: 987px; height: 606px; background: var(--h-win); border: 1px solid var(--line-3); border-radius: 32px; }
+.hw > * { position: absolute; }
+.h-chip {
+  left: 27px; top: 24px; height: 26px; display: flex; align-items: center; gap: 7px; padding: 0 11px 0 8px;
+  background: var(--well); border: 1px solid var(--line-2); border-radius: 12px; font-size: 11px; color: var(--ink-2); white-space: nowrap;
+}
+#hearth .h-chip .modmark.big { position: relative !important; }
+#hearth .h-chip .modmark i { position: absolute; }
+.h-eb { font-size: 9px; letter-spacing: 1.1px; color: var(--ink-4); white-space: pre; text-transform: uppercase; }
+.h-eb2 { font-size: 8.5px; letter-spacing: 1px; color: var(--ink-4); white-space: pre; text-transform: uppercase; }
+.h-foot { top: 575px; font-size: 9px; letter-spacing: 1.1px; color: var(--ink-4); white-space: pre; text-transform: uppercase; }
+.h-foot.l { left: 27px; }
+.h-foot.r { right: 28px; }
+.h-panel { background: var(--panel); border: 1px solid var(--line-3); border-radius: 20px; overflow: hidden; }
+.h-well { background: var(--well); border: 1px solid var(--line-4); }
+.h-hair { height: 1px; background: rgba(255, 255, 255, 0.07); }
+.h-title { font-size: 14px; color: var(--ink); white-space: nowrap; }
+.h-center { left: 0; width: 987px; text-align: center; }
+.h-pill {
+  display: flex; align-items: center; gap: 6px; height: 23px; padding: 0 9px; white-space: nowrap;
+  background: var(--well); border: 1px solid var(--line-2); border-radius: 99px; font-size: 10.5px; color: var(--ink-2);
+}
+.h-pill.ink { color: var(--ink); }
+.h-pill.law { border-color: rgba(194, 100, 90, 0.4); }
+.h-pill.on { background: var(--h-active); color: var(--ink); }
+.h-pill.c { justify-content: center; }
+#hearth .h-pill > *, #hearth .h-mchip > *, #hearth .h-btn > *, #hearth .h-seg > * , #hearth .h-cr > * { position: relative !important; }
+.h-dot { width: 6px; height: 6px; border-radius: 3px; flex: none; }
+.h-dot.good { background: var(--h-good); } .h-dot.wary { background: var(--h-wary); } .h-dot.bad { background: var(--h-bad); }
+.h-dot.violet { background: var(--h-violet); } .h-dot.brass { background: var(--h-brass); } .h-dot.ink { background: var(--ink-2); }
+.good { color: var(--h-good); } .wary { color: var(--h-wary); } .bad { color: var(--h-bad); } .violet { color: var(--h-violet); }
+.brass { color: var(--h-brass); } .ink { color: var(--ink); } .ink2 { color: var(--ink-2); } .ink3 { color: var(--ink-4); }
+.h-btn {
+  height: 32px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; white-space: nowrap;
+  background: var(--well); border: 1px solid var(--line-2); border-radius: 16px; font-size: 12px; color: var(--ink);
+}
+.h-btn.big { height: 36px; border-radius: 18px; }
+.h-btn.primary { background: var(--ink); border-color: var(--ink); color: #111214; }
+.h-btn:hover { background: var(--raised); }
+.h-btn.primary:hover { background: #FFFFFF; }
+.h-btn.off { color: var(--ink-4); }
+.h-btn.off:hover { background: var(--well); }
+.h-btn.danger { color: var(--h-bad); }
+.h-segs {
+  top: 19px; height: 38px; display: flex; align-items: center; gap: 2px; padding: 3px; white-space: nowrap;
+  background: var(--well); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 18px;
+}
+.h-seg { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 14px; border-radius: 15px; font-size: 13px; color: var(--ink-2); border: 1px solid transparent; }
+.h-seg .n { font-size: 11px; color: var(--ink-4); }
+.h-seg.on { background: var(--h-active); border-color: var(--line-2); color: var(--ink); }
+.h-seg.on .n { color: var(--ink-2); }
+.h-seg:not(.on):hover { color: var(--ink); }
+.h-search {
+  left: 922px; top: 19px; width: 36px; height: 36px; border-radius: 18px; background: var(--well); border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex; align-items: center; justify-content: center;
+}
+.h-search svg { position: relative !important; }
+.h-glow { border-radius: 50%; }
+.h-glow.law { background: radial-gradient(closest-side, rgba(194, 100, 90, 0.16), rgba(194, 100, 90, 0)); }
+/* The guard's glow (Figma 663:42780, 840 across, centred above the window's top), held inside the window's own box. */
+.h-glow.lawwin { border-radius: 32px; background: radial-gradient(circle 420px at 493px 120px, rgba(194, 100, 90, 0.16), rgba(194, 100, 90, 0)); }
+.h-glow.gold { background: radial-gradient(closest-side, rgba(201, 163, 91, 0.16), rgba(201, 163, 91, 0)); }
+.h-native { border-radius: 16px; background: rgba(255, 255, 255, 0.012); }
+
+/* cells: a row of square pips (standing, opinion, scores, progress) */
+.h-cel { height: 9px; }
+.h-cel i { position: absolute; top: 0; background: var(--cell-off); }
+.h-cel i.on { background: var(--cell-on); }
+.h-cel i.violet { background: var(--violet); }
+.h-cel i.good { background: rgba(127, 174, 122, 0.95); }
+.h-cel i.bad { background: rgba(194, 100, 90, 0.95); }
+.h-cel i.brass { background: rgba(201, 163, 91, 0.95); }
+.h-cel i.wary { background: rgba(214, 168, 90, 0.95); }
+
+/* coins: the readout (28 px coin, count over name) and the inline price (8 px squares) */
+.h-cr { display: flex; align-items: center; gap: 10px; }
+.h-cr svg { flex: none; }
+.h-cr .crt { display: flex; flex-direction: column; gap: 2px; }
+.h-cr .crc { font-size: 20px; letter-spacing: -0.2px; color: var(--ink); line-height: 25px; }
+.h-cr .crn { font-size: 8px; letter-spacing: 1.04px; color: var(--ink-4); }
+.h-crs { display: flex; gap: 18px; }
+.h-crs > * { position: relative !important; }
+.h-price { display: flex; align-items: center; gap: 8px; height: 16px; font-size: 13px; color: var(--ink); white-space: nowrap; }
+.h-price > span { position: relative !important; display: flex; align-items: center; gap: 8px; }
+.h-price i { position: relative !important; width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.h-price i.c { background: var(--h-crown); } .h-price i.m { background: var(--h-mark); } .h-price i.b { background: var(--h-bit); }
+.h-price.dim { color: var(--ink-4); } .h-price.dim i { opacity: 0.5; }
+
+/* portraits and glyphs */
+.h-face { overflow: hidden; }
+.h-face img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+#hearth svg.h-g { flex: none; position: relative; }
+
+/* ---- conversation A and the guard (option list) ------------------------------------------------------------------- */
+.h-res { left: 27px; top: 75px; width: 317px; height: 482px; }
+.h-res .pw { left: 15px; top: 15px; width: 285px; height: 184px; border-radius: 14px; }
+.h-res .pw .h-face { left: 57.5px; top: 15px; width: 168px; height: 168px; }
+.h-res .pw .noface { left: 0; right: 0; top: 76px; text-align: center; font-size: 10.5px; color: var(--ink-4); }
+.h-res .nm { left: 15px; top: 213px; font-size: 20px; color: var(--ink); white-space: nowrap; }
+.h-res .job { left: 15px; top: 241px; font-size: 11.5px; color: var(--ink-2); white-space: pre; }
+.h-traits { display: flex; gap: 6px; }
+.h-traits > * { position: relative !important; }
+.h-speech { left: 368px; top: 75px; width: 590px; height: 96px; }
+.h-speech .line { left: 0; top: 18px; width: 590px; font-size: 18px; font-weight: 400; line-height: 25px; color: var(--ink); }
+.h-speech .check { left: 0; top: 78px; width: 590px; font-size: 11px; color: var(--ink-2); white-space: nowrap; overflow: hidden; }
+.h-opts { left: 360px; top: 189px; width: 598px; display: flex; flex-direction: column; gap: 2px; }
+.h-opts.gap4 { top: 191px; gap: 4px; }
+.h-opts > * { position: relative !important; }
+.h-opt {
+  height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 12px; border-radius: 12px;
+  border: 1px solid transparent; white-space: nowrap;
+}
+.h-opt > * { position: relative !important; }
+.h-opt .k { width: 12px; font-size: 11px; color: var(--ink-4); flex: none; }
+.h-opt .l { flex: 1 1 0; min-width: 0; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.h-opt:hover, .h-opt.focus { background: var(--panel); border-color: var(--line-2); }
+.h-opt.locked .l { opacity: 0.4; }
+.h-opt.locked svg { opacity: 0.5; }
+.h-opt.locked:hover { background: transparent; border-color: transparent; }
+.h-mchip {
+  height: 23px; display: flex; align-items: center; gap: 6px; padding: 0 9px 0 8px; flex: none;
+  background: var(--well); border: 1px solid var(--line-2); border-radius: 10px; font-size: 10.5px; color: var(--ink-2);
+}
+
+/* ---- conversation B: the cinematic bar ----------------------------------------------------------------------------- */
+.h-cpill { left: 24px; top: 24px; height: 24px; padding: 0 14px; display: flex; align-items: center; background: var(--panel); border: 1px solid var(--line-2); border-radius: 99px; font-size: 11px; color: var(--ink-2); white-space: pre; }
+.h-sub { width: 868px; padding: 14px 24px 16px; background: rgba(11, 11, 12, 0.72); border-radius: 20px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.h-sub > * { position: static !important; }
+.h-sub .who { font-size: 9px; letter-spacing: 1.1px; color: var(--ink-2); text-transform: uppercase; }
+.h-sub .line { width: 820px; font-size: 20px; font-weight: 400; line-height: 28px; color: var(--ink); text-align: center; }
+.h-bar { height: 268px; background: rgba(11, 11, 12, 0.94); border: 1px solid var(--line-3); border-radius: 32px; }
+.h-bar > * { position: absolute; }
+.h-bar .pw { left: 23px; top: 23px; width: 112px; height: 112px; border-radius: 14px; }
+.h-bar .pw .h-face { left: -1px; top: -1px; width: 112px; height: 112px; }
+.h-bar .cols { left: 335px; top: 19px; display: flex; gap: 6px; }
+.h-bar .col { position: relative !important; display: flex; flex-direction: column; gap: 4px; }
+.h-bar .col > * { position: relative !important; }
+
+/* ---- market ----------------------------------------------------------------------------------------------------------- */
+.h-stock { left: 27px; top: 75px; width: 560px; height: 482px; }
+.h-row { left: 8px; width: 544px; height: 44px; border-radius: 14px; border: 1px solid transparent; }
+.h-row:hover { background: #1F2023; border-color: var(--line-3); }
+.h-row.hag { background: #222326; border-color: var(--line-2); }
+.h-row .rslot { left: 8px; top: 4px; width: 36px; height: 36px; border-radius: 10px; }
+.h-row .nm { left: 56px; top: 13px; font-size: 13px; color: var(--ink); white-space: nowrap; }
+.h-row.off .nm { color: var(--ink-4); }
+.h-row .lot { left: 254px; top: 14px; font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.h-row .spare { left: 322px; top: 14px; font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.h-row .pr { right: 16px; top: 14px; }
+.h-row .note { right: 88px; top: 15px; font-size: 10.5px; white-space: nowrap; }
+.h-row .h-pill { right: 80px; top: 10px; }
+.h-purse { left: 604px; top: 76px; width: 355px; height: 118px; }
+.h-hag { left: 604px; top: 206px; width: 355px; height: 352px; }
+.h-track i { position: absolute; top: 0; width: 12px; height: 12px; border-radius: 3px; background: var(--cell-off); }
+.h-track i.band { background: rgba(127, 174, 122, 0.55); }
+.h-track i.me { background: var(--violet); }
+.h-track i.his { background: var(--ink); }
+.h-pat i { position: absolute; top: 0; width: 28px; height: 28px; border-radius: 6px; background: var(--cell-off); }
+.h-pat i.on { background: rgba(127, 174, 122, 0.8); }
+.h-pat i.low { background: rgba(201, 163, 91, 0.9); }
+.h-nudge { display: flex; gap: 6px; }
+.h-nudge > * { position: relative !important; width: 76.25px; height: 28px; border-radius: 14px; font-size: 11.5px; }
+
+/* ---- bank --------------------------------------------------------------------------------------------------------------- */
+.h-acct { left: 27px; top: 75px; width: 440px; height: 482px; }
+.h-prop { left: 483px; top: 75px; width: 475px; height: 482px; }
+.h-plot { left: 7px; width: 459px; height: 64px; border-radius: 14px; border: 1px solid transparent; }
+.h-plot.own { background: var(--well); border-color: rgba(255, 255, 255, 0.06); }
+.h-plot:hover, .h-plot.sel { background: var(--well); border-color: var(--line-2); }
+.h-plot .g { left: 9px; top: 9px; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.h-plot .g svg { position: relative !important; }
+.h-plot .a { left: 65px; top: 11px; font-size: 13px; color: var(--ink); white-space: nowrap; }
+.h-plot .b { left: 65px; top: 31px; font-size: 11px; color: var(--ink-2); white-space: pre; }
+.h-plot .c { right: 14px; top: 12px; font-size: 11px; white-space: nowrap; }
+.h-plot.locked .a { color: var(--ink-4); }
+
+/* ---- dice ----------------------------------------------------------------------------------------------------------------- */
+.h-felt { left: 27px; top: 75px; width: 600px; height: 404px; background: #141416; border: 1px solid var(--line-3); border-radius: 20px; }
+.h-tray { left: 15px; top: 347px; width: 568px; height: 40px; border-radius: 12px; }
+.h-tray svg { top: 5px; }
+.h-scores { left: 643px; top: 75px; width: 315px; height: 404px; }
+.h-toggle { width: 32px; height: 18px; }
+.h-toggle .tr { left: 0; top: 0; width: 32px; height: 18px; border-radius: 6px; background: var(--well); border: 1px solid rgba(255, 255, 255, 0.16); }
+.h-toggle .kn { left: 3px; top: 3px; width: 12px; height: 12px; border-radius: 4px; background: var(--ink-4); }
+.h-toggle.on .kn { left: 17px; background: var(--h-violet); }
+.h-pop { background: #1C1D20; border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; width: 300px; font-size: 11.5px; line-height: 17px; color: var(--ink-2); }
+.h-pop b { color: var(--ink); font-weight: 500; }
+
+/* ---- lockpicking and pickpocketing ------------------------------------------------------------------------------------- */
+.h-lockinfo { left: 27px; top: 75px; width: 300px; height: 482px; }
+.h-tiers i { position: absolute; top: 0; height: 8px; border-radius: 3px; background: var(--cell-off); }
+.h-tiers i.on { background: rgba(214, 168, 90, 0.8); }
+.h-picks { display: flex; gap: 6px; }
+.h-picks > * { position: relative !important; width: 40px; height: 40px; border-radius: 10px; }
+.h-picks svg { left: 3px; top: 3px; }
+.h-pslot { width: 80px; height: 80px; border-radius: 12px; background: var(--panel); border: 1.739px solid var(--line-3); }
+.h-pslot:hover { border-color: rgba(255, 255, 255, 0.16); }
+.h-pslot.sel { background: #212225; border: 2.609px solid rgba(237, 238, 239, 0.6); }
+.h-pslot.empty { opacity: 0.35; }
+.h-pslot .cnt { right: 10px; bottom: 8px; font-size: 17.39px; color: var(--ink); }
+.h-pslot .live { left: 60px; top: 6px; width: 8.7px; height: 8.7px; border-radius: 1.5px; background: var(--violet); }
+
+/* ---- the Quests page ------------------------------------------------------------------------------------------------------ */
+.h-qlist { left: 28px; top: 76px; width: 372px; height: 482px; overflow: hidden; }
+.h-q { left: 0; width: 372px; height: 76px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line-3); }
+.h-q:hover { border-color: var(--line); }
+.h-q.sel { background: var(--h-active); border-color: var(--line); }
+.h-q .gw { left: 12px; top: 12px; width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.h-q .gw svg { position: relative !important; }
+.h-q .e { left: 76px; top: 12px; }
+.h-q .t { left: 76px; top: 26px; font-size: 13.5px; color: var(--ink); white-space: nowrap; }
+.h-q .p { left: 76px; top: 46px; font-size: 11px; color: var(--ink-2); white-space: nowrap; }
+.h-q .h-pill { right: 12px; top: 10px; }
+.h-qd { left: 416px; top: 76px; width: 543px; height: 482px; }
+.h-box { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.28); }
+.h-box.done { background: var(--h-good); border-color: var(--h-good); }
+.h-post { width: 301px; height: 212px; border-radius: 20px; background: var(--panel); border: 1px solid var(--line-3); overflow: hidden; }
+.h-post.wanted { border-color: rgba(194, 100, 90, 0.35); }
+.h-post .gw { left: 16px; top: 16px; width: 52px; height: 52px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.h-post .gw svg { position: relative !important; }
+.h-post .t { left: 82px; top: 32px; width: 203px; font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-post .s { left: 16px; top: 80px; width: 269px; height: 32px; font-size: 11.5px; line-height: 16px; color: var(--ink-2); overflow: hidden; }
+.h-post .h-btn { left: 16px; top: 168px; width: 269px; }
+.h-post.locked .t, .h-post.locked .s { color: var(--ink-4); }
+.h-town { left: 7px; width: 301px; height: 68px; border-radius: 14px; border: 1px solid transparent; }
+.h-town.sel { background: var(--h-active); border-color: var(--line); }
+.h-town:hover { border-color: var(--line-2); }
+.h-ladder { display: flex; gap: 4px; width: 558px; }
+.h-ladder > * { position: relative !important; flex: 1 1 0; justify-content: center; color: var(--ink-4); }
+.h-ladder .past { color: var(--ink-2); }
+.h-ladder .on { background: var(--h-active); border-color: rgba(255, 255, 255, 0.16); color: var(--ink); }
+.h-ladder .on.brass { color: var(--h-brass); }
+.h-pills { display: flex; flex-wrap: wrap; gap: 6px 6px; width: 558px; }
+.h-pills > * { position: relative !important; }
+.h-empty { left: 0; right: 0; text-align: center; font-size: 12px; color: var(--ink-4); }
