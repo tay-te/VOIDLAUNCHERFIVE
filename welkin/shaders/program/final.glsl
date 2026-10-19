@@ -83,6 +83,7 @@ uniform sampler2D colortex0;
 // ---- atmos (welkin-atmos): the sun beams and the bloom
 #if defined SHAFT_BEAMS && defined WORLD_OVERWORLD
 #define FINAL_BEAMS
+#define FINAL_BEAM_SCENE 0.3
 #ifndef WU_colortex12
 #define WU_colortex12
 uniform sampler2D colortex12;
@@ -180,7 +181,9 @@ void main() {
 		// they stream through the dark lanes between trunks and over shaded land, and lay no veil on the sky round the
 		// sun; look2: 0.35)
 		float shown = clamp(hdrLuma(hdrOutput(sc, expo)), 0.0, 1.0);
-		sc += b * (0.35 * (1.0 - shown));
+		// (HDR stage B: the beams' light is scene light at the sun-side horizon's level, several times its old display
+		// level: FINAL_BEAM_SCENE brings it back to a streak in the air, not a veil; stage C rebuilds them)
+		sc += b * (0.35 * FINAL_BEAM_SCENE * (1.0 - 0.75 * shown));
 	}
 #endif
 #ifdef BLOOM
@@ -200,7 +203,8 @@ void main() {
 		vec4 glow = texture(colortex9, texcoord); // rgb the halo, a the frame's mean bright share (composite4), exposed
 		vec3 add = bloomAddHdr(sc * expo, glow.rgb, emit, lend, glow.a,
 			d < 1.0 && emit <= 0.0 && texelFetch(colortex3, p, 0).a <= 0.25 ? 1.0 : 0.0);
-		sc = max(sc + add / expo, 0.0);
+		// (what a pixel lends out never takes more than half its light: a flame keeps its own brightness under its glow)
+		sc = max(sc + add / expo, 0.5 * sc);
 	}
 #endif
 	// ---- end atmos
