@@ -215,7 +215,7 @@ void main() {
 	vis *= 1.0 / 16.0;
 	bent *= 1.0 / 16.0;
 #else
-	aoSlices(lightNoise2(p, lightFrame()), P, N, V, size, radiusPx, falloffMul, falloffAdd, vis, bent);
+	aoSlices(lightNoise2(p, airFrame()), P, N, V, size, radiusPx, falloffMul, falloffAdd, vis, bent);
 #endif
 	vis = clamp(vis / float(AO_SLICES), 0.0, 1.0);
 	// the bent normal in world space, then in the face's own frame

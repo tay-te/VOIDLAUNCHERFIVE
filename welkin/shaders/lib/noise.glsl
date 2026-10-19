@@ -53,7 +53,7 @@ float lightNoise(ivec2 p, int frame) {
 	return lightNoise2(p, frame).x;
 }
 
-#ifdef TEMPORAL_LIGHT
+#if defined TEMPORAL_LIGHT || defined TEMPORAL_AIR
 #ifndef WU_frameCounter
 #define WU_frameCounter
 uniform int frameCounter;
@@ -62,6 +62,16 @@ uniform int frameCounter;
 
 int lightFrame() {
 #ifdef TEMPORAL_LIGHT
+	return frameCounter & 63;
+#else
+	return 0;
+#endif
+}
+
+// (HDR stage C) the frame index the air's walks and the occlusion use: their noise moves frame by frame with
+// TEMPORAL_AIR (their resolves blend the reprojected history, lib/temporal.glsl)
+int airFrame() {
+#ifdef TEMPORAL_AIR
 	return frameCounter & 63;
 #else
 	return 0;

@@ -12,8 +12,11 @@
 // colortex10 RGBA16F  the shadow's raw terms (deferred_shadow, run as deferred2): r the sun's reach, g what passes the
 //                     leaves, b water travel (>= 0) or -1 - the canopy over the point (0..1, workstream C), a view
 //                     depth (1e4: not lit in deferred)
-// colortex11 RGBA16F  the resolved shadow (deferred_resolve, deferred3): r reach, g what passes, b debug, a view depth;
-//                     never cleared (the next frame's history with TEMPORAL_LIGHT)
+// colortex11 RGBA32F  the resolved shadow (deferred_resolve, deferred3): r reach, g what passes, b the packed air
+//                     history carried through, a view depth; never cleared. (HDR stage C, temporal) at the end of the
+//                     frame composite2 packs it as history for the next (lib/temporal.glsl): r (reach, passes),
+//                     g (occlusion, 0) as packed pairs (tPack), b the air's three terms (tPackAir; deferred3 carries it
+//                     through), a the view depth
 // colortex12 RGBA16F  half size: the resolved occlusion (deferred_aoresolve, deferred1, with AMBIENT_OCCLUSION): x
 //                     visibility, yz the bent normal's tangent parts in the face's frame, a view depth (lib/ao.glsl)
 // colortex13 RGBA16F  half size: the sun shafts' raw term (deferred_shafts, run as deferred5; workstream D): r the sunlit
@@ -43,7 +46,7 @@ const int colortex5Format = RGBA16F;
 const bool colortex5Clear = false;
 const int colortex10Format = RGBA16F;
 const bool colortex10Clear = false;
-const int colortex11Format = RGBA16F;
+const int colortex11Format = RGBA32F;
 const bool colortex11Clear = false;
 const int colortex12Format = RGBA16F;
 const bool colortex12Clear = false;

@@ -28,6 +28,12 @@ const float shadowDistance = 128.0; // [64.0 96.0 128.0 160.0 192.0 256.0]
 #define SHADOW_REFERENCE 0 // [0 1]
 // Steadier light: Blends the shadows with the last frames' to smooth them further. Smoothing never touches textures.  [shadows]
 //#define TEMPORAL_LIGHT
+// Temporal air: The haze's and the light shafts' walk and the ambient occlusion settle over a few frames (reprojected, never smeared), so they need less blur and keep their edges. The picture itself is never blended over time.  [light]
+#define TEMPORAL_AIR
+// Temporal air stress test: holds the history almost wholly (0.995), so any ghosting would show. For testing only.  [light]
+#define TEMPORAL_AIR_STRESS 0 // [0 1]
+// Temporal air, sharp: where the history is valid, the haze's resolve takes only the inner 2x2 of its 4x4 tile (sharper beams and haze edges in motion; a faint 2x2 pattern shows in a frozen frame, whose noise does not move). Experimental.  [light]
+//#define TEMPORAL_AIR_SHARP
 // Terrain shadows: Hills and ridges shade the land behind them as far as 2 km off, even from off the screen, and slopes turned from the sun lie in their own shade. Needs VOID Gloam.  [shadows]
 #define TERRAIN_SHADOWS
 // Terrain slopes: How strongly the far land's slopes take the sun by how they face it (a hillside turned to a low sun glows, one turned away dims). 100 % is the land's true slope; more steepens it, as a map's hill shading does.  [shadows]

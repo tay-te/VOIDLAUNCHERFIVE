@@ -85,7 +85,7 @@ void main() {
 	float dist = s.sky ? 1e4 : length(view);
 	vec3 dirP = mat3(gbufferModelViewInverse) * (view / max(length(view), 1e-4));
 	float len = min(min(dist, SHAFT_REACH), 0.98 * shadowReach());
-	float u = lightNoise(q, lightFrame());
+	float u = lightNoise(q, airFrame());
 	float lit = 0.0;
 	for (int i = 0; i < SHAFT_STEPS; i++) {
 		float t = (float(i) + u) / float(SHAFT_STEPS) * len;

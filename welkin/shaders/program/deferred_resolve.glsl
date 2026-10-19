@@ -48,11 +48,12 @@ uniform mat4 gbufferModelView;
 uniform sampler2D colortex2;
 #endif
 #endif
-#ifdef TEMPORAL_LIGHT
 #ifndef WU_colortex11
 #define WU_colortex11
-uniform sampler2D colortex11;
+uniform sampler2D colortex11; // last frame's (lib/temporal.glsl: packed history at the end of each frame)
 #endif
+#include "/lib/temporal.glsl"
+#ifdef TEMPORAL_LIGHT
 #ifndef WU_gbufferModelViewInverse
 #define WU_gbufferModelViewInverse
 uniform mat4 gbufferModelViewInverse;
@@ -69,8 +70,10 @@ layout(location = 0) out vec4 outRes;
 void main() {
 	ivec2 p = ivec2(gl_FragCoord.xy);
 	vec4 raw = texelFetch(colortex10, p, 0);
+	// (HDR stage C) the air's packed history passes through here untouched for composite2
+	float airHist = texelFetch(colortex11, p, 0).b;
 	if (raw.a > 5e3) {
-		outRes = vec4(raw.rg, 0.0, 1e4);
+		outRes = vec4(raw.rg, airHist, 1e4);
 		return;
 	}
 #if SHADOW_FILTER != 0 && !defined RESOLVE_DEBUG
@@ -89,7 +92,7 @@ void main() {
 			}
 		}
 		if (all(lessThan(mx - mn, vec2(1e-4)))) {
-			outRes = vec4(raw.rg, 0.0, raw.a);
+			outRes = vec4(raw.rg, airHist, raw.a);
 			return;
 		}
 	}
@@ -99,7 +102,7 @@ void main() {
 	vec3 n = octDecode(texelFetch(colortex1, p, 0).xy);
 #if SHADOW_FILTER == 0
 	// the fixed grid is noise-free: nothing to resolve
-	outRes = vec4(raw.rg, 0.0, raw.a);
+	outRes = vec4(raw.rg, airHist, raw.a);
 	return;
 #endif
 	vec3 vn = mat3(gbufferModelView) * n;
@@ -124,6 +127,7 @@ void main() {
 		vec2 puv = reproject(playerPos);
 		if (all(greaterThan(puv, vec2(0.0))) && all(lessThan(puv, vec2(1.0)))) {
 			vec4 h = texelFetch(colortex11, ivec2(puv * size), 0);
+			h.rg = tUnpack(h.r); // (HDR stage C: packed at the end of the frame by composite2)
 			// the depth the point stood at last frame, against the history's own: a mismatch is a disocclusion
 			vec3 prev = playerPos + (cameraPosition - previousCameraPosition);
 			float pz = -(gbufferPreviousModelView * vec4(prev, 1.0)).z;
@@ -142,7 +146,7 @@ void main() {
 	// DEBUG_VIEW 17: the history weight (b; negative where the clamp acted), carried to the light pass in b
 	outRes = vec4(res, dbg, raw.a);
 #else
-	outRes = vec4(res, 0.0, raw.a);
+	outRes = vec4(res, airHist, raw.a);
 #endif
 }
 

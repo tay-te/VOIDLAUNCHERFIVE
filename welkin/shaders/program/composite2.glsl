@@ -190,8 +190,18 @@ vec3 joinLine(ivec2 p, vec3 c) {
 }
 #endif
 
-/* RENDERTARGETS: 0 */
+/* RENDERTARGETS: 0,11 */
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outHist; // (HDR stage C) the packed history for the next frame (lib/temporal.glsl)
+#include "/lib/temporal.glsl"
+#ifndef WU_colortex11
+#define WU_colortex11
+uniform sampler2D colortex11;
+#endif
+#ifndef WU_colortex12
+#define WU_colortex12
+uniform sampler2D colortex12;
+#endif
 
 // A pinhole in the far land or water: a lone pixel well under the horizon that shows what lies behind a surface
 // through a crack between two of the LOD's tiles, with that surface on both sides of it. Either the sky shone through
@@ -253,6 +263,8 @@ void main() {
 	}
 #endif
 	vec4 color = texelFetch(colortex0, p, 0);
+	vec3 hzHist = vec3(0.0); // (HDR stage C) the air's resolved terms, kept for the next frame
+	float hzHistDepth = 1e4;
 	// (HDR stage B) the air in scene light: every layer is colour * T + in-scatter (the haze, the valley and dawn mist,
 	// the haze volume, the aerial perspective), the shafts' in-scattered light added, the cave air the same
 #if defined DEBUG_PLAIN
@@ -392,9 +404,27 @@ void main() {
 #endif
 		// ---- atmos (welkin-atmos): the volumetric haze (lib/haze/volume.glsl), its light and shadow in the air
 		vec3 hvRaw = vec3(0.0);
+		hzHistDepth = s.sky ? 1e4 : -s.view.z;
 #ifdef HV_READ
 		if (!cloud && !finished) {
-			hvRaw = hvResolve(p, pinholeWater(p) ? -1.0 : resolveDist(p, uv)); // look3: the walk's own (opaque) distance; water: the tile's mean
+			float hvDist = pinholeWater(p) ? -1.0 : resolveDist(p, uv); // look3: the walk's own (opaque) distance; water: the tile's mean
+#ifdef TEMPORAL_AIR
+			// (HDR stage C) the last frame's, reprojected, where it lay on the same surface; clamped to the tile's range
+			vec2 puv;
+			float pz;
+			bool settled = tReproject(eyePos, s.sky, puv, pz);
+			vec4 hh = settled ? texelFetch(colortex11, ivec2(puv * vec2(viewWidth, viewHeight)), 0) : vec4(0.0);
+			settled = settled && tDepthOk(hh.a, pz, s.sky);
+			vec3 hvLo, hvHi;
+			hvRaw = hvResolveRange(p, hvDist, settled, hvLo, hvHi);
+			if (settled) {
+				vec3 hist = tUnpackAir(hh.b);
+				hvRaw = mix(hvRaw, clamp(hist, hvLo, hvHi), TEMPORAL_AIR_BLEND);
+			}
+#else
+			hvRaw = hvResolve(p, hvDist);
+#endif
+			hzHist = hvRaw;
 			float hvMist = 0.0;
 #if defined WELKIN_VALLEY_MIST && defined DEBUG_PLAIN
 			hvMist = clamp(mistCam.y * mistCam.z * 2.0, 0.0, 1.0);
@@ -511,6 +541,14 @@ void main() {
 #if SKY_DEBUG == 1
 	color.rgb = skyDebugOverlay(p, color.rgb); // the sky table, 8x, bottom left
 #endif
+	{
+		// (HDR stage C) the history for the next frame: this frame's shadow terms (deferred3), the occlusion (colortex12,
+		// the half-resolution resolve), the air's terms, the view depth
+		vec2 shR = texelFetch(colortex11, ivec2(gl_FragCoord.xy), 0).rg;
+		float aoV = texelFetch(colortex12, ivec2(gl_FragCoord.xy) >> 1, 0).x;
+		outHist = vec4(tPack(shR), tPack(vec2(aoV, 0.0)), tPackAir(hzHist),
+			hzHistDepth);
+	}
 	outColor = color;
 }
 

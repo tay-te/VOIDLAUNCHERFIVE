@@ -96,7 +96,7 @@ vec4 hvWalk(ivec2 q, vec3 dirP, float dist, bool sky, bool shaftsOn) {
 #endif
 	const int NN = (HAZE_VOLUME_STEPS * 3) / 5;
 	const int NF = HAZE_VOLUME_STEPS - NN;
-	float u = lightNoise(q, lightFrame());
+	float u = lightNoise(q, airFrame());
 	float camY = cameraPosition.y;
 	// the camera's own cell: its ground for the near steps' density, its far casters' line for their light
 	float g0 = HAZE_SEA_LEVEL;
@@ -206,6 +206,48 @@ vec3 hvResolve(ivec2 p, float dist) {
 	}
 	// (look3) where no texel matches, the plain mean of the whole tile (smooth), never one noisy texel
 	return mix(tileSum / 16.0, sum / max(wsum, 1e-6), smoothstep(0.02, 0.5, wsum));
+}
+
+// (HDR stage C, temporal) The same resolve with the tile's range (lo, hi: for the history's clamp), and, where the
+// reprojected history is valid (`settled`), only the inner 2x2 of the tile: the history carries the rest of the noise's
+// samples, so the haze's and the shafts' edges stay sharp.
+vec3 hvResolveRange(ivec2 p, float dist, bool settled, out vec3 lo, out vec3 hi) {
+	ivec2 qc = p >> 1;
+	ivec2 top = textureSize(colortex13, 0) - 1;
+	vec3 sum = vec3(0.0), sum2 = vec3(0.0), tileSum = vec3(0.0);
+	float wsum = 0.0, wsum2 = 0.0;
+	lo = vec3(1e9);
+	hi = vec3(-1e9);
+	for (int y = -2; y < 2; y++) {
+		for (int x = -2; x < 2; x++) {
+			vec4 r = texelFetch(colortex13, clamp(qc + ivec2(x, y), ivec2(0), top), 0);
+			float tol = 0.06 * min(dist, r.a) + 0.4;
+			float w = dist < 0.0 ? 1.0 : exp(-abs(r.a - dist) / tol);
+			sum += r.rgb * w;
+			wsum += w;
+			tileSum += r.rgb;
+			if (w > 0.1) {
+				lo = min(lo, r.rgb);
+				hi = max(hi, r.rgb);
+			}
+			if (x >= -1 && x <= 0 && y >= -1 && y <= 0) {
+				sum2 += r.rgb * w;
+				wsum2 += w;
+			}
+		}
+	}
+	vec3 full = mix(tileSum / 16.0, sum / max(wsum, 1e-6), smoothstep(0.02, 0.5, wsum));
+	if (hi.x < lo.x) {
+		lo = full;
+		hi = full;
+	}
+	lo = min(lo, full);
+	hi = max(hi, full);
+#ifdef TEMPORAL_AIR_SHARP
+	return settled && wsum2 > 0.5 ? sum2 / wsum2 : full;
+#else
+	return full;
+#endif
 }
 
 // How thick the air is here, against temperate air at strength 100: by the camera's country (its haze kind), Gloam's

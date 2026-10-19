@@ -33,6 +33,18 @@ in vec2 texcoord;
 uniform sampler2D colortex2;
 #endif
 
+#ifdef TEMPORAL_AIR
+#include "/lib/temporal.glsl"
+#ifndef WU_colortex11
+#define WU_colortex11
+uniform sampler2D colortex11; // last frame's packed history (lib/temporal.glsl)
+#endif
+#ifndef WU_gbufferModelViewInverse
+#define WU_gbufferModelViewInverse
+uniform mat4 gbufferModelViewInverse;
+#endif
+#endif
+
 /* RENDERTARGETS: 12 */
 layout(location = 0) out vec4 outAo;
 
@@ -51,6 +63,32 @@ void main() {
 	vec3 n = octDecode(texelFetch(colortex1, full, 0).xy);
 	vec3 vc = dnViewPos((vec2(q) + 0.5) * 2.0 / vec2(viewWidth, viewHeight), raw.a);
 	outAo = vec4(aoResolveHalf(q, raw, vc, n, m), raw.a);
+#ifdef TEMPORAL_AIR
+	{
+		// (HDR stage C) the visibility blended with last frame's, reprojected, on the same surface, clamped to the raw
+		// term's 3x3 range round the texel
+		vec2 puv;
+		float pz;
+		vec3 playerPos = (gbufferModelViewInverse * vec4(vc, 1.0)).xyz;
+		if (tReproject(playerPos, false, puv, pz)) {
+			vec4 h = texelFetch(colortex11, ivec2(puv * vec2(viewWidth, viewHeight)), 0);
+			if (tDepthOk(h.a, pz, false)) {
+				ivec2 top = textureSize(colortex9, 0) - 1;
+				float lo = 1.0, hi = 0.0;
+				for (int y = -1; y <= 1; y++) {
+					for (int x = -1; x <= 1; x++) {
+						float v = texelFetch(colortex9, clamp(q + ivec2(x, y), ivec2(0), top), 0).x;
+						lo = min(lo, v);
+						hi = max(hi, v);
+					}
+				}
+				lo = min(lo, outAo.x);
+				hi = max(hi, outAo.x);
+				outAo.x = mix(outAo.x, clamp(tUnpack(h.g).x, lo, hi), TEMPORAL_AIR_BLEND);
+			}
+		}
+	}
+#endif
 #endif
 }
 
