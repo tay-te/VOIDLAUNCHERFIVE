@@ -6,18 +6,17 @@
 //               the sky's light, not the disc's), times what the clouds in front let through (colortex6 g, their
 //               transmittance), times how near the sun it stands on the screen; land, leaves and the far land give
 //               nothing. The hour's strength (low sun strongest, none at night, under an overcast or in water) in.
-//   composite5  the first radial blur (12 -> 13): RAY_TAPS taps toward the sun's place on the screen, a tiny step
-//   composite6  the second (13 -> 12), each step RAY_TAPS times the last
-//   composite7  the third (12 -> 13), its step RAY_TAPS times again: each texel averages RAY_TAPS^3 points along its
-//               line toward the sun, smooth, no noise, no grain; gaps in a crown and between clouds stay beams. Then
-//               the fall-off from the sun.
-//   final       adds them as in-scattered light before the output transform, by how much air lies in front.
+//   composite5  the first radial blur (12 -> 13): RAY_TAPS taps toward the sun's place on the screen, each a small
+//               step nearer it in log distance (rayBlurLog)
+//   composite6  the second (13 -> 12), its step RAY_TAPS / RAY_LOG_OVERLAP times the last
+//   composite7  the third (12 -> 13), its step as many times again, leaving out the stretch nearest the sun softly:
+//               each texel gathers RAY_TAPS^3 points along its line toward the sun, smooth, no noise, no grain; gaps in
+//               a crown and between clouds stay beams. Then the fall-off from the sun.
+//   final       (Look D2) keeps the beams' structure round the sun over the near land (rayStructure), then adds them as
+//               in-scattered light before the output transform, by how much air lies in front.
 
-// how far toward the sun each texel's line reaches (of the way to the sun), and the taps per pass
-#define RAY_REACH 1.06
+// the taps per pass
 #define RAY_TAPS 16
-// how far each pass reaches past the next pass's step (no steps between the copies)
-#define RAY_OVERLAP 4.0
 // how wide the bright source round the sun is (screen heights): a tight core and a broad tail
 #define RAY_CORE 0.16
 #define RAY_TAIL 0.55
@@ -56,16 +55,6 @@ float rayNear(float far) {
 // How bright the beams are by the screen distance from the sun (screen heights).
 float rayFall(float far) {
 	return mix(exp(-far / RAY_CORE), exp(-far / RAY_FALL), 0.7);
-}
-
-// One radial pass: the mean of RAY_TAPS points from uv toward the sun, `frac` of the way between neighbours.
-vec3 rayBlur(sampler2D src, vec2 uv, vec2 sunUV, float frac) {
-	vec2 d = (sunUV - uv) * frac;
-	vec3 s = vec3(0.0);
-	for (int j = 0; j < RAY_TAPS; j++) {
-		s += textureLod(src, uv + d * float(j), 0.0).rgb;
-	}
-	return s / float(RAY_TAPS);
 }
 
 // (Look D2) One radial pass in log distance: RAY_TAPS points from uv toward the sun, each `step` (natural log) nearer
