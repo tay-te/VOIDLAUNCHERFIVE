@@ -47,22 +47,21 @@ float dawnMistCover(vec3 dir, float T, float camY, float ground, float amount, f
 	return DM_MAX * (1.0 - exp(-od.y));
 }
 
-// The mist's colour (display): `air` the plain luminous air in this direction, fsun the share of the air in the sun.
+// The mist's colour (scene light): `air` the plain luminous air in this direction, fsun the share of the air in the sun.
 vec3 dawnMistColour(vec3 air, vec3 dir, vec3 sunW, float fsun, SkyLum f) {
 	float y = dot(air, vec3(0.2126, 0.7152, 0.0722));
 	// pearly and luminous: the air's hue, two fifths of its saturation out, clearly brighter than the air (mist scatters
 	// the whole sky's light: it glows over the land instead of greying it)
 	vec3 c = mix(vec3(y), air, 0.6) * vec3(0.97, 0.99, 1.04) * 1.04;
-	c = mix(c, vec3(0.80, 0.84, 0.90), 0.25) * max(1.0, 0.58 / max(y, 1e-3));
+	c = mix(c, sceneFromAuthored(vec3(0.80, 0.84, 0.90)), 0.25) * max(1.0, 0.30 / max(y, 1e-4));
 	y = dot(c, vec3(0.2126, 0.7152, 0.0722));
 	// toward the sun a warm gold glow
 	float mu = clamp(dot(dir, sunW), 0.0, 1.0);
-	vec3 gold = pow(max(f.gold, 0.0), vec3(1.0 / 2.2));
-	gold /= max(dot(gold, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
+	vec3 gold = f.gold; // (linear, luma 1)
 	c = mix(c, gold * y * 1.12, 0.75 * mu * mu * f.up);
 	// in shadow a cool, dimmer grey-blue
 	c = mix(c * vec3(0.80, 0.86, 0.96) * 0.78, c, clamp(fsun, 0.0, 1.0));
-	return min(c, vec3(0.97));
+	return c;
 }
 
 #endif

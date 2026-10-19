@@ -19,8 +19,8 @@
 // Written from scratch for Welkin; no other pack's code.
 //
 //   SkyLum f = skyLumFrame(sunW);             once per pixel (a handful of table texels)
-//   col = skyLuminous(col, d, f, amount);     display colour in, display colour out; amount 0..1
-//   col = skyLumCap(col);                     only the shoulder (display)
+//   L = skyLuminousLin(L, d, f, amount);      scene light in, scene light out; amount 0..1 (HDR: no cap, no
+//                                             golden headroom; the output transform's shoulder rolls the glow off)
 
 #ifndef WELKIN_SKY_LUMINOUS
 #define WELKIN_SKY_LUMINOUS
@@ -51,6 +51,8 @@ uniform float sunAngle; // 0 sunrise, 0.25 noon, 0.5 sunset
 // (HDR stage A) the aureole's strength in scene light (look4's terms x this), and its share by day against the golden
 // hours'
 #define SKY_AUREOLE 1.0
+// the glow's level round a low sun (scene light)
+#define SKY_GLOW_LOW_SUN 0.9
 #define SKY_AUREOLE_DAY 0.45
 
 struct SkyLum {
@@ -117,175 +119,29 @@ SkyLum skyLumFrame(vec3 sunW) {
 	return f;
 }
 
-// (look4) How much of the golden hour's headroom the sky takes (0..1): the warm hours with the sun up, under a clear
-// sky (k carries the clear and the day), from about 28 degrees of sun down to just under the horizon.
-float skyGoldenHeadroom(SkyLum f) {
-	// (from about 28 degrees: the late afternoon takes a little of it, the last 10 degrees all)
+// How golden the hour is for the aureole (0..1): the warm hours with the sun up, from about 28 degrees of sun down to
+// just under the horizon.
+float skyGoldenHour(SkyLum f) {
 	return f.up * smoothstep(0.50, 0.05, f.sunW.y) * smoothstep(-0.10, 0.0, f.sunW.y + 0.04);
 }
 
-// (look4) The golden hour's exposure and aureole toward unit direction d at headroom gh (0..1): `expo` multiplies the
-// sky's linear light (down by up to 0.45 on the sun's half, a third of that away from it, nothing in the sun's own
-// glow), `aur` is the sun's aureole to add (linear): a gold-white heart a few degrees across, a gold-amber glow to some
-// ten degrees, a faint amber to a quarter of the sky; `ceilL` how far past white the hue-keeping cap may let it go.
-void skyGoldenTerms(vec3 d, SkyLum f, float gh, out float expo, out vec3 aur, out float ceilL) {
+// The sun's aureole toward unit direction d, scene light: a gold-white heart a few degrees across, a gold-amber glow to
+// some ten degrees, a faint amber to a quarter of the sky (measured from the pixel disc's rim).
+vec3 skyAureole(vec3 d, SkyLum f) {
 	float mu = dot(d, f.sunW);
-	vec2 dz = d.xz, sz = f.sunW.xz;
-	float az = dot(dz, dz) > 1e-8 && dot(sz, sz) > 1e-8 ? dot(normalize(dz), normalize(sz)) : 0.0;
-	float side = 0.5 + 0.5 * az;
 	float ang = acos(clamp(mu, -1.0, 1.0));
-	// (measured from the pixel disc's rim, SUN_SIZE art pixels: about 0.066 radians at the defaults)
 	float a = max(ang - float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4 * 0.85, 0.0);
 	float heart = exp(-a / 0.028);
 	float near = exp(-a / 0.10);
 	float wide = exp(-ang / 0.40);
-	expo = 1.0 - gh * max(0.75 * mix(0.6, 1.0, side * side) - 0.35 * wide, 0.0);
 	const vec3 AMBER4 = vec3(1.0, 0.56, 0.24) / 0.6119;
 	const vec3 WHITE_GOLD = vec3(1.0, 0.86, 0.62) / 0.8810;
 	vec3 aurC = mix(mix(f.gold, AMBER4, 0.6), WHITE_GOLD, heart);
-	aur = gh * aurC * (1.9 * heart + 0.55 * near + 0.10 * wide);
-	ceilL = 1.0 + gh * (2.4 * heart + 0.6 * near);
+	return aurC * (1.9 * heart + 0.55 * near + 0.10 * wide);
 }
 
-// The hue-keeping shoulder in linear light: past `knee` the brightest channel eases toward 1 and the colour is scaled
-// with it, so a hue never slides toward white by clipping.
-vec3 skyLumCapLin(vec3 L) {
-	const float knee = 0.78;
-	float m = max(L.r, max(L.g, L.b));
-	if (m <= knee) {
-		return L;
-	}
-	float t = knee + (1.0 - knee) * (1.0 - exp(-(m - knee) / (1.0 - knee)));
-	return L * (t / m);
-}
 
-vec3 skyLumCap(vec3 col) {
-	return pow(skyLumCapLin(pow(max(col, 0.0), vec3(2.2))), vec3(1.0 / 2.2));
-}
 
-// `col` the dome's display colour toward unit direction d. `amount` scales everything (1 the dome, less for the air).
-vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
-#ifdef SKY_LUMINOUS
-	float k = amount * float(SKY_GLOW) * 0.01 * f.clear * f.day;
-	if (k <= 0.0) {
-		return col;
-	}
-	vec3 L = pow(max(col, 0.0), vec3(2.2));
-	float y = skyLumLuma(L);
-	float hp = max(d.y, 0.0);
-	float mu = dot(d, f.sunW);
-	vec2 dz = d.xz, sz = f.sunW.xz;
-	float az = dot(dz, dz) > 1e-8 && dot(sz, sz) > 1e-8 ? dot(normalize(dz), normalize(sz)) : 0.0;
-	float side = 0.5 + 0.5 * az;
-
-	// the zenith: deeper and a little richer overhead (less while the sun is low: a golden-hour zenith stays light)
-	float zen = smoothstep(0.15, 0.95, hp);
-	// (skies2, 2026-10-18: a softer, hazier blue overhead, less saturated, not deeper: the direction's blue-grey sky, never
-	// a saturated cyan. Was 1.15 saturation at 0.84 brightness)
-	vec3 rich = max(mix(vec3(y), L, WS_ZEN_SAT), 0.0) * WS_ZEN_LEVEL * vec3(1.02, 1.0, 0.97);
-	// (and none at dusk and dawn: it darkened the 18:30 sky below the sunset's own light)
-	L = mix(L, rich, zen * 0.6 * min(k, 1.0) * (1.0 - 0.5 * f.low) * (1.0 - 0.85 * f.warm) * smoothstep(-0.02, 0.10, f.sunW.y));
-
-	// the luminous band: broad and soft, its own hue paler and brighter; cool away from the sun, on the sun's side
-	// warming toward the sun's hue as it sinks (its brightness kept: only the hue moves), and a touch of that warmth
-	// all round the horizon while the sun is low
-	// (review round 2: by day, away from the golden hours, the band is wider and whiter, the luminous haze over a midday
-	// horizon both reference packs show; the golden hours keep round 1's coloured band)
-	float mid = (1.0 - f.warm) * f.up;
-	// (skies2, 2026-10-18: the day's band is coloured air, not a milky white strip: grey 0.46 and 1.62 times the sky
-	// were a near-white band the far land dissolved into. Now a little paler than the sky, a soft blue-grey away from
-	// the sun warming to a gold glow toward it, so far ridges stand in layered, coloured air)
-	const vec4 BAND_DAY = vec4(0.46, WS_BAND_GREY, WS_BAND_BRIGHT, 0.9);
-	float band = exp(-hp / mix(0.36, BAND_DAY.x, mid)) * (1.0 - 0.45 * smoothstep(0.0, 0.12, -d.y));
-	// (review round 1: less grey in it, so the band keeps the sky's colour instead of a near white strip)
-	// (skies2: the golden hours' band 1.2 the sky, was 1.45: it read as a cream-white wash the mesa's far land vanished in)
-	vec3 pale = mix(L, vec3(y), mix(0.16, BAND_DAY.y, mid)) * mix(WS_BAND_GOLD, BAND_DAY.z, mid);
-	{
-		// (skies2) the day's air hue: blue-grey away from the sun, a soft gold toward it (linear, luma 1)
-		const vec3 AIR_AWAY = vec3(0.86, 1.00, 1.30);
-		const vec3 AIR_SUN = vec3(1.20, 0.98, 0.66);
-		vec3 airHue = mix(AIR_AWAY, AIR_SUN, side * side * side * WS_AIR_SUN);
-		// (by day and through the golden hours; the last degrees of a sunset keep their rose and lilac)
-		float eve = 1.0 - smoothstep(0.03, 0.2, f.sunW.y);
-		pale = mix(pale, airHue * skyLumLuma(pale), WS_AIR_HUE * f.up * (1.0 - 0.8 * eve));
-	}
-	vec3 coolPale = pale * vec3(0.98, 1.0, 1.03);
-	float warm = f.warm * f.up * mix(0.45, 1.0, side * side);
-	vec3 bandC = mix(coolPale, f.gold * skyLumLuma(pale), clamp(0.80 * warm, 0.0, 1.0));
-	L = mix(L, bandC, clamp(band * mix(0.85, BAND_DAY.w, mid) * k, 0.0, 1.0));
-	y = skyLumLuma(L);
-
-	// the golden hours warm the whole dome a little (its brightness kept), the zenith least
-	// (review round 2: a clear morning a little more: its rose-gold reads as a warm rose-peach air, not a neutral cream)
-	float dawnAir = sunAngle < 0.25 || sunAngle > 0.75 ? 0.28 : 0.20;
-	// (golden, 2026-10-16: the zenith none of it, was half: gold mixed into the blue overhead read as a cream-grey wash)
-	L = mix(L, f.gold * y, clamp(dawnAir * f.warm * f.up * (1.0 - zen) * (1.0 - smoothstep(0.04, 0.4, hp)) * min(k, 1.0), 0.0, 1.0));
-	// (look3, 2026-10-18) an evening sky has a gradient across it, not one salmon from edge to edge: gold round the sun
-	// (the glow below), a dusky rose and lilac across the sky, a soft blue-grey away from the sun and overhead. By the
-	// evening's last degrees (none at 17:00, most as the sun touches the horizon); the mornings keep their own pearl
-	float eveK = sunAngle < 0.5 ? 1.0 - smoothstep(0.03, 0.30, f.sunW.y) : 0.0;
-	float upk = smoothstep(0.02, 0.6, hp);
-	if (eveK > 0.0) {
-		float away = 1.0 - side;
-		// across: lilac; away and high: a blue-grey (linear, luma 1)
-		const vec3 LILAC = vec3(0.98, 0.80, 1.20) / 0.8606;
-		const vec3 DUSK_BLUE = vec3(0.62, 0.80, 1.18) / 0.8045;
-		vec3 dusk = mix(LILAC, DUSK_BLUE, clamp(away * away + 0.6 * upk * upk, 0.0, 1.0));
-		// (up the sky too, over the sun's side as well: the glow below takes the sun's own part of it back to gold)
-		float wD = smoothstep(0.25, 0.9, away) * 0.75 + 0.60 * upk * (1.0 - 0.45 * side * side);
-		wD = clamp(wD, 0.0, 0.85) * eveK * f.up * min(k, 1.0);
-		// (a little dimmer away from the sun: the dusk side of the sky)
-		L = mix(L, dusk * y * mix(1.0, 0.86, away), wD);
-		y = skyLumLuma(L);
-	}
-	// the glow round the sun: mixed toward the sun's hue at a brighter level (amber at a low sun, never white)
-	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.45);
-	float glow = (0.22 + 0.55 * f.low) * f.up;
-	// (skies2: a little lower through the golden hours, so the glow keeps its gold instead of rolling into cream)
-	float tl = max(y, 0.10) * (1.2 + 1.2 * lobe) * (1.0 - WS_GLOW_DIM * f.warm * (1.0 - f.low * 0.5));
-	// (review round 2) round a low sun the glow stays under the disc's own light (about 0.8 on screen), so the pixel
-	// sun reads as a solid bright disc in its glow; it had blazed the sky round it to the disc's own cream and the
-	// disc showed only as its saturated rim (a hollow ring), or not at all
-	// (golden, 2026-10-16: 0.42, was 0.6: the air round a low sun a deep glowing peach under the disc, not a cream-white
-	// field the disc vanished into)
-	tl = min(tl, mix(6.0, 0.42, f.low * f.up));
-	vec3 target = f.gold * tl;
-	float lobeW = lobe * glow * k;
-	if (eveK > 0.0) {
-		// (look3) an evening glow with a gradient in it: amber-gold close round the sun, the peach-rose of f.gold farther
-		// out, and up the sky the broad lobe gives way to the dusk's rose and lilac above (it had laid one salmon over the
-		// whole of the sun's half of the sky)
-		float nearS = smoothstep(0.82, 0.995, mu);
-		const vec3 AMBER = vec3(1.0, 0.60, 0.28) / 0.6620;
-		target = mix(f.gold, AMBER, nearS * eveK) * tl;
-		lobeW *= 1.0 - 0.55 * eveK * upk * (1.0 - nearS);
-	}
-	L = mix(L, target, clamp(lobeW, 0.0, 0.92));
-	// the dome lit: the whole sky a little brighter by day, the sun's half more while the sun is low
-	L *= 1.0 + k * (0.10 + 0.14 * f.low * f.up * side);
-
-	// (look4, 2026-10-18) the golden hour's headroom: the sky round a low sun had sat at white over the whole of the
-	// sun's half (the band, the glow and the lit dome all at the cap), so nothing could peak and the sun read as a white
-	// sticker on a flat peach field. Now the sky's exposure comes down through the golden hours, most on the sun's side
-	// and least overhead, and the sun's aureole rises out of it in the sun's own light: a gold-white heart a few
-	// degrees across, a gold glow to some ten degrees, amber out to a quarter of the sky, and the rose air beyond. Only
-	// the heart and the near glow pass white (they keep their hue under final's roll-off and feed the bloom)
-	float gh = skyGoldenHeadroom(f) * min(k, 1.0);
-	float ceilL = 1.0;
-	if (gh > 0.0) {
-		float expo;
-		vec3 aur;
-		skyGoldenTerms(d, f, gh, expo, aur, ceilL);
-		// (the sky's own light under its cap first: before it, the lit dome runs to two or three times white round a
-		// low sun, and an exposure taken there came back to the cap)
-		L = skyLumCapLin(L) * expo + aur;
-	}
-
-	return pow(skyLumCapLin(L / ceilL) * ceilL, vec3(1.0 / 2.2));
-#else
-	return col;
-#endif
-}
 
 // (HDR stage A) The luminous sky in scene-linear light: `L` the dome's light toward unit direction d (scene-linear,
 // lib/hdr.glsl), the same light laid over it as skyLuminous does, with no cap and no golden headroom (the output
@@ -373,7 +229,9 @@ vec3 skyLuminousLin(vec3 L, vec3 d, SkyLum f, float amount) {
 	// disc showed only as its saturated rim (a hollow ring), or not at all
 	// (golden, 2026-10-16: 0.42, was 0.6: the air round a low sun a deep glowing peach under the disc, not a cream-white
 	// field the disc vanished into)
-	// (HDR stage A: no cap under the disc: the disc is an HDR emitter far above its glow)
+	// (HDR stage B) round a low sun the glow's own level stays moderate (scene light), so the sky round it holds its
+	// gold and amber and the disc and its aureole stand above it
+	tl = min(tl, mix(8.0, SKY_GLOW_LOW_SUN, f.low * f.up));
 	vec3 target = f.gold * tl;
 	float lobeW = lobe * glow * k;
 	if (eveK > 0.0) {
@@ -392,13 +250,10 @@ vec3 skyLuminousLin(vec3 L, vec3 d, SkyLum f, float amount) {
 	// (HDR stage A) the sun's aureole, in linear light: a gold-white heart a few degrees across, a gold glow to some ten
 	// degrees, a faint amber to a quarter of the sky (look4's terms, now at every hour the sun is up, strongest through
 	// the golden hours); the sky under it keeps its own light (no headroom: the curve's shoulder holds the peak)
-	{
-		float gh = skyGoldenHeadroom(f);
-		float expo;
-		vec3 aur;
-		float ceilL;
-		skyGoldenTerms(d, f, 1.0, expo, aur, ceilL);
-		L += aur * (SKY_AUREOLE * mix(SKY_AUREOLE_DAY, 1.0, gh) * min(k, 1.0));
+	// (the aureole is the dome's own (amount 1): the air and the clouds' far fog take the forward scatter their own way,
+	// lib/air.glsl airMie)
+	if (amount >= 0.99) {
+		L += skyAureole(d, f) * (SKY_AUREOLE * mix(SKY_AUREOLE_DAY, 1.0, skyGoldenHour(f)) * min(k, 1.0));
 	}
 	return L;
 #else

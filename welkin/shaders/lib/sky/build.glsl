@@ -539,7 +539,7 @@ vec4 skyBuildTexel(ivec2 t) {
 		ivec2 src = t.y <= SKY_ROW_DOME_SCENE + 4 ? ivec2(t.x, t.y - SKY_ROW_DOME_SCENE)
 			: ivec2(t.x, SKY_ROW_MOON_DOME + (t.y - SKY_ROW_MOON_SCENE));
 		vec4 c = clamp(skyBuildTexelRaw(src), 0.0, 1.0);
-		return vec4(hdrSceneFromPalette(c.rgb), 1.0);
+		return vec4(sceneFromAuthored(c.rgb), 1.0);
 	}
 #endif
 	vec4 v = skyBuildTexelRaw(t);

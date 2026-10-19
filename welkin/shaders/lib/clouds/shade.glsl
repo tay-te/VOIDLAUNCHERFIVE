@@ -40,6 +40,10 @@
 #define WC_CREAM vec3(1.00, 0.94, 0.82)
 #define WC_GOLD vec3(1.00, 0.84, 0.55)
 #define WC_ORANGE vec3(1.00, 0.66, 0.40)
+// (HDR stage B) the sun's light scattered forward through a thin cloud over the disc, scene light
+#define WC_THROUGH_SUN 6.0
+// the silver lining's light past the body, scene light per unit of its authored strength (at most 0.55)
+#define WC_RIM_SCENE 6.0
 #define WC_ROSE vec3(0.94, 0.60, 0.64)
 #define WC_LILAC vec3(0.86, 0.84, 0.93)
 #define WC_VIOLET vec3(0.64, 0.55, 0.76)
@@ -525,7 +529,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// behind it, a top a little over it, a base a little under
 	float nightK = night * (1.0 - dusk);
 	if (nightK > 0.0) {
-		vec3 behind = skyDomeOnly(rd, skyFrame());
+		vec3 behind = skyDomeColour(skyDomePos(normalize(rd), skyFrame())); // (authored, display values)
 		float k = n.y > 0.5 ? 1.12 : (n.y < -0.5 ? 0.88 : 0.98);
 		vec3 tint = mix(behind, vec3(wcLuma(behind)), 0.35) * k * (tone == 2 ? 0.8 : (tone == 1 ? 0.9 : 1.0));
 		c = mix(c, max(c, tint + 0.3 * c), nightK);
@@ -547,30 +551,31 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	// (review round 2: at most 0.55 past the shoulder: the rim glows and blooms without a hard white line)
 	// (skies: on a belly only along its rim, or its thin parts glowed all over round the thick heart's grey oval)
 	glint *= n.y < -0.5 ? b.rim : 1.0;
-	// (look4, 2026-10-18) the golden hour's headroom, as the sky's (lib/sky/luminous.glsl): the decks round a low sun
-	// had sat at white with the sky, one flat peach field the sun could not outshine. Now a deck's exposure comes down
-	// with the sky's, most toward the sun, where a cloud hangs against the light as a darker, backlit body, and its thin
-	// edges blaze: the silver lining toward the sun turns a gold rim that passes white and blooms
-	float gh = smoothstep(0.50, 0.05, e.sun.y) * smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - closed);
-	float rimK = 1.0;
-	float expo = 1.0;
-	if (gh > 0.0) {
-		float mu = dot(rd, e.sun);
+	// (HDR stage B) the cloud's authored colour, its silver lining laid on past the shoulder, into scene light: a
+	// rim authored past white lands well above the sky (lib/hdr.glsl sceneFromAuthored), so a sunlit edge can blaze.
+	// look4's golden-hour exposure and rim boost are gone: the output transform's shoulder holds the peak
+	// a deck toward a low sun is seen from its shaded side, against the light: its body darker most toward the sun
+	// (look4's backlit body, kept as the cloud's own light), so its thin edges and the sun through it blaze over it
+	float backlit = smoothstep(0.50, 0.05, e.sun.y) * smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - closed);
+	if (backlit > 0.0) {
 		float swk = wcSunward(rd, e);
-		float nearS = smoothstep(0.75, 0.995, mu);
-		expo = 1.0 - gh * (0.08 + 0.32 * swk * swk + 0.18 * nearS);
-		rimK = 1.0 + gh * (0.8 + 2.2 * nearS);
+		c *= 1.0 - backlit * (0.08 + 0.32 * swk * swk + 0.18 * smoothstep(0.75, 0.995, dot(rd, e.sun)));
 	}
-	vec3 outC = wcShoulder(c) * expo + min(wcAlbedo(tone) * glint * rimK * (1.0 - 0.7 * closed), vec3(0.55 * rimK));
-	if (gh > 0.0) {
-		// a thin cloud across the sun itself glows with it: the sun's light through it, gold-white over the disc and
-		// close round it, less through a thick part (the low sun behind a strip of cloud is a blaze in the strip, not a
-		// dark bar across it)
+	// (the body's authored colour into scene light; the silver lining is light on top of it, WC_RIM_SCENE of scene
+	// light at its strongest: above the sky, under the sun)
+	vec3 outC = sceneFromAuthored(wcShoulder(c)) + min(wcAlbedo(tone) * glint * (1.0 - 0.7 * closed), vec3(0.55))
+		* WC_RIM_SCENE;
+	// a thin cloud across the sun glows with it: the sun's light scattered forward through it, gold-white over the disc
+	// and close round it, less through a thick part (the low sun behind a strip of cloud is a blaze in the strip, not a
+	// dark bar across it). Real light, scene units, at every hour the sun is up (strongest as it gets low)
+	float up = smoothstep(-0.14, -0.04, e.sun.y) * (1.0 - closed);
+	if (up > 0.0) {
 		float ang = acos(clamp(dot(rd, e.sun), -1.0, 1.0));
 		float rS = float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4;
 		float through = exp(-max(ang - rS, 0.0) / 0.045) + 0.15 * exp(-ang / 0.15);
 		vec3 sunHue = mix(vec3(1.0, 0.86, 0.62) / 0.8810, vec3(1.0, 0.62, 0.32) / 0.6626, smoothstep(0.0, 0.25, ang));
-		outC += sunHue * gh * through * mix(1.1, 0.12, b.depth) * (n.y < -0.5 ? 1.0 : 0.6);
+		float low = mix(0.5, 1.0, smoothstep(0.50, 0.05, e.sun.y));
+		outC += sunHue * (WC_THROUGH_SUN * up * low * through * mix(1.1, 0.12, b.depth) * (n.y < -0.5 ? 1.0 : 0.6));
 	}
 	return outC;
 }
@@ -583,13 +588,14 @@ vec3 wcFogTarget(vec3 rd, CloudEnv e) {
 	vec3 hor = wcHorizon(rd, e);
 	if (rd.y <= 0.0) {
 		// atmos (welkin-atmos): far clouds sink into the same luminous air as the land (lib/sky/luminous.glsl)
-		return skyLuminous(hor, normalize(vec3(rd.x, 0.0, rd.z) + vec3(1e-5, 0.0, 0.0)), skyLumFrame(e.sun), 0.6);
+		return skyLuminousLin(sceneFromAuthored(hor), normalize(vec3(rd.x, 0.0, rd.z) + vec3(1e-5, 0.0, 0.0)), skyLumFrame(e.sun),
+			0.6);
 	}
 	float x = clamp(sqrt(rd.y) * 4.6 - 0.5, 0.0, 4.0) / 4.0;
 	vec3 band = skyRowAt(1.0 + 4.0 * x, SKY_ROW_DOME) + (hor - skyHorizon(false)) * (1.0 - x);
 	// (the clouds rework: a far deck high over the eye takes mostly the horizon's light, 0.7 of it; the merge of phase 2:
 	// that air is then the luminous sky's, as for the land, so far clouds and far land fade into one band)
-	return skyLuminous(mix(band, hor, 0.7), rd, skyLumFrame(e.sun), 0.6); // atmos (welkin-atmos) + clouds (welkin-clouds)
+	return skyLuminousLin(sceneFromAuthored(mix(band, hor, 0.7)), rd, skyLumFrame(e.sun), 0.6); // (scene light)
 }
 
 // How far a hit sinks into the horizon colour: a little from a few hundred blocks out, then smoothly more with each
@@ -671,7 +677,7 @@ vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) 
 #elif CLOUD_DEBUG == 3
 	return vec3(wcLightPath(b, e.sun, e) / 64.0);
 #endif
-	return mix(c, wcFogTarget(rd, e), wcFog(h));
+	return mix(c, wcFogTarget(rd, e), airLin(wcFog(h)));
 }
 
 // ------------------------------------------------------------------------------------------- the far band
@@ -782,15 +788,15 @@ vec3 welkinCloudShade(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle, 
 #elif CLOUD_DEBUG == 3
 	return vec3(wcLightPath(b, e.sun, e) / 64.0);
 #endif
-	return mix(c, wcFogTarget(rd, e), wcFog(h));
+	return mix(c, wcFogTarget(rd, e), airLin(wcFog(h)));
 }
 
 // The band's colour for deck k met at tMid, `share` of it cloud, over the sky's horizon colour.
 vec3 wcBandColour(vec3 rd, float tMid, float share, CloudEnv e) {
 	CloudHit f = wcBandHit(rd, tMid, e);
 	float y = e.camY + rd.y * tMid;
-	vec3 hor = wcHorizon(rd, e);
-	vec3 cloud = mix(welkinCloudFace(f, rd, y, 0.5, e), wcFogTarget(rd, e), wcFog(f));
+	vec3 hor = sceneFromAuthored(wcHorizon(rd, e));
+	vec3 cloud = mix(welkinCloudFace(f, rd, y, 0.5, e), wcFogTarget(rd, e), airLin(wcFog(f)));
 	return mix(hor, cloud, share);
 }
 
@@ -804,7 +810,7 @@ vec3 welkinCloudVeil(vec3 scene, vec3 rd, float path, CloudEnv e) {
 		vec3 p = mix(WC_LILAC, WC_CREAM, wcSunward(rd, e));
 		c = mix(c, p * max(wcLuma(c), wcLuma(skyHorizon(false))) / wcLuma(p), dusk);
 	}
-	return mix(scene, wcShoulder(c), 1.0 - exp(-min(path, 1e4) / 7.0));
+	return mix(scene, sceneFromAuthored(wcShoulder(c)), 1.0 - exp(-min(path, 1e4) / 7.0)); // (scene light in and out)
 }
 
 // How near the eye is to deck k's slab, 1 inside or at its faces .. 0 from 30 blocks off: a deck at eye height is

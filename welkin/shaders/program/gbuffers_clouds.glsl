@@ -58,7 +58,7 @@ void main() {
 		}
 	}
 #endif
-	outColor = vec4(hdrBridgeToScene(glcolor.rgb), glcolor.a); // (HDR stage A: vanilla's clouds, bridged)
+	outColor = vec4(sceneFromAuthored(glcolor.rgb), glcolor.a); // (vanilla's clouds: authored colour as scene light)
 	outFlags = vec4(0.0, float(MAT_CLOUD) / 255.0, 0.0, 1.0);
 }
 

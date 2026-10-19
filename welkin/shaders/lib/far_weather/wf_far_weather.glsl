@@ -43,7 +43,7 @@ float wfFarRainAt(vec2 q, CloudEnv e) {
 }
 
 vec3 wfOver(vec3 base, WfLayer layer) {
-	return mix(base, layer.color, layer.alpha);
+	return mix(base, layer.color, airLin(layer.alpha)); // (HDR stage B: scene light)
 }
 
 #if WF_DEBUG != 0
@@ -65,7 +65,7 @@ vec3 welkinFarWeather(ivec2 p, vec2 uv, vec3 scene, inout float km) {
 
 	HzState st = hzState();
 	vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
-	vec3 air = skyHazeAir(st.kind, dir, sunW);
+	vec3 air = sceneFromAuthored(skyHazeAir(st.kind, dir, sunW)); // (HDR stage B: scene light)
 	vec3 airM = airMie(air, dir, sunW, st.kind); // with the forward scatter, as composite2's haze
 	CloudEnv e = welkinCloudEnv();
 	float hk = max(length(dir.xz), 1e-4);
@@ -95,7 +95,7 @@ vec3 welkinFarWeather(ivec2 p, vec2 uv, vec3 scene, inout float km) {
 				// at night a thinner veil, as the near mist (lib/mist.glsl), so the two still add up to one mist
 				float day = clamp(sunHeight() * 5.0 + 0.6, 0.0, 1.0);
 				mist.alpha = MIST_OPACITY * mix(0.5, 1.0, day) * cover;
-				mist.color = wfAirOver(a, mistColor(dir, cover), r.y);
+				mist.color = wfAirOver(a, sceneFromAuthored(mistColor(dir, cover)), r.y);
 				mist.t = r.y;
 			}
 		}

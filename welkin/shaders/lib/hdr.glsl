@@ -25,14 +25,11 @@
 //   3. the grade (lib/grade.glsl welkinGrade, display values), then 4. the anti-banding dither.
 // Nothing else in the pack tone-maps or caps the scene.
 //
-// ---- the bridge (stage A only: stage B deletes every use)
-// The passes not yet in linear light (clouds, far weather, haze, mist, the shafts' in-scatter, water, the bloom and the
-// beams) still work in the old display values. They read colortex0 through hdrBridgeToDisplay (exposure and curve: the
-// same display value the output transform will give that light) and give their result back through hdrBridgeToScene
-// (the inverse of the curve and the exposure, clamped short of the curve's asymptote at HDR_T_MAX). A pixel such a pass
-// leaves alone comes back as it went in (to float precision); what it changes looks on screen as it did before. Light
-// such a pass ADDS (the bloom's halo, the beams) comes in through hdrBridgeLight (the exposure undone). docs/DESIGN.md
-// "The HDR foundation, stage A" lists every use; `grep -rn hdrBridge` finds them.
+// ---- authored colours (stage B)
+// The passes that still author their colours in display values (the clouds' light, the haze's and the mist's colours,
+// the curtains, the cave air, the sky table's palette, vanilla's sky stages and textures) bring them into scene light
+// once, at their source, with sceneFromAuthored; everything after (every composite, transmittance, in-scatter, glint,
+// bloom) is scene light. The stage A bridge is gone.
 
 #ifndef WELKIN_HDR
 #define WELKIN_HDR
@@ -189,61 +186,30 @@ vec3 hdrCurveInv(vec3 d) {
 	return max((t + c) * (y / t), 0.0);
 }
 
-// A colour point authored in display values (the sky's palette in the table) as scene light: what the old pipeline
-// showed it as (its final shoulder: linear to 0.8, then a soft roll, so an authored white was 0.93 on screen) taken
-// through the curve's inverse at exposure 1. Not a bridge: the palette is authored this way until stage D re-authors it.
-vec3 hdrSceneFromPalette(vec3 display) {
+// A colour AUTHORED in display values (the sky table's palette, a cloud's or the haze's colour as its module works it
+// out, an authored constant) as scene light: what the old pipeline showed it as (its final shoulder: linear to 0.8,
+// then a soft roll, so an authored white was 0.93 on screen) through the curve's inverse at exposure 1. A value
+// authored past white (a cloud's silver lining, a glint) lands well above the sky (1.2 -> about 60). Every composite,
+// transmittance and in-scatter after it is in scene light; stage D re-authors the colours in linear light.
+vec3 sceneFromAuthored(vec3 display) {
 	vec3 d = max(display, 0.0);
 	vec3 over = max(d - 0.8, 0.0);
 	d = min(d, 0.8) + 0.2 * (1.0 - exp(-over * 5.0));
 	return hdrCurveInv(toLinear(d));
 }
 
+// The air's opacities (the haze, the far air, the mists, the haze volume, the far fade of the clouds) were tuned as mixes
+// in display values, where a mix lays far less light over the dark land than the same mix in linear light. Laid on in
+// scene light (colour * T + in-scatter) they take this power of their old opacity: thin air thinner, dense air as it
+// was. A tuning knob for stage D, which re-tunes the densities themselves.
+#define HDR_AIR_ALPHA_POW 1.7
+float airLin(float a) {
+	return pow(clamp(a, 0.0, 1.0), HDR_AIR_ALPHA_POW);
+}
+
 // ---- the output transform's first two steps (final): scene light to linear display
 vec3 hdrOutput(vec3 scene, float exposure) {
 	return hdrCurve(scene * exposure);
-}
-
-// ---- the bridge (stage A; see the head of this file and docs/DESIGN.md)
-// scene light -> the display value the old passes work in
-vec3 hdrBridgeToDisplay(vec3 scene) {
-	return toDisplay(hdrCurve(scene * hdrExposure()));
-}
-
-// an old pass's display value -> scene light. The old passes could leave a value past display white (a cloud's silver
-// lining, the haze's air round a low sun, a glint), which the old final's shoulder rolled under white; here a colour's
-// brightest channel past 0.88 is rolled toward 0.96 (hue kept) before the inverse, so it lands as bright light, not at
-// the curve's asymptote.
-vec3 hdrBridgeToScene(vec3 display) {
-	vec3 d = max(display, 0.0);
-	float m = max(d.r, max(d.g, d.b));
-	if (m > 0.88) {
-		d *= (0.88 + 0.08 * (1.0 - exp(-(m - 0.88) / 0.08))) / m;
-	}
-	return hdrCurveInv(toLinear(d)) / hdrExposure();
-}
-
-
-// The same, for a pass that knows how much of what lay behind it still shows (`keep`, its transmittance): the light
-// past what a display value can carry (an HDR emitter's: the sun's disc) passes through in that share, so a thin
-// cloud band or the haze over the sun dims it rather than flattening it to the band's own colour.
-vec3 hdrBridgeBack(vec3 dOut, vec3 dIn, vec3 sceneIn, float keep) {
-	if (all(equal(dOut, dIn))) {
-		return sceneIn;
-	}
-	return hdrBridgeToScene(dOut) + clamp(keep, 0.0, 1.0) * max(sceneIn - hdrBridgeToScene(dIn), 0.0);
-}
-
-// an old pass's result back to scene light, for a pass that does not say what shows through: a pixel it left alone
-// keeps its scene light exactly; a small change keeps the HDR share, a large one (a curtain laid over it) loses it
-vec3 hdrBridgeBack(vec3 dOut, vec3 dIn, vec3 sceneIn) {
-	vec3 dd = abs(dOut - dIn);
-	return hdrBridgeBack(dOut, dIn, sceneIn, 1.0 - max(dd.r, max(dd.g, dd.b)) / 0.25);
-}
-
-// light an old pass adds (linear, in display white's units) -> scene light
-vec3 hdrBridgeLight(vec3 light) {
-	return light / hdrExposure();
 }
 
 // ---- the instruments (final, DEBUG_VIEW 23 and 24)

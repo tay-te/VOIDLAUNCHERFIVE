@@ -130,6 +130,9 @@ float wsRunFoam(vec3 wp, vec2 down, float t) {
 	return smoothstep(0.55, 0.85, 0.6 * a + 0.4 * b);
 }
 
+// (HDR stage B) the brightest a sunlit fall's body gets, scene light (about 0.74 on screen at exposure 1)
+#define WS_FALL_CAP 0.5
+
 vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info) {
 	float dist = length(w.playerPos);
 	vec3 V = w.playerPos / max(dist, 1e-4); // camera to surface
@@ -219,7 +222,7 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	a = mix(a, 0.55, spray);
 	albedo = mix(albedo, vec3(0.86, 0.91, 0.93), foam);
 	a = mix(a, 0.95, foam);
-	vec3 body = welkinLightCore(albedo, faceN, w.lm, 0.0, sunShare * mix(bodySun, 1.0, max(fall, foam)), wsSeasonAmbient(sea),
+	vec3 body = welkinLightCoreLin(albedo, faceN, w.lm, 0.0, sunShare * mix(bodySun, 1.0, max(fall, foam)), wsSeasonAmbient(sea),
 		w.reach, facing);
 	// (the defects pass) clear water mostly takes light away rather than throwing it back: the body's own light is a
 	// share of the lit tint, least in the shallows (they showed the bed through a milky veil at 08:00 and noon), and
@@ -228,7 +231,7 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 	// (review round 1) a sunlit fall is bright, never blown out: its white foam in the full sun stays under the
 	// sunlit pale stone beside it, so its streaks keep their texture
 	float bodyY = dot(body, vec3(0.2126, 0.7152, 0.0722));
-	body *= mix(1.0, min(1.0, 0.74 / max(bodyY, 1e-3)), fall);
+	body *= mix(1.0, min(1.0, WS_FALL_CAP / max(bodyY, 1e-3)), fall); // (HDR stage B: scene light)
 
 	if (fromBelow) {
 		// from under water: the Snell window (about 49 degrees) shows the world above; outside it the surface mirrors
@@ -284,7 +287,7 @@ vec4 wsShadeWater(WsWater w, WsIn inp, WsSeason sea, SkyFrame sf, out vec4 info)
 		// (water2) a low sun's light is dimmed and reddened on its long way through the air, but its path on the water
 		// is what an evening lake is about: the glitter keeps more of its strength as the sun goes down
 		float lowSun = 1.0 + 2.0 * (1.0 - smoothstep(0.04, 0.35, L.y)) * step(0.0, sunAngle < 0.5 ? 1.0 : -1.0);
-		glint = skyDirectLight() * sunShare * (w.reach * g * lowSun) * (1.0 - fall) * (1.0 - foam);
+		glint = skyLandDirect() * sunShare * (w.reach * g * lowSun) * (1.0 - fall) * (1.0 - foam);
 	}
 
 	vec3 rgb = body * a * (1.0 - F) + refl * F + glint;

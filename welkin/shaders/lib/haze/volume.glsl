@@ -228,10 +228,10 @@ float hvDensityMul(HzState st, float mist, vec3 sunW) {
 	return m * float(HAZE_VOLUME_STRENGTH) * 0.01;
 }
 
-// The haze's colour: `air` the plain luminous air in this direction (display), `fsun` the sunlit share of the haze
+// The haze's colour, scene light: `air` the plain luminous air in this direction (scene light), `fsun` the sunlit share of the haze
 // along the ray, mu the view's cosine to the sun.
 vec3 hvColour(vec3 air, float fsun, float mu, SkyLum f) {
-	vec3 A = pow(max(air, 0.0), vec3(2.2));
+	vec3 A = max(air, 0.0);
 	float y = skyLumLuma(A);
 	// in shadow: the sky's light only, cooler and dimmer
 	vec3 shade = A * vec3(0.80, 0.90, 1.06) * 0.50;
@@ -248,7 +248,7 @@ vec3 hvColour(vec3 air, float fsun, float mu, SkyLum f) {
 	vec3 L = mix(shade, lit, fsun);
 	// (at night and in a closed sky the light is the plain air's)
 	L = mix(A, L, f.day * mix(0.35, 1.0, f.clear));
-	return pow(skyLumCapLin(L), vec3(1.0 / 2.2));
+	return L; // (HDR stage B: no cap; the output transform rolls the sunlit air off)
 }
 
 // The volumetric haze over `color` (display): raw the resolved terms, dir the view (world, unit), air the plain air
@@ -261,7 +261,7 @@ vec3 hvComposite(vec3 color, vec3 raw, HzState st, vec3 dir, vec3 sunW, vec3 air
 		return color;
 	}
 	float fsun = clamp(raw.g / max(raw.b, 1e-4), 0.0, 1.0);
-	return mix(color, hvColour(air, fsun, dot(dir, sunW), f), min(a, HV_MAX_OPACITY));
+	return mix(color, hvColour(air, fsun, dot(dir, sunW), f), airLin(min(a, HV_MAX_OPACITY))); // (scene light)
 #else
 	return color;
 #endif

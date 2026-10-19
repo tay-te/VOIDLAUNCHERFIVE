@@ -317,32 +317,9 @@ vec3 welkinLightLin(vec3 albedo, vec3 n, vec2 lm, float emission) {
 		1.0);
 }
 
-// ---- (HDR stage A) the bridge: the old display-valued entry points, for the passes not yet in linear light (the
-// water: lib/ws/water.glsl, lib/watersurf.glsl, program/parts/ws_*water.glsl). Stage B deletes them.
-vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
-		float facing, float ao, float glow, float contact) {
-	return hdrBridgeToDisplay(welkinLightGlowLin(albedo, n, lm, emission, sunShare, ambientTint, sunReach, facing, ao, glow,
-		contact));
-}
-
-vec3 welkinLightFull(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
-		float facing, float ao) {
-	return welkinLightGlow(albedo, n, lm, emission, sunShare, ambientTint, sunReach, facing, ao, 0.0, 1.0);
-}
-
-vec3 welkinLightCore(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
+vec3 welkinLightCoreLin(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare, vec3 ambientTint, float sunReach,
 		float facing) {
-	return welkinLightFull(albedo, n, lm, emission, sunShare, ambientTint, sunReach, facing, 1.0);
-}
-
-// The light without a shadow map: the sky-light gate stands in for it. The `dither` argument is ignored.
-vec3 welkinLightEx(vec3 albedo, vec3 n, vec2 lm, float emission, float dither, vec3 sunShare, vec3 ambientTint) {
-	return welkinLightCore(albedo, n, lm, emission, sunShare, ambientTint, sunOpen(lm.y),
-		sunFacing(dot(n, lightDirWorld())));
-}
-
-vec3 welkinLight(vec3 albedo, vec3 n, vec2 lm, float emission, float dither) {
-	return welkinLightEx(albedo, n, lm, emission, dither, vec3(1.0), vec3(1.0));
+	return welkinLightFullLin(albedo, n, lm, emission, sunShare, ambientTint, sunReach, facing, 1.0);
 }
 
 #endif

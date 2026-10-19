@@ -45,7 +45,7 @@ uniform vec3 sunPosition;
 uniform int isEyeInWater;
 #endif
 flat out vec3 beamSun;   // the sun's place on the screen (xy, 0..1), and whether it is in front (z)
-flat out vec3 beamLight; // the beams' light at full strength (display)
+flat out vec3 beamLight; // the beams' light at full strength (scene light)
 #endif
 void main() {
 	gl_Position = ftransform();
@@ -57,10 +57,11 @@ void main() {
 	SkyLum f = skyLumFrame(sunW);
 	// the sun's own light led toward the warm gold through the golden hours (display, luma 1), as bright as the
 	// sun-side horizon
-	vec3 hue = pow(mix(f.hue, f.gold, 0.6) * 0.4, vec3(1.0 / 2.2));
+	// (HDR stage B: linear, luma 1, at the sun-side horizon's scene light)
+	vec3 hue = mix(f.hue, f.gold, 0.6);
 	hue /= max(dot(hue, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
-	vec3 hor = skyHorizon(true);
-	float level = max(dot(hor, vec3(0.2126, 0.7152, 0.0722)), 0.35);
+	vec3 hor = sceneFromAuthored(skyHorizon(true));
+	float level = max(dot(hor, vec3(0.2126, 0.7152, 0.0722)), 0.08);
 	// strongest at a low sun, a third at noon; gone at night, under an overcast, with the eye in water
 	float h = sunW.y;
 	float gate = smoothstep(-0.03, 0.04, h) * mix(1.0, 0.35, smoothstep(0.3, 0.85, h)) * f.day * f.clear
@@ -163,7 +164,7 @@ float bloomShareAt(ivec2 p, vec3 c) {
 	}
 #ifdef WORLD_OVERWORLD
 	if (texelFetch(colortex6, p, 0).r <= 999.0) {
-		return bloomCloudShare(c);
+		return bloomCloudShareHdr(c);
 	}
 #endif
 #ifdef WORLD_OVERWORLD
@@ -235,17 +236,18 @@ void main() {
 	{
 		ivec2 hi = ivec2(viewWidth, viewHeight) - 1;
 		float wsum = 0.0;
+		float expo = hdrExposure();
 		for (int k = 0; k < 4; k++) {
 			ivec2 p = min(q * 2 + ivec2(k & 1, k >> 1), hi);
-			vec3 c = hdrBridgeToDisplay(texelFetch(colortex0, p, 0).rgb); // (HDR stage A: the bloom's source in display values, bridged)
+			vec3 c = texelFetch(colortex0, p, 0).rgb * expo; // exposed scene light (HDR stage B)
 			vec4 fl = texelFetch(colortex2, p, 0);
 			float emit = fl.x > 0.5 ? unpackEmission(fl.z) : 0.0;
-			vec3 b = bloomSource(c, emit, bloomDiffuseAt(p, emit));
+			vec3 b = bloomSourceHdr(c, emit, bloomDiffuseAt(p, emit));
 			// (the open sky and the clouds' bodies only in part: lib/bloom.glsl BLOOM_SKY, BLOOM_CLOUD)
 			b *= bloomShareAt(p, c);
 			// (a soft brightness weight: the full 1 / (1 + brightness) also swallowed a lamp's few bright pixels, so the
 			// lamps barely glowed; this one still keeps a lone glint from flickering into a blotch)
-			float w = 1.0 / (1.0 + 0.15 * bloomLuma(b));
+			float w = 1.0 / (1.0 + 0.01 * bloomLuma(b));
 			sum += b * w;
 			wsum += w;
 		}

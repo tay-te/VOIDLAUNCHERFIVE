@@ -264,7 +264,7 @@ void main() {
 #endif
 #ifdef WELKIN_WET
 		// puddles mirror the sky (the sky table's horizon), glint toward the light where it reaches, flick with drops
-		vec3 skyR = skyHorizon(false);
+		vec3 skyR = sceneFromAuthored(skyHorizon(false));
 		if (wet.wet > 0.0 || wet.puddle > 0) {
 			// what the wet surface mirrors: the sky's gradient along the reflected view (a puddle is level), and in a
 			// puddle the clouds overhead
@@ -281,11 +281,8 @@ void main() {
 			}
 #endif
 		}
-		// (HDR stage A: the wet ground still works in display values, bridged in and out where it is wet; stage B)
-		if (wet.wet > 0.0 || wet.puddle > 0) {
-			color.rgb = hdrBridgeToScene(welkinWetLight(st, hdrBridgeToDisplay(color.rgb), wet, n, lightDir,
-				skyDirectLight() * reach * sunShare, skyR));
-		}
+		// (HDR stage B: the wet ground in scene light: the sky and clouds it mirrors, the sun's glint)
+		color.rgb = welkinWetLight(st, color.rgb, wet, n, lightDir, skyLandDirect() * reach * sunShare, skyR);
 #if HAZE_DEBUG == 4
 		color.rgb = welkinWetDebug(wet);
 #endif
@@ -330,8 +327,7 @@ void main() {
 #endif
 	float d = 0.5; // the far fade's old dither threshold: no dither any more
 #if defined FAR_FADE && !(defined HAZE_ENABLED && defined WORLD_OVERWORLD) && defined DEBUG_PLAIN
-	// (HDR stage A: the far fade's horizon is a display colour, bridged; stage B)
-	color.rgb = mix(color.rgb, hdrBridgeToScene(horizonColor()), farFade(length(eyePos.xz), d));
+	color.rgb = mix(color.rgb, sceneFromAuthored(horizonColor()), farFade(length(eyePos.xz), d));
 #endif
 	outColor = color;
 }

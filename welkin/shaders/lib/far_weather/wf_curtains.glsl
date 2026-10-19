@@ -272,7 +272,7 @@ WfLayer wfCurtains(vec3 dir, float tEnd, float tCloud, CloudEnv e, out float sto
 	vec3 c = base * mix(0.74, 0.5, storm);
 	c += skyHorizon(true) * forward * (1.0 - skyNightStep());
 	c += skyFlashLight() * (0.25 + 0.75 * storm) * 0.6;
-	layer.color = c;
+	layer.color = sceneFromAuthored(c); // (HDR stage B: the authored curtain colour as scene light)
 	return layer;
 }
 

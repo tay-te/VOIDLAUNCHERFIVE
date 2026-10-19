@@ -132,7 +132,7 @@ vec3 wsShoreFoam(ivec2 p, vec2 uv, vec3 color) {
 	// lit at the water's brightness: white by day, warm at dusk, dim at night
 	float lit = max(mark.r, max(mark.g, mark.b));
 	vec3 tint = mark.rgb / max(lit, 1e-3);
-	vec3 foamCol = mix(vec3(1.0), tint, 0.2) * clamp(lit * 1.7 + 0.08, 0.0, 1.05);
+	vec3 foamCol = mix(vec3(1.0), tint, 0.2) * clamp(lit * 1.7 + 0.01, 0.0, 4.0); // (HDR stage B: scene light)
 	return mix(color, foamCol, foam);
 }
 

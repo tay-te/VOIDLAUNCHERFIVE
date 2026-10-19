@@ -18,6 +18,7 @@
 #ifndef WELKIN_WF_AIR
 #define WELKIN_WF_AIR
 
+#include "/lib/hdr.glsl"
 #include "/lib/far_weather/wf_config.glsl"
 
 struct WfAir {
@@ -68,7 +69,7 @@ float wfAirAlpha(WfAir a, float t) {
 
 // A colour seen at distance t through the far air.
 vec3 wfAirOver(WfAir a, vec3 c, float t) {
-    return mix(c, a.color, wfAirAlpha(a, t));
+    return mix(c, a.color, airLin(wfAirAlpha(a, t))); // (HDR stage B: scene light)
 }
 
 // The far air along unit direction `dir` (eye-relative, world axes) for a ray ending at tEnd. `air` is the sky's

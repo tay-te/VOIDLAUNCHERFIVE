@@ -253,12 +253,8 @@ void main() {
 	}
 #endif
 	vec4 color = texelFetch(colortex0, p, 0);
-	// (HDR stage A) the air (haze, mist, aerial perspective, shafts, the cave air) still works in display values:
-	// bridged in and out; stage B
-	vec3 hdrSceneIn = color.rgb;
-	color.rgb = hdrBridgeToDisplay(color.rgb);
-	vec3 hdrDispIn = color.rgb;
-	float hdrKeep = 1.0; // what of the scene behind still shows through the air (the bridge's HDR share)
+	// (HDR stage B) the air in scene light: every layer is colour * T + in-scatter (the haze, the valley and dawn mist,
+	// the haze volume, the aerial perspective), the shafts' in-scattered light added, the cave air the same
 #if defined DEBUG_PLAIN
 	// M3: a cloud drawn here (composite), nearer than whatever lies behind it; it fogged itself by ring
 	bool cloud = false;
@@ -293,31 +289,20 @@ void main() {
 		// distance (MistRay.enter): then near mist banks stay crisp and far ones are hazed exactly.
 		HzState st = hzState();
 		vec3 sunW = normalize(mat3(gbufferModelViewInverse) * sunPosition);
-		vec3 air = skyHazeAir(st.kind, normalize(eyePos), sunW);
+		vec3 air = sceneFromAuthored(skyHazeAir(st.kind, normalize(eyePos), sunW)); // (scene light)
 		// ---- atmos (welkin-atmos): the haze's air is the luminous sky's horizon too, so the far land fades into the
 		// same bright band the sky shows over it (below the horizon: the horizon's own light in that direction)
 		SkyLum lum = skyLumFrame(sunW);
 		{
 			vec3 dA = normalize(eyePos);
 			dA = dA.y < 0.0 ? normalize(vec3(dA.x, 0.0, dA.z) + vec3(1e-5, 0.0, 0.0)) : dA;
-			air = skyLuminous(air, dA, lum, 0.8);
+			air = skyLuminousLin(air, dA, lum, 0.8);
 		}
 		// ---- air and tone (D): the haze's forward scatter toward the sun (lib/air.glsl)
 		vec3 airPlain = air;
 		air = airMie(air, normalize(eyePos), sunW, st.kind);
-		// (look4, 2026-10-18) through the golden hours the forward scatter's glow takes the sky's lower exposure (the
-		// luminous air above already has it), and the cap lets the air in the sun's own glow pass white as the sky's
-		// does, so the haze over the low sky keeps the light's peak instead of laying a flat white field over it
-		{
-			float gh = skyGoldenHeadroom(lum) * min(0.8 * float(SKY_GLOW) * 0.01 * lum.clear * lum.day, 1.0);
-			float ex = 1.0, ce = 1.0;
-			if (gh > 0.0) {
-				vec3 au;
-				skyGoldenTerms(normalize(eyePos), lum, gh, ex, au, ce);
-			}
-			vec3 La = pow(max(airPlain, 0.0), vec3(2.2)) + max(pow(max(air, 0.0), vec3(2.2)) - pow(max(airPlain, 0.0), vec3(2.2)), 0.0) * ex;
-			air = pow(skyLumCapLin(La / ce) * ce, vec3(1.0 / 2.2)); // atmos: the forward scatter's glow keeps its hue
-		}
+		// (HDR stage B: the forward scatter is in-scattered light, uncapped: toward a low sun it may pass white; look4's
+		// golden-hour exposure and cap are gone)
 		vec3 n = s.sky ? vec3(0.0, 1.0, 0.0) : hzScreenNormal(eyePos);
 		WelkinHaze h;
 		if (finished) {
@@ -374,34 +359,18 @@ void main() {
 		// M5 underground (P6): the surface air hands over to the cave air at cave mouths
 		h.back.a *= 1.0 - ug.amount;
 		h.front.a *= 1.0 - ug.amount;
-		// (review round 1) the pixel sun reads through the air near the horizon: the disc's light is far stronger than
-		// the air's, which only dims it a little (so a setting sun shows as a disc with its halo, not a soft glow)
+		// (HDR stage B: no special case over the sun's disc or the golden hour's sky: the disc's light is far above the
+		// air's and passes through it by the haze's own transmittance)
 		float sunDisc = 0.0;
-		if (s.sky && !cloud && !finished) {
-			float rS = float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4;
-			float aS = sqrt(max(2.0 * (1.0 - dot(normalize(eyePos), sunW)), 0.0));
-			sunDisc = 0.75 * (1.0 - smoothstep(0.95 * rS, 1.5 * rS, aS)) * smoothstep(-0.04, 0.0, sunW.y);
-		}
-		h.back.a *= 1.0 - sunDisc;
-		h.front.a *= 1.0 - sunDisc;
-		// (HDR stage A) the disc's own light shows through the air as it does above, over a far cloud band too: the share
-		// the bridge carries past the display values
-		float hdrDisc = sunDisc;
-		if (s.sky && cloud && !finished) {
-			float rS = float(SUN_SIZE) * float(SKY_ART_PIXEL) * 1e-4;
-			float aS = sqrt(max(2.0 * (1.0 - dot(normalize(eyePos), sunW)), 0.0));
-			hdrDisc = 0.75 * (1.0 - smoothstep(0.95 * rS, 1.5 * rS, aS)) * smoothstep(-0.04, 0.0, sunW.y);
-		}
-		// (look4, 2026-10-18) through the golden hours the open sky above the horizon keeps its own exposure: the haze's
-		// air is the horizon's light, and laid over the dimmer sky round a low sun it lifted the whole sun-side sky back
-		// toward white. Near the horizon (the land's far haze meets the sky there) it stays
+		// (HDR stage B) a ray up into the sky, or to a cloud deck over the horizon, leaves the dense low air within a
+		// short way: the haze over the open sky and the decks thins with the ray's elevation, at every hour (look4 did
+		// this for the golden hours only, as an exposure)
 		if ((s.sky || cloud) && !finished) {
-			float ghS = skyGoldenHeadroom(lum) * lum.clear * smoothstep(0.02, 0.15, normalize(eyePos).y);
-			h.back.a *= 1.0 - 0.85 * ghS;
-			h.front.a *= 1.0 - 0.85 * ghS;
+			float thin = 0.85 * smoothstep(0.02, 0.15, normalize(eyePos).y) * lum.clear;
+			h.back.a *= 1.0 - thin;
+			h.front.a *= 1.0 - thin;
 		}
 		color.rgb = welkinHazeBack(color.rgb, h);
-		hdrKeep *= 1.0 - clamp(h.back.a * (1.0 - hdrDisc), 0.0, 1.0);
 		vec3 ugBeforeMist = color.rgb;
 #ifdef WELKIN_VALLEY_MIST
 		// the mist lies far below the decks: in front of a cloud only when the cloud is against the sky
@@ -468,8 +437,7 @@ void main() {
 #ifdef HV_READ
 				fsunM = clamp(hvRaw.g / max(hvRaw.b, 1e-4), 0.0, 1.0);
 #endif
-				color.rgb = mix(color.rgb, dawnMistColour(airPlain, normalize(eyePos), sunW, fsunM, lum), cover * (1.0 - sunDisc));
-				hdrKeep *= 1.0 - clamp(cover * (1.0 - sunDisc), 0.0, 1.0);
+				color.rgb = mix(color.rgb, dawnMistColour(airPlain, normalize(eyePos), sunW, fsunM, lum), airLin(cover));
 #ifdef DM_DEBUG
 				color.rgb = vec3(cover, dawnAmt, fract(ground / 16.0));
 #endif
@@ -500,7 +468,6 @@ void main() {
 #endif
 		color.rgb = mix(color.rgb, ugBeforeMist, ug.amount); // M5: the valley mist (and the shafts) hand over too
 		color.rgb = welkinHazeFront(color.rgb, h);
-		hdrKeep *= 1.0 - clamp(h.front.a * (1.0 - hdrDisc), 0.0, 1.0);
 		// ---- air and tone (D): the land's aerial perspective (lib/air.glsl)
 		if (!s.sky && !cloud) {
 			// (M5: it hands over to the cave air at cave mouths, as the haze does)
@@ -515,7 +482,7 @@ void main() {
 			float aY = dot(h.air, vec3(0.2126, 0.7152, 0.0722));
 			// (a soft warm grey: the air's own light, most of its colour out, a breath of warmth)
 			vec3 veil = mix(vec3(aY), h.air, 0.35) * vec3(1.03, 1.0, 0.95) * 0.80;
-			color.rgb = mix(color.rgb, veil, wN);
+			color.rgb = mix(color.rgb, veil, airLin(wN));
 		}
 #if HAZE_DEBUG > 0 && HAZE_DEBUG < 4
 		welkinHazeDebug(st, h, eyePos, s.sky, color.rgb);
@@ -523,7 +490,15 @@ void main() {
 	}
 #endif
 	// ---- M5 underground (P6): the cave air under the land, the eye in water included; then its debug overlay
-	color.rgb = ugComposite(ug, p, uv, color.rgb);
+	// (HDR stage B) the cave air's colours are authored in display values: its transmittance and its own light are
+	// read off it (it lays its layers over what is behind as mixes), and laid on in scene light
+	if (ug.mode != UG_MODE_OFF) {
+		vec3 u0 = ugComposite(ug, p, uv, vec3(0.0));
+		vec3 u1 = ugComposite(ug, p, uv, vec3(1.0));
+		vec3 T = clamp(u1 - u0, 0.0, 1.0);
+		vec3 X = u0 / max(1.0 - T, 1e-3);
+		color.rgb = color.rgb * T + sceneFromAuthored(X) * (1.0 - T);
+	}
 #if UG_DEBUG != 0
 	color.rgb = ugDebug(ug, p, color.rgb);
 #endif
@@ -536,10 +511,7 @@ void main() {
 #if SKY_DEBUG == 1
 	color.rgb = skyDebugOverlay(p, color.rgb); // the sky table, 8x, bottom left
 #endif
-	// (the cave air and the rest that do not say what shows through: a large change loses the HDR share)
-	vec3 hdrDd = abs(color.rgb - hdrDispIn);
-	hdrKeep = min(hdrKeep, 1.0 - max(hdrDd.r, max(hdrDd.g, hdrDd.b)) / 0.25);
-	outColor = vec4(hdrBridgeBack(color.rgb, hdrDispIn, hdrSceneIn, hdrKeep), color.a);
+	outColor = color;
 }
 
 #endif

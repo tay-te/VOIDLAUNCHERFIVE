@@ -97,7 +97,8 @@ float shaftResolve(ivec2 p, float dist) {
 	return mix(tileSum / 16.0, sum / max(wsum, 1e-6), smoothstep(0.02, 0.5, wsum));
 }
 
-// The shafts' light for view direction dirW (world, unit), `lit` the resolved term, in display values to add. f the
+// The shafts' light for view direction dirW (world, unit), `lit` the resolved term: in-scattered light to add (scene
+// light since HDR stage B). f the
 // luminous sky's frame (lib/sky/luminous.glsl: the sun's hue and gold, how golden the hour, how clear the sky); thick
 // how thick the air is against temperate air (haziness, valley mist; 1 plain). On the sky (`sky`) a fraction: there the
 // sunlit air only brightens the glow round the sun the dome already draws; the beams show against the land, the trunks
@@ -117,11 +118,11 @@ vec3 shaftLight(vec3 dirW, vec3 sunW, int kind, float lit, bool sky, SkyLum f, f
 	float nearW = sky ? 0.0 : 1.0 - smoothstep(24.0, 110.0, dist);
 	float lobe = 0.75 * airHg(mu, 0.88) + 0.25 * airHg(mu, 0.5) + 0.15 * nearW;
 	// the sun's light: its own hue, led toward the warm gold through the golden hours (display, luma 1)
-	vec3 hue = pow(mix(f.hue, f.gold, 0.55) * 0.4, vec3(1.0 / 2.2));
+	vec3 hue = mix(f.hue, f.gold, 0.55); // (HDR stage B: linear, luma 1)
 	hue /= max(dot(hue, vec3(0.2126, 0.7152, 0.0722)), 1e-3);
 	// as bright as the sun-side horizon (never darker than a pale level)
-	vec3 sunSide = skyHazeHorizon(kind, true);
-	float level = max(dot(sunSide, vec3(0.2126, 0.7152, 0.0722)), 0.3);
+	vec3 sunSide = sceneFromAuthored(skyHazeHorizon(kind, true));
+	float level = max(dot(sunSide, vec3(0.2126, 0.7152, 0.0722)), 0.07);
 	float gate = shaftGate(sunW) * f.clear * f.day * mix(0.75, 1.0, f.warm);
 	// (the term to the 1.25th power: a ray half in shadow keeps less than half, so the beams stand clearer against the
 	// shadows between them, and the short rays down to the near ground lift its darks less)

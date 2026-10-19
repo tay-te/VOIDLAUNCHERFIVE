@@ -308,7 +308,7 @@ void main() {
 	vec3 waterDeep = vec3(0.0);
 	if (matIsWater(material)) {
 		WaterSurface ws = welkinWaterSurface(albedo, nFace, eyePos, lm, sunShare, reach, facing);
-		lit = hdrBridgeToScene(ws.color); // (HDR stage A: bridged, unused path)
+		lit = ws.color; // (scene light, lib/watersurf.glsl; unused path)
 		albedo.a = ws.alpha;
 		waterDeep = ws.deep;
 	}

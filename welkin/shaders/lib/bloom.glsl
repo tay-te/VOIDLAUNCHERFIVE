@@ -57,57 +57,41 @@ float bloomLuma(vec3 c) {
 	return dot(c, vec3(0.2126, 0.7152, 0.0722));
 }
 
-// How much of a cloud pixel's bright share goes into the bloom: BLOOM_CLOUD for the body, all of it for a rim past white.
-float bloomCloudShare(vec3 display) {
-	return mix(BLOOM_CLOUD, 1.0, smoothstep(1.0, 1.4, max(display.r, max(display.g, display.b))));
+// ==== (HDR stage B) the bloom in scene light ====
+// The source is the exposed scene light itself (no headroom guessed back from display values): the share of each
+// pixel's light past a soft threshold, the sky's and the clouds' bodies in part, a lit surface that does not glow only
+// past a much higher one (a glint, the glitter), a glowing texel more (lamps and fire glow); the gather spreads it
+// energy-conserving (composite4), and final adds BLOOM_SCATTER_HDR of it back to the scene light, each pixel lending out
+// the same share of its own, before the output transform.
+#define BLOOM_THRESHOLD_HDR 1.4
+#define BLOOM_KNEE_HDR 0.7
+#define BLOOM_DIFFUSE_THRESHOLD 6.0
+#define BLOOM_EMIT_GAIN 2.0
+#define BLOOM_SCATTER_HDR 0.10
+
+// The bright share of exposed scene light x. emit 0..1 a glowing texel's own light; diffuse 1 a lit surface that does
+// not glow.
+vec3 bloomSourceHdr(vec3 x, float emit, float diffuse) {
+	float th = mix(BLOOM_THRESHOLD_HDR, BLOOM_DIFFUSE_THRESHOLD, diffuse * (1.0 - smoothstep(0.0, 0.2, emit)));
+	float y = bloomLuma(x);
+	float soft = clamp(y - th + BLOOM_KNEE_HDR, 0.0, 2.0 * BLOOM_KNEE_HDR);
+	soft = soft * soft / (4.0 * BLOOM_KNEE_HDR + 1e-5);
+	float share = max(soft, y - th) / max(y, 1e-5);
+	return x * clamp(share, 0.0, 1.0) * (1.0 + BLOOM_EMIT_GAIN * emit);
 }
 
-// How much more light a display colour (taken to linear: lin) stands for: 1 up to the mids, about 6 at white.
-// `diffuse` (review round 1): 1 for a lit surface that does not glow (the land, not a lamp, not the sky or a cloud):
-// its texture's near white is a pale albedo in plain daylight, not a light source, so it gets headroom only for what
-// is lit past display white (a glint, the glitter, a sunlit wet sheen), never for being white; a sunlit daisy or a
-// birch's bark took the sun's headroom and bloomed into a square halo.
-float bloomHeadroom(vec3 lin, float emit, float diffuse) {
-	float y = mix(bloomLuma(lin), max(lin.r, max(lin.g, lin.b)), 0.25);
-	float s = smoothstep(0.5, 1.0, y);
-	float h = 1.0 + 5.0 * s * s * s;
-	float past = smoothstep(1.0, 1.35, max(lin.r, max(lin.g, lin.b)));
-	h = mix(h, 1.0 + 5.0 * past, diffuse * (1.0 - smoothstep(0.0, 0.2, emit)));
-	return h * (1.0 + 16.0 * emit); // (look2: 16, was 8: lamps and fire glow at night)
+// A cloud's share: its body BLOOM_CLOUD, a rim lit far past the sky (its silver lining) wholly. x exposed scene light.
+float bloomCloudShareHdr(vec3 x) {
+	return mix(BLOOM_CLOUD, 1.0, smoothstep(6.0, 24.0, max(x.r, max(x.g, x.b))));
 }
 
-float bloomHeadroom(vec3 lin, float emit) {
-	return bloomHeadroom(lin, emit, 0.0);
-}
-
-// The bright share of display colour `display` (linear, with headroom). emit 0..1 a glowing texel's own light.
-vec3 bloomSource(vec3 display, float emit, float diffuse) {
-	vec3 lin = pow(max(display, 0.0), vec3(2.2));
-	lin *= bloomHeadroom(lin, emit, diffuse);
-	float y = bloomLuma(lin);
-	float soft = clamp(y - BLOOM_THRESHOLD + BLOOM_KNEE, 0.0, 2.0 * BLOOM_KNEE);
-	soft = soft * soft / (4.0 * BLOOM_KNEE + 1e-5);
-	float share = max(soft, y - BLOOM_THRESHOLD) / max(y, 1e-5);
-	return lin * clamp(share, 0.0, 1.0);
-}
-
-// The halo `glow` (linear, with headroom) laid on display colour c; `lend` how much of the pixel's own bright share it
-// lends out (1 wholly energy-conserving; final lends half on the land, so a lamp's small flame keeps its brightness
-// beside its halo, and nothing on the sky). `veil` is the frame's mean bright share (composite4, colortex9's alpha): that
-// much of what the halo brings a pixel is a flat veil over the whole frame, not a glow round anything, so BLOOM_FLAT of
-// it is kept off (the merge of phase 2: a sunlit snow peak over a sunlit cloud sea filled the frame with source and the
-// shadows went milky; the darks keep their depth, a lamp at night or the sun's glow is unchanged, as their frame's mean
-// is small beside them). Display in, display out (before final's shoulder).
-vec3 bloomApply(vec3 c, vec3 glow, float emit, float lend, float veil, float diffuse) {
-	float k = BLOOM_SCATTER * float(BLOOM_STRENGTH) * 0.01;
-	vec3 lin = pow(max(c, 0.0), vec3(2.2));
-	float head = bloomHeadroom(lin, emit, diffuse);
-	vec3 own = bloomSource(c, emit, diffuse);
-	vec3 add = k * (glow - lend * own);
+// The light the halo adds to a pixel of exposed scene light x (exposed units): the halo minus what the pixel lends out,
+// the frame's flat share kept off.
+vec3 bloomAddHdr(vec3 x, vec3 glow, float emit, float lend, float veil, float diffuse) {
+	float k = BLOOM_SCATTER_HDR * float(BLOOM_STRENGTH) * 0.01;
+	vec3 add = k * (glow - lend * bloomSourceHdr(x, emit, diffuse));
 	add -= min(vec3(k * BLOOM_FLAT * veil), max(add, 0.0));
-	vec3 hdr = lin * head + add;
-	lin = max(hdr / head, 0.0);
-	return pow(lin, vec3(1.0 / 2.2));
+	return add;
 }
 
 #endif

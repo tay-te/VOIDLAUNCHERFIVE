@@ -139,7 +139,7 @@ void main() {
 		c = wsShadeWater(w, inp, sea, skyFrame(), outInfo);
 	} else {
 		// the LOD's other translucents: lit, no reflection
-		c = vec4(welkinLight(glcolor.rgb, n, lmcoord, 0.0, 0.5) * glcolor.a, glcolor.a);
+		c = vec4(welkinLightLin(glcolor.rgb, n, lmcoord, 0.0) * glcolor.a, glcolor.a);
 		outInfo = vec4(0.5, 0.5, 0.0, WS_KIND_OTHER);
 	}
 	// the water's own colour for the water marks, less of it where the far fade has taken over
@@ -148,10 +148,8 @@ void main() {
 	// with the haze on, composite2's haze draws the world's edge (as deferred does for the land)
 	float fade = farFade(horizontal, 0.5);
 	outWater.a *= 1.0 - fade;
-	c = mix(c, vec4(horizonColor(), 1.0), fade);
+	c = mix(c, vec4(sceneFromAuthored(horizonColor()), 1.0), fade);
 #endif
-	// (HDR stage A) the far water still shades in display values: into the scene's light through the bridge; stage B
-	c.rgb = hdrBridgeToScene(c.rgb / max(c.a, 1e-3)) * c.a;
 	outColor = c;
 }
 

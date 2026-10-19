@@ -1,11 +1,12 @@
 // VOID Welkin sky (M2): the sky seen in a direction, from the sky table. Entry points:
 //
 //   SkyFrame skyFrame()                       once per fragment: sun, moon, path axis, the glow and show states
-//   vec3 skyFull(vec3 dirW, SkyFrame f)       the whole sky: dome bands, glow rings, stars, moon, sun
-//   vec3 skyDomeOnly(vec3 dirW, SkyFrame f)   the dome without bodies or stars (water reflections, clouds' backdrop)
-//   vec3 skyHorizonFor(vec3 eyeDir, SkyFrame f, float dither)
-//                                             the horizon band in that direction's azimuth, with the sun's glow
-//                                             (the far fade, haze edges)
+//   vec3 skyFullScene(vec3 dirW, SkyFrame f)  the whole sky: dome bands, glow rings, stars, moon, sun (scene light)
+//   vec3 skyDomeOnly(vec3 dirW, SkyFrame f)   the dome without bodies or stars (water reflections; scene light)
+//   vec3 skyHorizonFor(vec3 eyeDir, SkyFrame f)
+//                                             the horizon band in that direction's azimuth (the far fade; scene light)
+//   vec3 skyDomeColour(vec3 q)                the authored dome colour (display values, rows 0..12) for the
+//                                             modules that still author their colours in display values (clouds)
 //
 // dirW is a world-space direction (any length). The dome is a smooth lookup into the table: the band (elevation) and
 // the glow ring (nearness to the sun, or to the moon at night) are worked out as continuous positions for the exact
@@ -103,107 +104,10 @@ vec3 skyDomeColour(vec3 q) {
 	return c;
 }
 
-// The warm, bright band along the horizon toward a low sun (the sky table's low-sun texel): broad in azimuth, hugging
-// the horizon, from the late afternoon until the sun is just under. A gradient of the sky itself, not a bloom: it only
-// ever brightens what is there.
-vec3 skyLowSunBandOver(vec3 col, vec3 d, SkyFrame f) {
-	vec4 b = skyLowSunBand();
-	if (b.a <= 0.0) {
-		return col;
-	}
-	vec2 sz = f.sunW.xz;
-	float az = 0.0;
-	if (dot(d.xz, d.xz) > 1e-8 && dot(sz, sz) > 1e-8) {
-		az = dot(normalize(d.xz), normalize(sz));
-	}
-	float wAz = 0.5 + 0.5 * az;
-	wAz *= wAz;
-	float wEl = exp(-max(d.y, 0.0) / 0.10) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
-	float w = clamp(b.a * wAz * wEl, 0.0, 1.0);
-	col = mix(col, max(col, b.rgb), w);
-	// round 1: the rose band opposite a low sun (the belt of Venus): low over the horizon, broad in azimuth, a soft
-	// rose-lilac at the sky's own brightness and above it, so the half of a dusk or dawn sky away from the sun is a
-	// gentle gradient too, not a dark slate against the sun's rose half
-	float wAnti = 0.5 - 0.5 * az;
-	wAnti *= wAnti;
-	float wElA = exp(-max(d.y, 0.0) / 0.22) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
-	vec3 rose = vec3(0.86, 0.64, 0.70) * max(dot(b.rgb, vec3(0.2126, 0.7152, 0.0722)) * 0.62, 0.0);
-	float wa = clamp(b.a * wAnti * wElA * 0.55, 0.0, 1.0);
-	return mix(col, max(col, rose), wa);
-}
 
-vec3 skyDomeOnly(vec3 dirW, SkyFrame f) {
-	vec3 d = normalize(dirW);
-	// atmos (welkin-atmos): the luminous sky (lib/sky/luminous.glsl)
-	return skyLuminous(skyLowSunBandOver(skyDomeColour(skyDomePos(d, f)), d, f), d, skyLumFrame(f.sunW), 1.0);
-}
 
-vec3 skyFull(vec3 dirW, SkyFrame f) {
-	vec3 d = normalize(dirW);
-	vec3 q = skyDomePos(d, f);
-#if SKY_DEBUG == 2
-	return vec3(q.x / 5.0, q.y / 4.0, q.z / 3.0);
-#endif
-	vec3 col = skyLowSunBandOver(skyDomeColour(q), d, f);
-	col = skyLuminous(col, d, skyLumFrame(f.sunW), 1.0); // atmos (welkin-atmos): the luminous sky
-	if (d.y < SKY_BODY_CUTOFF) {
-		return col;
-	}
 
-	// stars, on the celestial sphere: the view direction in the sun's turning frame. They lie behind the sky's own
-	// light: over a bright sky (the day, a lit dusk, a moonlit haze near the horizon) they fade out whatever the star
-	// amount says, so no star ever shows on a day sky or in its reflection
-	float skyLight = dot(col, vec3(0.2126, 0.7152, 0.0722));
-	float behind = 1.0 - smoothstep(0.08, 0.22, skyLight);
-	if (f.glow.b * behind > 0.0) {
-		vec3 c = vec3(dot(d, f.sunW), dot(d, f.axis), dot(d, cross(f.sunW, f.axis)));
-		col = max(col, mix(col, skyStars(c, f.glow.b, d.y), behind));
-	}
 
-#ifdef SKY_PIXEL_SUN
-	ivec2 ip;
-	// the moon: lit side, maria and terminator by phase; its dark side hides the stars at night
-	if (f.show.g > 0.0 && skyArtPixel(d, f.moonW, f.axis, ip)) {
-		int k = skyMoonPixel(ip, moonPhase & 7);
-		if (k == 4) {
-			col = mix(col, skyTable(11, SKY_ROW_SPRITE).rgb, f.show.g * step(0.75, f.show.b));
-		} else if (k > 0) {
-			col = mix(col, skyTable(7 + k, SKY_ROW_SPRITE).rgb, f.show.g * f.show.b);
-		}
-	}
-	// the sun: core, middle, rim, and a one-pixel ring; behind cloud a paler disc
-	if (f.show.r > 0.0 && skyArtPixel(d, f.sunW, f.axis, ip)) {
-		int k = skySunPixel(ip);
-		if (k == 4) {
-			col = mix(col, skyTable(3, SKY_ROW_SPRITE).rgb, 0.3 * f.show.r);
-		} else if (k > 0) {
-			// (review round 2) a low sun's core and middle stand past display white, so the disc outshines its glow and
-			// the bloom gives it a bright heart
-			float lowSun = 1.0 - smoothstep(0.0, 0.35, f.sunW.y);
-			float hot = k == 1 ? 1.0 + 0.45 * lowSun : (k == 2 ? 1.0 + 0.25 * lowSun : 1.0);
-			col = mix(col, skyTable(k - 1, SKY_ROW_SPRITE).rgb * hot, f.show.r);
-		}
-	}
-#endif
-	return col;
-}
-
-vec3 skyFull(vec3 dirW) {
-	return skyFull(dirW, skyFrame());
-}
-
-// The horizon band in eyeDir's azimuth, with the sun's glow there. `dither` is ignored (kept for the callers).
-vec3 skyHorizonFor(vec3 eyeDir, SkyFrame f, float dither) {
-	vec2 flat2 = eyeDir.xz;
-	if (dot(flat2, flat2) < 1e-8) {
-		flat2 = vec2(1.0, 0.0);
-	}
-	vec2 n2 = normalize(flat2);
-	vec3 q = skyDomePos(normalize(vec3(n2.x, 0.02, n2.y)), f);
-	q.x = 1.0;
-	// atmos (welkin-atmos): the same luminous band the dome shows there
-	return skyLuminous(skyDomeColour(q), normalize(vec3(n2.x, 0.0, n2.y)), skyLumFrame(f.sunW), 1.0);
-}
 
 // ==== (HDR stage A) the sky in scene-linear light (lib/hdr.glsl's unit), for gbuffers_skybasic ====
 // The dome's colour points in the table's scene rows (14..21: the display rows through the output transform's
@@ -255,14 +159,32 @@ vec3 skyLowSunBandOverScene(vec3 col, vec3 d, SkyFrame f) {
 	wAz *= wAz;
 	float wEl = exp(-max(d.y, 0.0) / 0.10) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
 	float w = clamp(b.a * wAz * wEl, 0.0, 1.0);
-	vec3 bL = hdrSceneFromPalette(clamp(b.rgb, 0.0, 1.0));
+	vec3 bL = sceneFromAuthored(clamp(b.rgb, 0.0, 1.0));
 	col = mix(col, max(col, bL), w);
 	float wAnti = 0.5 - 0.5 * az;
 	wAnti *= wAnti;
 	float wElA = exp(-max(d.y, 0.0) / 0.22) * (1.0 - smoothstep(0.0, 2.0 * SKY_BELOW_EASE, -d.y));
-	vec3 rose = hdrSceneFromPalette((vec3(0.86, 0.64, 0.70) * max(dot(b.rgb, vec3(0.2126, 0.7152, 0.0722)) * 0.62, 0.0)));
+	vec3 rose = sceneFromAuthored((vec3(0.86, 0.64, 0.70) * max(dot(b.rgb, vec3(0.2126, 0.7152, 0.0722)) * 0.62, 0.0)));
 	float wa = clamp(b.a * wAnti * wElA * 0.55, 0.0, 1.0);
 	return mix(col, max(col, rose), wa);
+}
+
+// The dome without bodies or stars, in scene light (water and glass reflections, the puddles, the SSR's sky).
+vec3 skyDomeOnly(vec3 dirW, SkyFrame f) {
+	vec3 d = normalize(dirW);
+	return skyLuminousLin(skyLowSunBandOverScene(skyDomeColourScene(skyDomePos(d, f)), d, f), d, skyLumFrame(f.sunW), 1.0);
+}
+
+// The horizon band in eyeDir's azimuth, with the sun's glow there, in scene light (the far fade).
+vec3 skyHorizonFor(vec3 eyeDir, SkyFrame f) {
+	vec2 flat2 = eyeDir.xz;
+	if (dot(flat2, flat2) < 1e-8) {
+		flat2 = vec2(1.0, 0.0);
+	}
+	vec2 n2 = normalize(flat2);
+	vec3 q = skyDomePos(normalize(vec3(n2.x, 0.02, n2.y)), f);
+	q.x = 1.0;
+	return skyLuminousLin(skyDomeColourScene(q), normalize(vec3(n2.x, 0.0, n2.y)), skyLumFrame(f.sunW), 1.0);
 }
 
 vec3 skyFullScene(vec3 dirW, SkyFrame f) {
@@ -291,7 +213,7 @@ vec3 skyFullScene(vec3 dirW, SkyFrame f) {
 	if (f.show.g > 0.0 && skyArtPixel(d, f.moonW, f.axis, ip)) {
 		int k = skyMoonPixel(ip, moonPhase & 7);
 		if (k == 4) {
-			col = mix(col, hdrSceneFromPalette(skyTable(11, SKY_ROW_SPRITE).rgb), f.show.g * step(0.75, f.show.b));
+			col = mix(col, sceneFromAuthored(skyTable(11, SKY_ROW_SPRITE).rgb), f.show.g * step(0.75, f.show.b));
 		} else if (k > 0) {
 			col = mix(col, toLinear(skyTable(7 + k, SKY_ROW_SPRITE).rgb) * SKY_MOON_RADIANCE, f.show.g * f.show.b);
 		}

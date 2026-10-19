@@ -45,7 +45,7 @@ void main() {
 	}
 #endif
 	outColor = texture(gtexture, texcoord) * glcolor;
-	outColor.rgb = hdrBridgeToScene(outColor.rgb); // (HDR stage A: an unlit sky texture, bridged)
+	outColor.rgb = sceneFromAuthored(outColor.rgb); // (an unlit sky texture: its authored colour as scene light)
 }
 
 #endif

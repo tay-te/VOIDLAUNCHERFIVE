@@ -5,7 +5,7 @@
 // colortex1  RGBA16   octahedral world normal (xy), light map levels (z block, w sky)
 // colortex2  RGBA8    x: 1 = lit in deferred, y: material id / 255, z: emission level and light class
 //                     (lib/common.glsl packEmitClass), w: Minecraft's corner shading (separateAo; 1 for none)
-// colortex3  RGBA8    water in front (gbuffers_water, dh_water): rgb its lit colour, a 1; 0 elsewhere
+// colortex3  RGBA16F  water in front (gbuffers_water, dh_water): rgb its lit colour (scene light), a 1; 0 elsewhere
 // colortex4  RGBA8    water and shadow info (water_shadows); cleared to 0
 // colortex5  RGBA16F  the sky table, 64x32 (prepare; lib/sky/table.glsl reads it); never cleared, rewritten each frame
 // colortex9  RGBA16F  half size: the ambient occlusion's raw term, bent normal and view depth (deferred_ao; lib/ao.glsl)
@@ -29,7 +29,7 @@
 const int colortex0Format = RGBA16F;
 const int colortex1Format = RGBA16;
 const int colortex2Format = RGBA8;
-const int colortex3Format = RGBA8;
+const int colortex3Format = RGBA16F;
 const vec4 colortex1ClearColor = vec4(0.5, 0.5, 0.0, 0.0);
 const vec4 colortex2ClearColor = vec4(0.0, 0.0, 0.0, 0.0);
 const bool colortex1Clear = true;

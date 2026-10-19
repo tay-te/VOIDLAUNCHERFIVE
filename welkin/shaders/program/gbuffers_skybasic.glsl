@@ -80,14 +80,14 @@ uniform mat4 gbufferModelViewInverse;
 
 void main() {
 	if (renderStage == MC_RENDER_STAGE_STARS || renderStage == MC_RENDER_STAGE_SUNSET) {
-		outColor = vec4(hdrBridgeToScene(glcolor.rgb), glcolor.a); // (HDR stage A: bridged)
+		outColor = vec4(sceneFromAuthored(glcolor.rgb), glcolor.a); // (vanilla's authored colour as scene light)
 		return;
 	}
 	vec4 ndc = vec4(gl_FragCoord.xy / vec2(viewWidth, viewHeight) * 2.0 - 1.0, 1.0, 1.0);
 	vec4 view = gbufferProjectionInverse * ndc;
 	vec3 dir = normalize(mat3(gbufferModelViewInverse) * (view.xyz / view.w));
 	float t = sqrt(clamp(dir.y * 2.4 + 0.08, 0.0, 1.0));
-	outColor = vec4(hdrBridgeToScene(mix(fogColor, skyColor, softBands(t, 5.0))), 1.0); // (HDR stage A: bridged)
+	outColor = vec4(sceneFromAuthored(mix(fogColor, skyColor, softBands(t, 5.0))), 1.0); // (scene light)
 }
 
 #endif

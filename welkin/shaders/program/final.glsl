@@ -167,8 +167,7 @@ void main() {
 	return;
 #endif
 	float expo = hdrExposure();
-	// ---- atmos (welkin-atmos): the sun beams, then the bloom. (HDR stage A: both still made and laid on in display
-	// values, through the bridge; stage B feeds them from the scene's light)
+	// ---- atmos (welkin-atmos): the sun beams, then the bloom, in scene light before the output transform (HDR stage B)
 #ifdef FINAL_BEAMS
 	{
 		// four bilinear taps at the corners between texels: the 4x4 half-resolution texels round the pixel, evenly
@@ -177,11 +176,11 @@ void main() {
 		vec2 cu = vec2(p >> 1) * hp;
 		vec3 b = texture(colortex12, cu + vec2(-hp.x, -hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, -hp.y)).rgb
 			+ texture(colortex12, cu + vec2(-hp.x, hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, hp.y)).rgb;
-		// (look, welkin-look: laid on as a screen, so the beams stream bright through the dark lanes between trunks and
-		// over shaded land, and add little over what is already bright; look2: 0.35)
-		vec3 d = hdrBridgeToDisplay(sc);
-		vec3 d2 = d + b * 0.35 * (1.0 - clamp(d, 0.0, 1.0));
-		sc = hdrBridgeBack(d2, d, sc, 1.0);
+		// (look, welkin-look: the beams' light, most over what is dark on screen and little over what is already bright:
+		// they stream through the dark lanes between trunks and over shaded land, and lay no veil on the sky round the
+		// sun; look2: 0.35)
+		float shown = clamp(hdrLuma(hdrOutput(sc, expo)), 0.0, 1.0);
+		sc += b * (0.35 * (1.0 - shown));
 	}
 #endif
 #ifdef BLOOM
@@ -192,18 +191,16 @@ void main() {
 #ifdef DISTANT_HORIZONS
 		d = min(d, texelFetch(dhDepthTex0, p, 0).r);
 #endif
-		// (the sky lends nothing out: the pixel sun, moon and stars keep their whole brightness; the land a little)
-		float lend = d >= 1.0 ? 0.0 : 0.3;
+		// (the sky lends nothing out: the pixel sun, moon and stars keep their whole light; the land and the clouds lend
+		// what they gave the halo, so the halo spreads light rather than making more of it)
+		float lend = d >= 1.0 ? 0.0 : 1.0;
 #ifdef WORLD_OVERWORLD
-		lend = d >= 1.0 && texelFetch(colortex6, p, 0).r <= 999.0 ? 0.3 : lend;
+		lend = d >= 1.0 && texelFetch(colortex6, p, 0).r <= 999.0 ? 1.0 : lend;
 #endif
-		vec4 glow = texture(colortex9, texcoord); // rgb the halo, a the frame's mean bright share (composite4)
-		// (laid on the display value as before, then back through the bridge: the pixel's light past what the display
-		// value carries, the sun's disc, passes whole, so the halo round the sun rolls under the disc instead of over it)
-		vec3 dB = hdrBridgeToDisplay(sc);
-		vec3 dB2 = bloomApply(dB, glow.rgb, emit, lend, glow.a,
+		vec4 glow = texture(colortex9, texcoord); // rgb the halo, a the frame's mean bright share (composite4), exposed
+		vec3 add = bloomAddHdr(sc * expo, glow.rgb, emit, lend, glow.a,
 			d < 1.0 && emit <= 0.0 && texelFetch(colortex3, p, 0).a <= 0.25 ? 1.0 : 0.0);
-		sc = hdrBridgeBack(dB2, dB, sc, 1.0);
+		sc = max(sc + add / expo, 0.0);
 	}
 #endif
 	// ---- end atmos

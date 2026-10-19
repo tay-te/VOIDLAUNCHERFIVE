@@ -36,13 +36,15 @@ uniform sampler2D colortex4;
 uniform mat4 gbufferModelViewInverse;
 #endif
 // (water2) how fast clear water takes each colour out of the bed's light, per block of path
+// (HDR stage B) the most light a bed under the water can add, scene light
+const float WATER_BED_MAX = 4.0;
 const vec3 WATER_BED_SIGMA = vec3(0.06, 0.027, 0.027);
 
 vec3 waterFog(ivec2 p, vec2 uv, vec3 scene) {
 	Surface front = surfaceAt(p, uv);
 	float frontDist = length(front.view);
 	if (isEyeInWater == 1) {
-		vec3 deep = vec3(0.04, 0.13, 0.19) * mix(0.2, 1.0, dayAmount());
+		vec3 deep = sceneFromAuthored(vec3(0.04, 0.13, 0.19)) * mix(0.2, 1.0, dayAmount()); // (scene light)
 		float dist = front.sky ? 256.0 : frontDist;
 		return mix(scene, deep, 1.0 - exp(-dist * 0.045));
 	}
@@ -61,7 +63,7 @@ vec3 waterFog(ivec2 p, vec2 uv, vec3 scene) {
 		float aOut = info.a > 0.74 ? clamp((info.a - 0.75) * 4.0, 0.0, 1.0) : 1.0 - 0.12 * (1.0 - info.b);
 		// what the bed adds through it; the mark is clipped at 1, so where the reflection is bright it is bounded by
 		// what a bed could add at all
-		vec3 bed = clamp(scene - mark.rgb * aOut, vec3(0.0), vec3(1.2 * (1.0 - aOut)));
+		vec3 bed = clamp(scene - mark.rgb * aOut, vec3(0.0), vec3(WATER_BED_MAX * (1.0 - aOut))); // (scene light)
 		vec3 dirV = normalize(mat3(gbufferModelViewInverse) * front.view);
 		float path = thick * (1.0 + abs(dirV.y));
 		vec3 T = exp(-path * WATER_BED_SIGMA);
