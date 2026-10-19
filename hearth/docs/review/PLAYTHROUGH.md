@@ -90,3 +90,66 @@ Last run: 1 PASS, 2 PASS, 3 FAIL (tills, not this branch), 4 PASS, 5 PASS, 6 FAI
 | 1 Arrive | PASS | Cause found in the save: the town's bounds run 120 blocks out along a road to a bridge at -2340, and the nearest house is at -2459, beyond the 96-block spawn radius, so nobody's routine put them within reach. Embodiment itself (budget, ordering) was prompt. Now a town with a player near always has its 6 nearest residents (within twice the radius) about: 5–6 folk out at the bridge after 5 s (0 before). The tour then walks on to the first houses: 14–16 folk, 5–6 walking, 3 at work. |
 | 5 Crime | PASS | Guards now keep overlapping watches (night 17:30–07:00, day 06:35–18:00, lunch in two sittings), so some are always on duty. A filed crime calls `law/folk/GuardDispatch`. It sends the nearest awake guard on duty within 64 blocks. Failing that, it makes one on duty appear about 22 blocks off, in the open and out of the player's sight. A guard sent comes without needing to see the player, and moves closer, out of sight, when stuck for 6 s. If nobody can come in 45 s, the bounty is posted and the player told. Last run: a guard was sent 1 s after the report and confronted the player 2 s later (it was 35 s, or never). In run 1 of this branch, a guard made to appear stood 75 s with no path to the player. That led to the open-air spawn and close-in. |
 | 6 Night | FAIL (inn beds) | Right-clicking a sleeper now gets a mumble in chat ("Hnn? ...go 'way...") and an overlay hint "X is asleep. Sneak and use to wake them". Sneak-waking gets a grumpy greeting. Schedules were checked for every trade, age, trait and culture: only the night watch, night jailers and a lazy entertainer sleep between 09:00 and 19:00. Innkeepers "not embodied" when called came from the per-town cap of 48 nearest, which folded a called-over folk straight back. Folk made to appear on purpose are now kept 90 s, and both innkeepers opened a conversation. Renting a bed still fails: every bed is taken (failure 1 above). |
+
+## Final pass (branch hearth-fix-final, 2026-10-19): the build green, the night abed
+
+The merged build failed 4 tests. Causes and fixes:
+
+- **GateRulesTest `noPieceStandsOnNothing`, MachineryTest `hangingLanterns...`.** The access pass that every
+  blueprint goes through (`build/kit/refine/Access`) had started dropping every group of 6 or fewer blocks not joined to
+  the ground, on every family. That took the tests' own floating pieces and the lantern hung from a beam it had not
+  touched. It now notes what stood joined to the ground before its steps and removes only what those steps orphaned. It
+  never removes lanterns, chains, signs, banners, torches, ladders, vines, bells, buttons or candles.
+- **DecayTest watchtower (river, tropical and bayou).** The open mast watchtower laid its path to the new slab spiral
+  at floor level with nothing under it. On a river bank that path hung over a dip. Decay keeps the way in only where
+  something holds it up, so at decay 0.12 the path fell and the door could not be reached. The path now stands on
+  foundation down into the ground.
+- **RealGrowthTest `aTownKeepsItsDiggersAtAFace` (23 of 200 days).** Bisected to the homes merge: with the new houses the
+  harness town opens its first working 37 days sooner, so it is smaller through the measured window. When a working was
+  dug out, its successor for the idle crew kept the program's priority (195). Only towns twice an entry's size got the
+  dig priority (450), so the miners stood by an empty shaft for 50 days. The inn change was ruled out (reverting it gave
+  23 too). The reopening for a crew now has the dig priority: 32 days (39 in the full build).
+- Full build: 2271 tests, 0 failed (17 skipped).
+
+**Night beds.** A diagnostic in the tour's night step lists everyone not in their own bed at midnight and why. There
+were 0 homeless in every run. Inn residents were rehoused, since the sim puts anyone into any free home bed. The
+22–31 of 48 came from:
+
+1. Folk walking home from the middle of town to beds 50–220 blocks off, after the tour jumps the clock to midnight. They
+   need a 90 s walk and the tour waits 30 s.
+2. Homes whose known points named no bed, or a bed that no longer stood.
+3. A few folk a step from a bed that the path would not reach.
+
+Now:
+
+- A folk going to bed more than 32 blocks from it, with nobody to see, is folded back into the record, which is in bed.
+- A home with no standing bed among its points is scanned for the beds standing in it.
+- A bed that is gone is not given out.
+- A folk a step from a free bed lies down.
+- The night watch keeps its watch.
+
+The homeless are shown in `/hearth sim stats` (count, beds in homes, the town with most). While any are beyond the beds
+already planned, housing outranks every other need (920). The rest still out at midnight are mostly folk the player can
+see walking home, and a few whose home is being rebuilt (a demolishing plot has no beds).
+
+Tour fixes: the witness now stands in sight of the thief and is turned to face them before the theft. Before, they were
+put in the next room through a wall, and every run since the econ merge failed here. Folk are called over to the player,
+not to the town centre, where on a well there was nowhere to stand. The save step waits for the sim to catch up the
+night just slept before it takes its snapshot. Before, it compared a town mid-catch-up with the same town a few days'
+work later.
+
+Eight tours on this branch (raw output of the last: `results.md` and JPEGs in
+`C:/Users/bitto/AppData/Local/Temp/claude/C--Users-bitto-VOID/564c6839-160a-4660-85ef-00c49dcb634f/scratchpad/final/play8/`).
+Folk in their own beds at midnight, runs 1–8: 31/48 (diagnostic run, before the fixes), then 44/48, 43/48, 40/45, 39/47,
+44/48, 34/49 and 38/48.
+
+| Step | Last run | Runs 2–8 | Notes |
+|---|---|---|---|
+| 1 Arrive | PASS | PASS ×5, FAIL ×2 | The two FAILs were "0 folk inside their work plot" among the 11–12 out early. Last run: 25 folk out, 4 at work. |
+| 2 Talk | PASS | PASS ×7 | |
+| 3 Money | FAIL | PASS ×5, FAIL ×2 | The merchant the tour found sold only food and bought nothing the traveller carried ("0 of 0 kinds"). Selling, buying, haggling and the bank pass whenever the shop trades in the goods. |
+| 4 Quest | PASS | PASS ×6, FAIL ×1 | One board had only locked or far quests (warrant, bounty, escort, realm). |
+| 5 Crime | PASS | PASS ×3, FAIL ×1 (runs 5–8, after the witness fix) | Last run: reported after 1 s, a guard confronted the player 1 s later, and the unseen theft went unreported. In run 7 the witness, a step away, was walking on behind the bar and did not see it. |
+| 6 Night | PASS | PASS ×5, FAIL ×2 | 38/48 in their own beds (22/48 before), and an inn bed rented and slept in. Both FAILs were an innkeeper the tour called to the town centre, which had nowhere to stand (fixed in run 6). |
+| 7 Save/reload | PASS | PASS ×2 (after the catch-up wait) | Coins, deposit, standing, quests, town, folk, bed and wanted state all came back. |
+| 8 Away and back | PASS | PASS ×7 | 196 → 239 souls in 12 days away. |
