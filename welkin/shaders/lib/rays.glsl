@@ -31,6 +31,14 @@
 #define RAY_AIR 90.0
 #define RAY_NEAR_FLOOR 0.3
 #define RAY_SKY 0.32
+// (Look D3) over a cloud's body (by its cover): the beams' share and how much of their shared part is taken off
+#define RAY_SKY_CLOUD 1.0
+#define RAY_HP_CLOUD 0.7
+// (Look D3) a partly cloudy sky: the beams' share over the far land, how much of their shared part is taken off there,
+// and how much stronger they are (the clouds' shadows in the air)
+#define RAY_FAR_SHARE_CLOUDY 0.9
+#define RAY_HP_CLOUDY 0.6
+#define RAY_CLOUDY_BOOST 1.5
 // (Look D1) the beams over the far land and water: from RAY_FAR_START to RAY_FAR_END blocks they thin to this share
 #define RAY_FAR_SHARE 0.3
 #define RAY_FAR_START 60.0

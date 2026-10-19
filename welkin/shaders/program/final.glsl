@@ -217,6 +217,10 @@ void main() {
 		float dR = texelFetch(depthtex0, p, 0).r;
 		float air;
 		float hp; // (Look D2) how much of the shared, unbroken part is taken off
+		// (Look D3) a partly cloudy sky (the overcast part way in): the beams are the clouds' shadows in the air, so over
+		// the far land they keep more of their light and only their structure (the broad glow is the haze's own)
+		float ovc = skyTable(SKY_X_STATE_LIGHT, SKY_ROW_LIGHT).a;
+		float cloudy = smoothstep(0.02, 0.22, ovc) * (1.0 - smoothstep(0.6, 0.9, ovc));
 		if (dR < 1.0) {
 			vec4 vp = gbufferProjectionInverse * vec4(texcoord * 2.0 - 1.0, dR * 2.0 - 1.0, 1.0);
 			float dist = length(vp.xyz / vp.w);
@@ -224,22 +228,29 @@ void main() {
 			// (Look D1) over the far land and water the beams' broad, unbroken part is the haze's own forward scatter
 			// (lib/air.glsl, the haze volume), already there: laid on again it read as a veil over the water toward a
 			// low sun. Past RAY_FAR_START the beams thin to RAY_FAR_SHARE; the near beams (crowns, houses) keep it all
-			air *= mix(1.0, RAY_FAR_SHARE, smoothstep(RAY_FAR_START, RAY_FAR_END, dist));
-			hp = mix(RAY_HP_NEAR, RAY_HP_FAR, smoothstep(RAY_HP_START, RAY_HP_END, dist));
+			air *= mix(1.0, mix(RAY_FAR_SHARE, RAY_FAR_SHARE_CLOUDY, cloudy), smoothstep(RAY_FAR_START, RAY_FAR_END, dist));
+			hp = mix(RAY_HP_NEAR, mix(RAY_HP_FAR, RAY_HP_CLOUDY, cloudy), smoothstep(RAY_HP_START, RAY_HP_END, dist));
 		} else {
 #ifdef DISTANT_HORIZONS
 			bool dhLand = texelFetch(dhDepthTex0, p, 0).r < 1.0;
 			air = dhLand ? 1.0 : RAY_SKY;
-			hp = dhLand ? RAY_HP_FAR : RAY_HP_SKY;
+			hp = dhLand ? mix(RAY_HP_FAR, RAY_HP_CLOUDY, cloudy) : RAY_HP_SKY;
 #else
 			air = RAY_SKY;
 			hp = RAY_HP_SKY;
 #endif
+			// (Look D3) over a cloud the beams are the air between the eye and the deck, lit through the gaps: seen against
+			// a cloud's shaded body they read as rays fanning down from the gaps (over the open sky the dome already glows,
+			// and they keep their share there). Their structure is kept there as over the near land, so the glow round
+			// the sun does not wash the clouds near it
+			float overCloud = 1.0 - clamp(texelFetch(colortex6, p, 0).g, 0.0, 1.0);
+			air = mix(air, RAY_SKY_CLOUD * (1.0 + RAY_CLOUDY_BOOST * cloudy), overCloud);
+			hp = mix(hp, RAY_HP_CLOUD, overCloud);
 		}
 		// (Look D2) over the near land only the structure: a large gap's solid fan there read as a sheet painted over the
 		// leaves; over the far land and the sky a broad beam is the air's own glow and mostly stays
 		rays = rayStructure(colortex13, texcoord, finalRaySun.xy, viewWidth / viewHeight, rays, hp);
-		sc += rays * (RAY_GAIN * air / expo);
+		sc += rays * (RAY_GAIN * air * (1.0 + RAY_CLOUDY_BOOST * cloudy) / expo);
 #if SHAFT_DEBUG == 5 || SHAFT_DEBUG == 6
 		outColor = vec4(toDisplay(clamp(rays * 4.0, 0.0, 1.0)), 1.0); // the shafts' blurred light, x4
 		return;
