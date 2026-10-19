@@ -16,6 +16,7 @@ import dev.voidmc.hearth.law.crime.Presence;
 import dev.voidmc.hearth.law.crime.TheftWatch;
 import dev.voidmc.hearth.law.crime.TrespassWatch;
 import dev.voidmc.hearth.law.folk.GuardBehaviour;
+import dev.voidmc.hearth.law.folk.GuardDispatch;
 import dev.voidmc.hearth.law.folk.WitnessBehaviour;
 import dev.voidmc.hearth.law.item.LawComponents;
 import dev.voidmc.hearth.law.item.LawItems;
@@ -155,6 +156,7 @@ public final class LawModule {
 	/** Once a second: sentences, trespass, owned marks gone astray, report deadlines in towns with players. */
 	private static void second(MinecraftServer server, int t) {
 		Confrontations.tick(server);
+		GuardDispatch.tick(server);
 		Set<Long> towns = new HashSet<>();
 		for (ServerPlayer player : server.getPlayerList().getPlayers()) {
 			Jail.tick(player, 20);
@@ -192,6 +194,7 @@ public final class LawModule {
 		LockpickSessions.forget(id);
 		PickpocketSessions.forget(id);
 		Confrontations.forget(id);
+		GuardDispatch.forget(id);
 		Visibility.forget(id);
 	}
 
@@ -205,6 +208,7 @@ public final class LawModule {
 		LockpickSessions.clear();
 		PickpocketSessions.clear();
 		Confrontations.clear();
+		GuardDispatch.clear();
 		Visibility.clear();
 		CrimeHooks.clear();
 		PlotIndex.clear();

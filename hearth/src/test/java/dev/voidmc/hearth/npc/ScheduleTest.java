@@ -13,6 +13,7 @@ import dev.voidmc.hearth.npc.routine.Leisure;
 import dev.voidmc.hearth.npc.routine.Schedule;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -96,6 +97,23 @@ class ScheduleTest {
 			}
 		}
 		assertTrue(night > 50 && night < 150, "about a third of guards watch at night: " + night);
+	}
+
+	@Test
+	void theWatchIsNeverEmpty() {
+		// Ten guards of any temper: at every quarter hour of the day some of them are on duty, day watch or night watch.
+		for (Set<Trait> traits : List.of(NONE, EnumSet.of(Trait.LAZY), EnumSet.of(Trait.INDUSTRIOUS))) {
+			for (Culture culture : List.of(Culture.TEMPERATE, Culture.NORTHERN, Culture.DESERT)) {
+				for (int m = 0; m < Schedule.DAY; m += 15) {
+					int onDuty = 0;
+					for (long seed = 0; seed < 10; seed++) {
+						Schedule s = Schedule.of(JobType.GUARD, AgeStage.ADULT, traits, culture, seed << 12 | seed * 7, 3);
+						onDuty += s.at(m).activity() == Activity.WORK ? 1 : 0;
+					}
+					assertTrue(onDuty >= 1, "no guard on duty at " + m / 60 + ":" + m % 60 + " (" + traits + ", " + culture + ")");
+				}
+			}
+		}
 	}
 
 	@Test

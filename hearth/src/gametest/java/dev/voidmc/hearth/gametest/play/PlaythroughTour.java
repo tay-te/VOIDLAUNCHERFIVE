@@ -358,6 +358,43 @@ public class PlaythroughTour implements FabricClientGameTest {
 		ok(standing != null || here != null, "the standing line shows under the banner: shown " + standing + ", here " + here);
 		shot("1_arrival", true);
 		settle(4_000);
+		// The town's bounds can reach far out along a road (a bridge 120 blocks from the first house): note who is out
+		// here, then walk on to the first houses, where the folk are.
+		int[] edgeFolk = srv(server -> {
+			int near = 0;
+			for (Folk f : townFolk()) {
+				near += f.distanceTo(player(server)) <= 96 ? 1 : 0;
+			}
+			return new int[]{townFolk().size(), near};
+		});
+		BlockPos firstHouse = srv(server -> {
+			SimSettlement s = town(server);
+			BlockPos me = player(server).blockPosition();
+			BlockPos best = null;
+			for (Resident r : s.residents()) {
+				SimPlot home = r.home == Resident.NO_PLOT ? null : s.plot(r.home);
+				if (home == null) {
+					continue;
+				}
+				BlockPos p = home.reach().getCenter();
+				if (best == null || me.distSqr(p) < me.distSqr(best)) {
+					best = p;
+				}
+			}
+			return best;
+		});
+		note("at the edge after 5 s: " + edgeFolk[0] + " folk embodied, " + edgeFolk[1] + " within 96 blocks; the first house is "
+			+ (firstHouse == null ? "none" : String.format(Locale.ROOT, "%.0f blocks on at %s", Math.sqrt(srv(server -> player(server).blockPosition()).distSqr(firstHouse)),
+			firstHouse.toShortString())));
+		if (firstHouse != null && srv(server -> player(server).blockPosition()).distSqr(firstHouse) > 48 * 48) {
+			BlockPos me = srv(server -> player(server).blockPosition());
+			double len = Math.sqrt(me.distSqr(firstHouse));
+			BlockPos walk = new BlockPos((int) (firstHouse.getX() + (me.getX() - firstHouse.getX()) * 24 / len), 0,
+				(int) (firstHouse.getZ() + (me.getZ() - firstHouse.getZ()) * 24 / len));
+			stand(walk, 180);
+			settle(3_000);
+			note("walked on to " + where() + ", 24 blocks short of the first house");
+		}
 
 		// folk about the town: who is out, who moves, who is at work
 		List<String> folk = new ArrayList<>();
@@ -968,14 +1005,28 @@ public class PlaythroughTour implements FabricClientGameTest {
 		}
 		note("reported after " + waited + " s: " + lawLine() + "; witness " + doing(witness));
 		ok(CRIMES_SEEN.get() > seen0 && wanted, "the player is reported (wanted)");
-		// a guard comes
+		if (!wanted) {
+			// nobody reported it: the tour reports it (as a witness would) so the guards' answer can still be tried
+			srv(server -> {
+				ServerPlayer p = player(server);
+				HearthServices.law().report(new LawService.Crime(LawService.Offence.THEFT, p.getUUID(), this.townId, p.blockPosition(), null, 30, true,
+					server.overworld().getGameTime()));
+				return null;
+			});
+			wanted = srv(server -> HearthServices.law().wanted(player(server).getUUID(), this.townId));
+			note("reported by the tour to go on: wanted " + wanted);
+		}
+		// a guard comes: the watch sends one (GuardDispatch); the tour only watches
 		note("the watch: " + srv(server -> {
 			int all = 0;
 			int out = 0;
 			int up = 0;
-			for (Resident r : town(server).residents()) {
+			int duty = 0;
+			SimSettlement s = town(server);
+			for (Resident r : s.residents()) {
 				if (r.job == JobType.GUARD) {
 					all++;
+					duty += HearthServices.npc().onDuty(s, r) ? 1 : 0;
 					Folk f = NpcModule.embodiment().entityOf(r.id);
 					if (f != null && !f.isFolded()) {
 						out++;
@@ -983,44 +1034,55 @@ public class PlaythroughTour implements FabricClientGameTest {
 					}
 				}
 			}
-			return all + " guards, " + out + " embodied, " + up + " awake at " + server.overworld().getOverworldClockTime() % 24_000L;
+			return all + " guards, " + duty + " on duty, " + out + " embodied, " + up + " awake at " + server.overworld().getOverworldClockTime() % 24_000L;
 		}));
-		UUID guard = srv(server -> {
-			Folk f = nearestFolk(server, r -> r.job == JobType.GUARD);
-			if (f != null) {
-				return f.brain().resident.id;
-			}
-			for (Resident r : town(server).residents()) {
-				if (r.job == JobType.GUARD && r.age == AgeStage.ADULT) {
-					return r.id;
-				}
-			}
-			return null;
-		});
-		if (guard == null) {
-			ok(false, "the town has a guard");
-			return;
-		}
-		UUID g = guard;
-		if (srv(server -> NpcModule.embodiment().entityOf(g) == null)) {
-			spawnNear(g, srv(server -> town(server).center()));
-			note("the guard was not about; called over to the town centre");
-		}
 		boolean confronted = false;
-		for (int i = 0; i < 75 && !confronted && wanted; i++) {
+		UUID g = null;
+		int took = 0;
+		for (; took < 75 && !confronted && wanted; took++) {
 			settle(1_000);
 			confronted = this.context.computeOnClient(mc -> mc.gui.screen() instanceof ConfrontScreen);
-			if (i % 15 == 14) {
-				note("waiting for the guard (" + (i + 1) + " s): " + doing(g) + ", " + srv(server -> {
-					Folk f = NpcModule.embodiment().entityOf(g);
+			if (g == null) {
+				g = srv(server -> {
+					for (Resident r : town(server).residents()) {
+						if (dev.voidmc.hearth.law.folk.GuardDispatch.sentAfter(r.id) != null || dev.voidmc.hearth.law.folk.GuardBehaviour.busy(r.id)) {
+							return r.id;
+						}
+					}
+					return null;
+				});
+				if (g != null) {
+					UUID sent = g;
+					note("after " + (took + 1) + " s the watch sent " + doing(sent) + ", " + srv(server -> {
+						Folk f = NpcModule.embodiment().entityOf(sent);
+						return f == null ? "?" : String.format(Locale.ROOT, "%.0f blocks away", f.distanceTo(player(server)));
+					}));
+				}
+			}
+			if (took % 15 == 14 && g != null) {
+				UUID sent = g;
+				note("waiting for the guard (" + (took + 1) + " s): " + doing(sent) + ", " + srv(server -> {
+					Folk f = NpcModule.embodiment().entityOf(sent);
 					return f == null ? "?" : String.format(Locale.ROOT, "%.0f blocks away", f.distanceTo(player(server)));
 				}));
 			}
 		}
-		ok(confronted, "a guard comes and confronts the player");
+		note("confronted " + confronted + " after " + took + " s");
+		ok(confronted && took <= 40, "a guard is sent and confronts the player within 40 s (" + took + " s)");
+		if (g == null) {
+			g = srv(server -> {
+				Folk f = nearestFolk(server, r -> r.job == JobType.GUARD);
+				return f == null ? null : f.brain().resident.id;
+			});
+		}
+		if (g == null) {
+			ok(false, "the town has a guard about");
+			return;
+		}
+		UUID gg = g;
 		if (!confronted && wanted) {
 			srv(server -> {
-				Folk gf = NpcModule.embodiment().entityOf(g);
+				Folk gf = NpcModule.embodiment().entityOf(gg);
 				if (gf != null && gf.brain() != null) {
 					Confrontations.open(player(server), gf.brain().handle(), Confrontations.Kind.ARREST);
 				}
@@ -1403,6 +1465,43 @@ public class PlaythroughTour implements FabricClientGameTest {
 		});
 		note("midnight: " + n[0] + " embodied folk with homes, " + n[1] + " asleep, " + n[2] + " in a bed of their own home, " + n[3] + " still out");
 		ok(n[0] > 0 && n[2] * 2 >= n[0], "folk go home to bed (" + n[2] + "/" + n[0] + " in their own beds)");
+		// right-clicking a sleeper is never met with silence
+		Integer sleeper = srv(server -> {
+			ServerLevel level = server.overworld();
+			for (Folk f : townFolk()) {
+				if (!f.isSleeping()) {
+					continue;
+				}
+				BlockPos at = freeBeside(level, f.blockPosition(), 2);
+				if (at.equals(f.blockPosition().above())) {
+					continue;
+				}
+				ServerPlayer p = player(server);
+				Vec3 eye = Vec3.atBottomCenterOf(at).add(0, 1.62, 0);
+				Vec3 to = f.position().add(0, 0.3, 0);
+				float yaw = (float) Math.toDegrees(Math.atan2(-(to.x - eye.x), to.z - eye.z));
+				float pitch = (float) -Math.toDegrees(Math.atan2(to.y - eye.y, Math.hypot(to.x - eye.x, to.z - eye.z)));
+				p.teleportTo(level, at.getX() + 0.5, at.getY(), at.getZ() + 0.5, Set.of(), yaw, pitch, true);
+				return f.getId();
+			}
+			return null;
+		});
+		if (sleeper != null) {
+			settle(1_000);
+			int chat0 = chatSize();
+			boolean sent = this.context.computeOnClient(mc -> {
+				Entity e = mc.level.getEntity(sleeper);
+				if (e == null) {
+					return false;
+				}
+				mc.gameMode.interact(mc.player, e, new EntityHitResult(e), InteractionHand.MAIN_HAND);
+				return true;
+			});
+			settle(1_000);
+			List<String> said = chatSince(chat0);
+			note("right-clicked a sleeper (sent " + sent + "): chat " + said);
+			ok(!said.isEmpty(), "a sleeper right-clicked mumbles back rather than nothing");
+		}
 		double[] cam = srv(server -> {
 			ServerLevel level = server.overworld();
 			for (Folk f : townFolk()) {

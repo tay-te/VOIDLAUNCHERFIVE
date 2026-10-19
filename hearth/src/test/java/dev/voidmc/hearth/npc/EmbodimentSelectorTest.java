@@ -94,4 +94,40 @@ class EmbodimentSelectorTest {
 		assertEquals(List.of(id(1)), plan.fold());
 		assertTrue(plan.spawn().isEmpty());
 	}
+
+	@Test
+	void aTownIsNeverEmptyForAPlayerAtItsEdge() {
+		// The player at the end of a long road out of town: nobody within the spawn radius, the houses 110-150 blocks off.
+		List<Candidate> cs = new ArrayList<>();
+		for (int i = 0; i < 20; i++) {
+			cs.add(new Candidate(id(i), 110 + i * 2, false, true));
+		}
+		cs.add(new Candidate(id(99), 120, false, false));
+		Plan plan = EmbodimentSelector.plan(cs, 48, 400, 96, 112, 16, 6, 192);
+		assertEquals(List.of(id(0), id(1), id(2), id(3), id(4), id(5)), plan.spawn(), "the six nearest that can tick appear");
+		// Once out they stay, though beyond the despawn radius.
+		List<Candidate> next = new ArrayList<>();
+		for (int i = 0; i < 20; i++) {
+			next.add(new Candidate(id(i), 110 + i * 2, i < 6, true));
+		}
+		plan = EmbodimentSelector.plan(next, 48, 400, 96, 112, 16, 6, 192);
+		assertTrue(plan.spawn().isEmpty(), plan.toString());
+		assertTrue(plan.fold().isEmpty(), plan.toString());
+		// Beyond the reach nobody is made to appear.
+		plan = EmbodimentSelector.plan(List.of(new Candidate(id(1), 200, false, true)), 48, 400, 96, 112, 16, 6, 192);
+		assertTrue(plan.spawn().isEmpty());
+	}
+
+	@Test
+	void theFarFewGoWhenTheTownFillsIn() {
+		// The player walked in: six near folk now, so the far ones kept for company fold back.
+		List<Candidate> cs = new ArrayList<>();
+		for (int i = 0; i < 6; i++) {
+			cs.add(new Candidate(id(i), 20 + i, false, true));
+			cs.add(new Candidate(id(50 + i), 150, true, true));
+		}
+		Plan plan = EmbodimentSelector.plan(cs, 48, 400, 96, 112, 16, 6, 192);
+		assertEquals(6, plan.spawn().size());
+		assertEquals(6, plan.fold().size());
+	}
 }

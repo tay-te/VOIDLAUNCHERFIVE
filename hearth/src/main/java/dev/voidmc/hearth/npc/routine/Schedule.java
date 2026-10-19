@@ -145,14 +145,15 @@ public final class Schedule {
 			}
 		}
 
-		// Night watch: a third of the guards keep the dark hours, and half the jailers.
+		// Night watch: a third of the guards keep the dark hours, and half the jailers. The watches overlap the day
+		// watch at both ends (17:30 to 18:00, and until 07:00), so a town is never without a guard on duty.
 		if (job == JobType.GUARD && Math.floorMod(seed >> 12, 3) == 0 || job == JobType.JAILER && Math.floorMod(seed >> 12, 2) == 0) {
-			b.add(new Block(7 * 60, Activity.SLEEP, null, Where.HOME));
-			b.add(new Block(15 * 60, Activity.WAKE, null, Where.HOME));
-			b.add(new Block(15 * 60 + 30, Activity.EAT, null, Where.HOME));
-			b.add(new Block(16 * 60 + 15, Activity.LEISURE, leisure(traits, daySeed, 0), null));
-			b.add(new Block(18 * 60, Activity.WORK, null, null));
-			b.add(new Block(6 * 60 + 15, Activity.EAT, null, Where.HOME));
+			b.add(new Block(7 * 60, Activity.EAT, null, Where.HOME));
+			b.add(new Block(7 * 60 + 45, Activity.SLEEP, null, Where.HOME));
+			b.add(new Block(15 * 60 + 15, Activity.WAKE, null, Where.HOME));
+			b.add(new Block(15 * 60 + 45, Activity.EAT, null, Where.HOME));
+			b.add(new Block(16 * 60 + 30, Activity.LEISURE, leisure(traits, daySeed, 0), null));
+			b.add(new Block(17 * 60 + 30, Activity.WORK, null, null));
 			return new Schedule(b);
 		}
 
@@ -234,7 +235,15 @@ public final class Schedule {
 			default -> {
 			}
 		}
-		if (traits.contains(Trait.INDUSTRIOUS)) {
+		if (job == JobType.GUARD || job == JobType.JAILER) {
+			// The day watch keeps set hours whatever their temper, until the night watch comes on at 17:30, and eats in
+			// two sittings so the post is never left empty at noon.
+			wake = Math.min(wake, 5 * 60 + 50);
+			workStart = wake + 45;
+			workEnd = 18 * 60;
+			lunch = Math.floorMod(mix(seed), 2) == 0 ? 11 * 60 + 30 : 12 * 60 + 30;
+			lunchEnd = lunch + 45;
+		} else if (traits.contains(Trait.INDUSTRIOUS)) {
 			workEnd += 30;
 		} else if (traits.contains(Trait.LAZY)) {
 			workEnd -= 30;

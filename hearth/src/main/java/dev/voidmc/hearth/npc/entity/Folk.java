@@ -377,8 +377,15 @@ public class Folk extends PathfinderMob {
 
 	@Override
 	protected InteractionResult mobInteract(Player player, InteractionHand hand) {
-		if (!this.isAlive() || this.isSleeping() && !player.isShiftKeyDown()) {
+		if (!this.isAlive()) {
 			return InteractionResult.PASS;
+		}
+		if (this.isSleeping() && !player.isShiftKeyDown()) {
+			// Asleep: they mumble and the player is told to sneak to wake them, never silence.
+			if (player instanceof ServerPlayer sp && this.brain != null) {
+				NpcModule.conversations().asleep(sp, this);
+			}
+			return InteractionResult.SUCCESS;
 		}
 		if (player instanceof ServerPlayer sp) {
 			if (this.brain == null && this.controller != null) {

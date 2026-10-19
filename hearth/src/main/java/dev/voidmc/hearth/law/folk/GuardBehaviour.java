@@ -41,6 +41,13 @@ public final class GuardBehaviour implements FolkBehaviour {
 	static final int MAX_GUARDS_PER_PLAYER = 2;
 	/** Days between stop-and-searches of one player in one town. */
 	static final long SEARCH_COOLDOWN_TICKS = 24000;
+	/** How far a guard sent for a player ({@link GuardDispatch}) will come, and how long they take before giving up. */
+	static final double SENT_RANGE = 160.0;
+	static final int SENT_TICKS = 20 * 90;
+	/** Ticks without getting nearer after which a guard sent comes round the corner instead. */
+	static final int STUCK_TICKS = 20 * 6;
+	/** Guards (resident ids) on a job now, for the dispatcher. */
+	private static final java.util.Set<UUID> ON_JOB = new java.util.HashSet<>();
 
 	private final Map<UUID, Job> jobs = new HashMap<>();
 	/** The player a guard decided to go after in {@link #wants}, picked up by {@link #start}. */
@@ -51,7 +58,7 @@ public final class GuardBehaviour implements FolkBehaviour {
 		APPROACH, TALK, CHASE, HUNT
 	}
 
-	private record Pick(UUID player, Confrontations.Kind kind, boolean outlaw) {
+	private record Pick(UUID player, Confrontations.Kind kind, boolean outlaw, int sent) {
 	}
 
 	private static final class Job {
@@ -62,6 +69,12 @@ public final class GuardBehaviour implements FolkBehaviour {
 		int repath;
 		int unseen;
 		int cooldown;
+		/** Sent for by the dispatcher: the call's count (1 for the first), else 0. */
+		int sent;
+		/** The nearest a guard sent has got to the player, ticks since they last got nearer, and times moved closer. */
+		double nearest = Double.MAX_VALUE;
+		int stuck;
+		int closedIn;
 
 		Job(UUID player, Confrontations.Kind kind, Mode mode) {
 			this.player = player;
@@ -96,6 +109,19 @@ public final class GuardBehaviour implements FolkBehaviour {
 			return false;
 		}
 		LawConfig.Justice cfg = Law.config().justice();
+		UUID sentFor = GuardDispatch.sentAfter(folk.resident().id);
+		if (sentFor != null) {
+			// sent for a wanted player: they go whether or not they can see them yet
+			ServerPlayer player = server.getPlayerList().getPlayer(sentFor);
+			Warrant w = player == null ? null : state.warrant(sentFor);
+			Confrontations.Talk talk = player == null ? null : Confrontations.of(sentFor);
+			if (player != null && w != null && (w.active() || w.outlaw()) && !Law.exempt(player) && !Jail.serving(player) && player.isAlive()
+				&& player.level() == folk.entity().level() && folk.entity().distanceTo(player) <= SENT_RANGE
+				&& (talk == null || talk.state != Confrontations.State.OPEN) && chasing(sentFor) < MAX_GUARDS_PER_PLAYER) {
+				this.picked.put(folk.resident().id, new Pick(sentFor, Confrontations.Kind.ARREST, w.outlaw() && cfg.outlaws(), GuardDispatch.calls(sentFor)));
+				return true;
+			}
+		}
 		for (ServerPlayer player : Presence.playersIn(server, s.id())) {
 			if (Law.exempt(player) || Jail.serving(player) || !player.isAlive() || folk.entity().distanceTo(player) > NOTICE) {
 				continue;
@@ -107,11 +133,11 @@ public final class GuardBehaviour implements FolkBehaviour {
 			Warrant w = state.warrant(player.getUUID());
 			Pick pick = null;
 			if (w != null && w.outlaw() && cfg.outlaws()) {
-				pick = new Pick(player.getUUID(), Confrontations.Kind.ARREST, true);
+				pick = new Pick(player.getUUID(), Confrontations.Kind.ARREST, true, 0);
 			} else if (w != null && w.active()) {
-				pick = new Pick(player.getUUID(), Confrontations.Kind.ARREST, false);
+				pick = new Pick(player.getUUID(), Confrontations.Kind.ARREST, false, 0);
 			} else if (state.suspicion(player.getUUID()) >= cfg.suspicionSearchThreshold() && !searchedRecently(s, player, folk.gameTime())) {
-				pick = new Pick(player.getUUID(), Confrontations.Kind.SEARCH, false);
+				pick = new Pick(player.getUUID(), Confrontations.Kind.SEARCH, false, 0);
 			}
 			if (pick != null && folk.canSee(player)) {
 				this.picked.put(folk.resident().id, pick);
@@ -143,7 +169,13 @@ public final class GuardBehaviour implements FolkBehaviour {
 			return;
 		}
 		Mode mode = pick.outlaw ? Mode.HUNT : Mode.APPROACH;
-		this.jobs.put(folk.resident().id, new Job(pick.player, pick.kind, mode));
+		Job job = new Job(pick.player, pick.kind, mode);
+		this.jobs.put(folk.resident().id, job);
+		ON_JOB.add(folk.resident().id);
+		if (pick.player.equals(GuardDispatch.sentAfter(folk.resident().id))) {
+			job.sent = Math.max(1, pick.sent);
+			GuardDispatch.answered(folk.resident().id, pick.player);
+		}
 		folk.hold(new ItemStack(Items.IRON_SWORD));
 		ServerPlayer player = player(folk, pick.player);
 		if (player != null) {
@@ -172,7 +204,11 @@ public final class GuardBehaviour implements FolkBehaviour {
 		double d = folk.entity().distanceTo(player);
 		switch (job.mode) {
 			case APPROACH -> {
-				if (d > LOSE || job.ticks > 20 * 40) {
+				if (d > (job.sent > 0 ? SENT_RANGE : LOSE) || job.ticks > (job.sent > 0 ? SENT_TICKS : 20 * 40)) {
+					if (job.sent > 0 && folk.entity().level() instanceof ServerLevel level) {
+						// could not get there: the watch sends someone else
+						GuardDispatch.gaveUp(level, folk.settlement(), folk.resident().id, job.player, job.sent);
+					}
 					return false;
 				}
 				if (d <= 3.5) {
@@ -180,8 +216,14 @@ public final class GuardBehaviour implements FolkBehaviour {
 					Confrontations.open(player, folk, job.kind);
 					job.mode = Mode.TALK;
 					job.ticks = 0;
+				} else if (job.sent > 0 && stuck(job, d) && job.closedIn < 3) {
+					// no headway (no way through to the player): they come round the corner instead
+					job.closedIn++;
+					GuardDispatch.closeIn(folk, player, job.closedIn);
+					job.repath = 0;
 				} else if (job.repath <= 0) {
-					folk.moveTo(player.blockPosition(), 1.0);
+					// a guard sent from afar hurries
+					folk.moveTo(player.blockPosition(), d > 16 ? 1.2 : 1.0);
 					job.repath = 10;
 				}
 			}
@@ -214,6 +256,21 @@ public final class GuardBehaviour implements FolkBehaviour {
 				return chase(folk, player, job, d);
 			}
 		}
+		return true;
+	}
+
+	/** Whether a guard sent has made no headway toward the player for {@link #STUCK_TICKS}. */
+	private static boolean stuck(Job job, double d) {
+		if (d < job.nearest - 1.5) {
+			job.nearest = d;
+			job.stuck = 0;
+			return false;
+		}
+		if (++job.stuck < STUCK_TICKS) {
+			return false;
+		}
+		job.stuck = 0;
+		job.nearest = Double.MAX_VALUE;
 		return true;
 	}
 
@@ -263,6 +320,7 @@ public final class GuardBehaviour implements FolkBehaviour {
 	public void stop(FolkHandle folk) {
 		Job job = this.jobs.remove(folk.resident().id);
 		this.picked.remove(folk.resident().id);
+		ON_JOB.remove(folk.resident().id);
 		folk.stop();
 		folk.hold(ItemStack.EMPTY);
 		if (job != null && job.mode == Mode.TALK) {
@@ -278,6 +336,11 @@ public final class GuardBehaviour implements FolkBehaviour {
 		}
 	}
 
+	/** Whether a guard is on a job now (confronting, chasing). */
+	public static boolean busy(UUID guard) {
+		return ON_JOB.contains(guard);
+	}
+
 	private static @Nullable ServerPlayer player(FolkHandle folk, UUID id) {
 		MinecraftServer server = folk.entity().level().getServer();
 		return server == null ? null : server.getPlayerList().getPlayer(id);
@@ -285,6 +348,7 @@ public final class GuardBehaviour implements FolkBehaviour {
 
 	/** Forgets everything (server stop). */
 	public void clear() {
+		ON_JOB.clear();
 		this.jobs.clear();
 		this.picked.clear();
 		this.searched.clear();

@@ -50,13 +50,40 @@ public final class Conversations {
 		}
 		Settlement s = brain.settlement;
 		Resident r = brain.resident;
+		// shaken awake (the player sneaked to do it): they get up for it, and say what they think of that
+		boolean woken = folk.isSleeping();
 		brain.engage(player);
-		String text = Greetings.greeting(player.level(), s, r, player, folk.blockPosition(), brain.random);
+		Component greeting = woken ? Component.translatable(WOKEN[brain.random.nextInt(WOKEN.length)])
+			: Component.literal(Greetings.greeting(player.level(), s, r, player, folk.blockPosition(), brain.random));
 		brain.data.recordMeeting(player.getUUID());
 		s.markDirty();
 		Session session = new Session(folk);
 		this.sessions.put(player.getUUID(), session);
-		show(player, session, Component.literal(text), true);
+		show(player, session, greeting, true);
+	}
+
+	/** What folk say when shaken awake to talk. */
+	private static final String[] WOKEN = {"hearth.npc.woken.0", "hearth.npc.woken.1", "hearth.npc.woken.2"};
+	/** What they mumble when a player tries to talk to them asleep. */
+	private static final String[] MUMBLES = {"hearth.npc.mumble.0", "hearth.npc.mumble.1", "hearth.npc.mumble.2"};
+	/** When each player last had a sleeper mumble at them (game time), so a held use key does not flood the chat. */
+	private final Map<UUID, Long> mumbled = new HashMap<>();
+
+	/**
+	 * A player tried to talk to a folk who is asleep (without sneaking, which wakes them): the sleeper mumbles, and the
+	 * player is told whose sleep it is and how to wake them, rather than nothing happening at all.
+	 */
+	public void asleep(ServerPlayer player, Folk folk) {
+		long now = player.level().getGameTime();
+		Long last = this.mumbled.get(player.getUUID());
+		if (last != null && now >= last && now - last < 30) {
+			return;
+		}
+		this.mumbled.put(player.getUUID(), now);
+		Component name = Component.literal(folk.folkName()).withStyle(net.minecraft.ChatFormatting.GOLD);
+		player.sendSystemMessage(Component.translatable("hearth.npc.say", name, Component.translatable(MUMBLES[(int) Math.floorMod(now / 30, MUMBLES.length)]))
+			.withStyle(net.minecraft.ChatFormatting.GRAY));
+		player.sendOverlayMessage(Component.translatable("hearth.npc.asleep", folk.folkName()));
 	}
 
 	/** The player picked an option. */
@@ -126,6 +153,7 @@ public final class Conversations {
 
 	/** The player left the server: their conversation ends. */
 	public void forget(ServerPlayer player) {
+		this.mumbled.remove(player.getUUID());
 		Session session = this.sessions.remove(player.getUUID());
 		if (session != null && session.folk.brain() != null && session.folk.brain().engagedWith(player)) {
 			session.folk.brain().disengage();

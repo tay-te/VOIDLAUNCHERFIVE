@@ -38,7 +38,18 @@ public final class EmbodimentSelector {
 	}
 
 	public static Plan plan(List<Candidate> candidates, int cap, int room, double spawnRadius, double despawnRadius, double stickiness) {
+		return plan(candidates, cap, room, spawnRadius, despawnRadius, stickiness, 0, 0);
+	}
+
+	/**
+	 * As {@link #plan(List, int, int, double, double, double)}, and a town a player has come to is never empty: when
+	 * fewer than {@code least} residents are within the radii (a player at the far end of a long road out of town), the
+	 * nearest of the rest within {@code reach} appear (and stay) too, so the nearest life is there to be found.
+	 */
+	public static Plan plan(List<Candidate> candidates, int cap, int room, double spawnRadius, double despawnRadius, double stickiness, int least,
+		double reach) {
 		List<Candidate> wanted = new ArrayList<>();
+		List<Candidate> beyond = new ArrayList<>();
 		List<UUID> fold = new ArrayList<>();
 		for (Candidate c : candidates) {
 			if (c.embodied) {
@@ -46,9 +57,22 @@ public final class EmbodimentSelector {
 					wanted.add(c);
 				} else {
 					fold.add(c.id);
+					if (c.ticking && c.distance <= reach) {
+						beyond.add(c);
+					}
 				}
 			} else if (c.ticking && c.distance <= spawnRadius) {
 				wanted.add(c);
+			} else if (c.ticking && c.distance <= reach) {
+				beyond.add(c);
+			}
+		}
+		if (wanted.size() < least && !beyond.isEmpty()) {
+			beyond.sort(Comparator.comparingDouble(c -> c.embodied ? c.distance - stickiness : c.distance));
+			for (int i = 0; i < beyond.size() && wanted.size() < least; i++) {
+				Candidate c = beyond.get(i);
+				wanted.add(c);
+				fold.remove(c.id);
 			}
 		}
 		wanted.sort(Comparator.comparingDouble(c -> c.embodied ? c.distance - stickiness : c.distance));

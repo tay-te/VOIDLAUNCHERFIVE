@@ -190,6 +190,8 @@ public final class CrimeDesk {
 			offender.sendSystemMessage(Component.translatable("hearth.law.wanted_now", settlement.name(),
 				Component.translatable(filed.offence().translationKey()), warrant.bounty()).withStyle(ChatFormatting.RED));
 			LawStatusSender.refresh(offender);
+			// the watch sends a guard for them now, rather than waiting for one to happen by
+			dev.voidmc.hearth.law.folk.GuardDispatch.call(level, settlement, offender.getUUID());
 		}
 		Hearth.LOG.debug("law: {} filed in {} against {} (fine {}, bounty {})", filed.offence(), settlement.name(), filed.offender(), fine,
 			warrant.bounty());
