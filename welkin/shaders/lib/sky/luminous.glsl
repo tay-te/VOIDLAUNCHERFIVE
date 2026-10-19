@@ -45,6 +45,8 @@ uniform float sunAngle; // 0 sunrise, 0.25 noon, 0.5 sunset
 #define WS_AIR_HUE 0.75
 #define WS_AIR_SUN 0.85
 #define WS_BAND_GOLD 1.18
+#define WS_GOLD_LEAD 0.8
+#define WS_GLOW_DIM 0.25
 
 struct SkyLum {
 	vec3 sunW;
@@ -104,7 +106,8 @@ SkyLum skyLumFrame(vec3 sunW) {
 	// peach-rose with a lilac sky above, not a cream-yellow frame (less gold than Complementary)
 	const vec3 PEACH = vec3(1.0, 0.45, 0.44) / 0.5662;
 	vec3 eve = mix(GOLD, PEACH, 1.0 - smoothstep(0.03, 0.2, sunW.y));
-	vec3 g = mix(f.hue, mix(eve, ROSE_GOLD, morning), 0.6 * f.warm);
+	// (skies2: 0.8, was 0.6: the glow toward a golden-hour sun reads gold on screen, not cream)
+	vec3 g = mix(f.hue, mix(eve, ROSE_GOLD, morning), WS_GOLD_LEAD * f.warm);
 	f.gold = g / max(skyLumLuma(g), 1e-4);
 	return f;
 }
@@ -185,7 +188,8 @@ vec3 skyLuminous(vec3 col, vec3 d, SkyLum f, float amount) {
 	// the glow round the sun: mixed toward the sun's hue at a brighter level (amber at a low sun, never white)
 	float lobe = 0.35 * skyLumHg(mu, 0.93) + 0.65 * skyLumHg(mu, 0.45);
 	float glow = (0.22 + 0.55 * f.low) * f.up;
-	float tl = max(y, 0.10) * (1.2 + 1.2 * lobe);
+	// (skies2: a little lower through the golden hours, so the glow keeps its gold instead of rolling into cream)
+	float tl = max(y, 0.10) * (1.2 + 1.2 * lobe) * (1.0 - WS_GLOW_DIM * f.warm * (1.0 - f.low * 0.5));
 	// (review round 2) round a low sun the glow stays under the disc's own light (about 0.8 on screen), so the pixel
 	// sun reads as a solid bright disc in its glow; it had blazed the sky round it to the disc's own cream and the
 	// disc showed only as its saturated rim (a hollow ring), or not at all

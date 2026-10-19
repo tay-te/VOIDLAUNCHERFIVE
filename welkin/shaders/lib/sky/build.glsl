@@ -21,8 +21,8 @@
 
 // skies2 (welkin-skies): the far air's colour (the haze rows)
 #define WS_AIR_BLUEGREY vec3(0.66, 0.73, 0.84)
-#define WS_AIR_AWAY 0.6
-#define WS_AIR_AWAY_LEVEL 0.92
+#define WS_AIR_AWAY 0.75
+#define WS_AIR_AWAY_LEVEL 0.88
 #define WS_AIR_GOLD vec3(1.00, 0.74, 0.46)
 #define WS_AIR_GOLD_DAY 0.25
 #define WS_AIR_GOLD_LOW 0.65
@@ -503,7 +503,7 @@ vec4 skyBuildTexel(ivec2 t) {
 		// skies2 (welkin-skies, 2026-10-18): the far air has colour. By day it is a soft blue-grey a little under the
 		// horizon's brightness away from the sun (the far land sat in a milky white), and toward the sun a gold glow,
 		// deep through the golden hours (it read cream); the dusk's rose and lilac and the night keep their own
-		float airDay = (1.0 - m.nightStep) * (1.0 - 0.75 * max(m.cloudStep, m.rainStep));
+		float airDay = (1.0 - m.nightStep) * (1.0 - 0.3 * m.cloudStep) * (1.0 - 0.6 * m.rainStep);
 		h = mix(h, skyTone(WS_AIR_BLUEGREY, h, WS_AIR_AWAY_LEVEL), WS_AIR_AWAY * airDay * (1.0 - 0.7 * m.tw));
 		if (t.y == SKY_ROW_HAZE_SUN) {
 			h = mix(h, skyGlowColour(m, s, 1), skyRingMix(m.glow * 2.0));
