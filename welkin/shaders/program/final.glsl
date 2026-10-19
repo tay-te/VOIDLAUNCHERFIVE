@@ -11,10 +11,41 @@
 #ifdef VERTEX_SHADER
 
 out vec2 texcoord;
+// ---- look (welkin-look): the hour for the colour grade (lib/grade.glsl), once per frame
+flat out vec4 gradeHour; // warm, day, clear, morning
+flat out float gradeOpen; // the eye's openness to the sky
+#ifdef WORLD_OVERWORLD
+#include "/lib/sky/luminous.glsl"
+#ifndef WU_sunPosition
+#define WU_sunPosition
+uniform vec3 sunPosition;
+#endif
+#ifndef WU_gbufferModelViewInverse
+#define WU_gbufferModelViewInverse
+uniform mat4 gbufferModelViewInverse;
+#endif
+#endif
+#ifndef WU_eyeBrightnessSmooth
+#define WU_eyeBrightnessSmooth
+uniform ivec2 eyeBrightnessSmooth;
+#endif
+// ---- end look
 
 void main() {
 	gl_Position = ftransform();
 	texcoord = gl_MultiTexCoord0.xy;
+	// ---- look (welkin-look)
+#ifdef WORLD_OVERWORLD
+	{
+		SkyLum f = skyLumFrame(normalize(mat3(gbufferModelViewInverse) * sunPosition));
+		gradeHour = vec4(f.warm * f.up, f.day, f.clear, sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0);
+		gradeOpen = smoothstep(0.15, 0.7, float(eyeBrightnessSmooth.y) / 240.0);
+	}
+#else
+	gradeHour = vec4(0.0, 1.0, 1.0, 0.0);
+	gradeOpen = 0.0;
+#endif
+	// ---- end look
 }
 
 #endif
@@ -22,6 +53,11 @@ void main() {
 #ifdef FRAGMENT_SHADER
 
 in vec2 texcoord;
+// ---- look (welkin-look): the colour grade
+#include "/lib/grade.glsl"
+flat in vec4 gradeHour;
+flat in float gradeOpen;
+// ---- end look
 
 #ifndef WU_colortex0
 #define WU_colortex0
@@ -124,7 +160,10 @@ void main() {
 		vec2 cu = vec2(p >> 1) * hp;
 		vec3 b = texture(colortex12, cu + vec2(-hp.x, -hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, -hp.y)).rgb
 			+ texture(colortex12, cu + vec2(-hp.x, hp.y)).rgb + texture(colortex12, cu + vec2(hp.x, hp.y)).rgb;
-		c += b * 0.25;
+		// (look, welkin-look: laid on as a screen, so the beams stream bright through the dark lanes between trunks and
+		// over shaded land, and add little over what is already bright: open water and sky toward the sun take no veil;
+		// was c += b * 0.25)
+		c += b * 0.25 * (1.0 - clamp(c, 0.0, 1.0));
 	}
 #endif
 #ifdef BLOOM
@@ -179,6 +218,9 @@ void main() {
 		}
 	}
 #endif
+	// ---- look (welkin-look): the colour grade (lib/grade.glsl)
+	c = welkinGrade(c, gradeHour, gradeOpen);
+	// ---- end look
 	c = shoulder(c);
 	// two uniform values per pixel summed: a triangle from -1 to +1 of one 8-bit step, mean zero
 	uint h = pixelHash(p, 7u);

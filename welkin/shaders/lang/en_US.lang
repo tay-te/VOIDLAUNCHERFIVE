@@ -431,6 +431,9 @@ option.BLOOM.comment=A wide soft halo and a tighter core round the brightest lig
 option.BLOOM_STRENGTH=Bloom strength
 option.BLOOM_STRENGTH.comment=How much of the brightest light spreads into the halo.
 suffix.BLOOM_STRENGTH=%
+option.GRADE_STRENGTH=Colour grade
+option.GRADE_STRENGTH.comment=Welkin's own grade: muted earthy colours by day, rich golden hours, misty dawns, moonlit nights. 0 is off.
+suffix.GRADE_STRENGTH=%
 # ---- end atmos
 option.CLOUD_DEBUG=Cloud debug
 option.CLOUD_DEBUG.comment=Testing only. 1: each cloud face by its deck (low red, main green, high blue, towers white), sides bright, bases dim, its ring in stripes. 2: the cloud's height over its base. 3: the light's path through the cloud.
