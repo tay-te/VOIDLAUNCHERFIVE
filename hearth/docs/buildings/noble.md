@@ -131,3 +131,10 @@ with gate piers.
   lime or ochre render under red tile (or dark shingle); its `grey stone` fashion no longer dresses the castle or keep.
 - The steppe's ordu reads as one brown mass where the style's walls and roofs share a colour; the qasr's many drum
   towers read busy at preview scale.
+- Curtain walks keep an open court edge, as real wall walks do (the town wall's exemption in BUILDING_GUIDE §8); the
+  palace alone rails its walks with a parados.
+- A palace dug into the uphill side of a slope (3 of 18 audited cases) lets the hill reach its walks and roof plates.
+- Round towers seven across leave the landing round their spiral cut into quarters by the wall: a three-cell pocket
+  at the head of some gatehouse flanks (wards and ordu castles) is reached only by the spiral that arrives there.
+- The folk pathfinder does not climb the keep's slab spiral to its upper storeys (the player and the walk model do).
+

@@ -166,7 +166,8 @@ public final class Gatehouse implements Archetype {
 			Mat door = d.mat(Role.DOOR);
 			if (door.has(Form.TRAPDOOR)) {
 				for (int y = 0; y < g.hall() - 2; y++) {
-					for (int z = 2; z <= Math.min(3, g.back() - 2); z++) {
+					// (clear of the rooms' doors at back - 2, so a leaf folded back never stands before one)
+					for (int z = 2; z <= Math.min(3, g.back() - 3); z++) {
 						d.set(g.px0(), y, z, door.trapdoor(Dirs.RIGHT, Half.BOTTOM, true));
 						d.set(g.px1(), y, z, door.trapdoor(Dirs.LEFT, Half.BOTTOM, true));
 					}
@@ -174,6 +175,9 @@ public final class Gatehouse implements Archetype {
 			}
 		}
 		Furniture.hangingLantern(d, g.c(), g.hall() - 1, g.cz() + 1, 0);
+		// the passage lit to the rule by fittings on its own walls and vault (a lamp post left to the light pass
+		// would stand in the cartway)
+		dev.voidmc.hearth.build.kit.light.Lighting.room(d, g.px0(), 0, g.px1(), g.back(), 0);
 		for (int x : new int[]{g.lx1(), g.rx0()}) {
 			if (d.isAbsent(x, 3, -1)) {
 				try (var s = d.stage(StageKind.EXTERIOR)) {
@@ -276,14 +280,15 @@ public final class Gatehouse implements Archetype {
 		Towers.cornice(d, l, 1, 0, w - 2, b, plate);
 		// the hip, its eaves a block out over the field and the town
 		int half = Math.max(1, (b + 1) / 2 + 1);
-		double pitch = Math.clamp((g.top() - 1 - plate) / (double) half, 0.6, 1.4);
+		// (no steeper than one in one: a steeper hip's top courses stand a row apart and its ridge hangs loose)
+		double pitch = Math.clamp((g.top() - 1 - plate) / (double) half, 0.6, 1.0);
 		Roofs.Opts o = Roofs.Opts.of(d).withEaves(1, 1).withPitch(pitch);
 		Roofs.Built rb = Roofs.build(d, 1, 0, w - 2, b, plate, RoofForm.HIP, Direction.Axis.X, o, false, false);
 		d.poi(PoiType.GUARD_POST, g.c(), hall, 1, Dirs.FRONT);
 		d.poi(PoiType.VIEWPOINT, g.c() - 1, hall, 1, Dirs.FRONT);
 		int ridge = rb.roof().ridgeY;
-		if (ridge + 2 <= g.top()) {
-			Towers.finial(d, g.c(), ridge + 1, (b) / 2);
+		if (ridge + 2 <= g.top() && d.isSolid(g.c(), ridge, b / 2)) {
+			Towers.finial(d, g.c(), ridge + 1, b / 2);
 			return ridge + 2;
 		}
 		return ridge;
@@ -314,18 +319,18 @@ public final class Gatehouse implements Archetype {
 		Mat post = d.mat(Role.FRAME);
 		Mat boards = d.mat(Role.FLOOR);
 		Mat shutter = d.mat(Role.SHUTTER);
-		// the beams out over the road and the town, a jetty a block deep front and back
+		// the beams out over the road toward the field, a jetty a block deep (on the town side the hall stands flush over
+		// the gate, so no shoring is ever stood in the cartway while it goes up)
 		try (var s = d.stage(StageKind.FRAME)) {
 			for (int x = 1; x < w - 1; x++) {
 				if ((x & 1) == 1) {
 					d.set(x, hall - 1, -1, post.log(Direction.Axis.Z).orElse(boards.full()));
-					d.set(x, hall - 1, b + 1, post.log(Direction.Axis.Z).orElse(boards.full()));
 				}
 			}
 		}
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int x = 1; x < w - 1; x++) {
-				for (int z : new int[]{-1, b + 1}) {
+				for (int z : new int[]{-1}) {
 					if (d.isAbsent(x, hall - 1, z)) {
 						d.set(x, hall - 1, z, boards.has(Form.SLAB) ? boards.slab(net.minecraft.world.level.block.state.properties.SlabType.TOP) : boards.full());
 					}
@@ -334,7 +339,7 @@ public final class Gatehouse implements Archetype {
 		}
 		// the timbered walls of the hall on the jetty: posts every third, boards between, shutters open in the bays
 		try (var s = d.stage(StageKind.WALLS)) {
-			for (Side side : Side.of(1, -1, w - 2, b + 1)) {
+			for (Side side : Side.of(1, -1, w - 2, b)) {
 				for (int i = 0; i < side.length(); i++) {
 					int x = side.x(i);
 					int z = side.z(i);
@@ -357,8 +362,10 @@ public final class Gatehouse implements Archetype {
 		// the hall's floor over the jetty
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int x = 1; x < w - 1; x++) {
-				for (int z : new int[]{0, b}) {
-					if (d.isEmpty(x, hall, z)) {
+				for (int z : new int[]{0}) {
+					// (not over the passage: its vault is the floor there, and boards laid over the arch before the
+					// vault stands would want shoring in the cartway)
+					if (d.isEmpty(x, hall, z) && (x < g.px0() || x > g.px1())) {
 						d.set(x, hall - 1, z, boards.full());
 					}
 				}
@@ -366,10 +373,10 @@ public final class Gatehouse implements Archetype {
 		}
 		ledges(d, l, g);
 		walkDoors(d, g, overRoad);
-		furnishHall(d, g, hall, 2, w - 3, b);
-		double pitch = Math.clamp((g.top() - 1 - plate) / (double) Math.max(1, (b + 3) / 2), 0.8, 1.6);
+		furnishHall(d, g, hall, 2, w - 3, b - 1, false);
+		double pitch = Math.clamp((g.top() - 1 - plate) / (double) Math.max(1, (b + 2) / 2), 0.8, 1.6);
 		Roofs.Opts o = Roofs.Opts.of(d).withEaves(1, 1).withPitch(pitch);
-		Roofs.Built rb = Roofs.build(d, 1, -1, w - 2, b + 1, plate, RoofForm.GABLE, Direction.Axis.X, o, false, false);
+		Roofs.Built rb = Roofs.build(d, 1, -1, w - 2, b, plate, RoofForm.GABLE, Direction.Axis.X, o, false, false);
 		Towers.banner(d, g.c(), hall - 2, -1, Dirs.FRONT);
 		d.poi(PoiType.GUARD_POST, g.c(), hall, 1, Dirs.FRONT);
 		d.poi(PoiType.VIEWPOINT, g.c() - 1, hall, 1, Dirs.FRONT);
@@ -496,13 +503,20 @@ public final class Gatehouse implements Archetype {
 
 	/** The gate hall's furniture: the windlass over the portcullis, a bench of the guards, a barrel, light. */
 	private static void furnishHall(Draft d, G g, int hall, int x0, int x1, int z1) {
+		furnishHall(d, g, hall, x0, x1, z1, true);
+	}
+
+	/** {@link #furnishHall}; {@code posts} false: the windlass's ends on the beam alone, no lamp posts. */
+	private static void furnishHall(Draft d, G g, int hall, int x0, int x1, int z1, boolean posts) {
 		try (var s = d.stage(StageKind.INTERIOR)) {
 			Mat beam = d.mat(Role.BEAM);
 			for (int x = g.px0() + 1; x <= g.px1() - 1; x++) {
 				d.set(x, hall, 1, beam.log(Direction.Axis.X).orElse(beam.full()));
 			}
-			d.set(g.px0(), hall, 1, Lamps.post(d));
-			d.set(g.px1(), hall, 1, Lamps.post(d));
+			if (posts) {
+				d.set(g.px0(), hall, 1, Lamps.post(d));
+				d.set(g.px1(), hall, 1, Lamps.post(d));
+			}
 			// (by the front wall, clear of the stair on up that climbs the back half on the right)
 			d.set(x1, hall, 1, States.facing(Blocks.BARREL, Direction.UP));
 		}

@@ -192,24 +192,12 @@ public final class Watchtower implements Archetype {
 			Towers.slit(d, sx0, y, sz0 + 2);
 			Towers.slit(d, sx1, y + 1, sz0 + 2);
 		}
-		cabin(d, l, 0, 0, w - 1, dp - 1, p, cx, sz1 - 1, new int[]{sx0, sz0, sx1, sz1});
-		// the ladder up the back wall from the door to a hatch in the watch room's floor, through a landing every
-		// fourth row (a hatch in each), so the climb never hangs over a sheer shaft
-		try (var s = d.stage(StageKind.FLOORS)) {
-			for (int y = 3; y < p - 3; y += 4) {
-				for (int z = sz0 + 1; z <= sz1 - 1; z++) {
-					for (int x = sx0 + 1; x <= sx1 - 1; x++) {
-						if (x != cx || z != sz1 - 1) {
-							d.set(x, y, z, d.mat(Role.FLOOR).full());
-						}
-					}
-				}
-			}
-			for (int y = 0; y < p; y++) {
-				d.set(cx, y, sz1 - 1, States.facing(Blocks.LADDER, Dirs.FRONT));
-			}
-		}
-		Furniture.chest(d, sx0 + 1, 0, sz1 - 1, Dirs.RIGHT, List.of(new Object[]{"minecraft:arrow", 16}, new Object[]{"minecraft:bread", 4}));
+		// a spiral of slabs round a newel up the shaft from the door to the watch room, which folk climb as they climb
+		// a stair (a ladder they do not): its well left open through the watch room's floor
+		// (its first step a cell in from the door, so nobody steps up under the door's head)
+		int cz = sz0 + 2;
+		Towers.spiral(d, cx, cz, 0, p, 1);
+		cabin(d, l, 0, 0, w - 1, dp - 1, p, cx, cz, new int[]{sx0, sz0, sx1, sz1});
 		dev.voidmc.hearth.build.kit.light.Lighting.room(d, sx0 + 1, sz0 + 1, sx1 - 1, sz1 - 1, 0);
 		int hi = cabinRoof(d, 0, 0, w - 1, dp - 1, p);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, hi + 1));
@@ -254,36 +242,24 @@ public final class Watchtower implements Archetype {
 				}
 			}
 		}
-		cabin(d, l, 0, 0, w - 1, dp - 1, p, cx, cz - 1, null);
-		// the ladder up the mast's face inside a boarded trunk (open at its foot), so the climb is enclosed all the way
-		Mat boards = l.timber() ? l.body() : d.mat(Role.FLOOR);
-		try (var s = d.stage(StageKind.WALLS)) {
-			for (int y = 0; y < p - 1; y++) {
-				d.set(cx - 1, y, cz - 1, boards.full());
-				d.set(cx + 1, y, cz - 1, boards.full());
-				if (y >= 2) {
-					d.set(cx, y, cz - 2, boards.full());
-				}
-			}
-		}
+		// a spiral of slabs round the mast up to the hut (folk climb it as a stair, where a ladder stops them), its foot
+		// on the front, its well open through the hut's floor
+		Towers.spiral(d, cx, cz, 0, p, 0);
+		cabin(d, l, 0, 0, w - 1, dp - 1, p, cx, cz, null);
 		try (var s = d.stage(StageKind.FLOORS)) {
-			for (int y = 0; y < p; y++) {
-				d.set(cx, y, cz - 1, States.facing(Blocks.LADDER, Dirs.FRONT));
-			}
-			// the foot of the ladder on a path of the paving from the street
-			for (int z = 0; z < cz; z++) {
+			// the foot of the stair on a path of the paving from the street
+			for (int z = 0; z < cz - 1; z++) {
 				d.set(cx, -1, z, d.mat(Role.PAVING).full());
 			}
 		}
 		d.entrance(cx, 0, 0);
-		Furniture.hangingLantern(d, cx + 1, p - 1, cz - 1, 1);
 		int hi = cabinRoof(d, 0, 0, w - 1, dp - 1, p);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(d.maxHeight() - 1, hi + 1));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
 
 	/**
-	 * A boarded watch room over the rectangle at standing level p: its floor (open at the ladder's hatch at (hx, hz)),
+	 * A boarded watch room over the rectangle at standing level p: its floor (open over the spiral round (hx, hz)),
 	 * beams cantilevered out under it from the walls of the shaft {@code shaft} where there is one, walls two high of
 	 * boards between posts with shutters open in the middle of each side, and the watch's furniture.
 	 */
@@ -310,7 +286,8 @@ public final class Watchtower implements Archetype {
 		try (var s = d.stage(StageKind.FLOORS)) {
 			for (int z = z0; z <= z1; z++) {
 				for (int x = x0; x <= x1; x++) {
-					if (x != hx || z != hz) {
+					// (the spiral's last treads and the air over them left as they are: the well up into the room)
+					if ((x != hx || z != hz) && d.isAbsent(x, p - 1, z)) {
 						d.set(x, p - 1, z, d.mat(Role.FLOOR).full());
 					}
 				}
@@ -335,8 +312,11 @@ public final class Watchtower implements Archetype {
 			}
 		}
 		java.util.Set<Long> taken = new java.util.HashSet<>();
-		taken.add(Draft.key(hx, 0, hz));
-		taken.add(Draft.key(hx, 0, hz - 1));
+		for (int dx = -1; dx <= 1; dx++) {
+			for (int dz = -1; dz <= 1; dz++) {
+				taken.add(Draft.key(hx + dx, 0, hz + dz));
+			}
+		}
 		int[] g = Towers.spot(d, x0 + 1, z0 + 1, x1 - 1, z1 - 1, p, taken);
 		if (g != null) {
 			Furniture.workstation(d, JobType.GUARD, g[0], p, g[1], Dirs.HORIZONTAL[g[2]]);

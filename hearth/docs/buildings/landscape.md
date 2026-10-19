@@ -120,8 +120,8 @@ culture (param `plan`):
 - **Tower gate** (temperate, wisteria, alpine, moorland, maritime): the Bohemian gate tower, set a block in from the
   flanks over the hall so its eaves stand out over the walks that meet it, a guards' room over the hall where the sky
   allows, string courses, a moulded cornice and a steep hip with deep eaves and a finial.
-- **Timber hall** (northern, tundra): the stone gate under a timbered gate hall jettied a block out front and back on
-  its beams, posts every third, shutters in the bays, a steep saddle roof.
+- **Timber hall** (northern, tundra): the stone gate under a timbered gate hall jettied a block out over the road on
+  its beams toward the field (flush on the town side), posts every third, shutters in the bays, a steep saddle roof.
 - **Drums** (desert, mesa, mediterranean): two towers with their corners struck off, open and battlemented, a fighting
   gallery corbelled out between them over the road with the portcullis windlass.
 - **Lookouts** (steppe, tropical, bayou, karst): two towers each carrying a roofed lookout whose eaves stand out round

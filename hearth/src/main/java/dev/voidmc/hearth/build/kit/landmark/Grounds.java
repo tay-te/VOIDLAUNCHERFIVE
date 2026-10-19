@@ -104,6 +104,26 @@ public final class Grounds {
 		}
 	}
 
+	/**
+	 * Opens the podium's parapet before every entrance (call once the doors are drawn): a balustrade laid on the border
+	 * before the doors were known never stands in a doorway or across the way to it.
+	 */
+	public static void openEntrances(Draft d) {
+		try (var s = d.stage(StageKind.EXTERIOR)) {
+			for (int[] e : d.entrances()) {
+				for (int dx = -1; dx <= 1; dx++) {
+					for (int dz = -1; dz <= 1; dz++) {
+						net.minecraft.world.level.block.state.BlockState st = d.get(e[0] + dx, e[1], e[2] + dz);
+						if (st != null && (st.getBlock() instanceof net.minecraft.world.level.block.WallBlock
+							|| st.getBlock() instanceof net.minecraft.world.level.block.FenceBlock)) {
+							d.set(e[0] + dx, e[1], e[2] + dz, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+						}
+					}
+				}
+			}
+		}
+	}
+
 	/** The lowest dry ground beside a border cell of the rectangle, outside it. */
 	private static int lowestBeyond(Draft d, int x, int z, int x0, int z0, int x1, int z1) {
 		int low = Integer.MAX_VALUE;

@@ -126,14 +126,18 @@ public final class HuntingLodge implements Archetype {
 			// the lookout tower: a ladder through its floors, a door into each storey of the lodge, its head over the roof
 			int top = Math.min(Math.max(r.plate() + 4, r.ridge + 3), maxTop - head);
 			top = Math.max(r.floorY(1) + 4, top);
-			Tower t = Tower.square(tx0, 0, tx1, 4, y, top, man.cap() == Manner.Cap.ONION ? Manner.Cap.PYRAMID : man.cap());
+			// (the hipped lodge's tower in the middle of the front stands a row back against the lodge, so the front row
+			// stays a way from one side of the yard to the other: the kennel's side is not cut off from the door's)
+			int tz0 = plan == Plan.HIP ? 1 : 0;
+			int tz1 = tz0 + 4;
+			Tower t = Tower.square(tx0, tz0, tx1, tz1, y, top, man.cap() == Manner.Cap.ONION ? Manner.Cap.PYRAMID : man.cap());
 			t.footings(d, m);
 			t.shell(d, m, top - 1, r.floorY(1));
 			t.stair(d, m, man.timberTops(), null);
 			t.floors(d, m, top, r.floorY(1));
 			for (int k = 0; k < 2; k++) {
 				int ly = r.floorY(k);
-				t.doorAt(d, m, tdx, 4, Dirs.BACK, ly, 1, false);
+				t.doorAt(d, m, tdx, tz1, Dirs.BACK, ly, 1, false);
 				try (var s = d.stage(StageKind.WALLS)) {
 					d.set(tdx, ly, rz0, Blocks.AIR.defaultBlockState());
 					d.set(tdx, ly + 1, rz0, Blocks.AIR.defaultBlockState());

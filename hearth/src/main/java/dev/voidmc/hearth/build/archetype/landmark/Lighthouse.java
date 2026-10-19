@@ -212,6 +212,7 @@ public final class Lighthouse implements Archetype {
 
 		// the jetty, where the water comes into the plot
 		jetty(d, xt, zt, r);
+		Grounds.openEntrances(d);
 		Groundwork.clear(d, 0, 0, w - 1, dp - 1, Math.min(top, peak + 1));
 		dev.voidmc.hearth.build.kit.refine.Voids.finish(d);
 	}
