@@ -103,6 +103,22 @@ public interface NpcService {
 		return java.util.Set.of();
 	}
 
+	/**
+	 * Pins a resident to a holder (a companion to the player who hired them; docs/LIVING_WORLD_2.md §8): their folk is never
+	 * folded while pinned, wherever they are. Returns whether they were pinned.
+	 */
+	default boolean pin(UUID resident, UUID holder) {
+		return false;
+	}
+
+	default void unpin(UUID resident) {
+	}
+
+	/** The residents pinned to a holder. */
+	default List<UUID> pinned(UUID holder) {
+		return List.of();
+	}
+
 	enum EscortStatus {
 		ACTIVE, ARRIVED, LOST
 	}

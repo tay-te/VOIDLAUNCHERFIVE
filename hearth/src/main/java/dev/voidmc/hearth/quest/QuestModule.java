@@ -87,6 +87,9 @@ public final class QuestModule {
 		});
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> QuestCommands.register(dispatcher));
 		QuestDevHarness.install();
+
+		// the living world, part 2 (docs/LIVING_WORLD_2.md §11.2): each lane fills in its own entry point
+		dev.voidmc.hearth.quest.commission.Commissions.init(); // B4 commissions
 	}
 
 	/** {@code hearth:house/cottage} → {@code cottage}, for quest text. */

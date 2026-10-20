@@ -128,6 +128,18 @@ public interface EconomyService {
 		return Set.of();
 	}
 
+	// ---- living world, part 2 (docs/LIVING_WORLD_2.md §11.4)
+
+	/** Takes coin from a player's bank deposits (a household's wages, a standing order); false and nothing taken if short. */
+	default boolean chargeDeposit(UUID player, long bits, String why) {
+		return false;
+	}
+
+	/** What a shop or stall at a plot has in stock now, by goods (what its keeper lays out). */
+	default java.util.Map<Goods, Integer> shopStock(Settlement settlement, int plotId) {
+		return java.util.Map.of();
+	}
+
 	/** The player who owns the business (workshop, shop, farm, extraction site) at a plot, or null. */
 	default @Nullable UUID businessOwner(Settlement settlement, int plotId) {
 		return null;

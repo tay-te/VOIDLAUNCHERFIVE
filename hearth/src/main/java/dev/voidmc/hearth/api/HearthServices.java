@@ -25,6 +25,13 @@ import org.jspecify.annotations.Nullable;
  *   repairs     repair module   optional: damage and repair queues
  *   skills      another mod     optional: a player's skills, attributes and perks ({@link PlayerSkills}, e.g. VOID Mettle);
  *                               never null, {@link PlayerSkills#NONE} until one registers
+ *   -- living world, part 2 (docs/LIVING_WORLD_2.md §11.4)
+ *   travel      npc module      optional: journeys on the roads and their parties ({@link TravelService})
+ *   calendar    social module   never null, {@link SettlementCalendar#NONE} until the rhythm registers
+ *   crowds      npc module      optional: crowd reactions, brawls, shutters ({@link CrowdService})
+ *   scenes      social module   optional: staged town events ({@link SceneService})
+ *   lives       sim module      optional: named characters, relations, feuds ({@link LivesService})
+ *   goodsItems  any             never null, {@link GoodsItems#VANILLA} until a module registers its own
  * </pre>
  */
 public final class HearthServices {
@@ -40,6 +47,12 @@ public final class HearthServices {
 	private static volatile @Nullable LawService law;
 	private static volatile @Nullable RepairService repairs;
 	private static volatile PlayerSkills playerSkills = PlayerSkills.NONE;
+	private static volatile @Nullable TravelService travel;
+	private static volatile SettlementCalendar calendar = SettlementCalendar.NONE;
+	private static volatile @Nullable CrowdService crowds;
+	private static volatile @Nullable SceneService scenes;
+	private static volatile @Nullable LivesService lives;
+	private static volatile GoodsItems goodsItems = GoodsItems.VANILLA;
 
 	private HearthServices() {
 	}
@@ -150,5 +163,59 @@ public final class HearthServices {
 	/** Registered by a character mod when Hearth is loaded (from its own compat code); null puts back {@link PlayerSkills#NONE}. */
 	public static void setPlayerSkills(@Nullable PlayerSkills service) {
 		playerSkills = service == null ? PlayerSkills.NONE : service;
+	}
+
+	// ---- living world, part 2 (docs/LIVING_WORLD_2.md §11.4)
+
+	public static @Nullable TravelService travel() {
+		return travel;
+	}
+
+	public static void setTravel(@Nullable TravelService service) {
+		travel = service;
+	}
+
+	/** Never null: {@link SettlementCalendar#NONE} until one registers. */
+	public static SettlementCalendar calendar() {
+		return calendar;
+	}
+
+	/** Null puts back {@link SettlementCalendar#NONE}. */
+	public static void setCalendar(@Nullable SettlementCalendar service) {
+		calendar = service == null ? SettlementCalendar.NONE : service;
+	}
+
+	public static @Nullable CrowdService crowds() {
+		return crowds;
+	}
+
+	public static void setCrowds(@Nullable CrowdService service) {
+		crowds = service;
+	}
+
+	public static @Nullable SceneService scenes() {
+		return scenes;
+	}
+
+	public static void setScenes(@Nullable SceneService service) {
+		scenes = service;
+	}
+
+	public static @Nullable LivesService lives() {
+		return lives;
+	}
+
+	public static void setLives(@Nullable LivesService service) {
+		lives = service;
+	}
+
+	/** Never null: {@link GoodsItems#VANILLA} until one registers. */
+	public static GoodsItems goodsItems() {
+		return goodsItems;
+	}
+
+	/** Null puts back {@link GoodsItems#VANILLA}. */
+	public static void setGoodsItems(@Nullable GoodsItems service) {
+		goodsItems = service == null ? GoodsItems.VANILLA : service;
 	}
 }

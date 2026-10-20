@@ -45,7 +45,7 @@ import org.slf4j.LoggerFactory;
  */
 public final class DialogueTemplates {
 	private static final Logger LOG = LoggerFactory.getLogger("hearth");
-	public static final String[] BUILTIN = {"greetings", "news", "rumours", "about", "passing", "farewell"};
+	public static final String[] BUILTIN = {"greetings", "news", "rumours", "about", "passing", "farewell", "lw_jobs"};
 	private static volatile Map<String, List<Line>> lines;
 
 	private DialogueTemplates() {

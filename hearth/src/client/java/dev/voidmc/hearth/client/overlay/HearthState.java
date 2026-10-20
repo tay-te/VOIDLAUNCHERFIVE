@@ -60,6 +60,7 @@ public final class HearthState {
 		long h = mix(17, HearthViews.version());
 		h = mix(h, HearthClientOptions.revision());
 		h = mix(h, System.identityHashCode(HearthScreens.hosted()));
+		h = HearthStateSections.fingerprint(h, mc);
 		LocalPlayer player = mc.player;
 		h = mix(h, System.identityHashCode(player));
 		if (player == null || mc.level == null) {
@@ -109,6 +110,7 @@ public final class HearthState {
 				"reputation", "law", "wantedTrack"}) {
 				root.add(k, JsonNull.INSTANCE);
 			}
+			HearthStateSections.addTo(root, mc, false);
 			return root;
 		}
 		HearthStateJson.Lookups look = new HearthStateJson.Lookups(Portraits::ofEntity, Portraits::keyOf, target -> carried(player, target),
@@ -159,6 +161,7 @@ public final class HearthState {
 		var page = HearthViews.reputation();
 		root.add("reputation", page == null ? JsonNull.INSTANCE : HearthStateJson.reputation(page));
 		root.add("law", HearthStateJson.law(HearthViews.hint(), HearthViews.status(), Util.getMillis() - HearthViews.statusAt(), HearthViews.stealth()));
+		HearthStateSections.addTo(root, mc, true); // the living world's sections (LIVING_WORLD_2.md §10)
 		return root;
 	}
 

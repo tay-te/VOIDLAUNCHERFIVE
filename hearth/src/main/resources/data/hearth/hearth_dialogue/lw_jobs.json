@@ -1,0 +1,124 @@
+{
+	"about.job": [
+		{
+			"text": "The road pays, if you know where to stand on it.",
+			"jobs": [
+				"bandit"
+			]
+		},
+		{
+			"text": "I take what the road owes me. Keep walking and it won't be yours.",
+			"jobs": [
+				"bandit"
+			]
+		},
+		{
+			"text": "I walk to the shrine and back, and every mile is a prayer.",
+			"jobs": [
+				"pilgrim"
+			]
+		},
+		{
+			"text": "My feet are sore and my heart is light. The saints keep the road.",
+			"jobs": [
+				"pilgrim"
+			]
+		},
+		{
+			"text": "Letters, news, the reeve's summons: I carry them all, and I don't read them. Mostly.",
+			"jobs": [
+				"messenger"
+			]
+		},
+		{
+			"text": "Two towns a day if the road is dry. The news goes stale faster than bread.",
+			"jobs": [
+				"messenger"
+			]
+		},
+		{
+			"text": "My mule knows the road better than I do. I just keep the load tied down.",
+			"jobs": [
+				"carter"
+			]
+		},
+		{
+			"text": "Sacks one way, barrels the other. A cart that rides empty is money lost.",
+			"jobs": [
+				"carter"
+			]
+		},
+		{
+			"text": "Needles, ribbons, a charm or two. Everything a village forgets to make.",
+			"jobs": [
+				"pedlar"
+			]
+		},
+		{
+			"text": "I go where the market isn't. Folk pay for what they can't walk to.",
+			"jobs": [
+				"pedlar"
+			]
+		},
+		{
+			"text": "Every cart pays at the bar. The lord keeps the road, the road keeps me.",
+			"jobs": [
+				"tollkeeper"
+			]
+		},
+		{
+			"text": "Coin first, then the bar goes up. I've heard every excuse there is.",
+			"jobs": [
+				"tollkeeper"
+			]
+		},
+		{
+			"text": "I keep the house: the hearth swept, the larder full, the beds aired.",
+			"jobs": [
+				"servant"
+			]
+		},
+		{
+			"text": "A good house runs quiet. If you notice me, something's gone wrong.",
+			"jobs": [
+				"servant"
+			]
+		},
+		{
+			"text": "I came out here for the quiet. The quiet has been good company.",
+			"jobs": [
+				"hermit"
+			]
+		},
+		{
+			"text": "The town has its bells. I have the wind and the birds.",
+			"jobs": [
+				"hermit"
+			]
+		},
+		{
+			"text": "We keep the hours: prayer, work, and prayer again. The walls keep the rest.",
+			"jobs": [
+				"monk"
+			]
+		},
+		{
+			"text": "Copying, gardening, the sick at the gate. There's always work for the brothers.",
+			"jobs": [
+				"monk"
+			]
+		},
+		{
+			"text": "I collect what's owed to the lord. Nobody is glad to see me, and I don't blame them.",
+			"jobs": [
+				"bailiff"
+			]
+		},
+		{
+			"text": "The lord's dues, the lord's peace. I ride the domain and keep both.",
+			"jobs": [
+				"bailiff"
+			]
+		}
+	]
+}

@@ -146,5 +146,11 @@ public final class SimModule {
 		});
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> SimCommands.register(dispatcher));
 		DevHarness.install();
+
+		// the living world, part 2 (docs/LIVING_WORLD_2.md §11.2): each lane fills in its own entry point
+		java.util.Objects.requireNonNull(dev.voidmc.hearth.sim.settlement.AwayBook.KEY); // residents away (§0.2)
+		dev.voidmc.hearth.sim.roads.Roads.init();      // A1 roads
+		dev.voidmc.hearth.sim.lives.Lives.init();      // B2 lives
+		dev.voidmc.hearth.sim.wild.Wild.init();        // B3 posts in the wild
 	}
 }

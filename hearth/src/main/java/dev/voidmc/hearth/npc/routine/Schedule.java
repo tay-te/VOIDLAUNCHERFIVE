@@ -45,6 +45,11 @@ public final class Schedule {
 		HOME, INN, WORK
 	}
 
+	/** A day from blocks as they are (sorted by start; at least one): {@link ScheduleOverrides} lays its windows this way. */
+	static Schedule ofBlocks(List<Block> blocks) {
+		return new Schedule(blocks);
+	}
+
 	public List<Block> blocks() {
 		return this.blocks;
 	}

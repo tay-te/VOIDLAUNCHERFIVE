@@ -114,6 +114,12 @@ public final class SocialModule {
 		});
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> SocialCommands.register(dispatcher));
 		dev.voidmc.hearth.social.dev.SocialDevHarness.installIfRequested();
+
+		// the living world, part 2 (docs/LIVING_WORLD_2.md §11.2): each lane fills in its own entry point
+		dev.voidmc.hearth.social.rhythm.Rhythm.init();       // A2 daily rhythm
+		dev.voidmc.hearth.social.events.TownEvents.init();   // B1 town events
+		dev.voidmc.hearth.social.lives.LivesFolk.init();     // B2 lives (behaviours)
+		dev.voidmc.hearth.social.burgher.Burghers.init();    // B4 burghers
 	}
 
 	private static synchronized void registerBehaviours() {

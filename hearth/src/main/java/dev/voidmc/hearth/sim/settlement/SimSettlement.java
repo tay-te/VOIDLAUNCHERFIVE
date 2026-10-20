@@ -438,6 +438,9 @@ public final class SimSettlement implements Settlement {
 	public boolean removeResident(UUID id) {
 		Resident r = this.residents.remove(id);
 		this.embodiedResidents.remove(id);
+		if (this.data.has(AwayBook.KEY)) {
+			this.data.get(AwayBook.KEY).remove(id);
+		}
 		this.yieldCredits.remove(id);
 		if (r == null) {
 			return false;
@@ -462,6 +465,33 @@ public final class SimSettlement implements Settlement {
 	@Override
 	public boolean isResidentEmbodied(UUID id) {
 		return this.embodiedResidents.contains(id);
+	}
+
+	@Override
+	public void setResidentAway(UUID id, long untilTick, String why) {
+		if (untilTick > worldClock() && this.residents.containsKey(id)) {
+			AwayBook book = this.data.get(AwayBook.KEY);
+			book.expire(worldClock());
+			book.put(id, untilTick, why);
+			markDirty();
+		} else if (this.data.has(AwayBook.KEY) && this.data.get(AwayBook.KEY).remove(id)) {
+			markDirty();
+		}
+	}
+
+	@Override
+	public boolean isResidentAway(UUID id) {
+		return this.data.has(AwayBook.KEY) && this.data.get(AwayBook.KEY).away(id, worldClock());
+	}
+
+	/** Whether the resident is out of the town's abstract labour: embodied, or away (docs/LIVING_WORLD_2.md §0.2). */
+	public boolean isResidentOut(UUID id) {
+		return this.embodiedResidents.contains(id) || isResidentAway(id);
+	}
+
+	/** Where the world clock stands for this record: its own clock less the time it was fast-forwarded. */
+	private long worldClock() {
+		return this.clock.simTick - this.clock.timeOffset;
 	}
 
 	public int embodiedResidentCount() {

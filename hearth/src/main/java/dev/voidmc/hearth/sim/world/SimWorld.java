@@ -301,7 +301,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 
 	/** Whether world generation should keep features off this column: history or a live settlement plans to build there. */
 	public boolean isPlanned(int x, int z) {
-		return this.spatial.isPlanned(x, z) || this.atlas.isPlanned(x, z);
+		return this.spatial.isPlanned(x, z) || this.atlas.isPlanned(x, z) || Claims.isPlanned(this, x, z, false);
 	}
 
 	/**
@@ -309,7 +309,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 	 * second), so a column in a region not yet planned counts as planned until the atlas worker has done it.
 	 */
 	public boolean isPlannedNow(int x, int z) {
-		if (this.spatial.isPlanned(x, z)) {
+		if (this.spatial.isPlanned(x, z) || Claims.isPlanned(this, x, z, true)) {
 			return true;
 		}
 		if (!this.atlas.enabled()) {
@@ -766,7 +766,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 		if (party > 0) {
 			List<Resident> adults = new ArrayList<>();
 			for (Resident r : parent.residentList()) {
-				if (r.age == AgeStage.ADULT && !parent.isResidentEmbodied(r.id) && r.job != dev.voidmc.hearth.api.JobType.MINTER) {
+				if (r.age == AgeStage.ADULT && !parent.isResidentOut(r.id) && r.job != dev.voidmc.hearth.api.JobType.MINTER) {
 					adults.add(r);
 				}
 			}

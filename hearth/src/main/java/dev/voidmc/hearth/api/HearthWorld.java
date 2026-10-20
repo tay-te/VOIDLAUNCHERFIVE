@@ -66,6 +66,11 @@ public interface HearthWorld {
 	 */
 	List<SiteInfo> knownSites(BlockPos near, int radius);
 
+	/** The roads between settlements and posts (docs/LIVING_WORLD_2.md §1); {@link RoadNetwork#NONE} until they are built. */
+	default RoadNetwork roads() {
+		return RoadNetwork.NONE;
+	}
+
 	/** Caravans on the road between live settlements now, soonest arrival first (LIVING_WORLD.md §7.6). */
 	default List<CaravanView> caravans() {
 		return List.of();

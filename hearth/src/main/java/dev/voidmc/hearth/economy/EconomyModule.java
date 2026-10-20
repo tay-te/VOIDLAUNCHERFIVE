@@ -112,6 +112,9 @@ public final class EconomyModule {
 		DialogueProvider.register(DIALOGUE);
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> EconomyCommands.register(dispatcher));
 		HearthServices.setEconomy(new EconomyServiceImpl());
+
+		// the living world, part 2 (docs/LIVING_WORLD_2.md §11.2): each lane fills in its own entry point
+		dev.voidmc.hearth.economy.household.Household.init(); // B4 household
 	}
 
 	public static EconomyConfig config() {
