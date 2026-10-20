@@ -2569,3 +2569,136 @@ About +0.02 .. +0.06 ms, inside the probe's spread: the field read only moves, t
 - The dawn at 05:30 is rosier, but the frame still leans mauve on the water and the overhead deck; the sun's gold is
   behind the camera in this view.
 - The noon shadow step (0.22) wants a frame with a deck over a close field.
+
+## D11: wind gusts (2026-10-20, branch `welkin-d11`)
+
+The first item on the "bring the world to life" list: wind you can see, in KCD II's way (waves rolling across meadows as
+bands of bending, lighter grass; crowns heaving in a gust, then settling), in Welkin's own style (crisp pixels, no
+fuzz).
+- **Inputs:** Gloam is unchanged. Everything spatial comes from `void_wind` (direction, speed, gust), `void_storm`,
+  the rain and the clock.
+- **Strips and GIFs** (`scratchpad/welkin_look/d11/final/`):
+  - `gust_strip.jpg` and `gust.gif`: the steppe village's dry-grass fields at 12:00;
+  - `fPlain1200`, `fPlain1630`: the plain from 10 blocks up;
+  - `fWoodEdge`: the plain's birch wood at 16:30;
+  - `fCrowns`: over the valley forest at 16:30;
+  - `fStormWood`: the wood edge under front 0.8;
+  - `guards_before_after.jpg` and `still_grain_*.jpg`.
+- **Clock:** each time-lapse is `SWAY_FREEZE` 16, 17 .. 31, one second a frame.
+
+### The gust field (`lib/sway.glsl` welkinGust)
+- **Shape:**
+  - Two octaves of value noise in a frame stretched across the wind: `WG_ALONG` 22 blocks deep, `WG_ACROSS` 90 long,
+    the second octave sheared a little.
+  - Thresholded with a soft edge (`WG_SOFT` 0.15).
+  - The result: fronts a few to about 15 blocks deep, broken along their length, with calm between them.
+- **Travel:** carried downwind at `2 + 0.6 * speed` blocks a second (about 5 on a fresh day, 10 in a storm).
+- **Gustiness** (`welkinGustiness`):
+  - `WG_BASE` 0.25, plus 0.3 of Gloam's gust, 0.03 of the speed and 0.6 of the storm (`void_storm`, or 0.6 of the
+    rain).
+  - It sets the threshold: 0.67 calm .. 0.50 a gale, so about a sixth of the land is under a front on a calm day and
+    half in a storm.
+  - It sets the push: 0.5 .. 1.
+- **No sweep:**
+  - The field is carried as `P - dir * V * t`. On a long clock a change of V or of the heading would sweep it
+    (`V' * t`), so the clock runs in two staggered cycles of 60 s (a flow map's two phases).
+  - Each cycle is alone for 60 % of its length and hands over in 12 s.
+  - Each cycle draws a fresh field (offset by its index), so no front repeats.
+  - The stretched frame is one of 16 fixed headings, blended with the next near the middle between two. Fixed, so it
+    never swings round the world's origin as the wind turns.
+  - Blends keep the contrast (weights renormalised by their root sum of squares).
+- **The rebound:**
+  - Just behind a front (upwind of it, where the field climbs downwind toward the band), the blades spring back past
+    upright.
+  - The lean signal is the gust less `WG_REBOUND` 0.45 of a trough.
+  - The trough comes from the noise's own slope: one point, no second sample.
+
+### The gust map (`program/prepare.glsl`, `lib/sway.glsl` welkinGustMap)
+- **Why a map:**
+  - Worked out per vertex in `gbuffers_terrain`, the field cost 0.35..0.4 ms at the plain.
+  - The cost did not drop with fewer evaluated vertices or one octave, so it was the inlined code slowing every
+    terrain vertex.
+- **Where it lives:** prepare now works the field out once a frame into colortex5, beside the sky table.
+  - `size.buffer.colortex5` is 192x128: columns 64..191 hold 128x128 cells of 4 blocks.
+  - The map is world-anchored and wraps, covering +-256 blocks round the camera.
+  - Gusts fade out from 224 blocks, past render distance 12.
+  - x is the gust, y the lean signal.
+- **Readers:**
+  - `gbuffers_terrain` and the shadow pass read it with four texelFetch and a bilinear blend.
+  - The shadow pass runs before prepare, so it reads the previous frame's map. That lines up because the map is
+    world-anchored.
+
+### What moves (`welkinSway`, `gbuffers_common.glsl`, `shadow.glsl`)
+- **Plants, crops, tall grass, stalks and vines:**
+  - A lean downwind that grows as a front arrives and swings back a little behind it: `WG_LEAN` 0.13 blocks at a tip
+    in a full gust, on top of the flutter's two pixels. The tip dips as it bends.
+  - A quicker flutter (`WG_FLUTTER` 0.035) while the front is over the plant.
+  - Only a plant's moving vertices read the map. Its anchored root takes none.
+- **Crowns:**
+  - The flutter deepens by half in a front.
+  - The crown heaves downwind as a whole (`WG_LEAF_PUSH` 0.6 of the plants' lean), then settles.
+- **Shadows** take the same push: the shadow pass reads the map.
+- **Options:**
+  - `WAVE_STRENGTH`'s comment now says "or four in a gust".
+  - On the plants screen: `WIND_GUSTS` (0 / 0.5 / 1 / 1.5) and `WIND_SHEEN` (0 .. 2).
+  - On no screen: `WG_BASE`, and `WG_DEBUG`. `WG_DEBUG` 1 paints the field (red the push, green the gust, blue the
+    rebound); 2 writes the wind uniform into the albedo.
+
+### The wind sheen (`gbuffers_common.glsl`, the albedo)
+- **The band:** where a front bends the blades, the albedo lifts (`WG_SHEEN_LIFT` 0.14) and turns toward a silvery
+  olive grey (`WG_SHEEN_SILVER` 0.30; `WG_SHEEN_TINT` (0.99, 1.03, 0.93) times its luminance).
+- **The trough:** behind the band it darkens (`WG_SHEEN_TROUGH` 0.20 per unit of rebound).
+- **Shares:**
+  - A plant: from 0.45 at the root to 1 at its tip. Its root vertices read no field, so the sheen fades down the blade.
+  - Crowns: `WG_SHEEN_LEAVES` 0.55 (a gust turns their outer leaves).
+  - Grass block tops: `WG_SHEEN_GROUND` 0.85. From a little way off a meadow is mostly its ground; without this the band
+    did not read at all over the steppe's fields.
+- **No grain:**
+  - The field is smooth over blocks (4-block cells, bilinear).
+  - A still shows broad soft bands, never noise (`still_grain_field.jpg`: two frames 8 s apart, 1:1).
+
+### Read
+- **Meadows and fields:**
+  - Light silvery bands roll toward the camera, with darker troughs behind.
+  - It reads clearly in the GIFs, and in a still as a soft lighter swathe.
+  - As a band passes at noon, the lower meadow's mean shifts by about 3 %.
+- **Trees:** crowns lighten and heave as a front passes. This is subtler than the meadow.
+- **Storm:**
+  - Fronts cover about half the land and push twice as hard.
+  - The lean is clearly visible near the camera.
+  - The meadow's mean swings about 9 % in the dark storm light.
+- **rain0:** a bare gorge, so it shows none of this. The storm strip is the wood edge at front 0.8.
+
+### Guards (`SWAY_FREEZE` 7, base 802afd7a and D11 back to back in one studio)
+Plain 12:00, steppe 17:00, sunforest 11500 and village night all keep their mood; sunforest's canopy beams keep their
+strength. The frames differ only by the sway's new push and the sheen (`guards_before_after.jpg`).
+
+### Cost (probe, 1600x900, RTX 4060, interleaved base / D11 in one studio, quiet machine, `SWAY_FREEZE` 25)
+
+| view | base 802afd7a | D11 |
+|---|---|---|
+| plain 12:00 (eye level, dense near plants, birch wood) | 7.46 / 7.49 / 7.52 / 7.47 ms | 7.82 / 7.83 / 7.83 / 7.79 ms |
+| the steppe village's fields from 30 up | 8.01 / 8.02 ms | 8.03 / 8.03 ms |
+| crowns 12:00 | 10.00 / 10.00 ms | 10.11 / 10.11 ms |
+
+- **The plain, split:**
+  - the larger colortex5 alone, gusts off: +0.13 ms (7.58 / 7.70);
+  - the gusts without the sheen: +0.16;
+  - the sheen: +0.05.
+- **What did not explain it:**
+  - Turning the field off in prepare, the terrain or the shadow pass, one at a time, took no clear share.
+  - Why a bigger colortex5 costs anything is not understood.
+- **Total:**
+  - +0.3 ms at the plain's eye-level view;
+  - +0.1 ms over the forest;
+  - nothing measurable from above the fields.
+
+  That is over budget at the plain.
+
+### Still open
+- **Cost at the plain:** find where its 0.3 ms goes. Next to try: a smaller map (64x64 cells of 8 blocks), and writing
+  the map in a pass of its own instead of growing the sky table's buffer.
+- **The LOD's far fields take no sheen.** The near sheen fades out by 248 blocks, so there is no seam. But the widest
+  waves, where KCD shows them best, stop at render distance.
+- **Gloam's gust is global.** It moves every front's threshold at once, over seconds. A per-region gust (from Gloam's
+  weather tiles) would let gusts come and go locally.

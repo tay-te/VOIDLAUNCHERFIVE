@@ -33,8 +33,8 @@ vec4 welkinWindFallback(float rain) {
 //   between them); fixed, so it never swings round the world's origin as the wind turns (a far camera would see the
 //   field race sideways).
 // - The blends keep the field's contrast (weights renormalised by their root sum of squares).
-// Cost: 2 octaves of value noise per vertex most of the time, up to 4 frames x 2 during a hand-over (the trough from the
-// noise's own slope, no second point; crowns the first octave only).
+// Cost: 2 octaves of value noise per point most of the time, up to 4 frames x 2 during a hand-over (the trough from the
+// noise's own slope, no second point), once per map texel in prepare (see the gust map below).
 #define WG_PERIOD 60.0
 #define WG_ALONG  22.0  // the field's scale along the wind, blocks (a front's depth and the gap behind it)
 #define WG_ACROSS 90.0  // across the wind (how long a front runs)
@@ -114,7 +114,7 @@ float welkinGustiness(vec4 wind, float storm) {
 
 // x the gust 0..1, y the lean signal: the gust, less the rebound just behind a front (upwind of it, where the field
 // climbs downwind toward the band), found from the field's own slope, so one point is enough
-// coarse: the first octave only (crowns: they heave as a whole, and a tree's leaves are the most vertices by far)
+// coarse: the first octave only (no caller uses it since the field moved into the gust map; kept for a cheap caller)
 vec2 welkinGust(vec2 P, float t, vec4 wind, float storm, bool coarse) {
 #if SWAY_FREEZE != 0
     t = float(SWAY_FREEZE);
