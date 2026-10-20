@@ -10,8 +10,10 @@ import java.util.concurrent.atomic.LongAdder;
 public final class CrowdStats {
 	/** The director's passes (stimuli, selection, spectacles, brawls). */
 	public static final LivingWorldStats.Timer DIRECTOR = LivingWorldStats.timer("crowds");
-	/** Shutter scans and toggles. */
+	/** Shutter toggles (ticks that changed or checked some). */
 	public static final LivingWorldStats.Timer SHUTTERS = LivingWorldStats.timer("shutters");
+	/** The shutters' look at the towns every second: which are embodied, plots to scan, the hour. */
+	public static final LivingWorldStats.Timer SHUTTER_LOOKS = LivingWorldStats.timer("shutters_look");
 
 	public static final LongAdder BARKS = new LongAdder();
 	public static final LongAdder DOORS_SHUT = new LongAdder();
@@ -29,6 +31,22 @@ public final class CrowdStats {
 	}
 
 	private CrowdStats() {
+	}
+
+	private static final java.util.ArrayDeque<String> RECENT = new java.util.ArrayDeque<>();
+
+	/** Notes a bark said (who, in what role, the line), the last 32 kept for the tour log and the dev harness. */
+	public static synchronized void barked(String who, Role role, String category, String line) {
+		BARKS.increment();
+		RECENT.addLast(who + " (" + role.id() + ", " + category + "): " + line);
+		while (RECENT.size() > 32) {
+			RECENT.removeFirst();
+		}
+	}
+
+	/** The barks said lately, oldest first. */
+	public static synchronized java.util.List<String> recentBarks() {
+		return java.util.List.copyOf(RECENT);
 	}
 
 	public static void reacted(Reaction r) {
@@ -49,8 +67,17 @@ public final class CrowdStats {
 		double perPlayerUs = passes == 0 ? 0 : DIRECTOR_NANOS.sum() / 1000.0 / passes;
 		sb.append(String.format(Locale.ROOT, ", barks %d, brawls %d, indoors %d, doors shut %d, shutters toggled %d, %.1f us a player a pass", BARKS.sum(), BRAWLS.sum(),
 			INDOORS.sum(), DOORS_SHUT.sum(), SHUTTERS_TOGGLED.sum(), perPlayerUs));
+		if (passes > 0) {
+			sb.append(String.format(Locale.ROOT, " (reading the player %.1f us, the folk near %.1f us; spectacles %.0f us in all)", FACTS_NANOS.sum() / 1000.0 / passes,
+				NEAR_NANOS.sum() / 1000.0 / passes, SPECTACLE_NANOS.sum() / 1000.0));
+		}
 		return sb.toString();
 	}
+
+	/** Parts of the director's time: reading the players, finding the folk near them, the spectacles' onlookers. */
+	public static final LongAdder FACTS_NANOS = new LongAdder();
+	public static final LongAdder NEAR_NANOS = new LongAdder();
+	public static final LongAdder SPECTACLE_NANOS = new LongAdder();
 
 	/** Server time the director's passes took, in all. */
 	public static final LongAdder DIRECTOR_NANOS = new LongAdder();

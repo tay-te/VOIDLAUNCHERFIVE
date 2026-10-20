@@ -189,7 +189,9 @@ public final class CrowdDirector {
 				Map<UUID, Role> roles = new HashMap<>();
 				for (ServerPlayer p : e.getValue()) {
 					CrowdStats.PLAYER_PASSES.increment();
+					long f0 = System.nanoTime();
 					PlayerFacts f = facts(p, s, level, now, minute);
+					CrowdStats.FACTS_NANOS.add(System.nanoTime() - f0);
 					facts.put(p.getUUID(), f);
 					List<Stimuli.Sensed> sensed = Stimuli.of(f);
 					if (Stimuli.has(sensed, Stimulus.OUTLAW)) {
@@ -198,6 +200,7 @@ public final class CrowdDirector {
 					if (sensed.isEmpty()) {
 						continue;
 					}
+					long n0 = System.nanoTime();
 					List<CrowdSelector.Candidate> near = new ArrayList<>();
 					for (FolkHandle h : npc.folkNear(level, p.position(), RADIUS)) {
 						if (near.size() >= MAX_NEAR) {
@@ -210,6 +213,7 @@ public final class CrowdDirector {
 						handles.put(h.resident().id, h);
 						near.add(new CrowdSelector.Candidate(h.resident().id, role, h.entity().distanceTo(p)));
 					}
+					CrowdStats.NEAR_NANOS.add(System.nanoTime() - n0);
 					if (!near.isEmpty()) {
 						inputs.add(new CrowdSelector.PlayerInput(p.getUUID(), sensed, near));
 					}
@@ -231,8 +235,10 @@ public final class CrowdDirector {
 					}
 					issue(a, p, facts.get(a.player()), roles.getOrDefault(a.folk(), Role.FOLK), level, now);
 				}
-				if (admitting) {
+				if (admitting && !this.spectacles.isEmpty()) {
+					long x0 = System.nanoTime();
 					spectacles(s, level, npc, now, taken, roles);
+					CrowdStats.SPECTACLE_NANOS.add(System.nanoTime() - x0);
 				}
 			}
 		}
@@ -262,7 +268,9 @@ public final class CrowdDirector {
 			return;
 		}
 		Title title = f == null ? null : f.title();
-		Order fresh = new Order(a.folk(), a.player(), a.stimulus(), a.reaction(), role, a.rank(), now, now + hold(a.reaction(), false), title,
+		// a finished remark stays on the books its whole hold, so the next comes a while later (small talk the longest)
+		long hold = a.stimulus() == Stimulus.FRIEND ? 20 * 45 : hold(a.reaction(), false);
+		Order fresh = new Order(a.folk(), a.player(), a.stimulus(), a.reaction(), role, a.rank(), now, now + hold, title,
 			a.stimulus().category());
 		fresh.origin = origin;
 		fresh.approach = approach(a, f, role);
@@ -283,7 +291,7 @@ public final class CrowdDirector {
 			return 60;
 		}
 		return switch (r) {
-			case SCATTER -> 200;
+			case SCATTER -> 260;
 			case GAWK -> 200;
 			case HAIL -> 20 * 35;
 			case SHUN -> 20 * 60;

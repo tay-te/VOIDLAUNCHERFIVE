@@ -105,8 +105,10 @@ public final class Shutters {
 			return;
 		}
 		if (this.tick % LOOK_TICKS == 0) {
-			worked = true;
+			long l0 = System.nanoTime();
 			look(level, world);
+			CrowdStats.SHUTTER_LOOKS.add(System.nanoTime() - l0);
+			t0 = System.nanoTime();
 		}
 		double mspt = LoadCaps.mspt(server);
 		int cap = LoadCaps.cap(Crowds.config().shutters().perTick(), 4, mspt, LoadCaps.highMspt());
@@ -233,6 +235,20 @@ public final class Shutters {
 			}
 		}
 		return new int[]{known, closed};
+	}
+
+	/** Every known shutter of a town (positions as {@link BlockPos#asLong}), for tours and tools. */
+	public java.util.List<Long> positions(long settlementId) {
+		java.util.List<Long> out = new java.util.ArrayList<>();
+		Town t = this.towns.get(settlementId);
+		if (t != null) {
+			for (long[] plot : t.plots.values()) {
+				for (long at : plot) {
+					out.add(at);
+				}
+			}
+		}
+		return out;
 	}
 
 	/** Forgets a town's scans (it went abstract: the next embodiment scans afresh). */

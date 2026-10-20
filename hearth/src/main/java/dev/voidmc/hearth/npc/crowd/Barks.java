@@ -276,9 +276,10 @@ public final class Barks {
 		values.put("player", player == null ? "stranger" : player.getScoreboardName());
 		values.put("settlement", folk.settlement().name());
 		values.put("given", folk.resident().givenName);
-		folk.say(Component.literal(DialogueTemplates.fill(line.text(), values)), null);
+		String text = DialogueTemplates.fill(line.text(), values);
+		folk.say(Component.literal(text), null);
 		LIMITER.said(me, about, town, line.key(), now);
-		CrowdStats.BARKS.increment();
+		CrowdStats.barked(folk.resident().fullName(), role, category, text);
 		return true;
 	}
 

@@ -191,10 +191,11 @@ public final class CrowdBehaviour implements FolkBehaviour {
 	private boolean scatter(FolkHandle folk, Job job) {
 		ServerPlayer p = player(folk, job.order);
 		if (job.goal == null || job.ticks > 140) {
+			// keep the distance a while, watching the blade
 			if (p != null) {
 				folk.lookAt(p);
 			}
-			return job.ticks < 180;
+			return job.ticks < 240;
 		}
 		if (job.repath <= 0) {
 			folk.moveTo(job.goal, folk.resident().age == dev.voidmc.hearth.api.AgeStage.CHILD ? 1.35 : 1.25);
@@ -203,7 +204,6 @@ public final class CrowdBehaviour implements FolkBehaviour {
 		if (folk.arrived()) {
 			folk.stop();
 			job.goal = null;
-			job.ticks = Math.max(job.ticks, 140);
 		}
 		return true;
 	}
