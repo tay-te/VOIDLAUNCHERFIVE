@@ -715,6 +715,23 @@ it matters, and by standing title.
 Woodcutters felling, charcoal burners at kilns, shepherds moving flocks over Expanse pastures, miners walking to the
 Great Mine, boats at docks, stalls stocked with the town's real goods.
 
+**Status (lane A4, 2026-10-20): built**, but for the two steps that wait on other lanes (the handcarts and logs by cart
+need A1's cart entity; market-day stalls' wares need A2's stall callback; `requests/lwA4.md`). Where it lives:
+`npc/work/field/*` — `RemoteSites` and `FieldSites` (sites from plots and territory, cached a sim hour), `Commute` and
+`FieldPlacement` (the record on the track or the meadow), `RemoteEmbodiment` (sites embodied on their own, from the
+embodiment manager every `sites.pass_ticks`), `Flocks` (sizes, kinds, `hearth:npc/flocks` losses), `Herds` (the beasts
+and the dog), `DroveWork` (the herder's way out and home), `ClampCycle` and `Clamps` (the burn, the smoke column, the
+clearing's ledgered dressing `hearth:npc/clamps`, the logging camp's timber stack), `Boats` (moorings, the rowing fisher),
+`Shafts` (the Great Mine's ladder climbed by hand), `WorkBarks` (`barks/work.json`); `sim/land/GreatMines` +
+`sim/terrain/ExpanseGreatMines` (the survey's one call, the claim on the shaft's square); `plan/resource/GreatMinePlan`
+and `build/archetype/extract/GreatPithead`; `social/life/StallWares`; `EconomyServiceImpl.shopStock`; the api's
+`GoodsItems` served by `quest/gen/GoodsItems.SERVICE`; `ExpanseUnderground.waterY`. Departures from the text below: the
+drove is the herder's routine work (`HerderWork` asks `DroveWork` first) rather than a priority-110 behaviour, because a
+folk held by a behaviour does not count labour and the abstract and embodied flocks must yield the same wool; remote
+sites are found per player by a town prefilter (towns whose territory comes within reach) rather than a cell index; a
+Great Mine's new galleries are short (from the old station rooms to the edge of the claimed square), one a level, up to
+six. Tour: `-Dhearth.tour=work` or `HEARTH_LW_TOUR=work` (`gametest/work/WorkTour`).
+
 ### 6.1 What the player sees and does
 
 - **Woodcutters** fell real trees and replant (exists). New: logs go to the sawmill by **cart** on the track (§1's

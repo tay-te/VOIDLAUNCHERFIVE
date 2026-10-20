@@ -147,6 +147,10 @@ public final class Program {
 		// ---- the chains (LIVING_WORLD.md §7.5): workings on the land and the workshops by them
 		e(Archetypes.MINE, 30, p -> Math.min(3, 1 + p / 80), 195, Placement.SITED, District.Kind.CRAFTS,
 			c -> EXTRACTING.test(c) && Extraction.available(c, Archetypes.MINE)).custom(Extraction::place),
+		// one of Expanse's great mines in the territory: reopened, a living pithead on its shaft (docs/LIVING_WORLD_2.md §6.2)
+		e(dev.voidmc.hearth.sim.land.GreatMines.PITHEAD, 24, p -> 1, 197, Placement.SITED, District.Kind.CRAFTS,
+			c -> EXTRACTING.test(c) && dev.voidmc.hearth.plan.resource.GreatMinePlan.available(c))
+			.custom(dev.voidmc.hearth.plan.resource.GreatMinePlan::place),
 		e(Archetypes.CHARCOAL_KILN, 26, p -> 1 + p / 100, 150, Placement.EDGE, District.Kind.CRAFTS,
 			c -> has(c, Archetypes.LOGGING_CAMP, Archetypes.MINE, Archetypes.SHAFT)).sited(by(0, 0.4, Archetypes.LOGGING_CAMP, Archetypes.SMELTER)),
 		e(Archetypes.SMELTER, 30, p -> 1 + p / 100, 175, Placement.EDGE, District.Kind.CRAFTS,

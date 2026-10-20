@@ -86,6 +86,13 @@ final class CraftWork implements WorkBehaviour {
 		BlockPos stand = site != null ? site.pos() : p.work;
 		BlockPos facing = site != null ? site.pos().relative(site.facing()) : null;
 		this.bouts++;
+		if (this.job == JobType.CHARCOAL_BURNER && this.bouts % 4 != 0) {
+			// the clamp's burn: stacking, tending the vents, raking out (docs/LIVING_WORLD_2.md §6.1)
+			Task clamp = dev.voidmc.hearth.npc.work.field.Clamps.work(brain, level, stand, facing);
+			if (clamp != null) {
+				return clamp;
+			}
+		}
 		// Every few bouts, a trip to the store for materials.
 		if (this.bouts % 4 == 0 && p.workStorage != null) {
 			Poi store = p.workStorage;

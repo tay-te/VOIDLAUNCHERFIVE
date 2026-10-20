@@ -582,7 +582,6 @@ tests). What remains is a short list of open items, below.
 From the open items in `docs/requests/*.md` (each file says who owns it); everything else in those files is done.
 
 **Planner and sim**
-- Pastures are not stocked with animals (`PoiType.PEN` exists for it) — `arch-homestead.md`.
 - No re-issue (`replaces`) of timber bridges as stone arches at town tier, of road plots repaved at village and town
   tier, or lamp posts on lanes — `arch-infra.md`.
 - The lighthouse parcel does not prefer water in its back third — `arch-landmark.md`.
@@ -608,9 +607,10 @@ From the open items in `docs/requests/*.md` (each file says who owns it); everyt
 - The arrival banner has no hook for the standing line (it draws just under it) — `p3-standing.md`.
 - The social module does not yet report a bath as the `social:bathed` deed — `p3-standing.md`.
 - No client formatter for coin names — `quest.md`.
-- Expanse: `UndergroundProbe.waterY` is not answered by Expanse's implementation (deep towns keep to the floor the
-  probe reports) — `p3-plan.md`. Hearth reads Expanse's lakes (`ExpanseProbe`) and registers with its `LandClaims`
-  (`ExpanseClaims`), so Expanse's standalone structures keep out of planned settlements — `expanse.md`.
+- Expanse: `UndergroundProbe.waterY` is answered from Expanse's cavern model (meres, the buried sea, underground rivers;
+  living world 2, lane A4), but the deep-town planner does not yet site landings and docks on it — `p3-plan.md`. Hearth
+  reads Expanse's lakes (`ExpanseProbe`) and registers with its `LandClaims` (`ExpanseClaims`), so Expanse's standalone
+  structures keep out of planned settlements, and claims the Great Mine's square where a town reopens it — `expanse.md`.
 - VOID LOD does not yet draw settlements; the read-only `sim/LodFootprints` is ready for it (§11).
 - `SyntheticTerrain`'s brim-full river leaves banks below the water line, so approach roads dip below it in the
   previews — `arch-infra.md`.

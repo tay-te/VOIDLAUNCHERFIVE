@@ -44,7 +44,22 @@ final class HerderWork implements WorkBehaviour {
 	@Override
 	public @Nullable Task next(FolkBrain brain, ServerLevel level) {
 		this.trips++;
-		AABB pasture = pasture(brain, level);
+		AABB pasture = null;
+		// a pasture with a far meadow: the flock is driven out at 07:00 and home for 18:00 (docs/LIVING_WORLD_2.md §6.1)
+		dev.voidmc.hearth.npc.work.field.RemoteSites.Site site = dev.voidmc.hearth.npc.work.field.FieldSites.siteOf(brain.settlement, brain.resident);
+		if (site != null && site.kind() == dev.voidmc.hearth.npc.work.field.RemoteSites.Kind.PASTURE) {
+			Task drove = dev.voidmc.hearth.npc.work.field.DroveWork.next(brain, level, site);
+			if (drove != null) {
+				return drove;
+			}
+			if (dev.voidmc.hearth.npc.work.field.DroveWork.phase(level, site).phase() == dev.voidmc.hearth.npc.work.field.Commute.Phase.AT) {
+				pasture = dev.voidmc.hearth.npc.work.field.DroveWork.meadow(site);
+				dev.voidmc.hearth.npc.work.field.WorkBarks.maybe(brain, level, "herder", 8, null);
+			}
+		}
+		if (pasture == null) {
+			pasture = pasture(brain, level);
+		}
 		BlockPos centre = BlockPos.containing(pasture.getCenter().x, pasture.minY + 1, pasture.getCenter().z);
 		boolean handle = NpcModule.config().gathering().shearAndMilk();
 		List<Animal> herd = level.getEntitiesOfClass(Animal.class, pasture.inflate(STRAY_RANGE, 4, STRAY_RANGE), HerderWork::herdAnimal);

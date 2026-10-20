@@ -47,7 +47,7 @@ public final class Extraction {
 		if (id.equals(Archetypes.QUARRY_PIT)) {
 			return ResourceSite.Kind.STONE;
 		}
-		if (id.equals(Archetypes.MINE) || id.equals(Archetypes.SHAFT)) {
+		if (id.equals(Archetypes.MINE) || id.equals(Archetypes.SHAFT) || id.equals(dev.voidmc.hearth.sim.land.GreatMines.PITHEAD)) {
 			return ResourceSite.Kind.ORE;
 		}
 		if (id.equals(Archetypes.CLAY_PIT)) {
@@ -206,13 +206,17 @@ public final class Extraction {
 	/** The nearest {@code max} workable sites of its kind with room for another working, nearest first. */
 	private static List<ResourceSite> sites(PlanContext ctx, Identifier id, int max) {
 		ResourceSite.Kind kind = kind(id);
-		if (kind == null || !ctx.config.living().extraction()) {
+		if (kind == null || !ctx.config.living().extraction() || id.equals(dev.voidmc.hearth.sim.land.GreatMines.PITHEAD)) {
 			return List.of();
 		}
 		Map<Integer, Integer> active = active(ctx, id);
 		Map<Integer, Integer> out = digsOut(id) ? dugOut(ctx, id) : Map.of();
 		List<ResourceSite> found = new java.util.ArrayList<>();
 		for (ResourceSite s : ctx.territory().workable(kind)) {
+			if (dev.voidmc.hearth.sim.land.GreatMines.isGreat(s)) {
+				// the Great Mine is reopened by its own pithead (GreatMinePlan), never by an ordinary mine
+				continue;
+			}
 			if (active.getOrDefault(s.id(), 0) < PER_SITE && out.getOrDefault(s.id(), 0) < DUG_PER_SITE) {
 				found.add(s);
 				if (found.size() >= max) {
@@ -298,6 +302,10 @@ public final class Extraction {
 	 * fronting a road there, or, if no road reaches the site yet, the cart track out to it. True if anything was queued.
 	 */
 	public static boolean place(PlanContext ctx, ArchetypeInfo info) {
+		if (info.id().equals(dev.voidmc.hearth.sim.land.GreatMines.PITHEAD)) {
+			// the Great Mine's pithead stands on its shaft, nowhere else
+			return GreatMinePlan.place(ctx, info);
+		}
 		List<ResourceSite> sites = sites(ctx, info.id(), SITES_TRIED);
 		if (sites.isEmpty()) {
 			Growth.why("no workable site");

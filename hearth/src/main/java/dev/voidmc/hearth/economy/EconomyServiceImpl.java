@@ -181,6 +181,28 @@ public final class EconomyServiceImpl implements EconomyService {
 		return Projects.funded(settlement);
 	}
 
+	/**
+	 * What the shop at a plot has on its shelves (docs/LIVING_WORLD_2.md §6.2), units by goods, only goods it holds any of:
+	 * what its stall and counter show. Empty for a plot with no shop (or a shop sold out).
+	 */
+	@Override
+	public java.util.Map<dev.voidmc.hearth.api.Goods, Integer> shopStock(Settlement s, int plotId) {
+		dev.voidmc.hearth.economy.shop.ShopBook book = s.data(EconomyModule.SHOPS);
+		java.util.Map<dev.voidmc.hearth.api.Goods, Integer> out = new java.util.EnumMap<>(dev.voidmc.hearth.api.Goods.class);
+		for (Shop shop : book.shops.values()) {
+			if (shop.plot != plotId) {
+				continue;
+			}
+			for (dev.voidmc.hearth.api.Goods g : dev.voidmc.hearth.api.Goods.VALUES) {
+				int n = shop.stock(g);
+				if (n > 0) {
+					out.merge(g, n, Integer::sum);
+				}
+			}
+		}
+		return out;
+	}
+
 	/** The player who owns the business at a plot (a workshop, shop, farm, extraction site), or null. */
 	@Override
 	public @Nullable UUID businessOwner(Settlement settlement, int plotId) {

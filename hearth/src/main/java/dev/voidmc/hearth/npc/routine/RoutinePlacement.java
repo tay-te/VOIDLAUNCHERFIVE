@@ -51,6 +51,11 @@ public final class RoutinePlacement {
 		if (data.lastPos().isPresent() && since >= 0 && since < 20 * 60 && block.activity() != Activity.SLEEP) {
 			return new Placement(data.lastPos().get(), null, block.activity());
 		}
+		// Out at a remote work site, or on the way there or home (docs/LIVING_WORLD_2.md §6.3).
+		BlockPos remote = dev.voidmc.hearth.npc.work.field.FieldPlacement.where(level, settlement, resident, places, minute, block);
+		if (remote != null) {
+			return new Placement(remote, null, block.activity());
+		}
 		// Just setting out: still at the door of where they were.
 		if (schedule.minutesInto(minute) < 15 && block.activity() != Activity.SLEEP) {
 			Schedule.Block previous = schedule.at(block.start() - 1);

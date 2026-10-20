@@ -25,6 +25,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jspecify.annotations.Nullable;
 
+// TODO(lane A4, docs/LIVING_WORLD_2.md §6.1): haulers with handcarts on the streets once lane A1's cart entity
+// (hearth:cart) lands — see docs/requests/lwA4.md.
 /**
  * Haulers (docs/LIVING_WORLD.md §7.4–7.5): they carry the town's goods along its chains — stone from the quarry to the
  * mason, ore from the mine to the smelter, logs from the logging camp to the sawmill and the charcoal kiln, grain from

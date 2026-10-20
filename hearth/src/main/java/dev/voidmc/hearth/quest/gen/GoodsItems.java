@@ -224,6 +224,35 @@ public final class GoodsItems {
 		return random.nextInt(3) == 0 ? pool.get(random.nextInt(pool.size())) : pool.getFirst();
 	}
 
+	/**
+	 * This table as the api's {@link dev.voidmc.hearth.api.GoodsItems} (docs/LIVING_WORLD_2.md §6.2): what a stall shows and
+	 * a cart carries, in the culture's own materials. The town's own material (the first regional choice) twice as often
+	 * as each other; the seed picks, so a stall keeps its wares. Falls back to the vanilla table where no choice exists.
+	 */
+	public static final dev.voidmc.hearth.api.GoodsItems SERVICE = (goods, culture, seed) -> {
+		List<Choice> pool = new ArrayList<>();
+		for (Choice ch : REGIONAL.getOrDefault(culture, Map.of()).getOrDefault(goods, List.of())) {
+			if (net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(ch.item)) {
+				pool.add(ch);
+			}
+		}
+		if (pool.isEmpty()) {
+			for (Choice ch : COMMON.getOrDefault(goods, List.of())) {
+				if (net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(ch.item)) {
+					pool.add(ch);
+				}
+			}
+		}
+		if (pool.isEmpty()) {
+			return dev.voidmc.hearth.api.GoodsItems.VANILLA.sample(goods, culture, seed);
+		}
+		long h = seed * 0x9E3779B97F4A7C15L;
+		h ^= h >>> 31;
+		int pick = (int) Math.floorMod(h, pool.size() + 1);
+		Choice ch = pool.get(pick >= pool.size() ? 0 : pick);
+		return new net.minecraft.world.item.ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(ch.item));
+	};
+
 	/** Every choice for the goods (regional first), for tests and the docs. */
 	public static List<Choice> choices(Culture culture, Goods goods) {
 		List<Choice> out = new ArrayList<>(REGIONAL.getOrDefault(culture, Map.of()).getOrDefault(goods, List.of()));

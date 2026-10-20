@@ -1,0 +1,81 @@
+{
+	"bark.work.drove": [
+		"Hup, hup! Come on, you daft beasts.",
+		"Keep up there, keep up!",
+		"Hey! Not into the corn, you!",
+		"Steady now, steady. Nobody's chasing you.",
+		"Go on, go on, the grass won't come to you.",
+		"Hup! Hup! That's the way.",
+		"Mind the ditch, old girl.",
+		{"text": "Every morning the same: the gate, the lane, the long hill.", "time": "morning"},
+		{"text": "Home now, home. Your pens are waiting.", "time": "evening"},
+		{"text": "Wet wool and wet feet. Lovely.", "weather": "rain"},
+		{"text": "Come on, you lot. Up to the high pasture.", "cultures": ["alpine"]},
+		{"text": "Mind the bog, mind the bog!", "cultures": ["moorland"]},
+		{"text": "To the water first, then the grazing.", "cultures": ["steppe", "desert", "mesa"]},
+		{"text": "Hep! Hep! Stay off the scree.", "cultures": ["karst", "alpine"]}
+	],
+	"bark.work.herder": [
+		"There's good grass up here. They know it.",
+		"Count them twice, a wolf only needs one.",
+		"Not a cloud. Not a care. That's the life.",
+		"You there, stop pushing the ewe.",
+		"The dog does the real work. I just carry the stick.",
+		"Leave them be, they're eating.",
+		{"text": "Wind's in the east. They'll huddle tonight.", "weather": "rain"},
+		{"text": "They'll be fat for the market, this lot.", "time": "day"},
+		{"text": "Another hour and we turn for home.", "time": "day"},
+		{"text": "Cows don't hurry. Never have.", "cultures": ["alpine", "mesa", "bayou"]},
+		{"text": "A goat will eat anything. Even your hat.", "cultures": ["mediterranean", "karst", "desert", "tundra"]}
+	],
+	"bark.work.clamp": [
+		"Don't let her flare. Two days she must smoulder.",
+		"Too much air and it's ash. Too little and it's wood.",
+		"Smell that? That's a good burn.",
+		"Mind the vents. Don't you dare poke them.",
+		"Charcoal for the smith, and not a log wasted.",
+		"I sleep by her. She needs watching.",
+		"Earth on, turf on, and pray.",
+		{"text": "Rain on the turf is good. Rain in the vents is not.", "weather": "rain"},
+		{"text": "The wood talks to you if you listen. Hear it hiss?", "time": "night"},
+		{"text": "Stack them tight, billets on end. Like this.", "time": "morning"},
+		{"text": "Black to the elbows by the end of the day.", "time": "evening"}
+	],
+	"bark.work.miner": [
+		"Another day under the mountain.",
+		"Lamp lit? Good. Down we go.",
+		"The old men dug deep. We dig deeper.",
+		"Two hundred rungs. I count every one.",
+		"Listen to the rock. When it creaks, you run.",
+		"There's iron in this mountain yet.",
+		"Mind your head on the props.",
+		"Sun's for farmers.",
+		{"text": "Up the track before the birds are awake.", "time": "morning"},
+		{"text": "Home to the light, and supper.", "time": "evening"},
+		{"text": "Wet up there? Dry as bones down here.", "weather": "rain"},
+		{"text": "Somebody left a pick down on the third level. Again.", "traits": ["grumpy"]}
+	],
+	"bark.work.fisher": [
+		"Pull, pull... steady.",
+		"They're biting today.",
+		"Quiet now, you'll scare them off.",
+		"The water's cold but the fish are good.",
+		"Another one for the basket.",
+		"Out with the dawn, back with the bells.",
+		{"text": "Rain makes them rise. Good for us.", "weather": "rain"},
+		{"text": "Row, row. Mind the reeds.", "cultures": ["bayou", "wisteria"]},
+		{"text": "Herring, cod, if the sea is kind.", "cultures": ["maritime", "northern"]},
+		{"text": "A calm morning on the water. Nothing better.", "time": "morning"}
+	],
+	"bark.work.stall": [
+		"Fresh {goods}! Come and see!",
+		"{goods}, the best in {settlement}!",
+		"Who'll have {goods}? Good price today!",
+		"Step up, step up! {goods} here!",
+		"Look at this {goods}, made right here in {settlement}.",
+		"Don't walk past, friend. {goods}!",
+		{"text": "First {goods} of the morning! Fresh!", "time": "morning"},
+		{"text": "Last {goods} of the day, half the haggling!", "time": "evening"},
+		{"text": "Keep dry and buy {goods}!", "weather": "rain"}
+	]
+}
