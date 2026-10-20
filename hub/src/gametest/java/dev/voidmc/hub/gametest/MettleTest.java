@@ -388,8 +388,11 @@ public final class MettleTest {
 		this.expect("true".equals(this.js(ALL_SHOWN.replace("TEST", "MC.rarityOf(c)==='rare'"))), "the binder shows only Rare cards");
 		this.ui.clickPage(".b-left [data-dd=\"b-trait\"]");
 		this.context.waitTicks(3);
-		String trait = this.js("(function(){var e=document.querySelectorAll('.ddm [data-ddv]');return e.length>1?e[1].getAttribute('data-ddv'):''})()");
-		this.expect(!trait.isEmpty(), "the trait menu lists the binder's traits");
+		// The menu lists every binder card's traits, not only the Rare ones on show, and the Blades card's traits are rolled
+		// (and sort ahead of Lucky), so the first option can be one no Rare card carries: pick one a shown card has.
+		this.expect(Integer.parseInt(this.js("String(document.querySelectorAll('.ddm [data-ddv]').length)")) > 1, "the trait menu lists the binder's traits");
+		String trait = this.js(TRAIT_ON_SHOWN);
+		this.expect(!trait.isEmpty(), "the trait menu offers a trait a shown Rare card carries");
 		this.ui.clickPage(".ddm [data-ddv=\"" + trait + "\"]");
 		this.context.waitTicks(3);
 		this.expect(trait.equals(this.js("MC.st.binder.trait")), "picking a trait set the filter");
@@ -667,6 +670,12 @@ public final class MettleTest {
 	private static final String ALL_SHOWN = "(function(){var ids=[].map.call(document.querySelectorAll('.bin-grid [data-bcard]'),function(e){return e.getAttribute('data-bcard')});"
 		+ "var all=MC.M.cards.binder.cards,by={};for(var i=0;i<all.length;i++)by[all[i].id]=all[i];"
 		+ "return String(ids.length>0&&ids.every(function(id){var c=by[id];return !!c&&(TEST)}))})()";
+
+	/** The first trait menu option that a card on show in the binder grid carries, or "". */
+	private static final String TRAIT_ON_SHOWN = "(function(){var all=MC.M.cards.binder.cards,by={},i;for(i=0;i<all.length;i++)by[all[i].id]=all[i];"
+		+ "var shown=[].map.call(document.querySelectorAll('.bin-grid [data-bcard]'),function(e){return by[e.getAttribute('data-bcard')]}).filter(Boolean);"
+		+ "var opts=document.querySelectorAll('.ddm [data-ddv]');for(i=0;i<opts.length;i++){var v=opts[i].getAttribute('data-ddv');"
+		+ "if(v&&shown.some(function(c){return (c.traits||[]).some(function(t){return t.id===v})}))return v}return ''})()";
 
 	/** Draws every perk and Mythic name (and the ranks) with MC.pix over the page; returns the names it cannot draw. */
 	private static final String NAMES_SHEET = "(function(){var M=MC.M,names=[],seen={},i;"
