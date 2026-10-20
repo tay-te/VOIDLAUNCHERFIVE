@@ -99,6 +99,11 @@ public final class DevCatalogue implements BlueprintService {
 	}
 
 	@Override
+	public int @Nullable [] dressColours(PlotSpec spec, TerrainProbe terrain) {
+		return this.real != null && this.real.archetype(spec.archetype()) != null ? this.real.dressColours(spec, terrain) : null;
+	}
+
+	@Override
 	public boolean prepare(PlotSpec spec, TerrainProbe terrain) {
 		// stand-ins are cheap: only the real ones are worth making in the background
 		return this.real == null || this.real.archetype(spec.archetype()) == null || this.real.prepare(spec, terrain);

@@ -3,7 +3,6 @@ package dev.voidmc.hearth.sim;
 import dev.voidmc.hearth.api.Culture;
 import dev.voidmc.hearth.api.HearthServices;
 import dev.voidmc.hearth.api.PlotSpec;
-import dev.voidmc.hearth.api.Silhouette;
 import dev.voidmc.hearth.api.testing.SyntheticTerrain;
 import dev.voidmc.hearth.sim.atlas.Atlas;
 import dev.voidmc.hearth.sim.atlas.RegionPlan;
@@ -113,39 +112,52 @@ class LodFootprintsBench {
 				}
 			}
 		}
-		Map<String, Silhouette> firstOfKind = new HashMap<>();
-		Map<String, PlotSpec> firstSpec = new HashMap<>();
+		Map<String, FarShape> firstOfKind = new HashMap<>();
+		Map<String, int[]> firstRoles = new HashMap<>();
 		long c0 = System.nanoTime();
 		int n = 0;
-		double eaveErr = 0, ridgeErr = 0, colErr = 0;
-		int exactSame = 0;
+		double colErr = 0, ownErr = 0, cellRatio = 0;
+		int exactSame = 0, shapes = 0, grey = 0;
+		double cover = 0;
+		long dressNanos = 0;
+		int dresses = 0;
 		for (int i = 0; i < specs.size(); i += 4) {
 			PlotSpec spec = specs.get(i);
-			Silhouette exact = HearthServices.blueprints().blueprint(spec, t).silhouette();
+			FarShape exact = LodFootprints.shapeOf(spec, t);
 			n++;
-			String kind = LodFootprints.kind(spec);
-			Silhouette first = firstOfKind.putIfAbsent(kind, exact);
-			firstSpec.putIfAbsent(kind, spec);
-			if (first != null) {
-				PlotSpec fs = firstSpec.get(kind);
-				int eaveRel = first.eaveY() - fs.floorY();
-				int rise = first.ridgeY() - first.eaveY();
-				int span = Math.min(fs.sizeX(), fs.sizeZ());
-				if (rise <= span) {
-					rise = Math.round(rise * Math.min(spec.sizeX(), spec.sizeZ()) / (float) span);
-				}
-				int eave = spec.floorY() + eaveRel;
-				eaveErr += Math.abs(eave - exact.eaveY());
-				ridgeErr += Math.abs(eave + rise - exact.ridgeY());
-				colErr += dist(first.wallColor(), exact.wallColor()) + dist(first.roofColor(), exact.roofColor());
-				exactSame++;
+			if (exact == null) {
+				continue;
 			}
+			shapes++;
+			cover += exact.cells() / (double) (spec.sizeX() * spec.sizeZ());
+			grey += greyish(exact.wall) && greyish(exact.roof) ? 1 : 0;
+			long d0 = System.nanoTime();
+			int[] dress = HearthServices.blueprints().dressColours(spec, t);
+			dressNanos += System.nanoTime() - d0;
+			dresses++;
+			String kind = LodFootprints.kind(spec);
+			FarShape first = firstOfKind.putIfAbsent(kind, exact);
+			if (first == null) {
+				firstRoles.put(kind, new int[]{indexOf(dress, exact.wall, 0), indexOf(dress, exact.roof, 5)});
+				continue;
+			}
+			int[] roles = firstRoles.get(kind);
+			int wall = roles[0] >= 0 && dress != null && dress[roles[0]] != 0 ? dress[roles[0]] : first.wall;
+			int roof = roles[1] >= 0 && dress != null && dress[roles[1]] != 0 ? dress[roles[1]] : first.roof;
+			colErr += dist(first.wall, exact.wall) + dist(first.roof, exact.roof);
+			ownErr += dist(wall, exact.wall) + dist(roof, exact.roof);
+			int[] painted = {0};
+			first.paint(spec.origin().getX(), spec.origin().getZ(), spec.sizeX(), spec.sizeZ(), spec.facing(), (x, z) -> painted[0]++);
+			cellRatio += painted[0] / (double) Math.max(1, exact.cells());
+			exactSame++;
 		}
 		double exactMs = (System.nanoTime() - c0) / 1e6;
 		System.out.printf("BENCH old way: %d finished plots in 256 regions; exact compile cold %.1f ms/plot (sampled %d) = ~%.0f ms/region%n",
 			specs.size(), exactMs / n, n, exactMs / n * specs.size() / 256);
-		System.out.printf("BENCH typical vs exact (%d plots): eave off %.2f blocks, ridge off %.2f blocks, colour off %.1f /255 per channel avg%n",
-			exactSame, eaveErr / exactSame, ridgeErr / exactSame, colErr / exactSame / 6);
+		System.out.printf("BENCH shapes: %d of %d sampled plots draw a building; it covers %.0f%% of its plot on average; %d grey (wall and roof)%n",
+			shapes, n, cover * 100 / Math.max(1, shapes), grey);
+		System.out.printf("BENCH typical vs exact (%d plots): colour off %.1f /255 per channel with the kind's colours, %.1f with their own dress; mask cells %.2fx exact; dress %.3f ms/plot%n",
+			exactSame, colErr / Math.max(1, exactSame) / 6, ownErr / Math.max(1, exactSame) / 6, cellRatio / Math.max(1, exactSame), dressNanos / 1e6 / Math.max(1, dresses));
 
 		// 3. restart: a fresh atlas (nothing planned) reading the file
 		Atlas fresh = new Atlas(Level.OVERWORLD, t, null, TestSupport.rules(), null, b -> Culture.TEMPERATE);
@@ -182,6 +194,24 @@ class LodFootprintsBench {
 		long v1 = System.nanoTime();
 		System.out.printf("BENCH reads on ready regions: sample %.5f ms (%d hits of 2M), chunk %.5f ms (%d hits of 200k), version %.5f ms%n",
 			(r1 - r0) / 1e6 / 2_000_000, hits, (r2 - r1) / 1e6 / 200_000, chits, (v1 - v0) / 1e6 / 200_000);
+	}
+
+	private static boolean greyish(int c) {
+		int r = c >> 16 & 255, g = c >> 8 & 255, b = c & 255;
+		return Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b)) < 16;
+	}
+
+	private static int indexOf(int[] dress, int colour, int start) {
+		if (dress == null) {
+			return -1;
+		}
+		for (int k = 0; k < dress.length; k++) {
+			int i = (start + k) % dress.length;
+			if (dress[i] == colour) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	private static int dist(int a, int b) {

@@ -4,7 +4,7 @@ import com.mojang.serialization.JsonOps;
 import dev.voidmc.hearth.Hearth;
 import dev.voidmc.hearth.api.HearthServices;
 import dev.voidmc.hearth.api.PlotSpec;
-import dev.voidmc.hearth.api.Silhouette;
+import dev.voidmc.hearth.api.PlotState;
 import dev.voidmc.hearth.api.TerrainProbe;
 import dev.voidmc.hearth.sim.atlas.Atlas;
 import dev.voidmc.hearth.sim.atlas.PlotColumns;
@@ -36,14 +36,18 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.storage.LevelResource;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Settlements as VOID LOD sees them at the horizon: for any column, whether a finished building stands there and its
- * silhouette (wall colour under roof colour, eave and ridge heights), read from {@link Silhouette}s rather than blocks.
+ * Settlements as VOID LOD sees them at the horizon: for any column, whether a building stands there (or is planned
+ * there) and its silhouette (wall colour under roof colour, eave and ridge heights), read from blueprints rather than
+ * blocks. Footprints are per building, not per plot: only the columns the building itself covers ({@link FarShape}),
+ * coloured with what it is actually built of (its walls' and roof's most common map colours: a Bohemian house reads
+ * white plaster under a shingle or red tile roof), with the ridge at the eave for a flat roof.
  * Read-only and thread-safe for LOD's workers; versioned per 1024-block region so LOD rebuilds only tiles whose region
  * changed. Built plots of live settlements come from their records (kept here as they finish), and the finished plots of
  * histories not yet adopted come from the atlas.
@@ -52,8 +56,13 @@ import org.jspecify.annotations.Nullable;
  *   LodFootprints f = LodFootprints.of(level);       // null where Hearth does not run
  *   long v = f.version(x >> 10, z >> 10);            // changed since the tile was built?
  *   int[] out = new int[3];
- *   if (f.sample(x, z, out)) { wall = out[0]; roof = out[1]; eave = out[2] >> 16; ridge = (short) out[2]; }
+ *   if (f.sample(x, z, out)) { wall = out[0] & 0xFFFFFF; roof = out[1] & 0xFFFFFF; eave = out[2] >> 16; ridge = (short) out[2];
+ *                              planned = out[0] >>> 24 == 0xFE; }
  * </pre>
+ *
+ * <p>The wall word's high byte is the column's state: 0xFF ({@link #BUILT}) a finished building, 0xFE ({@link #PLANNED})
+ * a plot a live settlement has planned or is building but not finished (LOD may draw it as a ghost, or not at all). The
+ * finished plots of worldgen histories not yet adopted (they are generated into the world with their chunks) are 0xFF.
  *
  * <h2>Cost (what a read may and may not do)</h2>
  * A read never computes. {@link #sample}, {@link #chunk} and {@link #version} look up a ready snapshot of the region (a
@@ -65,23 +74,23 @@ import org.jspecify.annotations.Nullable;
  * {@link #THREADS} regions at a time per level, and a queued region nobody has read or polled for {@link #STALE_MS}, or
  * farther than {@link #FAR_REGIONS} regions from every player, is dropped (a later read queues it again).
  *
- * <p>Building a snapshot paints live plots with their exact silhouettes (compiled once per plot, on the background
- * thread) and historic plots from a per-region list of painted rectangles kept for the life of the world. That list
+ * <p>Building a snapshot paints live plots with their exact shapes (compiled once per plot, on the background thread)
+ * and historic plots from a per-region list of placed plots kept for the life of the world. That list
  * comes from the atlas plan (the expensive part: it grows the history, 150 to 700 ms per settled region, unless the
  * atlas has it already; taken with {@link Atlas#planTransient} so the far view never pushes world generation's plans out
- * of the atlas cache), and each historic plot's silhouette is <i>typical</i>: the first plot of a kind (archetype,
- * style, tier and the params that shape it) is compiled exactly, and the rest of that kind take its eave height above
- * the floor, its roof rise scaled to their span and its colours, without a compile. The lists and the typical
- * silhouettes are saved per world ({@code data/hearth/lod/<dimension>.bin}, fingerprinted by seed, Hearth version and
- * sim config), so after a restart a historic region costs only the paint (about a millisecond), never a plan or a
- * compile. Typical against exact, over a thousand plots: eave 0.2 blocks off, ridge 0.9, colours about 20/255 per
- * channel (the seed's material variant); live plots (near the players) stay exact.
+ * of the atlas cache), and each historic plot's <i>shape</i> is typical: the first plot of a kind (archetype, style,
+ * tier and the params that shape it) is compiled exactly, and the rest of that kind take its mask (scaled to their
+ * plot, turned to their facing), its eave height above the floor and its roof rise scaled to their span, without a
+ * compile. Their <i>colours</i> are their own: the materials their own dress gives the roles the kind's walls and roof
+ * turned out to be made of ({@code BlueprintService#dressColours}: the variant, region and tier of each building), so a
+ * street of one kind of house still shows its plastered, brick and log fronts, its thatch, shingle and tile. The lists
+ * and the typical shapes are saved per world ({@code data/hearth/lod/<dimension>.bin}, fingerprinted by seed, Hearth
+ * version and sim config), so after a restart a historic region costs only the paint, never a plan or a compile. Live
+ * plots (near the players) stay exact.
  *
- * <p>Measured ({@code LodFootprintsBench}, 256 regions of hills, real catalogue and planner, 2 threads): a read 0.0002 ms
- * (p99.9 under 0.04 ms while regions build); cold, 65 s of background CPU for the 256 plans, nothing else of note; with
- * the plans made, 16 ms per region (first compile of each kind; the exact compile per plot it replaces cost about 120 ms
- * per region); after a restart, 0.2 ms per region and no plans. Before (a read built the region on LOD's thread): plan
- * plus about 120 ms of compiles on the first read of each region.
+ * <p>Measured ({@code LodFootprintsBench}, 256 regions of hills, real catalogue and planner, 2 threads): a read about
+ * 0.0002 ms; in the background, the plan per region when cold, a few milliseconds per region with the plans made (the
+ * first compile of each kind, each plot's dress), a fraction of one after a restart.
  */
 public final class LodFootprints {
 	/** Background threads per level, and in all (a shared daemon pool at minimum priority). */
@@ -93,7 +102,13 @@ public final class LodFootprints {
 	/** Snapshots kept in memory; beyond it the least recently read are dropped (and rebuilt from the lists on demand). */
 	static final int SNAPSHOT_CAP = 512;
 	/** Bumped whenever what the file holds, or how a silhouette is worked out, changes. */
-	private static final int FORMAT = 1;
+	private static final int FORMAT = 2;
+	/** The wall word's high byte (the column's state). */
+	public static final int STATE = 0xFF00_0000;
+	/** State: a finished (standing) building. */
+	public static final int BUILT = 0xFF00_0000;
+	/** State: planned or being built, not finished. */
+	public static final int PLANNED = 0xFE00_0000;
 
 	private static final ThreadPoolExecutor POOL;
 
@@ -108,30 +123,33 @@ public final class LodFootprints {
 		POOL.allowCoreThreadTimeOut(true);
 	}
 
-	/** A finished building. Its silhouette is worked out on first use, on the background thread. */
+	/** A live settlement's building, finished or planned. Its shape is worked out on first use, on the background thread. */
 	private static final class Entry {
 		final long settlement;
 		final int plot;
 		final PlotSpec spec;
-		private volatile @Nullable Silhouette silhouette;
-		private volatile boolean failed;
+		final boolean planned;
+		private volatile @Nullable FarShape shape;
+		private volatile boolean done;
 
-		Entry(long settlement, int plot, PlotSpec spec) {
+		Entry(long settlement, int plot, PlotSpec spec, boolean planned, @Nullable Entry was) {
 			this.settlement = settlement;
 			this.plot = plot;
 			this.spec = spec;
+			this.planned = planned;
+			// the same building planned, then finished: its shape is the same
+			if (was != null && was.done && was.spec.equals(spec)) {
+				this.shape = was.shape;
+				this.done = true;
+			}
 		}
 
-		@Nullable Silhouette silhouette(TerrainProbe terrain) {
-			Silhouette s = this.silhouette;
-			if (s == null && !this.failed) {
-				s = compile(this.spec, terrain);
-				if (s == null) {
-					this.failed = true;
-				}
-				this.silhouette = s;
+		@Nullable FarShape shape(TerrainProbe terrain) {
+			if (!this.done) {
+				this.shape = shapeOf(this.spec, terrain);
+				this.done = true;
 			}
-			return s;
+			return this.shape;
 		}
 	}
 
@@ -139,8 +157,11 @@ public final class LodFootprints {
 	private record Snapshot(long content, Long2ObjectMap<int[]> chunks) {
 	}
 
-	/** Painted rectangles, {@link #REC} ints each: x, z, sizeX, sizeZ, wall, roof, eave << 16 | ridge. */
-	private static final int REC = 7;
+	/**
+	 * Historic plots, {@link #REC} ints each: origin x, z, sizeX, sizeZ, facing (2D data value) << 24 | kind index (into
+	 * {@link #kindList}), wall, roof, eave << 16 | ridge.
+	 */
+	private static final int REC = 8;
 	private static final int[] NOTHING = new int[0];
 	private static final int IDLE = 0;
 	private static final int QUEUED = 1;
@@ -155,7 +176,7 @@ public final class LodFootprints {
 		/** Changes whenever anything in the region would draw differently. */
 		volatile long content = 1;
 		volatile @Nullable Snapshot snapshot;
-		/** The historic plots' rectangles (from the atlas plan, or the file), once known. */
+		/** The historic plots (from the atlas plan, or the file), once known. */
 		volatile int @Nullable [] historic;
 		volatile long wanted;
 		volatile long read;
@@ -170,28 +191,46 @@ public final class LodFootprints {
 		}
 	}
 
-	/** How one kind of building stands, relative to its floor: what historic plots of that kind are drawn from. */
-	private record Typical(int eaveRel, int ridgeRel, int span, int wall, int roof) {
-		static final Typical NONE = new Typical(0, 0, -1, 0, 0);
+	/**
+	 * How one kind of building stands: the shape of its first plot (null: it draws nothing), that plot's span (the roof
+	 * rise scales with it), and which {@code BlueprintService#DRESS_ROLES} its walls and roof turned out to be made of
+	 * (-1: none of them; the shape's own colour is used then).
+	 */
+	private record Typical(@Nullable FarShape shape, int span, int wallRole, int roofRole) {
+		static final Typical NONE = new Typical(null, -1, -1, -1);
 
-		static Typical of(PlotSpec spec, Silhouette s) {
-			return new Typical(s.eaveY() - spec.floorY(), s.ridgeY() - spec.floorY(), span(spec), s.wallColor(), s.roofColor());
-		}
-
-		Silhouette at(PlotSpec spec) {
-			int eave = spec.floorY() + this.eaveRel;
-			int rise = Math.max(0, this.ridgeRel - this.eaveRel);
+		/** Eave << 16 | ridge on another plot of the kind. */
+		int packed(PlotSpec spec) {
+			FarShape s = this.shape;
+			int eave = spec.floorY() + s.eaveRel;
+			int rise = Math.max(0, s.ridgeRel - s.eaveRel);
 			// a roof (its rise no more than its span) grows with the span; a tower or spire keeps its height
 			if (this.span > 0 && rise <= this.span) {
 				rise = Math.round(rise * span(spec) / (float) this.span);
 			}
-			int ridge = Math.max(eave, Math.min(eave + rise, spec.floorY() + Math.max(spec.maxHeight(), this.ridgeRel)));
-			return new Silhouette(this.wall, this.roof, eave, ridge);
+			int ridge = Math.max(eave, Math.min(eave + rise, spec.floorY() + Math.max(spec.maxHeight(), s.ridgeRel)));
+			return eave << 16 | ridge & 0xFFFF;
 		}
 
 		static int span(PlotSpec spec) {
 			return Math.min(spec.sizeX(), spec.sizeZ());
 		}
+	}
+
+	/** Which dress role a colour is, roof roles first for a roof; -1 if none. */
+	private static int role(int @Nullable [] dress, int colour, boolean roof) {
+		if (dress == null) {
+			return -1;
+		}
+		int n = dress.length;
+		int start = roof ? Math.min(5, n - 1) : 0;
+		for (int k = 0; k < n; k++) {
+			int i = (start + k) % n;
+			if (dress[i] == colour) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	private final Atlas atlas;
@@ -200,7 +239,9 @@ public final class LodFootprints {
 	private final Supplier<long[]> players;
 	private final Map<Long, Region> regions = new ConcurrentHashMap<>();
 	private final Set<Long> adopted = ConcurrentHashMap.newKeySet();
-	private final Map<String, Typical> typicals = new ConcurrentHashMap<>();
+	/** The kinds seen, in the order first seen (historic plots name them by index), and their indexes by key. */
+	private final List<Typical> kindList = new CopyOnWriteArrayList<>();
+	private final Map<String, Integer> kindIndex = new ConcurrentHashMap<>();
 	private final AtomicInteger workers = new AtomicInteger();
 	private final AtomicLong seq = new AtomicLong();
 	private final AtomicInteger snapshots = new AtomicInteger();
@@ -267,59 +308,78 @@ public final class LodFootprints {
 
 	// ---------------------------------------------------------------- updates (server thread)
 
-	/** Per live settlement: which of its plots are drawn, and in which region (so updates never scan every region). */
-	private final Map<Long, Map<Integer, Long>> drawn = new ConcurrentHashMap<>();
-
-	/** A plot finished: it now shows at the horizon. Cheap: no blueprint is generated here (see {@link Entry}). */
-	public void built(SimSettlement s, SimPlot p) {
-		if (PlotColumns.isLine(p.spec())) {
-			return;
-		}
-		Map<Integer, Long> mine = this.drawn.computeIfAbsent(s.id(), k -> new ConcurrentHashMap<>());
-		long key = key(p.spec());
-		Long was = mine.put(p.id(), key);
-		if (was != null) {
-			Region old = this.regions.get(was);
-			if (old != null) {
-				old.live.removeIf(e -> e.settlement == s.id() && e.plot == p.id());
-				changed(old);
-			}
-		}
-		Region r = region(key);
-		r.live.add(new Entry(s.id(), p.id(), p.spec()));
-		changed(r);
+	/** Where a live plot is drawn, and whether as planned. */
+	private record Drawn(long region, boolean planned) {
 	}
 
-	/** Re-reads a settlement's standing plots (after adoption, removals, or loading): O(plots), no blueprints. */
+	/** Per live settlement: which of its plots are drawn, and in which region (so updates never scan every region). */
+	private final Map<Long, Map<Integer, Drawn>> drawn = new ConcurrentHashMap<>();
+
+	/** A plot finished (or changed state): it now shows at the horizon as it stands. Cheap: no blueprint is generated here. */
+	public void built(SimSettlement s, SimPlot p) {
+		update(s, p);
+	}
+
+	/**
+	 * Re-reads a settlement's plots (after adoption, plans, removals, or loading): O(plots), no blueprints. Finished (and
+	 * abandoned, still standing) buildings are drawn as built; planned and building plots with {@link #PLANNED}.
+	 */
 	public void refresh(SimSettlement s) {
 		if (s.originRegion() != SimSettlement.NO_REGION) {
 			if (this.adopted.add(s.originRegion())) {
-				Region r = this.regions.get(s.originRegion());
-				if (r != null) {
-					changed(r);
-				}
+				// the history there is the settlement's own now: stop drawing it from the atlas
+				changed(region(s.originRegion()));
 			}
 		}
-		Map<Integer, Long> mine = this.drawn.computeIfAbsent(s.id(), k -> new ConcurrentHashMap<>());
-		var it = mine.entrySet().iterator();
-		while (it.hasNext()) {
-			var en = it.next();
-			SimPlot p = s.plot(en.getKey());
-			if (p == null || !p.isStanding() || key(p.spec()) != en.getValue()) {
-				it.remove();
-				Region r = this.regions.get(en.getValue());
-				if (r != null) {
-					int id = en.getKey();
-					r.live.removeIf(e -> e.settlement == s.id() && e.plot == id);
-					changed(r);
+		Map<Integer, Drawn> mine = this.drawn.computeIfAbsent(s.id(), k -> new ConcurrentHashMap<>());
+		for (Integer id : List.copyOf(mine.keySet())) {
+			if (s.plot(id) == null) {
+				Drawn was = mine.remove(id);
+				if (was != null) {
+					remove(s.id(), id, was);
 				}
 			}
 		}
 		for (SimPlot p : s.plots()) {
-			if (p.isStanding() && !mine.containsKey(p.id())) {
-				built(s, p);
+			update(s, p);
+		}
+	}
+
+	private void update(SimSettlement s, SimPlot p) {
+		if (PlotColumns.isLine(p.spec())) {
+			return;
+		}
+		PlotState st = p.state();
+		boolean standing = st == PlotState.BUILT || st == PlotState.ABANDONED;
+		boolean planned = st == PlotState.PLANNED || st == PlotState.BUILDING;
+		Map<Integer, Drawn> mine = this.drawn.computeIfAbsent(s.id(), k -> new ConcurrentHashMap<>());
+		Drawn now = standing || planned ? new Drawn(key(p.spec()), planned) : null;
+		Drawn was = now == null ? mine.remove(p.id()) : mine.put(p.id(), now);
+		if (java.util.Objects.equals(was, now)) {
+			return;
+		}
+		Entry old = was == null ? null : remove(s.id(), p.id(), was);
+		if (now != null) {
+			Region r = region(now.region);
+			r.live.add(new Entry(s.id(), p.id(), p.spec(), planned, old));
+			changed(r);
+		}
+	}
+
+	private @Nullable Entry remove(long settlement, int plot, Drawn was) {
+		Region r = this.regions.get(was.region);
+		if (r == null) {
+			return null;
+		}
+		Entry found = null;
+		for (Entry e : r.live) {
+			if (e.settlement == settlement && e.plot == plot) {
+				found = e;
+				r.live.remove(e);
 			}
 		}
+		changed(r);
+		return found;
 	}
 
 	/** The region draws differently now: rebuild it in the background if LOD has looked at it (the version changes then). */
@@ -368,8 +428,9 @@ public final class LodFootprints {
 	}
 
 	/**
-	 * Fills {@code out} with the column's {wall colour, roof colour, eave << 16 | ridge} and returns true if a finished
-	 * building stands there. False, at once, while the region is not ready (it is then queued; see the class notes).
+	 * Fills {@code out} with the column's {wall colour (its high byte the state: {@link #BUILT} or {@link #PLANNED}), roof colour, eave << 16 | ridge}
+	 * and returns true if a building stands there or is planned there. False, at once, while the region is not ready (it
+	 * is then queued; see the class notes).
 	 */
 	public boolean sample(int x, int z, int[] out) {
 		Snapshot snap = snapshot(Atlas.region(x), Atlas.region(z));
@@ -562,17 +623,28 @@ public final class LodFootprints {
 		long content = r.content;
 		long key = Atlas.regionKey(r.rx, r.rz);
 		Long2ObjectOpenHashMap<int[]> chunks = new Long2ObjectOpenHashMap<>();
-		for (Entry e : r.live) {
-			Silhouette sil = e.silhouette(this.terrain);
-			if (sil != null) {
-				paint(chunks, e.spec.origin().getX(), e.spec.origin().getZ(), e.spec.sizeX(), e.spec.sizeZ(), sil.wallColor(), sil.roofColor(),
-					sil.eaveY() << 16 | sil.ridgeY() & 0xFFFF);
-			}
-		}
 		if (!this.adopted.contains(key) && this.atlas.enabled()) {
 			int[] h = historic(r);
 			for (int i = 0; i + REC <= h.length; i += REC) {
-				paint(chunks, h[i], h[i + 1], h[i + 2], h[i + 3], h[i + 4], h[i + 5], h[i + 6]);
+				int k = h[i + 4] & 0xFF_FFFF;
+				FarShape shape = k < this.kindList.size() ? this.kindList.get(k).shape : null;
+				if (shape != null) {
+					paint(chunks, shape, h[i], h[i + 1], h[i + 2], h[i + 3], Direction.from2DDataValue(h[i + 4] >>> 24), h[i + 5], h[i + 6], h[i + 7]);
+				}
+			}
+		}
+		// live plots over the history; planned ones first, so a finished building over a planned one (a rebuild) shows
+		for (int pass = 0; pass < 2; pass++) {
+			for (Entry e : r.live) {
+				if (e.planned != (pass == 0)) {
+					continue;
+				}
+				FarShape shape = e.shape(this.terrain);
+				if (shape != null) {
+					PlotSpec sp = e.spec;
+					paint(chunks, shape, sp.origin().getX(), sp.origin().getZ(), sp.sizeX(), sp.sizeZ(), sp.facing(), shape.wall & 0xFF_FFFF | (e.planned ? PLANNED : BUILT),
+						shape.roof, (sp.floorY() + shape.eaveRel) << 16 | sp.floorY() + shape.ridgeRel & 0xFFFF);
+				}
 			}
 		}
 		chunks.trim();
@@ -621,7 +693,7 @@ public final class LodFootprints {
 		}
 	}
 
-	/** The region's historic rectangles: from memory, the file, or (once per world) the atlas plan. */
+	/** The region's historic plots: from memory, the file, or (once per world) the atlas plan. */
 	private int[] historic(Region r) {
 		int[] h = r.historic;
 		if (h != null) {
@@ -635,14 +707,34 @@ public final class LodFootprints {
 		RegionPlan plan = this.atlas.planTransient(r.rx, r.rz);
 		IntArrayList out = new IntArrayList();
 		for (RegionPlan.HistoricPlot hp : plan.plots()) {
-			if (hp.completed() >= hp.stageCount() && !hp.road()) {
-				PlotSpec spec = hp.spec();
-				Silhouette s = typical(spec);
-				if (s != null) {
-					out.addAll(IntArrayList.of(spec.origin().getX(), spec.origin().getZ(), spec.sizeX(), spec.sizeZ(), s.wallColor() | 0xFF00_0000,
-						s.roofColor() | 0xFF00_0000, s.eaveY() << 16 | s.ridgeY() & 0xFFFF));
+			if (hp.completed() < hp.stageCount() || hp.road() || PlotColumns.isLine(hp.spec())) {
+				continue;
+			}
+			PlotSpec spec = hp.spec();
+			int k = typical(spec);
+			boolean first = k < 0;
+			k = first ? ~k : k;
+			Typical t = this.kindList.get(k);
+			FarShape shape = t.shape;
+			if (shape == null) {
+				continue;
+			}
+			int wall = shape.wall;
+			int roof = shape.roof;
+			if (!first && (t.wallRole >= 0 || t.roofRole >= 0)) {
+				// the kind's shape, this building's own dress
+				int[] dress = dress(spec);
+				if (dress != null) {
+					if (t.wallRole >= 0 && dress[t.wallRole] != 0) {
+						wall = dress[t.wallRole];
+					}
+					if (t.roofRole >= 0 && dress[t.roofRole] != 0) {
+						roof = dress[t.roofRole];
+					}
 				}
 			}
+			out.addAll(IntArrayList.of(spec.origin().getX(), spec.origin().getZ(), spec.sizeX(), spec.sizeZ(), spec.facing().get2DDataValue() << 24 | k,
+				wall, roof, t.packed(spec)));
 		}
 		h = out.isEmpty() ? NOTHING : out.toIntArray();
 		r.historic = h;
@@ -650,17 +742,41 @@ public final class LodFootprints {
 		return h;
 	}
 
-	/** What a historic plot looks like from far away: its kind's typical silhouette, compiling only the first of a kind. */
-	private @Nullable Silhouette typical(PlotSpec spec) {
+	/**
+	 * The index of a historic plot's kind in {@link #kindList}, compiling only the first of a kind; {@code ~index} when this
+	 * call compiled it (this plot's own shape and colours, exactly).
+	 */
+	private int typical(PlotSpec spec) {
 		String kind = kind(spec);
-		Typical t = this.typicals.get(kind);
-		if (t == null) {
-			this.compiles.incrementAndGet();
-			Silhouette s = compile(spec, this.terrain);
-			this.typicals.putIfAbsent(kind, s == null ? Typical.NONE : Typical.of(spec, s));
-			return s;
+		Integer k = this.kindIndex.get(kind);
+		if (k != null) {
+			return k;
 		}
-		return t == Typical.NONE || t.span < 0 ? null : t.at(spec);
+		this.compiles.incrementAndGet();
+		FarShape shape = shapeOf(spec, this.terrain);
+		Typical t = Typical.NONE;
+		if (shape != null) {
+			int[] dress = dress(spec);
+			t = new Typical(shape, Typical.span(spec), role(dress, shape.wall, false), role(dress, shape.roof, true));
+		}
+		synchronized (this.kindList) {
+			k = this.kindIndex.get(kind);
+			if (k != null) {
+				return k;
+			}
+			k = this.kindList.size();
+			this.kindList.add(t);
+			this.kindIndex.put(kind, k);
+		}
+		return ~k;
+	}
+
+	private int @Nullable [] dress(PlotSpec spec) {
+		try {
+			return HearthServices.blueprints().dressColours(spec, this.terrain);
+		} catch (RuntimeException e) {
+			return null;
+		}
 	}
 
 	/** What a silhouette depends on besides size and place: archetype, style, tier and the params that shape the body. */
@@ -669,25 +785,27 @@ public final class LodFootprints {
 			+ "|" + spec.paramString("wall", "") + "|" + spec.paramInt("wall_height", -1) + "|" + (spec.paramInt("stacked_on", -1) >= 0);
 	}
 
-	private static @Nullable Silhouette compile(PlotSpec spec, TerrainProbe terrain) {
+	/** A plot's exact shape (a compile), or null where it covers nothing or its archetype no longer exists. */
+	static @Nullable FarShape shapeOf(PlotSpec spec, TerrainProbe terrain) {
 		try {
-			return HearthServices.blueprints().blueprint(spec, terrain).silhouette();
+			return FarShape.of(HearthServices.blueprints().blueprint(spec, terrain));
 		} catch (RuntimeException e) {
-			// an archetype that no longer exists draws nothing
 			return null;
 		}
 	}
 
-	private static void paint(Long2ObjectOpenHashMap<int[]> chunks, int ox, int oz, int sx, int sz, int wall, int roof, int packed) {
-		for (int x = ox; x < ox + sx; x++) {
-			for (int z = oz; z < oz + sz; z++) {
-				int[] cols = chunks.computeIfAbsent(ChunkPos.pack(x >> 4, z >> 4), k -> new int[256 * 3]);
-				int i = ((z & 15) << 4 | x & 15) * 3;
-				cols[i] = wall | 0xFF00_0000;
-				cols[i + 1] = roof | 0xFF00_0000;
-				cols[i + 2] = packed;
-			}
-		}
+	private static void paint(Long2ObjectOpenHashMap<int[]> chunks, FarShape shape, int ox, int oz, int sx, int sz, Direction facing, int wall, int roof,
+		int packed) {
+		// the state byte: built unless the caller said planned (historic plots pass a bare colour)
+		int w = (wall & STATE) == PLANNED ? wall : wall & 0xFF_FFFF | BUILT;
+		int rf = roof | 0xFF00_0000;
+		shape.paint(ox, oz, sx, sz, facing, (x, z) -> {
+			int[] cols = chunks.computeIfAbsent(ChunkPos.pack(x >> 4, z >> 4), k -> new int[256 * 3]);
+			int i = ((z & 15) << 4 | x & 15) * 3;
+			cols[i] = w;
+			cols[i + 1] = rf;
+			cols[i + 2] = packed;
+		});
 	}
 
 	// ---------------------------------------------------------------- the file
@@ -733,9 +851,36 @@ public final class LodFootprints {
 					Hearth.LOG.info("hearth: LOD footprints in {} are from another world or version; drawing afresh", this.file);
 				} else {
 					int kinds = in.readInt();
+					// the file's kind indexes to ours (the same unless kinds were seen before the file was read)
+					int[] remap = new int[kinds];
 					for (int i = 0; i < kinds; i++) {
-						String k = in.readUTF();
-						this.typicals.putIfAbsent(k, new Typical(in.readInt(), in.readInt(), in.readInt(), in.readInt(), in.readInt()));
+						String key = in.readUTF();
+						Typical t = Typical.NONE;
+						if (in.readBoolean()) {
+							int span = in.readInt();
+							int wallRole = in.readInt();
+							int roofRole = in.readInt();
+							int f = in.readInt();
+							int d = in.readInt();
+							int wall = in.readInt();
+							int roof = in.readInt();
+							int eave = in.readInt();
+							int ridge = in.readInt();
+							long[] bits = new long[in.readInt()];
+							for (int j = 0; j < bits.length; j++) {
+								bits[j] = in.readLong();
+							}
+							t = new Typical(new FarShape(f, d, bits, wall, roof, eave, ridge), span, wallRole, roofRole);
+						}
+						synchronized (this.kindList) {
+							Integer k = this.kindIndex.get(key);
+							if (k == null) {
+								k = this.kindList.size();
+								this.kindList.add(t);
+								this.kindIndex.put(key, k);
+							}
+							remap[i] = k;
+						}
 					}
 					int count = in.readInt();
 					for (int i = 0; i < count; i++) {
@@ -743,6 +888,10 @@ public final class LodFootprints {
 						int[] h = new int[in.readInt()];
 						for (int j = 0; j < h.length; j++) {
 							h[j] = in.readInt();
+						}
+						for (int j = 4; j < h.length; j += REC) {
+							int k = h[j] & 0xFF_FFFF;
+							h[j] = h[j] & 0xFF00_0000 | (k < remap.length ? remap[k] : 0xFF_FFFF);
 						}
 						Region r = region(key);
 						if (r.historic == null) {
@@ -775,16 +924,38 @@ public final class LodFootprints {
 				try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new GZIPOutputStream(Files.newOutputStream(tmp))))) {
 					out.writeInt(FORMAT);
 					out.writeLong(fingerprint());
-					var kinds = new ArrayList<>(this.typicals.entrySet());
+					List<Typical> kinds;
+					String[] keys;
+					synchronized (this.kindList) {
+						kinds = List.copyOf(this.kindList);
+						keys = new String[kinds.size()];
+						this.kindIndex.forEach((k, i) -> {
+							if (i < keys.length) {
+								keys[i] = k;
+							}
+						});
+					}
 					out.writeInt(kinds.size());
-					for (var en : kinds) {
-						Typical t = en.getValue();
-						out.writeUTF(en.getKey());
-						out.writeInt(t.eaveRel);
-						out.writeInt(t.ridgeRel);
-						out.writeInt(t.span);
-						out.writeInt(t.wall);
-						out.writeInt(t.roof);
+					for (int i = 0; i < kinds.size(); i++) {
+						Typical t = kinds.get(i);
+						out.writeUTF(keys[i] == null ? "?" + i : keys[i]);
+						FarShape sh = t.shape;
+						out.writeBoolean(sh != null);
+						if (sh != null) {
+							out.writeInt(t.span);
+							out.writeInt(t.wallRole);
+							out.writeInt(t.roofRole);
+							out.writeInt(sh.frontage);
+							out.writeInt(sh.depth);
+							out.writeInt(sh.wall);
+							out.writeInt(sh.roof);
+							out.writeInt(sh.eaveRel);
+							out.writeInt(sh.ridgeRel);
+							out.writeInt(sh.bits.length);
+							for (long b : sh.bits) {
+								out.writeLong(b);
+							}
+						}
 					}
 					List<Region> known = new ArrayList<>();
 					for (Region r : this.regions.values()) {
