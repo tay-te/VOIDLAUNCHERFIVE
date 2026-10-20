@@ -109,6 +109,11 @@ uniform vec4 void_wind;
 uniform float void_storm;
 #endif
 #endif
+#ifndef WU_colortex5
+#define WU_colortex5
+uniform sampler2D colortex5;
+#endif
+#define WELKIN_GUST_MAP
 #include "/lib/sway.glsl"
 #endif
 
@@ -157,10 +162,16 @@ void main() {
 #endif
 	// (the grass block's top takes the field too, for the sheen only: from a little way off a meadow is mostly its
 	// ground, and the band must read across it)
-	if (WIND_GUSTS > 0.0 && (welkinGusted(material) || (WIND_SHEEN > 0.0 && material == M_GRASS_BLOCK && normalW.y > 0.5))
-		&& WG_DEBUG != 2) {
-		vec2 absXZ = vec2(cameraPositionInt.xz) + (cameraPositionFract.xz + eyePos.xz);
-		gustV = welkinGust(absXZ, frameTimeCounter, wind, max(live ? void_storm : 0.0, 0.6 * rainStrength));
+	// Only a plant's moving vertices (its anchored root takes none, so its sheen fades down to the root, as a bending
+	// blade's would). The field comes from prepare's gust map (lib/sway.glsl welkinGustMap).
+	if (WIND_GUSTS > 0.0 && WG_DEBUG != 2 && (welkinGustedVertex(material, at_midBlock.xyz)
+		|| (WIND_SHEEN > 0.0 && material == M_GRASS_BLOCK && normalW.y > 0.5))) {
+		// (the map reaches 256 blocks out; it fades from 224)
+		float reach = 1.0 - smoothstep(224.0, 248.0, max(abs(eyePos.x), abs(eyePos.z)));
+		if (reach > 0.0) {
+			vec2 absXZ = vec2(cameraPositionInt.xz) + (cameraPositionFract.xz + eyePos.xz);
+			gustV = reach * welkinGustMap(absXZ);
+		}
 	}
 	eyePos += welkinSway(material, worldPos, at_midBlock.xyz, frameTimeCounter, wind, gustV); // (no sway kind: none)
 	gl_Position = gl_ProjectionMatrix * (gbufferModelView * vec4(eyePos, 1.0));

@@ -4,7 +4,8 @@
 // phase, rain and thunder, and Gloam's void_sky, void_light, void_cloudCover, void_storm, void_haze and
 // void_hazeKind where it sends them (lib/sky/inputs.glsl falls back per value).
 //
-// The viewport is the buffer's 64x32 (size.buffer.colortex5 in shaders.properties), so this is 2048 fragments.
+// The viewport is the buffer's 192x128 (size.buffer.colortex5 in shaders.properties): the table is its corner 64x32;
+// (D11) columns 64..191 hold the gust map (lib/sway.glsl welkinGustMap), 16384 texels of the gust field.
 
 #include "/lib/common.glsl"
 
@@ -42,6 +43,25 @@ uniform float frameTime;
 #define WU_frameTimeCounter
 uniform float frameTimeCounter;
 #endif
+// (D11) the gust map's inputs
+#include "/lib/void.glsl"
+#ifndef WU_cameraPositionInt
+#define WU_cameraPositionInt
+uniform ivec3 cameraPositionInt;
+#endif
+#ifndef WU_rainStrength
+#define WU_rainStrength
+uniform float rainStrength;
+#endif
+#ifndef WU_void_wind
+#define WU_void_wind
+uniform vec4 void_wind;
+#endif
+#ifndef WU_void_storm
+#define WU_void_storm
+uniform float void_storm;
+#endif
+#include "/lib/sway.glsl"
 
 // x (> 0, in a half float's normal range) rounded to a half float's 11 significant bits
 float probeHalf(float x) {
@@ -50,7 +70,24 @@ float probeHalf(float x) {
 }
 
 void main() {
-	outTable = skyBuildTexel(ivec2(gl_FragCoord.xy));
+	ivec2 t = ivec2(gl_FragCoord.xy);
+	if (t.x >= WG_MAP_X) {
+		// (D11) the gust field at this texel's world cell (the same inputs the terrain and the shadow pass use)
+		vec2 gs = vec2(0.0);
+		if (WIND_GUSTS > 0.0) {
+			bool live = void_bridge == 1 && BRIDGE_MODE == 0;
+			vec4 wind = live ? void_wind : welkinWindFallback(rainStrength);
+			vec2 P = vec2(welkinGustCellOf(t - ivec2(WG_MAP_X, 0), cameraPositionInt.xz)) * WG_MAP_CELL;
+			gs = welkinGust(P, frameTimeCounter, wind, max(live ? void_storm : 0.0, 0.6 * rainStrength), false);
+		}
+		outTable = vec4(gs, 0.0, 1.0);
+		return;
+	}
+	if (t.y >= 32) {
+		outTable = vec4(0.0);
+		return;
+	}
+	outTable = skyBuildTexel(t);
 	if (ivec2(gl_FragCoord.xy) == ivec2(0, 30)) {
 		vec4 prev = texelFetch(colortex5, ivec2(0, 30), 0);
 		bool filming = abs(frameTimeCounter - 100.0) < 2.0;

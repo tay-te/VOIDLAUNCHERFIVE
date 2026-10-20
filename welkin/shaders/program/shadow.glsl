@@ -121,9 +121,9 @@ void main() {
 		vec3 worldPos = vec3(cameraPositionInt & 1023) + cameraPositionFract + playerPos;
 		// D11: the same gust fronts, so the shadows lean with the plants
 		vec2 gs = vec2(0.0);
-		if (WIND_GUSTS > 0.0 && welkinGusted(material)) {
+		if (WIND_GUSTS > 0.0 && welkinGustedVertex(material, at_midBlock.xyz)) {
 			vec2 absXZ = vec2(cameraPositionInt.xz) + (cameraPositionFract.xz + playerPos.xz);
-			gs = welkinGust(absXZ, frameTimeCounter, wind, max(live ? void_storm : 0.0, 0.6 * rainStrength));
+			gs = welkinGust(absXZ, frameTimeCounter, wind, max(live ? void_storm : 0.0, 0.6 * rainStrength), false);
 		}
 		playerPos += welkinSway(material, worldPos, at_midBlock.xyz, frameTimeCounter, wind, gs) * swayKeep;
 		view = shadowModelView * vec4(playerPos, 1.0);
