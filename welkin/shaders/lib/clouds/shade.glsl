@@ -37,6 +37,11 @@
 #include "/lib/sky/dome.glsl"
 #include "/lib/fade.glsl"
 
+#ifndef WU_sunAngle
+#define WU_sunAngle
+uniform float sunAngle;
+#endif
+
 #define WC_CREAM vec3(1.00, 0.94, 0.82)
 #define WC_GOLD vec3(1.00, 0.84, 0.55)
 #define WC_ORANGE vec3(1.00, 0.66, 0.40)
@@ -120,6 +125,8 @@
 #define WD10_BELLY_OUTER 0.42
 #define WD10_BELLY_BODY 0.22
 #define WS_DUSK_SHADE vec3(0.84, 0.80, 0.98) // (Look D3: less violet, was (0.78, 0.74, 1.0): in scene light it read lilac)
+// (Look D10) the dawn's shade away from the sun: a rose-mauve under the coming light (the evening keeps WS_DUSK_SHADE)
+#define WS_DAWN_SHADE vec3(0.98, 0.82, 0.88)
 #define WS_CLOSED_KEEP 0.75
 #define WS_STORM_HEART 0.32
 #define WS_STORM_CELL 0.6
@@ -592,7 +599,8 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 	// through the warm hours, warmer toward a sunset sun (a backlit belly holds the low light's ember)
 	vec3 skyHue = skyZenith() / max(wcLuma(skyZenith()), 1e-4);
 	vec3 shadeHue = mix(WS_NOON_SHADE, skyHue, WS_SHADE_SKY);
-	shadeHue = mix(shadeHue, mix(WS_DUSK_SHADE, vec3(0.92, 0.70, 0.72), 0.6 * sw * sw * dusk), warm);
+	float mornC = sunAngle < 0.25 || sunAngle > 0.75 ? 1.0 : 0.0;
+	shadeHue = mix(shadeHue, mix(mix(WS_DUSK_SHADE, WS_DAWN_SHADE, mornC), vec3(0.92, 0.70, 0.72), 0.6 * sw * sw * dusk), warm);
 	shadeHue = pow(max(shadeHue, vec3(1e-4)), vec3(1.6));
 	shadeHue /= max(wcLuma(shadeHue), 1e-4);
 	// (Look D3) painted natively in scene light, against the sky behind the cloud in scene light (`skyS`): no display

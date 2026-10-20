@@ -26,6 +26,7 @@
 // The day's pulls of the sky's blue toward a blue-grey and of lavender toward a warm grey ease off, and the shade takes a
 // blue-violet: the twilight's deep blue overhead stays
 float gradeBlueHour = 0.0;
+float gradeBlueShade = 0.0; // (Look D10) the blue hour's blue-violet shade split, gone once the sun is up
 // (Look D6) a storm, 0..1: a closed sky with rain at the eye or a strong front over it (final sets it before the grade). A
 // plain overcast stays calm, cool and soft; a storm goes cool, deep and contrasty: no lifted toe, deeper mids, a stronger
 // S, a cool slate gain and a blue shade, so its light breaking through and its bright horizon carry the frame
@@ -60,6 +61,8 @@ float gradeLuma(vec3 c) {
 #define GRADE_BLUE_SKY 0.7
 #define GRADE_BLUE_CLOUD 0.6
 #define GRADE_BLUE_DEEP 0.18
+// (Look D10) the clouds' share of the dawn's rose-gold once the sun is up
+#define GRADE_DAWN_CLOUD 0.3
 
 vec3 gradeHsv(vec3 c) {
 	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -204,7 +207,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		float wLo = 1.0 - smoothstep(0.06, 0.42, yd);
 		// the highlights: a neutral warmth by day, gold through the golden hours (rose-gold in the morning)
 		vec3 hiDay = vec3(1.05, 1.0, 0.92); // (look3: a warmer sunlit side, was 1.035 1.0 0.94)
-		vec3 hiGold = mix(vec3(1.09, 0.99, 0.82), vec3(1.09, 0.975, 0.84), morn); // (look2: richer gold; D1: the morning a pink-gold; D3: a pale gold)
+		vec3 hiGold = mix(vec3(1.09, 0.99, 0.82), vec3(1.09, 0.965, 0.88), morn); // (look2: richer gold; D1: the morning a pink-gold; D3: a pale gold; D10: a rose-gold, was (1.09, 0.975, 0.84))
 		vec3 hiOver = vec3(1.0, 1.0, 0.99);
 		vec3 hiNight = vec3(0.96, 0.99, 1.04);
 		vec3 hi = mix(mix(hiDay, hiGold, warm), hiOver, over * 0.7);
@@ -218,7 +221,7 @@ vec3 welkinGrade(vec3 c, vec4 h, float open) {
 		vec3 loMorn = vec3(1.02, 0.965, 1.0);
 		vec3 lo = mix(mix(loDay, mix(loGold, loMorn, morn), warm), loNight, night);
 		// (Look D5) the blue hour's shade a blue-violet (the land and the clouds' bellies under the twilit sky)
-		lo = mix(lo, vec3(0.92, 0.93, 1.16), gradeBlueHour);
+		lo = mix(lo, vec3(0.92, 0.93, 1.16), gradeBlueShade);
 		// (Look D6) a storm's shade a cool blue slate; its lit parts neutral
 		lo = mix(lo, vec3(0.90, 0.97, 1.13), gradeStorm);
 		hi = mix(hi, vec3(1.0, 1.0, 0.98), gradeStorm);
