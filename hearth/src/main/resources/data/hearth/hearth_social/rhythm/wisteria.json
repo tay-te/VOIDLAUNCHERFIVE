@@ -1,0 +1,31 @@
+{
+	"rest_weekday": 2,
+	"service": {
+		"name": "blessing",
+		"chant": [
+			12,
+			16,
+			19,
+			16,
+			12,
+			-1,
+			14,
+			16,
+			12,
+			-1,
+			-1,
+			-1
+		]
+	},
+	"wash": {
+		"places": [
+			"river",
+			"lake",
+			"fountain",
+			"well"
+		]
+	},
+	"tavern": {
+		"instrument": "chime"
+	}
+}

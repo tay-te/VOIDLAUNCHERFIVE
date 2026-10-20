@@ -1,0 +1,34 @@
+{
+	"rest_weekday": 4,
+	"service": {
+		"name": "prayers",
+		"start": 600,
+		"minutes": 75,
+		"chant": [
+			7,
+			9,
+			11,
+			9,
+			7,
+			-1,
+			4,
+			7,
+			-1,
+			-1
+		]
+	},
+	"curfew": 1230,
+	"tavern": {
+		"open": 1080,
+		"close": 1350,
+		"instrument": "flute"
+	},
+	"watch": {
+		"from": 1230,
+		"to": 360
+	},
+	"first_snow": {
+		"day": 40,
+		"winter_days": 16
+	}
+}

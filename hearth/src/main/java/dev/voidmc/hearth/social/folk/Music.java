@@ -36,8 +36,27 @@ public final class Music {
 		};
 	}
 
+	static Holder<SoundEvent> named(String name, Culture fallback) {
+		return switch (name) {
+			case "harp" -> SoundEvents.NOTE_BLOCK_HARP;
+			case "flute" -> SoundEvents.NOTE_BLOCK_FLUTE;
+			case "guitar" -> SoundEvents.NOTE_BLOCK_GUITAR;
+			case "banjo" -> SoundEvents.NOTE_BLOCK_BANJO;
+			case "bell" -> SoundEvents.NOTE_BLOCK_BELL;
+			case "chime" -> SoundEvents.NOTE_BLOCK_CHIME;
+			case "xylophone" -> SoundEvents.NOTE_BLOCK_XYLOPHONE;
+			case "bass" -> SoundEvents.NOTE_BLOCK_BASS;
+			case "didgeridoo" -> SoundEvents.NOTE_BLOCK_DIDGERIDOO;
+			case "pling" -> SoundEvents.NOTE_BLOCK_PLING;
+			case "bit" -> SoundEvents.NOTE_BLOCK_BIT;
+			case "iron_xylophone" -> SoundEvents.NOTE_BLOCK_IRON_XYLOPHONE;
+			case "cow_bell" -> SoundEvents.NOTE_BLOCK_COW_BELL;
+			default -> instrument(fallback);
+		};
+	}
+
 	/** The note block's pitch for a semitone (0–24). */
-	static float pitch(int semitone) {
+	public static float pitch(int semitone) {
 		return (float) Math.pow(2.0, (semitone - 12) / 12.0);
 	}
 
@@ -45,6 +64,12 @@ public final class Music {
 	 * Plays beat {@code beat} of tune {@code tune} at {@code at} (call every few ticks). Returns false on a rest.
 	 */
 	public static boolean play(ServerLevel level, Vec3 at, Culture culture, int tune, int beat) {
+		return play(level, at, culture, tune, beat, "");
+	}
+
+	/** As above on a named note-block instrument ({@code flute}, {@code guitar}...; empty: the culture's). */
+	public static boolean play(ServerLevel level, Vec3 at, Culture culture, int tune, int beat, String instrument) {
+		Holder<SoundEvent> sound = instrument.isEmpty() ? instrument(culture) : named(instrument, culture);
 		int[] t = TUNES[Math.floorMod(tune, TUNES.length)];
 		int note = t[Math.floorMod(beat, t.length)];
 		if (beat % 4 == 0) {
@@ -53,7 +78,7 @@ public final class Music {
 		if (note < 0) {
 			return false;
 		}
-		level.playSound(null, at.x, at.y, at.z, instrument(culture), SoundSource.RECORDS, 1.6F, pitch(note));
+		level.playSound(null, at.x, at.y, at.z, sound, SoundSource.RECORDS, 1.6F, pitch(note));
 		level.sendParticles(ParticleTypes.NOTE, at.x, at.y + 2.2, at.z, 0, note / 24.0, 0, 0, 1);
 		return true;
 	}

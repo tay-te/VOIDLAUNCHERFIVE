@@ -34,7 +34,114 @@ public final class Dressings {
 	/** No neighbour updates and no {@code onPlace} (a dressing never reacts to what is next to it, nor reads the next chunk). */
 	private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_ON_PLACE;
 
+	/** Events of the daily rhythm (docs/LIVING_WORLD_2.md §2): taken down at their {@code until}, or with everything. */
+	public static final String RHYTHM = "rhythm:";
+
 	private Dressings() {
+	}
+
+	/**
+	 * Puts up laundry lines in households' yards for the wash day (docs/LIVING_WORLD_2.md §2.3): two posts, a string between
+	 * them and white and grey linen hanging from it, inside the plot and clear of its doors. Recorded under {@code key}
+	 * (which starts with {@link #RHYTHM}) until {@code until}; returns how many lines went up.
+	 */
+	public static int setUpLaundry(ServerLevel level, Settlement s, SocialLedger ledger, String key, long until, List<PlotView> homes, int most) {
+		Palette pal = Palette.of(s.culture());
+		Set<Long> taken = new HashSet<>();
+		List<BlockPos> doors = Venues.positions(s.pois(PoiType.DOOR));
+		List<Part> all = new ArrayList<>();
+		int lines = 0;
+		for (PlotView home : homes) {
+			if (lines >= most) {
+				break;
+			}
+			dev.voidmc.hearth.api.PlotSpec spec = home.spec();
+			BlockPos o = spec.origin();
+			long seed = TownCalendar.mix(s.id() * 31 + home.id() ^ key.hashCode());
+			int tries = 0;
+			for (int k = 0; k < 40 && tries < 40; k++, tries++) {
+				long h = TownCalendar.mix(seed + k);
+				Direction along = (h & 1) == 0 ? Direction.EAST : Direction.SOUTH;
+				int span = 4;
+				int maxX = spec.sizeX() - (along == Direction.EAST ? span : 0) - 1;
+				int maxZ = spec.sizeZ() - (along == Direction.SOUTH ? span : 0) - 1;
+				if (maxX < 1 || maxZ < 1) {
+					continue;
+				}
+				BlockPos c = o.offset(1 + (int) Math.floorMod(h >>> 8, (long) maxX), 0, 1 + (int) Math.floorMod(h >>> 24, (long) maxZ));
+				BlockPos ground = Venues.standable(level, c);
+				if (ground == null || !level.canSeeSky(ground)) {
+					continue;
+				}
+				List<Part> parts = laundry(ground, along, span, pal);
+				boolean inside = true;
+				for (Part p : parts) {
+					if (!Venues.inside(spec, p.pos)) {
+						inside = false;
+						break;
+					}
+				}
+				if (!inside || !clear(level, parts, taken, doors, Venues.square(s), ground)) {
+					continue;
+				}
+				// the line must not hang over a drop: the cells under the linen are ground-level air on sturdy ground
+				boolean level0 = true;
+				for (int i = 1; i < span; i++) {
+					BlockPos under = ground.relative(along, i);
+					if (!level.getBlockState(under).isAir() || !level.getBlockState(under.below()).isFaceSturdy(level, under.below(), Direction.UP)) {
+						level0 = false;
+						break;
+					}
+				}
+				if (!level0) {
+					continue;
+				}
+				reserve(taken, parts);
+				all.addAll(parts);
+				lines++;
+				break;
+			}
+		}
+		place(level, ledger, key, until, all);
+		return lines;
+	}
+
+	/** A line {@code span} long: posts three high at both ends, string along the top, linen hanging under it. */
+	static List<Part> laundry(BlockPos g, Direction along, int span, Palette pal) {
+		List<Part> parts = new ArrayList<>();
+		BlockPos end = g.relative(along, span);
+		for (int dy = 0; dy < 3; dy++) {
+			parts.add(new Part(g.above(dy), pal.fence()));
+			parts.add(new Part(end.above(dy), pal.fence()));
+		}
+		boolean x = along.getAxis() == Direction.Axis.X;
+		for (int i = 1; i < span; i++) {
+			BlockPos p = g.relative(along, i);
+			parts.add(new Part(p.above(2), Blocks.TRIPWIRE.defaultBlockState()
+				.setValue(net.minecraft.world.level.block.TripWireBlock.EAST, x).setValue(net.minecraft.world.level.block.TripWireBlock.WEST, x)
+				.setValue(net.minecraft.world.level.block.TripWireBlock.NORTH, !x).setValue(net.minecraft.world.level.block.TripWireBlock.SOUTH, !x)));
+			BlockState linen = Blocks.STAINED_GLASS_PANE.pick(i % 2 == 1 ? net.minecraft.world.item.DyeColor.WHITE : net.minecraft.world.item.DyeColor.LIGHT_GRAY).defaultBlockState()
+				.setValue(net.minecraft.world.level.block.CrossCollisionBlock.EAST, x).setValue(net.minecraft.world.level.block.CrossCollisionBlock.WEST, x)
+				.setValue(net.minecraft.world.level.block.CrossCollisionBlock.NORTH, !x).setValue(net.minecraft.world.level.block.CrossCollisionBlock.SOUTH, !x);
+			parts.add(new Part(p.above(), linen));
+		}
+		return parts;
+	}
+
+	/**
+	 * Dresses plots' fronts with one of the build module's dressings ({@code winter}: snow on the ledges, in the cold
+	 * cultures) for the rhythm: recorded under {@code key} until {@code until}.
+	 */
+	public static int dressPlots(ServerLevel level, Settlement s, SocialLedger ledger, String key, long until, String kind, List<PlotView> plots) {
+		TownEvent e = new TownEvent(key, TownEvent.Kind.FESTIVAL, until - 1, until, null, List.of(), List.of(), List.of());
+		List<Part> parts = fronts(level, s, new HashSet<>(), e, kind, plots);
+		place(level, ledger, key, until, parts);
+		return parts.size();
+	}
+
+	/** The plots nearest a point (built, not roads), for the rhythm's dressings. */
+	public static List<PlotView> plotsNear(Settlement s, BlockPos at, int radius, int most) {
+		return near(s, at, radius, most);
 	}
 
 	/** A stall as set up: where its keeper stands and where customers stand. */
@@ -249,7 +356,8 @@ public final class Dressings {
 		int removed = 0;
 		for (int i = ledger.dressings.size() - 1; i >= 0; i--) {
 			SocialLedger.Dressing d = ledger.dressings.get(i);
-			boolean due = all || d.until() <= now || keep != null && !keep.contains(d.event());
+			// the rhythm's dressings (laundry lines, winter) are kept to their own hour, not to the day's agenda
+			boolean due = all || d.until() <= now || keep != null && !keep.contains(d.event()) && !d.event().startsWith(RHYTHM);
 			if (!due) {
 				continue;
 			}
@@ -279,9 +387,12 @@ public final class Dressings {
 	}
 
 	private static void place(ServerLevel level, SocialLedger ledger, TownEvent e, List<Part> parts) {
+		place(level, ledger, e.key(), e.end(), parts);
+	}
+
+	private static void place(ServerLevel level, SocialLedger ledger, String key, long until, List<Part> parts) {
 		for (Part p : parts) {
-			ledger.dressings.add(new SocialLedger.Dressing(p.pos.asLong(), BuiltInRegistries.BLOCK.getKey(p.state.getBlock()).toString(), e.key(),
-				e.end()));
+			ledger.dressings.add(new SocialLedger.Dressing(p.pos.asLong(), BuiltInRegistries.BLOCK.getKey(p.state.getBlock()).toString(), key, until));
 		}
 		for (Part p : parts) {
 			level.setBlock(p.pos, p.state, FLAGS);

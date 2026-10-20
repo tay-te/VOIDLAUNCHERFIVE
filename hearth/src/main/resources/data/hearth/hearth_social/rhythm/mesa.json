@@ -1,0 +1,31 @@
+{
+	"rest_weekday": 5,
+	"service": {
+		"name": "blessing"
+	},
+	"meals": [
+		390,
+		840,
+		1260
+	],
+	"wash": {
+		"places": [
+			"well",
+			"fountain",
+			"river",
+			"lake"
+		],
+		"start": 420,
+		"end": 660
+	},
+	"tavern": {
+		"open": 1200,
+		"close": 1425,
+		"instrument": "guitar"
+	},
+	"curfew": 1320,
+	"watch": {
+		"from": 1320,
+		"to": 360
+	}
+}

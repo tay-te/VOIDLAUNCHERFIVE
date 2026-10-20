@@ -29,6 +29,39 @@ public final class TownCalendar {
 		return w == 0 ? from : from + (cfg.weekDays() - w);
 	}
 
+	/**
+	 * The weekday a town keeps its rest day on: the culture's ({@code wanted}), kept off the market day (weekday 0) and off
+	 * the day before it, so the wash day that follows the rest day never falls on the market day either.
+	 */
+	public static int restWeekday(int wanted, int weekDays) {
+		if (weekDays < 3) {
+			return -1; // too short a week for a rest day and a wash day besides the market
+		}
+		return 1 + Math.floorMod(wanted - 1, weekDays - 2);
+	}
+
+	/** The rest day (docs/LIVING_WORLD_2.md §2): no work but the listed trades', the service in the morning. */
+	public static boolean isRestDay(long settlementId, long day, int weekDays, int wantedWeekday) {
+		int w = restWeekday(wantedWeekday, weekDays);
+		return w > 0 && weekday(settlementId, day, weekDays) == w;
+	}
+
+	/** The wash day: the day after the rest day. */
+	public static boolean isWashDay(long settlementId, long day, int weekDays, int wantedWeekday) {
+		int w = restWeekday(wantedWeekday, weekDays);
+		return w > 0 && weekday(settlementId, day, weekDays) == w + 1;
+	}
+
+	/** The next rest day at or after {@code from}. */
+	public static long nextRestDay(long settlementId, long from, int weekDays, int wantedWeekday) {
+		for (long d = from; d < from + weekDays; d++) {
+			if (isRestDay(settlementId, d, weekDays, wantedWeekday)) {
+				return d;
+			}
+		}
+		return -1;
+	}
+
 	/** The festival held on a day, or null. Midsummer and harvest come first, then the culture's, then founders' day. */
 	public static @Nullable Festival festivalOn(long day, Culture culture, long foundedDay, SettlementTier tier, SocialConfig.Festivals cfg) {
 		if (!cfg.enabled() || tier.ordinal() < cfg.minTier().ordinal()) {

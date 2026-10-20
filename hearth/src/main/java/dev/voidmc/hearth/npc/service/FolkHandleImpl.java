@@ -90,6 +90,9 @@ public final class FolkHandleImpl implements NpcService.FolkHandle {
 
 	@Override
 	public boolean moveTo(BlockPos target, double speed) {
+		if (this.seat != null) {
+			standUp();
+		}
 		Folk f = this.brain.folk;
 		int now = f.tickCount;
 		if (target.equals(this.target)) {
@@ -185,6 +188,65 @@ public final class FolkHandleImpl implements NpcService.FolkHandle {
 	public void swing() {
 		this.brain.swing();
 	}
+
+	@Override
+	public void pose(String pose, int ticks) {
+		FolkPose p;
+		try {
+			p = FolkPose.valueOf(pose.toUpperCase(java.util.Locale.ROOT));
+		} catch (IllegalArgumentException e) {
+			p = FolkPose.NONE;
+		}
+		this.brain.pose(p, ticks);
+	}
+
+	@Override
+	public boolean sit(BlockPos seat, net.minecraft.core.Direction facing) {
+		Folk f = this.brain.folk;
+		if (!(f.level() instanceof ServerLevel level) || !level.isLoaded(seat)) {
+			return false;
+		}
+		if (!level.getEntitiesOfClass(Folk.class, new net.minecraft.world.phys.AABB(seat).inflate(0.2), o -> o != f && o.folkPose() == FolkPose.SIT)
+			.isEmpty()) {
+			return false;
+		}
+		net.minecraft.world.level.block.state.BlockState s = level.getBlockState(seat);
+		net.minecraft.world.phys.shapes.VoxelShape shape = s.getCollisionShape(level, seat);
+		double top = shape.isEmpty() ? 0.0 : shape.max(net.minecraft.core.Direction.Axis.Y);
+		f.getNavigation().stop();
+		this.target = null;
+		f.teleportTo(seat.getX() + 0.5 + facing.getStepX() * 0.12, seat.getY() + Math.min(top, 0.5), seat.getZ() + 0.5 + facing.getStepZ() * 0.12);
+		float yaw = facing.toYRot();
+		f.setYRot(yaw);
+		f.setYBodyRot(yaw);
+		f.setYHeadRot(yaw);
+		this.brain.pose(FolkPose.SIT, 0);
+		this.seat = seat.immutable();
+		this.seatFacing = facing;
+		return true;
+	}
+
+	@Override
+	public void standUp() {
+		BlockPos at = this.seat;
+		if (at == null) {
+			return;
+		}
+		this.seat = null;
+		Folk f = this.brain.folk;
+		if (f.folkPose() == FolkPose.SIT) {
+			this.brain.pose(FolkPose.NONE, 0);
+		}
+		if (f.level() instanceof ServerLevel level) {
+			BlockPos stand = dev.voidmc.hearth.npc.entity.FolkSpots.standableNear(level, at.relative(this.seatFacing), 2);
+			if (stand != null) {
+				f.teleportTo(stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
+			}
+		}
+	}
+
+	private @Nullable BlockPos seat;
+	private net.minecraft.core.Direction seatFacing = net.minecraft.core.Direction.NORTH;
 
 	@Override
 	public long gameTime() {

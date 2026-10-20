@@ -1,0 +1,23 @@
+{
+	"rest_weekday": 4,
+	"service": {
+		"name": "offering",
+		"chant": [
+			4,
+			7,
+			9,
+			11,
+			9,
+			7,
+			-1,
+			4,
+			2,
+			4,
+			-1,
+			-1
+		]
+	},
+	"tavern": {
+		"instrument": "chime"
+	}
+}

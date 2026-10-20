@@ -1,0 +1,32 @@
+{
+	"rest_weekday": 5,
+	"service": {
+		"name": "blessing",
+		"start": 600,
+		"minutes": 60
+	},
+	"curfew": 1200,
+	"tavern": {
+		"open": 1050,
+		"close": 1320,
+		"instrument": "bell"
+	},
+	"watch": {
+		"from": 1200,
+		"to": 420
+	},
+	"wash": {
+		"places": [
+			"well",
+			"fountain",
+			"lake",
+			"river"
+		],
+		"start": 540,
+		"end": 720
+	},
+	"first_snow": {
+		"day": 36,
+		"winter_days": 20
+	}
+}

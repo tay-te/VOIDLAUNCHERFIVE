@@ -1,0 +1,20 @@
+{
+	"rest_weekday": 1,
+	"service": {
+		"name": "prayers",
+		"start": 600
+	},
+	"tavern": {
+		"open": 1140,
+		"close": 1430,
+		"instrument": "banjo"
+	},
+	"wash": {
+		"places": [
+			"river",
+			"lake",
+			"well",
+			"fountain"
+		]
+	}
+}

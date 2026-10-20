@@ -1,2 +1,12 @@
 {
+	"hearth.rhythm.round": "Buy the house a round (%s)",
+	"hearth.rhythm.round.done": "Drinks are on %s! A health to you.",
+	"hearth.rhythm.round.short": "You're short of the coin for that, friend.",
+	"hearth.rhythm.when": "When is %s?",
+	"hearth.rhythm.when.today": "Today: %1$s is at %2$s. The bell rings before it.",
+	"hearth.rhythm.when.tomorrow": "Tomorrow, the rest day: %1$s at %2$s.",
+	"hearth.rhythm.when.days": "On the rest day, in %2$s days: %1$s at %3$s.",
+	"hearth.rhythm.when.none": "We keep no %s here, I'm sorry to say.",
+	"hearth.rhythm.attended": "You attended %s in %s.",
+	"hearth.rhythm.first_snow": "First snow in %s. Folk stay in by the fire."
 }

@@ -1,0 +1,20 @@
+{
+	"rest_weekday": 3,
+	"tavern": {
+		"open": 1080,
+		"close": 1350,
+		"instrument": "flute"
+	},
+	"first_snow": {
+		"day": 42,
+		"winter_days": 14
+	},
+	"wash": {
+		"places": [
+			"river",
+			"fountain",
+			"well",
+			"lake"
+		]
+	}
+}

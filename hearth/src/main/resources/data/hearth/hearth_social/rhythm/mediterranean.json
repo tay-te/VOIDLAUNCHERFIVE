@@ -1,0 +1,29 @@
+{
+	"rest_weekday": 3,
+	"service": {
+		"start": 600
+	},
+	"meals": [
+		390,
+		840,
+		1260
+	],
+	"wash": {
+		"places": [
+			"fountain",
+			"river",
+			"well",
+			"lake"
+		]
+	},
+	"tavern": {
+		"open": 1200,
+		"close": 1430,
+		"instrument": "guitar"
+	},
+	"curfew": 1350,
+	"watch": {
+		"from": 1350,
+		"to": 360
+	}
+}

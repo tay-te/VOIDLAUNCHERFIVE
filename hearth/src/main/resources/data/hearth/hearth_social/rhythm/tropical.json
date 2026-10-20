@@ -1,0 +1,23 @@
+{
+	"rest_weekday": 2,
+	"service": {
+		"name": "offering",
+		"start": 480,
+		"minutes": 75
+	},
+	"meals": [
+		360,
+		750,
+		1170
+	],
+	"tavern": {
+		"open": 1170,
+		"close": 1430,
+		"instrument": "xylophone"
+	},
+	"watch": {
+		"from": 1320,
+		"to": 360
+	},
+	"curfew": 1320
+}

@@ -1,0 +1,18 @@
+{
+	"rest_weekday": 2,
+	"service": {
+		"name": "blessing",
+		"minutes": 60
+	},
+	"wash": {
+		"places": [
+			"river",
+			"lake",
+			"well",
+			"fountain"
+		]
+	},
+	"tavern": {
+		"instrument": "banjo"
+	}
+}
