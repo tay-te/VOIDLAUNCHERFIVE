@@ -2481,3 +2481,91 @@ levels of the base and the same by eye (`scratchpad/welkin_look/d9/work/guards.j
   step.
 - Gloam's valley mist does not show at night in the valley view (even forced): its night gating is worth a look.
 - Night land p5 sits at 9..12; the moonlit vista's far band and mist lift its darks a little.
+
+## Look D10: painted cloud bands, the horizon seam, a rose dawn (2026-10-20, branch `welkin-d10`)
+
+The art director's critique (approved by the user): the clouds' outlines are crisp voxels but their bodies were an
+airbrushed gradient (plastic slabs at noon, lavender bellies); a hard straight line cut the far land at the horizon;
+the 05:30 dawn read mauve-grey. Sheets: `scratchpad/welkin_look/d10/` (`mid/mid_sheet.jpg`, `final/hero_before_after.jpg`:
+before (a6418cbd) left, D10 right, each pair shot back to back in one studio; `final/crop4k_clouds_{noon,1700,night}.png`).
+4K frames `d10_k4_plain_1200`, `d10_k4_steppe_1700`, `d10_k4_shore_0530`, `d10_k4_moonvista` (and `d10_k4b_*`, the
+before) in the studio's renders. All shots with `SWAY_FREEZE 7`.
+
+### Painted cloud bands (`lib/clouds/shade.glsl`)
+- **The bands** (`wcBandsOf`): a body's depth in three flat values, each step softly bordered over a pixel or two
+  (`wcStep`, `wcQuant`): the outline strip and the thin outer parts (`WD10_THIN` 0.22), the body, the heart
+  (`WD10_HEART` 0.62); and a flank's layer, one value per tier of the heap (the main deck's walls step at 4, 19 and 48
+  blocks over its base; the other decks in halves).
+- **The outline strip** (`wcRimOf`): `b.rim` is now a crisp strip `WD10_RIM` 0.24 of a cell wide from an open side of the
+  hit's cell (was a soft gradient over 0.6 of a cell), so a belly's rim and a lit edge read as one painted stroke along
+  the voxel outline. The ember under-glow, the back glow, the silver lining on a belly and the night's silver edge follow
+  it.
+- **Stairs, not ovals:** the body's smooth field is read on the cells' half-cell grid (wcBodyOf), each stair softly
+  bordered, so the bands step with the voxel outline in half-cell stairs. Only where a stair spans about 4 to 9 pixels or
+  more (half the foreshortening: a stair at a grazing angle is thin one way only); far off the bands follow the smooth
+  field, without stair aliasing.
+- **The paint** (`wcPaint`): a lit top is one value (a step under it, `WD10_TOP_THIN` 0.86, on its thin outer parts away
+  from the outline; its domes a step up or down toward a low sun); a flank a step under the top and one value per tier;
+  a belly `WD10_BELLY_OUTER` 0.42 in its outline band, `WD10_BELLY_BODY` 0.22 in its body, 0 in its heart (with the
+  heavier shade by band). The light's own form joins in two steps. Bands are clean: no noise, no grain.
+- **Noon bellies a warm grey-taupe:** `WS_NOON_SHADE` (1.0, 0.96, 0.93) (was (0.88, 0.88, 1.06)) and `WS_SHADE_SKY` 0.12
+  (was 0.35). Steppe 12:00, two bellies: (194, 187, 180) hue 29 sat 0.11 and (118, 123, 141) hue 226 -> (197, 184, 162)
+  hue 38 and (124, 121, 118) hue 29 sat 0.02.
+- **Night:** the moonlit paint takes the same bands (a belly 1.25 .. 0.75 of WN_BELLY by band; the thin parts and the
+  silver edge by band); the tops stay silver.
+- **Storms:** the closed-cover bellies in the same bands: the outline strip and thin parts a lit seam (WS_STORM_SEAM),
+  the body, the dark heart (WS_STORM_DEEP): layered dark masses with lighter seams in voxel stairs.
+- **Golden hours:** unchanged in hue (D3's gold tops, rose-violet shade and warm under-light, D5's backlit decks); their
+  bellies now banded with a crisp gold rim strip.
+
+### The horizon seam (`program/parts/clouds.glsl`, `program/composite2.glsl`)
+- **Found by elimination** at the moonlit vista (the clouds pass's debug output, haze layers off one at a time, the mist
+  off): the straight line lay exactly at the eye's horizon. A deck just over (or under) the eye's height is seen edge-on,
+  its base a plane meeting the horizon; over far land its cells (and bands) cut the land along that plane: far ridges
+  above it in cloud, the rest clear. Not composite2's haze, the haze volume, the far air (WF_FAR_HAZE) or the aerial
+  perspective (none of them moved the line).
+- **Fix:** over the land (not the open sky) a far deck (from `WC_HORIZON_NEAR` 500 .. 1500 blocks) thins out within
+  `WC_HORIZON_FADE` 0.035 rad of the horizon, so far ridges rise softly into its base. Steppe 17:00: the mesas' bases
+  now run down into the land's haze instead of standing on a straight gold line.
+- **The night's mist bank:** far land near the horizon (from 1200 .. 4000 blocks) takes at least the mist bank the sky
+  shows there (dawn and night only), so the low land's mist no longer ends on a straight line where rays meet far
+  heights.
+- **What remains (geometry):** at the moonlit vista the eye stands on a tepui; the far tepuis' flat forested tops lie at
+  the eye's height and show as one dark, straight strip on the horizon. That is the land, not a shader seam.
+
+### The dawn at 05:30 (`program/final.glsl`, `lib/grade.glsl`, `lib/haze/dawn.glsl`, `lib/clouds/shade.glsl`)
+- `gradeSunUp` (the sun 0 .. 3 degrees up): once the sun is up the blue hour's blue-violet shade split ends
+  (`gradeBlueShade`; the shade takes the morning's rose `loMorn`); the sky's kept blue and the dome gradient stay, the
+  dome's violet a little higher (from 0.06 .. 0.5 of the way up).
+- The lower clouds take a rose-gold (`GRADE_DAWN_CLOUD` 0.3; none overhead, where the deep blue-violet stays).
+- The dawn mist a rose (`DM_ROSE` (1.42, 0.80, 0.90), was a peach; `DM_ROSE_MIX` 0.55, was 0.4), less gold away from the
+  sun (0.12, was 0.25); the morning highlight a rose-gold ((1.09, 0.965, 0.88), was (1.09, 0.975, 0.84)); the clouds' dawn
+  shade away from the sun a rose-mauve (`WS_DAWN_SHADE` (0.98, 0.82, 0.88); the evening keeps WS_DUSK_SHADE).
+- Shore 05:30: the overhead belly (68, 65, 86) hue 250 -> (83, 71, 83) hue 296; the low clouds (69, 65, 82) hue 255 ->
+  (77, 64, 67) hue 346; the mist (221, 175, 152) hue 20 -> (221, 171, 158) hue 12. Countryside 06:30 keeps its misty gold.
+
+### Noon's cloud shadows
+WC_SHADOW_*_HIGH 0.22 / 0.17 / 0.135 of the sun (was 0.18 / 0.14 / 0.11): a close field under a deck a step lighter. Not
+judged in a frame: in this session's studio no deck stood over the plain or the steppe at noon.
+
+### Guards
+Steppe 17:00, sunplain 18:30, shore 18:30 (backlit decks with banded bellies and gold rim strips), countryside 06:30,
+sunforest 11500 (the canopy beams keep their strength; their pattern moves a little with the clouds' new light near the
+sun), village night, the moonlit vista and stormg (front 0.8): the same mood, see the hero sheet.
+
+### Cost (probe, 1600x900, interleaved base / D10 in one studio, quiet machine)
+
+| view | base a6418cbd | D10 |
+|---|---|---|
+| steppe 17:00 | 7.02 / 7.08 ms | 7.07 / 7.08 ms |
+| plain 12:00 | 7.01 / 7.08 ms | 7.11 / 7.10 ms |
+
+About +0.02 .. +0.06 ms, inside the probe's spread: the field read only moves, the bands are arithmetic.
+
+### Still open
+- The bands' half-cell stairs fade to smooth contours where a stair is under about 4 pixels (far decks, grazing angles):
+  at 1080p most far bellies show smooth bands. A stair per screen axis could keep them without aliasing.
+- Night: the moonlit belly's silver outline is now a narrow strip, and the bellies a little heavier in their heart.
+- The dawn at 05:30 is rosier, but the frame still leans mauve on the water and the overhead deck; the sun's gold is
+  behind the camera in this view.
+- The noon shadow step (0.22) wants a frame with a deck over a close field.
