@@ -187,8 +187,16 @@ const float sunPathRotation = -20.0; // [-40.0 -30.0 -20.0 -10.0 0.0 10.0 20.0 3
 #define WAVING_PLANTS
 // Moving water plants: Seagrass and kelp sway in the water, and lily pads bob.  [plumbing]
 #define WAVING_WATER_PLANTS
-// Wind strength: How far leaves and plants move. They never move more than two texture pixels.  [plumbing]
+// Wind strength: How far leaves and plants move. They never move more than two texture pixels, or four in a gust.  [plumbing]
 #define WAVE_STRENGTH 1.0 // [0.5 0.75 1.0 1.25 1.5]
+// Wind gusts: Gusts roll across meadows and fields as broad bands of bending, lighter grass, and heave through the trees, then settle. Stronger and more frequent in storms. Needs VOID Gloam for the wind's changes.  [plumbing]
+#define WIND_GUSTS 1.0 // [0.0 0.5 1.0 1.5]
+// Wind sheen: How much the grass lightens where a gust bends it (and darkens as it springs back).  [plumbing]
+#define WIND_SHEEN 1.0 // [0.0 0.5 1.0 1.5 2.0]
+// Gust floor: For tuning; on no screen. How gusty the calmest air is (0..1).
+#define WG_BASE 0.25
+// Gust view: For testing only; on no screen. 1 paints the gust field on leaves and plants (red the push, blue the rebound).
+#define WG_DEBUG 0 // [0 1]
 // Sway freeze: For testing only; on no screen. 0 lets leaves and plants move with the clock. Any other value holds the sway at that many seconds, the same in every frame and every session, so test shots repeat; each value gives another set of gaps in a crown.  [plumbing]
 #define SWAY_FREEZE 0 // [0 1 7 13 29 47 61 89]
 // ---- Underground

@@ -37,6 +37,9 @@ flat out float blockEmit;
 #ifdef G_BLOCKID
 out float plantH; // workstream C: how high up its plant a vertex stands, 0 root .. 1 tip
 #endif
+#ifdef G_SWAY
+out vec2 gustV; // D11: the gust field here (lib/sway.glsl welkinGust: x the gust, y the lean signal), 0 off plants
+#endif
 
 #ifndef WU_gbufferModelViewInverse
 #define WU_gbufferModelViewInverse
@@ -99,6 +102,13 @@ uniform float rainStrength;
 uniform vec4 void_wind;
 #endif
 #endif
+#ifndef VOID_U_STORM
+#define VOID_U_STORM
+#ifndef WU_void_storm
+#define WU_void_storm
+uniform float void_storm;
+#endif
+#endif
 #include "/lib/sway.glsl"
 #endif
 
@@ -136,10 +146,23 @@ void main() {
 #endif
 #ifdef G_SWAY
 	// wind from Gloam when its uniforms are live, else a breeze that freshens with the rain
-	vec4 wind = (void_bridge == 1 && BRIDGE_MODE == 0) ? void_wind : welkinWindFallback(rainStrength);
+	bool live = void_bridge == 1 && BRIDGE_MODE == 0;
+	vec4 wind = live ? void_wind : welkinWindFallback(rainStrength);
 	// world position wrapped to 1024 blocks, so the sway phase stays precise far from the origin
 	vec3 worldPos = vec3(cameraPositionInt & 1023) + cameraPositionFract + eyePos;
-	eyePos += welkinSway(material, worldPos, at_midBlock.xyz, frameTimeCounter, wind);
+	// D11: the gust fronts, from the absolute position (the field is smooth over blocks, so floats hold it far out)
+	gustV = vec2(0.0);
+#if WG_DEBUG == 2
+	gustV = vec2(wind.z / 16.0, wind.w);
+#endif
+	// (the grass block's top takes the field too, for the sheen only: from a little way off a meadow is mostly its
+	// ground, and the band must read across it)
+	if (WIND_GUSTS > 0.0 && (welkinGusted(material) || (WIND_SHEEN > 0.0 && material == M_GRASS_BLOCK && normalW.y > 0.5))
+		&& WG_DEBUG != 2) {
+		vec2 absXZ = vec2(cameraPositionInt.xz) + (cameraPositionFract.xz + eyePos.xz);
+		gustV = welkinGust(absXZ, frameTimeCounter, wind, max(live ? void_storm : 0.0, 0.6 * rainStrength));
+	}
+	eyePos += welkinSway(material, worldPos, at_midBlock.xyz, frameTimeCounter, wind, gustV); // (no sway kind: none)
 	gl_Position = gl_ProjectionMatrix * (gbufferModelView * vec4(eyePos, 1.0));
 #else
 	gl_Position = ftransform();
@@ -160,6 +183,12 @@ flat in int lightClass;
 flat in float blockEmit;
 #ifdef G_BLOCKID
 in float plantH;
+#endif
+#ifdef G_SWAY
+in vec2 gustV;
+#endif
+#ifdef G_SWAY
+#include "/lib/sway.glsl"
 #endif
 
 #ifndef WU_gtexture
@@ -256,6 +285,25 @@ void main() {
 #endif
 #ifdef G_ENTITY
 	albedo.rgb = mix(albedo.rgb, entityColor.rgb, entityColor.a);
+#endif
+#ifdef G_SWAY
+#if WG_DEBUG == 1
+	if (welkinGusted(material) || material == M_GRASS_BLOCK) albedo.rgb = vec3(max(gustV.y, 0.0), 0.15 + 0.5 * gustV.x, 2.0 * max(-gustV.y, 0.0));
+#elif WG_DEBUG == 2
+	albedo.rgb = vec3(gustV, 0.0);
+#else
+	if (WIND_SHEEN > 0.0 && gustV.x + abs(gustV.y) > 0.0) {
+		// D11: the wind sheen. Where a front bends the blades they catch the light differently: a lighter, slightly
+		// silvery-olive band, most at the tips; behind it, as they spring back, a darker trough. A crown takes less
+		// (only its outer leaves turn). The field is smooth over blocks: a band, never grain.
+		float k = gustV.y * WIND_SHEEN * (matIsLeaves(material) ? WG_SHEEN_LEAVES
+			: (material == M_GRASS_BLOCK ? WG_SHEEN_GROUND : mix(0.45, 1.0, plantH)));
+		float l = dot(albedo.rgb, vec3(0.2126, 0.7152, 0.0722));
+		vec3 silver = l * WG_SHEEN_TINT;
+		albedo.rgb = k > 0.0 ? mix(albedo.rgb, silver, WG_SHEEN_SILVER * k) * (1.0 + WG_SHEEN_LIFT * k)
+			: albedo.rgb * (1.0 + WG_SHEEN_TROUGH * k);
+	}
+#endif
 #endif
 
 	float emission = 0.0;

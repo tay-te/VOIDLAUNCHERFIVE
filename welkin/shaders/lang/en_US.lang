@@ -211,7 +211,11 @@ option.WAVING_WATER_PLANTS=Moving water plants
 option.WAVING_WATER_PLANTS.comment=Seagrass and kelp sway in the water, and lily pads bob.
 
 option.WAVE_STRENGTH=Wind strength
-option.WAVE_STRENGTH.comment=How far leaves and plants move. They never move more than two texture pixels.
+option.WAVE_STRENGTH.comment=How far leaves and plants move. They never move more than two texture pixels, or four in a gust.
+option.WIND_GUSTS=Wind gusts
+option.WIND_GUSTS.comment=Gusts roll across meadows and fields as broad bands of bending, lighter grass, and heave through the trees, then settle. Stronger and more frequent in storms.
+option.WIND_SHEEN=Wind sheen
+option.WIND_SHEEN.comment=How much the grass lightens where a gust bends it, and darkens as it springs back.
 
 option.UG_FOG=Cave fog
 option.UG_FOG.comment=Caves fill with a smooth fog that closes in tight passages and reaches far in great caverns and over buried seas. Needs VOID Gloam for all but a plain cave fog.

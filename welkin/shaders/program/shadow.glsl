@@ -73,6 +73,13 @@ uniform float rainStrength;
 uniform vec4 void_wind;
 #endif
 #endif
+#ifndef VOID_U_STORM
+#define VOID_U_STORM
+#ifndef WU_void_storm
+#define WU_void_storm
+uniform float void_storm;
+#endif
+#endif
 #include "/lib/sway.glsl"
 #endif
 
@@ -109,9 +116,16 @@ void main() {
 	// past 48 blocks a sway is far less than a map texel: it fades out from 32 and is not worked out at all past 48
 	float swayKeep = 1.0 - smoothstep(32.0, 48.0, length(playerPos));
 	if (swayKeep > 0.0) {
-		vec4 wind = (void_bridge == 1 && BRIDGE_MODE == 0) ? void_wind : welkinWindFallback(rainStrength);
+		bool live = void_bridge == 1 && BRIDGE_MODE == 0;
+		vec4 wind = live ? void_wind : welkinWindFallback(rainStrength);
 		vec3 worldPos = vec3(cameraPositionInt & 1023) + cameraPositionFract + playerPos;
-		playerPos += welkinSway(material, worldPos, at_midBlock.xyz, frameTimeCounter, wind) * swayKeep;
+		// D11: the same gust fronts, so the shadows lean with the plants
+		vec2 gs = vec2(0.0);
+		if (WIND_GUSTS > 0.0 && welkinGusted(material)) {
+			vec2 absXZ = vec2(cameraPositionInt.xz) + (cameraPositionFract.xz + playerPos.xz);
+			gs = welkinGust(absXZ, frameTimeCounter, wind, max(live ? void_storm : 0.0, 0.6 * rainStrength));
+		}
+		playerPos += welkinSway(material, worldPos, at_midBlock.xyz, frameTimeCounter, wind, gs) * swayKeep;
 		view = shadowModelView * vec4(playerPos, 1.0);
 	}
 #endif
