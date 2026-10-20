@@ -3,7 +3,8 @@
 Status: **design** (2026-10-20), not built. The user's goal, in their words: *"we want to make the world feel alive with
 people"*. They approved all eight items below. This document says, for each, what the player sees and does, how it runs
 abstractly and embodied, what it costs, how it is saved, how it behaves in multiplayer, which existing systems it uses
-and what is new, its content, and the checks a test or tour verifies. §10 is the build plan: eight lanes in two batches.
+and what is new, its content, and the checks a test or tour verifies. §10 lists the screens for Figma; §11 is the build plan: eight lanes in two
+batches.
 
 *Kingdom Come: Deliverance II* stays the reference: a Bohemian countryside where the roads carry people, a town has a
 day and a week, and the folk you meet have their own business and remember yours. Hearth's rules stand unchanged
