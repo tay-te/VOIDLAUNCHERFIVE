@@ -114,7 +114,7 @@ void main() {
 #define AIR_CLOUD_TINT vec3(0.86, 0.97, 1.16)
 #endif
 // (Look D9) the night's ground mist: its amount (as the morning's MORNING_MIST x 0.1) and its moonlit level
-#define NIGHT_MIST_AMT 0.42
+#define NIGHT_MIST_AMT 0.32
 #define NIGHT_MIST_LEVEL 1.1
 
 in vec2 texcoord;
@@ -338,7 +338,9 @@ void main() {
 			dA = dA.y < 0.0 ? normalize(vec3(dA.x, 0.0, dA.z) + vec3(1e-5, 0.0, 0.0)) : dA;
 			air = skyLuminousLin(air, dA, lum, 0.8);
 			// (Look D9) the night's moonlit air: the far land fades into the same cool, moon-side glow the sky shows
-			air += skyNightGlow(dA, sunW, normalize(mat3(gbufferModelViewInverse) * moonPosition));
+			if (sunW.y < -0.05) {
+				air += skyNightGlow(dA, sunW, normalize(mat3(gbufferModelViewInverse) * moonPosition));
+			}
 		}
 		// (Look D6) over the land the air is layered, coloured air rather than the sky's band (lib/air.glsl airLayered)
 		if (!s.sky) {

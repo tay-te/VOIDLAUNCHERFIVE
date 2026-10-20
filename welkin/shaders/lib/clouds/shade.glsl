@@ -689,7 +689,13 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		float yN = wcLuma(skyS);
 		// (Look D9) the sky behind it with the moon's glow (lib/sky/luminous.glsl): a cloud near the moon is lit as the sky
 		// round the moon is, so the decks lighten toward it
-		yN += 0.85 * wcLuma(skyNightGlow(rd, normalize(mat3(gbufferModelViewInverse) * sunPosition), moonW));
+		// (cheap: the halo's and broad glow's shape only, as lib/sky/luminous.glsl skyNightGlow lays them over the dome; the
+		// full call in this pass cost about 0.15 ms by day through the clouds pass's registers)
+		{
+			float muG = clamp(dot(rd, moonW), 0.0, 1.0);
+			float muG2 = muG * muG;
+			yN *= 1.0 + mUp * (6.0 * muG2 * muG2 * muG2 * muG2 * muG2 * muG2 + 2.0 * muG2 * muG2);
+		}
 		float hD = b.k >= 0 ? clamp((b.y - b.iv.x) / wcDeckSpan(b.k), 0.0, 1.0) : b.hIn;
 		float faceM = n.y > 0.5 ? mix(0.55, 1.0, clamp(moonW.y, 0.0, 1.0)) * mix(0.75, 1.0, b.depth)
 			: (n.y < -0.5 ? 0.0 : smoothstep(-0.45, 0.8, dot(n.xz, moonW.xz) / max(length(moonW.xz), 1e-3)) * mix(0.3, 1.0, hD));

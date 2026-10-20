@@ -291,7 +291,7 @@ vec3 skyLuminousLin(vec3 L, vec3 d, SkyLum f, float amount) {
 // d: the view direction; moonW: the moon's direction (world); returns scene light to add.
 #define SKY_MOON_HALO 30.0      // the tight halo, a few degrees round the moon (x the horizon's light)
 #define SKY_MOON_GLOW 7.0      // the broad glow over the moon's side of the dome
-#define SKY_NIGHT_HORIZON 5.0 // the cool glow low over the horizon
+#define SKY_NIGHT_HORIZON 4.0 // the cool glow low over the horizon
 vec3 skyNightGlow(vec3 d, vec3 sunW, vec3 moonW) {
 	float deep = smoothstep(-0.05, -0.20, sunW.y);
 	if (deep <= 0.0) {
