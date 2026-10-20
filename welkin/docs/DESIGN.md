@@ -2390,3 +2390,94 @@ The shaders are unchanged. 4K sky crops, base against D8 back to back with `SWAY
 - steppe 17:00 (rows 0..840): 0 pixels over 4 levels, max 1;
 - shore 18:30 (rows 0..860): 7912 pixels over 4 levels, all in rows 739..859, the far land and its reflection under the
   horizon. That is the land's history across a reload, as in D7 (7345 there). None is on sky or cloud.
+
+## Look D9: noon's cloud shadows and the meadow, a moonlit night (2026-10-19/20, branch `welkin-d9`)
+
+The art director's critique (agreed by the user): golden hour is good; noon was the least distinctive frame (one even
+yellow-olive meadow under one even light), and night read as "dark Minecraft", not a moonlit painting. Sheets:
+`scratchpad/welkin_look/d9/` (`mid/mid_sheet.jpg`, `final/hero_before_after.jpg`: before (078fe4f1) left, D9 right,
+land stats in the labels, each pair shot back to back in one studio). 4K frames `d9_k4_steppe_1200`,
+`d9_k4_country_1200`, `d9_k4_plain_1200`, `d9_k4_village_night`, `d9_k4_moonvista` in the studio's renders. All shots
+with `SWAY_FREEZE 7`. The moonlit vista is the countryside eye turned to the rising moon:
+`shoot at "tp @a 2256 190 -480 270 -6" 206300`.
+
+### Noon
+- **Cloud shadows** (`lib/clouds/shadow.glsl`): with the sun past about 30 degrees a deck keeps 0.18 / 0.14 / 0.11 of the
+  sun under one, two, three decks (WC_SHADOW_*_HIGH, was 0.34 / 0.28 / 0.24); the golden hours keep 0.52 / 0.44 / 0.38
+  (17:00 and later are unchanged, 16:30 barely). `welkinCloudShadowRGB` leans what is left of the direct light cool
+  (WC_SHADOW_TINT (0.84, 0.98, 1.24), luminance kept, none in a gap or under a closed overcast): under a cloud the light
+  is the deck's own diffuse white, not the sun's warm beam, so a shadow reads as a cool, sky-lit patch beside the warm
+  field. The land (deferred) and both waters use it.
+- **The air under a shadow** (`program/composite2.glsl`, C2_AIR_SHADOW): over a land pixel the country haze, the aerial
+  perspective and the day's body take the shadow at the land and seven tenths of the way to it (two reads of the cloud
+  map), AIR_CLOUD_DIM 0.42 dimmer and AIR_CLOUD_TINT cooler where it is shaded: the patches stay readable out to the far
+  land instead of drowning in an evenly lit haze. The clouds' frame comes from composite2's vertex shader
+  (lib/clouds/envflat.glsl). The haze volume and the dawn mist keep their own cloud shadows (`airPlainHv`).
+- **Drift:** with `hold off`, two shots 40 s apart show the decks and their shadows moved together (the shadows read the
+  same cloud map). The shadows' edges are soft (the smooth field) and never tile.
+- **The meadow** (`lib/grade.glsl`): GRADE_OLIVE_HUE 80, GRADE_MOSS_HUE 92, GRADE_OLIVE_SAT 0.80, GRADE_OLIVE_LIGHT 0.82
+  (were 63 / 82 / 0.92 / 0.86). The day's warm split and gain had pushed the lit meadow on to a pale chartreuse (plain
+  12:00's lit tops (162, 158, 88), hue 57, saturation 0.46); now an earthy olive-moss, about (153, 160, 92), hue 66.
+- **The meadow's patchwork** (`lib/variety.glsl`, deferred): two octaves of smooth world-space value noise (about 41 and
+  12 blocks) lean the grass's albedo toward a dry olive-ochre (VARIETY_DRY) or a lush deep moss (VARIETY_LUSH). Only
+  grass blocks, plants, tall grass, ground cover and crops, and only their green-tinted colour (green over red, some
+  saturation): dirt, flowers, stems and the savanna's straw keep theirs. No grain (smooth over many blocks).
+
+### Night
+- **The sky** (`lib/sky/luminous.glsl` skyNightGlow, added in `lib/sky/dome.glsl` skyFullScene and skyDomeOnly): from
+  about 3 degrees of sun down into the deep night, a silver halo round the moon (SKY_MOON_HALO 30, 0.10 rad) and a broad
+  glow over its side of the dome (SKY_MOON_GLOW 7, 0.55 rad), by the moon's visibility; and a cool glow low along the
+  horizon all round (SKY_NIGHT_HORIZON 4), more on the moon's side. All as multiples of the night dome's own horizon
+  light (the table's), less under an overcast. The stars fade where the glow brightens the sky; the moon's art stays
+  crisp.
+- **The night air** (composite2, only at night): the haze's air takes the same glow, so the far land fades into the cool
+  band.
+- **Moonlit clouds** (`lib/clouds/shade.glsl`): WN_LIT 7 (was 1.9), WN_BELLY 3.5 (was 0.7: bellies were darker than the
+  night sky, a black slab; most of a belly's light is the far fog and haze, so the paint needs a big share to show),
+  WN_EDGE 3, and WN_NEAR 9: near the moon the thin parts and the outline glow silver. The sky the paint is measured
+  against brightens toward the moon by a cheap lobe (the full skyNightGlow in the clouds pass cost about 0.15 ms by day
+  through its registers). Moonlit decks now read light grey-silver against a deep sky, brightest round the moon.
+- **Night mist** (composite2, with lib/haze/dawn.glsl): from about 6 degrees of sun down, under a clear sky, the dawn
+  mist's low layer lies in the hollows, the valleys and the low distance (NIGHT_MIST_AMT 0.32 of the morning's amount),
+  its colour the moonlit land's light a little over it (NIGHT_MIST_LEVEL 1.1), cool silver, brighter toward the moon,
+  with half the sky's glow. Gloam's valley mist also gets a night floor (`lib/mist.glsl` MIST_NIGHT 0.35) and a brighter
+  moonlit colour, but the valley view showed no valley mist at night even with MIST_FORCE 60: the visible night mist is
+  the composite2 layer.
+- **Lamps** (`program/final.glsl`, `lib/light.glsl`): with the sun well under (sun height -0.05 to -0.2, so 18:30 and the
+  blue hour are untouched) the bloom's halo is BLOOM_NIGHT_GAIN 4 x stronger and warmer, and the block light falls off as
+  level^1.5 instead of ^1.9 (the same at the source): wider warm pools round torches, windows and lanterns.
+
+### Figures (land, lower 55%; before = 078fe4f1, after = D9, pairs shot back to back)
+
+| view | before p5 / med / p95 | D9 |
+|---|---|---|
+| steppe 12:00 | 58 / 114 / 191 | 51 / 109 / 189 |
+| countryside 12:00 | 63 / 111 / 196 | 58 / 107 / 194 |
+| mesa 12:00 | 44 / 73 / 146 | 44 / 68 / 138 |
+| plain 12:00 | 28 / 120 / 184 | 28 / 116 / 179 |
+| plain 16:30 | 35 / 120 / 193 | 34 / 118 / 192 |
+| moonlit vista (t206300) | 5 / 16 / 34 | 9 / 21 / 48 |
+| village night | 11 / 32 / 47 | 12 / 32 / 52 |
+| torch night | 7 / 36 / 77 | 11 / 39 / 89 |
+| countryside night | 9 / 25 / 50 | 12 / 29 / 57 |
+| steppe night | 9 / 29 / 47 | 12 / 30 / 49 |
+
+Guards (steppe 17:00, countryside 06:30, sunplain 18:30, sunforest 11500, shore 18:30, stormg at front 0.8): within 1..2
+levels of the base and the same by eye (`scratchpad/welkin_look/d9/work/guards.jpg`, `storm.jpg`).
+
+- **Cost** (probe, 1600x900, interleaved with the base in one studio; other sessions' builds running): steppe 17:00
+  6.87 -> 7.00..7.08 ms, plain 12:00 about +0.15 ms. Most of it is the air's cloud shadow (two cloud-map reads per land
+  pixel by day); the night glow's calls had cost 0.15 ms by day until they left the clouds pass and were gated in
+  composite2.
+
+### Known and still open
+- The cloud shadows follow the clouds over the land, so a close view like the plain only gets them when a deck stands
+  over it: in one studio state the plain at noon is wholly sunlit, in another wholly shaded (the 4K plain 12:00 is under a
+  deck: a deep, cool moss-green field). Wide views show several patches.
+- Within one studio session the land's cloud shadows on the first shot at a place differed from later shots there while
+  the sky's clouds were pixel-identical (steppe 12:00: 64k land pixels); after that they repeated. Not run down: possibly
+  the cloud map's raw fields (colortex7) or Gloam's tiles filling in after the first visit.
+- Under a deck at noon a close field reads deep (0.18 of the sun plus the fill); if it reads too heavy, 0.22 is the next
+  step.
+- Gloam's valley mist does not show at night in the valley view (even forced): its night gating is worth a look.
+- Night land p5 sits at 9..12; the moonlit vista's far band and mist lift its darks a little.
