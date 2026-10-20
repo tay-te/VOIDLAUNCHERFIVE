@@ -953,6 +953,14 @@ public final class Traffic {
 		hurtBand(bandId, lost);
 	}
 
+	/** Puts off a journey's ambush (its robbery is being played out in front of a player): the books wait for the fight. */
+	public void postpone(long journeyId, long until) {
+		Journey j = journey(journeyId);
+		if (j != null && !j.outcome().isEmpty() && j.waylay() < until) {
+			replace(j, j.withWaylay(until, j.band(), j.outcome()));
+		}
+	}
+
 	/** A band lost men to a player or a patrol; a band below two breaks. */
 	public void hurtBand(long bandId, int lost) {
 		Book b = book();
@@ -1200,7 +1208,7 @@ public final class Traffic {
 		}
 
 		private static TravellerView view(Traffic t, Journey j) {
-			return new TravellerView(j.id(), j.kind(), j.from(), j.to(), j.depart(), j.arrive(), j.residents(), t.embodied.test(j.id()));
+			return new TravellerView(j.id(), j.kind(), j.from(), j.to(), j.depart(), j.arrive(), j.residents(), embodied.test(j.id()));
 		}
 
 		@Override
@@ -1248,9 +1256,9 @@ public final class Traffic {
 	}
 
 	/** Whether a journey's party is on the road near a player now (the npc module's travel sets it). */
-	private java.util.function.LongPredicate embodied = id -> false;
+	private static volatile java.util.function.LongPredicate embodied = id -> false;
 
-	public void setEmbodied(java.util.function.LongPredicate embodied) {
-		this.embodied = embodied;
+	public static void setEmbodied(java.util.function.LongPredicate predicate) {
+		embodied = predicate;
 	}
 }

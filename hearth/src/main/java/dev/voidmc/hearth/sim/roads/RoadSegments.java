@@ -182,6 +182,13 @@ public final class RoadSegments {
 			box[2] = Math.max(box[2], x);
 			box[3] = Math.max(box[3], z);
 		});
+		if (params.contains("sign_start") || params.contains("sign_end") || params.contains("shrine")) {
+			// room beside the road for its signpost or wayside shrine
+			box[0] -= 2;
+			box[1] -= 2;
+			box[2] += 2;
+			box[3] += 2;
+		}
 		int n = points.length / 3;
 		int dx = points[(n - 1) * 3] - points[0];
 		int dz = points[(n - 1) * 3 + 2] - points[2];

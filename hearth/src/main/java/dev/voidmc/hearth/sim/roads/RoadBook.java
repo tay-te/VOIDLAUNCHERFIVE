@@ -141,6 +141,28 @@ public final class RoadBook {
 		public long funds() {
 			return this.funds;
 		}
+
+		/** The way (once routed), or null. */
+		public @Nullable Way way() {
+			return this.way;
+		}
+
+		public RoadClass kind() {
+			return this.kind;
+		}
+
+		public List<String> names() {
+			return this.names;
+		}
+
+		/** Plots built from the {@code a} end and from the {@code b} end. */
+		public int fromA() {
+			return this.fromA;
+		}
+
+		public int fromB() {
+			return this.fromB;
+		}
 	}
 
 	public static final Codec<RoadBook> CODEC = RecordCodecBuilder.create(i -> i.group(

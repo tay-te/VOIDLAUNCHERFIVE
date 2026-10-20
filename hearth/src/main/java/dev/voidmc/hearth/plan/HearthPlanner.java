@@ -161,6 +161,12 @@ public final class HearthPlanner implements SettlementPlanner {
 		return new GrowthProject(project.spec(), project.replaces(), project.reason());
 	}
 
+	/** Where roads out of the settlement end: the open ends of its roads, its highway arms first (docs/LIVING_WORLD_2.md §1.2). */
+	@Override
+	public List<net.minecraft.core.BlockPos> exits(Settlement settlement) {
+		return dev.voidmc.hearth.plan.road.Exits.of(settlement);
+	}
+
 	/** Whether the last call answered nothing only because it ran out of time: the clock asks again at its next step. */
 	@Override
 	public boolean ranOutOfTime(Settlement settlement) {
