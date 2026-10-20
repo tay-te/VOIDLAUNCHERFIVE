@@ -2,7 +2,16 @@
 
 **Status: waves A–D and fusion built (2026-10-10, branch `mettle-cards`), see §20–§24; wave E's Mettle side, the
 `CardService` api and card events, built 2026-10-12 (§25); the Hearth card broker and Arsenal's tie-ins belong to those
-branches (INTEGRATION.md §1.4, §5).** Builds on the perk draft
+branches (INTEGRATION.md §1.4, §5).**
+
+> **Build feel (design 2026-10-20, not built: [BUILD_FEEL.md](BUILD_FEEL.md)).** The next pass proposes build
+> momentum (deals lean toward the keywords you have slotted and a chosen **Focus**: §3.1's perk weight within its depth
+> band and §3.4's second keyword), **bynames** from your build, odd-level **boons** (Temper a trait, Inscribe a keyword;
+> new slot rules: three tempered and one inscribed card a deck, §5.2), a hand preview of what a card does to your
+> build, a guided first draft, and **Mythic shards** that forge drawn Mythics (§9). Simulated: every keyword reaches a
+> 6-set when chased (Tide 7 → 65 % by skill 20), power 1.11× → 1.12×.
+
+Builds on the perk draft
 ([DRAFT.md](DRAFT.md)): the draft stays the source of cards. Where this doc and DRAFT.md disagree, this doc wins once
 wave A ships (§16). Screens go to Figma first (§13).
 
@@ -727,6 +736,8 @@ NPCs never sell cards of their own; the broker only lists players' cards.
 
 How rare: a character who takes all eight skills from 15 to 20 sees 24 drafts at 0.5 %, about an 11 % chance of one
 drawn Mythic, and only if that skill's Mythic is still unclaimed. A busy server sees a handful in its life.
+(Proposed in [BUILD_FEEL.md](BUILD_FEEL.md) §5: deed progress shown, and Mythic shards that forge a drawn Mythic, the
+original if unclaimed, else a numbered copy; world firsts stay one of a kind.)
 
 ---
 
@@ -813,7 +824,8 @@ three drafts waiting (one, plus two from Quarryman's ranks).
 ## 13. Screens (for the Figma designer)
 
 Design these in the VOID Figma file on page 264:2, a new section **"Cards v2 (explore)"**, before code; never
-overwrite v1 frames; mirror what ships on page 295:2. The VOID rules hold (UI.md §1): flat, rounded, no gradients or
+overwrite v1 frames; mirror what ships on page 295:2. The build-feel screens (bynames, build summary, boons, hand
+preview, guide hints, forge) are listed in [BUILD_FEEL.md](BUILD_FEEL.md) §8. The VOID rules hold (UI.md §1): flat, rounded, no gradients or
 glow except the skill-content glow of UI.md §1b; skill hue = which skill; champagne gold = earned (feats, teachings).
 
 **Card face** (one component, three sizes: hand 160 × 224, binder 96 × 134, chip 48 × 64 in Figma px): frame in the

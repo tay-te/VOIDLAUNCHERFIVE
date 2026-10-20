@@ -29,7 +29,9 @@ A player has to know four things:
 ## 1. Drafts
 
 - **When.** Every skill level from 1 to 6 deals one draft; from 7 on, every **even** level deals a draft and every odd
-  level brings a **reroll** instead (§6 says why). Thirteen drafts from 0 to 20. `DraftRules.HALF_RATE_FROM` (7) is the
+  level brings a **reroll** instead (§6 says why). *Proposed ([BUILD_FEEL.md](BUILD_FEEL.md) §3, not built): the odd
+  level gives a **boon** instead: Temper a trait, Inscribe a keyword, or take the reroll; and deals lean toward the
+  keywords you have slotted (§1 there).* Thirteen drafts from 0 to 20. `DraftRules.HALF_RATE_FROM` (7) is the
   lever; `Integer.MAX_VALUE` gives a draft on every level.
 - **The hand** is dealt at once and stored in the character record, so a reconnect shows the same cards. One hand per
   skill at a time; keeping a card deals that skill's next hand if more drafts wait.

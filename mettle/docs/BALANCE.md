@@ -444,3 +444,8 @@ Every lever, in `config/mettle/cards.json` (CARDS.md §15). The power limits and
 Simulated (`CardReportTest`, CARDS.md §20): a skill-20 deck is 1.11× v1's draft with base slots and 1.21× with Wits 14
 (limits 1.15× and 1.3×); a full deck rebuild costs about 520 bits at skill 10, 1,220 at 15 and 2,350 at 20, plus a
 draught. Levers added in code: `card_cap_boost` 1.25 (a card's trait cap over its max), `free_rebuild_below_level` 5.
+
+**Proposed (BUILD_FEEL.md §7, not built):** momentum perk lean 1.0 and keyword lean 0.5 (commitment counted to 4,
+Focus +2); boons from skill 7 (Temper ¼ of a range, three tempered cards a deck; Inscribe one card a deck, the keyword
+already in that deck); Mythic shards (forge at 30, 45, 60). Simulated by `BuildFeelReportTest`: 1.12× / 1.23× v1
+(worst skill 1.13× / 1.24×), deck overlap 0.16, every keyword's 6-set reachable when chased.
