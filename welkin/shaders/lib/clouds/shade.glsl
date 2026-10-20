@@ -298,7 +298,7 @@ void wcRimOf(inout CloudBody b, int lv) {
 vec4 wcBandsOf(CloudBody b) {
 	float cs = float(WC_CELL << b.lv);
 	float wB = max(1.2 * b.px, 0.5);
-	float wD = clamp(0.5 * wB / cs, 0.012, 0.12); // (the field rises about 1 over two cells)
+	float wD = clamp(0.5 * wB / cs, 0.012, 0.08); // (the field rises about 1 over two cells)
 	float outerM = max(b.rim, 1.0 - wcStep(b.depth, WD10_THIN, wD));
 	float heartM = wcStep(b.depth, WD10_HEART, wD) * (1.0 - outerM);
 	float dq = mix(mix(WD10_DQ_BODY, WD10_DQ_OUTER, outerM), 1.0, heartM);
@@ -359,11 +359,11 @@ CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField, floa
 			vec2 corner = wcCellCorner(h.cell, int(s), e);
 			// a step's width in pixels (half the foreshortening: a stair seen at a grazing angle is only thin one way)
 			float gPx = g / max(pixAngle * h.t / sqrt(max(abs(dot(h.n, rd)), 0.12)), 1e-4);
-			float a = clamp(1.2 / gPx, 0.03, 0.5);
+			float a = clamp(0.8 / gPx, 0.03, 0.35);
 			vec2 v = (fq - corner) / g - 0.5;
 			vec2 vs = floor(v) + smoothstep(vec2(0.5 - a), vec2(0.5 + a), fract(v));
 			// (far off, where a half cell is only a few pixels, the stairs would alias: the bands follow the smooth field)
-			fq = mix(fq, corner + (vs + 0.5) * g, smoothstep(3.0, 8.0, gPx));
+			fq = mix(fq, corner + (vs + 0.5) * g, smoothstep(4.0, 9.0, gPx));
 		}
 		vec2 f = wcFieldSmooth(fq, e);
 		b.depth = clamp((b.k == 0 ? f.x : f.y) * 2.0 - 1.0, 0.0, 1.0);
@@ -743,13 +743,15 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 	float baseLike = n.y < -0.5 ? 1.0 : (n.y < 0.5 ? lower * lower : 0.0);
 	if (closed > 0.0 && baseLike > 0.0) {
 		// (skies2: heavier and more threatening: the thick parts sink further, a storm cell's belly darkest)
-		float heart = mix(1.0, WS_STORM_HEART, b.depth * lower) * (tone == 2 ? WS_STORM_CELL : (tone == 1 ? 0.88 : 1.0));
+		// (Look D10) in the painted bands too: the outline strip and thin parts a lit seam, the body, the dark heart
+		vec4 bqS = wcBandsOf(b);
+		float heart = mix(1.0, WS_STORM_HEART, bqS.x * lower) * (tone == 2 ? WS_STORM_CELL : (tone == 1 ? 0.88 : 1.0));
 		// (Look D6) a storm's belly has structure: its thin parts and its rim let the light above through (a pale silver
 		// over the sky's level), its thick heart sinks to a dark slate, and the paint takes more of it, so a rain deck is
 		// layered dark masses with lit seams, never one flat grey ceiling
-		float thinB = (1.0 - smoothstep(0.0, 0.15, b.depth)) * lower * (b.k == 2 || b.k < 0 ? 0.3 : 1.0);
-		float heartS = WS_STORM_BELLY * heart * heart * mix(1.0, WS_STORM_DEEP, smoothstep(0.35, 1.0, b.depth) * lower);
-		heartS = mix(heartS, WS_STORM_SEAM, max(thinB, 0.6 * b.rim * b.rim * lower));
+		float thinB = bqS.z * lower * (b.k == 2 || b.k < 0 ? 0.3 : 1.0);
+		float heartS = WS_STORM_BELLY * heart * heart * mix(1.0, WS_STORM_DEEP, bqS.w * lower);
+		heartS = mix(heartS, WS_STORM_SEAM, max(0.8 * thinB, 0.6 * b.rim * lower));
 		c = mix(c, mix(c, wcDome(rd, e) * heart, 0.6), closed * baseLike);
 		paintS = mix(paintS, skyS * heartS, closed * baseLike);
 		paintW = mix(paintW, WS_STORM_PAINT, closed * baseLike);
@@ -938,7 +940,7 @@ vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 // per screen pixel. Far off and at a grazing angle the decks become a soft band (wcBandOf), not here.
 vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) {
 	CloudBody b = wcBodyOf(h, ro, rd, e, true, pixAngle);
-	b.px = pixAngle * h.t / max(abs(dot(h.n, rd)), 0.12);
+	b.px = pixAngle * h.t / sqrt(max(abs(dot(h.n, rd)), 0.12)); // (half the foreshortening, as the stairs)
 	wcRimOf(b, h.level);
 	vec3 n = h.n;
 	if (abs(n.y) < 0.5) {
@@ -1056,7 +1058,7 @@ vec3 welkinCloudShade(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle, 
 		b = wcBandBody(h, rd, e.camY + ro.y + rd.y * h.t, e);
 	} else {
 		b = wcBodyOf(h, ro, rd, e, true, pixAngle);
-		b.px = pixAngle * h.t / max(abs(dot(h.n, rd)), 0.12);
+		b.px = pixAngle * h.t / sqrt(max(abs(dot(h.n, rd)), 0.12)); // (half the foreshortening, as the stairs)
 		wcRimOf(b, h.level);
 		if (abs(n.y) < 0.5) {
 			float thin = wcSideThin(h, rd, b.iv.y - b.iv.x, pixAngle);
