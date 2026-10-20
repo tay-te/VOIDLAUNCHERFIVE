@@ -75,7 +75,7 @@
 #define WS_FOOT 0.0
 #define WS_BROW 0.8
 #define WS_NOON_LIT vec3(1.0, 0.96, 0.88)
-#define WS_NOON_SHADE vec3(0.88, 0.88, 1.06)
+#define WS_NOON_SHADE vec3(1.0, 0.96, 0.93) // (Look D10: a warm-neutral grey-taupe, was (0.88, 0.88, 1.06), lavender)
 // (Look D3) the paint's levels in scene light, against the sky behind the cloud (wcPaint)
 #define WD_LIT 1.15
 #define WD_LIT_WARM 0.85
@@ -114,7 +114,11 @@
 #define WN_EDGE 3.0
 #define WN_NEAR 9.0
 #define WN_PAINT 0.95
-#define WS_SHADE_SKY 0.35
+#define WS_SHADE_SKY 0.12 // (Look D10: 0.35, the sky's blue in the shade read lavender under the noon bellies)
+// (Look D10) the painted bands' levels: a top's thin outer parts, a belly's outline strip and its body (the heart 0)
+#define WD10_TOP_THIN 0.86
+#define WD10_BELLY_OUTER 0.42
+#define WD10_BELLY_BODY 0.22
 #define WS_DUSK_SHADE vec3(0.84, 0.80, 0.98) // (Look D3: less violet, was (0.78, 0.74, 1.0): in scene light it read lilac)
 #define WS_CLOSED_KEEP 0.75
 #define WS_STORM_HEART 0.32
@@ -226,6 +230,9 @@ struct CloudBody {
 	float bill;    // (review round 2) the billows over the body: -0.5 a hollow .. 0.5 a swell, smooth (wcBillow)
 	float relief;  // (review round 2) how the billows turn to the sun: 1 a swell's sunward flank .. -1 its far side
 	float rim;     // skies: how near the cloud's own voxel outline: 1 at an open side of the cell .. 0 a few blocks in
+	               // (Look D10: a crisp strip WD10_RIM of a cell wide, softly bordered over a pixel or two)
+	float edgeD;   // (Look D10) blocks to the nearest open side of the hit's cell (1e4 where it has none)
+	float px;      // (Look D10) blocks a screen pixel spans on the face (the bands' soft border)
 };
 
 // (review round 2) Smooth value noise with its lattice every `w` blocks at camera-relative point q, on the clouds'
@@ -255,8 +262,47 @@ float wcBillow(vec2 q, CloudEnv e) {
 	return clamp((0.65 * v + 0.35 * fine - 0.5) * 1.6, -0.5, 0.5) * (1.0 - 0.6 * smoothstep(2.0 * WC_RING0, 8.0 * WC_RING0, d));
 }
 
+// (Look D10) Painted value bands. A soft step of x at `edge`, its border `w` either side.
+float wcStep(float x, float edge, float w) {
+	return smoothstep(edge - w, edge + w, x);
+}
+// x (0..1) in n + 1 flat levels 0, 1/n .. 1, the steps half-way between them, each softly bordered over w (x units)
+float wcQuant(float x, float n, float w) {
+	float y = clamp(x, 0.0, 1.0) * n;
+	float ww = clamp(w * n, 0.01, 0.5);
+	return (floor(y) + smoothstep(0.5 - ww, 0.5 + ww, fract(y))) / n;
+}
+// (Look D10) the outline's strip: WD10_RIM of a cell from an open side, its border a pixel or so (never under half a
+// block), so a belly's rim and a lit edge read as one crisp painted stroke that follows the voxel outline
+#define WD10_RIM 0.24
+void wcRimOf(inout CloudBody b, int lv) {
+	float s = float(WC_CELL << lv);
+	float w = max(1.2 * b.px, 0.5);
+	b.rim = 1.0 - wcStep(b.edgeD, WD10_RIM * s, w);
+}
+
+// (Look D10) the bands of a body: (x) its depth in three painted bands (the outline's strip and the thin outer parts,
+// the body, the heart), (y) a flank's layer (the main deck's walls step at its tiers, 4, 19 and 48 blocks over its base,
+// the others in halves), (z) the outer band's mask, (w) the heart's. Each step softly bordered over a pixel or two.
+#define WD10_THIN 0.22
+#define WD10_HEART 0.62
+#define WD10_DQ_OUTER 0.08
+#define WD10_DQ_BODY 0.48
+vec4 wcBandsOf(CloudBody b) {
+	float cs = float(WC_CELL << b.lv);
+	float wB = max(1.2 * b.px, 0.5);
+	float wD = clamp(0.5 * wB / cs, 0.012, 0.12); // (the field rises about 1 over two cells)
+	float outerM = max(b.rim, 1.0 - wcStep(b.depth, WD10_THIN, wD));
+	float heartM = wcStep(b.depth, WD10_HEART, wD) * (1.0 - outerM);
+	float dq = mix(mix(WD10_DQ_BODY, WD10_DQ_OUTER, outerM), 1.0, heartM);
+	float yb = b.y - b.iv.x;
+	float tierF = b.k == 1 ? 0.2 * wcStep(yb, 4.0, wB) + 0.35 * wcStep(yb, 19.0, wB) + 0.45 * wcStep(yb, 48.0, wB)
+		: wcQuant(b.k >= 0 ? clamp(yb / wcDeckSpan(b.k), 0.0, 1.0) : b.hIn, 2.0, wB / max(b.iv.y - b.iv.x, 1.0));
+	return vec4(dq, tierF, outerM, heartM);
+}
+
 // The body of a hit. `useField`: read the smooth field (the clouds pass), else the cell's own thickness.
-CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField) {
+CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField, float pixAngle) {
 	CloudBody b;
 	b.p = ro + rd * h.t;
 	b.y = e.camY + b.p.y - h.n.y * 0.01;
@@ -282,6 +328,7 @@ CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField) {
 	// open side of the hit's cell, over about two thirds of a cell, so a belly lightens toward the cloud's crisp outline
 	// in a soft gradient that follows it (the smooth field's contours drew grey ovals across a belly instead)
 	b.rim = 0.0;
+	b.edgeD = 1e4;
 	{
 		int edges = (b.k >= 0 ? (tx.z >> (4 * b.k)) : tx.w) & 15;
 		if (edges != 0) {
@@ -289,12 +336,26 @@ CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField) {
 			vec2 local = clamp(b.p.xz - wcCellCorner(h.cell, s, e), vec2(0.0), vec2(float(s)));
 			vec4 dist = vec4(local.x, float(s) - local.x, local.y, float(s) - local.y);
 			dist = mix(vec4(1e4), dist, vec4(ivec4(edges, edges >> 1, edges >> 2, edges >> 3) & 1));
-			b.rim = 1.0 - smoothstep(0.0, WS_RIM_W * float(s), min(min(dist.x, dist.y), min(dist.z, dist.w)));
+			b.edgeD = min(min(dist.x, dist.y), min(dist.z, dist.w));
 		}
 	}
+	b.px = 1.0;
+	wcRimOf(b, h.level);
 #ifdef WC_FIELD
 	if (useField && (b.k == 0 || b.k == 1)) {
-		vec2 f = wcFieldSmooth(b.p.xz - h.n.xz * 0.05, e);
+		// (Look D10) the field read on the cells' half-cell grid, its steps softly bordered over a pixel or so: the bands
+		// inside a cloud (wcBandsOf) step with the voxel outline in half-cell stairs instead of running in smooth ovals
+		vec2 fq = b.p.xz - h.n.xz * 0.05;
+		{
+			float s = float(WC_CELL << h.level);
+			float g = 0.5 * s;
+			vec2 corner = wcCellCorner(h.cell, int(s), e);
+			float a = clamp(1.2 * pixAngle * h.t / max(abs(dot(h.n, rd)), 0.12) / g, 0.03, 0.5);
+			vec2 v = (fq - corner) / g - 0.5;
+			vec2 vs = floor(v) + smoothstep(vec2(0.5 - a), vec2(0.5 + a), fract(v));
+			fq = corner + (vs + 0.5) * g;
+		}
+		vec2 f = wcFieldSmooth(fq, e);
 		b.depth = clamp((b.k == 0 ? f.x : f.y) * 2.0 - 1.0, 0.0, 1.0);
 		b.field = true;
 		// a base's light runs through the cloud's smooth thickness over it, not the cell's own steps of height (which
@@ -490,22 +551,27 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 	float lowSun = clamp(length(e.sun.xz) / max(length(e.sun), 1e-3), 0.0, 1.0);
 	float hDeck = b.k >= 0 ? clamp((b.y - b.iv.x) / wcDeckSpan(b.k), 0.0, 1.0) : b.hIn;
 	float sunK = mix(0.25, 1.0, shadow) * (1.0 - 0.6 * closed);
+	// (Look D10) the form in painted value bands that belong to the blocks, not an airbrushed gradient: a top one value
+	// (a step under it on its thin outer parts, its domes a step up or down toward a low sun), a flank a step under the
+	// top and one value per tier of the heap, a belly in three bands from its crisp outline strip inward
+	vec4 bq = wcBandsOf(b);
+	float dq = bq.x, tierF = bq.y;
 	float lit;
 	if (n.y > 0.5) {
-		lit = mix(0.72, 1.0, smoothstep(0.0, 0.6, b.depth)) * (1.0 + WS_RELIEF * clamp(b.relief, -1.0, 1.0) * lowSun) * sunK;
+		float rel = wcQuant(0.5 + 0.5 * clamp(b.relief, -1.0, 1.0), 2.0, 0.08) * 2.0 - 1.0;
+		lit = mix(1.0, WD10_TOP_THIN, (1.0 - wcStep(b.depth, WD10_THIN, 0.06)) * (1.0 - b.rim))
+			* (1.0 + WS_RELIEF * rel * lowSun) * sunK;
 	} else if (n.y < -0.5) {
-		float r = b.rim * b.rim * (3.0 - 2.0 * b.rim);
-		lit = WS_BELLY_RIM * r + WS_BELLY_THIN * (1.0 - b.depth);
+		lit = WD10_BELLY_OUTER * bq.z + WD10_BELLY_BODY * (1.0 - bq.z) * (1.0 - bq.w);
 	} else {
 		float facing = dot(n.xz, e.sun.xz) / max(length(e.sun.xz), 1e-3);
 		float sideSun = mix(WS_SIDE_NOON, smoothstep(-0.55, 0.75, facing), lowSun);
-		float brow = smoothstep(WS_FOOT, WS_BROW, hDeck);
-		lit = sideSun * mix(WS_SIDE_FOOT, 1.0, brow) * sunK;
+		lit = sideSun * mix(WS_SIDE_FOOT, 1.0, tierF) * sunK;
 	}
 	// (the light's own form still counts where it is brighter: thin parts lit through, the silver of a backlit edge)
 	// (Look D3: toward a low sun only where the cloud is thin: the light through a thick body seen against the sun is a
-	// dark backlit shape, its thin edges glow)
-	lit = max(lit, 0.6 * smoothstep(WS_LIT_LO, WS_LIT_HI, L) * mix(1.0, 1.0 - b.depth, warm * sw * sw));
+	// dark backlit shape, its thin edges glow) (Look D10: in two steps, by the bands)
+	lit = max(lit, 0.6 * wcQuant(smoothstep(WS_LIT_LO, WS_LIT_HI, L), 2.0, 0.06) * mix(1.0, 1.0 - dq, warm * sw * sw));
 	// round sunset the low sun lights the decks from below: the bellies toward it glow, their thin parts most
 	// (Look D3: mostly at the outline, 0.15 in a body's heart, was 0.35: a sunset deck's heart hangs dusky)
 	float under = dusk * (1.0 - closed) * mix(0.35, 1.0, sw * sw) * mix(0.15, 1.0, b.rim) * (n.y < 0.5 ? 1.0 : 0.4);
@@ -544,10 +610,10 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 		s *= 1.0 - WD_BACKLIT_SHADE * backP * sw * sw * away * (1.0 - edge);
 	}
 	float heavy = (tone == 2 ? WD_BELLY_STORM : (tone == 1 ? WD_BELLY_SHOWER : mix(WD_BELLY, WD_BELLY_WARM, warm)))
-		* mix(1.15, 0.8, sqrt(b.depth));
+		* mix(1.15, 0.8, sqrt(dq));
 	vec3 shade = shadeHue * heavy;
 	// the land's warm light thrown up under a belly (and a flank's foot) through the warm hours
-	float low = n.y < -0.5 ? 1.0 : (n.y < 0.5 ? 1.0 - hDeck : 0.0);
+	float low = n.y < -0.5 ? 1.0 : (n.y < 0.5 ? 1.0 - tierF : 0.0);
 	shade += toLinear(WD_BOUNCE_HUE) * (WD_BOUNCE * warm * low * mix(0.5, 1.0, sw) * (1.0 - closed));
 	// the lit colour is the sun's own light on the cloud, not a share of its sky: a low sun's tops are dimmer than noon's
 	// and darker than the bright sky round the sun (a backlit deck), brighter than the darker sky away from it
@@ -561,17 +627,17 @@ vec3 wcPaint(vec3 c, CloudBody b, vec3 n, int tone, vec3 rd, vec3 sunC, float sh
 	vec3 paint = mix(shade * yShade, litHue * (mix(WD_LIT, WD_LIT_WARM, warm) * sunL), s);
 	// round sunset the bellies and flanks are lit from under by the low sun and its glowing sky: an ember glow toward it,
 	// rose away from it, a share of the sky's own light there, most at the thin outline
-	float underG = dusk * (1.0 - closed) * mix(0.25, 1.0, sw * sw) * mix(0.3, 1.0, max(b.rim, (1.0 - b.depth) * (1.0 - b.depth)))
+	float underG = dusk * (1.0 - closed) * mix(0.25, 1.0, sw * sw) * mix(0.3, 1.0, max(b.rim, (1.0 - dq) * (1.0 - dq)))
 		* (n.y < 0.5 ? 1.0 : 0.25);
 	vec3 emberHue = mix(vec3(1.0, 0.56, 0.50), vec3(1.0, 0.50, 0.24), sw);
 	emberHue = toLinear(emberHue);
-	float edgeU = max(b.rim, (1.0 - b.depth) * (1.0 - b.depth));
+	float edgeU = max(b.rim, (1.0 - dq) * (1.0 - dq));
 	edgeU = mix(edgeU, wcBackEdge(b, n, rd), sw * sw); // (Look D5) at the outline
 	paint += emberHue / wcLuma(emberHue) * (WD_UNDER_SKY * underG * mix(yShade, ySky, edgeU) * (1.0 - 0.5 * s));
 	// the turn between the light and the shade: a painter's warmer, rosier half-tone through the warm hours
 	paint *= mix(vec3(1.0), WD_TURN_HUE, 4.0 * s * (1.0 - s) * warm * WD_TURN);
 	// a deck toward a low sun glows at its thin parts and along its outline: the light come through its edges
-	float thinE = (1.0 - b.depth) * (1.0 - b.depth);
+	float thinE = (1.0 - dq) * (1.0 - dq);
 	// (Look D5) the glow keeps to the outline and the truly thin parts: a small cell is thin all through, and lit through
 	// its whole body it read a soft peach. Toward a low sun (sw) it narrows to the outline on screen (wcBackEdge)
 	thinE = mix(thinE, wcBackEdge(b, n, rd), sw * sw);
@@ -696,12 +762,14 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 			float muG2 = muG * muG;
 			yN *= 1.0 + mUp * (6.0 * muG2 * muG2 * muG2 * muG2 * muG2 * muG2 + 2.0 * muG2 * muG2);
 		}
-		float hD = b.k >= 0 ? clamp((b.y - b.iv.x) / wcDeckSpan(b.k), 0.0, 1.0) : b.hIn;
+		vec4 bqN = wcBandsOf(b); // (Look D10) the painted bands
+		float hD = bqN.y;
 		float faceM = n.y > 0.5 ? mix(0.55, 1.0, clamp(moonW.y, 0.0, 1.0)) * mix(0.75, 1.0, b.depth)
 			: (n.y < -0.5 ? 0.0 : smoothstep(-0.45, 0.8, dot(n.xz, moonW.xz) / max(length(moonW.xz), 1e-3)) * mix(0.3, 1.0, hD));
+		faceM = n.y > 0.5 ? mix(0.55, 1.0, clamp(moonW.y, 0.0, 1.0)) * mix(0.82, 1.0, 1.0 - bqN.z) : faceM;
 		float cm = 0.5 + 0.5 * dot(normalize(rd.xz + vec2(1e-5)), normalize(moonW.xz + vec2(1e-5)));
 		cm = cm * cm * (3.0 - 2.0 * cm);
-		float thinM = (1.0 - b.depth) * (1.0 - b.depth);
+		float thinM = (1.0 - bqN.x) * (1.0 - bqN.x);
 		vec3 silver = toLinear(WN_SILVER);
 		silver /= wcLuma(silver);
 		vec3 shadeN = toLinear(WN_SHADE);
@@ -710,7 +778,7 @@ vec3 wcCloudLight(CloudBody b, vec3 n, int tone, vec3 rd, float shadow, CloudEnv
 		// (Look D9) near the moon: the thin parts and the outline catch its light (a tight lobe and a broad one)
 		float muM = max(dot(rd, moonW), 0.0);
 		float nearM = mUp * (0.7 * pow(muM, 60.0) + 0.3 * pow(muM, 8.0));
-		vec3 nightC = yN * (mix(shadeN * (WN_BELLY * mix(1.15, 0.8, sqrt(b.depth))), silver * WN_LIT, sM)
+		vec3 nightC = yN * (mix(shadeN * (WN_BELLY * mix(1.25, 0.75, sqrt(bqN.x))), silver * WN_LIT, sM)
 			+ silver * (WN_EDGE * mUp * cm * cm * cm * max(thinM, 0.7 * b.rim))
 			+ silver * (WN_NEAR * nearM * max(thinM, b.rim)));
 		cS = mix(cS, nightC, nightP * WN_PAINT);
@@ -845,6 +913,8 @@ CloudBody wcBandBody(CloudHit h, vec3 rd, float y, CloudEnv e) {
 	b.bill = 0.0;
 	b.relief = 0.0;
 	b.rim = 0.0;
+	b.edgeD = 1e4;
+	b.px = 1.0;
 	return b;
 }
 
@@ -856,7 +926,9 @@ vec3 welkinCloudFace(CloudHit h, vec3 rd, float y, float interior, CloudEnv e) {
 // The finished colour of a cloud hit, from the ray's origin `ro` (camera-relative) along `rd`. `pixAngle`: radians
 // per screen pixel. Far off and at a grazing angle the decks become a soft band (wcBandOf), not here.
 vec3 welkinCloudColor(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle) {
-	CloudBody b = wcBodyOf(h, ro, rd, e, true);
+	CloudBody b = wcBodyOf(h, ro, rd, e, true, pixAngle);
+	b.px = pixAngle * h.t / max(abs(dot(h.n, rd)), 0.12);
+	wcRimOf(b, h.level);
 	vec3 n = h.n;
 	if (abs(n.y) < 0.5) {
 		// a side only a few pixels tall, or seen edge-on, takes its cap's light: its base from below, its top from above
@@ -972,7 +1044,9 @@ vec3 welkinCloudShade(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, float pixAngle, 
 	if (band) {
 		b = wcBandBody(h, rd, e.camY + ro.y + rd.y * h.t, e);
 	} else {
-		b = wcBodyOf(h, ro, rd, e, true);
+		b = wcBodyOf(h, ro, rd, e, true, pixAngle);
+		b.px = pixAngle * h.t / max(abs(dot(h.n, rd)), 0.12);
+		wcRimOf(b, h.level);
 		if (abs(n.y) < 0.5) {
 			float thin = wcSideThin(h, rd, b.iv.y - b.iv.x, pixAngle);
 			b.hIn = mix(b.hIn, rd.y > 0.0 ? 0.0 : 1.0, thin);
