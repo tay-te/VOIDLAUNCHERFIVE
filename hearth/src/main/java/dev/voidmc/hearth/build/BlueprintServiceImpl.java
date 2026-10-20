@@ -195,6 +195,32 @@ public final class BlueprintServiceImpl implements BlueprintService {
 		return b;
 	}
 
+	private static final dev.voidmc.hearth.build.style.Role[] DRESS = BlueprintService.DRESS_ROLES.stream()
+		.map(n -> dev.voidmc.hearth.build.style.Role.valueOf(n.toUpperCase(java.util.Locale.ROOT))).toArray(dev.voidmc.hearth.build.style.Role[]::new);
+
+	@Override
+	public int @Nullable [] dressColours(PlotSpec spec, TerrainProbe terrain) {
+		Archetype a = this.archetypes.get(spec.archetype());
+		if (a == null) {
+			return null;
+		}
+		try {
+			Draft d = new Draft(spec, this.styles.getOrDefault(spec.style()), new Site(spec, a.terrain(spec, terrain)));
+			int[] out = new int[DRESS.length];
+			for (int i = 0; i < DRESS.length; i++) {
+				var m = d.mat(DRESS[i]);
+				var b = m.main(dev.voidmc.hearth.build.style.Form.FULL);
+				if (b == null) {
+					b = m.main(dev.voidmc.hearth.build.style.Form.STAIRS);
+				}
+				out[i] = b == null ? 0 : b.defaultBlockState().getMapColor(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, net.minecraft.core.BlockPos.ZERO).col;
+			}
+			return out;
+		} catch (RuntimeException e) {
+			return null;
+		}
+	}
+
 	/**
 	 * Draws a spec without compiling or caching it (previews and checks look at the draft itself).
 	 *

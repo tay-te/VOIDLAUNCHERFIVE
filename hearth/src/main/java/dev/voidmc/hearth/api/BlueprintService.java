@@ -25,6 +25,23 @@ public interface BlueprintService {
 		return true;
 	}
 
+	/**
+	 * The roles {@link #dressColours} answers for, in order: what a building's walls and roofs are most often made of
+	 * (the wall, its frame, gable fill, plinth and masonry; the roof covering, its trim and sheet roofs).
+	 */
+	java.util.List<String> DRESS_ROLES = java.util.List.of("wall", "frame", "gable", "plinth", "masonry", "roof", "roof_trim", "sheet");
+
+	/**
+	 * The map colours (0xRRGGBB) of the materials a building on this spec is dressed in, one per {@link #DRESS_ROLES}
+	 * entry (0 where it has none), without drawing it: the style's variant, region, local materials and tier as the
+	 * blueprint would choose them (a thatched roof answers its thatch). For far views that know a building's shape
+	 * from another of its kind and want its own colours. Cheap next to {@link #blueprint} (it reads the ground under the
+	 * plot and the style, nothing else); null where the service does not say (the default) or the archetype is unknown.
+	 */
+	default int @Nullable [] dressColours(PlotSpec spec, TerrainProbe terrain) {
+		return null;
+	}
+
 	@Nullable ArchetypeInfo archetype(Identifier id);
 
 	Collection<ArchetypeInfo> archetypes();
