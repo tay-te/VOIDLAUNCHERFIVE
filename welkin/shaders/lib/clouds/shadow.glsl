@@ -59,9 +59,9 @@ float wcShadowField(vec2 q, int k, int lv, CloudEnv e) {
 // (Look D9) deeper again, 0.18 / 0.14 / 0.11 (was 0.34 / 0.28 / 0.24): KCD II's noon signature is the slow cloud shadows
 // drifting over the land, and at a third of the sun the patches read faintly in the vistas once the air lay over them.
 // The golden hours keep the lighter shares above (the sun under about 30 degrees: 16:30 and later barely move)
-#define WC_SHADOW_ONE_HIGH 0.18
-#define WC_SHADOW_TWO_HIGH 0.14
-#define WC_SHADOW_THREE_HIGH 0.11
+#define WC_SHADOW_ONE_HIGH 0.22 // (Look D10: 0.18, a close field under one deck read heavy)
+#define WC_SHADOW_TWO_HIGH 0.17
+#define WC_SHADOW_THREE_HIGH 0.135
 // (Look D6) under a closed overcast: the sun through a gap in the decks, and under one, two and three decks (as a share of
 // a clear day's sun; the closed sky's table sun is 0.12 of it)
 #define WC_GAP_SUN 0.75
