@@ -41,6 +41,10 @@ void main() {
 
 #ifdef FRAGMENT_SHADER
 
+// (Look D10) a far deck over the land thins out over this elevation (radians) from the horizon, past this distance
+#define WC_HORIZON_FADE 0.035
+#define WC_HORIZON_NEAR 500.0
+
 #include "/lib/depth.glsl"
 // the clouds rework (2026-10-16): this pass reads the raw map's smooth fields for the light inside the clouds
 #define WC_FIELD
@@ -130,12 +134,18 @@ void main() {
 		lit = welkinCloudShade(useBand ? wcBandHit(rd, sel.y, e) : h, ro, rd, e, pixAngle, useBand);
 	}
 	float opacity = 1.0;
+	// (Look D10) the horizon seam: a deck just over (or under) the eye's height is seen edge-on, its base (or top) a plane
+	// that meets the horizon. Over far land it cut the land along one hard, straight line at the horizon: the land's tops
+	// over the plane in cloud, the rest clear. Over the land, a far deck thins out within WC_HORIZON_FADE of the
+	// horizon, so far ridges rise softly into its base as into a cloud's mist
+	float horizonK = s.sky ? 1.0 : mix(1.0, smoothstep(0.0, WC_HORIZON_FADE, abs(rd.y)),
+		smoothstep(WC_HORIZON_NEAR, 3.0 * WC_HORIZON_NEAR, min(h.hit ? h.t : 1e30, sel.x)));
 	if (h.hit) {
 		vec3 cc = lit;
 		// a deck at eye height: its cells give way to the fog bank below (wcSlabFog) out to a few kilometres, where
 		// the bank covers them (seen edge-on, the far cells of a thin bank stood as hard dark lines on the horizon)
 		int k = wcDeckAt(e.camY + rd.y * h.t - h.n.y * 0.01, e);
-		opacity = k >= 0 ? mix(1.0, smoothstep(300.0, 3000.0, h.t), wcNearDeck(k, e)) : 1.0;
+		opacity = (k >= 0 ? mix(1.0, smoothstep(300.0, 3000.0, h.t), wcNearDeck(k, e)) : 1.0) * horizonK;
 		color.rgb = mix(color.rgb, cc, opacity);
 		cloudT *= 1.0 - opacity;
 		km = opacity > 0.5 ? h.t / 1000.0 : km;
@@ -149,7 +159,7 @@ void main() {
 			// cloud; its gaps show that, not the horizon's colour. Over land past a deck below the eye the horizon
 			// colour had painted out the far land along a hard line, with the far ridges standing over it unhazed. A
 			// pixel counts as cloud for the haze only where the band is mostly cloud.)
-			float alpha = b.z * (cell ? mix(b.w, 1.0, 0.6) : b.w);
+			float alpha = b.z * (cell ? mix(b.w, 1.0, 0.6) : b.w) * horizonK;
 			color.rgb = mix(color.rgb, lit, alpha);
 			cloudT *= 1.0 - clamp(alpha, 0.0, 1.0);
 			if (alpha > 0.5) {

@@ -519,6 +519,14 @@ void main() {
 			float cover = dawnMistCover(normalize(eyePos), T, camY, ground, dawnAmt, weight);
 			// on the sky the bank sits low on the horizon
 			cover *= s.sky ? 0.55 * (1.0 - smoothstep(-0.02, 0.035, normalize(eyePos).y)) : 1.0;
+			// (Look D10) far land near the horizon takes at least the bank the sky shows there: the low land's thick mist
+			// ended along the horizon in one straight line where the rays met far heights (ridges, plateaus at the eye's height)
+			if (!s.sky && T > 1200.0) {
+				float gS = min(camY - 2.0, HAZE_SEA_LEVEL + 8.0);
+				float bank = dawnMistCover(normalize(eyePos), 700.0, camY, gS, dawnAmt, 0.5 * dawnMistLow(gS))
+					* 0.55 * (1.0 - smoothstep(-0.02, 0.035, normalize(eyePos).y));
+				cover = max(cover, bank * smoothstep(1200.0, 4000.0, T));
+			}
 			if (cover > 0.0) {
 				float fsunM = 1.0;
 #ifdef HV_READ
