@@ -357,10 +357,13 @@ CloudBody wcBodyOf(CloudHit h, vec3 ro, vec3 rd, CloudEnv e, bool useField, floa
 			float s = float(WC_CELL << h.level);
 			float g = 0.5 * s;
 			vec2 corner = wcCellCorner(h.cell, int(s), e);
-			float a = clamp(1.2 * pixAngle * h.t / max(abs(dot(h.n, rd)), 0.12) / g, 0.03, 0.5);
+			// a step's width in pixels (half the foreshortening: a stair seen at a grazing angle is only thin one way)
+			float gPx = g / max(pixAngle * h.t / sqrt(max(abs(dot(h.n, rd)), 0.12)), 1e-4);
+			float a = clamp(1.2 / gPx, 0.03, 0.5);
 			vec2 v = (fq - corner) / g - 0.5;
 			vec2 vs = floor(v) + smoothstep(vec2(0.5 - a), vec2(0.5 + a), fract(v));
-			fq = corner + (vs + 0.5) * g;
+			// (far off, where a half cell is only a few pixels, the stairs would alias: the bands follow the smooth field)
+			fq = mix(fq, corner + (vs + 0.5) * g, smoothstep(3.0, 8.0, gPx));
 		}
 		vec2 f = wcFieldSmooth(fq, e);
 		b.depth = clamp((b.k == 0 ? f.x : f.y) * 2.0 - 1.0, 0.0, 1.0);
