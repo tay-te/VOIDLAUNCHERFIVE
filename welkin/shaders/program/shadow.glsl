@@ -80,6 +80,11 @@ uniform vec4 void_wind;
 uniform float void_storm;
 #endif
 #endif
+#ifndef WU_colortex5
+#define WU_colortex5
+uniform sampler2D colortex5;
+#endif
+#define WELKIN_GUST_MAP
 #include "/lib/sway.glsl"
 #endif
 
@@ -119,11 +124,11 @@ void main() {
 		bool live = void_bridge == 1 && BRIDGE_MODE == 0;
 		vec4 wind = live ? void_wind : welkinWindFallback(rainStrength);
 		vec3 worldPos = vec3(cameraPositionInt & 1023) + cameraPositionFract + playerPos;
-		// D11: the same gust fronts, so the shadows lean with the plants
+		// D11: the same gust fronts, so the shadows lean with the plants (the gust map; lib/sway.glsl welkinGustMap)
 		vec2 gs = vec2(0.0);
 		if (WIND_GUSTS > 0.0 && welkinGustedVertex(material, at_midBlock.xyz)) {
 			vec2 absXZ = vec2(cameraPositionInt.xz) + (cameraPositionFract.xz + playerPos.xz);
-			gs = welkinGust(absXZ, frameTimeCounter, wind, max(live ? void_storm : 0.0, 0.6 * rainStrength), false);
+			gs = welkinGustMap(absXZ); // (the previous frame's map: the shadow pass runs before prepare)
 		}
 		playerPos += welkinSway(material, worldPos, at_midBlock.xyz, frameTimeCounter, wind, gs) * swayKeep;
 		view = shadowModelView * vec4(playerPos, 1.0);
