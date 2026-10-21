@@ -29,16 +29,16 @@ public record LawConfig(Mode mode, boolean exemptCreative, boolean exemptOps, bo
 		Fines.DEFAULTS, Justice.DEFAULTS, Stealth.DEFAULTS);
 
 	public static final Codec<LawConfig> CODEC = RecordCodecBuilder.create(i -> i.group(
-		opt(Mode.CODEC, "mode", DEFAULTS.mode).forGetter(LawConfig::mode),
-		opt(Codec.BOOL, "exempt_creative", DEFAULTS.exemptCreative).forGetter(LawConfig::exemptCreative),
-		opt(Codec.BOOL, "exempt_ops", DEFAULTS.exemptOps).forGetter(LawConfig::exemptOps),
-		opt(Codec.BOOL, "pvp_in_towns", DEFAULTS.pvpInTowns).forGetter(LawConfig::pvpInTowns),
-		opt(Codec.BOOL, "protect_player_property", DEFAULTS.protectPlayerProperty).forGetter(LawConfig::protectPlayerProperty),
-		opt(Crimes.CODEC, "crimes", Crimes.DEFAULTS).forGetter(LawConfig::crimes),
-		opt(Witnesses.CODEC, "witnesses", Witnesses.DEFAULTS).forGetter(LawConfig::witnesses),
-		opt(Fines.CODEC, "fines", Fines.DEFAULTS).forGetter(LawConfig::fines),
-		opt(Justice.CODEC, "justice", Justice.DEFAULTS).forGetter(LawConfig::justice),
-		opt(Stealth.CODEC, "stealth", Stealth.DEFAULTS).forGetter(LawConfig::stealth)
+		Opt.of(Mode.CODEC, "mode", DEFAULTS.mode).forGetter(LawConfig::mode),
+		Opt.of(Codec.BOOL, "exempt_creative", DEFAULTS.exemptCreative).forGetter(LawConfig::exemptCreative),
+		Opt.of(Codec.BOOL, "exempt_ops", DEFAULTS.exemptOps).forGetter(LawConfig::exemptOps),
+		Opt.of(Codec.BOOL, "pvp_in_towns", DEFAULTS.pvpInTowns).forGetter(LawConfig::pvpInTowns),
+		Opt.of(Codec.BOOL, "protect_player_property", DEFAULTS.protectPlayerProperty).forGetter(LawConfig::protectPlayerProperty),
+		Opt.of(Crimes.CODEC, "crimes", Crimes.DEFAULTS).forGetter(LawConfig::crimes),
+		Opt.of(Witnesses.CODEC, "witnesses", Witnesses.DEFAULTS).forGetter(LawConfig::witnesses),
+		Opt.of(Fines.CODEC, "fines", Fines.DEFAULTS).forGetter(LawConfig::fines),
+		Opt.of(Justice.CODEC, "justice", Justice.DEFAULTS).forGetter(LawConfig::justice),
+		Opt.of(Stealth.CODEC, "stealth", Stealth.DEFAULTS).forGetter(LawConfig::stealth)
 	).apply(i, LawConfig::new));
 
 	/**
@@ -46,7 +46,20 @@ public record LawConfig(Mode mode, boolean exemptCreative, boolean exemptOps, bo
 	 * switch with its value.
 	 */
 	static <A> MapCodec<A> opt(Codec<A> codec, String name, A defaultValue) {
-		return codec.optionalFieldOf(name).xmap(o -> o.orElse(defaultValue), java.util.Optional::of);
+		return Opt.of(codec, name, defaultValue);
+	}
+
+	/**
+	 * Holds {@link #opt} for the nested records' codecs: calling a static method of LawConfig itself from their
+	 * initialisers would start LawConfig's (whose CODEC needs theirs, still null), when a nested record loads first.
+	 */
+	static final class Opt {
+		private Opt() {
+		}
+
+		static <A> MapCodec<A> of(Codec<A> codec, String name, A defaultValue) {
+			return codec.optionalFieldOf(name).xmap(o -> o.orElse(defaultValue), java.util.Optional::of);
+		}
 	}
 
 	/** The settings as they apply: the mode laid over the individual switches. */
@@ -90,15 +103,15 @@ public record LawConfig(Mode mode, boolean exemptCreative, boolean exemptOps, bo
 		public static final Crimes DEFAULTS = new Crimes(true, true, true, true, true, true, true, true, true);
 		public static final Crimes NONE = new Crimes(false, false, false, false, false, false, false, false, false);
 		public static final Codec<Crimes> CODEC = RecordCodecBuilder.create(i -> i.group(
-			opt(Codec.BOOL, "theft", true).forGetter(Crimes::theft),
-			opt(Codec.BOOL, "pickpocketing", true).forGetter(Crimes::pickpocketing),
-			opt(Codec.BOOL, "trespass", true).forGetter(Crimes::trespass),
-			opt(Codec.BOOL, "vandalism", true).forGetter(Crimes::vandalism),
-			opt(Codec.BOOL, "assault", true).forGetter(Crimes::assault),
-			opt(Codec.BOOL, "murder", true).forGetter(Crimes::murder),
-			opt(Codec.BOOL, "animals", true).forGetter(Crimes::animals),
-			opt(Codec.BOOL, "crops", true).forGetter(Crimes::crops),
-			opt(Codec.BOOL, "lockpicking", true).forGetter(Crimes::lockpicking)
+			Opt.of(Codec.BOOL, "theft", true).forGetter(Crimes::theft),
+			Opt.of(Codec.BOOL, "pickpocketing", true).forGetter(Crimes::pickpocketing),
+			Opt.of(Codec.BOOL, "trespass", true).forGetter(Crimes::trespass),
+			Opt.of(Codec.BOOL, "vandalism", true).forGetter(Crimes::vandalism),
+			Opt.of(Codec.BOOL, "assault", true).forGetter(Crimes::assault),
+			Opt.of(Codec.BOOL, "murder", true).forGetter(Crimes::murder),
+			Opt.of(Codec.BOOL, "animals", true).forGetter(Crimes::animals),
+			Opt.of(Codec.BOOL, "crops", true).forGetter(Crimes::crops),
+			Opt.of(Codec.BOOL, "lockpicking", true).forGetter(Crimes::lockpicking)
 		).apply(i, Crimes::new));
 
 		public boolean any() {
@@ -122,13 +135,13 @@ public record LawConfig(Mode mode, boolean exemptCreative, boolean exemptOps, bo
 		boolean threats) {
 		public static final Witnesses DEFAULTS = new Witnesses(24, 12, 90, 64, 1.0, true, true);
 		public static final Codec<Witnesses> CODEC = RecordCodecBuilder.create(i -> i.group(
-			opt(Codec.intRange(4, 64), "sight_range", DEFAULTS.sightRange).forGetter(Witnesses::sightRange),
-			opt(Codec.intRange(0, 48), "hearing_range", DEFAULTS.hearingRange).forGetter(Witnesses::hearingRange),
-			opt(Codec.intRange(5, 3600), "report_seconds", DEFAULTS.reportSeconds).forGetter(Witnesses::reportSeconds),
-			opt(Codec.intRange(8, 160), "guard_radius", DEFAULTS.guardRadius).forGetter(Witnesses::guardRadius),
-			opt(Codec.doubleRange(0, 1), "light_weight", DEFAULTS.lightWeight).forGetter(Witnesses::lightWeight),
-			opt(Codec.BOOL, "bribes", DEFAULTS.bribes).forGetter(Witnesses::bribes),
-			opt(Codec.BOOL, "threats", DEFAULTS.threats).forGetter(Witnesses::threats)
+			Opt.of(Codec.intRange(4, 64), "sight_range", DEFAULTS.sightRange).forGetter(Witnesses::sightRange),
+			Opt.of(Codec.intRange(0, 48), "hearing_range", DEFAULTS.hearingRange).forGetter(Witnesses::hearingRange),
+			Opt.of(Codec.intRange(5, 3600), "report_seconds", DEFAULTS.reportSeconds).forGetter(Witnesses::reportSeconds),
+			Opt.of(Codec.intRange(8, 160), "guard_radius", DEFAULTS.guardRadius).forGetter(Witnesses::guardRadius),
+			Opt.of(Codec.doubleRange(0, 1), "light_weight", DEFAULTS.lightWeight).forGetter(Witnesses::lightWeight),
+			Opt.of(Codec.BOOL, "bribes", DEFAULTS.bribes).forGetter(Witnesses::bribes),
+			Opt.of(Codec.BOOL, "threats", DEFAULTS.threats).forGetter(Witnesses::threats)
 		).apply(i, Witnesses::new));
 	}
 
@@ -139,19 +152,19 @@ public record LawConfig(Mode mode, boolean exemptCreative, boolean exemptOps, bo
 		long vandalismPerBlock, long assault, long murder, long robbery, long jailbreak, long resistingArrest, double multiplier) {
 		public static final Fines DEFAULTS = new Fines(20, 2.0, 30, 25, 15, 30, 3, 60, 1500, 300, 200, 80, 1.0);
 		public static final Codec<Fines> CODEC = RecordCodecBuilder.create(i -> i.group(
-			opt(Codec.LONG, "theft", DEFAULTS.theft).forGetter(Fines::theft),
-			opt(Codec.DOUBLE, "value_multiplier", DEFAULTS.valueMultiplier).forGetter(Fines::valueMultiplier),
-			opt(Codec.LONG, "pickpocketing", DEFAULTS.pickpocketing).forGetter(Fines::pickpocketing),
-			opt(Codec.LONG, "lockpicking", DEFAULTS.lockpicking).forGetter(Fines::lockpicking),
-			opt(Codec.LONG, "trespass", DEFAULTS.trespass).forGetter(Fines::trespass),
-			opt(Codec.LONG, "poaching", DEFAULTS.poaching).forGetter(Fines::poaching),
-			opt(Codec.LONG, "vandalism_per_block", DEFAULTS.vandalismPerBlock).forGetter(Fines::vandalismPerBlock),
-			opt(Codec.LONG, "assault", DEFAULTS.assault).forGetter(Fines::assault),
-			opt(Codec.LONG, "murder", DEFAULTS.murder).forGetter(Fines::murder),
-			opt(Codec.LONG, "robbery", DEFAULTS.robbery).forGetter(Fines::robbery),
-			opt(Codec.LONG, "jailbreak", DEFAULTS.jailbreak).forGetter(Fines::jailbreak),
-			opt(Codec.LONG, "resisting_arrest", DEFAULTS.resistingArrest).forGetter(Fines::resistingArrest),
-			opt(Codec.DOUBLE, "multiplier", DEFAULTS.multiplier).forGetter(Fines::multiplier)
+			Opt.of(Codec.LONG, "theft", DEFAULTS.theft).forGetter(Fines::theft),
+			Opt.of(Codec.DOUBLE, "value_multiplier", DEFAULTS.valueMultiplier).forGetter(Fines::valueMultiplier),
+			Opt.of(Codec.LONG, "pickpocketing", DEFAULTS.pickpocketing).forGetter(Fines::pickpocketing),
+			Opt.of(Codec.LONG, "lockpicking", DEFAULTS.lockpicking).forGetter(Fines::lockpicking),
+			Opt.of(Codec.LONG, "trespass", DEFAULTS.trespass).forGetter(Fines::trespass),
+			Opt.of(Codec.LONG, "poaching", DEFAULTS.poaching).forGetter(Fines::poaching),
+			Opt.of(Codec.LONG, "vandalism_per_block", DEFAULTS.vandalismPerBlock).forGetter(Fines::vandalismPerBlock),
+			Opt.of(Codec.LONG, "assault", DEFAULTS.assault).forGetter(Fines::assault),
+			Opt.of(Codec.LONG, "murder", DEFAULTS.murder).forGetter(Fines::murder),
+			Opt.of(Codec.LONG, "robbery", DEFAULTS.robbery).forGetter(Fines::robbery),
+			Opt.of(Codec.LONG, "jailbreak", DEFAULTS.jailbreak).forGetter(Fines::jailbreak),
+			Opt.of(Codec.LONG, "resisting_arrest", DEFAULTS.resistingArrest).forGetter(Fines::resistingArrest),
+			Opt.of(Codec.DOUBLE, "multiplier", DEFAULTS.multiplier).forGetter(Fines::multiplier)
 		).apply(i, Fines::new));
 
 		/** The base fine of an offence (before the value of what was taken and the multiplier). */
@@ -202,28 +215,28 @@ public record LawConfig(Mode mode, boolean exemptCreative, boolean exemptOps, bo
 		int bountyExpiryDays, int spreadDays, int spreadRadius, double spreadFraction, int suspicionSearchThreshold, float yieldHealth) {
 		public static final Justice DEFAULTS = new Justice(true, 10, 2, 30, true, true, 60, 3, true, true, true, 1, 0, 2, 1500, 0.5, 40, 6.0F);
 		private static final MapCodec<Justice> PART_A = RecordCodecBuilder.mapCodec(i -> i.group(
-			opt(Codec.BOOL, "jail", DEFAULTS.jail).forGetter(Justice::jail),
-			opt(Codec.intRange(1, 10000), "jail_bits_per_minute", DEFAULTS.jailBitsPerMinute).forGetter(Justice::jailBitsPerMinute),
-			opt(Codec.intRange(0, 600), "jail_min_minutes", DEFAULTS.jailMinMinutes).forGetter(Justice::jailMinMinutes),
-			opt(Codec.intRange(1, 1440), "jail_max_minutes", DEFAULTS.jailMaxMinutes).forGetter(Justice::jailMaxMinutes),
-			opt(Codec.BOOL, "sleep_through_jail", DEFAULTS.sleepThroughJail).forGetter(Justice::sleepThroughJail),
-			opt(Codec.BOOL, "pillory", DEFAULTS.pillory).forGetter(Justice::pillory),
-			opt(Codec.intRange(0, 100000), "pillory_max_bounty", DEFAULTS.pilloryMaxBounty).forGetter(Justice::pilloryMaxBounty),
-			opt(Codec.intRange(1, 60), "pillory_minutes", DEFAULTS.pilloryMinutes).forGetter(Justice::pilloryMinutes),
-			opt(Codec.BOOL, "confiscate_all_stolen", DEFAULTS.confiscateAllStolen).forGetter(Justice::confiscateAllStolen)
+			Opt.of(Codec.BOOL, "jail", DEFAULTS.jail).forGetter(Justice::jail),
+			Opt.of(Codec.intRange(1, 10000), "jail_bits_per_minute", DEFAULTS.jailBitsPerMinute).forGetter(Justice::jailBitsPerMinute),
+			Opt.of(Codec.intRange(0, 600), "jail_min_minutes", DEFAULTS.jailMinMinutes).forGetter(Justice::jailMinMinutes),
+			Opt.of(Codec.intRange(1, 1440), "jail_max_minutes", DEFAULTS.jailMaxMinutes).forGetter(Justice::jailMaxMinutes),
+			Opt.of(Codec.BOOL, "sleep_through_jail", DEFAULTS.sleepThroughJail).forGetter(Justice::sleepThroughJail),
+			Opt.of(Codec.BOOL, "pillory", DEFAULTS.pillory).forGetter(Justice::pillory),
+			Opt.of(Codec.intRange(0, 100000), "pillory_max_bounty", DEFAULTS.pilloryMaxBounty).forGetter(Justice::pilloryMaxBounty),
+			Opt.of(Codec.intRange(1, 60), "pillory_minutes", DEFAULTS.pilloryMinutes).forGetter(Justice::pilloryMinutes),
+			Opt.of(Codec.BOOL, "confiscate_all_stolen", DEFAULTS.confiscateAllStolen).forGetter(Justice::confiscateAllStolen)
 		).apply(i, (a, b, c, d, e, f, g, h, k) -> new Justice(a, b, c, d, e, f, g, h, k, DEFAULTS.guardsAttack, DEFAULTS.outlaws,
 			DEFAULTS.outlawAfterDays, DEFAULTS.bountyExpiryDays, DEFAULTS.spreadDays, DEFAULTS.spreadRadius, DEFAULTS.spreadFraction,
 			DEFAULTS.suspicionSearchThreshold, DEFAULTS.yieldHealth)));
 		private static final MapCodec<Justice> PART_B = RecordCodecBuilder.mapCodec(i -> i.group(
-			opt(Codec.BOOL, "guards_attack", DEFAULTS.guardsAttack).forGetter(Justice::guardsAttack),
-			opt(Codec.BOOL, "outlaws", DEFAULTS.outlaws).forGetter(Justice::outlaws),
-			opt(Codec.intRange(0, 100), "outlaw_after_days", DEFAULTS.outlawAfterDays).forGetter(Justice::outlawAfterDays),
-			opt(Codec.intRange(0, 1000), "bounty_expiry_days", DEFAULTS.bountyExpiryDays).forGetter(Justice::bountyExpiryDays),
-			opt(Codec.intRange(0, 100), "spread_days", DEFAULTS.spreadDays).forGetter(Justice::spreadDays),
-			opt(Codec.intRange(0, 20000), "spread_radius", DEFAULTS.spreadRadius).forGetter(Justice::spreadRadius),
-			opt(Codec.doubleRange(0, 1), "spread_fraction", DEFAULTS.spreadFraction).forGetter(Justice::spreadFraction),
-			opt(Codec.intRange(1, 100), "suspicion_search_threshold", DEFAULTS.suspicionSearchThreshold).forGetter(Justice::suspicionSearchThreshold),
-			opt(Codec.floatRange(1, 20), "yield_health", DEFAULTS.yieldHealth).forGetter(Justice::yieldHealth)
+			Opt.of(Codec.BOOL, "guards_attack", DEFAULTS.guardsAttack).forGetter(Justice::guardsAttack),
+			Opt.of(Codec.BOOL, "outlaws", DEFAULTS.outlaws).forGetter(Justice::outlaws),
+			Opt.of(Codec.intRange(0, 100), "outlaw_after_days", DEFAULTS.outlawAfterDays).forGetter(Justice::outlawAfterDays),
+			Opt.of(Codec.intRange(0, 1000), "bounty_expiry_days", DEFAULTS.bountyExpiryDays).forGetter(Justice::bountyExpiryDays),
+			Opt.of(Codec.intRange(0, 100), "spread_days", DEFAULTS.spreadDays).forGetter(Justice::spreadDays),
+			Opt.of(Codec.intRange(0, 20000), "spread_radius", DEFAULTS.spreadRadius).forGetter(Justice::spreadRadius),
+			Opt.of(Codec.doubleRange(0, 1), "spread_fraction", DEFAULTS.spreadFraction).forGetter(Justice::spreadFraction),
+			Opt.of(Codec.intRange(1, 100), "suspicion_search_threshold", DEFAULTS.suspicionSearchThreshold).forGetter(Justice::suspicionSearchThreshold),
+			Opt.of(Codec.floatRange(1, 20), "yield_health", DEFAULTS.yieldHealth).forGetter(Justice::yieldHealth)
 		).apply(i, (a, b, c, d, e, f, g, h, k) -> new Justice(DEFAULTS.jail, DEFAULTS.jailBitsPerMinute, DEFAULTS.jailMinMinutes,
 			DEFAULTS.jailMaxMinutes, DEFAULTS.sleepThroughJail, DEFAULTS.pillory, DEFAULTS.pilloryMaxBounty, DEFAULTS.pilloryMinutes,
 			DEFAULTS.confiscateAllStolen, a, b, c, d, e, f, g, h, k)));
@@ -257,17 +270,17 @@ public record LawConfig(Mode mode, boolean exemptCreative, boolean exemptOps, bo
 		int stolenFadeDays, double pickpocketAwake, double pickpocketAsleep, int pocketRefreshDays, double lockpickMinSeconds) {
 		public static final Stealth DEFAULTS = new Stealth(true, true, 21 * 60, 6 * 60, 19 * 60, 7 * 60, 7, 0.14, 0.05, 3, 0.6);
 		public static final Codec<Stealth> CODEC = RecordCodecBuilder.create(i -> i.group(
-			opt(Codec.BOOL, "lock_doors", DEFAULTS.lockDoors).forGetter(Stealth::lockDoors),
-			opt(Codec.BOOL, "lock_containers", DEFAULTS.lockContainers).forGetter(Stealth::lockContainers),
-			opt(Codec.intRange(0, 1439), "night_start", DEFAULTS.nightStart).forGetter(Stealth::nightStart),
-			opt(Codec.intRange(0, 1439), "night_end", DEFAULTS.nightEnd).forGetter(Stealth::nightEnd),
-			opt(Codec.intRange(0, 1439), "shop_close", DEFAULTS.shopClose).forGetter(Stealth::shopClose),
-			opt(Codec.intRange(0, 1439), "shop_open", DEFAULTS.shopOpen).forGetter(Stealth::shopOpen),
-			opt(Codec.intRange(0, 1000), "stolen_fade_days", DEFAULTS.stolenFadeDays).forGetter(Stealth::stolenFadeDays),
-			opt(Codec.doubleRange(0.001, 10), "pickpocket_awake", DEFAULTS.pickpocketAwake).forGetter(Stealth::pickpocketAwake),
-			opt(Codec.doubleRange(0.001, 10), "pickpocket_asleep", DEFAULTS.pickpocketAsleep).forGetter(Stealth::pickpocketAsleep),
-			opt(Codec.intRange(0, 100), "pocket_refresh_days", DEFAULTS.pocketRefreshDays).forGetter(Stealth::pocketRefreshDays),
-			opt(Codec.doubleRange(0, 30), "lockpick_min_seconds", DEFAULTS.lockpickMinSeconds).forGetter(Stealth::lockpickMinSeconds)
+			Opt.of(Codec.BOOL, "lock_doors", DEFAULTS.lockDoors).forGetter(Stealth::lockDoors),
+			Opt.of(Codec.BOOL, "lock_containers", DEFAULTS.lockContainers).forGetter(Stealth::lockContainers),
+			Opt.of(Codec.intRange(0, 1439), "night_start", DEFAULTS.nightStart).forGetter(Stealth::nightStart),
+			Opt.of(Codec.intRange(0, 1439), "night_end", DEFAULTS.nightEnd).forGetter(Stealth::nightEnd),
+			Opt.of(Codec.intRange(0, 1439), "shop_close", DEFAULTS.shopClose).forGetter(Stealth::shopClose),
+			Opt.of(Codec.intRange(0, 1439), "shop_open", DEFAULTS.shopOpen).forGetter(Stealth::shopOpen),
+			Opt.of(Codec.intRange(0, 1000), "stolen_fade_days", DEFAULTS.stolenFadeDays).forGetter(Stealth::stolenFadeDays),
+			Opt.of(Codec.doubleRange(0.001, 10), "pickpocket_awake", DEFAULTS.pickpocketAwake).forGetter(Stealth::pickpocketAwake),
+			Opt.of(Codec.doubleRange(0.001, 10), "pickpocket_asleep", DEFAULTS.pickpocketAsleep).forGetter(Stealth::pickpocketAsleep),
+			Opt.of(Codec.intRange(0, 100), "pocket_refresh_days", DEFAULTS.pocketRefreshDays).forGetter(Stealth::pocketRefreshDays),
+			Opt.of(Codec.doubleRange(0, 30), "lockpick_min_seconds", DEFAULTS.lockpickMinSeconds).forGetter(Stealth::lockpickMinSeconds)
 		).apply(i, Stealth::new));
 	}
 }
