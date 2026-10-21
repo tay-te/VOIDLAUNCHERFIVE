@@ -71,6 +71,7 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		int beat;
 		int sway;
 		boolean sat;
+		@Nullable BlockPos lastPos;
 
 		State(long tavern, @Nullable Poi seat, BlockPos stand, BlockPos table, @Nullable BlockPos home, boolean wrestler, boolean musician) {
 			this.tavern = tavern;
@@ -225,7 +226,15 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		ServerLevel level = (ServerLevel) folk.entity().level();
 		switch (st.mode) {
 			case WALK -> {
-				if (RhythmFolk.near(folk, st.stand, st.seat != null ? 1.6 : 2.0)) {
+				// stuck a few blocks short (a bench the path will not end on, a crowded doorway): the last steps to the seat
+				BlockPos here = folk.entity().blockPosition();
+				boolean stuck = false;
+				if (t >= st.nextMove) {
+					// checked every walk order (80 ticks): no block gained since the last one
+					stuck = here.equals(st.lastPos) && RhythmFolk.near(folk, st.stand, 6);
+					st.lastPos = here;
+				}
+				if (stuck || RhythmFolk.near(folk, st.stand, st.seat != null ? 1.6 : 2.0)) {
 					if (st.seat != null && folk.sit(st.seat.pos(), st.seat.facing())) {
 						st.mode = Mode.SEATED;
 						st.sat = true;

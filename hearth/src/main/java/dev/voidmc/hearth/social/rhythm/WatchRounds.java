@@ -81,11 +81,7 @@ public final class WatchRounds implements NpcService.FolkBehaviour {
 				return false;
 			}
 			NpcService npc = HearthServices.npc();
-			boolean duty = npc == null || npc.onDuty(s, r);
-			if (duty && !folk.awake() && (folk.gameTime() & 127) == 0) {
-				folk.wake(); // a watchman on duty asleep in his bed (his night duty began while he lay down): up and out
-			}
-			return duty && folk.awake();
+			return folk.awake() && (npc == null || npc.onDuty(s, r));
 		} finally {
 			RhythmFolk.t1(t0);
 		}

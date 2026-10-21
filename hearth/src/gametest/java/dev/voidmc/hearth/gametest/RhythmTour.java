@@ -78,6 +78,26 @@ public class RhythmTour implements FabricClientGameTest {
 				log("no site for a temperate town");
 				return;
 			}
+			// a town with no night guard of its own: one of its men takes the night duty, before anyone is embodied (so his day is a watchman's)
+			world.getServer().runOnServer(server -> {
+				SimSettlement s = settlement(server, town);
+				// (Schedule: a guard whose seed's third is 0 keeps the dark hours)
+				for (dev.voidmc.hearth.api.Resident r : s.residents()) {
+					long seed = r.id.getMostSignificantBits() ^ r.id.getLeastSignificantBits();
+					if (r.job == JobType.GUARD && Math.floorMod(seed >> 12, 3) == 0) {
+						return;
+					}
+				}
+				for (dev.voidmc.hearth.api.Resident r : s.residents()) {
+					long seed = r.id.getMostSignificantBits() ^ r.id.getLeastSignificantBits();
+					if (r.age == AgeStage.ADULT && Math.floorMod(seed >> 12, 3) == 0 && (r.job == JobType.FARMER || r.job == JobType.NONE)) {
+						r.job = JobType.GUARD;
+						s.markDirty();
+						log("appointed " + r.fullName() + " a guard");
+						return;
+					}
+				}
+			});
 			world.getServer().runOnServer(server -> forceChunks(server, town, true));
 			waitApplier(context, world);
 			world.getServer().runOnServer(server -> forceChunks(server, town, false));
@@ -192,18 +212,6 @@ public class RhythmTour implements FabricClientGameTest {
 					}
 				}
 				log("night guards on duty: " + watch.size() + " of " + guards + " guards and jailers");
-				if (watch.isEmpty()) {
-					// a town with no night watch of its own: one of its men takes the night duty for the tour
-					for (dev.voidmc.hearth.api.Resident r : s.residents()) {
-						long seed = r.id.getMostSignificantBits() ^ r.id.getLeastSignificantBits();
-						if (r.age == AgeStage.ADULT && Math.floorMod(seed >> 12, 3) == 0 && (r.job == JobType.FARMER || r.job == JobType.NONE)) {
-							r.job = JobType.GUARD;
-							watch.add(r.id);
-							log("appointed " + r.fullName() + " to the night watch");
-							break;
-						}
-					}
-				}
 				gather(server, town, watch, 3);
 			});
 			settle(context, 25_000);
