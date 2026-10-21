@@ -78,6 +78,45 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 		}
 	}
 
+	/** Where a companion's tick time goes (dress, target, path, halt and look, remark, fight): nanoseconds and calls. */
+	private static final java.util.concurrent.atomic.LongAdder[] PART_NANOS = new java.util.concurrent.atomic.LongAdder[6];
+	private static final java.util.concurrent.atomic.LongAdder[] PART_CALLS = new java.util.concurrent.atomic.LongAdder[6];
+	private static final String[] PART_NAMES = {"dress", "target", "path", "halt", "remark", "fight"};
+
+	static {
+		for (int i = 0; i < 6; i++) {
+			PART_NANOS[i] = new java.util.concurrent.atomic.LongAdder();
+			PART_CALLS[i] = new java.util.concurrent.atomic.LongAdder();
+		}
+	}
+
+	private static void part(int i, long t0) {
+		PART_NANOS[i].add(System.nanoTime() - t0);
+		PART_CALLS[i].increment();
+	}
+
+	/** The parts' cost per tick counted ({@link #TICKS}) and per call, for the tours and the stats. */
+	public static String parts() {
+		long ticks = Math.max(1, TICKS.sum());
+		StringBuilder b = new StringBuilder();
+		for (int i = 0; i < 6; i++) {
+			long n = PART_CALLS[i].sum();
+			b.append(String.format(java.util.Locale.ROOT, "%s %.2f µs/tick (%d calls, %.1f µs each); ", PART_NAMES[i], PART_NANOS[i].sum() / 1e3 / ticks, n,
+				n == 0 ? 0 : PART_NANOS[i].sum() / 1e3 / n));
+		}
+		return b.toString();
+	}
+
+	/** Forgets the counts (tours measure a stretch at a time). */
+	public static void resetCounts() {
+		NANOS.reset();
+		TICKS.reset();
+		for (int i = 0; i < 6; i++) {
+			PART_NANOS[i].reset();
+			PART_CALLS[i].reset();
+		}
+	}
+
 	/** The average cost of a companion's tick so far, in microseconds. */
 	public static double averageMicros() {
 		long n = TICKS.sum();
@@ -100,7 +139,9 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 		PlaceConfig.Companions cfg = Companions.config().companions();
 		boolean scan = (me.tickCount + me.getId()) % SCAN_TICKS == 0;
 		if (scan && me.tickCount % 200 == 0) {
+			long p0 = System.nanoTime();
 			CompanionGear.dress(me, st, level.registryAccess());
+			part(0, p0);
 		}
 		// ---- fighting
 		LivingEntity target = me.getTarget();
@@ -109,14 +150,18 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 			target = null;
 		}
 		if (target == null && scan && st.fight()) {
+			long p0 = System.nanoTime();
 			target = chooseTarget(level, me, player);
+			part(1, p0);
 			if (target != null) {
 				me.setTarget(target);
 				CompanionBarks.say(folk, "companion_fight", player);
 			}
 		}
 		if (target != null) {
+			long p0 = System.nanoTime();
 			fight(folk, me, target, level);
+			part(5, p0);
 			return true;
 		}
 		// ---- keeping to the player
@@ -160,15 +205,19 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 					}
 					if (scan && goal == null || done || slow && goal != null && goal.distSqr(player.blockPosition()) > 16) {
 						GOALS.put(folk.resident().id, player.blockPosition());
+						long p0 = System.nanoTime();
 						follow(me, player, d2 > 12 * 12 ? 0.9 : 0.65);
+						part(2, p0);
 					}
 				} else if (d2 < near * near * 0.5 && st.follow() == CompanionState.Follow.DISTANCE) {
 					halt(folk, me);
 				} else if (d2 <= far * far) {
+					long p0 = System.nanoTime();
 					halt(folk, me);
 					if (scan) {
 						folk.lookAt(player);
 					}
+					part(3, p0);
 				}
 				if (player.isSleeping() && d2 < 8 * 8) {
 					// they sleep when the player sleeps: down by the bed
@@ -177,7 +226,9 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 			}
 		}
 		if (scan) {
+			long p0 = System.nanoTime();
 			remark(folk, st, player, level, now);
+			part(4, p0);
 		}
 		return true;
 	}
@@ -273,7 +324,14 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 	private static void follow(Mob me, ServerPlayer player, double speed) {
 		var nav = me.getNavigation();
 		nav.setRequiredPathLength((float) Math.min(48.0, Math.sqrt(me.distanceToSqr(player)) * 1.5 + 8.0));
-		nav.moveTo(player.getX(), player.getY(), player.getZ(), speed);
+		// to within two blocks of the player (they stop short anyway; the search ends sooner, above all where the player's own
+		// block cannot be reached), on half the usual search: a following path is short or not worth finding this time
+		nav.setMaxVisitedNodesMultiplier(0.5F);
+		try {
+			nav.moveTo(player.getX(), player.getY(), player.getZ(), 2, speed);
+		} finally {
+			nav.resetMaxVisitedNodesMultiplier();
+		}
 	}
 
 	/** Stops walking, without asking the navigation again when it is idle already. */

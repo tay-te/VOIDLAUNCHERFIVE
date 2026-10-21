@@ -198,6 +198,7 @@ public final class TownEvents {
 			}
 			out.put(e.getKey(), n);
 		}
+		out.put("borrowed", run.borrowed);
 		return out;
 	}
 

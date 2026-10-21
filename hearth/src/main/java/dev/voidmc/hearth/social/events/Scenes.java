@@ -139,7 +139,9 @@ public final class Scenes implements SceneService {
 			return null;
 		}
 		NpcService npc = HearthServices.npc();
+		long c0 = System.nanoTime();
 		Map<String, List<UUID>> cast = SceneCast.cast(s, e, rule, anchor, id -> near(npc, id, anchor));
+		COSTS.merge("cast " + e.kind().id(), System.nanoTime() - c0, Math::max);
 		SceneRun run = new SceneRun(w, s, e, rule, cast, anchor, SceneDirector.of(e.kind()), level.getGameTime());
 		RUNNING.computeIfAbsent(s.id(), k -> new ArrayList<>()).add(run);
 		for (Map.Entry<String, List<UUID>> role : cast.entrySet()) {
@@ -193,11 +195,13 @@ public final class Scenes implements SceneService {
 				}
 			}
 		}
+		long d0 = System.nanoTime();
 		try {
 			run.director.begin(run, s);
 		} catch (RuntimeException ex) {
 			Hearth.LOG.warn("events: the {} scene in {} could not begin", e.kind().id(), s.name(), ex);
 		}
+		COSTS.merge("director " + e.kind().id(), System.nanoTime() - d0, Math::max);
 		advance(run, s, TownLife.now(w, s), true);
 		return run;
 	}
@@ -454,7 +458,7 @@ public final class Scenes implements SceneService {
 		String kind = (String) d[0];
 		boolean more = EventDressings.dress(run, s, kind, (BlockPos) d[1]);
 		if (more) {
-			run.dressQueue.addFirst(d); // a fair's stalls go up a batch a pass
+			run.dressQueue.addLast(d); // a fair's stalls go up a batch a pass, the rest of its dressings between them
 		}
 		COSTS.merge("dress " + kind, System.nanoTime() - t0, Math::max);
 	}
