@@ -301,8 +301,11 @@ final class StealthJourney {
 
 	private static void ghost(ClientGameTestContext context, TestServerContext server, double[] c) {
 		grant(server, StealthSkill.GHOST);
-		summon(server, "zombified_piglin", c[0] + 10, c[2], "far");
-		summon(server, "zombified_piglin", c[0] + 3, c[2], "close");
+		// Still (no AI): a wandering piglin could stray past 4 blocks while we look.
+		for (String[] at : new String[][] {{"10", "far"}, {"3", "close"}}) {
+			server.runCommand("summon zombified_piglin " + (c[0] + Double.parseDouble(at[0])) + " " + Y + " " + c[2] + " {Tags:[\"" + TAG + "\",\"" + TAG + "_" + at[1]
+				+ "\"],NoAI:1b,PersistenceRequired:1b}");
+		}
 		// Not attacking: three seconds since the last hit.
 		context.waitTicks(StealthRules.ATTACK_GRACE + 5);
 		context.getInput().holdKey(o -> o.keyShift);
@@ -315,7 +318,8 @@ final class StealthJourney {
 			double far = p.getVisibilityPercent(level, mob(p, "far"));
 			double close = p.getVisibilityPercent(level, mob(p, "close"));
 			if (far != 0 || close <= 0) {
-				return "Ghost: a hostile 10 blocks off sees " + far + ", one 3 blocks off " + close + " (expected 0 and more than 0)";
+				return "Ghost: a hostile " + String.format("%.1f", mob(p, "far").distanceTo(p)) + " blocks off sees " + far + ", one "
+					+ String.format("%.1f", mob(p, "close").distanceTo(p)) + " blocks off " + close + " (expected 0 and more than 0)";
 			}
 			if (StealthSkill.bonus(p, HearthKeys.STEALTH_UNSEEN_BEYOND) != StealthRules.GHOST_RANGE) {
 				return "Ghost: hearth:stealth/unseen_beyond reads " + StealthSkill.bonus(p, HearthKeys.STEALTH_UNSEEN_BEYOND) + ", expected 4";
