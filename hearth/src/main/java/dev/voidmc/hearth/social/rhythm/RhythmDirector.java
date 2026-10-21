@@ -61,11 +61,50 @@ public final class RhythmDirector {
 	private static final Map<Long, Integer> LAST_MINUTE = new HashMap<>();
 	private static final ArrayDeque<Bells.Stroke> STROKES = new ArrayDeque<>();
 	/** Chimneys of each town: plot → the block above its hearth's column top (found once a plot). */
-	private static final Map<Long, Map<Integer, BlockPos>> CHIMNEYS = new HashMap<>();
+	private static final Map<Long, List<Chimney>> CHIMNEYS = new HashMap<>();
 	private static final Set<String> ATTENDED = new HashSet<>();
 	/** Wash day's laundry search per town: {day, next home (MAX: done), lines up}. */
 	private static final Map<Long, int[]> LAUNDRY = new HashMap<>();
+	/** Wash day's homes per town (the day's washers' homes, found once a day, not every pass). */
+	private static final Map<Long, List<PlotView>> LAUNDRY_HOMES = new HashMap<>();
 	static final int LAUNDRY_YARDS_A_PASS = 1;
+	/** What a town's day is, worked out once a day (the pass reads it every 20 ticks). */
+	private static final Map<Long, TownDay> DAYS = new HashMap<>();
+	/** The wash-place scan's time a pass, at most (it is spread over passes; it used to take 0.15 ms a pass). */
+	static final long SCAN_NANOS = 40_000;
+
+	/** A town's day: the calendar's answers and the dressings' keys, and whether winter's dressing is seen to. */
+	static final class TownDay {
+		final long day;
+		final boolean rest;
+		final boolean wash;
+		final boolean winter;
+		final boolean firstSnow;
+		final String laundryKey;
+		final String winterKey;
+		boolean winterDone;
+
+		TownDay(Settlement s, long day, RhythmData data, int yearDays) {
+			this.day = day;
+			this.rest = HearthServices.calendar().restDay(s, day);
+			this.wash = HearthServices.calendar().washDay(s, day);
+			this.winter = RhythmCalendar.winter(data, day, yearDays);
+			this.firstSnow = RhythmCalendar.firstSnow(data, day, yearDays);
+			this.laundryKey = Dressings.RHYTHM + "laundry:" + day;
+			this.winterKey = Dressings.RHYTHM + "winter:" + day;
+		}
+	}
+
+	/** The town's day facts, made afresh when its day turns (or a command holds a different day). */
+	private static TownDay townDay(Settlement s, long day, RhythmData data, int yearDays) {
+		TownDay d = DAYS.get(s.id());
+		if (d == null || d.day != day || RhythmCalendar.forced(s.id(), day) != null && d.rest != HearthServices.calendar().restDay(s, day)
+			|| RhythmCalendar.forced(s.id(), day) != null && d.wash != HearthServices.calendar().washDay(s, day)) {
+			d = new TownDay(s, day, data, yearDays);
+			DAYS.put(s.id(), d);
+		}
+		return d;
+	}
 
 	private RhythmDirector() {
 	}
@@ -81,6 +120,8 @@ public final class RhythmDirector {
 			} else {
 				EMBODIED.remove(s.id());
 				LAST_MINUTE.remove(s.id());
+				DAYS.remove(s.id());
+				LAUNDRY_HOMES.remove(s.id());
 				WatchLights.clearTown(w.level(), s);
 				CHIMNEYS.remove(s.id());
 			}
@@ -98,6 +139,8 @@ public final class RhythmDirector {
 		CHIMNEYS.clear();
 		ATTENDED.clear();
 		LAUNDRY.clear();
+		LAUNDRY_HOMES.clear();
+		DAYS.clear();
 	}
 
 	// ---- abstract: once a day for every settlement
@@ -191,9 +234,10 @@ public final class RhythmDirector {
 		int minute = SocialTime.minute(now);
 		Integer prev = LAST_MINUTE.put(s.id(), minute);
 		RhythmData data = RhythmData.of(s.culture());
-		boolean rest = HearthServices.calendar().restDay(s, day);
-		boolean wash = HearthServices.calendar().washDay(s, day);
 		int yearDays = SocialModule.config().festivals().yearDays();
+		TownDay today = townDay(s, day, data, yearDays);
+		boolean rest = today.rest;
+		boolean wash = today.wash;
 		boolean admitting = LoadCaps.admitting(LoadCaps.mspt(level.getServer()), LoadCaps.highMspt());
 
 		// bells: the curfew, the rest-day peal
@@ -212,17 +256,22 @@ public final class RhythmDirector {
 		SocialLedger ledger = s.data(SocialModule.LEDGER);
 		// wash day: laundry lines in the yards from the morning till the work-end bell
 		if (wash && cfg.wash().enabled() && admitting && RhythmFolk.within(minute, data.wash().start(), 17 * 60)) {
-			String key = Dressings.RHYTHM + "laundry:" + day;
+			String key = today.laundryKey;
 			int[] progress = LAUNDRY.get(s.id());
 			if (progress == null || progress[0] != (int) day) {
 				// a fresh wash day (or one already seen to before a restart: its lines are in the ledger)
 				progress = new int[] {(int) day, Dressings.isUp(ledger, key) ? Integer.MAX_VALUE : 0, 0};
 				LAUNDRY.put(s.id(), progress);
+				LAUNDRY_HOMES.remove(s.id());
 			}
 			if (progress[1] != Integer.MAX_VALUE) {
-				List<PlotView> homes = WashBehaviour.homes(s, day);
-				if (homes.isEmpty()) {
-					homes = Dressings.plotsNear(s, Venues.square(s), 64, cfg.wash().lines() * 3);
+				List<PlotView> homes = LAUNDRY_HOMES.get(s.id());
+				if (homes == null) {
+					homes = WashBehaviour.homes(s, day);
+					if (homes.isEmpty()) {
+						homes = Dressings.plotsNear(s, Venues.square(s), 64, cfg.wash().lines() * 3);
+					}
+					LAUNDRY_HOMES.put(s.id(), homes);
 				}
 				// a few yards a pass, so the search never makes a slow tick
 				int from = progress[1];
@@ -242,20 +291,23 @@ public final class RhythmDirector {
 						s.markDirty();
 					}
 					progress[1] = Integer.MAX_VALUE;
+					LAUNDRY_HOMES.remove(s.id());
 				}
 			}
 		}
 		// the cold cultures' winter: snow on the ledges round the square
-		if (RhythmCalendar.winter(data, day, yearDays) && admitting) {
-			String key = Dressings.RHYTHM + "winter:" + day;
-			if (!Dressings.isUp(ledger, key)) {
+		if (today.winter && !today.winterDone && admitting) {
+			String key = today.winterKey;
+			today.winterDone = Dressings.isUp(ledger, key);
+			if (!today.winterDone) {
+				today.winterDone = true;
 				int n = Dressings.dressPlots(level, s, ledger, key, (day + 1) * SocialTime.DAY_TICKS - 1, "winter",
 					Dressings.plotsNear(s, Venues.square(s), 96, 30));
 				if (n == 0) {
 					ledger.dressings.add(new SocialLedger.Dressing(Venues.square(s).below(64).asLong(), "minecraft:air", key, (day + 1) * SocialTime.DAY_TICKS - 1));
 				}
 				s.markDirty();
-				if (RhythmCalendar.firstSnow(data, day, yearDays)) {
+				if (today.firstSnow) {
 					for (ServerPlayer p : level.players()) {
 						if (s == w.settlementAt(p.blockPosition())) {
 							p.sendSystemMessage(Component.translatable("hearth.rhythm.first_snow", s.name()).withStyle(ChatFormatting.AQUA), true);
@@ -281,7 +333,7 @@ public final class RhythmDirector {
 		// the wash-place scan, a little each pass, while the town is embodied
 		if (!WashPlaces.scanned(s)) {
 			long t0 = System.nanoTime();
-			WashPlaces.step(level, s, cfg.wash().reach(), cfg.wash().scanReads());
+			WashPlaces.step(level, s, cfg.wash().reach(), cfg.wash().scanReads(), t0 + SCAN_NANOS);
 			SCAN_TIMER.add(System.nanoTime() - t0);
 		}
 
@@ -368,10 +420,16 @@ public final class RhythmDirector {
 		if (most <= 0) {
 			return;
 		}
-		Map<Integer, BlockPos> chimneys = CHIMNEYS.computeIfAbsent(s.id(), k -> new HashMap<>());
-		NpcService npc = HearthServices.npc();
+		List<Chimney> chimneys = CHIMNEYS.get(s.id());
+		if (chimneys == null) {
+			chimneys = chimneys(level, s);
+			CHIMNEYS.put(s.id(), chimneys);
+		}
+		if (chimneys.isEmpty()) {
+			return;
+		}
 		Set<Integer> homesIn = new HashSet<>();
-		if (meal && npc != null) {
+		if (meal) {
 			for (Resident r : s.residents()) {
 				if (r.home != Resident.NO_PLOT && s.isResidentEmbodied(r.id)) {
 					homesIn.add(r.home);
@@ -379,24 +437,39 @@ public final class RhythmDirector {
 			}
 		}
 		int puffs = 0;
-		for (PlotView p : s.plots()) {
+		for (Chimney c : chimneys) {
 			if (puffs >= most) {
 				break;
 			}
+			if (!(meal && homesIn.contains(c.plot()) || ovens && c.bakery()) || !level.isLoaded(c.top())) {
+				continue;
+			}
+			level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, c.top().getX() + 0.5, c.top().getY() + 0.3, c.top().getZ() + 0.5, 0, 0, 0.07, 0, 1);
+			puffs++;
+		}
+	}
+
+	/** A built plot's chimney: the top of the column over its hearth, and whether it is a bakery's (smoking before dawn). */
+	record Chimney(int plot, boolean bakery, BlockPos top) {
+	}
+
+	/** The town's chimneys, found once while it is embodied (again when a building is finished). */
+	private static List<Chimney> chimneys(ServerLevel level, Settlement s) {
+		List<Chimney> out = new ArrayList<>();
+		List<Poi> hearths = s.pois(PoiType.HEARTH);
+		if (hearths.isEmpty()) {
+			return out;
+		}
+		for (PlotView p : s.plots()) {
 			if (p.state() != PlotState.BUILT) {
 				continue;
 			}
-			boolean bakery = p.spec().archetype().getPath().contains("bake");
-			if (!(meal && homesIn.contains(p.id()) || ovens && bakery)) {
-				continue;
+			BlockPos top = chimney(level, s, p);
+			if (top.getY() >= level.getMinY()) {
+				out.add(new Chimney(p.id(), p.spec().archetype().getPath().contains("bake"), top));
 			}
-			BlockPos top = chimneys.computeIfAbsent(p.id(), id -> chimney(level, s, p));
-			if (top == null || top.getY() < level.getMinY() || !level.isLoaded(top)) {
-				continue;
-			}
-			level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, top.getX() + 0.5, top.getY() + 0.3, top.getZ() + 0.5, 0, 0, 0.07, 0, 1);
-			puffs++;
 		}
+		return out;
 	}
 
 	/** The top of the column over a plot's hearth (its fireplace, its oven): where its smoke rises. */

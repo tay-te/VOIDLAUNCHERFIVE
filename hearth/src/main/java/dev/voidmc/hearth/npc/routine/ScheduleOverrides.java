@@ -53,25 +53,54 @@ public final class ScheduleOverrides {
 		return windows.isEmpty() ? base : overlay(base, windows);
 	}
 
-	/** {@code base} with each window in place of what it covers; the base resumes where a window ends. Pure. */
+	/**
+	 * {@code base} with each window in place of what it covers; the base resumes where a window ends. Pure. A merge of the
+	 * windows' ends with the base's block starts (a few dozen cuts, ~1 µs), not a walk of the day's minutes.
+	 */
 	public static Schedule overlay(Schedule base, List<Window> windows) {
-		int[] owner = new int[Schedule.DAY];
-		Arrays.fill(owner, -1);
-		for (int w = windows.size() - 1; w >= 0; w--) {
+		int nw = windows.size();
+		int[] ws = new int[nw];
+		int[] wl = new int[nw];
+		List<Schedule.Block> blocks = base.blocks();
+		int[] cuts = new int[1 + nw * 2 + blocks.size()];
+		int nc = 0;
+		cuts[nc++] = 0;
+		for (int w = 0; w < nw; w++) {
 			Window win = windows.get(w);
-			int start = Math.floorMod(win.start(), Schedule.DAY);
-			int len = Math.floorMod(win.end() - win.start(), Schedule.DAY);
-			for (int i = 0; i < len; i++) {
-				owner[(start + i) % Schedule.DAY] = w;
+			ws[w] = Math.floorMod(win.start(), Schedule.DAY);
+			wl[w] = Math.floorMod(win.end() - win.start(), Schedule.DAY);
+			if (wl[w] > 0) {
+				cuts[nc++] = ws[w];
+				cuts[nc++] = (ws[w] + wl[w]) % Schedule.DAY;
 			}
 		}
-		List<Schedule.Block> out = new ArrayList<>();
+		for (Schedule.Block b : blocks) {
+			if (b.start() >= 0 && b.start() < Schedule.DAY) {
+				cuts[nc++] = b.start();
+			}
+		}
+		Arrays.sort(cuts, 0, nc);
+		List<Schedule.Block> out = new ArrayList<>(nc);
 		Object last = null;
-		for (int m = 0; m < Schedule.DAY; m++) {
+		int prev = -1;
+		for (int k = 0; k < nc; k++) {
+			int m = cuts[k];
+			if (m == prev) {
+				continue;
+			}
+			prev = m;
+			// the earliest window covering this stretch wins; else the base's block there
+			int owner = -1;
+			for (int w = 0; w < nw; w++) {
+				if (wl[w] > 0 && Math.floorMod(m - ws[w], Schedule.DAY) < wl[w]) {
+					owner = w;
+					break;
+				}
+			}
 			Object here;
 			Schedule.Block block;
-			if (owner[m] >= 0) {
-				Window win = windows.get(owner[m]);
+			if (owner >= 0) {
+				Window win = windows.get(owner);
 				here = win;
 				block = new Schedule.Block(m, win.activity(), win.leisure(), win.where());
 			} else {

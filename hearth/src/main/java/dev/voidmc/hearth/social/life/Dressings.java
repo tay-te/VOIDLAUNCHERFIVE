@@ -423,7 +423,7 @@ public final class Dressings {
 			}
 			BlockState state = level.getBlockState(pos);
 			if (BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString().equals(d.block())) {
-				level.setBlock(pos, Blocks.AIR.defaultBlockState(), FLAGS);
+				dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, pos, Blocks.AIR.defaultBlockState(), FLAGS);
 			}
 			ledger.dressings.remove(i);
 			removed++;
@@ -461,7 +461,7 @@ public final class Dressings {
 			ledger.dressings.add(new SocialLedger.Dressing(p.pos.asLong(), BuiltInRegistries.BLOCK.getKey(p.state.getBlock()).toString(), key, until));
 		}
 		for (Part p : parts) {
-			level.setBlock(p.pos, p.state, FLAGS);
+			dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, p.pos, p.state, FLAGS);
 			if (p.tag != null) {
 				net.minecraft.world.level.block.entity.BlockEntity be = level.getBlockEntity(p.pos);
 				if (be != null) {

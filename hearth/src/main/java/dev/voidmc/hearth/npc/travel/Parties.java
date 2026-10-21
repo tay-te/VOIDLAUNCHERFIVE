@@ -500,7 +500,7 @@ public final class Parties {
 				if (level.getBlockEntity(p) instanceof net.minecraft.world.Container box) {
 					box.clearContent();
 				}
-				level.setBlock(p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
+				dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
 				n++;
 			}
 		}

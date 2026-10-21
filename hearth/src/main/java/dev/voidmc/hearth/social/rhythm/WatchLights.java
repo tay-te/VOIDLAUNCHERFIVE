@@ -86,7 +86,7 @@ public final class WatchLights {
 			RhythmBook.Lights book = s.data(RhythmBook.LIGHTS);
 			book.positions.add(head.asLong());
 			s.markDirty();
-			level.setBlock(head, light(), FLAGS);
+			dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, head, light(), FLAGS);
 			HELD.put(watchman, new Held(s.id(), head.immutable()));
 			return true;
 		}
@@ -107,7 +107,7 @@ public final class WatchLights {
 
 	private static void remove(ServerLevel level, Settlement s, BlockPos pos) {
 		if (level.isLoaded(pos) && level.getBlockState(pos).is(Blocks.LIGHT)) {
-			level.setBlock(pos, Blocks.AIR.defaultBlockState(), FLAGS);
+			dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, pos, Blocks.AIR.defaultBlockState(), FLAGS);
 		}
 		RhythmBook.Lights book = s.data(RhythmBook.LIGHTS);
 		if (book.positions.remove(Long.valueOf(pos.asLong()))) {
@@ -136,7 +136,7 @@ public final class WatchLights {
 				continue;
 			}
 			if (level.getBlockState(p).is(Blocks.LIGHT)) {
-				level.setBlock(p, Blocks.AIR.defaultBlockState(), FLAGS);
+				dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, p, Blocks.AIR.defaultBlockState(), FLAGS);
 			}
 			it.remove();
 			removed++;

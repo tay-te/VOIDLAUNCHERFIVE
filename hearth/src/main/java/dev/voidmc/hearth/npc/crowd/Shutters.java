@@ -205,7 +205,7 @@ public final class Shutters {
 			}
 			boolean open = !t.closed;
 			if (state.getValue(TrapDoorBlock.OPEN) != open) {
-				level.setBlock(pos, state.setValue(TrapDoorBlock.OPEN, open), Block.UPDATE_CLIENTS);
+				dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, pos, state.setValue(TrapDoorBlock.OPEN, open), Block.UPDATE_CLIENTS);
 				changed++;
 				CrowdStats.SHUTTERS_TOGGLED.increment();
 			}
