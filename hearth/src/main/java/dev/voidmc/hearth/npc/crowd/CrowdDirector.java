@@ -64,7 +64,7 @@ public final class CrowdDirector {
 	private int tick;
 
 	/** The last full look at a player: their stimuli, where they stood, when, and whether anyone new reacted. */
-	private record Quiet(long stimuli, BlockPos at, long when, boolean fresh, Glance glance) {
+	private record Quiet(long stimuli, ResourceKey<Level> level, BlockPos at, long when, boolean fresh, Glance glance) {
 	}
 
 	/**
@@ -216,17 +216,37 @@ public final class CrowdDirector {
 			if (world == null) {
 				continue;
 			}
-			Map<Settlement, List<ServerPlayer>> towns = new LinkedHashMap<>();
+			int minute = NpcTime.minuteOfDay(level);
+			Map<Settlement, List<ServerPlayer>> towns = null;
+			Map<UUID, Glance> glances = null;
 			for (ServerPlayer p : level.players()) {
 				if (p.isSpectator() || !p.isAlive()) {
 					continue;
 				}
+				// at a glance nothing has changed since the last look a moment ago, and nobody new reacted then: nothing to
+				// read, not even the town (a player with nothing about them may walk on; one who drew notice must stand where
+				// they were). With a spectacle on, the town is wanted for it.
+				Glance glance = Glance.of(p, minute);
+				Quiet q = this.quiet.get(p.getUUID());
+				if (q != null && !q.fresh && now - q.when < QUIET_TICKS && glance.equals(q.glance) && q.level == level.dimension()
+					&& (q.stimuli == 0 && this.bodies.isEmpty() || q.at.closerThan(p.blockPosition(), 2)) && this.spectacles.isEmpty()) {
+					CrowdStats.PLAYER_PASSES.increment();
+					CrowdStats.QUIET_SKIPS.increment();
+					continue;
+				}
 				Settlement s = world.settlementAt(p.blockPosition());
 				if (s != null && s.embodied()) {
+					if (towns == null) {
+						towns = new LinkedHashMap<>();
+						glances = new HashMap<>();
+					}
 					towns.computeIfAbsent(s, k -> new ArrayList<>(2)).add(p);
+					glances.put(p.getUUID(), glance);
 				}
 			}
-			int minute = NpcTime.minuteOfDay(level);
+			if (towns == null) {
+				continue;
+			}
 			for (Map.Entry<Settlement, List<ServerPlayer>> e : towns.entrySet()) {
 				Settlement s = e.getKey();
 				List<CrowdSelector.PlayerInput> inputs = new ArrayList<>(e.getValue().size());
@@ -234,12 +254,11 @@ public final class CrowdDirector {
 				Map<UUID, Role> roles = new HashMap<>();
 				for (ServerPlayer p : e.getValue()) {
 					CrowdStats.PLAYER_PASSES.increment();
-					// at a glance nothing has changed since the last look a moment ago, and nobody new reacted then: nothing to
-					// read (a player with nothing about them may walk on; one who drew notice must stand where they were)
-					Glance glance = Glance.of(p, minute);
+					Glance glance = glances.get(p.getUUID());
 					Quiet q = this.quiet.get(p.getUUID());
-					if (q != null && !q.fresh && now - q.when < QUIET_TICKS && glance.equals(q.glance)
+					if (q != null && !q.fresh && now - q.when < QUIET_TICKS && glance.equals(q.glance) && q.level == level.dimension()
 						&& (q.stimuli == 0 && this.bodies.isEmpty() || q.at.closerThan(p.blockPosition(), 2))) {
+						// (a spectacle on: the town was found for it, the player still needs no look)
 						CrowdStats.QUIET_SKIPS.increment();
 						continue;
 					}
@@ -252,7 +271,7 @@ public final class CrowdDirector {
 						this.outlawSeen.put(s.id(), now);
 					}
 					if (sensed.isEmpty()) {
-						this.quiet.put(p.getUUID(), new Quiet(0, p.blockPosition(), now, false, glance));
+						this.quiet.put(p.getUUID(), new Quiet(0, level.dimension(), p.blockPosition(), now, false, glance));
 						continue;
 					}
 					// the same stimuli, the player where they were, nobody new reacting last time: the folk near have had their say
@@ -265,7 +284,7 @@ public final class CrowdDirector {
 						CrowdStats.QUIET_SKIPS.increment();
 						continue;
 					}
-					this.quiet.put(p.getUUID(), new Quiet(sig, p.blockPosition(), now, false, glance));
+					this.quiet.put(p.getUUID(), new Quiet(sig, level.dimension(), p.blockPosition(), now, false, glance));
 					long n0 = System.nanoTime();
 					List<CrowdSelector.Candidate> near = new ArrayList<>();
 					for (FolkHandle h : npc.folkNear(level, p.position(), RADIUS)) {
@@ -304,7 +323,7 @@ public final class CrowdDirector {
 					if (!a.refresh()) {
 						Quiet q = this.quiet.get(a.player());
 						if (q != null && !q.fresh) {
-							this.quiet.put(a.player(), new Quiet(q.stimuli, q.at, q.when, true, q.glance));
+							this.quiet.put(a.player(), new Quiet(q.stimuli, q.level, q.at, q.when, true, q.glance));
 						}
 					}
 					ServerPlayer p = server.getPlayerList().getPlayer(a.player());
