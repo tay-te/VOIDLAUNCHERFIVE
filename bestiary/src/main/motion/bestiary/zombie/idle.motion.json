@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "rig": "fray:humanoid",
+  "length": 2.4,
+  "loop": "loop",
+  "blend_in": 6, "blend_out": 6,
+  "mask": { "right_leg": 0, "left_leg": 0 },
+  "bones": {
+    "torso":     { "rotation": [[0.0, [6, 0, -2], "catmullrom"], [1.2, [9, 0, 2], "catmullrom"], [2.4, [6, 0, -2], "catmullrom"]] },
+    "head":      { "rotation": [[0.0, [10, -8, 4], "catmullrom"], [1.2, [14, 6, -4], "catmullrom"], [2.4, [10, -8, 4], "catmullrom"]] },
+    "right_arm": { "rotation": [[0.0, [-80, 5, 6], "catmullrom"], [1.2, [-72, 0, 10], "catmullrom"], [2.4, [-80, 5, 6], "catmullrom"]] },
+    "left_arm":  { "rotation": [[0.0, [-74, -5, -8], "catmullrom"], [1.2, [-82, 0, -5], "catmullrom"], [2.4, [-74, -5, -8], "catmullrom"]] }
+  }
+}

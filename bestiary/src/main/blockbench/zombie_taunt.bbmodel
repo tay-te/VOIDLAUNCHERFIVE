@@ -1,0 +1,75 @@
+{
+	"meta": {"format_version": "4.10", "model_format": "modded_entity", "box_uv": true},
+	"name": "zombie_taunt",
+	"model_identifier": "zombie",
+	"modded_entity_version": "Fabric 1.17+",
+	"visible_box": [1, 1, 0],
+	"resolution": {"width": 64, "height": 64},
+	"elements": [
+		{"name": "hv_slam_r_a@0.35", "type": "locator", "uuid": "0b1e7c21-0000-4000-8000-00000000a001", "position": [6, 17, 0], "rotation": [0, 0, 0]},
+		{"name": "hv_slam_r_b", "type": "locator", "uuid": "0b1e7c21-0000-4000-8000-00000000a002", "position": [6, 10, -1], "rotation": [0, 0, 0]},
+		{"name": "hv_slam_l_a@0.35", "type": "locator", "uuid": "0b1e7c21-0000-4000-8000-00000000a003", "position": [-6, 17, 0], "rotation": [0, 0, 0]},
+		{"name": "hv_slam_l_b", "type": "locator", "uuid": "0b1e7c21-0000-4000-8000-00000000a004", "position": [-6, 10, -1], "rotation": [0, 0, 0]}
+	],
+	"outliner": [
+		{"name": "Head", "origin": [0, 24, 0], "uuid": "0b1e7c21-0000-4000-8000-000000000002", "children": []},
+		{"name": "Body", "origin": [0, 24, 0], "uuid": "0b1e7c21-0000-4000-8000-000000000003", "children": []},
+		{"name": "RightArm", "origin": [5, 22, 0], "uuid": "0b1e7c21-0000-4000-8000-000000000004", "children": ["0b1e7c21-0000-4000-8000-00000000a001", "0b1e7c21-0000-4000-8000-00000000a002"]},
+		{"name": "LeftArm", "origin": [-5, 22, 0], "uuid": "0b1e7c21-0000-4000-8000-000000000005", "children": ["0b1e7c21-0000-4000-8000-00000000a003", "0b1e7c21-0000-4000-8000-00000000a004"]},
+		{"name": "RightLeg", "origin": [1.9, 12, 0], "uuid": "0b1e7c21-0000-4000-8000-000000000006", "children": []},
+		{"name": "LeftLeg", "origin": [-1.9, 12, 0], "uuid": "0b1e7c21-0000-4000-8000-000000000007", "children": []},
+		{"name": "torso", "origin": [0, 12, 0], "uuid": "0b1e7c21-0000-4000-8000-000000000008", "children": []},
+		{"name": "root", "origin": [0, 0, 0], "uuid": "0b1e7c21-0000-4000-8000-000000000009", "children": []}
+	],
+	"animations": [
+		{
+			"uuid": "0b1e7c21-0000-4000-8000-0000000000aa",
+			"name": "animation.zombie.taunt_slam",
+			"loop": "once",
+			"override": false,
+			"length": 1.5,
+			"snapping": 20,
+			"animators": {
+				"0b1e7c21-0000-4000-8000-000000000004": {"name": "RightArm", "type": "bone", "keyframes": [
+					{"channel": "rotation", "data_points": [{"x": "80", "y": "0", "z": "6"}], "uuid": "k01", "time": 0, "interpolation": "catmullrom"},
+					{"channel": "rotation", "data_points": [{"x": 150, "y": 0, "z": 30}], "uuid": "k02", "time": 0.5, "interpolation": "catmullrom"},
+					{"channel": "rotation", "data_points": [{"x": 170, "y": 0, "z": 10}], "uuid": "k03", "time": 0.9, "interpolation": "catmullrom"},
+					{"channel": "rotation", "data_points": [{"x": 60, "y": 0, "z": 0}], "uuid": "k04", "time": 1.0, "interpolation": "linear"},
+					{"channel": "rotation", "data_points": [{"x": 20, "y": 0, "z": 0}], "uuid": "k05", "time": 1.05, "interpolation": "linear"},
+					{"channel": "rotation", "data_points": [{"x": 75, "y": 0, "z": 6}], "uuid": "k06", "time": 1.5, "interpolation": "bezier"}
+				]},
+				"0b1e7c21-0000-4000-8000-000000000005": {"name": "LeftArm", "type": "bone", "keyframes": [
+					{"channel": "rotation", "data_points": [{"x": 75, "y": 0, "z": -6}], "uuid": "k11", "time": 0, "interpolation": "catmullrom"},
+					{"channel": "rotation", "data_points": [{"x": 150, "y": 0, "z": -30}], "uuid": "k12", "time": 0.5, "interpolation": "catmullrom"},
+					{"channel": "rotation", "data_points": [{"x": 170, "y": 0, "z": -10}], "uuid": "k13", "time": 0.9, "interpolation": "catmullrom"},
+					{"channel": "rotation", "data_points": [{"x": 60, "y": 0, "z": 0}], "uuid": "k14", "time": 1.0, "interpolation": "linear"},
+					{"channel": "rotation", "data_points": [{"x": 20, "y": 0, "z": 0}], "uuid": "k15", "time": 1.05, "interpolation": "linear"},
+					{"channel": "rotation", "data_points": [{"x": 75, "y": 0, "z": -6}], "uuid": "k16", "time": 1.5, "interpolation": "catmullrom"}
+				]},
+				"0b1e7c21-0000-4000-8000-000000000002": {"name": "Head", "type": "bone", "keyframes": [
+					{"channel": "rotation", "data_points": [{"x": 0, "y": 0, "z": 0}], "uuid": "k21", "time": 0, "interpolation": "catmullrom"},
+					{"channel": "rotation", "data_points": [{"x": 25, "y": 0, "z": 0}], "uuid": "k22", "time": 0.5, "interpolation": "catmullrom"},
+					{"channel": "rotation", "data_points": [{"x": -15, "y": 0, "z": 0}], "uuid": "k23", "time": 1.0, "interpolation": "linear"},
+					{"channel": "rotation", "data_points": [{"x": -10, "y": 0, "z": 0}], "uuid": "k24", "time": 1.5, "interpolation": "catmullrom"}
+				]},
+				"0b1e7c21-0000-4000-8000-000000000008": {"name": "torso", "type": "bone", "keyframes": [
+					{"channel": "rotation", "data_points": [{"x": 0, "y": 0, "z": 0}], "uuid": "k31", "time": 0, "interpolation": "catmullrom"},
+					{"channel": "rotation", "data_points": [{"x": 12, "y": 0, "z": 0}], "uuid": "k32", "time": 0.5, "interpolation": "catmullrom"},
+					{"channel": "rotation", "data_points": [{"x": -20, "y": 0, "z": 0}], "uuid": "k33", "time": 1.0, "interpolation": "linear"},
+					{"channel": "rotation", "data_points": [{"x": -5, "y": 0, "z": 0}], "uuid": "k34", "time": 1.5, "interpolation": "catmullrom"}
+				]},
+				"0b1e7c21-0000-4000-8000-000000000009": {"name": "root", "type": "bone", "keyframes": [
+					{"channel": "position", "data_points": [{"x": 0, "y": 0, "z": 0}], "uuid": "k41", "time": 0, "interpolation": "catmullrom"},
+					{"channel": "position", "data_points": [{"x": 0, "y": 2, "z": 0}], "uuid": "k42", "time": 0.9, "interpolation": "catmullrom"},
+					{"channel": "position", "data_points": [{"x": 0, "y": -1, "z": 0}], "uuid": "k43", "time": 1.0, "interpolation": "linear"},
+					{"channel": "position", "data_points": [{"x": 0, "y": 0, "z": 0}], "uuid": "k44", "time": 1.5, "interpolation": "catmullrom"}
+				]},
+				"effects": {"name": "Effects", "type": "effect", "keyframes": [
+					{"channel": "timeline", "data_points": [{"script": "tell red"}], "uuid": "k51", "time": 0.2},
+					{"channel": "timeline", "data_points": [{"script": "windup_end"}], "uuid": "k52", "time": 0.9},
+					{"channel": "timeline", "data_points": [{"script": "active_end"}], "uuid": "k53", "time": 1.05}
+				]}
+			}
+		}
+	]
+}

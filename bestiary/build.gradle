@@ -1,0 +1,204 @@
+plugins {
+	// 26.x ships unobfuscated, so there is no mappings line: the code is written against Mojang's own
+	// names, and Loom has nothing to remap.
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+base {
+	archivesName = 'void-bestiary'
+}
+
+repositories {
+	mavenCentral()
+	// Sodium and Iris, for compatibility: compiled against by Fray, and in the dev runs only on request
+	exclusiveContent {
+		forRepository {
+			maven {
+				name = 'Modrinth'
+				url = 'https://api.modrinth.com/maven'
+			}
+		}
+		filter {
+			includeGroup 'maven.modrinth'
+		}
+	}
+}
+
+evaluationDependsOn(':fray')
+def frayProject = project(':fray')
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"bestiary" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+		// Fray's classes in the dev runs come from its own source sets (one mod, two folders).
+		"fray" {
+			sourceSet("main", ":fray")
+			sourceSet("client", ":fray")
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Fray: compiled against from its source sets, shipped inside the jar (Fabric jar-in-jar; the loader keeps the
+	// newest nested copy when several family mods carry one).
+	implementation frayProject.sourceSets.main.output
+	clientImplementation frayProject.sourceSets.client.output
+	include frayProject
+
+	// Sodium replaces how model parts are drawn and Iris the whole pipeline. Dev runs and game tests add them with
+	// -Psodium (Sodium) or -Piris (Sodium and Iris); nothing of either ships.
+	if (project.hasProperty('sodium') || project.hasProperty('iris')) {
+		localRuntime "maven.modrinth:sodium:${project.sodium_version}"
+	}
+	if (project.hasProperty('iris')) {
+		localRuntime "maven.modrinth:iris:${project.iris_version}"
+	}
+
+	testImplementation platform('org.junit:junit-bom:5.13.4')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// ---------------------------------------------------------------------------------------------
+// Motion bake (ANIMATION.md §3, §6): src/main/motion/**/*.motion.json → client clips (assets/<ns>/fray/clip) and server
+// timelines (data/<ns>/fray/timeline), by Fray's own sampler, so the client's curves and the server's hit volumes come
+// from one file through one piece of code. The bake report (phase ticks, reach of each hit volume) lands in
+// build/motion-report.txt.
+//   ./gradlew motionBake
+//   ./gradlew bbImport -Pbb=<file.bbmodel>   Blockbench animations → src/main/motion/<rig>/<name>.motion.json
+// ---------------------------------------------------------------------------------------------
+def motionSrc = file('src/main/motion')
+def motionOut = layout.buildDirectory.dir('generated/motion')
+def motionReport = layout.buildDirectory.file('motion-report.txt')
+tasks.register('motionBake', JavaExec) {
+	group = 'fray'
+	description = 'Bakes src/main/motion into client clips and server timelines'
+	dependsOn ':fray:classes'
+	inputs.dir(motionSrc).withPropertyName('motion')
+	inputs.files(frayProject.sourceSets.main.output).withPropertyName('bakerClasses')
+	outputs.dir(motionOut)
+	outputs.file(motionReport)
+	classpath = sourceSets.main.compileClasspath
+	mainClass = 'dev.voidmc.fray.motion.bake.MotionBake'
+	doFirst {
+		project.delete(motionOut)
+	}
+	args motionSrc.absolutePath, motionOut.get().asFile.absolutePath, motionReport.get().asFile.absolutePath
+}
+
+tasks.register('bbImport', JavaExec) {
+	group = 'fray'
+	description = 'Converts the animations of a Blockbench .bbmodel (-Pbb=<file>) into .motion.json sources'
+	dependsOn ':fray:classes'
+	classpath = sourceSets.main.compileClasspath
+	mainClass = 'dev.voidmc.fray.motion.bake.BlockbenchImport'
+	def bb = project.findProperty('bb') ?: 'src/main/blockbench/zombie_taunt.bbmodel'
+	args file(bb).absolutePath, motionSrc.absolutePath, (project.findProperty('bbRig') ?: 'fray:humanoid').toString(),
+		(project.findProperty('bbNamespace') ?: 'bestiary').toString()
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+	dependsOn 'motionBake'
+	from(motionOut)
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.encoding = 'UTF-8'
+	it.options.release = 25
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		events 'failed'
+		exceptionFormat 'full'
+		showStandardStreams = true
+	}
+}
+
+// The gametest source set holds the motion showcase (client game tests with screenshots) and the two-client duo.
+// None of it ships.
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "bestiary-gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+		clearRunDirectory = false
+	}
+}
+
+// The showcase reads Iris's shadow-pass flag (compiled against, present only in -Piris runs).
+dependencies {
+	gametestCompileOnly "maven.modrinth:iris:${project.iris_version}"
+}
+
+// -Dfray.show.only=<parts> limits the showcase (zombie,perf,player,fp,authority,hash,blend,bb); -Dfray.duo.role=A|B
+// turns the run into one side of the two-client duo (tools/duo.sh).
+tasks.matching { it.name == 'runClientGameTest' }.configureEach {
+	systemProperty 'fray.show.only', System.getProperty('fray.show.only', '')
+	systemProperty 'fray.show.tag', System.getProperty('fray.show.tag', '')
+	systemProperty 'fray.perf.mobs', System.getProperty('fray.perf.mobs', '24')
+	systemProperty 'fray.duo.role', System.getProperty('fray.duo.role', '')
+	systemProperty 'fray.duo.dir', System.getProperty('fray.duo.dir', 'duo')
+	systemProperty 'fray.duo.lag', System.getProperty('fray.duo.lag', '0')
+}
+
+// ---------------------------------------------------------------------------------------------
+// The duo: a second client JVM outside Gradle (Mettle's audit pattern). `./gradlew frayLaunchers` writes
+// build/duo/runGuest.args (JVM args, classpath, main class, program args) for tools/duo.sh.
+// ---------------------------------------------------------------------------------------------
+loom {
+	runs {
+		guest {
+			client()
+			source sourceSets.gametest
+			runDir 'build/run/guest'
+			ideConfigGenerated false
+			vmArg '-Dfabric.client.gametest'
+			vmArg "-Dfabric.client.gametest.testModResourcesPath=${file('src/gametest/resources').absolutePath}"
+			programArgs '--username', 'Bob'
+		}
+	}
+}
+
+tasks.register('frayLaunchers') {
+	notCompatibleWithConfigurationCache('duo')
+	dependsOn 'classes', 'clientClasses', 'gametestClasses', 'configureLaunch'
+	doLast {
+		def out = file('build/duo')
+		out.mkdirs()
+		['runGuest'].each { n ->
+			def t = tasks.getByName(n)
+			def lines = []
+			t.jvmArgs.each { lines << it }
+			t.systemProperties.each { k, v -> lines << "-D${k}=${v}" }
+			lines << '-cp'
+			lines << t.classpath.asPath
+			lines << t.mainClass.get()
+			t.args.each { lines << it }
+			new File(out, n + '.args').setText(lines.collect { '"' + it.toString().replace((char) 92, (char) 47) + '"' }.join(System.lineSeparator()), 'UTF-8')
+		}
+	}
+}

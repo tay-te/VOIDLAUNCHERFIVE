@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "dev.voidmc.fray.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"FirstPersonHandsMixin",
+		"GameRendererMixin",
+		"LivingEntityRendererMixin",
+		"ModelFeatureRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

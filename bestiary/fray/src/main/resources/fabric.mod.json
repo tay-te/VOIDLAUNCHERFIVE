@@ -1,0 +1,23 @@
+{
+	"schemaVersion": 1,
+	"id": "fray",
+	"version": "${version}",
+	"name": "VOID Fray",
+	"description": "VOID's shared combat and animation library (Fray Motion): clips, server timelines, hit volumes, sync. Ships inside VOID Bestiary, Arsenal, Alembic and Mettle.",
+	"authors": ["VOID"],
+	"license": "All-Rights-Reserved",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["dev.voidmc.fray.Fray"],
+		"client": ["dev.voidmc.fray.client.FrayClient"]
+	},
+	"mixins": [
+		{"config": "fray.client.mixins.json", "environment": "client"}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

@@ -1,0 +1,21 @@
+{
+	"schemaVersion": 1,
+	"id": "bestiary",
+	"version": "${version}",
+	"name": "VOID Bestiary",
+	"description": "Creatures that fight back: reworked and new mobs, elites, bosses, the player's combat actions and the animation library. Stage 0: the animation prototype.",
+	"authors": ["VOID"],
+	"license": "All-Rights-Reserved",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["dev.voidmc.bestiary.Bestiary"],
+		"client": ["dev.voidmc.bestiary.client.BestiaryClient"]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*",
+		"fray": ">=0.0.1"
+	}
+}

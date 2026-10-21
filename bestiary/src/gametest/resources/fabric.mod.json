@@ -1,0 +1,11 @@
+{
+	"schemaVersion": 1,
+	"id": "bestiary-gametest",
+	"version": "1.0.0",
+	"name": "VOID Bestiary motion showcase",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.voidmc.bestiary.gametest.MotionShowcase", "dev.voidmc.bestiary.gametest.MotionDuo"]
+	},
+	"depends": {"bestiary": "*", "fray": "*"}
+}

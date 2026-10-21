@@ -1,0 +1,16 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'void-bestiary'
+
+// Fray: the shared combat and animation library (CONTRACTS.md §1, ROADMAP D1). Built here by the Bestiary lane and
+// shipped inside every family jar (jar-in-jar).
+include 'fray'
