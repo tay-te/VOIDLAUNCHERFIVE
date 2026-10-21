@@ -19,7 +19,20 @@ public enum MomentKind {
 	MASTERY,
 	FEAT,
 	SYNERGY,
-	TEACHING;
+	TEACHING,
+	// Build feel's milestones (docs/BUILD_FEEL.md §2.4): each once per character.
+	/** The first card ever slotted. */
+	CARD,
+	/** A set reached: the first set, the first 4-set, a keyword's first 6-set (tier 6 is big). */
+	SET,
+	/** A byname tier rose (big). */
+	BYNAME,
+	/** The first Signature chosen. */
+	SIGNATURE,
+	/** The first Temper or Inscription. */
+	BOON,
+	/** Shards reached a forge's cost. */
+	FORGE_READY;
 
 	public String serializedName() {
 		return name().toLowerCase(Locale.ROOT);
@@ -27,7 +40,17 @@ public enum MomentKind {
 
 	/** Feats, synergies and teachings: earned, never bought; drawn in champagne. */
 	public boolean earned() {
-		return this == FEAT || this == SYNERGY || this == TEACHING;
+		return this == FEAT || this == SYNERGY || this == TEACHING || milestone();
+	}
+
+	/** Build feel's milestones: once per character, their own cues (SOUNDS.md), never merged with other kinds. */
+	public boolean milestone() {
+		return this == CARD || this == SET || this == BYNAME || this == SIGNATURE || this == BOON || this == FORGE_READY;
+	}
+
+	/** "Big" milestones add a 2.5 s banner over the name card: a byname tier, a 6-set. */
+	public boolean big(int tier) {
+		return this == BYNAME || this == SET && tier >= 6;
 	}
 
 	/** Moments that come from XP: they bring drafts and attribute points, so they wake the nudge. */
@@ -42,14 +65,14 @@ public enum MomentKind {
 
 	/** Moments with the same sound group share a throttle; the higher {@link #soundPriority} wins a tie. */
 	public String soundGroup() {
-		return levelUp() ? "level" : bought() ? "learned" : "earned";
+		return levelUp() ? "level" : bought() ? "learned" : milestone() ? "milestone" : "earned";
 	}
 
 	public int soundPriority() {
 		return switch (this) {
-			case CHARACTER, LEARNED, FEAT, SYNERGY, TEACHING -> 1;
-			case LEVEL, MASTERY -> 2;
-			case TIER -> 3;
+			case CHARACTER, LEARNED, FEAT, SYNERGY, TEACHING, CARD, SIGNATURE, BOON -> 1;
+			case LEVEL, MASTERY, SET, FORGE_READY -> 2;
+			case TIER, BYNAME -> 3;
 		};
 	}
 

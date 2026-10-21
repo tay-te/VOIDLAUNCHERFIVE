@@ -136,7 +136,8 @@ public final class MettlePayloads {
 	 * learned or earned. Sent just before the matching {@link Feedback} chip, which the client then leaves off the action
 	 * bar because the toast says it. {@code tier} is 0 unless a tier opened; {@code rank} is 0 for level moments.
 	 */
-	public record Moment(MomentKind kind, Optional<ResourceKey<Skill>> skill, int level, int tier, Optional<Identifier> perk, int rank)
+	public record Moment(MomentKind kind, Optional<ResourceKey<Skill>> skill, int level, int tier, Optional<Identifier> perk, int rank,
+		Optional<net.minecraft.network.chat.Component> text, Optional<net.minecraft.network.chat.Component> sub)
 		implements CustomPacketPayload {
 		public static final Type<Moment> TYPE = new Type<>(Mettle.id("character/moment"));
 		private static final StreamCodec<io.netty.buffer.ByteBuf, MomentKind> KIND = ByteBufCodecs.idMapper(i -> MomentKind.values()[i], Enum::ordinal);
@@ -147,7 +148,14 @@ public final class MettlePayloads {
 			ByteBufCodecs.VAR_INT, Moment::tier,
 			ByteBufCodecs.optional(Identifier.STREAM_CODEC), Moment::perk,
 			ByteBufCodecs.VAR_INT, Moment::rank,
+			net.minecraft.network.chat.ComponentSerialization.TRUSTED_OPTIONAL_STREAM_CODEC, Moment::text,
+			net.minecraft.network.chat.ComponentSerialization.TRUSTED_OPTIONAL_STREAM_CODEC, Moment::sub,
 			Moment::new);
+
+		/** A progress moment without words of its own (the client words it from the kind and the ids). */
+		public Moment(MomentKind kind, Optional<ResourceKey<Skill>> skill, int level, int tier, Optional<Identifier> perk, int rank) {
+			this(kind, skill, level, tier, perk, rank, Optional.empty(), Optional.empty());
+		}
 
 		@Override
 		public Type<Moment> type() {
@@ -231,6 +239,43 @@ public final class MettlePayloads {
 
 		@Override
 		public Type<KeepCard> type() {
+			return TYPE;
+		}
+	}
+
+	/** What a {@link BuildAction} asks for (docs/BUILD_FEEL.md, OVERLAY.md "Build feel"). */
+	public enum BuildActionKind {
+		/** Focus {@code text} (a keyword id; empty clears it). Once an in-game day. */
+		FOCUS,
+		/** Spend a boon of the card's skill on a Temper of trait {@code text} on card {@code card}. */
+		TEMPER,
+		/** Spend a boon on an Inscription of keyword {@code text} on card {@code card}. */
+		INSCRIBE,
+		/** Spend a boon of skill {@code text} on a reroll. */
+		BOON_REROLL,
+		/** Make slotted card {@code card} its deck's Signature ({@code card} -1 with skill {@code text}: none). */
+		SIGNATURE,
+		/** Wear the byname the build reads as ({@code text} empty) or held byname number {@code card}. */
+		BYNAME,
+		/** At a Card Shrine: forge the unclaimed drawn Mythic {@code text}, or {@code "legend"} for the legend title. */
+		FORGE,
+		/** The guide: skip it for good. */
+		GUIDE_SKIP,
+		/** The guide: {@code text} happened ("dismiss", "deck", "keyword", "unhover", "not_now"). */
+		GUIDE_ADVANCE
+	}
+
+	/** A build feel request from the client: the server checks everything and answers with a chip. */
+	public record BuildAction(BuildActionKind action, long card, String text) implements CustomPacketPayload {
+		public static final Type<BuildAction> TYPE = new Type<>(Mettle.id("character/build_action"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, BuildAction> STREAM_CODEC = StreamCodec.composite(
+			ByteBufCodecs.idMapper(i -> BuildActionKind.values()[Math.clamp(i, 0, BuildActionKind.values().length - 1)], Enum::ordinal), BuildAction::action,
+			ByteBufCodecs.VAR_LONG, BuildAction::card,
+			ByteBufCodecs.stringUtf8(256), BuildAction::text,
+			BuildAction::new);
+
+		@Override
+		public Type<BuildAction> type() {
 			return TYPE;
 		}
 	}

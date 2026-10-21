@@ -32,6 +32,15 @@ public final class Moments {
 		send(player, new MettlePayloads.Moment(kind, Optional.of(perk.skill()), 0, 0, Optional.of(key.identifier()), rank));
 	}
 
+	/**
+	 * A build feel milestone (docs/BUILD_FEEL.md §2.4): {@code subject} is the card's perk, the keyword, the Mythic; the
+	 * words are the server's (translated on the client).
+	 */
+	public static void milestone(ServerPlayer player, MomentKind kind, Optional<net.minecraft.resources.Identifier> subject, int tier,
+		net.minecraft.network.chat.Component text, net.minecraft.network.chat.Component sub) {
+		send(player, new MettlePayloads.Moment(kind, Optional.empty(), 0, tier, subject, 0, Optional.of(text), Optional.ofNullable(sub)));
+	}
+
 	private static void send(ServerPlayer player, MettlePayloads.Moment moment) {
 		if (ServerPlayNetworking.canSend(player, MettlePayloads.Moment.TYPE)) {
 			ServerPlayNetworking.send(player, moment);

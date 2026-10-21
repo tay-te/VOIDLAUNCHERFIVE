@@ -123,6 +123,23 @@ public final class Mythics {
 		return CardStore.get(player).activeRank(key(Mettle.id(id))) > 0;
 	}
 
+	/** Every drawn Mythic of a skill, in id order (three a skill with build feel, docs/BUILD_FEEL.md §5). */
+	public static List<Identifier> drawnAll(RegistryAccess registries, ResourceKey<Skill> skill) {
+		return registries.lookupOrThrow(MettleRegistries.MYTHIC).listElements()
+			.filter(r -> r.value().source() == Mythic.Source.DRAWN && r.value().skill().map(skill::equals).orElse(false))
+			.map(r -> r.key().identifier()).sorted(java.util.Comparator.comparing(Identifier::toString)).toList();
+	}
+
+	/** Every drawn Mythic as the forge sees it: id, skill, claimed or not. */
+	public static List<ForgeRules.Drawn> pool(MinecraftServer server) {
+		CardLedger ledger = Cards.ledger(server);
+		return server.registryAccess().lookupOrThrow(MettleRegistries.MYTHIC).listElements()
+			.filter(r -> r.value().source() == Mythic.Source.DRAWN && r.value().skill().isPresent())
+			.sorted(java.util.Comparator.comparing(r -> r.key().identifier().toString()))
+			.map(r -> new ForgeRules.Drawn(r.key().identifier(), r.value().skill().get(), ledger.first(r.key().identifier().getPath()).isPresent()))
+			.toList();
+	}
+
 	/** The drawn Mythic of a skill, if it has one. */
 	public static Optional<Identifier> drawnOf(RegistryAccess registries, ResourceKey<Skill> skill) {
 		return registries.lookupOrThrow(MettleRegistries.MYTHIC).listElements()
@@ -162,6 +179,11 @@ public final class Mythics {
 	 * on disk at once (the ledger, then the player's file).
 	 */
 	public static Optional<CardData> grant(ServerPlayer player, Identifier id, boolean op) {
+		return grant(player, id, op, CardData.How.MYTHIC);
+	}
+
+	/** {@link #grant}, saying how it came: drawn, earned, or forged with shards (§5.3: "Forged by Ashford · day 212"). */
+	public static Optional<CardData> grant(ServerPlayer player, Identifier id, boolean op, CardData.How made) {
 		MinecraftServer server = player.level().getServer();
 		RegistryAccess registries = player.level().registryAccess();
 		Optional<Mythic> def = def(registries, id);
@@ -184,15 +206,17 @@ public final class Mythics {
 				return Optional.empty();
 			}
 			ledger.claim(id.getPath(), holder);
-			how = Component.translatable(m.source() == Mythic.Source.DRAWN ? "mettle.mythic.how.drawn" : "mettle.mythic.how.first");
+			how = Component.translatable(made == CardData.How.FORGED ? "mettle.mythic.how.forged"
+				: m.source() == Mythic.Source.DRAWN ? "mettle.mythic.how.drawn" : "mettle.mythic.how.first");
 		}
 		ResourceKey<Skill> skill = m.skill().orElse(ResourceKey.create(MettleRegistries.SKILL, Mettle.id("mythic")));
 		DraftState.Card offer = new DraftState.Card(key(id), 1, DraftState.Rarity.MYTHIC, false, List.of(), List.of(), 0);
 		CharacterState state = CharacterStore.get(player);
-		CardData card = Cards.create(player, ledger, offer, state.level(skill), CardData.How.MYTHIC, CardData.Place.BINDER);
+		CardData card = Cards.create(player, ledger, offer, state.level(skill), made, CardData.Place.BINDER);
 		Cards.sync(player);
 		CardApi.mythicClaimed(player, id, card.id());
-		server.getPlayerList().broadcastSystemMessage(Component.translatable(m.source() == Mythic.Source.DRAWN ? "mettle.mythic.world.drawn"
+		server.getPlayerList().broadcastSystemMessage(Component.translatable(made == CardData.How.FORGED ? "mettle.mythic.world.forged"
+			: m.source() == Mythic.Source.DRAWN ? "mettle.mythic.world.drawn"
 			: "mettle.mythic.world.earned", player.getName(), m.name().copy().withStyle(ChatFormatting.GOLD), how), false);
 		SignaturePerks.feedback(player, Mettle.id("mythic/" + id.getPath()), Component.translatable("mettle.mythic.yours", m.name(), how));
 		ServerPlayNetworking.send(player, new MettlePayloads.MythicReveal(id, how.getString()));
@@ -239,6 +263,10 @@ public final class Mythics {
 			return;
 		}
 		MinecraftServer server = killed.level().getServer();
+		// After its world first is claimed, everyone with a real part in a kill earns shards, once per kind (BUILD_FEEL.md §5.2).
+		if (Cards.ledger(server).first(mythic).isPresent()) {
+			BuildFeel.bossKilled(server, mythic, fight);
+		}
 		ServerPlayer credited = credit(server, fight, source);
 		if (credited == null) {
 			return;

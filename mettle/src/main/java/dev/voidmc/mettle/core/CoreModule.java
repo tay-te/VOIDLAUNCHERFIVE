@@ -45,6 +45,7 @@ public final class CoreModule {
 		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.Moment.TYPE, MettlePayloads.Moment.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(MettlePayloads.CardSitting.TYPE, MettlePayloads.CardSitting.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.ChooseBackground.TYPE, MettlePayloads.ChooseBackground.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.BuildAction.TYPE, MettlePayloads.BuildAction.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.LearnPerk.TYPE, MettlePayloads.LearnPerk.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.SpendAttribute.TYPE, MettlePayloads.SpendAttribute.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(MettlePayloads.PickCard.TYPE, MettlePayloads.PickCard.STREAM_CODEC);

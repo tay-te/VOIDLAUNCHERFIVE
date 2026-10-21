@@ -51,4 +51,12 @@ public interface CardService {
 
 	/** The Mythics the player holds that are slotted and working. */
 	List<Identifier> activeMythics(ServerPlayer player);
+
+	/**
+	 * The byname the player wears (docs/BUILD_FEEL.md §2.1: "the Deep Ember Warden"), empty before their first set: for
+	 * how folk greet them. A default, so a stand-in or an older implementation answers empty.
+	 */
+	default java.util.Optional<net.minecraft.network.chat.Component> byname(ServerPlayer player) {
+		return java.util.Optional.empty();
+	}
 }

@@ -103,6 +103,12 @@ final class TestCards {
 			public String prefix(ResourceKey<Skill> skill) {
 				return SKILLS.get(skill.identifier()).prefix();
 			}
+
+			@Override
+			public double momentum(Identifier keyword) {
+				Keyword k = KEYWORDS.get(keyword);
+				return k == null ? 0 : k.momentum();
+			}
 		};
 	}
 

@@ -68,6 +68,64 @@ public final class CardRules {
 
 		/** The skill's card id prefix ({@code MN}). */
 		String prefix(ResourceKey<Skill> skill);
+
+		/** How much the deal leans toward a keyword for a committed player (keyword data {@code momentum}; 0 = never). */
+		default double momentum(Identifier keyword) {
+			return 0;
+		}
+	}
+
+	// ---------------------------------------------------------------- build momentum (docs/BUILD_FEEL.md §1)
+
+	/**
+	 * How committed a character is to each keyword when a hand is dealt (§1.1): the slotted, non-dormant cards carrying it
+	 * (all decks; Mythics carry none) plus {@code focus_weight} for the Focus, counted up to {@code momentum_cap}. The Focus
+	 * counts here only, never for sets.
+	 */
+	public record Commitment(Map<Identifier, Integer> counts) {
+		public static final Commitment NONE = new Commitment(Map.of());
+
+		public Commitment {
+			counts = Map.copyOf(counts);
+		}
+
+		public int of(Identifier keyword) {
+			return this.counts.getOrDefault(keyword, 0);
+		}
+
+		public boolean none() {
+			return this.counts.values().stream().allMatch(v -> v <= 0);
+		}
+
+		public static Commitment of(Collection<CardData> cards, Collection<Long> dormant, Optional<Identifier> focus) {
+			CardConfig c = CardConfig.get();
+			Map<Identifier, Integer> counts = new HashMap<>();
+			for (CardData card : cards) {
+				if (card.slotted() && !dormant.contains(card.id())) {
+					card.keywords().forEach(k -> counts.merge(k, 1, Integer::sum));
+				}
+			}
+			focus.ifPresent(f -> counts.merge(f, c.focus_weight, Integer::sum));
+			counts.replaceAll((k, v) -> Math.min(c.momentum_cap, v));
+			return new Commitment(counts);
+		}
+	}
+
+	/** The perk lean (§1.2): 1 + perk lean × momentum × commitment ÷ cap; 1 when nothing leans. */
+	public static double perkLean(Identifier keyword, Commitment commitment, Data data) {
+		CardConfig c = CardConfig.get();
+		return 1 + c.momentum_perk_lean * data.momentum(keyword) * Math.min(c.momentum_cap, commitment.of(keyword)) / (double) c.momentum_cap;
+	}
+
+	/** A second keyword's weight (§1.2): 1 + keyword lean × momentum × commitment. */
+	public static double keywordLean(Identifier keyword, Commitment commitment, Data data) {
+		CardConfig c = CardConfig.get();
+		return 1 + c.momentum_keyword_lean * data.momentum(keyword) * Math.min(c.momentum_cap, commitment.of(keyword));
+	}
+
+	/** A perk's native keyword: Hex for cursed perks (they never lean: no pool holds it and its momentum is 0). */
+	public static Identifier nativeOf(ResourceKey<Perk> key, Perk perk, Data data) {
+		return perk.kind() == Perk.Kind.CURSED ? HEX : data.nativeKeyword(key).orElse(HEX);
 	}
 
 	/** What dealing and deriving need about a character: skill levels, attributes and how many cards of a perk it owns. */
@@ -202,18 +260,27 @@ public final class CardRules {
 	 * made whatever comes of it, so the sequence never depends on the data.
 	 */
 	public static Card roll(ResourceKey<Perk> key, Perk perk, int level, Data data, Random random, boolean wildcard) {
-		return roll(key, perk, rollRarity(perk, level, random), data, random, wildcard);
+		return roll(key, perk, rollRarity(perk, level, random), data, random, wildcard, Commitment.NONE);
+	}
+
+	/** {@link #roll} with the second keyword leaned toward the character's commitment (§1.2). */
+	public static Card roll(ResourceKey<Perk> key, Perk perk, int level, Data data, Random random, boolean wildcard, Commitment commitment) {
+		return roll(key, perk, rollRarity(perk, level, random), data, random, wildcard, commitment);
 	}
 
 	/** {@link #roll} at a given rarity (ops' {@code /mettle cards give}); a cursed perk is always Cursed. */
 	public static Card roll(ResourceKey<Perk> key, Perk perk, Rarity chosen, Data data, Random random, boolean wildcard) {
+		return roll(key, perk, chosen, data, random, wildcard, Commitment.NONE);
+	}
+
+	public static Card roll(ResourceKey<Perk> key, Perk perk, Rarity chosen, Data data, Random random, boolean wildcard, Commitment commitment) {
 		Rarity rarity = perk.kind() == Perk.Kind.CURSED ? Rarity.CURSED : chosen == Rarity.CURSED ? Rarity.COMMON : chosen;
 		int count = traitCount(rarity, random);
 		boolean second = random.nextDouble() < secondKeywordChance(rarity);
 		long traitSeed = random.nextLong();
 		long keywordSeed = random.nextLong();
 		List<TraitRoll> traits = rollTraits(data.traits(perk.skill()), rarity, count, new Random(traitSeed));
-		List<Identifier> keywords = keywords(key, perk, data, second, new Random(keywordSeed));
+		List<Identifier> keywords = keywords(key, perk, data, second, new Random(keywordSeed), commitment);
 		return new Card(key, rank(perk, rarity), rarity, wildcard, keywords, traits, needs(perk, rarity));
 	}
 
@@ -230,13 +297,43 @@ public final class CardRules {
 
 	/** The native keyword (Hex for cursed perks), then a second from the skill's pool when {@code second}. */
 	public static List<Identifier> keywords(ResourceKey<Perk> key, Perk perk, Data data, boolean second, Random random) {
-		Identifier first = perk.kind() == Perk.Kind.CURSED ? HEX : data.nativeKeyword(key).orElse(HEX);
+		return keywords(key, perk, data, second, random, Commitment.NONE);
+	}
+
+	/**
+	 * {@link #keywords} with the second keyword weighed 1 + lean × momentum × commitment (§1.2). The chance of a second
+	 * keyword is the caller's and never changes. With every weight 1 (no commitment, or no momentum) the pick is today's
+	 * (one {@code nextInt}), so a character with nothing slotted is dealt exactly what it was before build feel.
+	 */
+	public static List<Identifier> keywords(ResourceKey<Perk> key, Perk perk, Data data, boolean second, Random random, Commitment commitment) {
+		Identifier first = nativeOf(key, perk, data);
 		List<Identifier> out = new ArrayList<>(2);
 		out.add(first);
 		if (second) {
 			List<Identifier> pool = data.pool(perk.skill()).stream().filter(k -> !k.equals(first)).sorted(Comparator.comparing(Identifier::toString)).toList();
 			if (!pool.isEmpty()) {
-				out.add(pool.get(random.nextInt(pool.size())));
+				double[] w = new double[pool.size()];
+				double sum = 0;
+				boolean flat = true;
+				for (int i = 0; i < pool.size(); i++) {
+					w[i] = keywordLean(pool.get(i), commitment, data);
+					sum += w[i];
+					flat &= w[i] == 1.0;
+				}
+				if (flat) {
+					out.add(pool.get(random.nextInt(pool.size())));
+				} else {
+					double r = random.nextDouble() * sum;
+					Identifier pick = pool.getLast();
+					for (int i = 0; i < pool.size(); i++) {
+						r -= w[i];
+						if (r < 0) {
+							pick = pool.get(i);
+							break;
+						}
+					}
+					out.add(pick);
+				}
 			}
 		}
 		return out;
@@ -305,6 +402,16 @@ public final class CardRules {
 	 */
 	static ResourceKey<Perk> draw(List<ResourceKey<Perk>> cards, int level, int attribute, Sheet sheet, DraftRules.Deck deck, Random random,
 		Set<ResourceKey<Perk>> taken, Set<ResourceKey<Perk>> avoid) {
+		return draw(cards, level, attribute, sheet, deck, random, taken, avoid, Commitment.NONE, null);
+	}
+
+	/**
+	 * {@link #draw} with build momentum (§1.2): within its depth band a perk weighs × {@link #perkLean} of its native
+	 * keyword, and the band's leaned weights are scaled back to its old total, so the depth odds (and with them the power
+	 * odds) never move. With no lean every weight is exactly today's.
+	 */
+	public static ResourceKey<Perk> draw(List<ResourceKey<Perk>> cards, int level, int attribute, Sheet sheet, DraftRules.Deck deck, Random random,
+		Set<ResourceKey<Perk>> taken, Set<ResourceKey<Perk>> avoid, Commitment commitment, @org.jspecify.annotations.Nullable Data data) {
 		List<ResourceKey<Perk>> pool = cards.stream().filter(k -> !taken.contains(k) && !avoid.contains(k)).toList();
 		if (pool.isEmpty()) {
 			pool = cards.stream().filter(k -> !taken.contains(k)).toList();
@@ -318,11 +425,24 @@ public final class CardRules {
 			count.merge(DraftRules.rarity(deck.get(k).orElseThrow()), 1, Integer::sum);
 		}
 		double[] weights = new double[pool.size()];
-		double total = 0;
+		double[] lean = new double[pool.size()];
+		Map<Rarity, double[]> band = new EnumMap<>(Rarity.class);
 		for (int i = 0; i < pool.size(); i++) {
 			Perk p = deck.get(pool.get(i)).orElseThrow();
 			Rarity depth = DraftRules.rarity(p);
 			weights[i] = odds.get(depth) / count.get(depth) * DraftRules.attributeWeight(p, attribute) * duplicateWeight(sheet.owned(pool.get(i)));
+			lean[i] = data == null ? 1 : perkLean(nativeOf(pool.get(i), p, data), commitment, data);
+			double[] b = band.computeIfAbsent(depth, d -> new double[2]);
+			b[0] += weights[i];
+			b[1] += weights[i] * lean[i];
+		}
+		double total = 0;
+		for (int i = 0; i < pool.size(); i++) {
+			if (lean[i] != 1.0 || data != null) {
+				double[] b = band.get(DraftRules.rarity(deck.get(pool.get(i)).orElseThrow()));
+				// Scaled back to the band's old total: with no lean anywhere in the band the factor is exactly 1.
+				weights[i] = b[1] <= 0 || b[0] == b[1] ? weights[i] * lean[i] : weights[i] * lean[i] * (b[0] / b[1]);
+			}
 			total += weights[i];
 		}
 		double roll = random.nextDouble() * total;
@@ -342,6 +462,12 @@ public final class CardRules {
 	 */
 	public static List<Card> deal(ResourceKey<Skill> skill, Sheet sheet, DraftRules.Deck deck, Data data, Random random,
 		List<ResourceKey<Skill>> recent, Set<ResourceKey<Perk>> avoid) {
+		return deal(skill, sheet, deck, data, random, recent, avoid, Commitment.NONE);
+	}
+
+	/** {@link #deal} leaning toward what the character is committed to (§1.2): wildcards lean inside their own skill too. */
+	public static List<Card> deal(ResourceKey<Skill> skill, Sheet sheet, DraftRules.Deck deck, Data data, Random random,
+		List<ResourceKey<Skill>> recent, Set<ResourceKey<Perk>> avoid, Commitment commitment) {
 		List<ResourceKey<Perk>> own = candidates(skill, sheet, deck);
 		boolean wild = random.nextDouble() < DraftRules.WILDCARD_CHANCE;
 		long wildPick = random.nextLong();
@@ -362,20 +488,20 @@ public final class CardRules {
 			if (!others.isEmpty()) {
 				Random r = new Random(wildPick);
 				ResourceKey<Skill> from = others.get(r.nextInt(others.size()));
-				ResourceKey<Perk> key = draw(candidates(from, sheet, deck), sheet.level(from), sheet.attribute(from), sheet, deck, r, taken, avoid);
+				ResourceKey<Perk> key = draw(candidates(from, sheet, deck), sheet.level(from), sheet.attribute(from), sheet, deck, r, taken, avoid, commitment, data);
 				if (key != null) {
-					wildcard = roll(key, deck.get(key).orElseThrow(), sheet.level(from), data, new Random(rollSeeds[2]), true);
+					wildcard = roll(key, deck.get(key).orElseThrow(), sheet.level(from), data, new Random(rollSeeds[2]), true, commitment);
 					taken.add(key);
 				}
 			}
 		}
 		int slots = wildcard == null ? DraftRules.HAND : DraftRules.HAND - 1;
 		for (int i = 0; i < slots; i++) {
-			ResourceKey<Perk> key = draw(own, sheet.level(skill), sheet.attribute(skill), sheet, deck, random, taken, avoid);
+			ResourceKey<Perk> key = draw(own, sheet.level(skill), sheet.attribute(skill), sheet, deck, random, taken, avoid, commitment, data);
 			if (key == null) {
 				break;
 			}
-			hand.add(roll(key, deck.get(key).orElseThrow(), sheet.level(skill), data, new Random(rollSeeds[i]), false));
+			hand.add(roll(key, deck.get(key).orElseThrow(), sheet.level(skill), data, new Random(rollSeeds[i]), false, commitment));
 			taken.add(key);
 		}
 		if (wildcard != null) {
@@ -392,6 +518,10 @@ public final class CardRules {
 	 * hand is returned unchanged when it is full or nothing new can be dealt.
 	 */
 	public static List<Card> topUp(List<Card> hand, ResourceKey<Skill> skill, Sheet sheet, DraftRules.Deck deck, Data data, Random random) {
+		return topUp(hand, skill, sheet, deck, data, random, Commitment.NONE);
+	}
+
+	public static List<Card> topUp(List<Card> hand, ResourceKey<Skill> skill, Sheet sheet, DraftRules.Deck deck, Data data, Random random, Commitment commitment) {
 		if (hand.isEmpty() || hand.size() >= DraftRules.HAND) {
 			return hand;
 		}
@@ -405,11 +535,11 @@ public final class CardRules {
 		}
 		List<ResourceKey<Perk>> own = candidates(skill, sheet, deck);
 		for (int i = 0; out.size() + mythic.size() < DraftRules.HAND; i++) {
-			ResourceKey<Perk> key = draw(own, sheet.level(skill), sheet.attribute(skill), sheet, deck, random, taken, Set.of());
+			ResourceKey<Perk> key = draw(own, sheet.level(skill), sheet.attribute(skill), sheet, deck, random, taken, Set.of(), commitment, data);
 			if (key == null) {
 				break;
 			}
-			out.add(roll(key, deck.get(key).orElseThrow(), sheet.level(skill), data, new Random(rollSeeds[i]), false));
+			out.add(roll(key, deck.get(key).orElseThrow(), sheet.level(skill), data, new Random(rollSeeds[i]), false, commitment));
 			taken.add(key);
 		}
 		out.addAll(mythic);
@@ -505,7 +635,10 @@ public final class CardRules {
 	/** Why a card can't go in a slot (lang {@code mettle.cards.refused.<name>}). */
 	public enum Refusal {
 		NO_CARD, NOT_IN_BINDER, ATTUNING, NEEDS_LEVEL, NO_SLOT, SLOT_TAKEN, SAME_PERK, ONE_MASTERY, MASTERY_SIDE, NOT_SLOTTED, NO_FREE_WAY,
-		BINDER_FULL, NOT_AT_SHRINE, ONE_MYTHIC_A_DECK, TWO_MYTHICS, MYTHIC, NOT_ONE_PERK, TOP_RARITY, NO_DRAUGHT, CANT_PAY, OVER_CAP, WRONG_SKILL, NOT_ENOUGH_CARDS, MIXED_SKILLS, REROLLS_FULL, PINS_TODAY, BAD_PINS;
+		BINDER_FULL, NOT_AT_SHRINE, ONE_MYTHIC_A_DECK, TWO_MYTHICS, MYTHIC, NOT_ONE_PERK, TOP_RARITY, NO_DRAUGHT, CANT_PAY, OVER_CAP, WRONG_SKILL, NOT_ENOUGH_CARDS, MIXED_SKILLS, REROLLS_FULL, PINS_TODAY, BAD_PINS,
+		// Build feel (docs/BUILD_FEEL.md).
+		TEMPERED_FULL, INSCRIBED_FULL, ALREADY_TEMPERED, ALREADY_INSCRIBED, NO_TRAIT, AT_TOP, NOT_IN_POOL, NATIVE_KEYWORD, NEEDS_SEED, NO_BOON,
+		FOCUS_TODAY, BAD_KEYWORD, NO_SHARDS, MYTHIC_HELD, FORGE_SKILL, NOT_DRAWN, POOL_LEFT, LEGEND_FULL, NO_BYNAME, NOT_YOURS;
 
 		public String translationKey() {
 			return "mettle.cards.refused." + name().toLowerCase(Locale.ROOT);
@@ -570,6 +703,13 @@ public final class CardRules {
 			if (c.perk().equals(card.perk())) {
 				return Optional.of(Refusal.SAME_PERK);
 			}
+		}
+		// Build feel's slot rules (§3.2, §3.3): three tempered cards a deck, one inscribed.
+		if (card.tempered() && deckCards.stream().filter(CardData::tempered).count() >= CardConfig.get().temper_per_deck) {
+			return Optional.of(Refusal.TEMPERED_FULL);
+		}
+		if (card.inscribed() && deckCards.stream().filter(CardData::inscribed).count() >= CardConfig.get().inscribe_per_deck) {
+			return Optional.of(Refusal.INSCRIBED_FULL);
 		}
 		Optional<Perk> perk = perks.apply(card.perk());
 		if (perk.isPresent() && perk.get().kind() == Perk.Kind.MASTERY) {
@@ -697,9 +837,9 @@ public final class CardRules {
 		List<Identifier> nextOrder = new ArrayList<>(order);
 		sets.keySet().stream().filter(k -> !nextOrder.contains(k)).forEach(nextOrder::add);
 		Map<Identifier, Integer> tiers = new LinkedHashMap<>();
-		List<Identifier> chosen = activeSets(sets, setSkills, pins, nextOrder);
+		List<Identifier> chosen = activeSets(sets, setSkills, pins, nextOrder, levels);
 		for (Identifier k : chosen) {
-			int tier = tier(sets.getOrDefault(k, 0), setSkills.getOrDefault(k, Set.of()).size());
+			int tier = tier(sets.getOrDefault(k, 0), setSkills.getOrDefault(k, Set.of()), levels);
 			if (tier > 0) {
 				tiers.put(k, tier);
 			}
@@ -730,17 +870,40 @@ public final class CardRules {
 	}
 
 	/**
+	 * The tier with build feel's gate (docs/BUILD_FEEL.md §1.2b): the 6 counts only while at least two of the decks holding
+	 * the keyword's cards belong to skills at {@code six_tier_skill} or more; below that the set works at its 4.
+	 */
+	public static int tier(int count, Collection<ResourceKey<Skill>> decks, ToIntFunction<ResourceKey<Skill>> levels) {
+		int t = tier(count, decks.size());
+		return t == 6 && sixAsleep(count, decks, levels) ? 4 : t;
+	}
+
+	/** A 6-set held back by the gate: six cards in two decks, but fewer than two of those decks' skills at the gate yet. */
+	public static boolean sixAsleep(int count, Collection<ResourceKey<Skill>> decks, ToIntFunction<ResourceKey<Skill>> levels) {
+		int gate = CardConfig.get().six_tier_skill;
+		if (count < 6 || decks.size() < 2 || gate <= 0) {
+			return false;
+		}
+		return decks.stream().filter(s -> levels.applyAsInt(s) >= gate).count() < 2;
+	}
+
+	/**
 	 * The active sets (§6.1): the pinned ones if the player pinned any, else the keywords with the most slotted cards
 	 * (ties: the one counted first), at most {@code active_sets}; only keywords with a tier.
 	 */
 	public static List<Identifier> activeSets(Map<Identifier, Integer> sets, Map<Identifier, Set<ResourceKey<Skill>>> skills, List<Identifier> pins,
 		List<Identifier> order) {
+		return activeSets(sets, skills, pins, order, s -> Curves.SKILL_CAP);
+	}
+
+	public static List<Identifier> activeSets(Map<Identifier, Integer> sets, Map<Identifier, Set<ResourceKey<Skill>>> skills, List<Identifier> pins,
+		List<Identifier> order, ToIntFunction<ResourceKey<Skill>> levels) {
 		int max = CardConfig.get().active_sets;
 		if (!pins.isEmpty()) {
 			return pins.stream().limit(max).toList();
 		}
 		List<Identifier> ranked = new ArrayList<>(sets.keySet());
-		ranked.removeIf(k -> tier(sets.get(k), skills.getOrDefault(k, Set.of()).size()) == 0);
+		ranked.removeIf(k -> tier(sets.get(k), skills.getOrDefault(k, Set.of()), levels) == 0);
 		ranked.sort(Comparator.comparingInt((Identifier k) -> -sets.get(k)).thenComparingInt(k -> order.indexOf(k) < 0 ? Integer.MAX_VALUE : order.indexOf(k)));
 		return ranked.stream().limit(max).toList();
 	}
@@ -1130,6 +1293,140 @@ public final class CardRules {
 		cards.addAll(adopted);
 		cards.sort(Comparator.comparingLong(CardData::id));
 		return new Reconciled(cards, dropped, restored, adopted);
+	}
+
+	// ---------------------------------------------------------------- points (CARDS.md §14)
+
+	/** A perk's points: the old perk cost, a root's times its rank. */
+	public static double perkPoints(Perk perk, int rank) {
+		return perk.kind() == Perk.Kind.ROOT ? perk.cost() * rank : perk.cost();
+	}
+
+	/** A card's points (§14): its perk's, plus each trait's effective value over its card cap. Mythics count 6 (an Epic Mastery with traits). */
+	public static double points(CardData card, Function<ResourceKey<Perk>, Optional<Perk>> perks, Data data, Attributes attributes) {
+		if (card.mythic()) {
+			return 6;
+		}
+		double pts = perks.apply(card.perk()).map(p -> perkPoints(p, card.rank())).orElse(0.0);
+		for (TraitRoll t : card.traits()) {
+			Optional<Trait> def = data.trait(t.trait());
+			if (def.isPresent()) {
+				pts += effective(def.get(), t.value(), attributes) / cardCap(def.get());
+			}
+		}
+		return pts;
+	}
+
+	// ---------------------------------------------------------------- boons: Temper and Inscribe (docs/BUILD_FEEL.md §3)
+
+	/**
+	 * The highest value a rarity can roll for a trait (§3.2): Common the low two thirds (on the step grid), every other
+	 * rarity the max.
+	 */
+	public static double bandTop(Trait trait, Rarity rarity) {
+		double top = band(trait, rarity)[1];
+		double grid = trait.step() <= 0 ? 1 : trait.step();
+		return round(Math.floor(top / grid + 1e-9) * grid);
+	}
+
+	/** A trait's value after a Temper: up by {@code temper_step} of its range, rounded to the nearest step, never above its band's top. */
+	public static double tempered(Trait trait, Rarity rarity, double value) {
+		double grid = trait.step() <= 0 ? 1 : trait.step();
+		double raised = value + CardConfig.get().temper_step * (trait.max() - trait.min());
+		double v = Math.min(bandTop(trait, rarity), Math.round(raised / grid) * grid);
+		return Math.max(value, round(v));
+	}
+
+	/**
+	 * Why a card can't be tempered on a trait, or empty (§3.2): the player's own card of that skill, in the binder or a deck
+	 * (never in a trade or a listing), attuned, not a Mythic, not tempered before, carrying the trait below its band's top;
+	 * a slotted card's deck holds fewer than {@code temper_per_deck} tempered cards.
+	 *
+	 * @param deckCards the cards slotted in the card's deck (its own skill's)
+	 */
+	public static Optional<Refusal> canTemper(CardData card, Identifier trait, List<CardData> deckCards, Data data, long gameTime) {
+		Optional<Refusal> place = boonPlace(card, gameTime);
+		if (place.isPresent()) {
+			return place;
+		}
+		if (card.tempered()) {
+			return Optional.of(Refusal.ALREADY_TEMPERED);
+		}
+		Optional<TraitRoll> roll = card.traits().stream().filter(t -> t.trait().equals(trait)).findFirst();
+		Optional<Trait> def = data.trait(trait);
+		if (roll.isEmpty() || def.isEmpty()) {
+			return Optional.of(Refusal.NO_TRAIT);
+		}
+		if (tempered(def.get(), card.rarity(), roll.get().value()) <= roll.get().value()) {
+			return Optional.of(Refusal.AT_TOP);
+		}
+		if (card.slotted() && deckCards.stream().filter(c -> c.id() != card.id() && c.tempered()).count() >= CardConfig.get().temper_per_deck) {
+			return Optional.of(Refusal.TEMPERED_FULL);
+		}
+		return Optional.empty();
+	}
+
+	/** The card's traits after a Temper on {@code trait} (the caller has checked {@link #canTemper}). */
+	public static List<TraitRoll> temper(CardData card, Identifier trait, Data data) {
+		List<TraitRoll> out = new ArrayList<>();
+		for (TraitRoll t : card.traits()) {
+			out.add(t.trait().equals(trait) ? new TraitRoll(t.trait(), tempered(data.trait(trait).orElseThrow(), card.rarity(), t.value())) : t);
+		}
+		return out;
+	}
+
+	/**
+	 * Why a card can't take an Inscription of {@code keyword}, or empty (§3.3): a card of the skill (as for a Temper), not
+	 * inscribed before; the keyword is in the skill's pool (so never Hex), is not the card's native keyword and not already
+	 * its second; it is already on another card slotted in that deck (the seed rule, {@code inscribe_needs_seed}); a slotted
+	 * card's deck holds fewer than {@code inscribe_per_deck} inscribed cards.
+	 */
+	public static Optional<Refusal> canInscribe(CardData card, Identifier keyword, List<CardData> deckCards, Data data, long gameTime) {
+		Optional<Refusal> place = boonPlace(card, gameTime);
+		if (place.isPresent()) {
+			return place;
+		}
+		if (card.inscribed()) {
+			return Optional.of(Refusal.ALREADY_INSCRIBED);
+		}
+		if (keyword.equals(HEX) || !data.pool(card.skill()).contains(keyword)) {
+			return Optional.of(Refusal.NOT_IN_POOL);
+		}
+		if (!card.keywords().isEmpty() && card.keywords().getFirst().equals(keyword)) {
+			return Optional.of(Refusal.NATIVE_KEYWORD);
+		}
+		if (card.keywords().size() > 1 && card.keywords().get(1).equals(keyword)) {
+			return Optional.of(Refusal.NATIVE_KEYWORD);
+		}
+		if (CardConfig.get().inscribe_needs_seed && deckCards.stream().noneMatch(c -> c.id() != card.id() && c.keywords().contains(keyword))) {
+			return Optional.of(Refusal.NEEDS_SEED);
+		}
+		if (card.slotted() && deckCards.stream().filter(c -> c.id() != card.id() && c.inscribed()).count() >= CardConfig.get().inscribe_per_deck) {
+			return Optional.of(Refusal.INSCRIBED_FULL);
+		}
+		return Optional.empty();
+	}
+
+	/** The card's keywords after an Inscription: its native keyword, then {@code keyword} (a Common gains one; others swap theirs). */
+	public static List<Identifier> inscribe(CardData card, Identifier keyword) {
+		return List.of(card.keywords().getFirst(), keyword);
+	}
+
+	/** Where a card must be for a boon: owned in the binder or a deck, attuned, not a Mythic. */
+	private static Optional<Refusal> boonPlace(CardData card, long gameTime) {
+		if (card.mythic()) {
+			return Optional.of(Refusal.MYTHIC);
+		}
+		if (card.place().kind() != CardData.PlaceKind.BINDER && card.place().kind() != CardData.PlaceKind.SLOTTED) {
+			return Optional.of(Refusal.NOT_IN_BINDER);
+		}
+		if (!card.attuned(gameTime)) {
+			return Optional.of(Refusal.ATTUNING);
+		}
+		if (card.keywords().isEmpty()) {
+			return Optional.of(Refusal.NO_CARD);
+		}
+		return Optional.empty();
 	}
 
 	// ---------------------------------------------------------------- helpers

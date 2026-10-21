@@ -84,6 +84,10 @@ final class CardNbt {
 		if (c.attunedAt() != 0L) {
 			t.putLong("attuned_at", c.attunedAt());
 		}
+		if (!c.marks().equals(CardData.Marks.NONE)) {
+			// Rare (a Temper, an Inscription, a Signature): the codec's speed doesn't matter here.
+			t.put("marks", CardData.Marks.CODEC.encodeStart(net.minecraft.nbt.NbtOps.INSTANCE, c.marks()).getOrThrow());
+		}
 		return t;
 	}
 

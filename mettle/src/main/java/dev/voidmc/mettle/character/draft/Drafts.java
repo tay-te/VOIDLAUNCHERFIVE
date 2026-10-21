@@ -164,6 +164,16 @@ public final class Drafts {
 			CharacterStore.set(player, settled.state());
 			dev.voidmc.mettle.character.cards.CardApi.drawn(player, state.drafts(), settled.state().drafts());
 		}
+		if (settled.firstHand()) {
+			// The guided first hand was dealt (BUILD_FEEL.md §4): only once.
+			var b = CardStore.get(player).build();
+			CardStore.set(player, CardStore.get(player).withBuild(b.withGuide(new dev.voidmc.mettle.core.BuildState.Guide(b.guide().on(), b.guide().seen(),
+				b.guide().current(), b.guide().since(), b.guide().skipped(), true))));
+		}
+		if (settled.shards() > 0) {
+			// A drawn-Mythic roll when all three of that skill's are held (BUILD_FEEL.md §5.2).
+			dev.voidmc.mettle.character.cards.BuildFeel.addShards(player, settled.shards(), null);
+		}
 	}
 
 	/**
@@ -171,7 +181,10 @@ public final class Drafts {
 	 *
 	 * @param spent v1 only (a spent deck's drafts became rerolls); cards v2 never spends a deck, so it is always empty
 	 */
-	public record Settled(CharacterState state, Map<ResourceKey<Skill>, Integer> spent) {
+	public record Settled(CharacterState state, Map<ResourceKey<Skill>, Integer> spent, int shards, boolean firstHand) {
+		public Settled(CharacterState state, Map<ResourceKey<Skill>, Integer> spent) {
+			this(state, spent, 0, false);
+		}
 	}
 
 	public static Settled settle(RegistryAccess registries, CharacterState state, CardsState cards) {
@@ -188,6 +201,11 @@ public final class Drafts {
 		Set<ResourceKey<Skill>> skills = new HashSet<>(d.queued().keySet());
 		skills.addAll(d.hands().keySet());
 		List<ResourceKey<Skill>> order = skills.stream().sorted(Comparator.comparing(k -> k.identifier().toString())).toList();
+		CardRules.Commitment commitment = dev.voidmc.mettle.character.cards.BuildFeel.commitment(cards);
+		var guide = cards.build().guide();
+		boolean guided = guide.on() && !guide.firstHand() && dev.voidmc.mettle.character.cards.CardConfig.get().first_hand_rare;
+		boolean firstHand = false;
+		int shards = 0;
 		for (ResourceKey<Skill> skill : order) {
 			List<Card> hand = d.hand(skill);
 			if (d.queued(skill) <= 0) {
@@ -197,11 +215,21 @@ public final class Drafts {
 			if (!hand.isEmpty() && hand.stream().allMatch(c -> CardRules.valid(c, sheet, deck))) {
 				continue;
 			}
-			List<Card> cardsDealt = new ArrayList<>(CardRules.deal(skill, sheet, deck, data, DraftRules.random(d.seed(), d.dealt()), d.recent(), Set.of()));
-			// The Mythic roll (CARDS.md §3.5): once per draft, from skill 15, while the skill's drawn Mythic waits.
-			Optional<net.minecraft.resources.Identifier> drawn = dev.voidmc.mettle.character.cards.Mythics.drawnOf(registries, skill);
-			if (!cardsDealt.isEmpty() && drawn.isPresent() && mythicWaits.test(drawn.get())
-				&& dev.voidmc.mettle.character.cards.Mythics.rolls(d.seed(), d.dealt(), sheet.level(skill))) {
+			List<Card> cardsDealt = new ArrayList<>(CardRules.deal(skill, sheet, deck, data, DraftRules.random(d.seed(), d.dealt()), d.recent(), Set.of(), commitment));
+			if (guided && !firstHand && !cardsDealt.isEmpty()) {
+				cardsDealt = new ArrayList<>(dev.voidmc.mettle.character.cards.BuildFeel.guidedFirstHand(cardsDealt, registries, d.seed(), d.dealt(), commitment));
+				firstHand = true;
+			}
+			// The Mythic roll (CARDS.md §3.5): once per draft, from skill 15; it offers one of the skill drawn Mythics still
+			// unclaimed (three a skill, BUILD_FEEL.md §5), or, with all three held, pays shards instead.
+			List<net.minecraft.resources.Identifier> skillMythics = dev.voidmc.mettle.character.cards.Mythics.drawnAll(registries, skill);
+			boolean rolled = !cardsDealt.isEmpty() && !skillMythics.isEmpty() && dev.voidmc.mettle.character.cards.Mythics.rolls(d.seed(), d.dealt(), sheet.level(skill));
+			Optional<net.minecraft.resources.Identifier> drawn = rolled ? dev.voidmc.mettle.character.cards.ForgeRules.offered(skillMythics, mythicWaits,
+				dev.voidmc.mettle.core.MettleSecret.hash(d.seed(), "mythic_pick", d.dealt())) : Optional.empty();
+			if (rolled && drawn.isEmpty()) {
+				shards += dev.voidmc.mettle.character.cards.CardConfig.get().shard_claimed_roll;
+			}
+			if (drawn.isPresent()) {
 				if (cardsDealt.size() >= DraftRules.HAND) {
 					cardsDealt.set(DraftRules.HAND - 1, dev.voidmc.mettle.character.cards.Mythics.offer(drawn.get()));
 				} else {
@@ -210,7 +238,7 @@ public final class Drafts {
 			}
 			d = cardsDealt.isEmpty() ? d.withHand(skill, List.of()) : d.nextDeal().withHand(skill, cardsDealt);
 		}
-		return new Settled(state.withDraft(d), Map.of());
+		return new Settled(state.withDraft(d), Map.of(), shards, firstHand);
 	}
 
 	// ---------------------------------------------------------------- what changes it
@@ -226,13 +254,14 @@ public final class Drafts {
 		CharacterState state = ensure(player);
 		int drafts = DraftRules.draftsFor(before, after);
 		DraftState d = state.drafts().addQueued(skill, drafts);
-		d = d.withRerolls(DraftRules.addRerolls(d.rerolls(), after - before - drafts));
+		// Odd levels from 7 give a boon (BUILD_FEEL.md §3; boons_from 0: a reroll as before).
+		d = dev.voidmc.mettle.character.cards.BuildFeel.levelled(d, skill, before, after);
 		// A hand dealt short (fewer than three cards could be dealt then) gets the cards the new level opens (DRAFT.md §2).
 		List<Card> hand = d.hand(skill);
 		if (!hand.isEmpty() && hand.size() < DraftRules.HAND) {
 			RegistryAccess registries = player.level().registryAccess();
 			List<Card> full = CardRules.topUp(hand, skill, Cards.sheet(registries, state, CardStore.get(player)), deck(registries), Cards.data(registries),
-				DraftRules.random(d.seed(), d.dealt()));
+				DraftRules.random(d.seed(), d.dealt()), dev.voidmc.mettle.character.cards.BuildFeel.commitment(CardStore.get(player)));
 			if (full != hand) {
 				d = d.nextDeal().withHand(skill, full);
 			}
@@ -302,6 +331,7 @@ public final class Drafts {
 		CharacterStore.set(player, state.withDraft(d.addQueued(skill, -1).withHand(skill, List.of())));
 		CardData kept = Cards.keep(player, card, how);
 		refresh(player);
+		dev.voidmc.mettle.character.cards.BuildFeel.draftKept(player, skill);
 		Moments.perk(player, card.perk(), perk, card.rank());
 		Component text = Component.translatable(kept.slotted() ? "mettle.cards.kept_slotted" : "mettle.cards.kept", perk.name(),
 			Component.translatable("mettle.draft.rarity." + card.rarity().getSerializedName()), Cards.printId(registries, kept));
@@ -365,7 +395,7 @@ public final class Drafts {
 		Set<ResourceKey<Perk>> avoid = new HashSet<>();
 		hand.forEach(c -> avoid.add(c.perk()));
 		List<Card> cards = CardRules.deal(skill, Cards.sheet(registries, state, CardStore.get(player)), deck(registries), Cards.data(registries),
-			DraftRules.random(d.seed(), d.dealt()), d.recent(), avoid);
+			DraftRules.random(d.seed(), d.dealt()), d.recent(), avoid, dev.voidmc.mettle.character.cards.BuildFeel.commitment(CardStore.get(player)));
 		if (cards.isEmpty()) {
 			refresh(player);
 			return Optional.of(Refusal.STALE);

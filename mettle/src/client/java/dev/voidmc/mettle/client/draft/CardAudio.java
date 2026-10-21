@@ -222,6 +222,11 @@ public final class CardAudio {
 		return o;
 	}
 
+	/** Plays one cue by name, {@code offsetMs} from now (build feel's milestones reuse the card cues, SOUNDS.md). */
+	public static void cue(String cue, int offsetMs) {
+		play(cue, offsetMs, "");
+	}
+
 	// ---------------------------------------------------------------- scheduling
 
 	private static void play(String cue, int offsetMs, String arg) {

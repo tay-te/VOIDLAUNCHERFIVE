@@ -57,8 +57,20 @@ public final class MomentClient {
 		HudElementRegistry.addLast(Mettle.id("character/moment"), MomentHud::extract);
 	}
 
+	/** The words of each milestone moment by "kind subject tier", for the native toast (MomentText). */
+	private static final Map<String, net.minecraft.network.chat.Component[]> MILESTONE_TEXT = new HashMap<>();
+	private static long lastHurtAt = Long.MIN_VALUE / 2;
+
+	static net.minecraft.network.chat.Component[] milestoneText(MomentKind kind, String perk, int tier) {
+		return MILESTONE_TEXT.getOrDefault(kind.serializedName() + " " + perk + " " + tier, new net.minecraft.network.chat.Component[2]);
+	}
+
 	static void receive(Minecraft mc, MettlePayloads.Moment m) {
 		long now = Util.getMillis();
+		if (m.kind().milestone()) {
+			MILESTONE_TEXT.put(m.kind().serializedName() + " " + m.perk().map(Identifier::toString).orElse(null) + " " + m.tier(),
+				new net.minecraft.network.chat.Component[] {m.text().orElse(null), m.sub().orElse(null)});
+		}
 		COVERED.put(m.feedbackId(), now);
 		RECEIVED.add(m.kind().serializedName() + " " + m.feedbackId());
 		JsonObject json = json(m);
@@ -68,7 +80,11 @@ public final class MomentClient {
 		// A card kept through the overlay already played its flare and thunk (CardAudio): no chime on top.
 		boolean hushed = kind.bought() && dev.voidmc.mettle.client.draft.CardAudio.hushesMoment();
 		if (MettleClientOptions.sounds() && !hushed && THROTTLE.allow(kind, now)) {
-			MomentSounds.play(kind);
+			if (kind.milestone()) {
+				MilestoneSounds.play(kind, m.tier());
+			} else {
+				MomentSounds.play(kind);
+			}
 		}
 		// A perk bought from a screen: that screen already shows it, so no toast; the click-chime is the answer.
 		boolean fromScreen = kind.bought() && mc.gui.screen() != null;
@@ -96,7 +112,11 @@ public final class MomentClient {
 		long dt = lastTickAt < 0 ? 0 : now - lastTickAt;
 		lastTickAt = now;
 		// Toasts wait while a screen is open, rather than expiring unseen behind it.
-		QUEUE.advance(mc.gui.screen() == null && mc.player != null ? dt : 0);
+		if (mc.player != null && mc.player.hurtTime > 0) {
+			lastHurtAt = now;
+		}
+		// Milestones also wait for 5 s of calm after harm (BUILD_FEEL.md §2.4).
+		QUEUE.advance(mc.gui.screen() == null && mc.player != null ? dt : 0, MomentQueue.calm(mc.gui.screen() != null, now - lastHurtAt));
 		COVERED.values().removeIf(at -> now - at > COVER_MS);
 		if (!joinChecked && mc.player != null && mc.player.tickCount > 60) {
 			joinChecked = true;
@@ -135,11 +155,17 @@ public final class MomentClient {
 		o.addProperty("level", m.level());
 		o.addProperty("tier", m.tier());
 		o.addProperty("rank", m.rank());
+		// Build feel's milestones: the server's words, and whether the banner shows (a byname tier, a 6-set).
+		o.addProperty("milestone", m.kind().milestone());
+		o.addProperty("big", m.kind().big(m.tier()));
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player != null && mc.getConnection() != null) {
 			MomentText.Lines lines = MomentText.lines(mc, m.kind(), m.skill().map(k -> k.identifier().toString()).orElse(null),
 				m.perk().map(Identifier::toString).orElse(null), m.level(), m.tier(), m.rank());
 			o.addProperty("title", lines.lead().getString() + (lines.rest() == null ? "" : " · " + lines.rest().getString()));
+			if (m.kind().milestone()) {
+				m.text().ifPresent(t -> o.addProperty("text", t.getString()));
+			}
 			if (lines.subtitle() != null) {
 				o.addProperty("subtitle", lines.subtitle().getString());
 			}
@@ -202,6 +228,7 @@ public final class MomentClient {
 		THROTTLE.clear();
 		MomentSounds.clear();
 		COVERED.clear();
+		MILESTONE_TEXT.clear();
 		nudgeFrom = -1;
 		lastTickAt = -1;
 		joinChecked = false;

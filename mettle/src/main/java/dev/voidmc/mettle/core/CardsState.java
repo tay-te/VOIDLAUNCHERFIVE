@@ -31,6 +31,7 @@ import net.minecraft.resources.ResourceKey;
  * @param traits       each active trait's total (boosted by attributes, capped), in its unit
  * @param sets         each keyword's count over slotted, non-dormant cards
  * @param tiers        the active sets (at most three) and the tier each reached (2, 4 or 6)
+ * @param build        build feel: Focus, Signatures, bynames, Mythic shards and forges, milestones, the guide (BUILD_FEEL.md)
  */
 public record CardsState(
 	int version,
@@ -44,9 +45,10 @@ public record CardsState(
 	List<Long> dormant,
 	Map<Identifier, Double> traits,
 	Map<Identifier, Integer> sets,
-	Map<Identifier, Integer> tiers
+	Map<Identifier, Integer> tiers,
+	BuildState build
 ) {
-	public static final CardsState EMPTY = new CardsState(0, List.of(), 0, List.of(), List.of(), -1, List.of(), Map.of(), List.of(), Map.of(), Map.of(), Map.of());
+	public static final CardsState EMPTY = new CardsState(0, List.of(), 0, List.of(), List.of(), -1, List.of(), Map.of(), List.of(), Map.of(), Map.of(), Map.of(), BuildState.EMPTY);
 
 	public static final Codec<CardsState> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.INT.optionalFieldOf("version", 0).forGetter(CardsState::version),
@@ -60,7 +62,8 @@ public record CardsState(
 		Codec.LONG.listOf().optionalFieldOf("dormant", List.of()).forGetter(CardsState::dormant),
 		Codec.unboundedMap(Identifier.CODEC, Codec.DOUBLE).optionalFieldOf("traits", Map.of()).forGetter(CardsState::traits),
 		Codec.unboundedMap(Identifier.CODEC, Codec.INT).optionalFieldOf("sets", Map.of()).forGetter(CardsState::sets),
-		Codec.unboundedMap(Identifier.CODEC, Codec.INT).optionalFieldOf("tiers", Map.of()).forGetter(CardsState::tiers)
+		Codec.unboundedMap(Identifier.CODEC, Codec.INT).optionalFieldOf("tiers", Map.of()).forGetter(CardsState::tiers),
+		BuildState.CODEC.optionalFieldOf("build", BuildState.EMPTY).forGetter(CardsState::build)
 	).apply(i, CardsState::new));
 
 	public CardsState {
@@ -73,6 +76,7 @@ public record CardsState(
 		traits = Map.copyOf(traits);
 		sets = Map.copyOf(sets);
 		tiers = Map.copyOf(tiers);
+		build = build == null ? BuildState.EMPTY : build;
 	}
 
 	public Optional<CardData> card(long id) {
@@ -121,32 +125,37 @@ public record CardsState(
 
 	public CardsState withCards(List<CardData> c) {
 		return new CardsState(this.version, c, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, this.setOrder, this.active, this.dormant,
-			this.traits, this.sets, this.tiers);
+			this.traits, this.sets, this.tiers, this.build);
 	}
 
 	public CardsState withVersion(int v) {
 		return new CardsState(v, this.cards, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, this.setOrder, this.active, this.dormant,
-			this.traits, this.sets, this.tiers);
+			this.traits, this.sets, this.tiers, this.build);
 	}
 
 	public CardsState withFreeSwaps(int n) {
 		return new CardsState(this.version, this.cards, Math.max(0, n), this.freeRebuilds, this.pins, this.pinDay, this.setOrder, this.active,
-			this.dormant, this.traits, this.sets, this.tiers);
+			this.dormant, this.traits, this.sets, this.tiers, this.build);
 	}
 
 	public CardsState withFreeRebuilds(List<ResourceKey<Skill>> skills) {
 		return new CardsState(this.version, this.cards, this.freeSwaps, skills, this.pins, this.pinDay, this.setOrder, this.active, this.dormant,
-			this.traits, this.sets, this.tiers);
+			this.traits, this.sets, this.tiers, this.build);
 	}
 
 	public CardsState withPins(List<Identifier> p, long day) {
 		return new CardsState(this.version, this.cards, this.freeSwaps, this.freeRebuilds, p, day, this.setOrder, this.active, this.dormant,
-			this.traits, this.sets, this.tiers);
+			this.traits, this.sets, this.tiers, this.build);
+	}
+
+	public CardsState withBuild(BuildState b) {
+		return new CardsState(this.version, this.cards, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, this.setOrder, this.active, this.dormant,
+			this.traits, this.sets, this.tiers, b);
 	}
 
 	/** The derived fields, as {@code CardRules.derive} worked them out. */
 	public CardsState withDerived(List<Identifier> order, Map<ResourceKey<Perk>, Integer> a, List<Long> d, Map<Identifier, Double> t,
 		Map<Identifier, Integer> s, Map<Identifier, Integer> ti) {
-		return new CardsState(this.version, this.cards, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, order, a, d, t, s, ti);
+		return new CardsState(this.version, this.cards, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, order, a, d, t, s, ti, this.build);
 	}
 }

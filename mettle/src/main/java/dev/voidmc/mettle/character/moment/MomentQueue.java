@@ -79,10 +79,14 @@ public final class MomentQueue {
 		}
 
 		String mergeKey() {
-			return mergeKey(this.kind, this.skill, this.perk);
+			return mergeKey(this.kind, this.skill, this.perk, this.tier);
 		}
 
-		static String mergeKey(MomentKind kind, String skill, String perk) {
+		static String mergeKey(MomentKind kind, String skill, String perk, int tier) {
+			if (kind.milestone()) {
+				// Milestones never merge: the first set and the first 4-set of one keyword are two moments.
+				return "milestone:" + kind.serializedName() + ":" + perk + ":" + tier;
+			}
 			return switch (kind) {
 				case LEVEL, TIER -> "skill:" + skill;
 				case CHARACTER -> "character";
@@ -115,7 +119,7 @@ public final class MomentQueue {
 		Objects.requireNonNull(kind);
 		this.offered++;
 		this.seen.add(kind);
-		String key = Entry.mergeKey(kind, skill, perk);
+		String key = Entry.mergeKey(kind, skill, perk, tier);
 		if (this.current != null && this.current.mergeKey().equals(key) && this.clock < this.current.endsAt - OUT_MS) {
 			this.current.absorb(kind, level, tier, rank);
 			// Fully visible again, and on screen long enough to read the new number.
@@ -148,6 +152,32 @@ public final class MomentQueue {
 			}
 		}
 		this.pending.removeFirst();
+	}
+
+	/** Quiet after harm before a milestone shows (docs/BUILD_FEEL.md §2.4): 5 s. */
+	public static final long CALM_MS = 5000;
+
+	/** Whether milestones may show: no screen open and nothing hurt the player in the last {@link #CALM_MS}. */
+	public static boolean calm(boolean screenOpen, long msSinceHurt) {
+		return !screenOpen && msSinceHurt >= CALM_MS;
+	}
+
+	/**
+	 * {@link #advance(long)}, except that a milestone (on screen or next up) waits while it isn't calm (a screen is open,
+	 * or the player was hurt in the last 5 s): it is held, never dropped.
+	 */
+	public void advance(long ms, boolean calm) {
+		if (!calm && heldByCalm()) {
+			return;
+		}
+		advance(ms);
+	}
+
+	private boolean heldByCalm() {
+		if (this.current != null) {
+			return this.current.kind().milestone();
+		}
+		return !this.pending.isEmpty() && this.pending.peekFirst().kind().milestone();
 	}
 
 	/** Moves the queue's clock on; the toast on screen ends and the next one starts when it is due. */

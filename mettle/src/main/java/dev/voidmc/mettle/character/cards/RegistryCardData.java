@@ -25,6 +25,7 @@ public final class RegistryCardData implements CardRules.Data {
 	private final Map<Identifier, Trait> byId = new HashMap<>();
 	private final Map<ResourceKey<Skill>, CardSkill> skills = new HashMap<>();
 	private final Map<ResourceKey<Perk>, Identifier> natives = new HashMap<>();
+	private final Map<Identifier, Double> momentum = new HashMap<>();
 
 	private RegistryCardData(RegistryAccess registries) {
 		registries.lookupOrThrow(MettleRegistries.TRAIT).listElements()
@@ -37,6 +38,12 @@ public final class RegistryCardData implements CardRules.Data {
 			this.skills.put(ResourceKey.create(MettleRegistries.SKILL, r.key().identifier()), r.value());
 			this.natives.putAll(r.value().natives());
 		});
+		registries.lookupOrThrow(MettleRegistries.KEYWORD).listElements().forEach(r -> this.momentum.put(r.key().identifier(), r.value().momentum()));
+	}
+
+	@Override
+	public double momentum(Identifier keyword) {
+		return this.momentum.getOrDefault(keyword, 0.0);
 	}
 
 	public static synchronized RegistryCardData of(RegistryAccess registries) {

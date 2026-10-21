@@ -178,6 +178,102 @@ public final class MettleActions {
 		cardAction(MettlePayloads.CardActionKind.CLOSE, List.of(), 0, List.of());
 	}
 
+	// ---------------------------------------------------------------- build feel (docs/BUILD_FEEL.md, OVERLAY.md "Build feel")
+
+	private static void build(MettlePayloads.BuildActionKind kind, long card, String text) {
+		ClientPlayNetworking.send(new MettlePayloads.BuildAction(kind, card, text == null ? "" : text));
+	}
+
+	/** Focuses a keyword ({@code "mettle:deep"}; empty clears it): it counts as two slotted cards for momentum, never for sets. Once a day. */
+	public static void setFocus(String keyword) {
+		build(MettlePayloads.BuildActionKind.FOCUS, -1, keyword);
+	}
+
+	/** Spends a boon of the card's skill on a Temper of one trait ({@code "mettle:mining/deepborn"}). */
+	public static void temperCard(String card, String trait) {
+		build(MettlePayloads.BuildActionKind.TEMPER, first(card), trait);
+	}
+
+	/** Spends a boon of the card's skill on an Inscription of a keyword from its skill's pool. */
+	public static void inscribeCard(String card, String keyword) {
+		build(MettlePayloads.BuildActionKind.INSCRIBE, first(card), keyword);
+	}
+
+	/** Spends a boon of a skill on a reroll (refused while five are held). */
+	public static void boonReroll(String skill) {
+		build(MettlePayloads.BuildActionKind.BOON_REROLL, -1, skill);
+	}
+
+	/** Makes a slotted card its deck's Signature (pure identity). */
+	public static void setSignature(String card) {
+		build(MettlePayloads.BuildActionKind.SIGNATURE, first(card), "");
+	}
+
+	/** A deck without a Signature. */
+	public static void clearSignature(String skill) {
+		build(MettlePayloads.BuildActionKind.SIGNATURE, -1, skill);
+	}
+
+	/** "Take it": wears the byname the build reads as now ({@code cards.build.byname.reads}). */
+	public static void takeByname() {
+		build(MettlePayloads.BuildActionKind.BYNAME, -1, "");
+	}
+
+	/** Wears a byname held before ({@code cards.build.byname.held[].index}). */
+	public static void wearByname(int index) {
+		build(MettlePayloads.BuildActionKind.BYNAME, Math.max(0, index), "held");
+	}
+
+	/** At a Card Shrine: forges an unclaimed drawn Mythic ({@code cards.build.forge.pool[].id}) for shards. */
+	public static void forgeMythic(String mythic) {
+		build(MettlePayloads.BuildActionKind.FORGE, -1, mythic);
+	}
+
+	/** At a Card Shrine, when no drawn Mythic is left anywhere: the legend title and frame (a star more each time, up to three). */
+	public static void forgeLegend() {
+		build(MettlePayloads.BuildActionKind.FORGE, -1, "legend");
+	}
+
+	/** The guide's "Skip the guide". */
+	public static void guideSkip() {
+		build(MettlePayloads.BuildActionKind.GUIDE_SKIP, -1, "");
+	}
+
+	/**
+	 * Tells the guide what happened on the page: {@code dismiss} (×), {@code deck} (the Deck opened), {@code keyword} (a
+	 * keyword badge hovered), {@code unhover}, {@code not_now}. The Focus offer's "Focus Deep" is {@link #setFocus}, then
+	 * {@code guideAdvance("focus")}.
+	 */
+	public static void guideAdvance(String event) {
+		build(MettlePayloads.BuildActionKind.GUIDE_ADVANCE, -1, event);
+	}
+
+	/**
+	 * What a Temper of {@code trait} on {@code card} would do, as JSON (the hand preview's shape plus {@code ok} and
+	 * {@code reason}), computed here from the synced cards: the Temper confirm screen (B7). Nothing is sent.
+	 */
+	public static String previewTemper(String card, String trait) {
+		return MettleBoons.temper(first(card), Identifier.tryParse(trait == null ? "" : trait.trim())).toString();
+	}
+
+	/** What an Inscription of {@code keyword} on {@code card} would do (B8), as {@link #previewTemper}. */
+	public static String previewInscribe(String card, String keyword) {
+		return MettleBoons.inscribe(first(card), Identifier.tryParse(keyword == null ? "" : keyword.trim())).toString();
+	}
+
+	/**
+	 * The boons a card can take (B6's card picker): each trait's Temper ({@code from}, {@code to}, {@code ok}, {@code reason})
+	 * and each keyword of its skill's pool for an Inscription ({@code ok}, {@code reason}), as JSON.
+	 */
+	public static String boonOptions(String card) {
+		return MettleBoons.options(first(card)).toString();
+	}
+
+	/** "If slotted…" for a binder card (B16): the hand preview's shape, as JSON. */
+	public static String previewSlot(String card) {
+		return MettleBoons.slot(first(card)).toString();
+	}
+
 	// ---------------------------------------------------------------- trading (docs/CARDS.md §8.1)
 
 	/** Asks the named player to trade (they must be within 8 blocks); they get a chip with Accept. */

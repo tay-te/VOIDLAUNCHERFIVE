@@ -112,6 +112,7 @@ public final class MettleState {
 		h = mix(h, mc.level.players().size());
 		for (Player p : mc.level.players()) {
 			h = mix(h, System.identityHashCode(p.getAttached(dev.voidmc.mettle.character.cards.Mythics.PUBLIC)));
+			h = mix(h, System.identityHashCode(p.getAttached(dev.voidmc.mettle.character.cards.BuildFeel.RENOWN)));
 		}
 		long now = net.minecraft.util.Util.getMillis();
 		long gameTime = player.level().getGameTime();

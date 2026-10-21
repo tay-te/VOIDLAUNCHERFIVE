@@ -352,7 +352,7 @@ NEW_MYTHICS = {
 }
 
 # The eight drawn Mythics can be forged too: their "how" line says so.
-FORGEABLE = ' or forged with Mythic shards'
+FORGEABLE = ', or forged with Mythic shards'
 
 # Each Mythic's epithet, the last words of a tier IV byname (BUILD_FEEL.md §2.1).
 EPITHETS = {

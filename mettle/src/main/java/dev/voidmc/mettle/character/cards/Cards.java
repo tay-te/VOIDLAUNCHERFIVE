@@ -93,6 +93,7 @@ public final class Cards {
 		Mythics.init();
 		MythicEffects.init();
 		dev.voidmc.mettle.character.cards.legend.LegendEffects.init();
+		BuildFeel.init();
 	}
 
 	// ---------------------------------------------------------------- reading
@@ -255,6 +256,7 @@ public final class Cards {
 		if (!next.equals(cards)) {
 			CardStore.set(player, next);
 			CardApi.tiers(player, cards.tiers(), next.tiers());
+			BuildFeel.derived(player, cards, next);
 		}
 	}
 

@@ -58,6 +58,17 @@ public final class MettleCards {
 		hall = h.entries();
 	}
 
+	/** The Hall of Firsts as the server last sent it (who holds which Mythic). */
+	public static java.util.List<dev.voidmc.mettle.core.net.MettlePayloads.HallEntry> hallEntries() {
+		return hall;
+	}
+
+	/** Whether the player is at a Card Shrine (a shrine sitting is open): where forging happens. */
+	public static boolean atShrine() {
+		var s = sitting;
+		return s != null && s.kind() == 0;
+	}
+
 	/** Whether a Mythic reveal is showing ({@code reveal}, 30 s), for MettleState.revision. */
 	public static boolean revealing() {
 		return reveal != null && net.minecraft.util.Util.getMillis() - revealAt < 30_000;
@@ -110,7 +121,7 @@ public final class MettleCards {
 			decks.add(deck(registries, character, cards, ref.key(), ref.value(), wits)));
 		root.add("decks", decks);
 
-		root.add("sets", sets(registries, cards));
+		root.add("sets", sets(registries, cards, character));
 		root.add("traits", traits(registries, cards));
 		root.add("ceilings", ceilings(registries, cards));
 
@@ -197,9 +208,20 @@ public final class MettleCards {
 				held.forEach(id -> ms.add(mythic(registries, id)));
 			}
 			po.add("mythics", ms);
+			// Build feel (B2): the byname under the name, its tier pips, the crest and the legend frame.
+			var renown = p.getAttached(dev.voidmc.mettle.character.cards.BuildFeel.RENOWN);
+			if (renown != null && renown.byname().isPresent()) {
+				po.add("byname", MettleBuild.byname(renown.byname().get(), dev.voidmc.mettle.character.cards.BynameText.of(registries)));
+			} else {
+				po.add("byname", JsonNull.INSTANCE);
+			}
+			po.add("crest", renown == null || renown.crest().isEmpty() ? JsonNull.INSTANCE : new com.google.gson.JsonPrimitive(renown.crest().get().toString()));
+			po.add("legend", renown == null || renown.legend() == 0 ? JsonNull.INSTANCE : MettleBuild.legend(renown.legend(), renown.legendOf()));
 			people.add(po);
 		}
 		root.add("players", people);
+		// Build feel (docs/BUILD_FEEL.md, OVERLAY.md "Build feel").
+		root.add("build", MettleBuild.build(mc, registries));
 		return root;
 	}
 
@@ -376,6 +398,7 @@ public final class MettleCards {
 			c.drawn().day(), c.history().owners(), c.scars()).getString());
 		o.add("drawn", drawn);
 		o.addProperty("owners", c.history().owners());
+		MettleBuild.card(o, registries, cards, c);
 		JsonArray last = new JsonArray();
 		c.history().last().forEach(h -> {
 			JsonObject x = new JsonObject();
@@ -399,6 +422,11 @@ public final class MettleCards {
 		int level = character.level(skill);
 		o.addProperty("meetsRequirement", level >= card.needs());
 		o.addProperty("slotsAt", level >= card.needs() ? "" : Component.translatable("mettle.cards.slots_at", skillName(registries, skill), card.needs()).getString());
+		// What keeping it would do to the build (BUILD_FEEL.md §6.1).
+		Player me = Minecraft.getInstance().player;
+		if (me != null) {
+			o.add("preview", MettleBuild.offer(registries, character, CardStore.get(me), card, me.level().getGameTime()));
+		}
 	}
 
 	private static void common(JsonObject o, RegistryAccess registries, ResourceKey<Perk> key, Optional<Perk> perk, ResourceKey<Skill> skill, int rank,
@@ -531,10 +559,11 @@ public final class MettleCards {
 		d.addProperty("nextSlotAt", CardRules.nextSlotAt(level));
 		d.addProperty("freeRebuild", cards.freeRebuilds().contains(key));
 		d.addProperty("rebuildHint", Component.translatable("mettle.cards.rebuild_hint", skill.name()).getString());
+		MettleBuild.deck(d, cards, key, character);
 		return d;
 	}
 
-	private static JsonArray sets(RegistryAccess registries, CardsState cards) {
+	private static JsonArray sets(RegistryAccess registries, CardsState cards, CharacterState character) {
 		JsonArray out = new JsonArray();
 		Map<Identifier, Set<ResourceKey<Skill>>> skillsOf = new HashMap<>();
 		for (CardData c : cards.slotted()) {
@@ -547,7 +576,8 @@ public final class MettleCards {
 			Keyword k = r.value();
 			int count = cards.sets().getOrDefault(id, 0);
 			int decks = skillsOf.getOrDefault(id, Set.of()).size();
-			int reached = CardRules.tier(count, decks);
+			// Build feel's gate: a 6 counts only once two of its decks reach six_tier_skill (BUILD_FEEL.md §1.2b).
+			int reached = CardRules.tier(count, skillsOf.getOrDefault(id, Set.of()), character::level);
 			int active = cards.tier(id);
 			JsonObject o = new JsonObject();
 			o.addProperty("id", id.toString());
@@ -574,6 +604,7 @@ public final class MettleCards {
 				bonuses.add(bo);
 			}
 			o.add("bonuses", bonuses);
+			MettleBuild.set(o, cards, id, skillsOf.getOrDefault(id, Set.of()), character, registries);
 			out.add(o);
 		});
 		return out;

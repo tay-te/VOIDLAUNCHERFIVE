@@ -87,6 +87,11 @@ public final class CardApi implements CardService {
 	}
 
 	@Override
+	public java.util.Optional<net.minecraft.network.chat.Component> byname(ServerPlayer player) {
+		return BuildFeel.byname(player);
+	}
+
+	@Override
 	public List<Identifier> activeMythics(ServerPlayer player) {
 		CardsState cards = CardStore.get(player);
 		List<Identifier> out = new ArrayList<>();

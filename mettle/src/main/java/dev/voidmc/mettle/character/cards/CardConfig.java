@@ -78,6 +78,38 @@ public final class CardConfig {
 	// (halved) or "off". Attribute modifiers (armour, health, speed) stay as they are.
 	public String pvp_perks = "full";
 
+	// Build feel (docs/BUILD_FEEL.md §7). Momentum: a perk's weight within its depth band × (1 + perk lean × the keyword's
+	// momentum × commitment ÷ cap); a second keyword's weight 1 + keyword lean × momentum × commitment. Commitment is the
+	// slotted cards carrying a keyword plus focus_weight for the Focus, counted up to momentum_cap.
+	public double momentum_perk_lean = 1.0;
+	public double momentum_keyword_lean = 0.5;
+	public int momentum_cap = 4;
+	// A 6 tier counts only while two of its decks belong to skills at this level or more (0: today's rule, two decks).
+	public int six_tier_skill = 12;
+	public int focus_weight = 2;
+	public int focus_change_days = 1;
+	// Odd levels from boons_from give a boon (Temper, Inscribe, Reroll) instead of a reroll; 0 turns boons off.
+	public int boons_from = 7;
+	public double temper_step = 0.25;
+	public int temper_per_deck = 3;
+	public int inscribe_per_deck = 1;
+	public boolean inscribe_needs_seed = true;
+	// Mythic shards (§5): the forge ladder (the last repeats), the skill a forged Mythic's skill must reach, the sources.
+	public int[] shard_forge_costs = {30, 45, 60};
+	public int forge_skill = 18;
+	public int shard_draft_from_15 = 1;
+	public int shard_skill_20 = 2;
+	public int shard_feat = 1;
+	public int shard_synergy = 1;
+	public int shard_first_six = 2;
+	public int shard_claimed_roll = 3;
+	public int shard_boss_after_first = 2;
+	public double shard_boss_share = 0.25;
+	public int legend_stars_max = 3;
+	// The guide for new characters (§4) and its guaranteed Rare in the first hand.
+	public boolean guide = true;
+	public boolean first_hand_rare = true;
+
 	public static CardConfig get() {
 		CardConfig c = client;
 		if (c != null && Thread.currentThread() == clientThread) {
@@ -146,6 +178,16 @@ public final class CardConfig {
 			Mettle.LOGGER.warn("config/mettle/cards.json: rebuild_fees needs four values; using the defaults");
 			this.rebuild_fees = new CardConfig().rebuild_fees;
 		}
+		if (this.shard_forge_costs == null || this.shard_forge_costs.length < 1) {
+			Mettle.LOGGER.warn("config/mettle/cards.json: shard_forge_costs needs at least one value; using the defaults");
+			this.shard_forge_costs = new CardConfig().shard_forge_costs;
+		}
+		this.momentum_cap = clampWarn("momentum_cap", this.momentum_cap, 1, 20);
+		this.temper_per_deck = clampWarn("temper_per_deck", this.temper_per_deck, 0, 20);
+		this.inscribe_per_deck = clampWarn("inscribe_per_deck", this.inscribe_per_deck, 0, 20);
+		this.legend_stars_max = clampWarn("legend_stars_max", this.legend_stars_max, 1, 10);
+		this.boons_from = clampWarn("boons_from", this.boons_from, 0, 20);
+		this.six_tier_skill = clampWarn("six_tier_skill", this.six_tier_skill, 0, 20);
 		if (this.rebuild_emeralds == null || this.rebuild_emeralds.length < 5) {
 			Mettle.LOGGER.warn("config/mettle/cards.json: rebuild_emeralds needs five values; using the defaults");
 			this.rebuild_emeralds = new CardConfig().rebuild_emeralds;

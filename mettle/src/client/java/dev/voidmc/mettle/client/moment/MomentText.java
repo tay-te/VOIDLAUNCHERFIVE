@@ -61,6 +61,15 @@ final class MomentText {
 					: Component.translatable("mettle.hint.press_k", key);
 				return new Lines(Component.translatable("mettle.moment.character", level), null, sub, Ui.ACCENT, null);
 			}
+			case CARD, SET, BYNAME, SIGNATURE, BOON, FORGE_READY -> {
+				// Build feel's milestones carry the server's words (MomentClient keeps them by subject and tier).
+				Component[] words = MomentClient.milestoneText(kind, perkId, tier);
+				Identifier icon = null;
+				if (kind == MomentKind.CARD || kind == MomentKind.SIGNATURE || kind == MomentKind.BOON) {
+					icon = perkId == null ? null : Perk.icon(Perks.key(Identifier.parse(perkId)));
+				}
+				return new Lines(Component.translatable("mettle.moment." + kind.serializedName()), words[0], words[1], CHAMPAGNE, icon);
+			}
 			default -> {
 				ResourceKey<Perk> perkKey = perkId == null ? null : Perks.key(Identifier.parse(perkId));
 				Perk perk = perkKey == null ? null : registries.lookupOrThrow(MettleRegistries.PERK).getValue(perkKey);
