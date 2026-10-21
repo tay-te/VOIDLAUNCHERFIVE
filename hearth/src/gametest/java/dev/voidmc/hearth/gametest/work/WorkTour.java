@@ -83,7 +83,11 @@ public class WorkTour implements FabricClientGameTest {
 			world.getServer().runCommand("weather clear");
 			timeTo(world, 1000);
 			settle(context, 3_000);
-			Town town = world.getServer().computeOnServer(WorkTour::foundTown);
+			Town found = historic(context, world);
+			if (found == null) {
+				found = world.getServer().computeOnServer(WorkTour::foundTown);
+			}
+			final Town town = found;
 			if (town == null) {
 				log("no site for a settlement near spawn");
 				return;
@@ -118,6 +122,50 @@ public class WorkTour implements FabricClientGameTest {
 	}
 
 	// ---------------------------------------------------------------- the town
+
+	/**
+	 * A town history grew (its atlas site's region adopted when its chunks load): the biggest near spawn, with the trades
+	 * the legs want more likely than in a camp founded for the tour. Null if none comes live in time.
+	 */
+	private static @Nullable Town historic(ClientGameTestContext context, TestSingleplayerContext world) {
+		List<dev.voidmc.hearth.api.HearthWorld.SiteInfo> sites = List.of();
+		for (int i = 0; i < 40; i++) {
+			// (the atlas plans its regions in the background: asked again until they are known)
+			sites = world.getServer().computeOnServer(server -> {
+				SimWorld w = SimServer.world(server.overworld());
+				return w == null ? List.<dev.voidmc.hearth.api.HearthWorld.SiteInfo>of()
+					: w.knownSites(server.overworld().getRespawnData().pos(), Integer.getInteger("hearth.work.reach", 2500));
+			});
+			if (sites.size() >= 6) {
+				break;
+			}
+			settle(context, 1_000);
+		}
+		dev.voidmc.hearth.api.HearthWorld.SiteInfo best = null;
+		for (dev.voidmc.hearth.api.HearthWorld.SiteInfo i : sites) {
+			if (best == null || i.tier().ordinal() > best.tier().ordinal()) {
+				best = i;
+			}
+		}
+		if (best == null) {
+			log("no atlas sites known near spawn");
+			return null;
+		}
+		log("visiting " + best.name() + " (" + best.culture().getSerializedName() + ", " + best.tier().getSerializedName() + ") at "
+			+ best.center().toShortString() + " of " + sites.size() + " known sites");
+		BlockPos c = best.center();
+		teleport(world, c.getX() + 0.5, c.getY() + 40, c.getZ() + 0.5, 0, 60);
+		long id = best.settlementId();
+		for (int i = 0; i < 120; i++) {
+			settle(context, 1_000);
+			boolean live = world.getServer().computeOnServer(server -> SimServer.world(server.overworld()).settlement(id) != null);
+			if (live) {
+				return new Town(id, c);
+			}
+		}
+		log("the historic town did not come live in time");
+		return null;
+	}
 
 	private static @Nullable Town foundTown(MinecraftServer server) {
 		ServerLevel level = server.overworld();
