@@ -464,7 +464,7 @@ public final class LiveRoads {
 	}
 
 	/** Puts {@code work} into the plot at the head of the road from one end; finished plots are built. */
-	void advance(RoadBook.LiveRoad r, boolean fromA, double work, @Nullable SimSettlement giver) {
+	public void advance(RoadBook.LiveRoad r, boolean fromA, double work, @Nullable SimSettlement giver) {
 		Way w = r.way;
 		if (w == null) {
 			return;

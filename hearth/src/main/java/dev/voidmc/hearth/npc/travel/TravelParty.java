@@ -81,8 +81,8 @@ public final class TravelParty implements Folk.Controller {
 
 	/** Puts a journey's party on the road at {@code at}; null if there is nowhere to stand. */
 	static @Nullable TravelParty spawn(ServerLevel level, Traffic traffic, Journey j, BlockPos at) {
-		BlockPos ground = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at);
-		BlockPos stand = FolkSpots.standableNear(level, ground, 4);
+		BlockPos ground = Wayfarers.ground(level, at);
+		BlockPos stand = ground == null ? null : FolkSpots.standableNear(level, ground, 4);
 		if (stand == null || !level.isPositionEntityTicking(stand)) {
 			return null;
 		}
@@ -306,7 +306,8 @@ public final class TravelParty implements Folk.Controller {
 				double behind = Math.hypot(pos.x - p[0], pos.z - p[2]);
 				if ((this.stuck > 200 || behind > 40) && Wayfarers.nearestPlayer(level, pos.x, pos.z) > 32) {
 					// stuck (a ravine, a river) or left behind, and nobody close enough to see: on to where the books have it
-					BlockPos at = FolkSpots.standableNear(level, level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, BlockPos.containing(p[0], p[1], p[2])), 4);
+					BlockPos top = Wayfarers.ground(level, BlockPos.containing(p[0], p[1], p[2]));
+					BlockPos at = top == null || !level.isPositionEntityTicking(top) ? null : FolkSpots.standableNear(level, top, 4);
 					if (at != null) {
 						for (Mob m : line()) {
 							m.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
@@ -402,7 +403,8 @@ public final class TravelParty implements Folk.Controller {
 			// beside the road, square to it
 			double n = Math.max(1e-6, Math.hypot(p[3], p[4]));
 			BlockPos side = BlockPos.containing(p[0] - p[4] / n * 5, p[1], p[2] + p[3] / n * 5);
-			BlockPos ground = Camp.ground(level, level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, side));
+			BlockPos top = Wayfarers.ground(level, side);
+			BlockPos ground = top == null ? null : Camp.ground(level, top);
 			this.camp = new Camp(ground == null ? BlockPos.containing(p[0], p[1], p[2]) : ground);
 			if (ground != null && this.kind != TravelKind.PATROL) {
 				this.camp.fire(level);

@@ -436,7 +436,8 @@ public final class RoadWorld implements RoadNetwork {
 		}
 		if (r == null) {
 			this.routesFailed.increment();
-			LOG.debug("hearth roads: no way for the road {} from {} to {}: {}", Long.toHexString(e.id()), nameA, nameB, RoadRouter.lastFailure());
+			LOG.info("hearth roads: no way for the road {} from {} to {} ({} blocks): {}", Long.toHexString(e.id()), nameA, nameB,
+				Math.round(Math.hypot(bx - ax, bz - az)), RoadRouter.lastFailure());
 			return Way.of(e, ax, az, bx, bz, nameA, nameB, null, List.of(), live);
 		}
 		double len = r.length();
@@ -564,24 +565,41 @@ public final class RoadWorld implements RoadNetwork {
 
 	/** A region's roads, worked out on this thread if nobody has yet (blocks while another thread works them out). */
 	public Region region(int rx, int rz) {
+		Claim c = claim(rx, rz);
+		if (c.owner()) {
+			compute(c, rx, rz);
+		}
+		c.entry().used = this.clock.incrementAndGet();
+		return c.entry().future.join();
+	}
+
+	/** The map's entry for a region, and whether this caller made it (and must work it out). */
+	private record Claim(Entry<Region> entry, boolean owner) {
+	}
+
+	private Claim claimEntry(int rx, int rz) {
 		long key = Atlas.regionKey(rx, rz);
 		Entry<Region> e = this.regions.get(key);
-		if (e == null) {
-			Entry<Region> mine = new Entry<>();
-			e = this.regions.putIfAbsent(key, mine);
-			if (e == null) {
-				e = mine;
-				try {
-					mine.future.complete(computeRegion(rx, rz));
-				} catch (Throwable t) {
-					LOG.error("hearth roads: the roads of region {},{} could not be worked out; none are written there", rx, rz, t);
-					mine.future.complete(new Region(rx, rz, List.of(), Long2ObjectMaps.emptyMap(), Long2ObjectMaps.emptyMap(), 0));
-				}
-				evictRegions();
-			}
+		if (e != null) {
+			return new Claim(e, false);
 		}
-		e.used = this.clock.incrementAndGet();
-		return e.future.join();
+		Entry<Region> mine = new Entry<>();
+		e = this.regions.putIfAbsent(key, mine);
+		return e == null ? new Claim(mine, true) : new Claim(e, false);
+	}
+
+	private Claim claim(int rx, int rz) {
+		return claimEntry(rx, rz);
+	}
+
+	private void compute(Claim c, int rx, int rz) {
+		try {
+			c.entry().future.complete(computeRegion(rx, rz));
+		} catch (Throwable t) {
+			LOG.error("hearth roads: the roads of region {},{} could not be worked out; none are written there", rx, rz, t);
+			c.entry().future.complete(new Region(rx, rz, List.of(), Long2ObjectMaps.emptyMap(), Long2ObjectMaps.emptyMap(), 0));
+		}
+		evictRegions();
 	}
 
 	/** The region's roads if they are worked out, else null (and, if {@code start}, they are begun on the roads' worker). */
@@ -597,12 +615,13 @@ public final class RoadWorld implements RoadNetwork {
 		return null;
 	}
 
+	/** The region's roads, worked out on the roads' worker if nobody is at it already (once, however often asked). */
 	public CompletableFuture<Region> regionAsync(int rx, int rz) {
-		Region ready = regionIfReady(rx, rz, false);
-		if (ready != null) {
-			return CompletableFuture.completedFuture(ready);
+		Claim c = claimEntry(rx, rz);
+		if (c.owner()) {
+			WORKER.execute(() -> compute(c, rx, rz));
 		}
-		return CompletableFuture.supplyAsync(() -> region(rx, rz), WORKER);
+		return c.entry().future;
 	}
 
 	/** Runs work on the roads' worker (live routes). */

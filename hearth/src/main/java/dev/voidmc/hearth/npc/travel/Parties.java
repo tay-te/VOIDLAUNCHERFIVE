@@ -46,6 +46,8 @@ import org.jspecify.annotations.Nullable;
 public final class Parties {
 	private static final int PASS = 40;
 	private static final LivingWorldStats.Timer TIMER = LivingWorldStats.timer("travel");
+	/** The two-second passes alone (spawning, folding, staging), within {@link #TIMER}. */
+	private static final LivingWorldStats.Timer PASSES = LivingWorldStats.timer("travel passes");
 	private static final Map<Long, TravelParty> PARTIES = new HashMap<>();
 	private static final Map<Long, BanditParty> BANDS = new HashMap<>();
 	private static final Map<Long, RoadCrew> CREWS = new HashMap<>();
@@ -68,7 +70,9 @@ public final class Parties {
 				}
 				tickLive(level, st);
 				if (ticks % PASS == 0) {
+					long p0 = System.nanoTime();
 					pass(level, st);
+					PASSES.add(System.nanoTime() - p0);
 				}
 			}
 		} catch (RuntimeException e) {
@@ -437,6 +441,11 @@ public final class Parties {
 	/** The camp blocks standing now, per level (cleared as camps are struck; what is left after a crash is taken down). */
 	static final HearthDataKey<List<Long>> CAMPS = HearthDataKey.register(Hearth.id("npc/road_camps"), HearthDataKey.Scope.WORLD,
 		Codec.LONG.listOf().xmap(ArrayList::new, l -> l), ArrayList::new);
+
+	/** The camp blocks' key (the tour reads it). */
+	public static HearthDataKey<List<Long>> campKey() {
+		return CAMPS;
+	}
 
 	static void remember(ServerLevel level, Camp camp) {
 		HearthWorld w = HearthWorld.of(level);

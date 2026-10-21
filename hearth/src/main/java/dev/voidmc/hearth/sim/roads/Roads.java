@@ -73,7 +73,7 @@ public final class Roads {
 				RoadWorld net = world.roadWorld();
 				LiveRoads live = new LiveRoads(world, net);
 				RoadApplier applier = new RoadApplier(world, net, live);
-				Traffic traffic = new Traffic(world, net, live);
+				Traffic traffic = new Traffic(world, net);
 				s = new State(world, net, live, applier, traffic);
 				STATES.put(world, s);
 			}
@@ -217,6 +217,15 @@ public final class Roads {
 					return;
 				}
 			}
+		});
+		dev.voidmc.hearth.quest.service.LivingQuests.setRobbedAt((from, to, caravanId) -> {
+			for (State st : states()) {
+				net.minecraft.core.BlockPos camp = st.traffic().robbedAt(caravanId);
+				if (camp != null) {
+					return camp;
+				}
+			}
+			return null;
 		});
 		SettlementEvents.FOUNDED.register((world, settlement) -> {
 			if (world instanceof SimWorld w && settlement instanceof SimSettlement s && !Atlas.isHistoric(s.id()) && s.clockState().parent() != 0) {

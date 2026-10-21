@@ -132,22 +132,28 @@ public final class Road implements Archetype {
 		return Math.abs(g - c.dy(k)) <= 1 ? g : Integer.MIN_VALUE;
 	}
 
-	/** A signpost on the verge: a post, a sign with the town the road leads to and how far, readable both ways. */
+	/**
+	 * A signpost on the verge: a post, a sign with the town the road leads to and how far, readable both ways. It stands
+	 * at the first place near {@code k} (looking a few steps on) where the ground beside the road is at the road's level.
+	 */
 	private static void signpost(Lay lay, Course c, int k, String text, boolean atStart) {
 		String[] lines = text.split("\n", 2);
-		java.util.List<String[]> sign = java.util.List.of(new String[]{"", ""}, new String[]{"", lines[0]},
-			new String[]{"", lines.length > 1 ? lines[1] : ""});
-		for (int side : new int[]{1, -1}) {
-			int[] at = beside(c, k, side);
-			int y = standing(lay, c, k, at[0], at[1]);
-			if (y == Integer.MIN_VALUE || !lay.allowed(at[0], y + 1, at[1])) {
-				continue;
+		java.util.List<String[]> sign = java.util.List.of(new String[]{"", ""}, new String[]{"", lines[0]}, new String[]{"", lines.length > 1 ? lines[1] : ""});
+		int last = c.steps() - 1;
+		for (int step = 0; step <= 12; step += 2) {
+			int kk = atStart ? Math.min(last, k + step) : Math.max(0, k - step);
+			for (int side : new int[]{1, -1}) {
+				int[] at = beside(c, kk, side);
+				int y = standing(lay, c, kk, at[0], at[1]);
+				if (y == Integer.MIN_VALUE || !lay.allowed(at[0], y + 1, at[1]) || !lay.absent(at[0], y, at[1]) || !lay.absent(at[0], y + 1, at[1])) {
+					continue;
+				}
+				// the sign faces along the road, toward those coming to it
+				Direction facing = atStart ? c.cardinal(kk).getOpposite() : c.cardinal(kk);
+				Draft d = lay.draft();
+				Signs.postSign(d, lay.lx(at[0], at[1]), y - lay.floorY(), lay.lz(at[0], at[1]), lay.local(facing), sign);
+				return;
 			}
-			// the sign faces along the road, toward those coming to it
-			Direction facing = atStart ? c.cardinal(k).getOpposite() : c.cardinal(k);
-			Draft d = lay.draft();
-			Signs.postSign(d, lay.lx(at[0], at[1]), y - lay.floorY(), lay.lz(at[0], at[1]), lay.local(facing), sign);
-			return;
 		}
 	}
 

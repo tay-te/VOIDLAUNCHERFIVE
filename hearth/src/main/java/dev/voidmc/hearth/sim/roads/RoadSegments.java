@@ -63,11 +63,14 @@ public final class RoadSegments {
 		return kind == RoadClass.KINGS_ROAD ? 5 : 3;
 	}
 
+	/** Plots from each end to the one a signpost stands on: out past the town's own streets (a road's first plots may lie in them). */
+	static final int SIGN_PLOT = 2;
+
 	/** The plots of a road, in order from its {@code from} end. */
 	public static List<Segment> cut(long edge, RoadClass kind, Route r, Dressing dress) {
 		int n = r.size();
-		List<Segment> out = new ArrayList<>();
-		int width = width(kind);
+		// first where each plot runs (a bridge whole, road stretches between), then the plots
+		List<int[]> ranges = new ArrayList<>();
 		int i = 0;
 		while (i < n - 1) {
 			if (r.types()[i + 1] == Route.BRIDGE) {
@@ -77,7 +80,7 @@ public final class RoadSegments {
 					j++;
 				}
 				int end = Math.min(n - 1, j);
-				out.add(bridge(edge, out.size(), kind, r, i, end, dress));
+				ranges.add(new int[]{i, end, 1});
 				i = end;
 				continue;
 			}
@@ -96,8 +99,38 @@ public final class RoadSegments {
 			if (n - 1 - end > 0 && n - 1 - end < 8 && noBridge(r, end, n - 1)) {
 				end = n - 1;
 			}
-			out.add(road(edge, out.size(), kind, r, i, end, width, dress));
+			ranges.add(new int[]{i, end, 0});
 			i = end;
+		}
+		// the signposts: on the third road plot from each end (the first on a short road)
+		int signA = -1;
+		int signB = -1;
+		int roads = 0;
+		for (int[] rg : ranges) {
+			roads += rg[2] == 0 ? 1 : 0;
+		}
+		int want = roads >= 2 * SIGN_PLOT + 4 ? SIGN_PLOT : 0;
+		for (int k = 0, seen = 0; k < ranges.size(); k++) {
+			if (ranges.get(k)[2] == 0 && seen++ == want) {
+				signA = k;
+				break;
+			}
+		}
+		for (int k = ranges.size() - 1, seen = 0; k >= 0; k--) {
+			if (ranges.get(k)[2] == 0 && seen++ == want) {
+				signB = k;
+				break;
+			}
+		}
+		if (signA == signB && signA >= 0 && ranges.size() > 1) {
+			signB = -1;
+		}
+		List<Segment> out = new ArrayList<>(ranges.size());
+		int width = width(kind);
+		for (int k = 0; k < ranges.size(); k++) {
+			int[] rg = ranges.get(k);
+			out.add(rg[2] == 1 ? bridge(edge, k, kind, r, rg[0], rg[1], dress)
+				: road(edge, k, kind, r, rg[0], rg[1], width, dress, k == signA ? dress.signA() : "", k == signB ? dress.signB() : ""));
 		}
 		return out;
 	}
@@ -111,18 +144,19 @@ public final class RoadSegments {
 		return true;
 	}
 
-	private static Segment road(long edge, int index, RoadClass kind, Route r, int from, int to, int width, Dressing dress) {
+	private static Segment road(long edge, int index, RoadClass kind, Route r, int from, int to, int width, Dressing dress, String signStart,
+		String signEnd) {
 		int[] pts = vertices(r.xs(), r.ys(), r.zs(), from, to);
 		CompoundTag p = new CompoundTag();
 		p.putIntArray("points", pts);
 		p.putInt("width", width);
 		p.putString("kind", kind == RoadClass.KINGS_ROAD ? "highway" : "path");
 		p.putBoolean("country", true);
-		if (from == 0 && !dress.signA().isEmpty()) {
-			p.putString("sign_start", dress.signA());
+		if (!signStart.isEmpty()) {
+			p.putString("sign_start", signStart);
 		}
-		if (to == r.size() - 1 && !dress.signB().isEmpty()) {
-			p.putString("sign_end", dress.signB());
+		if (!signEnd.isEmpty()) {
+			p.putString("sign_end", signEnd);
 		}
 		if (dress.shrines() && index % 11 == 5) {
 			// a wayside cross or shrine every 500 blocks or so

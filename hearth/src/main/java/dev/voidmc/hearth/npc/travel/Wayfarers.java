@@ -179,6 +179,17 @@ public final class Wayfarers {
 		return best;
 	}
 
+	/**
+	 * The ground at a column if its chunk is loaded, else null: the roads never load (let alone generate) a chunk to
+	 * find where to stand.
+	 */
+	static @Nullable BlockPos ground(ServerLevel level, BlockPos at) {
+		if (!level.isLoaded(at)) {
+			return null;
+		}
+		return level.getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at);
+	}
+
 	/** Takes a folk off the road (no player near, the journey over, the server stopping). */
 	static void fold(Folk f) {
 		if (!f.isRemoved()) {

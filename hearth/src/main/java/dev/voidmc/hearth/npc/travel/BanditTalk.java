@@ -35,7 +35,7 @@ final class BanditTalk implements StrangerTalk {
 
 	@Override
 	public String from() {
-		return "";
+		return Component.translatable("hearth.roads.bandit.from").getString();
 	}
 
 	@Override
@@ -53,9 +53,9 @@ final class BanditTalk implements StrangerTalk {
 		long toll = this.band.toll(player);
 		EconomyService eco = HearthServices.economy();
 		Component coins = eco == null ? Component.literal(toll + " bits") : eco.format(toll);
-		boolean can = eco != null && eco.balance(player) >= toll;
-		out.add(new Option("pay", Component.translatable("hearth.roads.bandit.pay", coins), !can, can ? null : Component.translatable("hearth.roads.bandit.pay.short"),
-			"bribe", -1, toll));
+		boolean can = eco != null && toll > 0 && eco.balance(player) >= toll;
+		out.add(new Option("pay", Component.translatable("hearth.roads.bandit.pay", coins), !can,
+			can ? null : Component.translatable(toll <= 0 ? "hearth.roads.bandit.pay.none" : "hearth.roads.bandit.pay.short"), "bribe", -1, toll));
 		out.add(new Option("talk", Component.translatable("hearth.roads.bandit.talk"), false, null, "persuade", (int) Math.round(this.band.persuadeOdds(player) * 100), -1));
 		out.add(new Option("threaten", Component.translatable("hearth.roads.bandit.threaten"), false, null, "intimidate",
 			(int) Math.round(this.band.intimidateOdds(player) * 100), -1));

@@ -115,9 +115,8 @@ public final class Traffic {
 	/** The api's travel service over every level's traffic. */
 	public static final TravelService SERVICE = new Service();
 
-	private final SimWorld world;
+	private final Host world;
 	private final RoadWorld net;
-	private final LiveRoads live;
 	private long nextDue = Long.MIN_VALUE;
 	private final Map<Long, Geometry> geometry = new HashMap<>();
 	private final Map<Long, Float> cover = new HashMap<>();
@@ -126,18 +125,159 @@ public final class Traffic {
 	private final EnumMap<TravelKind, Integer> sent = new EnumMap<>(TravelKind.class);
 	private int refusedForCaps;
 
-	public Traffic(SimWorld world, RoadWorld net, LiveRoads live) {
-		this.world = world;
+	public Traffic(SimWorld world, RoadWorld net) {
+		this(Host.of(world), net);
+	}
+
+	public Traffic(Host host, RoadWorld net) {
+		this.world = host;
 		this.net = net;
-		this.live = live;
 		net.setDanger(this::danger);
+	}
+
+	/**
+	 * What the traffic needs of its level: its books, its clock, its settlements, the sim's caravans and the lie of the
+	 * land. {@link #of} for a live level; tests give their own.
+	 */
+	public interface Host {
+		<T> T data(dev.voidmc.hearth.api.HearthDataKey<T> key);
+
+		void markDirty();
+
+		long clock();
+
+		default long day() {
+			return Math.floorDiv(clock(), SimRules.DAY);
+		}
+
+		@Nullable SimSettlement settlement(long id);
+
+		java.util.Collection<SimSettlement> settlements();
+
+		HearthWorld.@Nullable CaravanView caravan(long id);
+
+		/** Whether the sim decided at its departure that a caravan does not get through. */
+		boolean doomed(long caravanId);
+
+		/** Whether the sim still has a caravan on the road. */
+		boolean caravanOnRoad(long caravanId);
+
+		int @Nullable [] robCaravan(long id);
+
+		boolean escortCaravan(long id);
+
+		int groundY(int x, int z);
+
+		/** Woods, jungle or taiga at a column (cover for bandits). */
+		boolean wooded(int x, int z);
+
+		long seed();
+
+		/** The world events are fired in, or null (tests). */
+		@Nullable HearthWorld events();
+
+		/** The live level, or null (tests). */
+		@Nullable SimWorld world();
+
+		static Host of(SimWorld w) {
+			return new Host() {
+				@Override
+				public <T> T data(dev.voidmc.hearth.api.HearthDataKey<T> key) {
+					return w.data(key);
+				}
+
+				@Override
+				public void markDirty() {
+					w.markDirty();
+				}
+
+				@Override
+				public long clock() {
+					return w.clock();
+				}
+
+				@Override
+				public @Nullable SimSettlement settlement(long id) {
+					return w.settlement(id);
+				}
+
+				@Override
+				public java.util.Collection<SimSettlement> settlements() {
+					return w.settlements();
+				}
+
+				@Override
+				public HearthWorld.@Nullable CaravanView caravan(long id) {
+					return w.caravan(id);
+				}
+
+				@Override
+				public boolean doomed(long caravanId) {
+					var c = w.caravanTrade().caravan(caravanId);
+					return c != null && c.doomed();
+				}
+
+				@Override
+				public boolean caravanOnRoad(long caravanId) {
+					return w.caravanTrade().caravan(caravanId) != null;
+				}
+
+				@Override
+				public int @Nullable [] robCaravan(long id) {
+					return w.robCaravan(id);
+				}
+
+				@Override
+				public boolean escortCaravan(long id) {
+					return w.escortCaravan(id);
+				}
+
+				@Override
+				public int groundY(int x, int z) {
+					return w.probe().groundY(x, z);
+				}
+
+				@Override
+				public boolean wooded(int x, int z) {
+					Holder<Biome> b = w.probe().biomeHolder(x, z);
+					return b != null && (b.is(BiomeTags.IS_FOREST) || b.is(BiomeTags.IS_JUNGLE) || b.is(BiomeTags.IS_TAIGA));
+				}
+
+				@Override
+				public long seed() {
+					return w.level().getSeed();
+				}
+
+				@Override
+				public HearthWorld events() {
+					return w;
+				}
+
+				@Override
+				public SimWorld world() {
+					return w;
+				}
+			};
+		}
+	}
+
+	private void fire(TravelKind kind, long id, long from, long to, SettlementEvents.Traveller.Phase phase) {
+		HearthWorld w = this.world.events();
+		if (w != null) {
+			SettlementEvents.TRAVELLER.invoker().onTraveller(w, kind, id, from, to, phase);
+		}
 	}
 
 	public Book book() {
 		return this.world.data(KEY);
 	}
 
+	/** The live level (null only in tests). */
 	public SimWorld world() {
+		return java.util.Objects.requireNonNull(this.world.world(), "a live level");
+	}
+
+	public Host host() {
 		return this.world;
 	}
 
@@ -259,7 +399,7 @@ public final class Traffic {
 	/**
 	 * Sends a journey. Residents named go away from their town until it ends.
 	 *
-	 * @param arrive   when it must arrive (the books' time: a caravan, a messenger), or 0 to walk it at the kind's pace
+	 * @param arrive   when it must arrive (the books' time: a caravan, a messenger), or 0 (or less) to walk it at the kind's pace
 	 * @param outLength for a round trip that turns before the far end (a patrol), how far it walks out; else 0
 	 */
 	public long send(TravelKind kind, SimSettlement from, @Nullable Settlement to, List<UUID> residents, long depart, long arrive, boolean roundTrip,
@@ -296,7 +436,7 @@ public final class Traffic {
 		double pace = pace(kind);
 		long end;
 		long turn = 0;
-		if (arrive > depart) {
+		if (arrive > 0 && arrive > depart) {
 			pace = Journey.paceFor(depart, arrive, roundTrip ? len * 2 : len);
 			end = arrive;
 			turn = roundTrip ? Journey.afterWalking(depart, (long) Math.ceil(len / pace)) : 0;
@@ -317,12 +457,12 @@ public final class Traffic {
 		}
 		this.sent.merge(kind, 1, Integer::sum);
 		changed();
-		SettlementEvents.TRAVELLER.invoker().onTraveller(this.world, kind, id, from.id(), toId, SettlementEvents.Traveller.Phase.DEPARTED);
+		fire(kind, id, from.id(), toId, SettlementEvents.Traveller.Phase.DEPARTED);
 		return id;
 	}
 
 	/** Adults of a town free to go: not embodied, not away already, of the trades asked for first. */
-	static List<UUID> pick(SimSettlement s, int count, JobType... prefer) {
+	public static List<UUID> pick(SimSettlement s, int count, JobType... prefer) {
 		List<Resident> free = new ArrayList<>();
 		for (Resident r : s.residentList()) {
 			if (r.age == AgeStage.ADULT && !s.isResidentOut(r.id)) {
@@ -499,7 +639,7 @@ public final class Traffic {
 			d.putLong("caravan", caravanId);
 			d.putIntArray("cargo", cargo.clone());
 			long id = send(TravelKind.CARAVAN, s, to, List.of(), view.departTick(), view.arriveTick(), false, 0, 0, d);
-			if (id != 0 && this.world.caravanTrade().caravan(caravanId) != null && this.world.caravanTrade().caravan(caravanId).doomed()) {
+			if (id != 0 && this.world.doomed(caravanId)) {
 				// the sim decided at departure that this one does not get through: it is waylaid at the loneliest point of its way
 				Journey j = journey(id);
 				if (j != null) {
@@ -588,7 +728,7 @@ public final class Traffic {
 			hamlet.setResidentAway(r, end, "travel:settlers");
 		}
 		changed();
-		SettlementEvents.TRAVELLER.invoker().onTraveller(this.world, TravelKind.SETTLERS, id, parent.id(), hamlet.id(), SettlementEvents.Traveller.Phase.DEPARTED);
+		fire(TravelKind.SETTLERS, id, parent.id(), hamlet.id(), SettlementEvents.Traveller.Phase.DEPARTED);
 	}
 
 	// ---------------------------------------------------------------- ending
@@ -627,7 +767,7 @@ public final class Traffic {
 		}
 		if (j.kind() == TravelKind.CARAVAN) {
 			// the sim's books close a caravan (its CARAVAN event ends this journey); one they forgot ends here
-			if (this.world.caravanTrade().caravan(j.details().getLongOr("caravan", 0)) != null) {
+			if (this.world.caravanOnRoad(j.details().getLongOr("caravan", 0))) {
 				return;
 			}
 		}
@@ -648,7 +788,7 @@ public final class Traffic {
 			home.markDirty();
 		}
 		changed();
-		SettlementEvents.TRAVELLER.invoker().onTraveller(this.world, j.kind(), j.id(), j.from(), j.to(), phase);
+		fire(j.kind(), j.id(), j.from(), j.to(), phase);
 	}
 
 	/** Recalls a journey: its people come home now. */
@@ -675,10 +815,9 @@ public final class Traffic {
 				samples++;
 				int x = r.xs()[i];
 				int z = r.zs()[i];
-				Holder<Biome> b = this.world.probe().biomeHolder(x, z);
-				boolean wooded = b != null && (b.is(BiomeTags.IS_FOREST) || b.is(BiomeTags.IS_JUNGLE) || b.is(BiomeTags.IS_TAIGA));
-				int rough = Math.abs(this.world.probe().groundY(x + 12, z) - this.world.probe().groundY(x - 12, z))
-					+ Math.abs(this.world.probe().groundY(x, z + 12) - this.world.probe().groundY(x, z - 12));
+				boolean wooded = this.world.wooded(x, z);
+				int rough = Math.abs(this.world.groundY(x + 12, z) - this.world.groundY(x - 12, z))
+					+ Math.abs(this.world.groundY(x, z + 12) - this.world.groundY(x, z - 12));
 				if (wooded || rough > 14) {
 					covered++;
 				}
@@ -752,7 +891,7 @@ public final class Traffic {
 	private void newDay(long day, long now) {
 		Book b = book();
 		RoadsConfig.Bandits cfg = Roads.config().bandits();
-		RandomSource random = RandomSource.create(this.world.level().getSeed() ^ day * 0x9E3779B97F4A7C15L);
+		RandomSource random = RandomSource.create(this.world.seed() ^ day * 0x9E3779B97F4A7C15L);
 		// the roads people use: those out of live settlements
 		Map<Long, Way> used = new HashMap<>();
 		for (SimSettlement s : this.world.settlements()) {
@@ -825,6 +964,14 @@ public final class Traffic {
 		b.broken.values().removeIf(d -> day - d > 60);
 	}
 
+	/** Bandits take to a road now (the dev command, the tour): returns the band. */
+	public Band addBand(Way w, RandomSource random) {
+		Band b = newBand(w, random, this.world.day());
+		book().bands.add(b);
+		changed();
+		return b;
+	}
+
 	/** A new band on a road: at its loneliest point, its camp off the road in cover. */
 	Band newBand(Way w, RandomSource random, long day) {
 		double along = w.length() * (0.35 + 0.3 * random.nextDouble());
@@ -841,7 +988,7 @@ public final class Traffic {
 		double off = 40 + random.nextInt(81);
 		int cx = (int) Math.round(x - dz / n * off * side);
 		int cz = (int) Math.round(z + dx / n * off * side);
-		int cy = this.world.probe().groundY(cx, cz);
+		int cy = this.world.groundY(cx, cz);
 		long id = book().nextId++;
 		return new Band(id, w.id(), new BlockPos(cx, cy, cz), along, 3 + random.nextInt(5), 0.5 + 0.3 * random.nextDouble(), new int[0], 0, day);
 	}
@@ -889,6 +1036,10 @@ public final class Traffic {
 		String outcome = j.outcome();
 		b.waylaid++;
 		if (j.kind() == TravelKind.CARAVAN) {
+			if (band != null) {
+				// the quest module hears where: the band's camp
+				this.robbedAt.put(j.details().getLongOr("caravan", 0), band.camp());
+			}
 			int[] cargo = this.world.robCaravan(j.details().getLongOr("caravan", 0));
 			if (band != null && cargo != null) {
 				b.bands.set(bi, band.plunder(cargo, 0));
@@ -934,7 +1085,19 @@ public final class Traffic {
 				replace(j, j.withWaylay(Long.MAX_VALUE, 0, ""));
 			}
 		}
-		SettlementEvents.TRAVELLER.invoker().onTraveller(this.world, j.kind(), j.id(), j.from(), j.to(), SettlementEvents.Traveller.Phase.WAYLAID);
+		fire(j.kind(), j.id(), j.from(), j.to(), SettlementEvents.Traveller.Phase.WAYLAID);
+	}
+
+	/** Caravan id to the camp of the band that robbed it (the last few), for the quest module's robbers' camp. */
+	private final Map<Long, BlockPos> robbedAt = new java.util.LinkedHashMap<>(16, 0.75F, true) {
+		@Override
+		protected boolean removeEldestEntry(Map.Entry<Long, BlockPos> eldest) {
+			return size() > 64;
+		}
+	};
+
+	public @Nullable BlockPos robbedAt(long caravanId) {
+		return this.robbedAt.get(caravanId);
 	}
 
 	/**
@@ -1124,7 +1287,7 @@ public final class Traffic {
 		double[] p = place(j, tick);
 		int y = (int) Math.round(p[1]);
 		if (y == 0) {
-			y = this.world.probe().groundY((int) Math.floor(p[0]), (int) Math.floor(p[2]));
+			y = this.world.groundY((int) Math.floor(p[0]), (int) Math.floor(p[2]));
 		}
 		return BlockPos.containing(p[0], y, p[2]);
 	}
@@ -1172,7 +1335,7 @@ public final class Traffic {
 				return null;
 			}
 			for (Roads.State st : Roads.states()) {
-				if (st.world().settlement(s.id()) == s) {
+				if (st.traffic().world.settlement(s.id()) == s) {
 					return st.traffic();
 				}
 			}
@@ -1238,8 +1401,8 @@ public final class Traffic {
 			}
 			Traffic t = (Traffic) f[0];
 			Journey j = (Journey) f[1];
-			if (j.kind() == TravelKind.CARAVAN) {
-				t.world.caravanLost(j.details().getLongOr("caravan", 0), by);
+			if (j.kind() == TravelKind.CARAVAN && t.world.world() != null) {
+				t.world.world().caravanLost(j.details().getLongOr("caravan", 0), by);
 			} else {
 				t.end(j, SettlementEvents.Traveller.Phase.WAYLAID);
 			}

@@ -85,8 +85,8 @@ public final class BanditParty implements Folk.Controller {
 	/** The band on the road: at its camp, or at its spot ({@code atSpot}). */
 	static @Nullable BanditParty spawn(ServerLevel level, Traffic traffic, Band band, BlockPos spot, boolean atSpot) {
 		BlockPos at = atSpot ? spot : band.camp();
-		BlockPos ground = level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at);
-		BlockPos stand = FolkSpots.standableNear(level, ground, 6);
+		BlockPos ground = Wayfarers.ground(level, at);
+		BlockPos stand = ground == null ? null : FolkSpots.standableNear(level, ground, 6);
 		if (stand == null || !level.isPositionEntityTicking(stand)) {
 			return null;
 		}
@@ -120,7 +120,8 @@ public final class BanditParty implements Folk.Controller {
 
 	/** The camp: a tent, a fire and the chest of what the band has taken (marked stolen). */
 	void makeCamp(ServerLevel level, Band band) {
-		BlockPos ground = Camp.ground(level, level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, this.campPos));
+		BlockPos top = Wayfarers.ground(level, this.campPos);
+		BlockPos ground = top == null ? null : Camp.ground(level, top);
 		if (ground == null) {
 			return;
 		}

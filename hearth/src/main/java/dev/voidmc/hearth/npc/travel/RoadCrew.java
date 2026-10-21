@@ -73,7 +73,8 @@ public final class RoadCrew implements Folk.Controller {
 			crew.spots.add(new BlockPos(pts[i], pts[i + 1], pts[i + 2]));
 		}
 		BlockPos at = crew.spots.get(crew.spots.size() / 2);
-		BlockPos stand = FolkSpots.standableNear(level, level.getHeightmapPos(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, at), 5);
+		BlockPos top = Wayfarers.ground(level, at);
+		BlockPos stand = top == null ? null : FolkSpots.standableNear(level, top, 5);
 		if (stand == null || !level.isPositionEntityTicking(stand)) {
 			return null;
 		}

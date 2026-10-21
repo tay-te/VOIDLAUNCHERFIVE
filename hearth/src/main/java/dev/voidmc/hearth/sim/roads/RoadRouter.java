@@ -147,6 +147,8 @@ public final class RoadRouter {
 		best.put(start, 0);
 		open.push(start, Math.hypot(gi * step, gj * step));
 		boolean found = false;
+		int refusals = 0;
+		int expanded = 0;
 		while (!open.isEmpty()) {
 			if (budget[0]-- <= 0) {
 				WHY.set("search budget spent");
@@ -164,6 +166,7 @@ public final class RoadRouter {
 				found = true;
 				break;
 			}
+			expanded++;
 			int ux = ax + ui * step;
 			int uz = az + uj * step;
 			long su = sampled(samples, t, u, ux, uz);
@@ -180,9 +183,15 @@ public final class RoadRouter {
 					continue;
 				}
 				long sv = sampled(samples, t, v, vx, vz);
-				double c = stepCost(t, su, sv, ux, uz, vx, vz, (d & 1) == 1 ? step * Math.sqrt(2) : step, avoid, p, cliffs);
+				double len = (d & 1) == 1 ? step * Math.sqrt(2) : step;
+				double c = stepCost(t, su, sv, ux, uz, vx, vz, len, avoid, p, cliffs);
 				if (c == Double.POSITIVE_INFINITY) {
-					continue;
+					if (v != goal) {
+						refusals++;
+						continue;
+					}
+					// the road's end itself is always reached (its lattice point may stand in a pond beside it)
+					c = len * 4;
 				}
 				double gv = gu + c;
 				if (gv < best.get(v) - 1e-9) {
@@ -193,7 +202,7 @@ public final class RoadRouter {
 			}
 		}
 		if (!found) {
-			WHY.set("no way within the ellipse");
+			WHY.set("no way within the ellipse: " + expanded + " points reached, " + refusals + " steps refused, lattice " + step);
 			return null;
 		}
 		List<Long> path = new ArrayList<>();
