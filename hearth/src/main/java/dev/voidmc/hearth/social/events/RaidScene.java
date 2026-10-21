@@ -173,11 +173,11 @@ final class RaidScene implements SceneDirector {
 		run.put("raiders", new ArrayList<Folk>());
 		run.put("controllers", new ArrayList<Raider>());
 		run.put("rng", RandomSource.create(run.event.seed()));
-		comeIn(run, s, 2);
-		alarm(level, s, run.venue("storehouse"));
+		comeIn(run, s, 1);
+		// the alarm (the town's folk run for cover) is raised on the next pass: a scene's start is one short tick
 	}
 
-	/** Up to {@code most} more raiders come in from the road (two a pass: a party spawning at once is a long tick). */
+	/** Up to {@code most} more raiders come in from the road (one a pass: a party spawning at once is a long tick). */
 	private static void comeIn(SceneRun run, Settlement s, int most) {
 		Integer left = run.get("to_come");
 		BlockPos entry = run.get("entry");
@@ -257,7 +257,12 @@ final class RaidScene implements SceneDirector {
 
 	@Override
 	public void tick(SceneRun run, Settlement s, long gameTime) {
-		comeIn(run, s, 2);
+		if (run.get("entry") != null && run.get("alarmed") == null) {
+			run.put("alarmed", Boolean.TRUE);
+			alarm(run.level(), s, run.venue("storehouse"));
+			return;
+		}
+		comeIn(run, s, 1);
 		BoundingBox barn = run.get("barn_fire");
 		if (barn != null && run.get("barn_leash") == null) {
 			BlockPos roof = run.level().getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,

@@ -241,7 +241,8 @@ public final class TownEvents {
 
 	/**
 	 * The abstract cost of a day in the world's towns as it stands (tours, {@code /hearth events bench}): every town's facts
-	 * read, its crime rolled and its day planned, {@code days} days ahead, nothing applied. Returns µs per town-day.
+	 * read, its crime rolled and its day planned, {@code days} days ahead, nothing applied, after a warm-up of the same work
+	 * (a cold pass measures the JIT). Returns µs per town-day.
 	 */
 	public static double bench(HearthWorld w, int days) {
 		java.util.List<Settlement> towns = new java.util.ArrayList<>();
@@ -254,6 +255,18 @@ public final class TownEvents {
 			return 0;
 		}
 		long today = w.day();
+		// warmed first (as a server that has planned a few hundred town-days is): a cold pass measures the JIT, not the work
+		int warm = Math.max(1, Math.min(400, 8000 / towns.size()));
+		for (int d = 1; d <= warm; d++) {
+			for (Settlement s : towns) {
+				TownFacts f = FactsReader.read(w, s, today + days + d);
+				dev.voidmc.hearth.law.justice.Trials.roll(s.id(), today + days + d, s.residents(), f.prosperity(), 0, 0, java.util.Set.of(), java.util.Set.of(),
+					java.util.List.of());
+				int[] ids = {1};
+				EventScheduler.plan(f, today + days + d, EventRules.all(), java.util.List.of(), Long.MIN_VALUE, Long.MIN_VALUE, EventScheduler.Filler.NONE,
+					() -> ids[0]++);
+			}
+		}
 		long t0 = System.nanoTime();
 		long facts = 0;
 		long seat0 = FactsReader.SEAT_NANOS;

@@ -39,8 +39,8 @@ public final class EventDressings {
 	private EventDressings() {
 	}
 
-	/** Stalls a fair puts up in one pass (the first batch with the houses' awnings). */
-	static final int STALL_BATCH = 4;
+	/** Stalls a fair puts up in one pass (each with its wares: a few short passes rather than one long one). */
+	static final int STALL_BATCH = 2;
 
 	/** Puts up a dressing; returns whether more of it remains for the next pass. */
 	static boolean dress(SceneRun run, Settlement s, String kind, BlockPos at) {
@@ -67,7 +67,7 @@ public final class EventDressings {
 				run.dressings.add(bkey);
 				s.markDirty();
 			}
-			return have + stalls.size() < count && b < 5 && !(stalls.isEmpty() && b > 0);
+			return have + stalls.size() < count && b < 10 && !(stalls.isEmpty() && b > 0);
 		}
 		if (Dressings.isUp(ledger, key)) {
 			return false;

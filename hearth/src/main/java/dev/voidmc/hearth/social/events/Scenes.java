@@ -52,6 +52,16 @@ public final class Scenes implements SceneService {
 	static final LivingWorldStats.Timer TIMER = LivingWorldStats.timer("events");
 	/** Most of its own people (the couple, the accused, the dead's kin) a scene embodies itself when they are only records. */
 	static final int EMBODY_OWN = 6;
+	/**
+	 * Most of a scene's open parts (onlookers, guards, children) it brings out when they are only records: a town's 48 folk
+	 * are where its people are, rarely round the pillory, so a scene borrows a few bodies of the town's own budget (the
+	 * embodiment's next pass folds as many of the town's folk farthest from any player). Up to the rule's crowd.
+	 */
+	static final int BORROW = 12;
+	/** Borrowed folk brought out a pass (a spawn is not free). */
+	static final int BORROW_PER_PASS = 2;
+	/** Folk about within this of the venue play the open parts first; those farther off count as records (they would not come in time). */
+	static final double NEAR = 40;
 	/** Scenes not staged because the server was slow (their events resolved by the books). */
 	static long refusedForLoad;
 
@@ -129,7 +139,7 @@ public final class Scenes implements SceneService {
 			return null;
 		}
 		NpcService npc = HearthServices.npc();
-		Map<String, List<UUID>> cast = SceneCast.cast(s, e, rule, anchor, id -> npc != null && npc.folk(id) != null);
+		Map<String, List<UUID>> cast = SceneCast.cast(s, e, rule, anchor, id -> near(npc, id, anchor));
 		SceneRun run = new SceneRun(w, s, e, rule, cast, anchor, SceneDirector.of(e.kind()), level.getGameTime());
 		RUNNING.computeIfAbsent(s.id(), k -> new ArrayList<>()).add(run);
 		for (Map.Entry<String, List<UUID>> role : cast.entrySet()) {
@@ -147,6 +157,22 @@ public final class Scenes implements SceneService {
 					if (!run.toEmbody.contains(id)) {
 						run.toEmbody.add(id);
 					}
+				}
+			}
+		}
+		// the open parts nobody about can play: borrowed, brought out at the venue's edge (two a pass)
+		// (a raid has no crowd, but its guards are brought out to meet the raiders)
+		int borrow = Math.min(BORROW, Math.max(rule.crowd(), e.kind() == EventKind.RAID ? 4 : 0));
+		for (EventRule.RoleSpec spec : rule.roles()) {
+			if (SceneCast.OWN.contains(spec.pick())) {
+				continue;
+			}
+			for (UUID id : run.role(spec.name())) {
+				if (run.toBorrow.size() >= borrow) {
+					break;
+				}
+				if (npc != null && npc.folk(id) == null && !run.toEmbody.contains(id)) {
+					run.toBorrow.add(id);
 				}
 			}
 		}
@@ -342,10 +368,22 @@ public final class Scenes implements SceneService {
 		}
 	}
 
-	/** One of the scene's own people who is only a record is brought out near the scene (one a pass, a few a scene). */
+	/** Whether a resident is folk now, within {@link #NEAR} of the venue (so they can play an open part in time). */
+	static boolean near(@Nullable NpcService npc, UUID id, BlockPos anchor) {
+		NpcService.FolkHandle f = npc == null ? null : npc.folk(id);
+		return f != null && f.entity().blockPosition().distSqr(anchor) <= NEAR * NEAR;
+	}
+
+	/**
+	 * One of the scene's own people who is only a record is brought out near the scene (one a pass, a few a scene); then
+	 * the open parts borrowed (two a pass), at the venue's edge away from the nearest player, so they walk in to it.
+	 */
 	private static void bringOut(SceneRun run, Settlement s) {
 		NpcService npc = HearthServices.npc();
-		while (npc != null && !run.toEmbody.isEmpty() && run.embodied < EMBODY_OWN) {
+		if (npc == null) {
+			return;
+		}
+		while (!run.toEmbody.isEmpty() && run.embodied < EMBODY_OWN) {
 			UUID id = run.toEmbody.poll();
 			if (npc.folk(id) != null) {
 				continue;
@@ -356,6 +394,54 @@ public final class Scenes implements SceneService {
 			}
 			return;
 		}
+		int brought = 0;
+		BlockPos edge = null;
+		while (!run.toBorrow.isEmpty() && brought < BORROW_PER_PASS) {
+			UUID id = run.toBorrow.poll();
+			Order o = ORDERS.get(id);
+			if (o == null || o.run != run || npc.folk(id) != null) {
+				continue;
+			}
+			Resident r = s.resident(id);
+			if (r == null || s.isResidentAway(id)) {
+				continue;
+			}
+			if (edge == null) {
+				edge = edge(run);
+			}
+			brought++;
+			if (npc.embodyNear(run.level(), s, r, edge) != null) {
+				run.borrowed++;
+				// a part not yet given a place goes to the venue (a crowd before its walk beat, a guard)
+				if (o.target == null) {
+					place(run, o, id, run.rule.venue().isEmpty() ? "square" : run.rule.venue(), 0.6, 0);
+				}
+			}
+		}
+	}
+
+	/** Where borrowed folk come from: a dozen blocks out from the venue, on the side away from the nearest player. */
+	private static BlockPos edge(SceneRun run) {
+		BlockPos a = run.anchor;
+		ServerPlayer nearest = null;
+		double best = Double.MAX_VALUE;
+		for (ServerPlayer p : run.level().players()) {
+			double d = p.distanceToSqr(a.getX() + 0.5, a.getY(), a.getZ() + 0.5);
+			if (d < best) {
+				best = d;
+				nearest = p;
+			}
+		}
+		if (nearest == null || best < 1) {
+			return a;
+		}
+		double dx = a.getX() + 0.5 - nearest.getX();
+		double dz = a.getZ() + 0.5 - nearest.getZ();
+		double len = Math.max(1, Math.hypot(dx, dz));
+		BlockPos out = a.offset((int) Math.round(dx / len * 12), 0, (int) Math.round(dz / len * 12));
+		BlockPos g = EventDressings.ground(run.level(), out);
+		// the street's own level (not a roof over it, not a cellar's dip)
+		return g != null && Math.abs(g.getY() - a.getY()) <= 3 ? g : a;
 	}
 
 	/** Puts up the next dressing the timeline asked for (one a pass, so a scene's start is never one long tick). */
@@ -584,8 +670,8 @@ public final class Scenes implements SceneService {
 						about++;
 					}
 				}
-				out.add(String.format(Locale.ROOT, " %s: %s #%d minute %d, cast %d (%d about), %s", s == null ? "?" : s.name(), r.event.kind().id(), r.event.id(),
-					r.minute, cast, about, r.iv));
+				out.add(String.format(Locale.ROOT, " %s: %s #%d minute %d, cast %d (%d about, %d borrowed), %s", s == null ? "?" : s.name(), r.event.kind().id(),
+					r.event.id(), r.minute, cast, about, r.borrowed, r.iv));
 			}
 		}
 		return out;
