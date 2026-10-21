@@ -150,8 +150,15 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 					// a path at most every ten ticks (the pathfinder is the costly part of following)
 					// a new path only when the player has gone on from the last goal, or the old path ran out
 					BlockPos goal = GOALS.get(folk.resident().id);
-					boolean slow = (me.tickCount + me.getId()) % 20 == 0;
-					if (scan && (goal == null || me.getNavigation().isDone()) || slow && goal.distSqr(player.blockPosition()) > 16) {
+					int phase = me.tickCount + me.getId();
+					boolean slow = phase % 20 == 0;
+					boolean done = scan && me.getNavigation().isDone();
+					// a path that ran out short of a player who has not moved (a wall, water): asked again every two seconds, not
+					// every half second (a failing search is the dearest kind)
+					if (done && goal != null && goal.distSqr(player.blockPosition()) <= 4 && phase % 40 != 0) {
+						done = false;
+					}
+					if (scan && goal == null || done || slow && goal != null && goal.distSqr(player.blockPosition()) > 16) {
 						GOALS.put(folk.resident().id, player.blockPosition());
 						follow(me, player, d2 > 12 * 12 ? 0.9 : 0.65);
 					}

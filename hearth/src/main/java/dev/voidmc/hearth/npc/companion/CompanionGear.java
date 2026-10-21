@@ -99,12 +99,34 @@ public final class CompanionGear {
 
 	/** Puts their gear on their folk (each time they are embodied); slots with nothing given are left as the routine has them. */
 	public static void dress(Mob folk, CompanionState st, HolderLookup.Provider registries) {
-		for (Map.Entry<EquipmentSlot, ItemStack> e : read(st, registries).entrySet()) {
+		for (Map.Entry<EquipmentSlot, ItemStack> e : decoded(st, registries).entrySet()) {
 			if (!ItemStack.matches(folk.getItemBySlot(e.getKey()), e.getValue())) {
 				folk.setItemSlot(e.getKey(), e.getValue().copy());
 				folk.setDropChance(e.getKey(), 0.0F);
 			}
 		}
+	}
+
+	/** Gear lists decoded lately, by their saved form: a companion is dressed again every few seconds, decoding is the dear part. */
+	private static final Map<ListTag, Map<EquipmentSlot, ItemStack>> DECODED = new java.util.LinkedHashMap<>(16, 0.75F, true) {
+		@Override
+		protected boolean removeEldestEntry(Map.Entry<ListTag, Map<EquipmentSlot, ItemStack>> eldest) {
+			return size() > 128;
+		}
+	};
+
+	/** {@link #read}, kept while the saved gear is the same (the stacks are never handed out: dressing copies them). */
+	private static synchronized Map<EquipmentSlot, ItemStack> decoded(CompanionState st, HolderLookup.Provider registries) {
+		ListTag list = st.gear();
+		if (list.isEmpty()) {
+			return Map.of();
+		}
+		Map<EquipmentSlot, ItemStack> out = DECODED.get(list);
+		if (out == null) {
+			out = read(st, registries);
+			DECODED.put(list.copy(), out);
+		}
+		return out;
 	}
 
 	/** Takes their gear off the folk (they are going home): what the routine gave them back to bare hands. */
