@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
  * Writes roads into loaded chunks (docs/LIVING_WORLD_2.md §1.2, risk 1: roads in worlds that already exist): historic
  * roads over land generated before they were, and live roads as they are built, a budgeted amount a tick (a third of
  * the construction applier's by default). Every plot goes through {@link RoadWriter}'s edit safety and its first look:
- * a plot that would land on a player's work is refused (recorded in the road book; the road has a gap there), one over
+ * a plot that would land on a player's work is refused (recorded in the road book) and a detour laid round the work, one over
  * a live settlement's planned ground waits (the town's own plot comes first), and natural trees on its corridor come
  * down whole. Server thread only.
  */
@@ -59,6 +59,7 @@ public final class RoadApplier {
 	public final LongAdder felled = new LongAdder();
 	public final LongAdder chunks = new LongAdder();
 	public final LongAdder refusals = new LongAdder();
+	public final LongAdder detours = new LongAdder();
 	public final LongAdder nanos = new LongAdder();
 	public final java.util.concurrent.atomic.AtomicLong maxNanos = new java.util.concurrent.atomic.AtomicLong();
 
@@ -309,6 +310,9 @@ public final class RoadApplier {
 			this.refusals.increment();
 			LOG.info("hearth roads: the road from {} to {} stops at someone's work near {},{} (plot {} refused)", j.way().nameA(), j.way().nameB(),
 				pos.getMiddleBlockX(), pos.getMiddleBlockZ(), j.index());
+			if (this.live.detour(j.way(), j.index(), o.blocked.get(k), this.world.day())) {
+				this.detours.increment();
+			}
 		}
 		if (o.ledger != ledger) {
 			ChunkLedgers.store(chunk, o.ledger);
@@ -331,8 +335,8 @@ public final class RoadApplier {
 	}
 
 	public String describe() {
-		return String.format(Locale.ROOT, "road writing: %d blocks in %d chunk passes, %d natural tree blocks felled, %d plots refused, %d chunks waiting, %.2f ms max a tick",
-			this.blocks.sum(), this.chunks.sum(), this.felled.sum(), this.refusals.sum(), pending(), this.maxNanos.get() / 1e6);
+		return String.format(Locale.ROOT, "road writing: %d blocks in %d chunk passes, %d natural tree blocks felled, %d plots refused (%d detours laid), %d chunks waiting, %.2f ms max a tick",
+			this.blocks.sum(), this.chunks.sum(), this.felled.sum(), this.refusals.sum(), this.detours.sum(), pending(), this.maxNanos.get() / 1e6);
 	}
 
 	/** One loaded chunk as the writer sees it (reads and writes never leave it). */

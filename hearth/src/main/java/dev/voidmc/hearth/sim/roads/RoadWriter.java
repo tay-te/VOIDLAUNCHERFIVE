@@ -26,6 +26,8 @@ public final class RoadWriter {
 	static final int REFUSE_CONFLICTS = 12;
 	/** ...and they are at least this share of the blocks it would write. */
 	static final double REFUSE_SHARE = 0.08;
+	/** Columns of a refused plot's obstacle kept for its detour. */
+	static final int MAX_BLOCKED = 96;
 
 	private RoadWriter() {
 	}
@@ -44,6 +46,8 @@ public final class RoadWriter {
 		public int conflicts;
 		/** Plots refused here (index into the jobs). */
 		public final it.unimi.dsi.fastutil.ints.IntArrayList refused = new it.unimi.dsi.fastutil.ints.IntArrayList();
+		/** For each refused plot, the columns ({@code x, z} pairs, at most {@link #MAX_BLOCKED}) where somebody's work stood in its way. */
+		public final List<int[]> blocked = new java.util.ArrayList<>();
 		/** Jobs left for later (out of budget). */
 		public boolean unfinished;
 
@@ -84,9 +88,17 @@ public final class RoadWriter {
 			long target = Math.min(job.target(), Cursor.pack(bp.stageCount(), 0));
 			StepWriter.Owned owned = owned(cx, cz, out.ledger, jobs, job, bp, cur, blueprints, terrain);
 			if (cur <= Cursor.ZERO && look) {
-				StepWriter.Result dry = look(bp, cx, cz, target, world, owned);
+				it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet columns = new it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet();
+				StepWriter.Result dry = look(bp, cx, cz, target, world, owned, columns);
 				if (dry.conflicts > REFUSE_CONFLICTS && dry.conflicts > dry.attempted() * REFUSE_SHARE) {
 					out.refused.add(j);
+					int[] cols = new int[columns.size() * 2];
+					int k = 0;
+					for (long c : columns) {
+						cols[k++] = (int) (c >> 32);
+						cols[k++] = (int) c;
+					}
+					out.blocked.add(cols);
 					out.conflicts += dry.conflicts;
 					continue;
 				}
@@ -139,6 +151,12 @@ public final class RoadWriter {
 
 	/** Counts what writing {@code [0, target)} would do, without writing. */
 	static StepWriter.Result look(Blueprint bp, int cx, int cz, long target, StepWriter.Blocks world, StepWriter.Owned owned) {
+		return look(bp, cx, cz, target, world, owned, null);
+	}
+
+	/** As {@link #look}, also gathering the columns of the conflicts (packed {@code x << 32 | z}, at most {@link #MAX_BLOCKED}). */
+	static StepWriter.Result look(Blueprint bp, int cx, int cz, long target, StepWriter.Blocks world, StepWriter.Owned owned,
+		it.unimi.dsi.fastutil.longs.@Nullable LongLinkedOpenHashSet columns) {
 		StepWriter.Result r = new StepWriter.Result();
 		StepWriter.forRange(bp, cx, cz, Cursor.ZERO, target, (x, y, z, state, tag) -> {
 			BlockState current = world.get(x, y, z);
@@ -147,6 +165,9 @@ public final class RoadWriter {
 				r.same++;
 			} else if (!StepWriter.replaceable(current, x, y, z, world) && !owned.owns(key, current)) {
 				r.conflicts++;
+				if (columns != null && columns.size() < MAX_BLOCKED) {
+					columns.add((long) x << 32 | (z & 0xFFFFFFFFL));
+				}
 			} else {
 				r.placed++;
 			}

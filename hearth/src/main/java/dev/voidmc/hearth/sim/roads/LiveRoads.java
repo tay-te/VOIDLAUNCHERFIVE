@@ -49,6 +49,11 @@ public final class LiveRoads {
 	/** Bits a unit of stone costs the road fund when its towns have none to give. */
 	static final long BITS_PER_STONE = 2;
 	private static final long SPUR_SALT = 0x5B0B_5B0BL;
+	private static final long DETOUR_SALT = 0xDE70_0B5EL;
+	/** How far a detour keeps from its obstacle's columns, beyond the road's half width. */
+	static final int DETOUR_CLEARANCE = 6;
+	/** Route columns a detour's ends may move back from the refused plot to get clear of its obstacle. */
+	private static final int DETOUR_REACH = 64;
 	/** Places a new settlement joins at most. */
 	private static final int LIVE_NEIGHBOURS = 2;
 
@@ -187,7 +192,7 @@ public final class LiveRoads {
 		// what keeps it away, gathered here on the server thread: the atlas's sites and structures (thread-safe), and the
 		// live settlements' hearts and planned ground near its way (a snapshot)
 		List<int[]> cores = new ArrayList<>();
-		for (SimSettlement s : this.world.settlements()) {
+		for (SimSettlement s : r.detour() ? List.<SimSettlement>of() : this.world.settlements()) {
 			if (s.id() == r.a || s.id() == r.b || r.spur && s.id() == r.a) {
 				continue;
 			}
@@ -196,11 +201,15 @@ public final class LiveRoads {
 			}
 		}
 		LongOpenHashSet planned = r.spur ? plannedNear(ax, az, bx, bz) : new LongOpenHashSet();
+		RoadRouter.Avoid round = r.detour() ? detourAvoid(r.avoid, r.kind) : RoadRouter.Avoid.NONE;
 		RoadRouter.Avoid sites = r.spur ? RoadRouter.Avoid.NONE : this.net.avoid(ax, az, bx, bz, r.a, r.b);
 		int exitX = bx;
 		int exitZ = bz;
 		RoadRouter.Avoid avoid = (x, z) -> {
 			if (!planned.isEmpty() && planned.contains(BlockPos.asLong(x >> 1, 0, z >> 1)) && Math.abs(x - exitX) + Math.abs(z - exitZ) > 8) {
+				return Double.POSITIVE_INFINITY;
+			}
+			if (round != RoadRouter.Avoid.NONE && round.cost(x, z) == Double.POSITIVE_INFINITY) {
 				return Double.POSITIVE_INFINITY;
 			}
 			double extra = sites.cost(x, z);
@@ -220,7 +229,7 @@ public final class LiveRoads {
 		RoadWorld.background(() -> {
 			Way w = this.net.route(e, ax, az, bx, bz, na, ca, nb, cb, avoid, true);
 			Route route = w.route();
-			if (route != null && r.spur) {
+			if (route != null && r.spur && !r.detour()) {
 				route = trimToExit(route, exitX, exitZ);
 			}
 			Route found = route;
@@ -236,9 +245,101 @@ public final class LiveRoads {
 				if (found == null) {
 					LOG.info("hearth roads: no way for the road from {} to {}; it is not built", na, nb);
 				}
+				if (live.detour() && live.way != null) {
+					// the plot it replaces was due: a detour is built whole at once
+					live.fromA = live.way.segments().size();
+					LOG.info("hearth roads: the road from {} to {} goes round someone's work ({} blocks)", na, nb, Math.round(live.way.length()));
+				}
 				republish();
+				if (live.detour() && live.way != null) {
+					for (int i = 0; i < live.way.segments().size(); i++) {
+						this.progressed.accept(live.way, i);
+					}
+				}
 			});
 		});
+	}
+
+	/** Whether any column of {@code cols} ({@code x, z} pairs) is within {@code r} of {@code x, z}. */
+	static boolean near(int[] cols, int x, int z, int r) {
+		int r2 = r * r;
+		for (int k = 0; k + 1 < cols.length; k += 2) {
+			int dx = cols[k] - x;
+			int dz = cols[k + 1] - z;
+			if (dx * dx + dz * dz <= r2) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * A plot of a road was refused because somebody's work stands across it (docs/LIVING_WORLD_2.md §12, risk 1): a detour
+	 * is laid round it, from the road a little before the obstacle to the road a little after, keeping
+	 * {@link #DETOUR_CLEARANCE} blocks beyond the road's edge from every column where the work stood. A detour of a
+	 * detour is never laid (that plot stays a gap), nor one whose obstacle stands at the road's very end (a town's own
+	 * streets take over there). Returns whether a detour was begun.
+	 */
+	public boolean detour(Way w, int plot, int[] blocked, long day) {
+		RoadBook book = book();
+		RoadBook.LiveRoad self = book.road(w.id());
+		if (self != null && self.detour() || w.route() == null || blocked.length < 2 || plot < 0 || plot >= w.segments().size()) {
+			return false;
+		}
+		long id = RoadGraph.edgeId(w.id() ^ DETOUR_SALT, plot);
+		if (book.road(id) != null) {
+			return false;
+		}
+		Route route = w.route();
+		int[] span = detourSpan(route, w.segments().get(plot), blocked, w.kind());
+		if (span == null) {
+			LOG.info("hearth roads: the road from {} to {} cannot go round the work across plot {}; it has a gap there", w.nameA(), w.nameB(), plot);
+			return false;
+		}
+		int s0 = span[0];
+		int e0 = span[1];
+		String ca = cultureOf(w.a());
+		String cb = cultureOf(w.b());
+		RoadBook.LiveRoad r = new RoadBook.LiveRoad(id, w.id(), w.id(), w.kind(), true,
+			new int[]{route.xs()[s0], route.zs()[s0], route.xs()[e0], route.zs()[e0]}, List.of(w.nameA(), w.nameB()), List.of(ca, cb), new int[0], 0, 0, 0, 0, 0,
+			day);
+		r.detourOf = plot;
+		r.avoid = blocked;
+		book.live.put(id, r);
+		this.routeQueue.add(id);
+		this.world.markDirty();
+		return true;
+	}
+
+	/**
+	 * Where a detour round the work across a plot leaves the road and rejoins it: the route columns before and after the
+	 * plot, moved out until they are clear of the work (null when the work stands too near the road's end, or too far along it).
+	 */
+	static int @Nullable [] detourSpan(Route route, RoadSegments.Segment seg, int[] blocked, RoadClass kind) {
+		int clear = DETOUR_CLEARANCE + (kind == RoadClass.KINGS_ROAD ? 3 : 2) + 2;
+		int s0 = seg.from();
+		while (s0 > 0 && seg.from() - s0 < DETOUR_REACH && near(blocked, route.xs()[s0], route.zs()[s0], clear)) {
+			s0--;
+		}
+		int e0 = seg.to();
+		while (e0 < route.size() - 1 && e0 - seg.to() < DETOUR_REACH && near(blocked, route.xs()[e0], route.zs()[e0], clear)) {
+			e0++;
+		}
+		if (near(blocked, route.xs()[s0], route.zs()[s0], clear) || near(blocked, route.xs()[e0], route.zs()[e0], clear) || e0 - s0 < 4) {
+			return null;
+		}
+		return new int[]{s0, e0};
+	}
+
+	/** What keeps a detour's way off its obstacle (and the obstacle's clearance). */
+	static RoadRouter.Avoid detourAvoid(int[] blocked, RoadClass kind) {
+		int clear = DETOUR_CLEARANCE + (kind == RoadClass.KINGS_ROAD ? 3 : 2);
+		return (x, z) -> near(blocked, x, z, clear) ? Double.POSITIVE_INFINITY : 0;
+	}
+
+	private String cultureOf(long place) {
+		SimSettlement s = this.world.settlement(place);
+		return s != null ? s.culture().getSerializedName() : cultureName(this.net.site(place));
 	}
 
 	/** Columns planned by live plots round a spur's ends (half resolution), for its search. */

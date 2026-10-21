@@ -161,6 +161,41 @@ class RoadRouterTest {
 		}
 	}
 
+	@Test
+	void aPlotRefusedAtSomeonesWorkIsGoneRoundByADetour() {
+		TestSupport.boot();
+		TerrainProbe t = new SyntheticTerrain(SyntheticTerrain.Kind.HILLS, 11);
+		Route r = route(t, 0, 0, 400, 40, RoadRouter.Avoid.NONE);
+		List<RoadSegments.Segment> segs = RoadSegments.cut(9, RoadClass.TRACK, r, dressing());
+		RoadSegments.Segment seg = segs.get(segs.size() / 2);
+		// a player's house, nine by nine, right across the middle of the plot
+		int mid = (seg.from() + seg.to()) / 2;
+		int hx = r.xs()[mid];
+		int hz = r.zs()[mid];
+		int[] house = new int[2 * 81];
+		int k = 0;
+		for (int dx = -4; dx <= 4; dx++) {
+			for (int dz = -4; dz <= 4; dz++) {
+				house[k++] = hx + dx;
+				house[k++] = hz + dz;
+			}
+		}
+		int[] span = LiveRoads.detourSpan(r, seg, house, RoadClass.TRACK);
+		assertNotNull(span, "a detour can leave the road before the house and rejoin it after");
+		assertTrue(span[0] <= seg.from() && span[1] >= seg.to(), "it replaces at least the refused plot");
+		Route d = route(t, r.xs()[span[0]], r.zs()[span[0]], r.xs()[span[1]], r.zs()[span[1]], LiveRoads.detourAvoid(house, RoadClass.TRACK));
+		assertGraded(d);
+		int clear = LiveRoads.DETOUR_CLEARANCE + 2;
+		for (int i = 0; i < d.size(); i++) {
+			assertTrue(!LiveRoads.near(house, d.xs()[i], d.zs()[i], clear - 1), "the detour keeps clear of the house at " + d.xs()[i] + "," + d.zs()[i]);
+		}
+		assertTrue(Math.hypot(d.xs()[0] - r.xs()[span[0]], d.zs()[0] - r.zs()[span[0]]) <= 4, "it leaves from the road");
+		assertTrue(Math.hypot(d.xs()[d.size() - 1] - r.xs()[span[1]], d.zs()[d.size() - 1] - r.zs()[span[1]]) <= 4, "and rejoins it");
+		// work at the road's very end has no way round: the road stops there
+		int[] atEnd = {r.xs()[0], r.zs()[0], r.xs()[1], r.zs()[1]};
+		assertEquals(null, LiveRoads.detourSpan(r, segs.getFirst(), atEnd, RoadClass.TRACK));
+	}
+
 	static RoadSegments.Dressing dressing() {
 		return new RoadSegments.Dressing(Identifier.fromNamespaceAndPath("hearth", "temperate"), Identifier.fromNamespaceAndPath("hearth", "temperate"),
 			"Ashbrook\n1 league", "Coldbrook\n1 league", true);

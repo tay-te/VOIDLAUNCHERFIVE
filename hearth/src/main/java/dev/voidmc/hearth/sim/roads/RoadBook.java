@@ -46,6 +46,13 @@ public final class RoadBook {
 		final long begun;
 		/** Transient: the way made from the route. */
 		@Nullable Way way;
+		/**
+		 * A detour round somebody's work (risk 1): the plot of road {@code b} it replaces, -1 if this is no detour. A detour is
+		 * also a spur (not travelled, no signs) and is built whole once its way is found: the plot it replaces was due.
+		 */
+		int detourOf = -1;
+		/** A detour's obstacle: the columns ({@code x, z} pairs) its way keeps clear of. */
+		int[] avoid = new int[0];
 
 		LiveRoad(long id, long a, long b, RoadClass kind, boolean spur, int[] ends, List<String> names, List<String> cultures, int[] route, int fromA,
 			int fromB, double progressA, double progressB, long funds, long begun) {
@@ -82,8 +89,29 @@ public final class RoadBook {
 			Codec.DOUBLE.optionalFieldOf("progress_a", 0.0).forGetter(r -> r.progressA),
 			Codec.DOUBLE.optionalFieldOf("progress_b", 0.0).forGetter(r -> r.progressB),
 			Codec.LONG.optionalFieldOf("funds", 0L).forGetter(r -> r.funds),
-			Codec.LONG.optionalFieldOf("begun", 0L).forGetter(r -> r.begun)
-		).apply(i, LiveRoad::new));
+			Codec.LONG.optionalFieldOf("begun", 0L).forGetter(r -> r.begun),
+			Detour.CODEC.optionalFieldOf("detour").forGetter(r -> r.detourOf < 0 ? java.util.Optional.empty() : java.util.Optional.of(new Detour(r.detourOf, r.avoid)))
+		).apply(i, (id, a, b, kind, spur, ends, names, cultures, route, fromA, fromB, progressA, progressB, funds, begun, detour) -> {
+			LiveRoad r = new LiveRoad(id, a, b, kind, spur, ends, names, cultures, route, fromA, fromB, progressA, progressB, funds, begun);
+			detour.ifPresent(d -> {
+				r.detourOf = d.plot();
+				r.avoid = d.avoid();
+			});
+			return r;
+		}));
+
+		/** What a detour keeps: the plot it replaces and its obstacle's columns. */
+		record Detour(int plot, int[] avoid) {
+			static final Codec<Detour> CODEC = RecordCodecBuilder.create(i -> i.group(
+				Codec.INT.fieldOf("plot").forGetter(Detour::plot),
+				Codec.INT_STREAM.xmap(IntStream::toArray, IntStream::of).optionalFieldOf("avoid", new int[0]).forGetter(Detour::avoid)
+			).apply(i, Detour::new));
+		}
+
+		/** Whether this is a detour round somebody's work. */
+		public boolean detour() {
+			return this.detourOf >= 0;
+		}
 
 		public long id() {
 			return this.id;
