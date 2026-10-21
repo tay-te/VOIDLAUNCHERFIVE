@@ -11,7 +11,7 @@ minigames, witnesses, crime). Mettle never compiles against Hearth internals; it
 
 None of these block Hearth's own work. Mettle's Hearth features wait for them.
 
-**Status: all six done** (Hearth branch `hearth-w7-mettle`, 2026-10-07). Everything Mettle implements or listens to is
+**Status: all six done** (Hearth branch `hearth-w7-mettle`, 2026-10-07); 7-14 done 2026-10-21 (below). Everything Mettle implements or listens to is
 in `dev.voidmc.hearth.api`: `PlayerSkills` (+ `HearthServices.setPlayerSkills`), `PriceModifier` (+
 `EconomyService.addPriceModifier`), `DialogueProvider.Option`/`reply`, `QuestEvents`, `QuestType`, `MarketEvents`. How
 Hearth uses each, the numbers and the XP it reports: docs/ARCHITECTURE.md §11, Mettle.
@@ -118,7 +118,27 @@ posted price or haggled), with the bits that changed hands.
 **Why.** Speech XP per crown of business, and Mettle's stats. `Standing.earn` already measures the same thing
 internally.
 
-## Queued (2026-10-21): Mettle requests 7-11 (mettle-cards.md) and 12-14 (mettle-speech-stealth.md), both on branch mettle-build-feel
+## Done (2026-10-21): Mettle requests 7-11 (mettle-cards.md) and 12-14 (mettle-speech-stealth.md), both on branch mettle-build-feel
+
+**Status: all done** (Hearth branch `hearth-mettle714`). Additions only; no signature of a type Mettle copies changed.
+How each is applied and clamped: docs/ARCHITECTURE.md §11, Mettle.
+
+- **7 [done]** `api/VirtualGoods` + `HearthServices.addVirtualGoods/virtualGoods()`; the broker is a merchant or trader
+  in a town or city's market ("The card table", conversation options 140–149 until the screen is designed in Figma);
+  `economy/broker/Broker`: seller-set price, fee 2 % and tax 5 % to the town, proceeds to the seller's bank deposits
+  (offline too), 7-day term then `release`, 8 listings a seller, 96 a board, `Broker.search` by name.
+- **8 [done]** `EconomyService.transfer(from, to, bits)` and `canReceive(player, bits)` (defaults; the economy module
+  checks the receiver's pouches and slots).
+- **9 [done, nothing new]** `SettlementEvents.STANDING_CHANGED (world, settlement, player, from, to)` fires on each
+  title change; Honoured is `Title.HERO`.
+- **10 [done]** `PlayerSkills.titles(player)` (default empty); folk greet by a Mythic now and then (`npc/talk/Legends`).
+- **11** nothing needed (training band and `EconomyService.charge`).
+- **12 [done]** `PlayerSkills.bonus(player, key)` (default 0) with the keys as `PlayerSkills.BONUS_*`; Hearth's clamps in
+  ARCHITECTURE §11. `speech/retry` is a new rule (failures taken back, a budget a sim day); `greet/hero` is flavour only.
+- **13 [done]** `api/StandingEvents.SPEECH_CHECK` and `LAW_CHECK` `(player, settlement?, kind, passed, difficulty)`;
+  award reasons unchanged.
+- **14 [done]** `PlayerSkills.title(player)` -> `Component` (default empty); greetings use it (`legend.title`).
+
 
 Agreed answer to 12-14 (sent to the Mettle session): `PlayerSkills.bonus(player, key)` additive default with the keys in
 that doc (Hearth applies and clamps; a perk is either in the effective level or a key, never both); a separate key

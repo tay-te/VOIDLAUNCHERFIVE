@@ -84,6 +84,11 @@ public final class Greetings {
 		Map<String, String> v = values(settlement, resident, player);
 		String line = DialogueTemplates.pick("greeting", ctx, random);
 		String text = DialogueTemplates.fill(line != null ? line : "Hello.", v);
+		// a character's legend: their worn title, a Mythic, a hero's welcome (flavour only; nothing drawn without one)
+		String legend = Legends.line(Legends.of(player), ctx, v, random);
+		if (legend != null) {
+			return text + " " + legend;
+		}
 		// what they remember of the player, or have heard, before the town's news (docs/LIVING_WORLD_2.md §4.3)
 		long today = NpcTime.today();
 		String about = PlayerTalk.aboutPlayer(level, settlement, resident, player, ctx, v, today, random);

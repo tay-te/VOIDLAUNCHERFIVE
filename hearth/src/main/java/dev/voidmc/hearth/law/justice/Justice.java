@@ -120,7 +120,7 @@ public final class Justice {
 		int st = standing != null ? standing.standing(s.id(), player.getUUID()) : s.reputation(player.getUUID());
 		int opinion = standing != null ? standing.opinion(guard.id, player.getUUID()) : 0;
 		float charisma = standing != null ? standing.charisma(player) : 0;
-		return LawSkills.speech(player, SpeechCheck.persuade(st, opinion, charisma, severity, FolkTraits.of(guard).listener()));
+		return LawSkills.speech(player, "persuade", SpeechCheck.persuade(st, opinion, charisma, severity, FolkTraits.of(guard).listener()));
 	}
 
 	/** A word with the guard: small matters are let go, larger ones halved; failing makes it worse. One try per warrant. */
@@ -137,7 +137,13 @@ public final class Justice {
 		w.setPersuadeTried(true);
 		s.markDirty();
 		boolean talked = player.getRandom().nextDouble() < odds;
-		LawSkills.speechCheck(player, talked, "persuade_guard");
+		LawSkills.speechCheck(player, s, talked, "persuade_guard", odds);
+		if (!talked && LawSkills.retry(player, day)) {
+			// a character's second word: the failure is taken back and the guard will hear them again
+			w.setPersuadeTried(false);
+			player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("hearth.law.retry").withStyle(net.minecraft.ChatFormatting.GOLD));
+			return Result.FAILED;
+		}
 		if (talked) {
 			if (Offences.severity(w.worst()) <= Offences.severity(Offence.THEFT) && w.bounty() <= Law.config().justice().pilloryMaxBounty()) {
 				w.clear();
@@ -163,7 +169,7 @@ public final class Justice {
 		Warrant w = Law.state(s).warrant(player.getUUID());
 		long bounty = w == null ? 0 : w.bounty();
 		int severity = w == null ? 1 : Offences.severity(w.worst());
-		return LawSkills.speech(player, SpeechCheck.bribe(bribeAmount(s, player.getUUID()), bounty, severity, FolkTraits.of(guard).listener()));
+		return LawSkills.speech(player, "bribe", SpeechCheck.bribe(bribeAmount(s, player.getUUID()), bounty, severity, FolkTraits.of(guard).listener()));
 	}
 
 	/** Coin in the guard's palm: taken either way; on success the warrant is gone, on failure it grows. One try. */
@@ -182,7 +188,12 @@ public final class Justice {
 		long day = Law.day(player.level());
 		s.markDirty();
 		boolean took = player.getRandom().nextDouble() < odds;
-		LawSkills.speechCheck(player, took, "bribe_guard");
+		LawSkills.speechCheck(player, s, took, "bribe_guard", odds);
+		if (!took && LawSkills.retry(player, day)) {
+			w.setBribeTried(false);
+			player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("hearth.law.retry").withStyle(net.minecraft.ChatFormatting.GOLD));
+			return Result.FAILED;
+		}
 		if (took) {
 			// the coin goes into the guard's own purse
 			economy.bribe(player, s, guard, amount);

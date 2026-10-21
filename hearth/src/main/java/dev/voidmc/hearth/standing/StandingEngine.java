@@ -281,6 +281,9 @@ public final class StandingEngine implements StandingService {
 			if (!d.witnessed() && !adjust) {
 				town *= town < 0 ? cfg.town().unwitnessedBad() : cfg.town().unwitnessedGood();
 			}
+			if (!adjust && town > 0) {
+				town = gain(town, this.host.gainShare(d.player()));
+			}
 			TownLedger.Entry e = entry(s, ledger, d.player());
 			double applied = change(s, ledger, e, town, !adjust);
 			if (!adjust) {
@@ -315,6 +318,17 @@ public final class StandingEngine implements StandingService {
 		if (regionChanged) {
 			this.host.regionDirty();
 		}
+	}
+
+	/** The most a character mod's {@code hearth:standing/gain} may add to a positive change, as a share. */
+	public static final double MAX_GAIN_BONUS = 0.5;
+
+	/** A positive standing change with a character's gain share added (0–{@link #MAX_GAIN_BONUS}); losses are never touched. */
+	public static double gain(double delta, double share) {
+		if (delta <= 0 || Double.isNaN(share) || share <= 0) {
+			return delta;
+		}
+		return delta * (1 + Math.min(MAX_GAIN_BONUS, share));
 	}
 
 	/**

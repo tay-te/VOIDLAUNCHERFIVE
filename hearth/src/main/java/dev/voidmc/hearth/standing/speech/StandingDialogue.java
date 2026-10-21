@@ -175,7 +175,9 @@ public final class StandingDialogue implements DialogueProvider {
 				}
 				SpeechKind kind = how.equals("intimidate") ? SpeechKind.INTIMIDATE : SpeechKind.PERSUADE;
 				SpeechCheck.Outcome o = SpeechCheck.attempt(player, settlement, resident, kind, 0.1, 0);
-				REFUSED.remove(id);
+				if (!o.retry()) {
+					REFUSED.remove(id);
+				}
 				if (o.success()) {
 					reply(player, resident, reputationLine(engine, player, settlement, resident, random), o);
 				} else {
@@ -199,7 +201,9 @@ public final class StandingDialogue implements DialogueProvider {
 			return true;
 		}
 		SpeechCheck.Outcome o = SpeechCheck.attempt(player, settlement, resident, SpeechKind.BRIBE, difficulty, bits);
-		REFUSED.remove(player.getUUID());
+		if (!o.retry()) {
+			REFUSED.remove(player.getUUID());
+		}
 		if (!o.success()) {
 			reply(player, resident, line("bribe.refused", random), o);
 			return true;
@@ -301,5 +305,8 @@ public final class StandingDialogue implements DialogueProvider {
 		LAST.put(player.getUUID(), new Last(resident.id, header.copy().append(Component.literal(" — ").withStyle(ChatFormatting.DARK_GRAY))
 			.append(line.copy().withStyle(ChatFormatting.RESET))));
 		player.sendSystemMessage(header);
+		if (outcome.retry()) {
+			player.sendSystemMessage(Component.translatable("hearth.standing.result.retry").withStyle(ChatFormatting.GOLD));
+		}
 	}
 }

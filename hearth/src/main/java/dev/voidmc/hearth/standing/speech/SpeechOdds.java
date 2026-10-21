@@ -33,9 +33,17 @@ public final class SpeechOdds {
 	 * @param repeats    times the player tried this on them recently (each try makes the next harder)
 	 * @param speech     the player's Speech skill, 0–20 (a character mod's, through {@code PlayerSkills}; 0 without one)
 	 * @param presence   the player's Presence attribute, 1–20 (3, the starting value, adds nothing)
+	 * @param bonus      a character mod's odds for this kind ({@code PlayerSkills.bonus}, {@code hearth:speech/<kind>}),
+	 *                   added before the clamp, within 0–{@link #MAX_BONUS}; 0 adds nothing
 	 */
 	public record Inputs(int standing, int opinion, double charisma, double menace, Set<String> traits, int mood, Station station, JobType job,
-		double difficulty, double bribeRatio, int repeats, int speech, int presence) {
+		double difficulty, double bribeRatio, int repeats, int speech, int presence, double bonus) {
+		/** Without a character mod's bonus. */
+		public Inputs(int standing, int opinion, double charisma, double menace, Set<String> traits, int mood, Station station, JobType job,
+			double difficulty, double bribeRatio, int repeats, int speech, int presence) {
+			this(standing, opinion, charisma, menace, traits, mood, station, job, difficulty, bribeRatio, repeats, speech, presence, 0);
+		}
+
 		/** Without a character's skills: Speech 0 and Presence 3, which leave the odds as Hearth alone sets them. */
 		public Inputs(int standing, int opinion, double charisma, double menace, Set<String> traits, int mood, Station station, JobType job,
 			double difficulty, double bribeRatio, int repeats) {
@@ -64,6 +72,9 @@ public final class SpeechOdds {
 		add(f, "speech", level * perLevel);
 		add(f, "presence", above * perPoint);
 	}
+
+	/** The most a character mod's named bonus may add to one check (Hearth's clamp). */
+	public static final double MAX_BONUS = 0.15;
 
 	/** One reason the odds are what they are: a translation key under {@code hearth.standing.factor.} and its share. */
 	public record Factor(String key, double delta) {
@@ -153,6 +164,7 @@ public final class SpeechOdds {
 			}
 		}
 		skills(f, kind, in.speech, in.presence);
+		add(f, "perk", Math.clamp(Double.isNaN(in.bonus) ? 0 : in.bonus, 0, MAX_BONUS));
 		add(f, "difficulty", -in.difficulty);
 		add(f, "repeats", -0.2 * Math.max(0, in.repeats));
 		double chance = base;

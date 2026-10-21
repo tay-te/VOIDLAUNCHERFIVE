@@ -6,6 +6,7 @@ import dev.voidmc.hearth.api.NpcService.FolkBehaviour;
 import dev.voidmc.hearth.api.NpcService.FolkHandle;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.law.Law;
+import dev.voidmc.hearth.law.LawSkills;
 import dev.voidmc.hearth.law.LawConfig;
 import dev.voidmc.hearth.law.crime.Presence;
 import dev.voidmc.hearth.law.justice.Confrontations;
@@ -39,6 +40,8 @@ public final class GuardBehaviour implements FolkBehaviour {
 	/** Beyond this a fleeing player has got away. */
 	static final double LOSE = 48.0;
 	static final int MAX_GUARDS_PER_PLAYER = 2;
+	/** How long a chasing guard searches for a player out of sight before giving up (less a character's give-up share). */
+	static final int SEARCH_TICKS = 20 * 12;
 	/** Days between stop-and-searches of one player in one town. */
 	static final long SEARCH_COOLDOWN_TICKS = 24000;
 	/** How far a guard sent for a player ({@link GuardDispatch}) will come, and how long they take before giving up. */
@@ -282,7 +285,7 @@ public final class GuardBehaviour implements FolkBehaviour {
 		}
 		boolean sees = folk.canSee(player);
 		job.unseen = sees ? 0 : job.unseen + 1;
-		if (job.unseen > 20 * 12 || job.ticks > 20 * 120) {
+		if (job.unseen > LawSkills.searchTicks(player, SEARCH_TICKS) || job.ticks > 20 * 120) {
 			escaped(folk, player);
 			return false;
 		}

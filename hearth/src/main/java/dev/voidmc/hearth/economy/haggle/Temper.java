@@ -75,6 +75,29 @@ public final class Temper {
 		return 1 + 0.015 * Math.clamp(speech, 0, 20);
 	}
 
+	// ---- a character mod's named bonuses (PlayerSkills.bonus, docs/requests/mettle-speech-stealth.md §12)
+
+	/** The most patience a bonus may add, as a share. */
+	public static final double MAX_PATIENCE_BONUS = 0.5;
+	/** The most Speech levels a bonus may add for reading the limit band. */
+	public static final int MAX_BAND_BONUS = 10;
+
+	/** A merchant's patience with a bonus share ({@code hearth:haggle/patience}) added: within 0–{@link #MAX_PATIENCE_BONUS}. */
+	public static double patience(double patience, double bonusShare) {
+		return patience * (1 + Math.clamp(Double.isNaN(bonusShare) ? 0 : bonusShare, 0, MAX_PATIENCE_BONUS));
+	}
+
+	/** The Speech a talker reads the limit band with: their level plus the {@code hearth:haggle/band} levels (0–{@link #MAX_BAND_BONUS}), at most 20. */
+	public static int bandSpeech(int speech, double bonusLevels) {
+		int add = (int) Math.floor(Math.clamp(Double.isNaN(bonusLevels) ? 0 : bonusLevels, 0, MAX_BAND_BONUS));
+		return Math.min(20, Math.max(0, speech) + add);
+	}
+
+	/** Whether a merchant walking away stays civil ({@code hearth:haggle/never_sour} at 1, read as at least a half). */
+	public static boolean neverSour(double bonus) {
+		return bonus >= 0.5;
+	}
+
 	/**
 	 * Speech XP for a struck haggle: nothing for paying the asking price, else 5 plus one per two bits saved (or gained)
 	 * against it, at most 40.

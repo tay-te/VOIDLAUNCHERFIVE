@@ -406,11 +406,14 @@ public final class Market {
 		EconomyConfig.Haggle cfg = EconomyModule.config().haggle();
 		Resident keeper = row.town ? null : keeper();
 		Set<String> traits = Temper.traits(keeper);
-		int speech = HearthServices.playerSkills().level(player, PlayerSkills.SPEECH);
+		PlayerSkills skills = HearthServices.playerSkills();
+		int speech = skills.level(player, PlayerSkills.SPEECH);
 		double room = Temper.skilled(Temper.room(cfg, Reputation.charisma(player), Reputation.standing(this.settlement, player.getUUID()), traits), speech);
 		double patience = Temper.patience(cfg, Reputation.opinion(keeper == null ? null : keeper.id, player.getUUID()), traits) * Temper.skilledPatience(speech);
+		patience = Temper.patience(patience, PlayerSkills.bonus(skills, player, PlayerSkills.BONUS_HAGGLE_PATIENCE, 0, Temper.MAX_PATIENCE_BONUS));
+		int bandSpeech = Temper.bandSpeech(speech, PlayerSkills.bonus(skills, player, PlayerSkills.BONUS_HAGGLE_BAND, 0, Temper.MAX_BAND_BONUS));
 		Haggle haggle = Haggle.start(playerBuys, list, room, patience, counter.cash(), cfg);
-		this.session = new Session(row.id, row.stack.copyWithCount(1), row.price.lot * lots, lots, playerBuys, row.town, haggle, speech);
+		this.session = new Session(row.id, row.stack.copyWithCount(1), row.price.lot * lots, lots, playerBuys, row.town, haggle, bandSpeech);
 		this.session.line = line(haggle, Haggle.Event.START);
 		this.status = Component.empty();
 	}
@@ -459,6 +462,11 @@ public final class Market {
 			}
 		} else if (h.state() == Haggle.State.WALKED) {
 			this.session = null;
+			if (Temper.neverSour(PlayerSkills.bonus(HearthServices.playerSkills(), player, PlayerSkills.BONUS_HAGGLE_NEVER_SOUR, 0, 1))) {
+				// a character's perk (Merchant Prince): the merchant walks away civil
+				this.status = line(h, e).copy().withStyle(ChatFormatting.GOLD);
+				return;
+			}
 			EconomyConfig.Haggle cfg = EconomyModule.config().haggle();
 			String key = s.town ? ShopBook.TOWN : this.shop == null ? ShopBook.TOWN : this.shop.key;
 			Shops.book(this.settlement).setSour(key, player.getUUID(), day(player) + Math.max(0, cfg.sourDays() - 1));
@@ -622,7 +630,7 @@ public final class Market {
 		final boolean playerBuys;
 		final boolean town;
 		final Haggle haggle;
-		/** The player's Speech when the haggle began (how well they read the merchant's limit). */
+		/** The player's Speech when the haggle began, with any band bonus (how well they read the merchant's limit). */
 		final int speech;
 		Component line = Component.empty();
 

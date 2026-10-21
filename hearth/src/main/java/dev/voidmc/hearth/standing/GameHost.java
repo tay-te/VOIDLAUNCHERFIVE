@@ -67,6 +67,13 @@ final class GameHost implements StandingHost {
 		return level == null ? null : HearthWorld.of(level);
 	}
 
+	@Override
+	public double gainShare(UUID player) {
+		ServerPlayer p = online(player);
+		return p == null ? 0 : dev.voidmc.hearth.api.PlayerSkills.bonus(dev.voidmc.hearth.api.HearthServices.playerSkills(), p,
+			dev.voidmc.hearth.api.PlayerSkills.BONUS_STANDING_GAIN, 0, StandingEngine.MAX_GAIN_BONUS);
+	}
+
 	/** The player if online (null early in server start, before the player list exists). */
 	@Nullable ServerPlayer online(UUID player) {
 		MinecraftServer s = this.server;

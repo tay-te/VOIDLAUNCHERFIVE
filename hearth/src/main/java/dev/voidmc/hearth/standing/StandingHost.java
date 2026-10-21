@@ -48,4 +48,12 @@ public interface StandingHost {
 
 	/** Something a deed does besides standing (a bath); the player may be offline. */
 	void action(StandingService.Deed deed, DeedRule rule);
+
+	/**
+	 * A character mod's share added to the player's positive standing changes ({@code hearth:standing/gain}), 0 when
+	 * offline or without one; the engine clamps it. Added 2026-10-21.
+	 */
+	default double gainShare(UUID player) {
+		return 0;
+	}
 }
