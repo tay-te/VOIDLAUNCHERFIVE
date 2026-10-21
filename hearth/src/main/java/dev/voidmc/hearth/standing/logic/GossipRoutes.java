@@ -18,6 +18,33 @@ public final class GossipRoutes {
 	private GossipRoutes() {
 	}
 
+	/**
+	 * The real road network (docs/LIVING_WORLD_2.md §1.2, registered by the roads): the length of the road joining two
+	 * towns directly, or a negative number where none is known. With it, news goes along the roads that exist (a town
+	 * whose roads are not known yet keeps the approximation below).
+	 */
+	@FunctionalInterface
+	public interface Roads {
+		double between(long a, long b);
+	}
+
+	/** Hears each route news takes to a direct neighbour: the roads send a messenger with it (the queue stays the authority). */
+	@FunctionalInterface
+	public interface Messengers {
+		void sent(long from, long to, int delayDays);
+	}
+
+	private static volatile @org.jspecify.annotations.Nullable Roads roads;
+	private static volatile @org.jspecify.annotations.Nullable Messengers messengers;
+
+	public static void setRoads(@org.jspecify.annotations.Nullable Roads hook) {
+		roads = hook;
+	}
+
+	public static void setMessengers(@org.jspecify.annotations.Nullable Messengers hook) {
+		messengers = hook;
+	}
+
 	/** A town news can reach. */
 	public record Node(long id, int x, int z) {
 	}
@@ -64,8 +91,32 @@ public final class GossipRoutes {
 				d[i][j] = d[j][i] = Math.sqrt(dx * dx + dz * dz);
 			}
 		}
+		// the roads that exist, where they are known: a town with roads of its own sends its news along them only
+		Roads hook = roads;
+		boolean[] roaded = new boolean[n];
+		boolean[][] real = new boolean[n][n];
+		if (hook != null) {
+			for (int i = 0; i < n; i++) {
+				for (int j = i + 1; j < n; j++) {
+					if (d[i][j] > linkDistance * 1.6) {
+						continue;
+					}
+					double len = hook.between(nodes.get(i).id, nodes.get(j).id);
+					if (len > 0) {
+						real[i][j] = real[j][i] = true;
+						link[i][j] = link[j][i] = true;
+						// (a real road's length already winds; the approximation's factor is undone below)
+						d[i][j] = d[j][i] = len / WINDING;
+						roaded[i] = roaded[j] = true;
+					}
+				}
+			}
+		}
 		Integer[] order = new Integer[n];
 		for (int i = 0; i < n; i++) {
+			if (roaded[i]) {
+				continue;
+			}
 			final int from = i;
 			for (int j = 0; j < n; j++) {
 				order[j] = j;
@@ -85,7 +136,7 @@ public final class GossipRoutes {
 			}
 		}
 		// Roads wind: a road between towns is longer than the crow flies.
-		double winding = 1.25;
+		double winding = WINDING;
 		double[] dist = new double[n];
 		int[] hops = new int[n];
 		Arrays.fill(dist, Double.POSITIVE_INFINITY);
@@ -123,6 +174,17 @@ public final class GossipRoutes {
 			out.add(new Route(nodes.get(i).id, dist[i], hops[i], factor, delay));
 		}
 		out.sort((a, b) -> Double.compare(a.distance, b.distance));
+		Messengers m = messengers;
+		if (m != null) {
+			for (Route r : out) {
+				if (r.hops == 1) {
+					m.sent(origin.id, r.id, r.delay);
+				}
+			}
+		}
 		return out;
 	}
+
+	/** How much longer than the crow flies the approximated roads are. */
+	static final double WINDING = 1.25;
 }

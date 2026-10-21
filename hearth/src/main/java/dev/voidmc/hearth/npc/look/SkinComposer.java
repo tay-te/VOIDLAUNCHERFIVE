@@ -1705,9 +1705,76 @@ public final class SkinComposer {
 				this.c.front(j, 3, 8, argb(GOLD));
 				this.c.front(j, 4, 8, argb(shade(GOLD, 0.8F)));
 			}
+			case BANDIT, PILGRIM, MESSENGER, CARTER, PEDLAR, TOLLKEEPER, SERVANT, HERMIT, MONK, BAILIFF -> WayfarerDress.paint(this.look.job(), brush(o));
 			default -> {
 			}
 		}
+	}
+
+	/** The composer's own garment painters, for the dress of the roads and the new trades ({@link WayfarerDress}). */
+	private WayfarerDress.Brush brush(Outfit o) {
+		SkinComposer self = this;
+		return new WayfarerDress.Brush() {
+			@Override
+			public SkinCanvas canvas() {
+				return self.c;
+			}
+
+			@Override
+			public int skin() {
+				return self.skin;
+			}
+
+			@Override
+			public int pick(int... options) {
+				return self.pick(options);
+			}
+
+			@Override
+			public int weave(int colour, int x, int y) {
+				return self.jitter(colour, x, y, 0.04F);
+			}
+
+			@Override
+			public int[] accents() {
+				return self.dyes.accent();
+			}
+
+			@Override
+			public int[] darks() {
+				return self.dyes.dark();
+			}
+
+			@Override
+			public void vest(int colour, int trim, boolean closed) {
+				self.paintVest(colour, trim, closed);
+			}
+
+			@Override
+			public void coat(int colour, int trim, int length, boolean buttons) {
+				self.paintCoat(colour, trim, length, buttons);
+			}
+
+			@Override
+			public void robe(int colour, int stole) {
+				self.paintRobe(colour, stole, false);
+			}
+
+			@Override
+			public void apron(int colour, boolean full, boolean straps) {
+				self.paintApron(colour, full, straps);
+			}
+
+			@Override
+			public void belt(int leather, boolean tools) {
+				self.toolBelt(leather, tools);
+			}
+
+			@Override
+			public void dust(int colour, float threshold, boolean legsOnly) {
+				self.dust(colour, threshold, legsOnly);
+			}
+		};
 	}
 
 	private void toolBelt(int leather, boolean tools) {

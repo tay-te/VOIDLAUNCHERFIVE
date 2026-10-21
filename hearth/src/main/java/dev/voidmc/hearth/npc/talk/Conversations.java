@@ -37,9 +37,54 @@ public final class Conversations {
 		final Map<String, DialogueProvider> owners = new HashMap<>();
 		final java.util.Set<String> locked = new java.util.HashSet<>();
 		Component speech = Component.empty();
+		/** Someone met on the road (no resident to name): their talk decides everything (docs/LIVING_WORLD_2.md §1.1). */
+		final dev.voidmc.hearth.npc.travel.@Nullable StrangerTalk stranger;
 
 		Session(Folk folk) {
+			this(folk, null);
+		}
+
+		Session(Folk folk, dev.voidmc.hearth.npc.travel.@Nullable StrangerTalk stranger) {
 			this.folk = folk;
+			this.stranger = stranger;
+		}
+	}
+
+	/**
+	 * Opens a conversation with someone met on the road who is no resident (a pedlar, a pilgrim, a bandit making his
+	 * demand), on the ordinary conversation page: their description for a name, their trade, the options their talk gives.
+	 */
+	public void openStranger(ServerPlayer player, Folk folk, dev.voidmc.hearth.npc.travel.StrangerTalk talk) {
+		Session session = new Session(folk, talk);
+		this.sessions.put(player.getUUID(), session);
+		showStranger(player, session, talk.greeting(player), true);
+	}
+
+	private void showStranger(ServerPlayer player, Session session, Component speech, boolean open) {
+		dev.voidmc.hearth.npc.travel.StrangerTalk talk = session.stranger;
+		if (talk == null) {
+			return;
+		}
+		session.speech = speech;
+		session.locked.clear();
+		List<dev.voidmc.hearth.npc.travel.StrangerTalk.Option> opts = talk.options(player);
+		List<TalkPayloads.Option> options = new ArrayList<>(opts.size());
+		List<TalkPayloads.OptionInfo> infos = new ArrayList<>(opts.size());
+		dev.voidmc.hearth.api.PlayerSkills skills = dev.voidmc.hearth.api.HearthServices.playerSkills();
+		for (dev.voidmc.hearth.npc.travel.StrangerTalk.Option o : opts.subList(0, Math.min(opts.size(), TalkPayloads.MAX_OPTIONS))) {
+			options.add(new TalkPayloads.Option(o.id(), o.label(), o.locked(), o.hint(), null));
+			if (o.locked()) {
+				session.locked.add(o.id());
+			}
+			boolean speech0 = o.kind().equals("persuade") || o.kind().equals("intimidate") || o.kind().equals("bribe");
+			infos.add(new TalkPayloads.OptionInfo(o.id(), o.kind(), o.odds(), o.cost(), speech0 ? dev.voidmc.hearth.api.PlayerSkills.SPEECH : "",
+				speech0 ? skills.level(player, dev.voidmc.hearth.api.PlayerSkills.SPEECH) : -1));
+		}
+		ServerPlayNetworking.send(player, new TalkPayloads.Show(session.folk.getId(), open, talk.name(), talk.title(), talk.from(), speech, options));
+		if (ServerPlayNetworking.canSend(player, TalkPayloads.Detail.TYPE)) {
+			int minute = player.level() instanceof net.minecraft.server.level.ServerLevel level ? dev.voidmc.hearth.npc.NpcTime.minuteOfDay(level) : 0;
+			ServerPlayNetworking.send(player, new TalkPayloads.Detail(session.folk.getId(), talk.title(), "", List.of(), 0, 0, "", 0, 0, "", "", 0, minute,
+				skills.level(player, dev.voidmc.hearth.api.PlayerSkills.SPEECH), infos));
 		}
 	}
 
@@ -91,6 +136,28 @@ public final class Conversations {
 		Session session = this.sessions.get(player.getUUID());
 		if (session == null || session.folk.getId() != entityId || !valid(player, session.folk)) {
 			close(player, entityId);
+			return;
+		}
+		if (session.stranger != null) {
+			if (session.locked.contains(optionId)) {
+				showStranger(player, session, session.speech, false);
+				return;
+			}
+			Component reply;
+			try {
+				reply = session.stranger.choose(player, optionId);
+			} catch (RuntimeException e) {
+				dev.voidmc.hearth.Hearth.LOG.warn("stranger talk {} failed on {}", session.stranger.getClass().getName(), optionId, e);
+				reply = null;
+			}
+			if (this.sessions.get(player.getUUID()) != session) {
+				return;
+			}
+			if (reply == null) {
+				close(player, entityId);
+			} else {
+				showStranger(player, session, reply, false);
+			}
 			return;
 		}
 		FolkBrain brain = session.folk.brain();
@@ -261,7 +328,7 @@ public final class Conversations {
 	public void tick() {
 		this.sessions.entrySet().removeIf(e -> {
 			Folk f = e.getValue().folk;
-			return f.isRemoved() || f.brain() == null;
+			return f.isRemoved() || f.brain() == null && e.getValue().stranger == null;
 		});
 	}
 

@@ -177,6 +177,18 @@ public final class LivingQuests {
 		happen(world.level(), s, Happening.DECLINING, -1, s.center(), -1, 1, "", why, false);
 	}
 
+	/** Where the roads say a caravan was robbed (the band's camp), or null: the roads lane registers it. */
+	@FunctionalInterface
+	public interface RobbedAt {
+		@Nullable BlockPos where(long from, long to, long caravanId);
+	}
+
+	private static volatile @Nullable RobbedAt robbedAt;
+
+	public static void setRobbedAt(@Nullable RobbedAt hook) {
+		robbedAt = hook;
+	}
+
 	static void onCaravan(HearthWorld world, Settlement from, Settlement to, SettlementEvents.CaravanEvent.Kind kind, long caravanId, int[] cargo) {
 		ServerLevel level = world.level();
 		String main = mainGoods(cargo);
@@ -206,6 +218,12 @@ public final class LivingQuests {
 				String k = kind == SettlementEvents.CaravanEvent.Kind.ROBBED ? Happening.CARAVAN_ROBBED : Happening.CARAVAN_LOST;
 				BlockPos mid = new BlockPos((from.center().getX() + to.center().getX()) / 2, Objective.SURFACE_Y,
 					(from.center().getZ() + to.center().getZ()) / 2);
+				// on the roads, a robbery has a place: the camp of the band that did it (docs/LIVING_WORLD_2.md §1.1)
+				RobbedAt hook = robbedAt;
+				BlockPos camp = hook == null ? null : hook.where(from.id(), to.id(), caravanId);
+				if (camp != null) {
+					mid = new BlockPos(camp.getX(), Objective.SURFACE_Y, camp.getZ());
+				}
 				happen(level, from, k, -1, mid, to.id(), total, main, text, false);
 				happen(level, to, k, -1, mid, from.id(), total, main, text, false);
 			}

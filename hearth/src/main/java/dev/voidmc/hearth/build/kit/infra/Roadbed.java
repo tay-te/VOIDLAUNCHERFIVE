@@ -177,13 +177,31 @@ public final class Roadbed {
 					}
 				}
 			} else if (g > l) {
+				// a cut beside standing water keeps a bank up to the water's top, so a lake is never let out down the road
+				int keep = Math.min(g, waterBeside(x, z));
 				try (var s = this.lay.draft().stage(StageKind.EARTHWORK)) {
-					for (int y = l; y < g; y++) {
+					for (int y = Math.max(l, keep); y < g; y++) {
 						this.lay.air(x, y, z);
 					}
 				}
 			}
 		}
+	}
+
+	/** The highest water top (first air above the water) among the 4-neighbours outside the corridor, or the lowest y if none. */
+	private int waterBeside(int x, int z) {
+		int m = Integer.MIN_VALUE;
+		for (Direction dir : Direction.Plane.HORIZONTAL) {
+			int nx = x + dir.getStepX();
+			int nz = z + dir.getStepZ();
+			if (!this.c.contains(nx, nz)) {
+				int w = this.lay.water(nx, nz);
+				if (w != Site.NONE) {
+					m = Math.max(m, w);
+				}
+			}
+		}
+		return m;
 	}
 
 	/** The lowest natural standing level among the 4-neighbours outside the corridor (or the column's own). */
@@ -209,6 +227,28 @@ public final class Roadbed {
 			}
 		}
 		return false;
+	}
+
+	// ------------------------------------------------------------------------------------------------ country roads
+
+	/**
+	 * A king's road metalled in the country (docs/LIVING_WORLD_2.md §1.1): patches of gravel and packed coarse earth worked
+	 * into its carriageway by world noise, the verges left green. Only on level columns inside the verges, never in water.
+	 */
+	public void metal() {
+		try (var s = this.lay.draft().stage(StageKind.FLOORS)) {
+			for (int i = 0; i < this.cols.size(); i++) {
+				Course.Col col = this.cols.get(i);
+				if (!this.inside[i] || col.ring() == 0 || this.shape[i] != Shape.FULL || this.lay.wet(col.x(), col.z())) {
+					continue;
+				}
+				double n = Noise.value(this.seed ^ 0x6A7E1, col.x() / 2.3, 0, col.z() / 2.3) * 0.7 + Noise.unit(this.seed ^ 0x6A7E2, col.x(), 3, col.z()) * 0.3;
+				BlockState b = n < 0.16 ? Blocks.GRAVEL.defaultBlockState() : n > 0.84 ? Blocks.COARSE_DIRT.defaultBlockState() : null;
+				if (b != null) {
+					this.lay.set(col.x(), this.level[i] - 1, col.z(), b);
+				}
+			}
+		}
 	}
 
 	// ------------------------------------------------------------------------------------------------ surface

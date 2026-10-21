@@ -81,6 +81,7 @@ public final class SimWorld implements HearthWorld, SimContext {
 	private final SpatialIndex spatial;
 	private final ChunkApplier applier;
 	private final LodFootprints footprints;
+	private final dev.voidmc.hearth.sim.roads.@Nullable RoadWorld roadWorld;
 	private final Long2ObjectLinkedOpenHashMap<SimSettlement> settlements = new Long2ObjectLinkedOpenHashMap<>();
 	private final DynamicOps<Tag> ops;
 	/** Treasury an adopted settlement keeps per head when the economy module runs its books (it seeds new ones at 40). */
@@ -128,6 +129,8 @@ public final class SimWorld implements HearthWorld, SimContext {
 		this.spatial = new SpatialIndex(embody.radius() + embody.hysteresis(), rules.config.atlas().guardMargin());
 		this.applier = new ChunkApplier(level, this.spatial, blueprints(), this.probe, () -> !INLINE_BLUEPRINTS);
 		this.footprints = new LodFootprints(this.atlas, this.probe, level);
+		// the roads between the settlements (docs/LIVING_WORLD_2.md §1): their network is worked out from the atlas's sites
+		this.roadWorld = dev.voidmc.hearth.sim.roads.Roads.create(this);
 		LOG.info("hearth: {} uses the {} probe; {} structure sets avoided", level.dimension().identifier(), this.probe.describe(),
 			avoidance == null ? 0 : avoidance.setCount());
 	}
@@ -280,6 +283,30 @@ public final class SimWorld implements HearthWorld, SimContext {
 
 	public ChunkApplier applier() {
 		return this.applier;
+	}
+
+	/** The level's road network (docs/LIVING_WORLD_2.md §1), or null where roads are off. */
+	public dev.voidmc.hearth.sim.roads.@Nullable RoadWorld roadWorld() {
+		return this.roadWorld;
+	}
+
+	@Override
+	public dev.voidmc.hearth.api.RoadNetwork roads() {
+		dev.voidmc.hearth.sim.roads.RoadWorld r = this.roadWorld;
+		return r != null && r.enabled() ? r : dev.voidmc.hearth.api.RoadNetwork.NONE;
+	}
+
+	/**
+	 * A live settlement keeps its buildings off the country roads' strips (its own streets may join them): a plot other
+	 * than infrastructure over a road's planned column is not built there. Roads not worked out yet do not hold it up.
+	 */
+	@Override
+	public boolean allows(SimSettlement settlement, dev.voidmc.hearth.api.PlotSpec spec) {
+		dev.voidmc.hearth.sim.roads.RoadWorld r = this.roadWorld;
+		if (r == null || !r.enabled() || spec.archetype().getPath().startsWith("infra/")) {
+			return true;
+		}
+		return !r.crosses(spec);
 	}
 
 	public SpatialIndex spatial() {

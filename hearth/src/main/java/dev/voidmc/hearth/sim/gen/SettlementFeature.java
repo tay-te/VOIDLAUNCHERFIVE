@@ -8,6 +8,8 @@ import dev.voidmc.hearth.sim.SimServer;
 import dev.voidmc.hearth.sim.apply.AppliedLedger;
 import dev.voidmc.hearth.sim.apply.ChunkLedgers;
 import dev.voidmc.hearth.sim.atlas.RegionPlan;
+import dev.voidmc.hearth.sim.roads.RoadWriter;
+import dev.voidmc.hearth.sim.roads.Roads;
 import dev.voidmc.hearth.sim.settlement.Cursor;
 import dev.voidmc.hearth.sim.world.SimWorld;
 import java.util.List;
@@ -60,16 +62,19 @@ public record SettlementFeature() implements Feature {
 		RegionPlan plan;
 		try {
 			plots = world.atlas().plotsInChunk(pos.x(), pos.z());
-			if (plots.isEmpty()) {
-				return false;
-			}
-			plan = world.atlas().plan(pos.x() >> 6, pos.z() >> 6);
+			plan = plots.isEmpty() ? null : world.atlas().plan(pos.x() >> 6, pos.z() >> 6);
 		} catch (RuntimeException e) {
 			// a region whose history cannot be worked out (a planner bug) generates as wild land rather than crashing the world
 			LOG.error("hearth: the history over chunk {} could not be worked out", pos, e);
+			plots = List.of();
+			plan = null;
+		}
+		// the historic roads over this chunk (docs/LIVING_WORLD_2.md §1.2): worked out from the sites round about
+		List<RoadWriter.Job> roads = Roads.historicJobs(world, pos.x(), pos.z());
+		if (plots.isEmpty() && roads.isEmpty()) {
 			return false;
 		}
-		long settlement = plan.site() == null ? 0 : plan.site().settlementId();
+		long settlement = plan == null || plan.site() == null ? 0 : plan.site().settlementId();
 		BlueprintService blueprints = HearthServices.blueprints();
 		ChunkAccess chunk = level.getChunk(pos.x(), pos.z());
 		AppliedLedger ledger = ChunkLedgers.of(chunk);
@@ -105,6 +110,18 @@ public record SettlementFeature() implements Feature {
 			}
 			ledger = ledger.with(settlement, hp.id(), Cursor.pack(hp.completed(), 0));
 		}
+		if (!roads.isEmpty()) {
+			try {
+				// after the town's own plots, with edit safety: a road gives way to whatever the history put here
+				RoadWriter.Outcome o = RoadWriter.write(pos.x(), pos.z(), ledger, roads, new GenBlocks(level, pos), blueprints, world.terrain(), false, null,
+					System.nanoTime(), Long.MAX_VALUE, Integer.MAX_VALUE);
+				ledger = o.ledger;
+				blocks[0] += o.placed;
+			} catch (RuntimeException e) {
+				// the runtime applier writes what is missing when the chunk loads
+				LOG.warn("hearth: writing the roads into chunk {} failed: {}", pos, e.toString());
+			}
+		}
 		ChunkLedgers.store(chunk, ledger);
 		SimServer s = SimServer.current();
 		if (s != null) {
@@ -113,5 +130,52 @@ public record SettlementFeature() implements Feature {
 			s.stats().featureNanos.add(System.nanoTime() - start);
 		}
 		return blocks[0] > 0;
+	}
+
+	/** The chunk being decorated as the writer sees it (reads and writes stay in it). */
+	private record GenBlocks(WorldGenLevel level, ChunkPos pos) implements dev.voidmc.hearth.sim.apply.StepWriter.Blocks {
+		@Override
+		public net.minecraft.world.level.block.state.BlockState get(int x, int y, int z) {
+			return this.level.getBlockState(new BlockPos(x, y, z));
+		}
+
+		@Override
+		public void set(int x, int y, int z, net.minecraft.world.level.block.state.BlockState state, net.minecraft.nbt.@org.jspecify.annotations.Nullable CompoundTag tag) {
+			if (y < this.level.getMinY() || y >= this.level.getMaxY()) {
+				return;
+			}
+			BlockPos at = new BlockPos(x, y, z);
+			this.level.setBlock(at, state, FLAGS);
+			if (tag != null) {
+				BlockEntity be = this.level.getBlockEntity(at);
+				if (be != null) {
+					be.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, this.level.registryAccess(), tag));
+				}
+			}
+		}
+
+		@Override
+		public boolean naturalTree(int x, int y, int z) {
+			int minX = this.pos.getMinBlockX();
+			int minZ = this.pos.getMinBlockZ();
+			BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+			for (int dy = 0; dy <= 12; dy++) {
+				for (int dx = -2; dx <= 2; dx++) {
+					for (int dz = -2; dz <= 2; dz++) {
+						int bx = x + dx;
+						int bz = z + dz;
+						if (bx < minX || bx > minX + 15 || bz < minZ || bz > minZ + 15) {
+							continue;
+						}
+						var s = this.level.getBlockState(p.set(bx, y + dy, bz));
+						if (s.is(net.minecraft.tags.BlockTags.LEAVES) && s.hasProperty(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)
+							&& !s.getValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT)) {
+							return true;
+						}
+					}
+				}
+			}
+			return false;
+		}
 	}
 }

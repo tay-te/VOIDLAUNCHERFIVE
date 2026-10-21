@@ -1,0 +1,63 @@
+{
+	"type": "caravan",
+	"weight": 14,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_robbed"
+		],
+		"min_tier": "hamlet"
+	},
+	"giver": {
+		"jobs": [
+			"guard",
+			"trader",
+			"merchant",
+			"reeve"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				2,
+				4
+			],
+			"place": "event",
+			"target_name": "the robbers at their camp",
+			"label": "Find the robbers' camp off the road to {other} and break it"
+		}
+	],
+	"text": {
+		"title": [
+			"The robbers' camp",
+			"Who holds the {other} road"
+		],
+		"summary": [
+			"A band robbed the caravan from {other}. They camp off the road in cover, {distance} to the {direction}. Find the camp and break it."
+		],
+		"offer": [
+			"They took {cargo} on the road to {other}. A band like that camps in the woods off the road, not far from where it strikes. Find the camp and break it, and the road is ours again."
+		],
+		"progress": [
+			"Is their camp broken yet?"
+		],
+		"complete": [
+			"Their camp is ashes and the road is ours again. Thank you."
+		]
+	},
+	"reward": {
+		"coin": [
+			40,
+			80
+		],
+		"reputation": 5,
+		"deed": "hearth:quest/robbers_found"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 2
+}
