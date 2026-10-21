@@ -70,6 +70,12 @@ public final class EmbodimentManager {
 	private final Deque<SpawnRequest> queue = new ArrayDeque<>();
 	private final Set<UUID> queued = new HashSet<>();
 	private final Map<ResourceKey<Level>, Integer> cursors = new HashMap<>();
+	/**
+	 * Residents of towns that are not embodied whose remote work site a player is near (a flock's meadow far out; see
+	 * {@code npc/work/field/RemoteEmbodiment}), by level: embodied on their own, and not folded with their abstract town.
+	 */
+	private final Map<ResourceKey<Level>, Set<UUID>> remote = new HashMap<>();
+	private static final dev.voidmc.hearth.sim.LivingWorldStats.Timer REMOTE_TIMER = dev.voidmc.hearth.sim.LivingWorldStats.timer("remote sites");
 	private long ticks;
 
 	private record SpawnRequest(ResourceKey<Level> dimension, long settlementId, UUID resident) {
@@ -116,6 +122,13 @@ public final class EmbodimentManager {
 			for (ServerLevel level : server.getAllLevels()) {
 				pass(level, cfg);
 			}
+		}
+		if (this.ticks % dev.voidmc.hearth.npc.work.field.FieldWork.config().sites().passTicks() == 0) {
+			REMOTE_TIMER.time(() -> {
+				for (ServerLevel level : server.getAllLevels()) {
+					remotePass(level, cfg);
+				}
+			});
 		}
 		drainQueue(server, cfg);
 		refreshMarkers(server);
@@ -200,6 +213,85 @@ public final class EmbodimentManager {
 		}
 	}
 
+	// ---------------------------------------------------------------- remote work sites (docs/LIVING_WORLD_2.md §6.3)
+
+	/** Whether a resident is embodied for a remote site of a town that is not (and so outlives its town's folding). */
+	public boolean remoteWorker(ResourceKey<Level> dimension, @Nullable UUID resident) {
+		Set<UUID> r = this.remote.get(dimension);
+		return resident != null && r != null && r.contains(resident);
+	}
+
+	/**
+	 * The towns not embodied with a remote site near a player: their workers there are considered (embodied where their
+	 * routine has them, within {@code sites.embody_distance} of a player); those no longer near any are folded.
+	 */
+	private void remotePass(ServerLevel level, NpcConfig.Embodiment cfg) {
+		List<dev.voidmc.hearth.npc.work.field.RemoteEmbodiment.Near> near = dev.voidmc.hearth.npc.work.field.RemoteEmbodiment.near(level,
+			SettlementSources.all(level));
+		Set<UUID> active = new HashSet<>();
+		for (dev.voidmc.hearth.npc.work.field.RemoteEmbodiment.Near n : near) {
+			active.addAll(n.workers());
+		}
+		Set<UUID> before = this.remote.put(level.dimension(), active);
+		for (dev.voidmc.hearth.npc.work.field.RemoteEmbodiment.Near n : near) {
+			considerRemote(level, n.settlement(), n.workers(), cfg);
+		}
+		if (before != null) {
+			for (UUID id : before) {
+				if (active.contains(id)) {
+					continue;
+				}
+				Folk f = this.embodied.get(id);
+				if (f != null && f.level() == level && !Escorts.pinned(id)) {
+					Settlement s = SettlementSources.find(level, f.settlementId());
+					if (s == null || !s.embodied()) {
+						fold(level, f, true);
+					}
+				}
+			}
+		}
+	}
+
+	/** {@link #consider} for just the workers of a town's near remote sites, with the sites' own radius. */
+	private void considerRemote(ServerLevel level, Settlement settlement, List<UUID> workers, NpcConfig.Embodiment cfg) {
+		TownState town = town(settlement);
+		town.places.refresh(level, settlement, 2);
+		List<ServerPlayer> players = level.players();
+		List<EmbodimentSelector.Candidate> candidates = new ArrayList<>(workers.size());
+		for (UUID id : workers) {
+			Resident r = settlement.resident(id);
+			if (r == null) {
+				continue;
+			}
+			Folk f = this.embodied.get(id);
+			if (f == null && this.queued.contains(id)) {
+				continue;
+			}
+			BlockPos pos = f != null ? f.blockPosition() : placement(level, settlement, r, town).pos();
+			double d = Double.POSITIVE_INFINITY;
+			for (ServerPlayer p : players) {
+				d = Math.min(d, Math.sqrt(p.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5)));
+			}
+			candidates.add(new EmbodimentSelector.Candidate(id, d, f != null, level.isPositionEntityTicking(pos)));
+			if (f != null) {
+				this.lastDistance.put(id, d);
+			}
+		}
+		double radius = dev.voidmc.hearth.npc.work.field.FieldWork.config().sites().embodyDistance();
+		int room = cfg.maxPerServer() - this.embodied.size() - this.queue.size();
+		EmbodimentSelector.Plan plan = EmbodimentSelector.plan(candidates, cfg.maxPerSettlement(), Math.max(0, room), radius, radius + 16, STICKINESS);
+		for (UUID id : plan.fold()) {
+			Folk f = this.embodied.get(id);
+			if (f != null && !Escorts.pinned(id) && !this.summoned.containsKey(id)) {
+				fold(level, f, true);
+			}
+		}
+		for (UUID id : plan.spawn()) {
+			this.queue.addLast(new SpawnRequest(level.dimension(), settlement.id(), id));
+			this.queued.add(id);
+		}
+	}
+
 	private int makeRoom(MinecraftServer server, double nearerThan) {
 		UUID worst = null;
 		double worstD = nearerThan + STICKINESS;
@@ -231,7 +323,7 @@ public final class EmbodimentManager {
 			}
 			Settlement s = SettlementSources.find(level, req.settlementId);
 			Resident r = s == null ? null : s.resident(req.resident);
-			if (s == null || r == null || !s.embodied()) {
+			if (s == null || r == null || !s.embodied() && !remoteWorker(req.dimension, req.resident)) {
 				continue;
 			}
 			if (spawn(level, s, r) != null) {
@@ -385,7 +477,7 @@ public final class EmbodimentManager {
 			ids.add(s.id());
 		}
 		for (Folk f : new ArrayList<>(this.embodied.values())) {
-			if (f.level() == level && !ids.contains(f.settlementId()) && !pinned(f)) {
+			if (f.level() == level && !ids.contains(f.settlementId()) && !pinned(f) && !remoteWorker(level.dimension(), f.residentId())) {
 				fold(level, f, true);
 			}
 		}
@@ -456,7 +548,7 @@ public final class EmbodimentManager {
 	/** The sim says a settlement stopped being embodied: everyone back to records. */
 	public void onSettlementAbstract(ServerLevel level, long settlementId) {
 		for (Folk f : new ArrayList<>(this.embodied.values())) {
-			if (f.level() == level && f.settlementId() == settlementId && !pinned(f)) {
+			if (f.level() == level && f.settlementId() == settlementId && !pinned(f) && !remoteWorker(level.dimension(), f.residentId())) {
 				fold(level, f, true);
 			}
 		}
@@ -646,6 +738,7 @@ public final class EmbodimentManager {
 		this.queue.clear();
 		this.queued.clear();
 		this.cursors.clear();
+		this.remote.clear();
 		this.markersSent.clear();
 	}
 }

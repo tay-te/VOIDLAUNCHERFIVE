@@ -31,6 +31,11 @@ import org.jspecify.annotations.Nullable;
 final class FisherWork implements WorkBehaviour {
 	@Override
 	public @Nullable Task next(FolkBrain brain, ServerLevel level) {
+		// out in one of the dock's boats while one lies free and the stretch is long enough (docs/LIVING_WORLD_2.md §6.1)
+		Task row = dev.voidmc.hearth.npc.work.field.Boats.row(brain, level, catchOf(brain.settlement.culture()));
+		if (row != null) {
+			return row;
+		}
 		ResidentPlaces p = brain.places(level);
 		BlockPos spot = null;
 		BlockPos water = null;

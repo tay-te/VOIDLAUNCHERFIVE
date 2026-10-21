@@ -232,6 +232,8 @@ public final class Survey {
 			}
 			out = keep;
 		}
+		// Expanse's great mines in the territory, past the cuts (docs/LIVING_WORLD_2.md §6.2)
+		GreatMines.survey(land, heart, radius, data, out, excluded);
 		return out;
 	}
 

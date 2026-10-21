@@ -5,7 +5,7 @@
 	"name": "VOID Hearth tour",
 	"environment": "*",
 	"entrypoints": {
-		"fabric-client-gametest": ["dev.voidmc.hearth.gametest.IntegrationTour", "dev.voidmc.hearth.gametest.npc.FolkPortraits", "dev.voidmc.hearth.gametest.npc.FolkNight", "dev.voidmc.hearth.gametest.npc.CrowdsTour", "dev.voidmc.hearth.gametest.render.LightTour", "dev.voidmc.hearth.gametest.homestead.HomesTour", "dev.voidmc.hearth.gametest.LivingRun", "dev.voidmc.hearth.gametest.LiveTown", "dev.voidmc.hearth.gametest.BuilderTour", "dev.voidmc.hearth.gametest.walk.WalkthroughTour", "dev.voidmc.hearth.gametest.PersistTour", "dev.voidmc.hearth.gametest.play.PlaythroughTour", "dev.voidmc.hearth.gametest.RhythmTour", "dev.voidmc.hearth.gametest.RoadsTour"]
+		"fabric-client-gametest": ["dev.voidmc.hearth.gametest.IntegrationTour", "dev.voidmc.hearth.gametest.npc.FolkPortraits", "dev.voidmc.hearth.gametest.npc.FolkNight", "dev.voidmc.hearth.gametest.npc.CrowdsTour", "dev.voidmc.hearth.gametest.render.LightTour", "dev.voidmc.hearth.gametest.homestead.HomesTour", "dev.voidmc.hearth.gametest.LivingRun", "dev.voidmc.hearth.gametest.LiveTown", "dev.voidmc.hearth.gametest.BuilderTour", "dev.voidmc.hearth.gametest.walk.WalkthroughTour", "dev.voidmc.hearth.gametest.PersistTour", "dev.voidmc.hearth.gametest.play.PlaythroughTour", "dev.voidmc.hearth.gametest.RhythmTour", "dev.voidmc.hearth.gametest.RoadsTour", "dev.voidmc.hearth.gametest.work.WorkTour"]
 	},
 	"depends": {"hearth": "*"}
 }

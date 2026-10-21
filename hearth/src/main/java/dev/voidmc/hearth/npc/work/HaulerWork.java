@@ -13,6 +13,8 @@ import dev.voidmc.hearth.npc.place.ResidentPlaces;
 import dev.voidmc.hearth.npc.routine.FolkBrain;
 import dev.voidmc.hearth.npc.routine.Task;
 import dev.voidmc.hearth.npc.routine.Tasks;
+import dev.voidmc.hearth.npc.travel.cart.CartEntity;
+import dev.voidmc.hearth.npc.work.field.Handcarts;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -32,6 +34,11 @@ import org.jspecify.annotations.Nullable;
  * Routes are read from the town's plots (what each produces and wants), refreshed every couple of minutes. Within a town
  * the goods themselves move instantly in the sim; the haulers are what it looks like, and their working time is
  * credited as labour.
+ *
+ * <p>On a longer haul (docs/LIVING_WORLD_2.md §6.1, lane A4) the hauler draws a handcart (lane A1's {@code hearth:cart},
+ * through {@link Handcarts}, capped and never saved): out empty, parked by the door while loading, back with the load on
+ * its bed — logs from the logging camp to the sawmill, stone to the mason, sacks and barrels to the stores. When the caps
+ * say no, the load is carried in the arms as before.
  */
 final class HaulerWork implements WorkBehaviour {
 	private static final int REFRESH = 20 * 120;
@@ -52,7 +59,8 @@ final class HaulerWork implements WorkBehaviour {
 	@Override
 	public @Nullable Task next(FolkBrain brain, ServerLevel level) {
 		long now = level.getGameTime();
-		if (now - this.routesAt > REFRESH) {
+		// (routesAt starts at MIN_VALUE: now - MIN_VALUE overflows, so the first read is asked for by name)
+		if (this.routesAt == Long.MIN_VALUE || now - this.routesAt > REFRESH) {
 			routes(brain, level);
 			this.routesAt = now;
 		}
@@ -67,7 +75,7 @@ final class HaulerWork implements WorkBehaviour {
 		if (to == null) {
 			return Tasks.Linger.at(from.pos(), 200, "waiting for a load");
 		}
-		return new Haul(from, to, load(from.kind(), brain.settlement.culture()));
+		return new Haul(from, to, load(from.kind(), brain.settlement.culture()), cartLoad(from.kind()));
 	}
 
 	private @Nullable Stop sinkFor(Stop from) {
@@ -233,28 +241,78 @@ final class HaulerWork implements WorkBehaviour {
 		};
 	}
 
-	/** One load: to the source, loaded, carried (slowly), set down at the sink. */
+	/** What a handcart's bed shows for a kind of load. */
+	static CartEntity.Load cartLoad(Kind kind) {
+		return switch (kind) {
+			case LOGS -> CartEntity.Load.LOGS;
+			case STONE, ORE, CLAY, BRICK, METAL -> CartEntity.Load.STONE;
+			case GRAIN, WAX -> CartEntity.Load.PRODUCE;
+			case SAND, CHARCOAL, SALT, LEATHER -> CartEntity.Load.SACKS;
+			case FISH -> CartEntity.Load.BARRELS;
+			case GLASS, GOODS -> CartEntity.Load.CRATES;
+		};
+	}
+
+	/** Within this of a stop the hauler leaves the cart standing (by the door, not in the building). */
+	static final double PARK = 5.0;
+
+	/** One load: to the source, loaded, carried (slowly), set down at the sink; by handcart when the haul is long. */
 	static final class Haul implements Task {
 		private enum Phase { TO_SOURCE, LOAD, TO_SINK, UNLOAD }
 
 		private final Stop from;
 		private final Stop to;
 		private final ItemStack load;
+		private final CartEntity.Load cartLoad;
 		private Phase phase = Phase.TO_SOURCE;
 		private int timer;
+		private boolean started;
+		private @Nullable CartEntity cart;
 
-		Haul(Stop from, Stop to, ItemStack load) {
+		Haul(Stop from, Stop to, ItemStack load, CartEntity.Load cartLoad) {
 			this.from = from;
 			this.to = to;
 			this.load = load;
+			this.cartLoad = cartLoad;
+		}
+
+		/** The cart, if it is still out (the sweep may have taken it when the server slowed). */
+		private @Nullable CartEntity cart() {
+			if (this.cart != null && this.cart.isRemoved()) {
+				this.cart = null;
+			}
+			return this.cart;
+		}
+
+		/** Hitched while walking, left standing within {@link #PARK} of the stop it walks to or while the hauler is under a roof. */
+		private void drawTowards(FolkBrain brain, BlockPos stop) {
+			CartEntity c = cart();
+			if (c == null) {
+				return;
+			}
+			// parked by the door, and whenever the hauler is under a roof (indoors, up a stair, under eaves): a cart keeps to
+			// the open street and never follows them in or onto a roof
+			boolean park = brain.folk.blockPosition().distSqr(stop) < PARK * PARK || !brain.folk.level().canSeeSky(brain.folk.blockPosition().above());
+			if (park && c.puller() != null) {
+				c.hitchTo(null);
+			} else if (!park && c.puller() == null && c.distanceToSqr(brain.folk) < 6 * 6) {
+				c.hitchTo(brain.folk);
+			}
 		}
 
 		@Override
 		public Status tick(FolkBrain brain, ServerLevel level, int elapsed) {
 			this.timer += elapsed;
+			if (!this.started) {
+				this.started = true;
+				if (Handcarts.worthACart(Math.sqrt(this.from.pos().distSqr(this.to.pos())))) {
+					this.cart = Handcarts.take(level, brain.settlement.id(), brain.folk);
+				}
+			}
 			switch (this.phase) {
 				case TO_SOURCE -> {
 					brain.hold(ItemStack.EMPTY, ItemStack.EMPTY);
+					drawTowards(brain, this.from.pos());
 					if (brain.walk(level, this.from.pos(), 1.8, 0.65) || brain.walkFailed() || this.timer > 20 * 90) {
 						brain.resetWalk();
 						this.phase = Phase.LOAD;
@@ -267,13 +325,24 @@ final class HaulerWork implements WorkBehaviour {
 					brain.folk.setFolkPose(FolkPose.TEND);
 					if (this.timer >= 40) {
 						brain.swing();
+						CartEntity c = cart();
+						if (c != null) {
+							c.setup(CartEntity.Kind.HANDCART, this.cartLoad);
+						}
 						this.phase = Phase.TO_SINK;
 						this.timer = 0;
 					}
 				}
 				case TO_SINK -> {
-					brain.hold(this.load, ItemStack.EMPTY);
-					brain.folk.setFolkPose(FolkPose.CRAFT);
+					if (cart() != null) {
+						// the load is on the cart's bed; the hauler draws it with empty hands
+						brain.hold(ItemStack.EMPTY, ItemStack.EMPTY);
+						brain.folk.setFolkPose(FolkPose.NONE);
+						drawTowards(brain, this.to.pos());
+					} else {
+						brain.hold(this.load, ItemStack.EMPTY);
+						brain.folk.setFolkPose(FolkPose.CRAFT);
+					}
 					if (brain.walk(level, this.to.pos(), 1.8, 0.5) || brain.walkFailed() || this.timer > 20 * 120) {
 						brain.resetWalk();
 						this.phase = Phase.UNLOAD;
@@ -285,6 +354,8 @@ final class HaulerWork implements WorkBehaviour {
 					if (this.timer >= 30) {
 						brain.swing();
 						level.playSound(null, this.to.pos(), SoundEvents.BARREL_CLOSE, SoundSource.BLOCKS, 0.5F, 1.0F);
+						Handcarts.release(this.cart);
+						this.cart = null;
 						return Status.DONE;
 					}
 				}
@@ -296,13 +367,16 @@ final class HaulerWork implements WorkBehaviour {
 		public void stop(FolkBrain brain, ServerLevel level) {
 			brain.folk.setFolkPose(FolkPose.NONE);
 			brain.resetWalk();
+			Handcarts.release(this.cart);
+			this.cart = null;
 		}
 
 		@Override
 		public String describe() {
 			return switch (this.phase) {
 				case TO_SOURCE, LOAD -> "fetching " + this.from.kind().name().toLowerCase(java.util.Locale.ROOT);
-				case TO_SINK, UNLOAD -> "hauling " + this.from.kind().name().toLowerCase(java.util.Locale.ROOT) + " to plot " + this.to.plotId();
+				case TO_SINK, UNLOAD -> "hauling " + this.from.kind().name().toLowerCase(java.util.Locale.ROOT) + (this.cart != null ? " by handcart" : "")
+					+ " to plot " + this.to.plotId();
 			};
 		}
 	}

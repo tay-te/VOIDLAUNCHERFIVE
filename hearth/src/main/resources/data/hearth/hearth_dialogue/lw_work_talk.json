@@ -1,0 +1,13 @@
+{
+	"about.job": [
+		{"text": "Out here by the clamp you hear the woods talk. Wolves on the ridge last week. Something bigger the week before.", "jobs": ["charcoal_burner"]},
+		{"text": "Charcoal burners see who goes through the woods by night, and who comes back. I say nothing. Mostly.", "jobs": ["charcoal_burner"]},
+		{"text": "There's an old camp past the second stream. Nobody burns there now. Nobody says why.", "jobs": ["charcoal_burner"]},
+		{"text": "Two days she smoulders, and I sleep beside her like a mother. Then the rake, and the sacks, and the smith pays.", "jobs": ["charcoal_burner"]},
+		{"text": "The flock knows the way to the far meadow better than I do. I just keep the stragglers honest.", "jobs": ["herder"]},
+		{"text": "Up on the high grass you see everything: the road, the riders, the smoke from the burners' clearing.", "jobs": ["herder"]},
+		{"text": "The old miners left levels all the way down. We open new galleries off them, a face at a time.", "jobs": ["miner"]},
+		{"text": "Two hundred rungs down the shaft and two hundred up. You learn to count in your sleep.", "jobs": ["miner"]},
+		{"text": "Out on the water at first light, back before the bell. The fish keep better hours than people.", "jobs": ["fisher"]}
+	]
+}

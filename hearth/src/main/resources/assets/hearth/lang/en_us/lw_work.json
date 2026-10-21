@@ -1,2 +1,9 @@
 {
+	"hearth.archetype.extract.great_pithead": "Great Mine",
+	"hearth.sign.great_mine": "Great Mine",
+	"hearth.fieldwork.stats": "Visible work: %s flock beasts, %s boats, %s stall wares",
+	"hearth.fieldwork.clamp.cold": "a cold clamp",
+	"hearth.fieldwork.clamp.building": "the stack going up",
+	"hearth.fieldwork.clamp.burning": "smouldering",
+	"hearth.fieldwork.clamp.raking": "being raked out"
 }

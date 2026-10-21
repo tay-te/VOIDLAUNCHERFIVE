@@ -19,5 +19,7 @@ public final class ExtractionArchetypes {
 		registry.register(SoftPit.clay());
 		registry.register(SoftPit.sand());
 		registry.register(new Plantation());
+		// the Great Mine reopened (docs/LIVING_WORLD_2.md §6.2; lane A4)
+		registry.register(new dev.voidmc.hearth.build.archetype.extract.GreatPithead());
 	}
 }

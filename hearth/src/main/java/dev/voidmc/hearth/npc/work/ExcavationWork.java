@@ -71,7 +71,9 @@ final class ExcavationWork implements WorkBehaviour {
 		PlotView plot = choose(brain, this.job);
 		if (plot == null) {
 			brain.town.gatherClaims.remove(brain.resident.id);
-			return this.fallback.next(brain, level);
+			// the Great Mine with its galleries cut: the miners still work its faces down the shaft (docs/LIVING_WORLD_2.md §6.1)
+			Task deep = greatMine(brain, level);
+			return deep != null ? deep : this.fallback.next(brain, level);
 		}
 		brain.town.gatherClaims.put(brain.resident.id, plot.id());
 		if (!NpcModule.config().gathering().terrainChanges()) {
@@ -113,6 +115,39 @@ final class ExcavationWork implements WorkBehaviour {
 			}
 		}
 		return best;
+	}
+
+	/**
+	 * A miner of a Great Mine whose galleries are all cut: down the shaft to a face, working it there (the yield is the
+	 * sim's from their time, as at any face); null if their work is not a Great Mine.
+	 */
+	private static @Nullable Task greatMine(FolkBrain brain, ServerLevel level) {
+		PlotView work = brain.resident.work == dev.voidmc.hearth.api.Resident.NO_PLOT ? null : brain.settlement.plot(brain.resident.work);
+		dev.voidmc.hearth.npc.work.field.Shafts.Shaft shaft = dev.voidmc.hearth.npc.work.field.Shafts.of(work);
+		if (shaft == null || work.state() != dev.voidmc.hearth.api.PlotState.BUILT) {
+			return null;
+		}
+		Blueprint bp = BlueprintSource.of(level, brain.settlement, work);
+		List<Poi> faces = bp == null ? List.of() : Extraction.workFaces(bp);
+		if (faces.isEmpty()) {
+			return null;
+		}
+		Poi face = faces.get(Math.floorMod(brain.resident.id.hashCode(), faces.size()));
+		Task work0 = mimeAt(brain, level, face.pos(), face.pos().relative(face.facing()));
+		Task climb = dev.voidmc.hearth.npc.work.field.Shafts.climb(brain, level, shaft, face.pos());
+		dev.voidmc.hearth.npc.work.field.WorkBarks.maybe(brain, level, "miner", 4, null);
+		return climb == null ? work0 : new Tasks.Sequence("at the great mine", climb, work0);
+	}
+
+	/** Working a face in pantomime at a stand, the rock looked at. */
+	private static Task mimeAt(FolkBrain brain, ServerLevel level, BlockPos stand, BlockPos look) {
+		BlockState rock = level.isLoaded(look) ? level.getBlockState(look) : net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+		Tasks.Effect pick = Tasks.every(18, SoundEvents.STONE_HIT, 0.7F, (b, lvl, e, at) -> {
+			Vec3 c = Vec3.atCenterOf(look);
+			lvl.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, rock.isAir() ? net.minecraft.world.level.block.Blocks.STONE.defaultBlockState() : rock),
+				c.x, c.y, c.z, 5, 0.3, 0.3, 0.3, 0.05);
+		}, true);
+		return new Tasks.Linger(stand, look, FolkPose.HAMMER, 600, new ItemStack(toolFor(rock)), ItemStack.EMPTY, pick, "working the face");
 	}
 
 	/** With terrain changes switched off: work the face in pantomime, the loop running as numbers. */
@@ -160,6 +195,7 @@ final class ExcavationWork implements WorkBehaviour {
 		private int carryTicks;
 		private int carryWalk;
 		private String doing = "at the face";
+		private @Nullable Task climb;
 
 		Excavate(int plotId) {
 			this.plotId = plotId;
@@ -250,6 +286,24 @@ final class ExcavationWork implements WorkBehaviour {
 			}
 			this.doing = "walking to the face";
 			BlockPos goal = this.stand != null ? this.stand : step.pos();
+			// a face down the Great Mine's shaft: down the ladder first (and up again for one at the pithead)
+			if (this.climb == null) {
+				dev.voidmc.hearth.npc.work.field.Shafts.Shaft shaft = dev.voidmc.hearth.npc.work.field.Shafts.of(plot);
+				this.climb = shaft == null ? null : dev.voidmc.hearth.npc.work.field.Shafts.climb(brain, level, shaft, goal);
+			}
+			if (this.climb != null) {
+				Status cs = this.climb.tick(brain, level, elapsed);
+				if (cs == Status.RUNNING) {
+					this.doing = this.climb.describe();
+					return Status.RUNNING;
+				}
+				this.climb.stop(brain, level);
+				this.climb = null;
+				this.stepTicks = 0;
+				if (cs == Status.FAILED) {
+					return Status.FAILED;
+				}
+			}
 			// to a chosen stand exactly (a stand beside the cut is no use if they stop half over it); else near the work
 			boolean arrived = brain.walk(level, goal, this.stand != null ? 0.45 : 1.5, 0.65);
 			if ((arrived && (!BuilderWork.canReach(folk, step.pos()) || standingOn(folk, step.pos()))) || brain.walkFailed() || this.stepTicks > 400) {
@@ -357,6 +411,16 @@ final class ExcavationWork implements WorkBehaviour {
 
 		@Override
 		public void stop(FolkBrain brain, ServerLevel level) {
+			if (this.climb != null) {
+				this.climb.stop(brain, level);
+				this.climb = null;
+			}
+			PlotView plot = brain.settlement.plot(this.plotId);
+			dev.voidmc.hearth.npc.work.field.Shafts.Shaft shaft = dev.voidmc.hearth.npc.work.field.Shafts.of(plot);
+			if (shaft != null && brain.folk.getY() < shaft.deckY() - 12 && level.getNearestPlayer(brain.folk, 24) == null) {
+				// the shift over down the Great Mine: the record takes them up the ladder and home if nobody is by
+				brain.slipAway();
+			}
 			brain.folk.setFolkPose(FolkPose.NONE);
 			brain.resetWalk();
 		}
