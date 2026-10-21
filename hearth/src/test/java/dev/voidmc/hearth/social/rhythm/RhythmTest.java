@@ -224,6 +224,27 @@ class RhythmTest {
 	}
 
 	@Test
+	void theLeaderIsTheBestOfThoseHere() {
+		SimpleSettlement s = village(22, 6);
+		long day = 0;
+		while (!RhythmCalendar.INSTANCE.restDay(s, day)) {
+			day++;
+		}
+		Service.clear();
+		Service.Day d = Service.day(s, day);
+		Resident priest = s.residents().stream().filter(r -> r.job == JobType.PRIEST).findFirst().orElseThrow();
+		assertEquals(priest.id, d.leaders().get(0));
+		assertEquals(priest.id, Service.leader(s, d), "nobody here: the priest, as written");
+		UUID second = d.leaders().get(1);
+		s.setResidentEmbodied(second, true);
+		assertEquals(second, Service.leader(s, d), "the priest out of reach: the next best who is here");
+		s.setResidentEmbodied(priest.id, true);
+		assertEquals(priest.id, Service.leader(s, d));
+		assertFalse(d.seatOf().containsKey(priest.id), "the one who leads has no pew");
+		Service.clear();
+	}
+
+	@Test
 	void forcedDaysHoldForTheirDayAndTheNext() {
 		SimpleSettlement s = village(16, 3);
 		long day = 300;

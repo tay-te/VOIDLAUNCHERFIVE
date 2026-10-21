@@ -82,7 +82,7 @@ public final class ServiceBehaviour implements NpcService.FolkBehaviour {
 				return false;
 			}
 			Service.Day d = Service.day(s, RhythmFolk.today(s));
-			return d.church() != null && (d.attending().contains(folk.resident().id) || folk.resident().id.equals(d.officiant()));
+			return d.church() != null && (d.attending().contains(folk.resident().id) || folk.resident().id.equals(Service.leader(s, d)));
 		} finally {
 			RhythmFolk.t1(t0);
 		}
@@ -98,7 +98,7 @@ public final class ServiceBehaviour implements NpcService.FolkBehaviour {
 		}
 		ServerLevel level = (ServerLevel) folk.entity().level();
 		Resident r = folk.resident();
-		boolean leads = r.id.equals(d.officiant());
+		boolean leads = r.id.equals(Service.leader(s, d));
 		Integer seatIndex = leads ? null : takeSeat(s, d, r);
 		Poi seat = seatIndex == null ? null : c.seats().get(seatIndex);
 		BlockPos stand;

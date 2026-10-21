@@ -51,7 +51,22 @@ public final class Service {
 		NONE, GATHER, SERMON, CHANT, PORCH
 	}
 
-	record Day(long day, int residents, Set<UUID> attending, Map<UUID, Integer> seatOf, @Nullable Church church, @Nullable UUID officiant) {
+	/** {@code leaders}: who may lead, best first (the priest, a monk, elders, grown-ups); see {@link #leader}. */
+	record Day(long day, int residents, Set<UUID> attending, Map<UUID, Integer> seatOf, @Nullable Church church, @Nullable UUID officiant,
+		List<UUID> leaders) {
+	}
+
+	/**
+	 * Who leads the service now: the first of the day's leaders who is here (embodied), so a congregation near a player
+	 * never waits at an empty altar for a priest out of reach; the first of them when none is.
+	 */
+	static @Nullable UUID leader(Settlement s, Day d) {
+		for (UUID u : d.leaders()) {
+			if (s.isResidentEmbodied(u)) {
+				return u;
+			}
+		}
+		return d.officiant();
 	}
 
 	private static final Map<Long, Day> DAYS = new LinkedHashMap<>();
@@ -171,7 +186,8 @@ public final class Service {
 		Set<UUID> attending = rest ? attending(s.residents(), day, data.service().share()) : Set.of();
 		Church church = rest ? church(s) : null;
 		Map<UUID, Integer> seats = new HashMap<>();
-		Resident leads = rest ? officiant(s) : null;
+		List<UUID> leaders = rest ? leaders(s, 6) : List.of();
+		Resident leads = leaders.isEmpty() ? null : s.resident(leaders.get(0));
 		if (church != null && !church.seats().isEmpty()) {
 			// the lord and the elders in front, then by a fixed order of the week
 			List<Resident> sitting = new ArrayList<>();
@@ -186,7 +202,7 @@ public final class Service {
 				seats.put(sitting.get(i).id, i);
 			}
 		}
-		d = new Day(day, s.population(), attending, seats, church, leads == null ? null : leads.id);
+		d = new Day(day, s.population(), attending, seats, church, leads == null ? null : leads.id, leaders);
 		DAYS.put(s.id(), d);
 		if (DAYS.size() > 512) {
 			DAYS.remove(DAYS.keySet().iterator().next());
@@ -212,6 +228,22 @@ public final class Service {
 			}
 		}
 		return best;
+	}
+
+	/** The {@code most} best to lead, best first. */
+	static List<UUID> leaders(Settlement s, int most) {
+		List<Resident> all = new ArrayList<>();
+		for (Resident r : s.residents()) {
+			if (r.job == JobType.PRIEST || officiantRank(r) != Integer.MAX_VALUE) {
+				all.add(r);
+			}
+		}
+		all.sort(Comparator.comparingInt(r -> r.job == JobType.PRIEST ? -1 : officiantRank(r)));
+		List<UUID> out = new ArrayList<>();
+		for (int i = 0; i < all.size() && i < most; i++) {
+			out.add(all.get(i).id);
+		}
+		return out;
 	}
 
 	private static int officiantRank(Resident r) {

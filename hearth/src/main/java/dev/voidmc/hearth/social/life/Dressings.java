@@ -85,6 +85,12 @@ public final class Dressings {
 			long seed = TownCalendar.mix(s.id() * 31 + home.id() ^ key.hashCode());
 			// the plots round this one (a part may not stand in them): a short list, not the whole town
 			List<PlotView> round = near(s, centre(home), Math.max(spec.sizeX(), spec.sizeZ()) + 12, 16);
+			List<BlockPos> nearDoors = new ArrayList<>();
+			for (BlockPos d : doors) {
+				if (d.getX() >= o.getX() - 8 && d.getX() <= o.getX() + spec.sizeX() + 8 && d.getZ() >= o.getZ() - 8 && d.getZ() <= o.getZ() + spec.sizeZ() + 8) {
+					nearDoors.add(d);
+				}
+			}
 			int tries = 0;
 			for (int k = 0; k < 32 && tries < 32; k++, tries++) {
 				long h = TownCalendar.mix(seed + k);
@@ -101,23 +107,8 @@ public final class Dressings {
 					LAUNDRY_MISSES.merge("no open ground", 1, Integer::sum);
 					continue;
 				}
-				List<Part> parts = laundry(ground, along, span, pal);
-				boolean yard = true;
-				for (Part p : parts) {
-					for (PlotView other : round) {
-						if (other.id() != home.id() && !other.spec().archetype().getPath().startsWith("infra/") && Venues.inside(other.spec(), p.pos)) {
-							yard = false;
-							break;
-						}
-					}
-				}
-				if (!yard) {
-					LAUNDRY_MISSES.merge("in another plot", 1, Integer::sum);
-					continue;
-				}
-				if (!clear(level, parts, taken, doors, Venues.square(s), ground, true)) {
-					LAUNDRY_MISSES.merge("not clear", 1, Integer::sum);
-					continue;
+				if (!level.isLoaded(ground.relative(along, span))) {
+					continue; // (never reads into the next chunk unless it is there)
 				}
 				// the ground along the line is level earth or grass with air over it (a yard, not a street or a drop)
 				boolean level0 = true;
@@ -133,6 +124,24 @@ public final class Dressings {
 				}
 				if (!level0) {
 					LAUNDRY_MISSES.merge("not earth", 1, Integer::sum);
+					continue;
+				}
+				List<Part> parts = laundry(ground, along, span, pal);
+				boolean yard = true;
+				for (Part p : parts) {
+					for (PlotView other : round) {
+						if (other.id() != home.id() && !other.spec().archetype().getPath().startsWith("infra/") && Venues.inside(other.spec(), p.pos)) {
+							yard = false;
+							break;
+						}
+					}
+				}
+				if (!yard) {
+					LAUNDRY_MISSES.merge("in another plot", 1, Integer::sum);
+					continue;
+				}
+				if (!clear(level, parts, taken, nearDoors, Venues.square(s), ground, true)) {
+					LAUNDRY_MISSES.merge("not clear", 1, Integer::sum);
 					continue;
 				}
 				reserve(taken, parts);

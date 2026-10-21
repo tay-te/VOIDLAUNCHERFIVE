@@ -186,6 +186,11 @@ public final class Rhythm {
 		return String.format(java.util.Locale.ROOT, "%02d:%02d %s", m / 60, m % 60, Service.part(RhythmData.of(s.culture()).service(), m));
 	}
 
+	/** Who leads today's service now: the best of the town's leaders who is embodied (tours). */
+	public static @Nullable UUID leader(Settlement s) {
+		return Service.leader(s, Service.day(s, RhythmFolk.today(s)));
+	}
+
 	/** Who leads the rest day's service in a town (its priest, a monk, an elder), or null (tours). */
 	public static @Nullable UUID officiant(Settlement s) {
 		Resident r = Service.officiant(s);

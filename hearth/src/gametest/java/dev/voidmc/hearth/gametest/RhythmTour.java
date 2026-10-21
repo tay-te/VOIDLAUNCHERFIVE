@@ -191,7 +191,7 @@ public class RhythmTour implements FabricClientGameTest {
 				}
 				gather(server, town, hands, 4);
 			});
-			settle(context, 40_000);
+			settle(context, 60_000);
 			log("tavern night: " + world.getServer().computeOnServer(server -> tavern(server, town)));
 			shotAt(context, world, town, "hearth_rhythm_tavern", server -> tavernCamera(server, town));
 
@@ -320,12 +320,12 @@ public class RhythmTour implements FabricClientGameTest {
 		String priest = "no officiant embodied";
 		for (Folk f : NpcModule.embodiment().entities()) {
 			if (f.brain() != null && f.brain().settlement.id() == town && doing(f, ServiceBehaviour.ID)
-				&& f.brain().resident.id.equals(dev.voidmc.hearth.social.rhythm.Rhythm.officiant(s))) {
+				&& f.brain().resident.id.equals(dev.voidmc.hearth.social.rhythm.Rhythm.leader(s))) {
 				double d = altars.isEmpty() ? -1 : Math.sqrt(f.blockPosition().distSqr(altars.get(0).pos()));
 				priest = String.format(Locale.ROOT, "%s %s %.1f from the altar (%s)", f.brain().resident.job.getSerializedName(), f.folkName(), d, doing(f, ServiceBehaviour.ID) ? "officiating" : f.brain().describe());
 			}
 		}
-		java.util.UUID leads = Rhythm.officiant(s);
+		java.util.UUID leads = Rhythm.leader(s);
 		dev.voidmc.hearth.api.Resident lr = leads == null ? null : s.resident(leads);
 		Folk lf = leads == null ? null : NpcModule.embodiment().entityOf(leads);
 		String who = lr == null ? "none" : lr.fullName() + " (" + lr.job.getSerializedName() + " " + lr.age.getSerializedName() + "), "
