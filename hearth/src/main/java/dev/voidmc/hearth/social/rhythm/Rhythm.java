@@ -154,6 +154,12 @@ public final class Rhythm {
 		return RhythmSchedule.drinkers(s, day);
 	}
 
+	/** Who leads the rest day's service in a town (its priest, a monk, an elder), or null (tours). */
+	public static @Nullable UUID officiant(Settlement s) {
+		Resident r = Service.officiant(s);
+		return r == null ? null : r.id;
+	}
+
 	/** What the rhythm is doing in embodied towns, and its timings (command, tours). */
 	public static List<String> stats() {
 		return RhythmDirector.stats();

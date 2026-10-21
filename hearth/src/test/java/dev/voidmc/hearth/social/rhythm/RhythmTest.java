@@ -190,6 +190,40 @@ class RhythmTest {
 	}
 
 	@Test
+	void withoutAPriestAMonkElseAnElderLeads() {
+		SimpleSettlement s = village(21, 3);
+		Resident priest = s.residents().stream().filter(r -> r.job == JobType.PRIEST).findFirst().orElseThrow();
+		assertEquals(priest.id, Service.officiant(s).id);
+		priest.job = JobType.NONE;
+		Resident elder = Service.officiant(s);
+		assertEquals(AgeStage.ELDER, elder.age, "an elder says the words");
+		Resident pious = resident(AgeStage.ELDER, JobType.NONE, 9, "pious");
+		s.addResident(pious);
+		assertEquals(pious.id, Service.officiant(s).id, "a pious elder first");
+		Resident monk = resident(AgeStage.ADULT, JobType.MONK, 10);
+		s.addResident(monk);
+		assertEquals(monk.id, Service.officiant(s).id);
+	}
+
+	@Test
+	void oneMusicianATavernANight() {
+		TavernNight.PLAYING.clear();
+		Resident shy = resident(AgeStage.ADULT, JobType.NONE, 1);
+		Resident keen = resident(AgeStage.ADULT, JobType.NONE, 2, "cheerful");
+		Resident other = resident(AgeStage.ADULT, JobType.NONE, 3, "sociable");
+		assertTrue(TavernNight.claimTune(7, 40, keen, true));
+		assertFalse(TavernNight.claimTune(7, 40, other, true), "the instrument is taken");
+		assertTrue(TavernNight.claimTune(7, 40, keen, true), "and stays with its player");
+		TavernNight.releaseTune(7, keen.id);
+		assertTrue(TavernNight.claimTune(7, 40, other, true), "put down, another takes it up");
+		assertTrue(TavernNight.claimTune(7, 41, keen, true), "a new night");
+		TavernNight.PLAYING.clear();
+		boolean shyPlays = TavernNight.claimTune(8, 40, shy, false);
+		assertEquals(Math.floorMod(shy.id.getLeastSignificantBits(), 2L) != 0, shyPlays);
+		TavernNight.PLAYING.clear();
+	}
+
+	@Test
 	void forcedDaysHoldForTheirDayAndTheNext() {
 		SimpleSettlement s = village(16, 3);
 		long day = 300;

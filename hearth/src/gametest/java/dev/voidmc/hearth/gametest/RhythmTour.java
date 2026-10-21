@@ -109,11 +109,19 @@ public class RhythmTour implements FabricClientGameTest {
 				return "today " + today + ", rest " + dev.voidmc.hearth.api.HearthServices.calendar().restDay(s, today) + ", calendar "
 					+ dev.voidmc.hearth.api.HearthServices.calendar().getClass().getSimpleName();
 			}));
+			world.getServer().runOnServer(server -> {
+				java.util.UUID leads = Rhythm.officiant(settlement(server, town));
+				if (leads != null) {
+					gather(server, town, java.util.Set.of(leads), 1);
+				}
+			});
 			settle(context, 40_000); // the peal, the walk to the chapel
 			timeTo(world, Schedule.dayTimeOf(serviceStart + 30)); // the sermon, between the chants
+			world.getServer().runCommand("gamerule advance_time false"); // held at the sermon while the shot is taken (a slow tick runs the clock on)
 			settle(context, 10_000);
 			log("mass: " + world.getServer().computeOnServer(server -> mass(server, town)));
 			shotAt(context, world, town, "hearth_rhythm_mass", server -> churchCamera(server, town));
+			world.getServer().runCommand("gamerule advance_time true");
 			log("rhythm: " + world.getServer().computeOnServer(server -> String.join(" | ", Rhythm.stats())));
 
 			// wash day: at the water, laundry in the yards
@@ -273,11 +281,12 @@ public class RhythmTour implements FabricClientGameTest {
 					f.folkPose(), best, !f.getNavigation().isDone()));
 			}
 		}
-		String priest = "no priest";
+		String priest = "no officiant embodied";
 		for (Folk f : NpcModule.embodiment().entities()) {
-			if (f.brain() != null && f.brain().resident.job == JobType.PRIEST && f.brain().settlement.id() == town) {
+			if (f.brain() != null && f.brain().settlement.id() == town && doing(f, ServiceBehaviour.ID)
+				&& f.brain().resident.id.equals(dev.voidmc.hearth.social.rhythm.Rhythm.officiant(s))) {
 				double d = altars.isEmpty() ? -1 : Math.sqrt(f.blockPosition().distSqr(altars.get(0).pos()));
-				priest = String.format(Locale.ROOT, "priest %.1f from the altar (%s)", d, doing(f, ServiceBehaviour.ID) ? "officiating" : f.brain().describe());
+				priest = String.format(Locale.ROOT, "%s %s %.1f from the altar (%s)", f.brain().resident.job.getSerializedName(), f.folkName(), d, doing(f, ServiceBehaviour.ID) ? "officiating" : f.brain().describe());
 			}
 		}
 		return String.format(Locale.ROOT, "%s: %d of %d seats filled (%.0f %%), %d folk at the service, %s", church.spec().archetype().getPath(), filled,

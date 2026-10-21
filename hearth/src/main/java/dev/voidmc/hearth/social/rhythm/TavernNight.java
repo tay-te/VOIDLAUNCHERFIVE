@@ -162,8 +162,9 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		BlockPos home = WashBehaviour.door(s, folk.resident());
 		// the first two at the first table of a tavern arm-wrestle, one night in three
 		boolean wrestler = nth < 2 && Math.floorMod(TownCalendar.mix(day ^ tavern.id()), 3L) == 0;
-		boolean musician = nth == 0 && Rhythm.musician(s, tavern) == null
-			&& (FolkFacts.has(folk.resident(), "cheerful") || FolkFacts.has(folk.resident(), "sociable"));
+		// no entertainer of the town's own: the first drinker in (the cheerful before the rest) takes up the instrument
+		boolean musician = Rhythm.musician(s, tavern) == null && claimTune(key(s, tavern), day, folk.resident(),
+			nth == 0 || FolkFacts.has(folk.resident(), "cheerful") || FolkFacts.has(folk.resident(), "sociable"));
 		State st = new State(key(s, tavern), musician ? null : seat, musician ? Venues.standFor(level, new Venues.Venue(table, table, List.of(table), 2),
 			folk.resident().id, 7) : stand, table, home, wrestler && !musician, musician);
 		this.states.put(folk.resident().id, st);
@@ -340,10 +341,35 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		ROUNDS.put(key(s, tavern), new Round(gameTime, player));
 	}
 
+	/** Tavern → {day, the drinker playing tonight}: one musician a tavern, the first to arrive. */
+	static final Map<Long, Object[]> PLAYING = new HashMap<>();
+
+	static boolean claimTune(long tavern, long day, Resident r, boolean keen) {
+		Object[] cur = PLAYING.get(tavern);
+		if (cur != null && (long) cur[0] == day) {
+			return r.id.equals(cur[1]);
+		}
+		if (!keen && Math.floorMod(r.id.getLeastSignificantBits(), 2L) == 0) {
+			return false; // the shy half leave it to someone else, unless nobody comes who will
+		}
+		PLAYING.put(tavern, new Object[] {day, r.id});
+		return true;
+	}
+
+	static void releaseTune(long tavern, UUID who) {
+		Object[] cur = PLAYING.get(tavern);
+		if (cur != null && who.equals(cur[1])) {
+			PLAYING.remove(tavern);
+		}
+	}
+
 	@Override
 	public void stop(NpcService.FolkHandle folk) {
 		State st = this.states.remove(folk.resident().id);
 		if (st != null) {
+			if (st.musician) {
+				releaseTune(st.tavern, folk.resident().id);
+			}
 			if (st.sat) {
 				folk.standUp();
 			}
@@ -501,6 +527,7 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 
 	static void clear() {
 		TUNE_ENDED.clear();
+		PLAYING.clear();
 		ROUNDS.clear();
 	}
 }

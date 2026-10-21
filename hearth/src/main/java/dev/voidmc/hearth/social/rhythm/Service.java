@@ -171,11 +171,12 @@ public final class Service {
 		Set<UUID> attending = rest ? attending(s.residents(), day, data.service().share()) : Set.of();
 		Church church = rest ? church(s) : null;
 		Map<UUID, Integer> seats = new HashMap<>();
+		Resident leads = rest ? officiant(s) : null;
 		if (church != null && !church.seats().isEmpty()) {
 			// the lord and the elders in front, then by a fixed order of the week
 			List<Resident> sitting = new ArrayList<>();
 			for (Resident r : s.residents()) {
-				if (attending.contains(r.id) && r.job != JobType.PRIEST) {
+				if (attending.contains(r.id) && (leads == null || !r.id.equals(leads.id))) {
 					sitting.add(r);
 				}
 			}
@@ -185,7 +186,6 @@ public final class Service {
 				seats.put(sitting.get(i).id, i);
 			}
 		}
-		Resident leads = officiant(s);
 		d = new Day(day, s.population(), attending, seats, church, leads == null ? null : leads.id);
 		DAYS.put(s.id(), d);
 		if (DAYS.size() > 512) {
@@ -194,9 +194,10 @@ public final class Service {
 		return d;
 	}
 
-	/** Who in the town is the officiant: its priest, else a monk, else nobody (the eldest says the words). */
+	/** Who in the town is the officiant: its priest, else a monk, else an elder (a pious one first) says the words. */
 	static @Nullable Resident officiant(Settlement s) {
 		Resident monk = null;
+		Resident elder = null;
 		for (Resident r : s.residents()) {
 			if (r.job == JobType.PRIEST) {
 				return r;
@@ -204,8 +205,11 @@ public final class Service {
 			if (r.job == JobType.MONK && monk == null) {
 				monk = r;
 			}
+			if (r.age == AgeStage.ELDER && (elder == null || FolkFacts.has(r, "pious") && !FolkFacts.has(elder, "pious"))) {
+				elder = r;
+			}
 		}
-		return monk;
+		return monk != null ? monk : elder;
 	}
 
 	static synchronized void clear() {
