@@ -321,6 +321,21 @@ public final class LegendCombat {
 
 	// ---------------------------------------------------------------- the Iron Vow
 
+	/**
+	 * The blow before Player#hurtServer scaled it by difficulty (the ally's {@code amount} is already scaled; the holder's
+	 * hurtServer scales it again, so it is turned back first): easy halves it plus one, hard adds half.
+	 */
+	static float unscaled(ServerLevel level, DamageSource source, float amount) {
+		if (!source.scalesWithDifficulty()) {
+			return amount;
+		}
+		return switch (level.getDifficulty()) {
+			case EASY -> amount >= 2 ? (amount - 1) * 2 : amount;
+			case HARD -> amount * 2 / 3;
+			default -> amount;
+		};
+	}
+
 	private static boolean allowDeath(LivingEntity entity, DamageSource source, float amount) {
 		if (inner || !(entity instanceof ServerPlayer ally) || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)
 			|| source.getEntity() == null && source.getDirectEntity() == null) {
@@ -339,7 +354,7 @@ public final class LegendCombat {
 			int frames = holder.damageCooldownTime;
 			try {
 				holder.damageCooldownTime = 0;
-				holder.hurtServer(level, source, amount);
+				holder.hurtServer(level, source, unscaled(level, source, amount));
 			} finally {
 				inner = false;
 				if (holder.isAlive()) {

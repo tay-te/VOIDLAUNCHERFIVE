@@ -33,6 +33,8 @@ import net.minecraft.world.entity.LivingEntity;
  */
 final class MythicJourney {
 	private static final Identifier TWIN = Identifier.fromNamespaceAndPath("mettle", "twin_edge");
+	private static final String[] OTHER_BLADES = {"misericorde", "red_harvest"};
+	private static final java.util.List<String> HELD_FOR_TEST = new java.util.ArrayList<>();
 	private static final Identifier EYE = Identifier.fromNamespaceAndPath("mettle", "elders_eye");
 
 	private MythicJourney() {
@@ -48,6 +50,13 @@ final class MythicJourney {
 			Cards.clear(p);
 			Cards.ledger(s).unclaim("twin_edge");
 			Cards.ledger(s).unclaim("elders_eye");
+			// Blades has three drawn Mythics since build feel: the other two are held for the test, so the roll offers the Twin Edge.
+			for (String other : OTHER_BLADES) {
+				if (Cards.ledger(s).first(other).isEmpty()) {
+					Cards.ledger(s).claim(other, new CardData.Holder(new java.util.UUID(7, 7), "Stand-in", 0));
+					HELD_FOR_TEST.add(other);
+				}
+			}
 			var blades = Progress.skill("blades");
 			if (CharacterStore.get(p).level(blades) < 16) {
 				s.getCommands().performPrefixedCommand(s.createCommandSourceStack(), "mettle xp mettle:blades 20000 @a");
@@ -164,8 +173,10 @@ final class MythicJourney {
 			if (!eye) {
 				return "the Hall of Firsts doesn't show the Elder's Eye's holder: " + mythics;
 			}
-			if (mythics.get("drawnWaiting").getAsInt() != 7) {
-				return "drawn Mythics still waiting: " + mythics.get("drawnWaiting") + ", expected 7";
+			// Twenty-four drawn (three a skill): the Twin Edge claimed, and the other two Blades ones held for the test.
+			int expected = 24 - 1 - HELD_FOR_TEST.size();
+			if (mythics.get("drawnWaiting").getAsInt() != expected) {
+				return "drawn Mythics still waiting: " + mythics.get("drawnWaiting") + ", expected " + expected;
 			}
 			return cards.get("reveal").isJsonNull() ? "no reveal" : null;
 		}));
@@ -178,6 +189,8 @@ final class MythicJourney {
 			Cards.clear(p);
 			Cards.ledger(s).unclaim("twin_edge");
 			Cards.ledger(s).unclaim("elders_eye");
+			HELD_FOR_TEST.forEach(m -> Cards.ledger(s).unclaim(m));
+			HELD_FOR_TEST.clear();
 			CharacterStore.set(p, saved[0]);
 			EffectsApplier.apply(p);
 			p.setHealth(p.getMaxHealth());

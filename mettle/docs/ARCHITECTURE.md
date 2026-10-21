@@ -199,6 +199,7 @@ future mod's cart could).
 | `mettle:character/cards` | the owner's cards (a cache of the world ledger `data/mettle/cards.dat`, rebuilt on join), free swaps, pins, and what the deck makes active (perks, dormant cards, trait totals, sets) (CARDS.md §2.1) | yes | yes | `targetOnly` |
 | `mettle:character/escrow` | items a player has put up in a trade (back on join after a crash) | yes | yes | no |
 | `mettle:character/mythics` | the Mythics a player holds (public, for name cards) | no (rebuilt from the ledger) | — | `all()` |
+| `mettle:character/renown` | the byname worn, the legend title's stars and world, the crest (public, BUILD_FEEL.md §2) | no (rebuilt) | yes | `all()` |
 | `mettle:character/alive_since` | the in-game day the player last came back from death (Hundredth Dawn) | yes | yes | no |
 | `mettle:character/journal` | books read, places discovered, trainer sessions, anti-farm memory | yes | yes | no |
 | `mettle:burden/load` | `(load, capacity, band, heaviest item id + kg)` | no (derived) | no | `targetOnly` |
@@ -286,6 +287,7 @@ All client→server payloads are requests the server validates against the chara
 | `mettle:character/trade_action` · `mettle:character/updraft` | C→S | character (CARDS.md §8, §6.3) |
 | `mettle:character/card_sitting` · `trade_view` · `mythic_reveal` · `hall_of_firsts` | S→C | character |
 | `mettle:character/dash` | C→S | character (Seven-League Stride) |
+| `mettle:character/build_action` `(action, card, text)` | C→S | character (BUILD_FEEL.md: Focus, boons, Signatures, bynames, the forge, the guide) |
 | `mettle:character/respec` `(kind)` | C→S | character |
 | `mettle:gear/belt_use` `(pocket)` | C→S | gear |
 | `mettle:core/open_picker` | S→C | core (first join, after a background reset) |
@@ -297,7 +299,8 @@ All client→server payloads are requests the server validates against the chara
 The client mod is required: Fabric's attachment sync and the extra menu slots need it. A vanilla client is refused at
 the configuration phase with a clear message. At login the server sends `mettle:core/hello` with its protocol
 (`MettleHandshake.PROTOCOL`, bumped whenever server and client must match); a client on another protocol, or one that
-can't answer (no Mettle, or a Mettle older than 0.2), is refused with "VOID Mettle 0.2.0 required (you have ...)".
+can't answer (no Mettle, or a Mettle older than 0.2), is refused with "VOID Mettle 0.3.0 required (you have ...)". Protocol 3
+is 0.3.0 (build feel).
 
 ---
 

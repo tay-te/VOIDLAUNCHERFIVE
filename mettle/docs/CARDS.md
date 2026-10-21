@@ -4,7 +4,7 @@
 `CardService` api and card events, built 2026-10-12 (§25); the Hearth card broker and Arsenal's tie-ins belong to those
 branches (INTEGRATION.md §1.4, §5).**
 
-> **Build feel (design approved 2026-10-20, not built: [BUILD_FEEL.md](BUILD_FEEL.md)).** The next pass adds build
+> **Build feel (design approved 2026-10-20; first wave built 2026-10-21 in Mettle 0.3.0: [BUILD_FEEL.md](BUILD_FEEL.md) §12).** The next pass adds build
 > momentum (deals lean toward the keywords you have slotted and a chosen **Focus**, scaled by how scarce the keyword
 > is: §3.1's perk weight within its depth band and §3.4's second keyword), a **6 tier that wakes when two of its decks
 > reach skill 12** (§6.1), **bynames** from your build, odd-level **boons** (Temper a trait, Inscribe a keyword; new slot

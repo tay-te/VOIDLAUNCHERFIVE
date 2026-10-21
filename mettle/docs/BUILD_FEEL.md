@@ -2,8 +2,8 @@
 
 **Status: design approved by the user 2026-10-20 with two changes, both applied here: momentum scaled by how common a
 keyword is, so every keyword's 6-set lands around skill 12–16 (§1); and Mythics stay one of a kind, so shards forge
-only unclaimed Mythics from a wider drawn pool (§5). Branch `mettle-build-feel` (from `mettle` 0.2.0). No game code
-yet.** Every number below
+only unclaimed Mythics from a wider drawn pool (§5). Branch `mettle-build-feel` (from `mettle` 0.2.0). The first
+wave (§1–§6) is built in Mettle 0.3.0: §12.** Every number below
 comes from the simulator `BuildFeelReportTest` (§9), which prototypes these rules beside today's in the test sources;
 `./gradlew test --tests '*BuildFeelReportTest' -Dmettle.balance=true` writes `build/reports/mettle-build-feel.md`.
 Builds on [CARDS.md](CARDS.md) (cards, keywords, sets, rebuilds, Mythics, §14 ceilings) and [DRAFT.md](DRAFT.md)
@@ -655,3 +655,71 @@ only unclaimed ones from a pool widened to 24, and an empty pool gives a cosmeti
    but not in your skills. The legend title's wording ("the Legend of {world}").
 5. **Deeds keep their numbered copies** (CARDS.md §9.3, as built). If "one of a kind" should cover deeds too, each deed
    would become a world first; not changed here.
+
+---
+
+## 12. Built (first wave, Mettle 0.3.0, 2026-10-21)
+
+Built on branch `mettle-build-feel-code` (from this design at 25e0b0ad) and merged into `mettle`: everything of §1–§6
+except what §12.3 lists. Talents, Stealth and Speech, and first-achiever-only deed Mythics are later waves.
+
+### 12.1 Where it lives
+
+| Part | Code |
+|---|---|
+| Momentum, Focus, the 6 tier's gate | `CardRules.Commitment` / `perkLean` / `keywordLean` / `weights` (band-rescaled) / `tier(count, decks, levels)` / `sixAsleep`; `Keyword.momentum` (data); hands dealt with the commitment in `Drafts` (settle, reroll, top-up); `BuildFeel.focus` |
+| Boons | `DraftState.boons` (odd levels from `boons_from` via `CardRules.levelled`; an old save has none, its rerolls stay); `CardRules.tempered` / `canTemper` / `temper` / `canInscribe` / `inscribe`; `CardData.Marks` (Tempered, Inscribed, Signature lines, in the ledger, kept through trades and scars); the slot rules `TEMPERED_FULL` / `INSCRIBED_FULL` in `CardRules.canSlot`; `BuildFeel.temper` / `inscribe` / `boonReroll` (ledger, then `LedgerFile.commit`) |
+| Bynames, Signatures | `Bynames` (pure: tier now / earned, keyword and skill order, the four forms), `BynameText` and the synced `mettle:byname` registry (`data/mettle/mettle/byname/{keywords,skills,pairs}.json`, words in lang); `Mythic.epithet`; `BuildState.Bynames` (worn, earned tier, held); the public `mettle:character/renown` (byname, legend, crest) for name cards; `CardService.byname` (api, default empty) |
+| "Your build", the preview | `BuildSummary`, `BuildPreview` (pure, from `CardRules.derive`); `SetBonus.summary` lines (data) |
+| Milestones | `BuildFeel.derived` (called from `Cards.derive` when the deck's derived state changes), once each in `BuildState.once`; `MomentKind` CARD, SET, BYNAME, SIGNATURE, BOON, FORGE_READY; `Moment` carries the server's words; `MilestoneSounds` reuses the card cues; `MomentQueue.advance(ms, calm)` holds milestones while a screen is open or for 5 s after harm |
+| Shards and the forge | `ForgeRules` (pure: ladder, `canForge`, `canLegend`, `ready`, the roll's `offered`); `BuildFeel.addShards` / `forge` / `bossKilled`; `Mythics.drawnAll` / `pool` / `grant(…, How.FORGED)`; the drawn roll offers one of the skill's unclaimed three, or pays 3 shards when all are held |
+| The sixteen Mythics | `character.cards.legend` (`LegendEffects` and helpers), `mixin.legend`, `client.legend`, `LegendJourney` |
+| The guide | `GuideRules` (pure state machine), `BuildFeel.guideTick` (once a second), `BuildState.Guide`; the guided first hand in `Drafts.settle` (`BuildFeel.guidedFirstHand`) |
+| Overlay | `client.overlay.MettleBuild` (`cards.build`, set / deck / card additions, hand `preview`), `MettleBoons` (previews on demand), `MettleActions` (OVERLAY.md "Build feel") |
+| Chat | `/mettle build` (show, `focus`, `temper`, `inscribe`, `boon reroll`, `signature`, `byname [n]`, `forge`, `guide skip`; ops: `shards`, `boons`, `guide on/off`) |
+| Config | `config/mettle/cards.json` §7's fields (`momentum_*`, `six_tier_skill`, `focus_*`, `boons_from`, `temper_*`, `inscribe_*`, `shard_forge_costs`, `forge_skill`, `shard_*`, `legend_stars_max`, `guide`, `first_hand_rare`) |
+
+Persistence: build feel's record is `CardsState.build` (`BuildState`, saved with the player, kept on death, synced to the
+owner); marks are on the card in the world ledger; every codec clamps or skips instead of failing; a Temper, an
+Inscription, a Signature and a forge are committed (ledger, then the player's file) at once. The client never deals:
+previews read cards already dealt and owned. The protocol is 3 (`MettleHandshake`), the version 0.3.0.
+
+### 12.2 Checked
+
+`BuildFeelRulesTest` (21: momentum is today's deal with no commitment, band totals kept and no perk below half over
+100,000 random commitments, the cap, Hex and momentum-0 keywords never lean, Focus never counts for sets, determinism,
+the second keyword's unchanged chance and its leaned odds over 100,000 rolls, the gate, Temper (¼ step, band top, grid,
+once, three a deck, scars, fusion), Inscribe (pool, native, Hex, seed, once, one a deck, Commons, cursed cards), boons
+and old saves, every byname word, the Deepdelver → … of the Mountain, keyword order, the preview against `derive`, the
+summary, the forge ladder and one of a kind, two players forging the last Mythic, once-only sources, the guide, records
+that never fail and the ledger's writer), `MomentQueueTest` (milestones wait for calm, never merge), `MythicRulesTest`
+(thirty-six, three drawn a skill), `CardAuditTest` (every Mythic wired). The simulator now plays the game's own deal,
+gate and Temper (`BuildFeelReportTest`, the prototype removed). Client tour: `BuildFeelJourney` (the guide for a new
+character, none for a migrated one, the guided Rare, Skip; the Focus and its daily change; boons at Mining 7, 9, 11 each
+way with previews, marks and refusals; first card, first set and byname moments, once; forge-ready, a forge, a held
+Mythic refused, the legend title on an emptied pool) and `LegendJourney` (the sixteen).
+
+### 12.3 Where it differs, and why
+
+1. **Milestones and the guide live in the card cache's build record**, not the unsynced journal: the guide's hint and
+   the Forge tab must reach the client.
+2. **The hand preview is worked out on the client** from the synced cards with the same pure rules (no round trip; it
+   only reads what is already dealt and owned).
+3. **Not in this wave:** deed progress in the Hall (§5.1), the binder's "Completes a set" filter (§6.2: the data is
+   there, `preview`), chat-name hover (the renown attachment carries what it needs), loadouts (§6.3, not chosen).
+4. **Shards:** "a draft from skill 15" pays on each draft kept from a skill at 15 or more; boss shards go to everyone with
+   at least 25 % of the fight's damage, once per kind, after its world first is claimed.
+5. **The guided first hand** counts an Epic as "at least a Rare"; otherwise its first Common is rolled again at Rare
+   from the secret seed. Hint 3 shows only after hint 2's six seconds while the hand is still open.
+6. **A Mythic counts 6 points** in byname skill points and previews (CARDS.md §14's size).
+7. **The sixteen Mythics' close readings** (LegendJourney checks each): Deep Lantern also blocks spawners, trial
+   spawners and zombie reinforcements near a holder below y 0 (natural spawns never come within 24 blocks anyway);
+   Misericorde counts the target's health before the hit; Thunderhead needs open sky over the target, spares the
+   caller and allies, and lights no fire where the caller may not build; Dread Maul's cooldown starts only when
+   something fled; Hunter's Moon's night is clock time 12542–23460 under open sky, and its second arrow is half the first
+   arrow's own damage; the Pinning Star roots any mob, bosses too (the text doesn't exclude them); the Iron Vow takes
+   killing blows from an attacker (not falls or lava); the Long Watch's glow is drawn only on its players' clients;
+   the Ferryman's Stride stands on still source water; the Cat's Way holds height from the top of a sprint-jump beside a
+   wall; the Greenway's leaves let you walk through natural leaves from the side (leaves never slow in vanilla); the
+   Ever-Ember halves cook time while its owner is online with the card (each item then takes half the fuel); the
+   Mender's Hand repairs a plain repair (material or a plain copy) fully once a day, prior work unchanged.

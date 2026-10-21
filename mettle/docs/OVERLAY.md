@@ -236,6 +236,90 @@ comma-separated):
 | `cardSound(cue, arg)` | the card sounds timed to the overlay's animations (SOUNDS.md §5); timing in `draft.sound` |
 | `setCardSounds(on)` · `setCardSoundsVolume(percent)` | the client option for card sounds (SOUNDS.md §8): on or off, and 0-100 % (default on, 100); saved in `mettle-client.properties` and shown as `draft.sound.enabled` / `draft.sound.volume` |
 
+**Build feel (BUILD_FEEL.md, built 2026-10-21, Mettle 0.3.0)** adds, all read from the synced card cache
+(`CardsState.build`, the draft record's `boons`) and the pure rules (`BuildPreview`, `BuildSummary`, `Bynames`), so the
+Hub only reads. Built in `client.overlay.MettleBuild` (state) and `MettleBoons` (previews asked for by the page).
+
+```ts
+cards.build: {
+  focus: { keyword: string | null; name: string; canChange: boolean; weight: 2; note: "Changes once a day" };
+  momentum: { keyword; momentum: number; commitment: number;        // 0–4: slotted cards carrying it + 2 for the Focus
+              perkLean: number; keywordLean: number }[];              // what the deal does with it now (1 = no lean)
+  sixTierSkill: 12;                                                   // a 6 tier wakes when two of its decks reach it
+  byname: { worn: Byname | null; tier: 0–4; tierName: "Renowned";
+            reads: Byname | null;                                     // what the build reads as now
+            offer: boolean; offerText: "Your build reads as the Iron Ember Vanguard";   // "Take it" (takeByname)
+            held: (Byname & { index; wearing })[];                     // every byname held (wearByname(index))
+            crest: string | null;                                     // icon of skill1's Signature (perk icon or Mythic id)
+            legend: { stars: 1–3; of: "Hollowmere"; title: "the Legend of Hollowmere" } | null };
+  summary: { empty: boolean; emptyText; headline: Byname | null;
+             lines: { kind: "set" | "trait" | "mastery" | "mythic"; id; text: "In the dark you heal…";
+                      source: "Deep 6 (Underdark)"; tier?; value?; cap? }[];          // up to five, §2.3's order
+             next: { kind: "set" | "byname" | "forge"; text: "Next: 2 more Ember cards → Ember 4"; keyword?; cards?; tier? } | null };
+  boons: { total; text: "2 boons waiting"; bySkill: { skill; name; count }[];
+           choices: { id: "temper" | "inscribe" | "reroll"; name; what; enabled }[];   // reroll greyed while 5 are held
+           temperStep: 0.25; temperPerDeck: 3; inscribePerDeck: 1; rerollsFull: boolean };
+  signatures: { skill; card }[];
+  shards: { count; cost: 30 | 45 | 60; forges; text: "Shards 24 / 30"; ladder: [30, 45, 60]; enough: boolean };
+  forge: { atShrine: boolean;
+           pool: { id; name; effect; icon; skill; skillName; state: "forgeable" | "locked" | "held";
+                   holder; text: "Needs Smithing 18" | "Held by Bree" | "Can be forged"; canForgeNow }[];   // the 24 drawn
+           waiting: number; poolText: "17 of 24 drawn Mythics still wait";
+           waitingText: "Your shards wait: unclaimed Mythics are left in Blades, Smithing";   // none in your skills at 18
+           legendOffered: boolean; legendText; cost };
+  milestones: string[];                     // done: "first_card", "first_set", "first_four", "six/mettle:deep", "byname/3", …
+  guide: { on; skipped; seen: number[];
+           hint: { id: 1–10; key: "xp" | "hand" | "keep_slot" | "slotted" | "keyword" | "makes_set" | "first_set" | "cant_slot"
+                   | "swaps" | "boon"; anchor: "xp_chip" | "hand" | "keep_slot" | "deck_row" | "keyword_badge" | "card_preview"
+                   | "set_tracker" | "card" | "free_swaps" | "boon_badge"; text; ageTicks;
+                   skip: boolean; skipText: "Skip the guide";          // the first hint carries Skip
+                   buttons: { id: "focus" | "not_now"; text; keyword? }[]; card? } | null };
+};
+type Byname = { text: "the Deep Ember Warden"; tier; tierName; tierLine: "Tier III · Renowned";
+                line: "A miner who holds the line."; kw1; kw2?; skill1; skill2?; mythic? };
+```
+
+Also new: `cards.sets[]` gains `asleep` + `asleepText` ("Deep 6 · wakes when two of its decks reach 12"), `next`
+(2/4/6), `oneAway` (pulse) + `nextText` ("3 / 4"), `focus` and `momentum`, and its `tier` counts the gate;
+`cards.decks[]` gains `tempered` / `temperMax` / `temperedText` ("Tempered 2 / 3"), `inscribed` / `inscribeMax` /
+`inscribedText`, `signature` (card id or null) and `boons`; every card gains `marks` (`tempered` {trait, before, after,
+text, day}, `inscribed` {keyword, was?, text, day}, `signed` lines) and `signature`; `cards.players[]` (name cards) gains
+`byname`, `crest` and `legend` (from the public `mettle:character/renown`). Each hand card gains `preview` (null for a
+Mythic offer):
+
+```ts
+preview: { placement: { kind: "fill" | "replace" | "waits" | "blocked" | "change"; slot; pointsDelta;
+                        replaces?; replacesName?; cost: "free swap" | "rebuild 120 bits + draught" | ""; fee;
+                        text: "Replaces Quarryman I (+1.4) · free swap" };
+           sets: { keyword; name; from; to; tierFrom; tierTo; opens; breaks; asleep;
+                   text: "Deep 3 → 4 · Deep 4 opens: Below ground, hostiles notice you later." }[];
+           traits: { trait; from; to; cap; text: "Deepborn 24 → 30 of 30" }[];
+           byname: "Byname → the Deep Ember Delver" | null; focus: boolean;
+           lines: string[] };                // up to three short lines, as §6.1 shows them
+```
+
+`mettleMoment` gains the milestone kinds `card`, `set`, `byname`, `signature`, `boon`, `forge_ready` with `milestone:
+true`, `big` (a byname tier or a 6-set: the 2.5 s banner over the name card), and `text` (the server's words, "Deep 2",
+"You are the Deepdelver", "Tempered · Deepborn 8 → 10 %"). Mettle plays their sounds (SOUNDS.md cues: `slot`,
+`set_complete` and the Mythic shimmer tail, the level chime and bell, `pick.epic`, the feat fanfare); the native toast
+holds milestones while a screen is open or for 5 s after harm.
+
+Build feel actions (`MettleActions`; the server answers with a `mettleFeedback` chip and the synced state):
+
+| Call | Effect |
+|---|---|
+| `setFocus(keyword)` | Focus a keyword (`""` clears it); counts as two slotted cards for momentum, never for sets; once an in-game day |
+| `temperCard(card, trait)` · `inscribeCard(card, keyword)` · `boonReroll(skill)` | spend a boon of the card's skill (of `skill` for the reroll) |
+| `boonOptions(card)` → JSON | B6's card picker: each trait's Temper (`from`, `to`, `ok`, `reason`) and each pool keyword's Inscription (`ok`, `reason`) |
+| `previewTemper(card, trait)` · `previewInscribe(card, keyword)` → JSON | B7 / B8: the hand preview's shape plus `ok`, `reason` (and `from`, `to`, `bandTop` for a Temper); nothing is sent |
+| `previewSlot(card)` → JSON | B16 "If slotted…" for a binder card |
+| `setSignature(card)` · `clearSignature(skill)` | a slotted card as its deck's Signature (identity only) |
+| `takeByname()` · `wearByname(index)` | wear what the build reads as, or a held byname |
+| `forgeMythic(id)` · `forgeLegend()` | at a Card Shrine: forge an unclaimed drawn Mythic of a skill at 18 (30 / 45 / 60 shards), or the legend title when none is left anywhere |
+| `guideSkip()` · `guideAdvance(event)` | the guide: Skip; `dismiss` (×), `deck` (Deck opened), `keyword` (a badge hovered), `unhover`, `not_now`, `focus` (after `setFocus`) |
+
+All existing calls and fields are unchanged.
+
 Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`
 (the text says what happened and names the heaviest stack), so the HUD can show the chip without polling.
 
