@@ -162,7 +162,11 @@ class BridgeTest {
 			{"haggle", "3#0"}, {"haggleOffer", "190"}, {"haggleAccept", ""}, {"deposit", "-1"}, {"withdraw", "250"}, {"sellEmeralds", "1"},
 			{"buyPlot", "7"}, {"fund", "4#10"}, {"accept", "41cb1892-0888-d08d-6dfd-14c4edf1cdab"}, {"confront", ""}, {"confront", "pay"},
 			{"lift", "5"}, {"diceToggle", "3"}, {"diceLoaded", "1"}, {"requestReputation", ""}, {"setConversationStyle", "cinematic"},
-			{"trackPoster", "5eedf00d-1234-4bcd-9ef0-123456789abc"}, {"untrackPoster", ""}};
+			{"trackPoster", "5eedf00d-1234-4bcd-9ef0-123456789abc"}, {"untrackPoster", ""}, {"close", "gear"},
+			{"companionOrder", "11111111-1111-1111-1111-111111111111#follow"}, {"companionOrder", "11111111-1111-1111-1111-111111111111#return"},
+			{"companionGear", "11111111-1111-1111-1111-111111111111"}, {"companionLend", "11111111-1111-1111-1111-111111111111#40"},
+			{"companionLend", "11111111-1111-1111-1111-111111111111#0"}, {"companionTake", "11111111-1111-1111-1111-111111111111#offhand"},
+			{"refreshHousehold", ""}, {"trackPerson", "33333333-3333-3333-3333-333333333333"}, {"untrackPerson", ""}};
 		for (String[] c : ok) {
 			assertEquals(new Bridge.HearthCall(c[0], c[1]), Bridge.decode(Json.object().put("type", "hearth").put("op", c[0]).put("arg", c[1]).end()), c[0]);
 		}
@@ -170,7 +174,11 @@ class BridgeTest {
 		assertEquals(new Bridge.HearthCall("lift", "2"), Bridge.decode("{\"type\":\"hearth\",\"op\":\"lift\",\"arg\":2}"));
 		String[][] bad = {{"choose", ""}, {"choose", "npc news"}, {"close", "inventory"}, {"trade", "12"}, {"haggleOffer", "-5"}, {"deposit", "1.5"},
 			{"sellEmeralds", "0"}, {"accept", "not-a-uuid"}, {"diceToggle", "6"}, {"setConversationStyle", "ledger"}, {"pay", "1"}, {"lift", "1.5"},
-			{"trackPoster", ""}, {"trackPoster", "Jory Flint"}, {"untrackPoster", "x"}};
+			{"trackPoster", ""}, {"trackPoster", "Jory Flint"}, {"untrackPoster", "x"},
+			{"companionOrder", "11111111-1111-1111-1111-111111111111"}, {"companionOrder", "11111111-1111-1111-1111-111111111111#lend"},
+			{"companionOrder", "Sigrun#follow"}, {"companionGear", ""}, {"companionLend", "11111111-1111-1111-1111-111111111111#9"},
+			{"companionLend", "11111111-1111-1111-1111-111111111111#36"}, {"companionTake", "11111111-1111-1111-1111-111111111111#hotbar"},
+			{"refreshHousehold", "1"}, {"trackPerson", "Harald Smed"}, {"untrackPerson", "33333333-3333-3333-3333-333333333333"}};
 		for (String[] c : bad) {
 			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(Json.object().put("type", "hearth").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
 		}

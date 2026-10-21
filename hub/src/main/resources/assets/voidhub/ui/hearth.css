@@ -154,6 +154,8 @@ body.hearth #hearth.cine { left: 0; top: 0; width: 100%; height: 100%; }
 .h-opt.locked .l { opacity: 0.4; }
 .h-opt.locked svg { opacity: 0.5; }
 .h-opt.locked:hover { background: transparent; border-color: transparent; }
+.h-optbar { width: 3px; border-radius: 2px; background: var(--line-2); }
+.h-optbar > i { position: absolute; left: 0; width: 3px; border-radius: 2px; background: var(--ink-4); }
 .h-mchip {
   height: 23px; display: flex; align-items: center; gap: 6px; padding: 0 9px 0 8px; flex: none;
   background: var(--well); border: 1px solid var(--line-2); border-radius: 10px; font-size: 10.5px; color: var(--ink-2);
@@ -271,3 +273,85 @@ body.hearth #hearth.cine { left: 0; top: 0; width: 100%; height: 100%; }
 .h-pills { display: flex; flex-wrap: wrap; gap: 6px 6px; width: 558px; }
 .h-pills > * { position: relative !important; }
 .h-empty { left: 0; right: 0; text-align: center; font-size: 12px; color: var(--ink-4); }
+
+/* ---- the living-world screens (OVERLAY.md 2026-10-21; Figma "Hearth - Living world screens (explore)") --------------- */
+/* Small coin prices (the designs' coin pills): 11 px counts, 7 px coin squares. */
+.h-price.sm { font-size: 11px; gap: 6px; height: 13px; }
+.h-price.sm > span { gap: 4px; }
+.h-price.sm i { width: 7px; height: 7px; border-radius: 1.5px; }
+.h-pill.ink[data-op]:hover, .h-pill[data-ui]:hover { background: var(--raised); }
+
+/* F2 Household B (710:45834): the roster and the one card */
+.h-roster { left: 28px; top: 76px; width: 317px; height: 482px; }
+.h-hh { left: 361px; top: 76px; width: 598px; height: 482px; }
+.h-mem { left: 8px; width: 301px; height: 52px; border-radius: 14px; border: 1px solid transparent; }
+.h-mem:hover { border-color: var(--line-2); }
+.h-mem.sel { background: var(--h-active); border-color: var(--line); }
+.h-mem .fw, .h-prow .fw { left: 8px; top: 6px; width: 40px; height: 40px; border-radius: 10px; }
+.h-mem .nm { left: 58px; top: 9px; font-size: 13px; color: var(--ink); white-space: nowrap; }
+.h-mem .st { left: 68px; top: 27px; width: 225px; font-size: 11px; color: var(--ink-2); white-space: pre; overflow: hidden; }
+.h-ocol { display: flex; flex-direction: column; width: 282px; }
+.h-ocol > * { position: relative !important; }
+.h-gslot { top: 330px; width: 40px; height: 40px; border-radius: 10px; }
+.h-gslot.empty, .h-wslot.empty { background: transparent; border-color: var(--line-2); }
+.h-wage { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); white-space: nowrap; }
+
+/* F3 companion gear (711:47250) */
+.h-worn { left: 28px; top: 76px; width: 436px; height: 482px; }
+.h-pack { left: 480px; top: 76px; width: 479px; height: 482px; }
+.h-figure { left: 108px; top: 40px; width: 220px; height: 300px; border-radius: 16px; overflow: hidden; }
+.h-figure .floor { left: 0; top: 259px; width: 218px; height: 40px; background: rgba(255, 255, 255, 0.03); }
+.h-slotname { width: 80px; text-align: center; }
+.h-wslot { width: 46px; height: 46px; border-radius: 12px; }
+.h-wslot[data-op]:hover { border-color: rgba(255, 255, 255, 0.2); }
+.h-hslot { width: 41px; height: 41px; border-radius: 11px; }
+.h-hslot:hover { border-color: rgba(255, 255, 255, 0.16); }
+.h-hslot.sel { background: #212225; border: 2px solid rgba(237, 238, 239, 0.6); }
+.h-hslot .cnt { right: 4px; bottom: 2px; font-size: 11px; color: var(--ink); }
+.h-hslot .gv { right: 4px; top: 4px; width: 5px; height: 5px; border-radius: 1.5px; background: var(--violet); }
+.h-acts { left: 8px; top: 240px; width: 463px; display: flex; flex-direction: column; gap: 2px; }
+.h-acts > * { position: relative !important; }
+
+/* F4 People A (713:48066): the list and the story */
+.h-plist { left: 28px; top: 76px; width: 357px; height: 482px; }
+.h-story { left: 401px; top: 76px; width: 558px; height: 482px; }
+.h-prow { left: 8px; width: 341px; height: 52px; border-radius: 14px; border: 1px solid transparent; }
+.h-prow:hover { border-color: var(--line-2); }
+.h-prow.sel { background: var(--h-active); border-color: var(--line); }
+.h-prow .fw { top: 4px; width: 36px; height: 36px; }
+.h-prow .nm { left: 54px; top: 4px; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; }
+.h-prow .nm .n { flex: none; }
+.h-prow .nm .r { overflow: hidden; text-overflow: ellipsis; }
+.h-prow .nm .n { font-size: 13px; color: var(--ink); }
+.h-prow .nm .r { font-size: 11px; color: var(--ink-4); }
+.h-prow .st { left: 54px; top: 22px; width: 240px; font-size: 11px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-beat { width: 8px; height: 8px; border-radius: 2px; background: rgba(237, 238, 239, 0.32); }
+.h-beat.on { background: var(--h-wary); }
+.h-thread { width: 1px; background: rgba(255, 255, 255, 0.12); }
+.h-cline { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--ink); white-space: pre; }
+.h-end { width: 240px; height: 54px; border-radius: 14px; background: var(--well); border: 1px solid var(--line-2); }
+.h-end.time { background: transparent; border: 1px dashed rgba(255, 255, 255, 0.14); }
+.h-end .tx { left: 12px; top: 9px; width: 216px; height: 30px; font-size: 11px; line-height: 15px; color: var(--ink-2); overflow: hidden; }
+
+/* F1 the stranger (708:43645) */
+.h-dmd { display: flex; gap: 18px; align-items: center; }
+.h-dmd > * { position: relative !important; }
+.h-dmd .d { display: flex; align-items: center; gap: 7px; }
+.h-dmd .d > * { position: relative !important; }
+.h-dmd .c { font-size: 17px; color: var(--ink); }
+.h-dmd .n { font-size: 8.5px; letter-spacing: 1px; color: var(--ink-4); }
+
+/* F5 burgher status and retinue ranks (712:47881) */
+.h-tcard { left: 360px; top: 75px; width: 598px; height: 214px; }
+.h-rcard { left: 360px; top: 305px; width: 598px; height: 252px; }
+.h-lord { left: 7px; width: 301px; height: 40px; border-radius: 12px; border: 1px solid transparent; }
+.h-lord:hover { border-color: var(--line-2); }
+.h-lord.sel { background: var(--h-active); border-color: var(--line); }
+.h-rank { width: 133px; height: 58px; border-radius: 12px; background: var(--well); border: 1px solid var(--line-4); }
+.h-rank.on { background: var(--h-active); border-color: rgba(255, 255, 255, 0.16); }
+.h-rank .pips { left: 10px; top: 10px; width: 41px; height: 8px; }
+.h-rank .pips i { position: absolute; top: 0; width: 8px; height: 8px; border-radius: 2px; background: var(--cell-off); }
+.h-rank .pips i.on { background: var(--cell-on); }
+.h-rank .pips i.brass { background: rgba(201, 163, 91, 0.95); }
+.h-rank .nm { left: 10px; top: 24px; font-size: 12px; color: var(--ink); white-space: nowrap; }
+.h-rank .sb { left: 10px; top: 39px; width: 113px; font-size: 10.5px; color: var(--ink-4); white-space: nowrap; overflow: hidden; }

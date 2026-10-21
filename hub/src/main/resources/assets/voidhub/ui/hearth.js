@@ -12,6 +12,9 @@
 // OVERLAY.md 2026-10-19 (hearth-ui2): portraits for every resident-backed screen (market.merchant, dice.opponent,
 // pickpocket), haggle.takes / takesLast ("he takes it" odds), bank.ledger (LATELY), board.wanted[].player / tracked and
 // state.wantedTrack (a tracked poster: trackPoster / untrackPoster), and training's fee in the option's cost.
+// OVERLAY.md 2026-10-21 (hearth-lwui, the living-world screens): the Quests page's People (F4 A) and Household (F2 B)
+// segments, the gear screen (F3), a stranger's conversation (F1, talk.stranger) and the reputation page's burgher and
+// retinue cards (F5). The contest and arrival lines (F6, F7) are Hearth's own HUDs.
 (function () {
   "use strict";
 
@@ -23,7 +26,7 @@
   var kind = "";         // the layout's kind
   var lay = null;
   var ui = {focus: -1, pop: "", offer: null, offerRow: -1, amount: 0, plot: -1, town: -1, quest: null, scroll: 0, shift: false, pslot: -1,
-    bankTab: "", marketTab: "sells", asked: false};
+    bankTab: "", marketTab: "sells", asked: false, member: null, person: null, lord: 0, hand: -1, askedHouse: false};
   var drawn = "";        // the frame drawn (screen + style), to rebuild the parts when it changes
   var lastKey = "";      // tests: the last key Java passed on
   var icons = {};        // Hearth's icons by id ({"type":"icons","mod":"hearth"}), apart from Mettle's
@@ -75,7 +78,9 @@
     cell: ["#######", "#.#.#.#", "#.#.#.#", "#.#.#.#", "#.#.#.#", "#.#.#.#", "#######"],
     quest: ["...#...", "...#...", "...#...", "...#...", "...#...", ".......", "...#..."],
     coin: [".#####.", "#.....#", "#.###.#", "#.#.#.#", "#.###.#", "#.....#", ".#####."],
-    house: ["...#...", "..###..", ".#####.", "#######", ".#.#.#.", ".#####.", ".##.##."]
+    house: ["...#...", "..###..", ".#####.", "#######", ".#.#.#.", ".#####.", ".##.##."],
+    tower: ["#.#.#.#", "#######", ".#####.", ".##.##.", ".#####.", ".#####.", "#######"],
+    shield: ["#######", "#######", "##.#.##", ".#####.", ".#####.", "..###..", "...#..."]
   };
   var KIND_GLYPH = {talk: "talk", trade: "trade", bank: "coin", quest: "quest", persuade: "persuade", intimidate: "hand", bribe: "coin",
     flatter: "persuade", train: "train", service: "trade", law: "scroll", fence: "hand", dice: "dice", repair: "pick", leave: "leave",
@@ -254,16 +259,38 @@
       '<div class="k">' + (o.key >= 0 ? o.key : "") + "</div>" + glyph(g, 16) + '<div class="l">' + esc(optionLabel(o)) + "</div>" + optionChip(o) + "</div>";
   }
 
-  /** At most ten rows: the first nine, and goodbye always last (key 0). */
+  /** Every option, goodbye always last (key 0). Past the ninth an option has no number key (key -1): it is clicked or picked
+   *  with the arrows, and the list scrolls when there are more than the view's rows (talkWindow). */
   function talkOptions(t) {
     var out = [], leave = null;
     for (var i = 0; i < t.options.length; i++) {
       var o = t.options[i];
       if (o.kind === "leave" || o.key === 0) { if (!leave) leave = o; continue; }
-      if (out.length < 9) out.push(o);
+      out.push(o);
     }
     if (leave) out.push(leave);
     return out;
+  }
+
+  /** The first option row the talk view shows: ui.scroll clamped to the list, moved so the focused option is in view.
+   *  Remembers the view's rows and wheel step for wheel(). */
+  function talkWindow(len, rows, step) {
+    var top = Math.max(0, Math.min(ui.scroll, len - rows));
+    if (ui.focus >= 0 && ui.focus < len) {
+      if (ui.focus < top) top = ui.focus;
+      else if (ui.focus >= top + rows) top = ui.focus - rows + 1;
+    }
+    ui.scroll = top;
+    ui.talkRows = rows;
+    ui.talkStep = step || 1;
+    return top;
+  }
+
+  /** A still scrollbar beside an option list that does not fit (no thumb when it does). */
+  function talkBar(len, rows, top, left, y, height) {
+    if (len <= rows) return "";
+    var th = Math.max(16, Math.round(height * rows / len)), ty = Math.round((height - th) * top / Math.max(1, len - rows));
+    return '<div class="h-optbar" style="left:' + left + "px;top:" + y + "px;height:" + height + 'px"><i style="top:' + ty + "px;height:" + th + 'px"></i></div>';
   }
 
   /** The option's words without the provider's own "[Persuade 62%]" prefix when the chip already says it. */
@@ -281,6 +308,7 @@
   }
 
   function talkA(t) {
+    if (t.stranger) { talkStranger(t); return; }
     var w = win();
     var r = t.resident;
     part(w, "ht-head", "1|" + placeLine(t).join("|"), function () {
@@ -318,11 +346,11 @@
         '<div class="line">“' + esc(t.line) + "”</div>" + (t.lastCheck ? '<div class="check">' + esc(t.lastCheck) + "</div>" : "") + "</div>" +
         '<div class="h-hair" style="left:368px;top:179px;width:590px"></div>';
     });
-    var opts = talkOptions(t);
-    part(w, "ht-opts", JSON.stringify([opts, ui.focus]), function () {
+    var opts = talkOptions(t), top = talkWindow(opts.length, 10);
+    part(w, "ht-opts", JSON.stringify([opts, ui.focus, top]), function () {
       var h = '<div class="h-opts flow">';
-      for (var i = 0; i < opts.length; i++) h += optionRow(opts[i], i, 598);
-      return h + "</div>";
+      for (var i = top; i < opts.length && i < top + 10; i++) h += optionRow(opts[i], i, 598);
+      return h + "</div>" + talkBar(opts.length, 10, top, 964, 189, 378);
     });
     part(w, "ht-foot", "f", function () {
       return foot("1–9 CHOOSE  ·  0 OR ESC LEAVES  ·  ODDS ARE HEARTH’S, SKILL LEVELS ARE METTLE’S", "talk");
@@ -342,15 +370,15 @@
       return '<div class="h-sub flow" style="left:' + Math.round((vw - 868) / 2) + "px;bottom:" + (vh - by + 24) + 'px"><div class="who">' + esc(r.name) +
         '</div><div class="line">“' + esc(t.line) + "”</div></div>";
     });
-    var opts = talkOptions(t);
-    part(root, "hb-bar", JSON.stringify([r, t.standing, opts, ui.focus, bw, bx, by]), function () {
+    var opts = talkOptions(t), top = talkWindow(opts.length, 10, 5);
+    part(root, "hb-bar", JSON.stringify([r, t.standing, opts, ui.focus, top, bw, bx, by]), function () {
       var cw = Math.floor((bw - 335 - 19 - 6) / 2);
       var st = t.standing || {};
       var traits = [];
       for (var i = 0; i < r.traits.length && i < 2; i++) traits.push(r.traits[i].name);
       var c1 = "", c2 = "";
-      for (var k = 0; k < opts.length; k++) {
-        if (k < 5) c1 += optionRow(opts[k], k, cw); else c2 += optionRow(opts[k], k, cw);
+      for (var k = top; k < opts.length && k < top + 10; k++) {
+        if (k < top + 5) c1 += optionRow(opts[k], k, cw); else c2 += optionRow(opts[k], k, cw);
       }
       return '<div class="h-bar" style="left:' + bx + "px;top:" + by + "px;width:" + bw + 'px">' +
         '<div class="h-well pw">' + face(r, 112, "left:-1px;top:-1px") + "</div>" +
@@ -366,7 +394,7 @@
         standingCells(st.value || 0, 23, 209, 14, 4) +
         '<div style="left:23px;top:227px;width:279px;font-size:10.5px;color:#626569;white-space:nowrap;overflow:hidden">' + (r.memory ? "Remembers: " + esc(r.memory.text) : "") + "</div>" +
         '<div style="left:323px;top:23px;width:var(--hair,1px);height:220px;background:rgba(255,255,255,0.07)"></div>' +
-        '<div class="cols"><div class="col">' + c1 + '</div><div class="col">' + c2 + "</div></div>" +
+        '<div class="cols"><div class="col">' + c1 + '</div><div class="col">' + c2 + "</div></div>" + talkBar(opts.length, 10, top, bw - 15, 19, 196) +
         '<div class="h-eb" style="left:347px;top:239px">1–9 CHOOSE  ·  0 OR ESC LEAVES  ·  MOUSE LOOK STAYS LOCKED</div>' +
         '<div class="h-eb" style="right:23px;top:239px">HEARTH:TALK  ·  LIVE</div>' +
         "</div>";
@@ -877,7 +905,8 @@
     var w = win();
     var j = H.journal || {active: [], finished: {completed: 0, failed: 0, total: 0, recent: []}};
     var board = H.board;
-    var counts = [["journal", "Journal", j.active.length], ["board", "Notice board", board ? board.counts.open : ""], ["reputation", "Reputation", ""], ["finished", "Finished", j.finished.total]];
+    var counts = [["journal", "Journal", j.active.length], ["board", "Notice board", board ? board.counts.open : ""], ["reputation", "Reputation", ""], ["finished", "Finished", j.finished.total],
+      ["people", "People", H.people ? H.people.met : ""], ["household", "Household", ""]];
     part(w, "hq-head", JSON.stringify([counts, seg]), function () {
       var h = chip() + '<div class="h-segs flow" style="left:50%;transform:translateX(-50%)">';
       for (var i = 0; i < counts.length; i++) h += '<div class="h-seg' + (counts[i][0] === seg ? " on" : "") + '" data-ui="seg:' + counts[i][0] + '">' + counts[i][1] + (counts[i][2] !== "" ? ' <span class="n">' + counts[i][2] + "</span>" : "") + "</div>";
@@ -888,6 +917,8 @@
     if (seg === "board") boardPage(w, board);
     else if (seg === "reputation") reputationPage(w, H.reputation);
     else if (seg === "finished") finishedPage(w, j);
+    else if (seg === "people") peoplePage(w, H.people);
+    else if (seg === "household") householdPage(w, H.household);
     else journalPage(w, j);
   }
 
@@ -1084,6 +1115,7 @@
 
   function reputationPage(w, r) {
     if (!r && !ui.asked) { ui.asked = true; act("requestReputation"); }
+    if (r && ((r.retinue && r.retinue.length) || anyBurgher(r))) { reputationLw(w, r); return; }
     part(w, "hq-body", JSON.stringify(["r", r, ui.town]), function () {
       if (!r) return '<div class="h-empty" style="top:280px">Asking around…</div>';
       var towns = r.towns;
@@ -1162,6 +1194,659 @@
     part(w, "hq-foot", "f", function () { return foot("WHAT YOU FINISHED, NEWEST FIRST", "journal"); });
   }
 
+  // ---- the living-world screens (OVERLAY.md "Living-world screens", 2026-10-21; Figma section "Hearth - Living world
+  // screens (explore)" on 295:2): F1 the stranger (on the conversation page), F2 Household B (708/710:45834), F3 companion
+  // gear (711:47250, its own event screen), F4 People A (713:48066), F5 retinue and burgher (712:47881, on Reputation).
+  // F6 and F7 are Hearth's own HUD lines. -------------------------------------------------------------------------------
+
+  var ORDERS = [["follow", "Follow me.", "run"], ["wait", "Wait here.", "hand"], ["distance", "Keep your distance.", "eye"],
+    ["fight", "Fight what I fight.", "fight"], ["hold", "Hold back.", "shield"], ["home", "Go home.", "house"]];
+  var GEAR_SLOTS = [["head", "HEAD"], ["chest", "CHEST"], ["legs", "LEGS"], ["feet", "FEET"], ["mainhand", "MAIN HAND"], ["offhand", "OFF HAND"]];
+  var SLOT_WORD = {head: "head", chest: "chest", legs: "legs", feet: "feet", mainhand: "main hand", offhand: "off hand"};
+
+  function lower(s) { return String(s || "").toLowerCase(); }
+  function stepTone(s) { return s >= 3 ? "good" : s === 2 ? "ink2" : s === 1 ? "wary" : "bad"; }
+  function daysAgo(n) { return n <= 0 ? "TODAY" : n === 1 ? "A DAY AGO" : n + " DAYS AGO"; }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+
+  /** A small inline price (Figma's coin pills: 11 px counts, 7 px coin squares). */
+  function smallPrice(c, style) { return price(c, "sm", style); }
+
+  /** A pill with a dot and words (the designs' status pills). */
+  function dotPill(tone, text, style, attrs) {
+    return '<div class="h-pill ink"' + (attrs || "") + ' style="' + (style || "") + '">' + (tone ? '<div class="h-dot ' + tone + '"></div>' : "") + "<span>" + esc(text) + "</span></div>";
+  }
+
+  /** n cells of w x h at a pitch, the first `lit` in `tone` (Figma's loyalty and opinion bars). */
+  function barCells(n, lit, w, hgt, pitch, left, top, tone) {
+    var h = '<div class="h-cel" style="left:' + left + "px;top:" + top + "px;height:" + hgt + "px;width:" + ((n - 1) * pitch + w) + 'px">';
+    for (var i = 0; i < n; i++) h += '<i class="' + (i < lit ? tone || "on" : "") + '" style="left:' + i * pitch + "px;width:" + w + "px;height:" + hgt + 'px;border-radius:2.5px"></i>';
+    return h + "</div>";
+  }
+
+  /** A −100…100 opinion over 21 cells from the centre one (People A's bar, 713:49156). */
+  function opinionBar(v, left, top) {
+    var n = Math.min(10, Math.round(Math.abs(v) / 10));
+    var h = '<div class="h-cel" style="left:' + left + "px;top:" + top + 'px;height:9px;width:395px">';
+    for (var i = 0; i < 21; i++) {
+      var d = i - 10;
+      var lit = d === 0 || (v > 0 ? d > 0 && d <= n : v < 0 && d < 0 && -d <= n);
+      h += '<i class="' + (lit ? (d === 0 ? "on" : v > 0 ? "good" : "bad") : "") + '" style="left:' + i * 19 + 'px;width:15px;height:9px;border-radius:2.5px"></i>';
+    }
+    return h + "</div>";
+  }
+
+  // ---- F2: Household B, the roster (710:45834) ------------------------------------------------------------------------
+  /** Everyone in the player's service, in the roster's order: companions, then each house's servants. */
+  function members(h) {
+    var out = [];
+    var cs = h.companions || [];
+    for (var i = 0; i < cs.length; i++) out.push({kind: "companion", id: cs[i].id, m: cs[i]});
+    var hs = h.houses || [];
+    for (var k = 0; k < hs.length; k++) {
+      var sv = hs[k].servants || [];
+      for (var s = 0; s < sv.length; s++) out.push({kind: "servant", id: sv[s].id || "s" + k + "-" + s, m: sv[s], house: hs[k]});
+    }
+    return out;
+  }
+
+  function companionById(h, id) {
+    var cs = h && h.companions || [];
+    for (var i = 0; i < cs.length; i++) if (cs[i].id === id) return cs[i];
+    return null;
+  }
+
+  function slotOf(c, name) {
+    var sl = c.slots || [];
+    for (var i = 0; i < sl.length; i++) if (sl[i].slot === name) return sl[i];
+    return null;
+  }
+
+  function memberDot(m) {
+    var limit = m.unpaidLimit || 3;
+    if (m.unpaidDays >= limit - 1 && m.unpaidDays > 0) return "bad";
+    if (m.unpaidDays > 0 || m.loyaltyStep != null && m.loyaltyStep <= 1) return "wary";
+    return "good";
+  }
+
+  function memberLine(e) {
+    var m = e.m;
+    if (m.unpaidDays > 0) return (e.kind === "servant" ? "Servant" : m.job) + "  ·  " + plural(m.unpaidDays, "day", "days") + " unpaid";
+    if (e.kind === "servant") return "Servant  ·  " + (m.dutyText || lower(m.job));
+    return m.job + "  ·  " + (m.ordersText || m.orders || "") + (m.orders === "wait" && m.where ? " in " + m.where : "");
+  }
+
+  function rosterRow(e, y) {
+    var m = e.m;
+    return '<div class="h-mem' + (e.id === ui.member ? " sel" : "") + '" data-member="' + esc(e.id) + '" style="top:' + y + 'px">' +
+      '<div class="h-well fw">' + (m.portrait ? face(m, 32, "left:3px;top:3px") : '<span style="left:8px;top:8px">' + glyph("talk", 24, "#626569") + "</span>") + "</div>" +
+      '<div class="nm">' + esc(m.name) + "</div>" +
+      '<div class="h-dot ' + memberDot(m) + '" style="left:58px;top:31px"></div>' +
+      '<div class="st">' + esc(memberLine(e)) + "</div></div>";
+  }
+
+  function roster(h, list) {
+    var cs = h.companions || [];
+    var out = '<div class="h-panel h-roster"><div class="h-eb" style="left:16px;top:16px">IN YOUR SERVICE</div>' +
+      '<div class="h-pill" style="right:16px;top:11px;height:21px">' + smallPrice(h.dailyWages) + "<span>a day</span></div>" +
+      '<div class="h-eb" style="left:16px;top:40px">' + esc("WITH YOU  ·  " + cs.length + " OF " + (h.companionsMax || cs.length)) + "</div>";
+    var y = 52, i = 0;
+    for (; i < list.length && list[i].kind === "companion"; i++, y += 52) out += rosterRow(list[i], y);
+    if (!cs.length) { out += '<div style="left:16px;top:56px;width:285px;font-size:11px;color:#626569;line-height:15px">Nobody travels with you. Folk for hire say so when you talk to them.</div>'; y = 92; }
+    var hs = h.houses || [];
+    for (var k = 0; k < hs.length && y < 440; k++) {
+      var hs0 = hs[k];
+      y += 14;
+      out += '<div class="h-eb" style="left:16px;top:' + y + 'px">' + esc(upper("the " + hs0.building + "  ·  " + hs0.town + "  ·  " + hs0.larder + "/" + hs0.larderSize)) + "</div>";
+      y += 18;
+      for (var s = 0; s < (hs0.servants || []).length && y < 440; s++, i++, y += 52) out += rosterRow(list[i], y);
+      if (!(hs0.servants || []).length) { out += '<div style="left:16px;top:' + (y + 2) + 'px;font-size:11px;color:#626569">No one keeps it yet.</div>'; y += 22; }
+    }
+    return out + "</div>";
+  }
+
+  function wageBlock(m, home) {
+    var left = Math.max(0, (m.unpaidLimit || 3) - (m.unpaidDays || 0));
+    var paid = "Paid " + m.paidDays + " of " + m.servedDays + (m.servedDays === 1 ? " day" : " days");
+    return '<div class="h-hair" style="left:20px;top:400px;width:558px"></div><div class="h-eb" style="left:20px;top:414px">WAGE</div>' +
+      '<div class="flow h-wage" style="left:20px;top:430px">' + price(m.wageCoins, "", "") + "<span>" + esc("a day" + (home ? ", at " + home + "’s dawn" : "")) + "</span></div>" +
+      '<div class="' + (m.unpaidDays > 0 ? "wary" : "") + '" style="left:20px;top:452px;font-size:11px;color:' + (m.unpaidDays > 0 ? "" : "#626569") + ';white-space:pre">' +
+      esc((m.unpaidDays > 0 ? plural(m.unpaidDays, "day", "days") + " unpaid" : paid) + "  ·  " + (left <= 1 ? "one more unpaid and they go home" : left + " unpaid and they go home")) + "</div>";
+  }
+
+  function orderRow(c, o, n) {
+    var verb = o[0];
+    var now = verb === "fight" ? c.fight : verb === "hold" ? !c.fight : verb === c.orders;
+    var far = (verb === "wait") && !c.near;
+    var chip = now ? dotPill("good", "now") : verb === "home" ? dotPill("bad", "to " + (c.home || "home")) : far ? dotPill("wary", "come closer") : "";
+    return '<div class="h-opt flow' + (far ? " locked" : "") + '"' + (far ? "" : ' data-op="companionOrder" data-arg="' + esc(c.id) + "#" + verb + '"') + ' style="width:282px">' +
+      '<div class="k">' + n + "</div>" + glyph(o[2], 16) + '<div class="l">' + esc(o[1]) + "</div>" + chip + "</div>";
+  }
+
+  /** What "Take this" hands over first: the first thing in the player's hands that goes somewhere on them. */
+  function firstGift(h) {
+    var hands = h.hands || [];
+    for (var i = 0; i < hands.length; i++) if (!hands[i].empty && hands[i].gives) return hands[i];
+    return null;
+  }
+
+  function companionCard(h, c) {
+    var traits = [];
+    for (var i = 0; i < (c.traitNames || []).length && i < 3; i++) traits.push(lower(c.traitNames[i].name));
+    var lit = Math.max(0, Math.min(20, Math.round(((c.loyalty || 0) + 100) / 10)));
+    var out = '<div class="h-panel h-hh">' +
+      '<div class="h-well" style="left:20px;top:20px;width:120px;height:120px;border-radius:16px">' + (c.portrait ? face(c, 96, "left:11px;top:11px") : '<span style="left:36px;top:36px">' + glyph("talk", 48, "#626569") + "</span>") + "</div>" +
+      '<div class="h-eb" style="left:156px;top:22px">' + esc("COMPANION  ·  HIRED IN " + upper(c.home) + " " + daysAgo((c.servedDays || 1) - 1)) + "</div>" +
+      '<div style="left:156px;top:38px;font-size:22px;color:#EDEEEF;white-space:nowrap">' + esc(c.name) + "</div>" +
+      '<div style="left:156px;top:68px;width:422px;font-size:11.5px;color:#9A9DA1;white-space:pre;overflow:hidden">' + esc(c.job + (c.home ? " of " + c.home : "") + (traits.length ? "  ·  " + traits.join(", ") : "")) + "</div>" +
+      '<div class="h-eb" style="left:156px;top:96px">LOYALTY</div>' +
+      '<div class="' + stepTone(c.loyaltyStep) + '" style="right:20px;top:94px;font-size:11.5px;white-space:nowrap">' + esc(c.loyaltyWord || "") + "</div>" +
+      barCells(20, lit, 17, 9, 21, 156, 112, stepTone(c.loyaltyStep) === "ink2" ? "on" : stepTone(c.loyaltyStep)) +
+      '<div style="left:156px;top:128px;width:422px;font-size:11px;color:#626569;white-space:pre;overflow:hidden">' +
+      esc("Thinks of you: " + (c.opinionWord || "neutral") + " " + sgn(c.opinion || 0) + "  ·  below " + sgn(c.leaveBelow == null ? -60 : c.leaveBelow) + " they go home") + "</div>" +
+      '<div class="h-hair" style="left:20px;top:156px;width:558px"></div>' +
+      '<div class="h-eb" style="left:20px;top:170px">ORDERS  ·  SAY IT, OR PICK IT HERE</div>';
+    var c1 = "", c2 = "";
+    for (var k = 0; k < ORDERS.length; k++) { if (k < 3) c1 += orderRow(c, ORDERS[k], k + 1); else c2 += orderRow(c, ORDERS[k], k + 1); }
+    out += '<div class="h-ocol flow" style="left:12px;top:184px">' + c1 + '</div><div class="h-ocol flow" style="left:304px;top:184px">' + c2 + "</div>" +
+      '<div class="h-hair" style="left:20px;top:300px;width:558px"></div>' +
+      '<div class="h-eb" style="left:20px;top:314px">GEAR  ·  YOURS, LENT</div>';
+    for (var g = 0; g < GEAR_SLOTS.length; g++) {
+      var s = slotOf(c, GEAR_SLOTS[g][0]);
+      var full = s && !s.empty && s.item;
+      out += '<div class="h-well h-gslot' + (full ? "" : " empty") + '"' + (full ? ' data-item="' + esc(s.item) + '" data-n="1"' : "") + ' style="left:' + (20 + g * 44) + 'px;top:330px"></div>';
+    }
+    out += '<div style="left:20px;top:376px;font-size:11px;color:#626569;white-space:pre">head  ·  chest  ·  legs  ·  feet  ·  hand  ·  off hand</div>' +
+      '<div class="h-pill ink" data-op="companionGear" data-arg="' + esc(c.id) + '" style="right:20px;top:330px;height:25px">Open gear</div>';
+    var gift = firstGift(h);
+    if (gift) {
+      out += '<div class="h-pill' + (c.near ? " ink" : "") + '"' + (c.near ? ' data-op="companionLend" data-arg="' + esc(c.id) + "#" + gift.slot + '"' : "") +
+        ' style="right:20px;top:360px;height:25px">' + esc("Take this: " + gift.name + (c.near ? "" : "  ·  come closer")) + "</div>";
+    }
+    out += wageBlock(c, c.home) +
+      '<div class="h-eb" style="left:330px;top:414px">' + esc(upper(first(c.name)) + " SAYS") + "</div>" +
+      '<div style="left:330px;top:430px;width:248px;font-size:13px;color:#EDEEEF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (c.lastLine ? "“" + esc(c.lastLine) + "”" : "—") + "</div>" +
+      '<div style="left:330px;top:452px;width:248px;font-size:11px;color:#626569;white-space:pre;overflow:hidden">' + esc(c.lastLine ? "last: " + (c.lastWhere ? "in " + c.lastWhere : "on the road") : "") + "</div>";
+    return out + "</div>";
+  }
+
+  function servantCard(sv, house) {
+    var house0 = house || {};
+    var size = Math.max(1, Math.min(20, house0.larderSize || 16));
+    var lit = Math.round(Math.min(1, (house0.larder || 0) / Math.max(1, house0.larderSize || 16)) * size);
+    var out = '<div class="h-panel h-hh">' +
+      '<div class="h-well" style="left:20px;top:20px;width:120px;height:120px;border-radius:16px">' + (sv.portrait ? face(sv, 96, "left:11px;top:11px") : '<span style="left:36px;top:36px">' + glyph("house", 48, "#626569") + "</span>") + "</div>" +
+      '<div class="h-eb" style="left:156px;top:22px">' + esc("SERVANT  ·  THE " + upper(house0.building) + "  ·  " + upper(house0.town)) + "</div>" +
+      '<div style="left:156px;top:38px;font-size:22px;color:#EDEEEF;white-space:nowrap">' + esc(sv.name) + "</div>" +
+      '<div style="left:156px;top:68px;width:422px;font-size:11.5px;color:#9A9DA1;white-space:pre;overflow:hidden">' + esc((sv.job || "Servant") + (sv.dutyText ? "  ·  " + sv.dutyText : "")) + "</div>" +
+      '<div class="h-eb" style="left:156px;top:96px">THE LARDER</div>' +
+      '<div class="' + (house0.larderShort ? "wary" : "ink2") + '" style="right:20px;top:94px;font-size:11.5px;white-space:nowrap">' + esc((house0.larder || 0) + " of " + (house0.larderSize || 0) + (house0.larderShort ? "  ·  running short" : "")) + "</div>" +
+      barCells(size, lit, Math.floor(416 / size) - 4, 9, Math.floor(416 / size), 156, 112, house0.larderShort ? "wary" : "on") +
+      '<div class="h-hair" style="left:20px;top:156px;width:558px"></div>' +
+      '<div class="h-eb" style="left:20px;top:170px">THEIR DAY</div>' +
+      '<div style="left:20px;top:188px;font-size:13px;color:#EDEEEF;white-space:nowrap">' + esc(upperFirst(sv.dutyText || "keeps the house")) + "</div>" +
+      '<div style="left:20px;top:210px;width:558px;font-size:11.5px;color:#626569;line-height:16px">Servants keep the house as their day has them; they take no orders here. Their wages come out of your bank account each morning.</div>';
+    return out + wageBlock(sv, house0.town) + "</div>";
+  }
+
+  function householdPage(w, h) {
+    if (!h && !ui.askedHouse) { ui.askedHouse = true; act("refreshHousehold"); }
+    var list = h ? members(h) : [];
+    var sel = null;
+    for (var i = 0; i < list.length; i++) if (list[i].id === ui.member) sel = list[i];
+    if (!sel && list.length) { sel = list[0]; ui.member = sel.id; }
+    part(w, "hq-body", JSON.stringify(["h", h && [h.companions, h.houses, h.companionsMax, h.dailyWages, firstGift(h)], ui.member]), function () {
+      if (!h) return '<div class="h-empty" style="top:280px">Asking after your household…</div>';
+      if (!list.length) {
+        return '<div class="h-panel h-roster">' + '<div class="h-eb" style="left:16px;top:16px">IN YOUR SERVICE</div><div class="h-empty" style="top:200px">Nobody yet.</div></div>' +
+          '<div class="h-panel h-hh"><div class="h-empty" style="top:200px">Hire a companion in any town (talk to folk who would travel), or a servant for a house you hold.</div></div>';
+      }
+      return roster(h, list) + (sel.kind === "companion" ? companionCard(h, sel.m) : servantCard(sel.m, sel.house));
+    });
+    part(w, "hq-foot", JSON.stringify(["h", h ? h.inService : -1]), function () {
+      return foot((h ? h.inService : 0) + " IN YOUR SERVICE  ·  ORDERS ARE THE SAME AS SAYING THEM ALOUD  ·  THE SERVER CHECKS EVERY ONE", "household");
+    });
+  }
+
+  // ---- F3: companion gear (711:47250), an event screen of its own ---------------------------------------------------------
+  function gearActions(h, c) {
+    var out = [];
+    if (!c) return out;
+    var hands = h.hands || [];
+    var gifts = [];
+    for (var i = 0; i < hands.length; i++) if (!hands[i].empty && hands[i].gives) gifts.push(hands[i]);
+    gifts.sort(function (a, b) { return (b.slot === ui.hand) - (a.slot === ui.hand); });
+    for (var k = 0; k < gifts.length && out.length < 2; k++) {
+      out.push({label: "Take this: " + gifts[k].name + ".", glyph: "hand", tone: "good", chip: "to their " + SLOT_WORD[gifts[k].gives],
+        op: "companionLend", arg: c.id + "#" + gifts[k].slot, near: true});
+    }
+    var worn = 0;
+    for (var s = 0; s < (c.slots || []).length; s++) if (!c.slots[s].empty && c.slots[s].item) worn++;
+    if (worn) out.push({label: "Give that back.", glyph: "leave", tone: "bad", chip: "all of it", op: "companionOrder", arg: c.id + "#return", near: true});
+    return out;
+  }
+
+  function gearPage(h) {
+    var w = win();
+    var c = companionById(h, h.gearFor);
+    var who = c ? first(c.name) : "";
+    part(w, "hg-head", JSON.stringify([c && c.name]), function () {
+      return chip() + '<div class="h-eb h-center" style="top:31px;font-size:9.5px;letter-spacing:1.3px;color:#9A9DA1">' + esc(c ? upper(c.name) + "  ·  COMPANION  ·  GEAR" : "GEAR") + "</div>" +
+        '<div class="h-pill" data-ui="close" style="left:893px;top:24px">Esc  leave</div>';
+    });
+    if (!c) {
+      part(w, "hg-body", "none", '<div class="h-empty" style="top:280px">Their gear is not open.</div>');
+      return;
+    }
+    part(w, "hg-worn", JSON.stringify([c.slots, c.portrait, c.armor, c.weapon, c.fight, c.near]), function () {
+      var out = '<div class="h-panel h-worn"><div class="h-eb" style="left:16px;top:16px">WORN AND HELD  ·  DRAWN ON THEM IN THE WORLD</div>' +
+        '<div class="h-well h-figure">' + (c.portrait ? face(c, 160, "left:29px;top:39px") : '<span style="left:78px;top:118px">' + glyph("talk", 64, "#626569") + "</span>") +
+        '<div class="floor"></div></div>';
+      var at = {head: [40, 58], chest: [40, 122], legs: [40, 186], feet: [40, 250], mainhand: [350, 58], offhand: [350, 122]};
+      for (var g = 0; g < GEAR_SLOTS.length; g++) {
+        var name = GEAR_SLOTS[g][0], p = at[name];
+        var s = slotOf(c, name);
+        var full = s && !s.empty && s.item;
+        out += '<div class="h-eb h-slotname" style="left:' + (p[0] - 17) + "px;top:" + (p[1] - 15) + 'px">' + GEAR_SLOTS[g][1] + "</div>" +
+          '<div class="h-well h-wslot' + (full ? "" : " empty") + '"' + (full ? ' data-item="' + esc(s.item) + '" data-n="1"' + (c.near ? ' data-op="companionTake" data-arg="' + esc(c.id) + "#" + name + '"' : "") : "") +
+          ' style="left:' + p[0] + "px;top:" + p[1] + 'px"></div>';
+      }
+      return out + '<div class="h-hair" style="left:16px;top:358px;width:404px"></div>' +
+        '<div class="h-eb" style="left:16px;top:372px">WHAT THIS GIVES ' + esc(upper(who)) + "</div>" +
+        '<div class="h-eb" style="left:16px;top:392px">ARMOUR</div><div style="left:16px;top:408px;font-size:13px;color:#EDEEEF">' + (c.armor >= 0 ? c.armor : "—") + "</div>" +
+        '<div class="h-eb" style="left:152px;top:392px">WEAPON</div><div style="left:152px;top:408px;width:130px;font-size:13px;color:#EDEEEF;white-space:nowrap;overflow:hidden">' + esc(c.weapon || "bare hands") + "</div>" +
+        '<div class="h-eb" style="left:288px;top:392px">FIGHTS</div><div class="' + (c.fight ? "good" : "wary") + '" style="left:288px;top:408px;font-size:13px;white-space:nowrap">' + (c.fight ? "what you fight" : "holds back") + "</div>" +
+        '<div style="left:16px;top:446px;width:404px;font-size:11px;color:#626569;white-space:nowrap;overflow:hidden">Handed back when they leave your service; dropped where they fall if they die.</div></div>';
+    });
+    var hands = h.hands || [];
+    if (ui.hand == null || ui.hand < 0) { var g0 = firstGift(h); ui.hand = g0 ? g0.slot : -1; }
+    var acts = gearActions(h, c);
+    part(w, "hg-hands", JSON.stringify([hands, ui.hand, acts, c.near, c.lastLine, ui.focus]), function () {
+      var out = '<div class="h-panel h-pack"><div class="h-eb" style="left:16px;top:16px">' + esc("THEIR PACK  ·  NONE YET") + "</div>";
+      for (var p = 0; p < 6; p++) out += '<div class="h-well h-wslot empty" style="left:' + (16 + p * 50) + 'px;top:34px"></div>';
+      out += '<div style="left:16px;top:88px;width:447px;font-size:11px;color:#626569;white-space:nowrap">Companions keep no pack yet: what they carry is what they wear and hold.</div>' +
+        '<div class="h-hair" style="left:16px;top:114px;width:447px"></div>' +
+        '<div class="h-eb" style="left:16px;top:128px">IN YOUR HANDS  ·  WHAT “TAKE THIS” GIVES</div>';
+      var sel = null;
+      for (var i = 0; i < hands.length && i < 10; i++) {
+        var hd = hands[i];
+        if (hd.slot === ui.hand) sel = hd;
+        out += '<div class="h-well h-hslot' + (hd.slot === ui.hand ? " sel" : "") + (hd.empty ? " empty" : "") + '" data-hand="' + hd.slot + '"' +
+          (hd.empty ? "" : ' data-item="' + esc(hd.item) + '" data-n="' + hd.count + '"') + ' style="left:' + (16 + i * 44.6).toFixed(1) + 'px;top:146px">' +
+          (hd.count > 1 && !hd.empty ? '<div class="cnt">' + hd.count + "</div>" : "") + (hd.gives && !hd.empty ? '<div class="gv"></div>' : "") + "</div>";
+      }
+      var note = "Pick something in your hands to see where it would go.";
+      if (sel && !sel.empty) {
+        var on = sel.gives ? slotOf(c, sel.gives) : null;
+        note = sel.name + "  ·  " + (!sel.gives ? "nothing they can wear or hold" : "to their " + SLOT_WORD[sel.gives] + (on && !on.empty && on.name ? "; " + on.name + " comes back to you" : "; they have none"));
+      }
+      out += '<div style="left:16px;top:200px;width:447px;font-size:11.5px;color:#EDEEEF;white-space:pre;overflow:hidden">' + esc(note) + "</div>" +
+        '<div class="h-hair" style="left:16px;top:230px;width:447px"></div><div class="h-acts flow">';
+      for (var a = 0; a < acts.length; a++) {
+        var o = acts[a];
+        var ok = c.near;
+        out += '<div class="h-opt flow' + (ok ? "" : " locked") + (a === ui.focus ? " focus" : "") + '"' + (ok ? ' data-op="' + o.op + '" data-arg="' + esc(o.arg) + '"' : "") + ' style="width:463px">' +
+          '<div class="k">' + (a + 1) + "</div>" + glyph(o.glyph, 16) + '<div class="l">' + esc(o.label) + "</div>" + dotPill(ok ? o.tone : "wary", ok ? o.chip : "come closer") + "</div>";
+      }
+      if (!acts.length) out += '<div style="position:relative;padding:10px 8px;font-size:11.5px;color:#626569">Nothing in your hands for them, and nothing of yours on them.</div>';
+      return out + "</div>" + '<div class="h-hair" style="left:16px;top:362px;width:447px"></div>' +
+        '<div class="h-eb" style="left:16px;top:376px">' + esc(upper(who) + " SAYS") + "</div>" +
+        '<div style="left:16px;top:394px;width:447px;font-size:15px;color:#EDEEEF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (c.lastLine ? "“" + esc(c.lastLine) + "”" : "—") + "</div>" +
+        '<div style="left:16px;top:424px;width:447px;font-size:11px;color:#626569;line-height:15px">Armour goes to its slot, a shield to the off hand, a weapon or tool to the main hand; the piece it replaces comes back to you.</div></div>';
+    });
+    part(w, "hg-foot", "f" + acts.length, function () {
+      return foot("CLICK A PIECE TO TAKE IT BACK  ·  1–" + Math.max(1, acts.length) + " ACT  ·  ESC CLOSES", "gear");
+    });
+  }
+
+  // ---- F4: People A, the list with story (713:48066) -----------------------------------------------------------------------
+  function peoplePage(w, p) {
+    var rows = p ? p.rows : [];
+    var sel = null;
+    for (var i = 0; i < rows.length; i++) if ((rows[i].id || rows[i].name) === ui.person) sel = rows[i];
+    if (!sel && rows.length) { sel = rows[0]; ui.person = sel.id || sel.name; }
+    part(w, "hq-body", JSON.stringify(["p", rows, ui.person, H.personTrack && H.personTrack.id, ui.scroll]), function () {
+      if (!p || !rows.length) {
+        return '<div class="h-panel h-plist"><div class="h-eb" style="left:16px;top:16px">FOLK OF NOTE YOU HAVE MET</div></div>' +
+          '<div class="h-panel h-story"><div class="h-empty" style="top:200px">Nobody of note yet. Ask anyone “Who are the folk of note here?”</div></div>';
+      }
+      var out = '<div class="h-panel h-plist"><div class="h-eb" style="left:16px;top:16px">FOLK OF NOTE YOU HAVE MET</div>';
+      var y = 36, town = null;
+      for (var k = Math.min(ui.scroll, rows.length - 1); k < rows.length && y < 450; k++) {
+        var r = rows[k];
+        if (r.town !== town) {
+          town = r.town;
+          var ended = true;
+          for (var e = k; e < rows.length && rows[e].town === town; e++) if (!rows[e].ended) ended = false;
+          if (k > 0) y += 6;
+          out += '<div class="h-eb" style="left:16px;top:' + y + 'px">' + esc(upper(town) + (ended ? "  ·  ENDED" : "")) + "</div>";
+          y += 12;
+        }
+        var key = r.id || r.name;
+        out += '<div class="h-prow' + (key === ui.person ? " sel" : "") + '" data-person="' + esc(key) + '" style="top:' + y + 'px">' +
+          '<div class="h-well fw">' + (r.portrait ? face(r, 28, "left:3px;top:3px") : "") + "</div>" +
+          '<div class="nm flow" style="width:' + (r.yours ? 186 : 240) + 'px"><span class="n">' + esc(r.name) + '</span><span class="r">' + esc(r.role) + "</span></div>" +
+          '<div class="st">' + esc(r.story) + "</div>" +
+          (r.yours ? dotPill("wary", "you moved it", "right:8px;top:4px;height:20px") : '<div class="' + opinionTone(r.opinion) + '" style="right:8px;top:5px;font-size:11px">' + sgn(r.opinion) + "</div>") + "</div>";
+        y += 54;
+      }
+      return out + "</div>" + storyCard(sel);
+    });
+    part(w, "hq-foot", JSON.stringify(["p", p && [p.met, p.towns, p.moved]]), function () {
+      return foot((p ? p.met : 0) + " MET  ·  " + (p ? p.towns : 0) + " TOWNS  ·  " + plural(p ? p.moved : 0, "STORY", "STORIES") + " YOU MOVED  ·  ASK ANYONE “WHO ARE THE FOLK OF NOTE HERE?”", "people");
+    });
+  }
+
+  function storyCard(r) {
+    var out = '<div class="h-panel h-story">' +
+      '<div class="h-well" style="left:20px;top:20px;width:96px;height:96px;border-radius:14px">' + (r.portrait ? face(r, 80, "left:7px;top:7px") : '<span style="left:24px;top:24px">' + glyph("talk", 48, "#626569") + "</span>") + "</div>" +
+      '<div class="h-eb" style="left:132px;top:22px">' + esc(upper(r.town) + "  ·  " + upper(r.role)) + "</div>" +
+      '<div style="left:132px;top:38px;font-size:22px;color:#EDEEEF;white-space:nowrap">' + esc(r.name) + "</div>";
+    var traits = [];
+    for (var i = 0; i < (r.traits || []).length && i < 3; i++) traits.push(lower(r.traits[i].name));
+    out += '<div style="left:132px;top:68px;width:406px;font-size:11.5px;color:#9A9DA1;white-space:pre;overflow:hidden">' +
+      esc((r.job ? r.job + (r.place ? " at the " + lower(r.place) : "") : r.role) + (traits.length ? "  ·  " + traits.join(", ") : "")) + "</div>" +
+      '<div class="h-eb" style="left:132px;top:92px">OPINION OF YOU</div>' +
+      '<div class="' + opinionTone(r.opinion) + '" style="right:20px;top:90px;font-size:11.5px;white-space:pre">' + esc(upperFirst(r.opinionWord || "") + "  " + sgn(r.opinion)) + "</div>" +
+      opinionBar(r.opinion || 0, 132, 106) +
+      '<div class="h-hair" style="left:20px;top:132px;width:518px"></div>';
+    var beats = r.beats || [];
+    var nowAt = beats.length;
+    for (var b = 0; b < beats.length; b++) if (beats[b].now) nowAt = b + 1;
+    out += '<div class="h-eb" style="left:20px;top:146px">' + esc("THE STORY" + (beats.length ? "  ·  BEAT " + nowAt + " OF " + Math.max(beats.length, nowAt + (r.next && r.next.length && !r.ended ? 1 : 0)) : "")) + "</div>";
+    // The beats so far, the player's (or someone's) choice before the one now, at most five lines.
+    var lines = [];
+    for (var k = 0; k < beats.length; k++) {
+      if (beats[k].now && r.chose) lines.push({choice: true});
+      lines.push({beat: beats[k]});
+    }
+    if (!beats.length) lines.push({beat: {text: r.story, now: true}});
+    if (lines.length > 5) lines = lines.slice(lines.length - 5);
+    var y = 166;
+    for (var l = 0; l < lines.length; l++, y += 26) {
+      var ln = lines[l], last = l === lines.length - 1;
+      var on = ln.choice || ln.beat.now;
+      out += '<div class="h-beat' + (on ? " on" : "") + '" style="left:26px;top:' + (y + 3) + 'px"></div>' +
+        (!last || !r.ended ? '<div class="h-thread" style="left:29.5px;top:' + (y + 13) + 'px;height:' + (last ? 14 : 18) + 'px"></div>' : "");
+      if (ln.choice) {
+        var ch = r.chose;
+        out += '<div class="flow h-cline" style="left:46px;top:' + y + 'px"><span>' + esc((ch.yours ? "You chose: " : (ch.by || "Someone") + " chose: ") + ch.label) + "</span>" + (ch.costCoins ? smallPrice(ch.costCoins) : "") + "</div>" +
+          dotPill("wary", ch.yours ? "your choice" : "their choice", "right:20px;top:" + (y - 3) + "px;height:20px");
+      } else {
+        out += '<div style="left:46px;top:' + y + 'px;width:400px;font-size:11.5px;color:' + (ln.beat.now ? "#EDEEEF" : "#9A9DA1") + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(ln.beat.text) + "</div>" +
+          (ln.beat.now ? dotPill(r.ended ? "ink" : "wary", r.ended ? "ended" : "now", "right:20px;top:" + (y - 3) + "px;height:20px") : "");
+      }
+    }
+    var ny = Math.max(274, y + 4);
+    if (!r.ended && r.next && r.next.length) {
+      out += '<div class="h-eb" style="left:46px;top:' + ny + 'px">WHERE IT MAY GO</div>';
+      for (var n = 0; n < r.next.length && n < 2; n++) {
+        var nx = r.next[n];
+        out += '<div class="h-end' + (nx.via === "time" ? " time" : "") + '" style="left:' + (46 + n * 252) + "px;top:" + (ny + 16) + 'px"><div class="tx">' +
+          esc(nx.text) + "</div></div>";
+      }
+    } else if (r.ended) {
+      out += '<div style="left:46px;top:' + ny + 'px;width:492px;font-size:11.5px;color:#626569">This story has ended.</div>';
+    }
+    out += '<div class="h-hair" style="left:20px;top:358px;width:518px"></div><div class="h-eb" style="left:20px;top:372px">RELATIONS YOU TOUCHED</div><div class="h-pills flow" style="left:20px;top:388px;width:518px;height:25px;overflow:hidden">';
+    var rel = r.relations || [];
+    for (var q = 0; q < rel.length && q < 3; q++) out += dotPill(rel[q].opinion > 0 ? "good" : rel[q].opinion < 0 ? "bad" : "ink", rel[q].name + ", " + rel[q].bond + "  ·  " + sgn(rel[q].opinion), "height:25px");
+    if (!rel.length) out += '<div class="h-pill">Nobody else in it yet</div>';
+    var find = r.find || [];
+    var where = [];
+    for (var f = 0; f < find.length && f < 3; f++) where.push(find[f].text || (find[f].fromText + "–" + find[f].toText + " " + find[f].what));
+    var following = H.personTrack && r.id && H.personTrack.id === r.id;
+    out += '</div><div class="h-eb" style="left:20px;top:424px">FIND</div>' +
+      '<div style="left:84px;top:421px;width:370px;font-size:11.5px;color:#9A9DA1;white-space:pre;overflow:hidden;text-overflow:ellipsis">' + esc(where.join("  ·  ") || r.home || "") + "</div>" +
+      (r.id ? (following ? '<div class="h-pill ink" data-op="untrackPerson" style="right:20px;top:418px;height:25px"><div class="h-dot violet"></div><span>Following  ·  stop</span></div>'
+        : '<div class="h-pill ink" data-op="trackPerson" data-arg="' + esc(r.id) + '" style="right:20px;top:418px;height:25px">Waypoint</div>') : "");
+    return out + "</div>";
+  }
+
+  // ---- F1: a stranger on the road (708:43645) ------------------------------------------------------------------------------
+  /** The hooded figure (no face, no name), pixel art drawn as SVG cells so it stays crisp at any zoom. */
+  function hoodArt() {
+    var rows = ["...HHHHHH...", "..HHHHHHHH..", "..HDDDDDDH..", "..HDYDDYDH..", "..HDDDDDDH..", "..HHDDDDHH..", ".HHHHHHHHHH.",
+      "HHHHHHHHHHHH", "HHHBHHHHHHHH", "HHHHBHHHHHHH", "HHHHHBHHHHHH", "HHHHHHBHHHHH"];
+    var col = {H: "#4A3A2E", D: "#2A2019", Y: "#E3C47E", B: "#7A5A3C"};
+    var h = '<svg width="160" height="160" viewBox="0 0 12 12" shape-rendering="crispEdges">';
+    for (var y = 0; y < rows.length; y++) for (var x = 0; x < 12; x++) {
+      var ch = rows[y].charAt(x);
+      if (col[ch]) h += '<rect x="' + x + '" y="' + y + '" width="1" height="1" fill="' + col[ch] + '"/>';
+    }
+    return h + "</svg>";
+  }
+
+  function shareWords(s) {
+    return s >= 0.99 ? "ALL YOU CARRY" : Math.abs(s - 0.5) < 0.01 ? "HALF OF WHAT YOU CARRY" : Math.abs(s - 0.25) < 0.01 ? "A QUARTER OF WHAT YOU CARRY"
+      : Math.abs(s - 0.1) < 0.01 ? "A TENTH OF WHAT YOU CARRY" : Math.round(s * 100) + " % OF WHAT YOU CARRY";
+  }
+
+  function menaceWord(m) { return m < 25 ? "Easy pickings" : m < 50 ? "Worth watching" : m < 75 ? "Dangerous" : "Fearsome"; }
+
+  function strangerChip(o, s) {
+    var bandit = s.kind === "bandit";
+    if (o.cost && o.cost.total > 0 && (o.kind === "bribe" || o.id === "pay")) return '<div class="h-mchip flow"><div class="h-dot wary"></div>' + smallPrice(o.cost) + "</div>";
+    if (bandit && o.kind === "fight") return '<div class="h-mchip flow"><div class="h-dot bad"></div><span>' + esc(s.band > 1 ? s.band + " of them" : "One of them") + "</span></div>";
+    if (bandit && (o.kind === "leave" || o.kind === "run")) return '<div class="h-mchip flow"><div class="h-dot bad"></div><span>' + esc(s.bows ? (s.bows === 1 ? "They have one bow" : "They have " + s.bows + " bows") : "No bows among them") + "</span></div>";
+    if (o.odds >= 0 && o.kind === "intimidate") {
+      return '<div class="h-mchip flow"><div class="h-dot ' + oddsTone(o.odds) + '"></div><span>' + esc("Menace  ·  " + o.odds + " %" + (s.bladeDrawn ? "" : "  ·  a drawn blade helps")) + "</span></div>";
+    }
+    return optionChip(o);
+  }
+
+  function talkStranger(t) {
+    var w = win();
+    var r = t.resident, s = t.stranger;
+    var bandit = s.kind === "bandit";
+    var place = placeLine(t);
+    part(w, "ht-head", JSON.stringify(["s", place, s.band, s.inSight, bandit]), function () {
+      return chip() +
+        '<div class="h-eb' + (bandit ? " bad" : "") + '" style="left:335px;top:31px;font-size:9.5px;letter-spacing:1.3px;' + (bandit ? "" : "color:#9A9DA1") + '">' + esc(upper((bandit ? ["waylaid"] : []).concat(place).join("  ·  "))) + "</div>" +
+        (bandit && s.band ? dotPill("bad", "Band of " + s.band + "  ·  " + (s.inSight || 0) + " in sight", "right:28px;top:25px;height:25px") : '<div class="h-pill" data-ui="close" style="left:893px;top:24px">Esc  leave</div>');
+    });
+    part(w, "ht-card", JSON.stringify(["s", r.name, r.job, r.portrait, s, H.player && H.player.purse]), function () {
+      var pills = [];
+      if (s.armed) pills.push("armed  ·  " + s.armed);
+      if (s.bladeDrawn) pills.push("blade drawn");
+      for (var i = 0; i < r.traits.length && pills.length < 3; i++) pills.push(lower(r.traits[i].name));
+      var tp = "";
+      for (var k = 0; k < pills.length; k++) tp += '<div class="h-pill">' + esc(pills[k]) + "</div>";
+      var out = '<div class="h-panel h-res">' +
+        '<div class="h-well pw">' + (s.hooded || !r.portrait ? '<span style="left:62px;top:8px">' + hoodArt() + "</span>" : face(r, 168, "left:57.5px;top:15px")) +
+        (s.hooded ? '<div class="h-eb" style="right:12px;top:162px;color:#9A9DA1">HOODED  ·  NO FACE, NO NAME</div>' : "") + "</div>" +
+        '<div class="nm">' + esc(r.name) + "</div>" +
+        '<div class="job">' + esc((s.kindName || r.job) + "  ·  " + (s.bound ? "bound for " + s.bound : "from the road")) + "</div>" +
+        '<div class="h-traits flow" style="left:15px;top:266px">' + tp + "</div>" +
+        '<div class="h-hair" style="left:15px;top:304px;width:285px"></div>';
+      if (bandit) {
+        var cells = "";
+        var n = Math.min(10, s.band || 0);
+        for (var b = 0; b < n; b++) cells += '<i class="' + (b < (s.inSight || 0) ? "bad" : "") + '" style="left:' + (b * 28) + 'px;width:22px;height:22px;border-radius:4px"></i>';
+        out += '<div class="h-eb" style="left:15px;top:318px">THE BAND</div>' +
+          '<div class="bad" style="right:15px;top:316px;font-size:11.5px;white-space:pre">' + esc((s.band || 0) + "  ·  " + (s.inSight || 0) + " in sight") + "</div>" +
+          '<div class="h-cel" style="left:15px;top:336px;width:' + Math.max(22, n * 28) + 'px;height:22px">' + cells + "</div>" +
+          '<div style="left:15px;top:366px;width:285px;font-size:11px;color:#9A9DA1;white-space:nowrap;overflow:hidden">' +
+          esc(Math.max(0, (s.band || 0) - (s.inSight || 0)) > 0 ? plural(Math.max(0, s.band - s.inSight), "more", "more") + " out of sight" + (s.bows ? "  ·  " + plural(s.bows, "bow", "bows") : "") : "All of them in front of you") + "</div>";
+      } else {
+        out += '<div class="h-eb" style="left:15px;top:318px">ON THE ROAD</div>' +
+          '<div style="left:15px;top:336px;width:285px;font-size:12px;color:#EDEEEF;white-space:pre;overflow:hidden">' + esc((s.partySize > 1 ? "a party of " + s.partySize : "alone") + (s.bound ? "  ·  bound for " + s.bound : "")) + "</div>" +
+          '<div style="left:15px;top:356px;width:285px;font-size:11px;color:#9A9DA1;white-space:nowrap;overflow:hidden">' + esc(s.resident ? "Lives in these parts" : "A traveller, not from here") + "</div>";
+      }
+      var purse = s.carriedCoins || (H.player && H.player.purse);
+      out += '<div class="h-hair" style="left:15px;top:386px;width:285px"></div>' +
+        '<div class="h-eb" style="left:15px;top:398px">YOU CARRY</div>' +
+        (purse ? price(purse, "", "position:absolute;left:15px;top:414px") + '<div style="right:15px;top:414px;font-size:11px;color:#626569">' + num(purse.total) + " bits</div>" : "");
+      if (bandit) {
+        out += '<div class="h-eb" style="left:15px;top:438px">MENACE  ·  HOW YOU LOOK TO THEM</div>' +
+          '<div style="left:15px;top:452px;width:285px;font-size:11.5px;color:#EDEEEF;white-space:pre;overflow:hidden">' +
+          esc(menaceWord(s.menace || 0) + "  ·  armour " + (s.armour || 0) + ", blade " + (s.bladeDrawn ? "drawn" : "sheathed")) + "</div>";
+      }
+      return out + "</div>";
+    });
+    var demand = bandit && s.demandCoins && s.demandCoins.total > 0;
+    part(w, "ht-speech", JSON.stringify(["s", t.line, t.lastCheck, demand && s.demandCoins, s.share]), function () {
+      var out = '<div class="h-speech"><div class="h-eb">THEY SAY</div><div class="line">“' + esc(t.line) + "”</div>" +
+        (t.lastCheck && !demand ? '<div class="check">' + esc(t.lastCheck) + "</div>" : "") + "</div>";
+      if (demand) {
+        var d = s.demandCoins;
+        out += '<div class="h-eb bad" style="left:369px;top:138px">THE DEMAND  ·  ' + esc(shareWords(s.share || 0.25)) + "</div>" +
+          '<div class="h-dmd flow" style="left:369px;top:156px">' + dmd("crown", d.crowns) + dmd("mark", d.marks) + dmd("bit", d.bits) + "</div>" +
+          '<div style="right:28px;top:160px;font-size:11px;color:#9A9DA1">= ' + num(d.total) + " bits</div>" +
+          '<div class="h-hair" style="left:368px;top:200px;width:590px"></div>';
+      } else {
+        out += '<div class="h-hair" style="left:368px;top:179px;width:590px"></div>';
+      }
+      return out;
+    });
+    var opts = talkOptions(t), rows = demand ? 5 : 8, top = talkWindow(opts.length, rows);
+    part(w, "ht-opts", JSON.stringify(["s", opts, ui.focus, top, demand, s.band, s.bows, s.bladeDrawn]), function () {
+      var out = '<div class="h-opts flow" style="top:' + (demand ? 208 : 189) + 'px">';
+      for (var i = top; i < opts.length && i < top + rows; i++) {
+        var o = opts[i];
+        var g = o.locked ? "lock" : KIND_GLYPH[o.kind] || "talk";
+        out += '<div class="h-opt flow' + (o.locked ? " locked" : "") + (i === ui.focus ? " focus" : "") + '" data-opt="' + i + '" data-kind="' + esc(o.kind) + '" style="width:598px">' +
+          '<div class="k">' + (o.key >= 0 ? o.key : "") + "</div>" + glyph(g, 16) + '<div class="l">' + esc(optionLabel(o)) + "</div>" + strangerChip(o, s) + "</div>";
+      }
+      out += "</div>" + talkBar(opts.length, rows, top, 964, demand ? 208 : 189, rows * 38 - 2);
+      if (bandit) {
+        out += '<div style="left:377px;top:404px;width:560px;font-size:11px;color:#626569;line-height:15px">Odds from Speech and Menace (Mettle) on Hearth’s factors: your armour and blade, the band’s size, how lean the winter has been. Paying is a sure thing; they keep the share, not the purse.</div>';
+        var oc = s.outcomes;
+        if (oc && oc.talked) {
+          out += '<div class="h-panel" style="left:369px;top:456px;width:590px;height:96px;border-radius:16px">' +
+            '<div class="h-eb" style="left:16px;top:16px">IF YOU TALK AND IT WORKS</div>' +
+            '<div style="left:16px;top:34px;width:558px;font-size:14px;color:#EDEEEF;white-space:nowrap;overflow:hidden">“' + esc(oc.talked) + "”</div>" +
+            '<div style="left:16px;top:60px;width:558px;font-size:11px;color:#9A9DA1;white-space:nowrap;overflow:hidden">' +
+            esc((oc.talkFailed ? "If it fails: “" + oc.talkFailed + "”" : "") + (oc.scared ? "  ·  Threatened and scared: “" + oc.scared + "”" : "")) + "</div></div>";
+        }
+      }
+      return out;
+    });
+    part(w, "ht-foot", "s" + opts.length + bandit, function () {
+      return foot("1–" + Math.max(1, Math.min(opts.length, 9)) + " CHOOSE  ·  " + (bandit ? "ESC DOES NOTHING HERE: THEY ARE WAITING" : "0 OR ESC LEAVES"), "talk  ·  stranger");
+    });
+  }
+
+  function dmd(type, n) {
+    var name = type === "crown" ? "CROWNS" : type === "mark" ? "MARKS" : "BITS";
+    return '<div class="d">' + coin(type, 20) + '<span class="c">' + n + '</span><span class="n">' + name + "</span></div>";
+  }
+
+  // ---- F5: retinue ranks and burgher status on the reputation page (712:47881) ---------------------------------------------
+  function anyBurgher(r) {
+    for (var i = 0; i < r.towns.length; i++) if (r.towns[i].burgher) return true;
+    return false;
+  }
+
+  var LADDER5 = [["stranger", "Stranger"], ["known", "Known"], ["friend", "Friend"], ["burgher", "Burgher"], ["hero", "Hero"]];
+
+  function townCard(r, s) {
+    var b = s.burgher;
+    var out = '<div class="h-panel h-tcard">' +
+      '<div class="h-eb" style="left:20px;top:18px">' + esc(upper(s.name) + "  ·  " + upper(s.tier) + (s.culture ? "  ·  " + upper(s.culture) : "") + (b ? "  ·  SWORN " + daysAgo(b.swornDays) : "")) + "</div>" +
+      '<div style="left:20px;top:34px;font-size:22px;color:#EDEEEF;white-space:nowrap">' + esc((b ? "Burgher" : s.titleName) + " of " + s.name) + "</div>" +
+      '<div class="' + (b ? "good" : titleTone(s.title)) + '" style="right:20px;top:34px;font-size:22px">' + sgn(s.value) + "</div>" +
+      '<div class="h-traits flow" style="left:20px;top:70px">';
+    for (var k = 0; k < LADDER5.length; k++) {
+      var on = LADDER5[k][0] === s.title;
+      out += '<div class="h-pill' + (on ? " on" : "") + '" style="height:25px">' + (on ? '<div class="h-dot ' + (b || s.title === "hero" ? "good" : "violet") + '"></div>' : "") + "<span>" + LADDER5[k][1] + "</span></div>";
+    }
+    out += '</div><div class="h-hair" style="left:20px;top:104px;width:558px"></div>';
+    if (b) {
+      out += '<div class="h-eb" style="left:20px;top:116px">A BURGHER’S RIGHTS</div><div class="h-pills flow" style="left:20px;top:132px;height:25px;overflow:hidden">';
+      for (var i = 0; i < b.rights.length; i++) out += dotPill("good", b.rights[i].text, "height:25px");
+      var cn = b.council || {};
+      var when = cn.sitting ? "SITTING NOW" : "SITS ON THE REST DAY" + (cn.dueFrom > b.today ? " IN " + plural(cn.dueFrom - b.today, "DAY", "DAYS") : " NEXT");
+      out += '</div><div class="h-eb" style="left:20px;top:166px">' + esc("COUNCIL  ·  " + when) + '</div><div class="h-pills flow" style="left:20px;top:180px;height:23px;overflow:hidden">';
+      var table = cn.table || [];
+      for (var t = 0; t < table.length && t < 4; t++) out += table[t].yours ? dotPill("wary", table[t].name + "  ·  your voice", "height:23px") : '<div class="h-pill" style="height:23px">' + esc(table[t].name) + "</div>";
+      if (!table.length) out += '<div class="h-pill" style="height:23px">' + esc(cn.lastChoice ? "Last chosen: " + cn.lastChoice : "Nothing on the table yet") + "</div>";
+      out += "</div>";
+    } else {
+      out += '<div class="h-eb" style="left:20px;top:116px">WHAT FOLK NOTICE</div><div class="h-pills flow" style="left:20px;top:132px;height:25px;overflow:hidden">';
+      for (var n = 0; n < r.looks.length && n < 5; n++) out += dotPill("ink", r.looks[n], "height:25px");
+      if (!r.looks.length) out += '<div class="h-pill" style="height:25px">Nothing about you stands out</div>';
+      out += '</div><div class="h-eb" style="left:20px;top:166px">FAME  ·  HOW YOU COME ACROSS</div>' +
+        '<div style="left:20px;top:182px;width:558px;font-size:12px;color:#EDEEEF;white-space:pre;overflow:hidden">' + esc(r.fameWord + "  ·  Charisma " + r.charismaWord + "  ·  Menace " + r.menaceWord) + "</div>";
+    }
+    return out + "</div>";
+  }
+
+  function retinueCard(r, c) {
+    if (!c) {
+      return '<div class="h-panel h-rcard"><div class="h-eb" style="left:20px;top:18px">YOUR COMPANY</div>' +
+        '<div style="left:20px;top:36px;width:558px;font-size:12px;color:' + (r.company ? "#EDEEEF" : "#626569") + '">' + esc(r.company ? r.company + (r.members.length ? "  ·  " + r.members.join(", ") : "") : "You travel alone. Standing is per player; a company shares a part.") + "</div>" +
+        '<div class="h-hair" style="left:20px;top:76px;width:558px"></div><div class="h-eb" style="left:20px;top:90px">NO LORD’S SERVICE</div>' +
+        '<div style="left:20px;top:108px;width:558px;font-size:11.5px;color:#626569;line-height:16px">Petition a lord at his seat for a hearing. Commissions done for him raise you through his retinue, to a knighthood at the top.</div></div>';
+    }
+    var ranks = c.ranks && c.ranks.length ? c.ranks : [{id: c.rankId, name: c.rankName, commissions: c.commissions, reached: true, current: true}];
+    var out = '<div class="h-panel h-rcard">' +
+      '<div class="h-eb" style="left:20px;top:18px">' + esc("RETINUE  ·  " + upper(c.lord || "an empty seat") + " OF " + upper(c.seat)) + "</div>" +
+      '<div style="left:20px;top:34px;font-size:17px;color:#EDEEEF;white-space:nowrap">' + esc(c.rankName + (c.lord ? " to " + c.lord : "")) + "</div>" +
+      (c.whyText ? dotPill("wary", c.whyText, "right:20px;top:14px;height:25px;max-width:300px") : c.why === "top" ? dotPill("good", "the top of his household", "right:20px;top:14px;height:25px") : "");
+    for (var i = 0; i < ranks.length && i < 4; i++) {
+      var k = ranks[i];
+      var pips = "";
+      for (var p = 0; p < ranks.length && p < 4; p++) pips += '<i class="' + (p <= i ? (k.current ? "brass" : k.reached ? "on" : "") : "") + '" style="left:' + p * 11 + 'px"></i>';
+      out += '<div class="h-rank' + (k.current ? " on" : "") + '" style="left:' + (20 + i * 139) + 'px;top:66px">' +
+        '<div class="pips">' + pips + '</div><div class="nm">' + esc(k.name) + '</div><div class="sb">' + esc(k.commissions > 0 ? plural(k.commissions, "commission", "commissions") : "a hearing") + "</div></div>";
+    }
+    out += '<div class="h-hair" style="left:20px;top:138px;width:558px"></div><div class="h-eb" style="left:20px;top:150px">YOUR RIGHTS NOW</div><div class="h-pills flow" style="left:20px;top:166px;height:25px;overflow:hidden">';
+    for (var g = 0; g < (c.rights || []).length; g++) out += dotPill("brass", c.rights[g].text || c.rights[g], "height:25px");
+    if (!(c.rights || []).length) out += '<div class="h-pill" style="height:25px">None yet</div>';
+    out += '</div><div class="h-eb" style="left:20px;top:202px">' + esc(c.next ? "TO BE " + upper(c.next) : "AT THE TOP OF THE HOUSEHOLD") + (c.demoted ? "  ·  ONE RANK DOWN UNTIL YOU PLEDGE AGAIN" : "") + "</div>";
+    if (c.next) {
+      var need = Math.max(1, Math.min(12, c.needed || 1));
+      out += '<div class="h-eb" style="left:20px;top:222px">COMMISSIONS</div>' + barCells(need, Math.min(need, c.commissions || 0), 12, 12, 16, 96, 221, "brass") +
+        '<div style="left:' + (100 + need * 16) + 'px;top:219px;font-size:11px;color:#9A9DA1;white-space:pre">' + (c.commissions || 0) + " / " + (c.needed || 0) + "</div>";
+      if (c.knighthood) {
+        var ok = c.standing >= c.knightStanding;
+        out += '<div class="h-eb" style="left:310px;top:222px">STANDING</div><div class="' + (ok ? "good" : "wary") + '" style="left:368px;top:219px;font-size:11px;white-space:pre">' + c.standing + " of " + c.knightStanding + (ok ? "  ✓" : "") + "</div>" +
+          '<div class="h-eb" style="left:440px;top:222px">A FEAT</div><div class="' + (c.feat ? "good" : "") + '" style="left:484px;top:219px;width:94px;font-size:11px;color:' + (c.feat ? "" : "#9A9DA1") + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (c.feat ? "done  ✓" : "a tournament won") + "</div>";
+      }
+    }
+    return out + "</div>";
+  }
+
+  function reputationLw(w, r) {
+    part(w, "hq-body", JSON.stringify(["r2", r, ui.town, ui.lord]), function () {
+      var towns = r.towns;
+      if (ui.town < 0 || ui.town >= towns.length) { ui.town = 0; for (var i = 0; i < towns.length; i++) if (towns[i].here) ui.town = i; }
+      var ret = r.retinue || [];
+      if (ui.lord < 0 || ui.lord >= ret.length) ui.lord = 0;
+      var shown = ret.length ? 4 : 6;
+      var h = '<div class="h-panel" style="left:27px;top:75px;width:317px;height:482px"><div class="h-eb" style="left:15px;top:15px">STANDING  ·  PER TOWN</div><div class="h-eb" style="right:15px;top:15px">−100 · 0 · +100</div>';
+      for (var t = 0; t < towns.length && t < shown; t++) {
+        var tw = towns[t], y = 31 + t * 72;
+        h += '<div class="h-town' + (t === ui.town ? " sel" : "") + '" data-town="' + t + '" style="top:' + y + 'px"></div>' +
+          '<div style="left:15px;top:' + (y + 8) + 'px;font-size:13px;color:#EDEEEF;white-space:nowrap">' + esc(tw.name) + "</div>" +
+          '<div style="right:15px;top:' + (y + 9) + 'px;font-size:12px;color:#9A9DA1">' + sgn(tw.value) + "</div>" +
+          standingCells(tw.value, 15, y + 30, 14, 5, tw.burgher ? "good" : tw.title === "hero" ? "brass" : null) +
+          '<div class="h-eb2" style="left:15px;top:' + (y + 47) + 'px">' + esc(upper((tw.burgher ? "Burgher" : tw.titleName) + " " + (tw.burgher ? "of " : "in ") + tw.name) + (tw.owns ? "  ·  OWNS PROPERTY" : "")) + "</div>";
+      }
+      if (ret.length) {
+        h += '<div class="h-hair" style="left:15px;top:330px;width:285px"></div><div class="h-eb" style="left:15px;top:344px">' + esc("YOUR SERVICE  ·  " + plural(ret.length, "LORD", "LORDS")) + "</div>";
+        for (var l = 0; l < ret.length && l < 2; l++) {
+          var c = ret[l], ly = 364 + l * 44;
+          h += '<div class="h-lord' + (l === ui.lord ? " sel" : "") + '" data-lord="' + l + '" style="top:' + (ly - 4) + 'px"></div>' +
+            '<div class="h-well" style="left:15px;top:' + ly + 'px;width:32px;height:32px;border-radius:9px"><span style="left:7px;top:7px">' + glyph("tower", 16) + "</span></div>" +
+            '<div style="left:57px;top:' + (ly + 1) + 'px;font-size:13px;color:#EDEEEF;white-space:nowrap">' + esc(c.lord || "An empty seat") + "</div>" +
+            '<div style="left:57px;top:' + (ly + 17) + 'px;font-size:11px;color:#9A9DA1;white-space:nowrap">' + esc("seat: " + c.seat) + "</div>" +
+            '<div class="h-pill ink" style="right:15px;top:' + (ly + 4) + 'px;height:25px">' + esc(c.rankName) + "</div>";
+        }
+        h += '<div style="left:15px;top:448px;width:285px;font-size:10.5px;color:#626569;white-space:nowrap;overflow:hidden">Ranks are per lord; an heir keeps you a rank lower.</div>';
+      }
+      h += "</div>";
+      var s = towns[ui.town];
+      return h + (s ? townCard(r, s) : '<div class="h-panel h-tcard"><div class="h-empty" style="top:90px">No town knows you yet.</div></div>') + retinueCard(r, ret[ui.lord]);
+    });
+    part(w, "hq-foot", JSON.stringify(["r2", r.towns.length, (r.retinue || []).length]), function () {
+      var owns = 0, sworn = 0;
+      for (var i = 0; i < r.towns.length; i++) { if (r.towns[i].owns) owns++; if (r.towns[i].burgher) sworn++; }
+      return foot(r.towns.length + " TOWNS  ·  " + owns + " WITH PROPERTY  ·  BURGHER OF " + sworn + "  ·  SERVING " + plural((r.retinue || []).length, "LORD", "LORDS"), "standing");
+    });
+  }
+
   // ---- render ---------------------------------------------------------------------------------------------------------------------------
   function active() { return kind === "hearth" || kind === "quests"; }
 
@@ -1169,12 +1854,12 @@
     if (!active()) return;
     var name = kind === "quests" ? "quests" : screen;
     var style = H && H.settings ? H.settings.conversationStyle : "card";
-    var frame = name + "|" + (name === "talk" ? style : "") + "|" + (lay ? lay.vw + "x" + lay.vh : "");
+    var frame = name + "|" + (name === "talk" ? style + (H && H.talk && H.talk.stranger ? "s" : "") : "") + "|" + (lay ? lay.vw + "x" + lay.vh : "");
     if (frame !== drawn) {
       drawn = frame;
       clear();
     }
-    var cine = name === "talk" && style === "cinematic";
+    var cine = name === "talk" && style === "cinematic" && !(H && H.talk && H.talk.stranger);
     toggle(document.body, "cinematic", cine && kind === "hearth");
     if (lay) {
       root.style.left = (cine ? 0 : lay.win.x) + "px";
@@ -1194,6 +1879,7 @@
     else if (name === "dice" && H.dice) dicePage(H.dice);
     else if (name === "lockpick" && H.lockpick) lockpick(H.lockpick);
     else if (name === "pickpocket" && H.pickpocket) pickpocket(H.pickpocket);
+    else if (name === "gear" && H.household) gearPage(H.household);
     reportFx(false);
     sendUi(false);
   }
@@ -1214,6 +1900,9 @@
         if (nfx[i].getAttribute("data-q")) it.q = +nfx[i].getAttribute("data-q");
         items.push(it);
       }
+    }
+    if (kind === "hearth" || kind === "quests") {
+      // Item wells: market goods, pockets, a companion's gear (the Household segment and the gear screen).
       var wells = root.querySelectorAll("[data-item]");
       for (var k = 0; k < wells.length && stacks.length < 32; k++) {
         var id = wells[k].getAttribute("data-item");
@@ -1253,6 +1942,11 @@
   function options() {
     if (screen === "talk" && H && H.talk) return talkOptions(H.talk);
     if (screen === "confront" && H && H.confront) return H.confront.choices;
+    if (screen === "gear" && H && H.household) {
+      var acts = gearActions(H.household, companionById(H.household, H.household.gearFor));
+      for (var i = 0; i < acts.length; i++) acts[i].key = i + 1;
+      return acts;
+    }
     return [];
   }
 
@@ -1261,7 +1955,10 @@
     var o = list[i];
     if (!o) return;
     if (screen === "talk") { if (!o.locked) act("choose", o.id); }
-    else if (o.enabled) act("confront", o.id);
+    else if (screen === "gear") {
+      var c = H && H.household ? companionById(H.household, H.household.gearFor) : null;
+      if (c && c.near) act(o.op, o.arg);
+    } else if (o.enabled) act("confront", o.id);
   }
 
   function onClick(ev) {
@@ -1291,6 +1988,10 @@
       render();
       return;
     }
+    if ((el = attr(t, "data-member"))) { ui.member = el.getAttribute("data-member"); render(); return; }
+    if ((el = attr(t, "data-person"))) { ui.person = el.getAttribute("data-person"); render(); return; }
+    if ((el = attr(t, "data-lord"))) { ui.lord = +el.getAttribute("data-lord"); render(); return; }
+    if ((el = attr(t, "data-hand"))) { ui.hand = +el.getAttribute("data-hand"); render(); return; }
     if ((el = attr(t, "data-quest"))) { ui.quest = el.getAttribute("data-quest"); ui.pop = ""; render(); return; }
     if ((el = attr(t, "data-town"))) { ui.town = +el.getAttribute("data-town"); render(); return; }
     if ((el = attr(t, "data-plot"))) { ui.plot = +el.getAttribute("data-plot"); render(); return; }
@@ -1301,7 +2002,7 @@
   function uiAction(a) {
     var c = a.indexOf(":"), k = c < 0 ? a : a.slice(0, c), v = c < 0 ? "" : a.slice(c + 1);
     if (k === "close") { send({type: "close"}); return; }
-    if (k === "seg") { seg = v; ui.scroll = 0; ui.pop = ""; if (v === "reputation") ui.asked = false; }
+    if (k === "seg") { seg = v; ui.scroll = 0; ui.pop = ""; if (v === "reputation") ui.asked = false; if (v === "household") ui.askedHouse = false; }
     else if (k === "pop") ui.pop = ui.pop === v ? "" : v;
     else if (k === "mtab") { ui.marketTab = v; ui.scroll = 0; }
     else if (k === "btab") ui.bankTab = v;
@@ -1344,7 +2045,7 @@
         return;
       }
       if (k === "Up" || k === "Down") {
-        var n = Math.min(list.length, 10);
+        var n = list.length;
         ui.focus = ui.focus < 0 ? (k === "Down" ? 0 : n - 1) : (ui.focus + (k === "Down" ? 1 : n - 1)) % n;
         render();
         return;
@@ -1359,7 +2060,9 @@
 
   function wheel(m) {
     var dy = m.dy > 0 ? -1 : 1;
-    if (screen === "market" && H && H.market) ui.scroll = Math.max(0, Math.min(Math.max(0, marketRows(H.market).length - 8), ui.scroll + dy));
+    if (screen === "talk" && H && H.talk) ui.focus = -1, ui.scroll = Math.max(0, Math.min(Math.max(0, talkOptions(H.talk).length - (ui.talkRows || 10)), ui.scroll + dy * (ui.talkStep || 1)));
+    else if (screen === "market" && H && H.market) ui.scroll = Math.max(0, Math.min(Math.max(0, marketRows(H.market).length - 8), ui.scroll + dy));
+    else if (kind === "quests" && seg === "people" && H && H.people) ui.scroll = Math.max(0, Math.min(Math.max(0, H.people.rows.length - 7), ui.scroll + dy));
     else if (kind === "quests" && seg === "board" && H && H.board) ui.scroll = Math.max(0, Math.min(Math.ceil((H.board.posts.length + H.board.wanted.length) / 3) - 2, ui.scroll + dy));
     else return;
     render();
@@ -1391,9 +2094,9 @@
         H = m.state;
         render();
       } else if (m.type === "hearthScreen") {
-        if (m.screen !== screen) { ui.focus = -1; ui.pop = ""; ui.offer = null; ui.scroll = 0; ui.pslot = -1; ui.bankTab = ""; ui.plot = -1; ui.marketTab = "sells"; }
+        if (m.screen !== screen) { ui.focus = -1; ui.pop = ""; ui.offer = null; ui.scroll = 0; ui.pslot = -1; ui.bankTab = ""; ui.plot = -1; ui.marketTab = "sells"; ui.hand = -1; }
         screen = m.screen;
-        if (m.seg) { if (m.seg !== seg) ui.scroll = 0; seg = m.seg; ui.asked = false; ui.pop = ""; }
+        if (m.seg) { if (m.seg !== seg) ui.scroll = 0; seg = m.seg; ui.asked = false; ui.askedHouse = false; ui.pop = ""; }
         drawn = "";
         render();
         reportFx(true);

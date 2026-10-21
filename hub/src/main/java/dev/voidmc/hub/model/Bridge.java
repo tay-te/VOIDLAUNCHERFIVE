@@ -243,7 +243,7 @@ public final class Bridge {
 	/** The rects a Hearth page reserves for native parts: dice, the lock and its strain, awareness, the hand ring, a lift. */
 	static final Set<String> HEARTH_FX_KINDS = Set.of("dice", "lock", "strain", "awareness", "hand", "liftfill");
 
-	static final String SCREEN_NAMES = "talk|market|bank|board|journal|confront|lockpick|pickpocket|dice|reputation";
+	static final String SCREEN_NAMES = "talk|market|bank|board|journal|confront|lockpick|pickpocket|dice|reputation|gear";
 	private static final String UUID = "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 	/** Conversation option and confrontation choice ids ("npc:news", "mettle:train/speech"). */
 	private static final String OPTION = "[A-Za-z0-9_.:/+-]{1,128}";
@@ -289,7 +289,15 @@ public final class Bridge {
 		op("diceLoaded", "[01]"),
 		op("diceAgain", ""),
 		op("requestReputation", ""),
-		op("setConversationStyle", "card|cinematic"));
+		op("setConversationStyle", "card|cinematic"),
+		// The living-world screens (OVERLAY.md 2026-10-21): a companion's id, then the order, the hand slot or the gear slot.
+		op("companionOrder", UUID + "#(?:follow|wait|distance|fight|hold|home|return)"),
+		op("companionGear", UUID),
+		op("companionLend", UUID + "#(?:[0-8]|40)"),
+		op("companionTake", UUID + "#(?:head|chest|legs|feet|mainhand|offhand)"),
+		op("refreshHousehold", ""),
+		op("trackPerson", UUID),
+		op("untrackPerson", ""));
 
 	private static Message hearth(Map<String, Object> m) {
 		if (!(m.get("op") instanceof String op) || !HEARTH_OPS.containsKey(op)) {
