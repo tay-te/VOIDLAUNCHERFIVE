@@ -639,6 +639,15 @@ him or not), he sits by the gate with the old soldier.
 Gather at a fight, scatter from a drawn sword, guards comment on your armour, greet a hero, shun an outlaw, shutters close
 at night.
 
+> **Built (lane A3, 2026-10-20)** in `npc/crowd/`: `Stimuli` (pure) → `CrowdDirector` (every 10 ticks per player in an
+> embodied town; `CrowdSelector` picks who reacts) → `Order`s picked up by six `CrowdBehaviour`s (hail 205, remark 208,
+> gawk 215, mutter 218, shun 220, scatter 225) and `BrawlBehaviour` (260). `Barks` is the shared bark engine of §0.2
+> (`hearth_dialogue/barks/*.json`, cooldowns in `crowds.json`). `Shutters` scans built plots' blueprints off-thread
+> (`ShutterScan`) and toggles only `open`, 20:30–06:30 and while an outlaw, an alarm or a thunderstorm is about. Brawlers
+> stop at half health; the nearest guard parts them and fines a bare-fisted player 5 bits. `/hearth crowds
+> stats|sense|shutters|brawl`; tour `-Dhearth.tour=crowds`. Requests in `docs/requests/lwA3.md` (the law's assault watch
+> must ask `Offences.brawling`; filth and dress remarks need a standing api method).
+
 ### 5.1 What the player sees and does
 
 | The player | Folk near (≤ 16 blocks) |
