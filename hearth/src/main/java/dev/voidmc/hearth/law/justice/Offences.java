@@ -22,6 +22,15 @@ public final class Offences {
 		};
 	}
 
+	/**
+	 * Whether a player's blow on a resident is brawling (a fight with fists the crowds module runs, fined on the spot by the
+	 * guard who parts it) rather than assault (docs/LIVING_WORLD_2.md §5.1): then no assault is filed for it.
+	 */
+	public static boolean brawling(java.util.UUID player, java.util.UUID resident) {
+		dev.voidmc.hearth.api.CrowdService crowds = dev.voidmc.hearth.api.HearthServices.crowds();
+		return crowds != null && crowds.brawling(player, resident);
+	}
+
 	/** Whether the value of what was taken adds to the fine. */
 	public static boolean valued(Offence offence) {
 		return offence == Offence.THEFT || offence == Offence.PICKPOCKETING || offence == Offence.ROBBERY || offence == Offence.POACHING;
