@@ -101,8 +101,8 @@ public final class Lives {
 	}
 
 	private static void dayPassed(HearthWorld w, Settlement s, long day) {
-		if (!config.lives().enabled()) {
-			return;
+		if (!config.lives().enabled() || s.kind() == dev.voidmc.hearth.api.SettlementKind.POST) {
+			return; // a post in the wild keeps a fixed household, not a town's lives
 		}
 		long t0 = System.nanoTime();
 		List<LivesDay.Happening> out = LivesDay.day(s, day, config, LivesBook.get(), childhoodDays(), RULES);

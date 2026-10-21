@@ -68,6 +68,12 @@ public final class TownLives {
 	record Neighbours(long day, int plots, it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap map) {
 	}
 
+	/** Each trade's workplaces, filled as asked, kept until the plots change or a week passes. */
+	transient @Nullable Places places;
+
+	record Places(long day, int plots, Map<JobType, List<Workplaces.Place>> map) {
+	}
+
 	/** No named character is looked for before this day (the last search found nobody to fit). */
 	transient long searchAfter = Long.MIN_VALUE;
 	/** The grown folk grouped by work and home, kept a week (the relations' pass). */

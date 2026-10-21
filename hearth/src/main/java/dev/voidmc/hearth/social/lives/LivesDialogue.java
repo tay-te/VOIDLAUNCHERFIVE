@@ -314,7 +314,14 @@ final class LivesDialogue implements DialogueProvider {
 
 	/** What the character says of where their story stands now. */
 	static Component story(ServerPlayer player, Settlement s, Resident r, TownLives.Notable n) {
-		return line(player, s, r, "thread." + n.thread + "." + n.beat, Component.translatable("hearth.lives.story." + n.thread + "." + n.beat, r.givenName));
+		Component beat = line(player, s, r, "thread." + n.thread + "." + n.beat, Component.translatable("hearth.lives.story." + n.thread + "." + n.beat, r.givenName));
+		if (n.by == null) {
+			return beat;
+		}
+		// they remember who moved their story, and say so: to that player, and to the others who ask (§4.5)
+		String cat = n.by.equals(player.getUUID()) ? "lives.story.by_you" : "lives.story.by_other";
+		Component more = line(player, s, r, cat, Component.empty());
+		return more.getString().isEmpty() ? beat : Component.empty().append(beat).append(" ").append(more);
 	}
 
 	/** A line of a dialogue category in the resident's voice, or the fallback. */

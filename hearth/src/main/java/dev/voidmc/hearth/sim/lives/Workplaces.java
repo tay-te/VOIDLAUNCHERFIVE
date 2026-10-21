@@ -55,16 +55,40 @@ public interface Workplaces {
 	final class Live implements Workplaces {
 		private final SimSettlement s;
 		private final TownLives town;
-		private final Map<JobType, List<Place>> places = new EnumMap<>(JobType.class);
+		private @org.jspecify.annotations.Nullable Map<JobType, List<Place>> places;
 
 		Live(SimSettlement s, TownLives town) {
 			this.s = s;
 			this.town = town;
 		}
 
+		/** The trades' places kept on the town until its plots change (or a week): the claims ask for them every day. */
+		private Map<JobType, List<Place>> cache() {
+			if (this.places != null) {
+				return this.places;
+			}
+			SimSettlement s = this.s;
+			TownLives town = this.town;
+			TownLives.Places cached = town.places;
+			// keyed by the plots that employ (a cheap count): a workshop finished or abandoned is seen the same day
+			int plots = s.plots().size() * 31;
+			for (SimPlot p : s.plots()) {
+				if (p.employs()) {
+					plots++;
+				}
+			}
+			long today = town.lastDay;
+			if (cached == null || cached.plots() != plots || today - cached.day() >= 7 || today < cached.day()) {
+				cached = new TownLives.Places(today, plots, new EnumMap<>(JobType.class));
+				town.places = cached;
+			}
+			this.places = cached.map();
+			return this.places;
+		}
+
 		@Override
 		public List<Place> places(JobType trade) {
-			return this.places.computeIfAbsent(trade, t -> {
+			return cache().computeIfAbsent(trade, t -> {
 				List<Place> out = new ArrayList<>(2);
 				for (SimPlot p : this.s.plots()) {
 					int n = p.jobSlots(t);

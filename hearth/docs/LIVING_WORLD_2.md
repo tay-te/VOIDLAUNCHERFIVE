@@ -550,6 +550,14 @@ the roof still leaks."*), fair crier (*"Come see the fire-eater from the souther
 Families with children who grow up, apprentices who become masters, friendships, feuds and romances, a few named
 characters per town with personal schedules and a story thread (KCD-style), who talk about you and remember.
 
+> **Built (lane B2, 2026-10-21)** in `sim/lives/` (books, on `DAY_PASSED`) and `social/lives/` (behaviours, talk,
+> choices), documented in SOCIAL.md §12; additions outside them and requests in `requests/lwB2.md`. Thirteen roles and
+> threads (4–8 beats, 2–3 endings), 279 barks, 240 lines of talk and thread dialogue. Differences from the text below:
+> relations are stepped for a sixth of the town a day with six days' gains (same outcome, a sixth of the cost);
+> the town is looked over for new apprentices and masterless workshops once a week (builders take apprentices too);
+> a journeyman kept a whole season from the trade gives it up; thread quests fall back to a coin cost until B1's
+> `offerPersonal` lands; the mourning dress and the People page wait on others (requests/lwB2.md 1, F4).
+
 ### 4.1 What the player sees and does
 
 - **Growing up.** Children grow up (exists); now an older child (28 days on) is **apprenticed**: they follow a master

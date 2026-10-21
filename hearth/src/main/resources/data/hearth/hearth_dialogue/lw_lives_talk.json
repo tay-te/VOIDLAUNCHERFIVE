@@ -168,6 +168,24 @@
 	"remember.last.kindness": [
 		"Back again? You were kind to me last time."
 	],
+	"lives.story.by_you": [
+		"I haven't forgotten your part in it, {player}.",
+		"You were there for it. I remember.",
+		"Whatever folk say, I know what you did.",
+		{
+			"text": "You've a long memory in this town now, {player}. So have I.",
+			"rep": [
+				20,
+				100
+			]
+		}
+	],
+	"lives.story.by_other": [
+		"{helper} had a hand in it, you know.",
+		"Did you hear what {helper} did? A stranger, too.",
+		"It was {helper} who stepped in. Folk still talk of it.",
+		"Ask {helper}, if you see them. They know the whole of it."
+	],
 	"remember.last.good": [
 		"Back again? Good to see you.",
 		"You again. Last time went well, as I recall."

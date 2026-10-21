@@ -104,10 +104,12 @@ public class LivesTour implements FabricClientGameTest {
 			}));
 			logLives(world, town);
 
-			// 1. the rest day's afternoon: the sweethearts walk out to a viewpoint
-			timeTo(world, Schedule.dayTimeOf(14 * 60 + 20));
+			// 1. the rest day's afternoon: the sweethearts walk out to a viewpoint (brought in, if the town's cap left them out)
+			timeTo(world, Schedule.dayTimeOf(14 * 60 + 5));
+			log("brought in: " + world.getServer().computeOnServer(server -> bringIn(server, town)));
+			LivesTourStats.reset();
 			world.getServer().runCommand("gamerule advance_time true");
-			settle(context, 30_000);
+			settle(context, 55_000);
 			world.getServer().runCommand("gamerule advance_time false");
 			String couple = world.getServer().computeOnServer(server -> couple(server, town));
 			log("courting: " + couple);
@@ -116,7 +118,15 @@ public class LivesTour implements FabricClientGameTest {
 			// 2. a deed, and folk at leisure who talk of it where the player can hear
 			Lives.setConfig(talkMore(Lives.config()));
 			world.getServer().runCommand("hearth standing deed @p \"repair:fire_brigade\" 25 true");
+			world.getServer().runOnServer(server -> dev.voidmc.hearth.npc.talk.PlayerTalk.forget(town));
+			log("the town's talk of the player: " + world.getServer().computeOnServer(server -> {
+				ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+				var d = dev.voidmc.hearth.npc.talk.PlayerTalk.townTalk(settlement(server, town), p.getUUID(), dev.voidmc.hearth.npc.NpcTime.today(), 10,
+					server.overworld().getGameTime());
+				return String.valueOf(d);
+			}));
 			BlockPos spot = world.getServer().computeOnServer(server -> idleSpot(server, town));
+			log("idle spot " + spot);
 			if (spot != null) {
 				teleport(world, spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, 0, 10, false);
 				context.runOnClient(mc -> mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK));
@@ -131,8 +141,24 @@ public class LivesTour implements FabricClientGameTest {
 			log(LivesFolk.overheardLine());
 			Lives.setConfig(LivesConfig.DEFAULTS);
 
-			// 3. 22:00: the drunk smith at the tavern
+			log(LivesTourStats.line());
+			// 3. 22:00: the drunk smith at the tavern (the player waits by the tavern nearest his house, so he is about)
 			timeTo(world, Schedule.dayTimeOf(21 * 60 + 40));
+			world.getServer().runOnServer(server -> {
+				BlockPos t = tavernNearSmith(server, town);
+				if (t != null) {
+					ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+					p.teleportTo(server.overworld(), t.getX() + 0.5, t.getY() + 14, t.getZ() + 0.5, java.util.Set.of(), 0, 60, true);
+					SimSettlement s = settlement(server, town);
+					for (TownLives.Notable n : LivesView.notables(s)) {
+						Resident r = n.role.equals("drunk_smith") ? s.resident(n.resident) : null;
+						if (r != null && HearthServices.npc().folk(r.id) == null) {
+							log("smith brought to the tavern: " + (HearthServices.npc().embodyNear(server.overworld(), s, r, t) != null));
+						}
+					}
+				}
+			});
+			LivesTourStats.reset();
 			world.getServer().runCommand("gamerule advance_time true");
 			settle(context, 25_000);
 			world.getServer().runCommand("gamerule advance_time false");
@@ -155,6 +181,7 @@ public class LivesTour implements FabricClientGameTest {
 			shot(context, "people_talk");
 
 			logLives(world, town);
+			log(LivesTourStats.line());
 			log(LivesStats.line());
 			for (String l : LivingWorldStats.lines()) {
 				log(l);
@@ -220,6 +247,44 @@ public class LivesTour implements FabricClientGameTest {
 		return out.toString();
 	}
 
+	/** The cast embodied near the square, if they are not about already. */
+	private static String bringIn(MinecraftServer server, long town) {
+		SimSettlement s = settlement(server, town);
+		NpcService npc = HearthServices.npc();
+		StringBuilder out = new StringBuilder();
+		for (Resident r : s.residents()) {
+			boolean cast = LivesDev.sweetheartOf(r) != null || LivesView.notable(s, r.id) != null && LivesView.notable(s, r.id).role.equals("drunk_smith");
+			if (!cast) {
+				continue;
+			}
+			boolean about = npc.folk(r.id) != null;
+			boolean now = about || npc.embodyNear(server.overworld(), s, r, Venues.square(s)) != null;
+			out.append(r.givenName).append(about ? " (about)" : now ? " (brought)" : " (no room)").append(' ');
+		}
+		return out.toString();
+	}
+
+	private static @Nullable BlockPos tavernNearSmith(MinecraftServer server, long town) {
+		SimSettlement s = settlement(server, town);
+		for (TownLives.Notable n : LivesView.notables(s)) {
+			Resident r = n.role.equals("drunk_smith") ? s.resident(n.resident) : null;
+			if (r == null) {
+				continue;
+			}
+			PlotView home = r.home < 0 ? null : s.plot(r.home);
+			BlockPos from = home == null ? s.center() : Venues.middle(home.spec());
+			BlockPos best = null;
+			for (PlotView t : Venues.built(s, "commerce/inn", "commerce/tavern")) {
+				BlockPos m = Venues.middle(t.spec());
+				if (best == null || m.distSqr(from) < best.distSqr(from)) {
+					best = m;
+				}
+			}
+			return best;
+		}
+		return null;
+	}
+
 	private static boolean Life(Resident r) {
 		return r.job == JobType.FARMER || r.job == JobType.NONE || r.job == JobType.BUILDER;
 	}
@@ -265,7 +330,7 @@ public class LivesTour implements FabricClientGameTest {
 			if (a != null && b != null) {
 				double mx = (a.getX() + b.getX()) / 2;
 				double mz = (a.getZ() + b.getZ()) / 2;
-				return new double[] {mx + 4.5, a.getY() + 2.2, mz + 4.5, mx, a.getY() + 1.2, mz};
+				return new double[] {mx + 5.5, a.getY() + 4.0, mz + 5.5, mx, a.getY() + 1.2, mz};
 			}
 		}
 		return null;
@@ -338,41 +403,50 @@ public class LivesTour implements FabricClientGameTest {
 			if (r == null || n >= 3) {
 				continue;
 			}
-			List<DialogueProvider.Option> options = new ArrayList<>();
-			for (DialogueProvider dp : DialogueProvider.providers()) {
-				dp.collect(p, s, r, options);
-			}
-			for (DialogueProvider dp : DialogueProvider.providers()) {
-				if (dp.select(p, s, r, "lives:story")) {
-					Component line = dp.reply(p, s, r, "lives:story");
-					out.append(r.givenName).append(" (").append(nb.role).append("): ").append(line == null ? "" : line.getString()).append(" | options ");
-					for (DialogueProvider.Option o : options) {
-						if (o.id().startsWith("lives:")) {
-							out.append(o.id()).append(' ');
-						}
-					}
-					out.append("\n    ");
-					break;
+			out.append(r.givenName).append(" (").append(nb.role).append("): ").append(say(p, s, r, "lives:story")).append(" | options");
+			for (String id : offered(p, s, r)) {
+				if (id.startsWith("lives:")) {
+					out.append(' ').append(id);
 				}
 			}
+			out.append("; ");
 			n++;
 		}
 		// and anyone's word on the folk of note
 		for (Resident r : s.residents()) {
 			if (r.age == AgeStage.ADULT && LivesView.notable(s, r.id) == null) {
-				for (DialogueProvider dp : DialogueProvider.providers()) {
-					if (dp.select(p, s, r, "lives:people")) {
-						Component line = dp.reply(p, s, r, "lives:people");
-						String text = line == null ? "" : line.getString();
-						p.sendSystemMessage(Component.literal(r.givenName + ": " + text));
-						out.append(r.givenName).append(" on the folk of note: ").append(text);
-						break;
-					}
-				}
+				String text = say(p, s, r, "lives:people");
+				p.sendSystemMessage(Component.literal(r.givenName + ": " + text));
+				out.append(r.givenName).append(" on the folk of note: ").append(text);
 				break;
 			}
 		}
 		return out.toString();
+	}
+
+	private static List<String> offered(ServerPlayer p, SimSettlement s, Resident r) {
+		List<String> ids = new ArrayList<>();
+		for (DialogueProvider dp : DialogueProvider.providers()) {
+			List<DialogueProvider.Option> options = new ArrayList<>();
+			dp.collect(p, s, r, options);
+			for (DialogueProvider.Option o : options) {
+				ids.add(o.id());
+			}
+		}
+		return ids;
+	}
+
+	/** Picks an option as the conversation would: the provider that offered it answers. */
+	private static String say(ServerPlayer p, SimSettlement s, Resident r, String id) {
+		for (DialogueProvider dp : DialogueProvider.providers()) {
+			List<DialogueProvider.Option> options = new ArrayList<>();
+			dp.collect(p, s, r, options);
+			if (options.stream().anyMatch(o -> o.id().equals(id)) && dp.select(p, s, r, id)) {
+				Component line = dp.reply(p, s, r, id);
+				return line == null ? "" : line.getString();
+			}
+		}
+		return "(not offered)";
 	}
 
 	private static void logLives(TestSingleplayerContext world, long town) {

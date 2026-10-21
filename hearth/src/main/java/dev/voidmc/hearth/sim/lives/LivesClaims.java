@@ -50,8 +50,16 @@ public final class LivesClaims implements ResidentClaims.Source {
 	/** Works out the day's claims for the town (cached on it until the next day's lives). */
 	static Map<UUID, TownLives.Claim> claims(Settlement s, TownLives town) {
 		Map<UUID, TownLives.Claim> m = town.claims;
-		return m != null ? m : claims(s, town, Workplaces.of(s));
+		if (m != null) {
+			return m;
+		}
+		long t0 = System.nanoTime();
+		m = claims(s, town, Workplaces.of(s));
+		TIMER.add(System.nanoTime() - t0);
+		return m;
 	}
+
+	private static final dev.voidmc.hearth.sim.LivingWorldStats.Timer TIMER = dev.voidmc.hearth.sim.LivingWorldStats.timer("lives claims");
 
 	/** Works the claims out afresh against these workplaces (and caches them on the town). */
 	static Map<UUID, TownLives.Claim> claims(Settlement s, TownLives town, Workplaces wp) {
@@ -93,7 +101,8 @@ public final class LivesClaims implements ResidentClaims.Source {
 				masters.add(r);
 			} else if (r.age == AgeStage.ADULT && Life.journeyman(r) != null) {
 				learners.add(r);
-			} else if (r.age == AgeStage.CHILD && Life.apprenticeTrade(r) != null && today + 1 - r.bornDay >= grownAt) {
+			} else if (Life.apprenticeTrade(r) != null && (r.age == AgeStage.ADULT || today + 1 - r.bornDay >= grownAt)) {
+				// an apprentice grown (or grown tomorrow): the trade first, before the crafts' next look makes them journeymen
 				learners.add(r);
 			}
 		}
@@ -114,6 +123,9 @@ public final class LivesClaims implements ResidentClaims.Source {
 		}
 		for (Resident r : learners) {
 			JobType trade = Life.journeyman(r) != null ? Life.journeyman(r) : Life.apprenticeTrade(r);
+			if (trade == null) {
+				continue;
+			}
 			int prefer = r.work;
 			if (prefer == Resident.NO_PLOT) {
 				UUID master = Life.master(r);

@@ -21,6 +21,9 @@ import java.util.function.BiConsumer;
  * sim's job assignment honours it.
  */
 final class Crafts {
+	/** The crafters are stepped every {@code QUICK} days between the weekly looks. */
+	static final int QUICK = 3;
+
 	private Crafts() {
 	}
 
@@ -80,7 +83,11 @@ final class Crafts {
 			adopt(s, wp, day, c);
 		}
 		if (!full) {
-			quick(s, town, known, day, c, event);
+			// between the weekly looks, the crafters every third day (a grown apprentice is a journeyman, a masterpiece is
+			// made, at most two days late)
+			if (Math.floorMod(day + s.id(), (long) QUICK) == 0) {
+				quick(s, town, known, day, c, event);
+			}
 			return;
 		}
 		for (Resident r : who) {
@@ -206,8 +213,9 @@ final class Crafts {
 			Life.journeyman(r, null, day);
 			return;
 		}
+		int elapsed = Held.checked(r, day);
 		if (r.job != trade) {
-			Held.hold(r, day);
+			Held.hold(r, elapsed);
 			if (Held.held(r) >= c.masterDays()) {
 				// a whole season kept from the trade by a full town: they give it up for the work they have
 				Life.journeyman(r, null, day);
@@ -252,12 +260,18 @@ final class Crafts {
 		private Held() {
 		}
 
-		static void hold(Resident r, long day) {
+		/** Days since the journeyman was last looked at (1–7; stepped every few days), and notes today. */
+		static int checked(Resident r, long day) {
 			var t = Life.of(r);
-			if (t.getLongOr("jd", Long.MIN_VALUE) != day) {
-				t.putLong("jd", day);
-				t.putInt("jh", t.getIntOr("jh", 0) + 1);
-			}
+			long last = t.getLongOr("jd", day - 1);
+			t.putLong("jd", day);
+			return (int) Math.clamp(day - last, 1L, 7L);
+		}
+
+		/** The days since the last look were spent off the trade. */
+		static void hold(Resident r, int days) {
+			var t = Life.of(r);
+			t.putInt("jh", t.getIntOr("jh", 0) + days);
 		}
 
 		static int held(Resident r) {

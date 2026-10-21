@@ -45,6 +45,7 @@ final class LivesTalk {
 			return;
 		}
 		long t0 = System.nanoTime();
+		int players = 0;
 		for (ServerPlayer p : server.getPlayerList().getPlayers()) {
 			if (p.isSpectator() || !(p.level() instanceof ServerLevel level)) {
 				continue;
@@ -55,9 +56,18 @@ final class LivesTalk {
 				continue;
 			}
 			pass(level, s, p, npc, cfg);
+			players++;
 		}
-		TIMER.add(System.nanoTime() - t0);
+		long took = System.nanoTime() - t0;
+		TIMER.add(took);
+		PASSES.increment();
+		NANOS.add(took);
+		PLAYERS.add(players);
 	}
+
+	static final java.util.concurrent.atomic.LongAdder PASSES = new java.util.concurrent.atomic.LongAdder();
+	static final java.util.concurrent.atomic.LongAdder NANOS = new java.util.concurrent.atomic.LongAdder();
+	static final java.util.concurrent.atomic.LongAdder PLAYERS = new java.util.concurrent.atomic.LongAdder();
 
 	private static void pass(ServerLevel level, Settlement s, ServerPlayer p, NpcService npc, LivesConfig.Talk cfg) {
 		List<NpcService.FolkHandle> near = npc.folkNear(level, p.position(), cfg.radius());
@@ -83,7 +93,8 @@ final class LivesTalk {
 		}
 		// two folk talking about the player, a little way off
 		if (random.nextDouble() < cfg.overheardChance()) {
-			long today = Folks.today(s);
+			// the standing module's days (the world's), not the town's own calendar (a town run ahead keeps its own)
+			long today = dev.voidmc.hearth.npc.NpcTime.today();
 			PlayerTalk.Deed deed = PlayerTalk.townTalk(s, p.getUUID(), today, 10, level.getGameTime());
 			if (deed == null) {
 				return;

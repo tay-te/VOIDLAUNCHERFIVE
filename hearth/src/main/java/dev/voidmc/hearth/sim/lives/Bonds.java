@@ -21,7 +21,7 @@ import org.jspecify.annotations.Nullable;
  */
 final class Bonds {
 	/** Residents take their contacts every {@code STRIDE} days, with that many days' gains. */
-	static final int STRIDE = 4;
+	static final int STRIDE = 6;
 	static final int WORKMATE = 4 * STRIDE;
 	static final int NEIGHBOUR = 3 * STRIDE;
 	static final int EVENING = 5 * STRIDE;
@@ -53,8 +53,8 @@ final class Bonds {
 		int[] runEnd = g.runEnd;
 		it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap firstAtHome = g.firstAtHome;
 		int updates = rc.updatesPerDay();
-		// a quarter of the town takes its contacts each day (each resident every fourth day, the gains four days' worth),
-		// so the pass costs a quarter as much and comes out the same over a week
+		// a sixth of the town takes its contacts each day (each resident every sixth day, the gains six days' worth), so
+		// the pass costs a sixth as much and comes out the same over a fortnight
 		int slice = (int) Math.floorMod(day, (long) STRIDE);
 		for (int i = 0; i < n && updates > 0; i++) {
 			if (i % STRIDE != slice) {
@@ -261,7 +261,7 @@ final class Bonds {
 				}
 				continue;
 			}
-			// the day's chance first (four days' worth, a quarter of the town a day): the search below is the dear part
+			// the day's chance first (six days' worth, a sixth of the town a day): the search below is the dear part
 			if (random.nextDouble() >= 1 - Math.pow(1 - rc.sweetheartChance(), STRIDE)) {
 				continue;
 			}
