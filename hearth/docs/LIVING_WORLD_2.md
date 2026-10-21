@@ -371,6 +371,14 @@ Per embodied town: the rhythm director every 20 ticks (a clock check, ≤ 20 µs
 (the day's agenda); watch lights ≤ 8 block changes a second; smoke ≤ 24 particle packets every 2 s; wash-place scan once
 per embodiment (≤ 4 000 loaded block reads, spread over 20 ticks). Abstract: nothing per tick; ≤ 2 µs per town per day.
 
+**Measured** (lane A2, `RhythmTour` on a 145-soul northern town, an overloaded dev client; `/hearth sim stats`): the
+director 0.17–0.27 ms a pass every 20 ticks, of which the steady part (clocks, bells, attendance, light sweep) is
+~0.06 ms (≈ 3 µs a tick a town) — over the 20 µs aim; the rest is bounded one-offs: smoke 0.1 ms every 40 ticks at meal
+times, the wash-place scan 0.15 ms a pass for ~40 passes per embodiment, laundry 0.7–1.1 ms a pass for ~37 passes on a
+wash-day morning (one yard a pass, max ~5 ms). Folk behaviours 3–9 µs a step. Abstract (`RhythmTest.abstractCost`): the
+offering 0.5 µs a town a day; a rest day's schedule windows ~36 µs a resident a day (`ScheduleOverrides.overlay`, see
+requests/lwA2.md). After a town is let go: 0 watch lights, 0 rhythm dressings.
+
 ### 2.5 Persistence and multiplayer
 
 Calendar is computed, not stored. Dressings (laundry, first-snow) in the existing dressings ledger; watch lights in
