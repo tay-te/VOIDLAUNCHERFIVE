@@ -76,6 +76,8 @@ public final class Crowds {
 			SHUTTERS.tick(server);
 		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> clear());
+		// a title or standing moved: the crowd reads the player afresh (it keeps them 15 s otherwise)
+		SettlementEvents.STANDING_CHANGED.register((world, s, player, from, to) -> DIRECTOR.forget(player));
 		SettlementEvents.EMBODIMENT_CHANGED.register((world, s, embodied) -> {
 			if (!embodied) {
 				SHUTTERS.forget(s.id());

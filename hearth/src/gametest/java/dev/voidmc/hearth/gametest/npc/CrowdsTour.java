@@ -122,6 +122,8 @@ public class CrowdsTour implements FabricClientGameTest {
 			settle(context, 4_000);
 			outlaw(context, world, town);
 			log(CrowdStats.line());
+			log(String.format(Locale.ROOT, "blade in all: %d of %d folk within 6 backed 4+ blocks off within 3 s, %d within 5 s", BLADE[1], BLADE[0], BLADE[2]));
+			bench(context, world, spot);
 			log(dev.voidmc.hearth.build.BlueprintServiceImpl.Stats.line());
 			for (String l : LivingWorldStats.lines()) {
 				log(l);
@@ -162,6 +164,9 @@ public class CrowdsTour implements FabricClientGameTest {
 				moved5++;
 			}
 		}
+		BLADE[0] += before.size();
+		BLADE[1] += moved3;
+		BLADE[2] += moved5;
 		log(String.format(Locale.ROOT, name + ": %d folk within 6 (guards aside); %d are 4+ blocks further within 3 s, %d within 5 s; scatters %d, guard remarks %d",
 			before.size(), moved3, moved5, CrowdStats.reactions(Reaction.SCATTER), CrowdStats.reactions(Reaction.REMARK)));
 		for (Map.Entry<UUID, Double> e : before.entrySet()) {
@@ -179,6 +184,26 @@ public class CrowdsTour implements FabricClientGameTest {
 			}
 		}
 		world.getServer().runCommand("item replace entity @a weapon.mainhand with air");
+	}
+
+	/** Folk within 6 of a blade, those 4+ blocks off within 3 s, within 5 s: over every blade check. */
+	private static final int[] BLADE = new int[3];
+
+	/**
+	 * The crowds' cost with a warm JIT (docs/LIVING_WORLD_2.md §9.1: 20 us a player a pass): a stretch in the busiest street
+	 * with a blade and without, timed on its own, after the director's bench (each part of a look, and whole passes).
+	 */
+	private static void bench(ClientGameTestContext context, TestSingleplayerContext world, BlockPos spot) {
+		stand(world, spot);
+		settle(context, 3_000);
+		// the bench first: its loops compile the director as a busy server's many players would, then the stretch in real time
+		log(world.getServer().computeOnServer(server -> Crowds.director().bench(server, 2000)));
+		world.getServer().runOnServer(server -> CrowdStats.resetTimes());
+		world.getServer().runCommand("item replace entity @a weapon.mainhand with iron_sword");
+		settle(context, 20_000);
+		world.getServer().runCommand("item replace entity @a weapon.mainhand with air");
+		settle(context, 20_000);
+		log("warm stretch (40 s in the busiest street, 20 s with a blade): " + CrowdStats.line());
 	}
 
 	/** A fight with a (tethered) pig before the player: the ring that gathers. */
@@ -458,7 +483,7 @@ public class CrowdsTour implements FabricClientGameTest {
 		return best;
 	}
 
-	/** Two more outdoor spots with folk about, away from the first. */
+	/** Up to four more outdoor spots with folk about, away from the first and each other. */
 	private static List<BlockPos> busySpots(MinecraftServer server, long town, BlockPos first) {
 		ServerLevel level = server.overworld();
 		List<Folk> all = new ArrayList<>();
@@ -469,13 +494,13 @@ public class CrowdsTour implements FabricClientGameTest {
 		}
 		List<BlockPos> out = new ArrayList<>();
 		List<BlockPos> taken = new ArrayList<>(List.of(first));
-		for (int k = 0; k < 2; k++) {
+		for (int k = 0; k < 4; k++) {
 			BlockPos best = null;
 			int bestN = 1;
 			for (Folk f : all) {
 				boolean far = true;
 				for (BlockPos t : taken) {
-					far &= !f.blockPosition().closerThan(t, 20);
+					far &= !f.blockPosition().closerThan(t, 12);
 				}
 				if (!far) {
 					continue;

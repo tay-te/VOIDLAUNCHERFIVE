@@ -61,6 +61,9 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		BlockPos stand;
 		/** The tavern's seats in the order they are filled (a free one is looked for there when the own seat is taken). */
 		List<Poi> seats = List.of();
+		/** Those of them at a table, and whether the tavern has tables at all. */
+		java.util.Set<Poi> atTable = java.util.Set.of();
+		boolean tables;
 		int retries;
 		final BlockPos table;
 		final @Nullable BlockPos home;
@@ -167,16 +170,22 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		ServerLevel level = (ServerLevel) folk.entity().level();
 		// the first seat in the tavern's order that no drinker here now is bound for (those who drink tonight but are not
 		// about take none: the seats go to whoever is in the room)
+		// a seat by a table if one is free; when the tables' seats are all taken the drinker stands at a table, round the
+		// tables in turn (a settle against the far wall is for a tavern with no table at all)
 		Poi seat = null;
 		for (Poi p : seats) {
+			if (!tables.isEmpty() && !byTable(p, tables)) {
+				break;
+			}
 			if (!claimed(p, folk.resident().id)) {
 				seat = p;
 				break;
 			}
 		}
-		BlockPos table = tables.isEmpty() ? Venues.middle(tavern.spec()) : Venues.nearest(Venues.positions(tables), seat != null ? seat.pos()
-			: Venues.middle(tavern.spec()));
-		BlockPos stand = seat != null ? seat.pos() : Venues.standFor(level, new Venues.Venue(table, table, List.of(table), 2), folk.resident().id, 45);
+		BlockPos table = tables.isEmpty() ? Venues.middle(tavern.spec()) : seat != null ? Venues.nearest(Venues.positions(tables), seat.pos())
+			: tables.get(Math.floorMod(nth, tables.size())).pos();
+		BlockPos stand = seat != null ? seat.pos() : tables.isEmpty() ? Venues.standFor(level, new Venues.Venue(table, table, List.of(table), 2), folk.resident().id, 45)
+			: atTable(level, table, folk.resident().id);
 		BlockPos home = WashBehaviour.door(s, folk.resident());
 		// the first two at the first table of a tavern arm-wrestle, one night in three (seats go round the tables: the
 		// first table's second seat is the one after a seat at every table)
@@ -187,6 +196,14 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		State st = new State(key(s, tavern), musician ? null : seat, musician ? Venues.standFor(level, new Venues.Venue(table, table, List.of(table), 2),
 			folk.resident().id, 7) : stand, table, home, wrestler && !musician, musician);
 		st.seats = seats;
+		st.tables = !tables.isEmpty();
+		java.util.Set<Poi> at = new java.util.HashSet<>();
+		for (Poi p : seats) {
+			if (byTable(p, tables)) {
+				at.add(p);
+			}
+		}
+		st.atTable = at;
 		this.states.put(folk.resident().id, st);
 		folk.hold(new ItemStack(Items.HONEY_BOTTLE));
 		RhythmFolk.walk(folk, st.stand, 0.6);
@@ -207,6 +224,7 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		for (int k = 0; k < tables.size(); k++) {
 			byTable.add(new ArrayList<>());
 		}
+		List<Poi> loose = new ArrayList<>();
 		for (Poi seat : seats) {
 			int best = 0;
 			double bd = Double.MAX_VALUE;
@@ -217,21 +235,80 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 					best = k;
 				}
 			}
-			byTable.get(best).add(seat);
+			if (bd > TABLE_REACH * TABLE_REACH) {
+				loose.add(seat); // a settle by the wall, a stool at the bar: at no table
+			} else {
+				byTable.get(best).add(seat);
+			}
 		}
 		for (int k = 0; k < tables.size(); k++) {
 			BlockPos t = tables.get(k).pos();
 			byTable.get(k).sort(Comparator.comparingDouble(p -> p.pos().distSqr(t)));
 		}
 		List<Poi> out = new ArrayList<>(seats.size());
-		for (int round = 0; out.size() < seats.size(); round++) {
+		int atTables = seats.size() - loose.size();
+		for (int round = 0; out.size() < atTables; round++) {
 			for (List<Poi> g : byTable) {
 				if (round < g.size()) {
 					out.add(g.get(round));
 				}
 			}
 		}
+		loose.sort(Comparator.comparingDouble(p -> nearestSq(p, tables)));
+		out.addAll(loose);
 		return out;
+	}
+
+	/** A seat this close to a table (blocks) is at it: the trestle's benches, the chairs either side of a barrel. */
+	static final double TABLE_REACH = 2.5;
+
+	/** Whether the seat stands at one of the tables. */
+	static boolean byTable(Poi seat, List<Poi> tables) {
+		for (Poi t : tables) {
+			if (seat.pos().distSqr(t.pos()) <= TABLE_REACH * TABLE_REACH) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * A floor cell beside the table to stand at with a mug (one to two blocks off, on the table's own floor, not a seat),
+	 * each drinker's own by id; the table's ring when none is free.
+	 */
+	static BlockPos atTable(ServerLevel level, BlockPos table, UUID who) {
+		List<BlockPos> ring = new ArrayList<>(16);
+		for (int dx = -2; dx <= 2; dx++) {
+			for (int dz = -2; dz <= 2; dz++) {
+				int d2 = dx * dx + dz * dz;
+				if (d2 == 0 || d2 > 5) {
+					continue;
+				}
+				BlockPos p = table.offset(dx, 0, dz);
+				if (level.isLoaded(p) && dev.voidmc.hearth.npc.entity.FolkSpots.standable(level, p)) {
+					ring.add(p);
+				}
+			}
+		}
+		if (ring.isEmpty()) {
+			return Venues.standFor(level, new Venues.Venue(table, table, List.of(table), 2), who, 45);
+		}
+		// the nearest cells first (beside the board), then each drinker's own among them
+		ring.sort(Comparator.comparingInt(p -> (int) p.distSqr(table)));
+		int near = 0;
+		while (near < ring.size() && ring.get(near).distSqr(table) <= 2) {
+			near++;
+		}
+		List<BlockPos> pick = near > 0 ? ring.subList(0, near) : ring;
+		return pick.get((int) Math.floorMod(TownCalendar.mix(who.getLeastSignificantBits() ^ table.asLong()), (long) pick.size()));
+	}
+
+	private static double nearestSq(Poi seat, List<Poi> tables) {
+		double bd = Double.MAX_VALUE;
+		for (Poi t : tables) {
+			bd = Math.min(bd, seat.pos().distSqr(t.pos()));
+		}
+		return bd;
 	}
 
 	/** Whether another drinker of the night is bound for (or sits in) this seat. */
@@ -262,6 +339,9 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 	/** The first seat of the tavern nobody sits in and no other drinker is bound for, or null. */
 	private @Nullable Poi freeSeat(ServerLevel level, UUID who, State st) {
 		for (Poi p : st.seats) {
+			if (st.tables && !st.atTable.contains(p)) {
+				break; // past the tables' seats: stand at the table instead
+			}
 			if (p == st.seat) {
 				continue;
 			}
