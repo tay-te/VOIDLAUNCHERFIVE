@@ -145,9 +145,26 @@ public final class MotionBake {
 		return Identifier.fromNamespaceAndPath(ns, path.substring(0, path.length() - suffix.length()));
 	}
 
-	/** A source with {@code mirror_of} becomes that source mirrored, with its own keys on top. */
+	/**
+	 * A source with {@code mirror_of} becomes that source mirrored, with its own keys on top; one with {@code same_as} is
+	 * that source as it is (an alias under another id), with its own keys on top.
+	 */
 	static String resolve(Path src, String ns, String source, int depth) throws IOException {
 		JsonObject o = JsonParser.parseString(source).getAsJsonObject();
+		if (o.has("same_as")) {
+			if (depth > 4) {
+				throw new IllegalArgumentException("same_as chain too deep");
+			}
+			JsonObject base = JsonParser.parseString(resolve(src, ns, Files.readString(src.resolve(ns).resolve(o.get("same_as").getAsString() + ".motion.json"),
+				StandardCharsets.UTF_8), depth + 1)).getAsJsonObject();
+			base.remove("id");
+			for (Map.Entry<String, JsonElement> e : o.entrySet()) {
+				if (!e.getKey().equals("same_as")) {
+					base.add(e.getKey(), e.getValue());
+				}
+			}
+			return base.toString();
+		}
 		if (!o.has("mirror_of")) {
 			return source;
 		}
@@ -169,8 +186,8 @@ public final class MotionBake {
 	public static Baked bake(Identifier id, String source, List<String> warnings) {
 		Clip parsed = ClipJson.parse(id, source);
 		JsonObject src = JsonParser.parseString(source).getAsJsonObject();
-		if (src.has("ground") && src.get("ground").getAsString().equals("plant")) {
-			parsed = ClipJson.parse(id, Ground.plant(parsed, src).toString());
+		if (src.has("ground") && (src.get("ground").getAsString().equals("plant") || src.get("ground").getAsString().equals("floor"))) {
+			parsed = ClipJson.parse(id, Ground.plant(parsed, src, src.get("ground").getAsString().equals("floor")).toString());
 		}
 		String clientJson = ClipJson.writeClient(parsed);
 		String hash = ClipJson.sha256(ClipJson.utf8(clientJson));
@@ -274,7 +291,8 @@ public final class MotionBake {
 		private Ground() {
 		}
 
-		static JsonObject plant(Clip clip, JsonObject src) {
+		/** {@code floor}: only lifts what sinks (hops stay in the air); {@code plant}: the lowest point always on the ground. */
+		static JsonObject plant(Clip clip, JsonObject src, boolean floorOnly) {
 			int n = Math.max(2, Math.round(clip.length * 40));
 			Posed posed = new Posed(clip.rig, clip.modelScale);
 			float[] base = new float[3];
@@ -289,7 +307,7 @@ public final class MotionBake {
 					base[0] = base[1] = base[2] = 0;
 				}
 				// lowest is in entity blocks; the root's file position is in model pixels with Y up.
-				float up = -low * 16 / clip.modelScale;
+				float up = (floorOnly ? Math.max(0, -low) : -low) * 16 / clip.modelScale;
 				JsonArray key = new JsonArray();
 				key.add(t);
 				JsonArray v = new JsonArray();

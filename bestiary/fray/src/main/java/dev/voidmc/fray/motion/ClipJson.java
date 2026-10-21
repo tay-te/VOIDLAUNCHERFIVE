@@ -101,7 +101,7 @@ public final class ClipJson {
 			fp = new Clip.FirstPerson(f.has("framing") ? f.get("framing").getAsString() : "fray:default", f.has("offset") ? vec(f.getAsJsonArray("offset")) : new float[3],
 				f.has("pitch") ? f.get("pitch").getAsFloat() : 0, cam != null && cam.has("rotation") ? channel(cam.getAsJsonArray("rotation")) : null,
 				cam != null && cam.has("position") ? channel(cam.getAsJsonArray("position")) : null, fpRot, fpPos,
-				f.has("hide_arms") && f.get("hide_arms").getAsBoolean());
+				f.has("hide_arms") && f.get("hide_arms").getAsBoolean(), f.has("arms") && f.get("arms").getAsString().equals("both"));
 		}
 		List<Clip.Cue> cues = new ArrayList<>();
 		if (o.has("cues")) {
@@ -254,6 +254,9 @@ public final class ClipJson {
 				.append(num(f.offset()[1])).append(", ").append(num(f.offset()[2])).append("], \"pitch\": ").append(num(f.pitch()));
 			if (f.hideArms()) {
 				s.append(", \"hide_arms\": true");
+			}
+			if (f.bothArms()) {
+				s.append(", \"arms\": \"both\"");
 			}
 			if (f.camera() != null || f.cameraPos() != null) {
 				s.append(",\n    \"camera\": {");

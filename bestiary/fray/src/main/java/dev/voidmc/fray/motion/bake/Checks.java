@@ -60,7 +60,7 @@ public final class Checks {
 
 	/** First-person screen coverage of the arms over the clip (clips with an {@code fp} block). */
 	public static Framing firstPerson(Clip clip) {
-		if (clip.fp == null || !clip.rig.humanoid) {
+		if (clip.fp == null || !clip.rig.humanoid || clip.fp.hideArms() || !drawsArms(clip.fp)) {
 			return new Framing(0, 0, false);
 		}
 		float max = 0, at = 0;
@@ -76,6 +76,15 @@ public final class Checks {
 			through |= cov[1] > 0;
 		}
 		return new Framing(max, at, through);
+	}
+
+	/** Fray draws its own first-person arms only for clips with first-person bone curves or a framing (else vanilla's hands). */
+	public static boolean drawsArms(Clip.FirstPerson fp) {
+		boolean any = false;
+		for (int b = 0; b < HumanoidRig.BONES; b++) {
+			any |= fp.rotation() != null && fp.rotation()[b] != null || fp.position() != null && fp.position()[b] != null;
+		}
+		return any || !"fray:default".equals(fp.framing());
 	}
 
 	/** {coverage 0..1, 1 if an arm crosses the near plane} at one moment. */
@@ -104,6 +113,7 @@ public final class Checks {
 				buf.v[o + PoseBuffer.W_POS] = 1;
 			}
 		}
+		FirstPersonFrame.torso(buf, fp);
 		PartPose[] rest = HumanoidRig.restPose();
 		PartPose[] parts = HumanoidRig.restPose();
 		new HumanoidSolver().solve(parts, rest, buf);
@@ -115,7 +125,7 @@ public final class Checks {
 		float tanY = (float) Math.tan(Math.toRadians(35)), tanX = tanY * 16 / 9F;
 		float area = 0;
 		boolean through = false;
-		for (int arm : new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.LEFT_ARM}) {
+		for (int arm : fp.bothArms() ? new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.LEFT_ARM} : new int[] {HumanoidRig.RIGHT_ARM}) {
 			if (fp.hideArms()) {
 				continue;
 			}

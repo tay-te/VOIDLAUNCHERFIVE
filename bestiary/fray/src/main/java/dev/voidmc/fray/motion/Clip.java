@@ -57,10 +57,12 @@ public final class Clip {
 	/**
 	 * First-person data (ANIMATION.md §7.4): a framing (where the arms sit in view), an offset (view blocks) and pitch,
 	 * camera kick channels (degrees; position in blocks, Y up), and per-bone rotation and position curves that replace
-	 * the third-person ones in first person only. {@code rotation}/{@code position} are indexed by bone.
+	 * the third-person ones in first person only. {@code rotation}/{@code position} are indexed by bone. Only the main
+	 * arm is drawn unless {@code bothArms} (as vanilla's first person), and the virtual torso only turns the arms when the
+	 * block has its own torso curve (the camera is the player's eye, not the animated head).
 	 */
 	public record FirstPerson(String framing, float[] offset, float pitch, @Nullable Channel camera, @Nullable Channel cameraPos,
-		@Nullable Channel[] rotation, @Nullable Channel[] position, boolean hideArms) {
+		@Nullable Channel[] rotation, @Nullable Channel[] position, boolean hideArms, boolean bothArms) {
 	}
 
 	public final Identifier id;

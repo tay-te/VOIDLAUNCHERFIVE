@@ -113,7 +113,8 @@ public final class FirstPersonBody {
 				FP_BUF.v[o + PoseBuffer.W_POS] = Math.max(FP_BUF.v[o + PoseBuffer.W_POS], FP_BUF.v[o + PoseBuffer.W_ROT]);
 			}
 		}
-		// First person has no vanilla pose underneath: the clip over the rest pose.
+		// First person has no vanilla pose underneath: the clip over the rest pose; the torso only by the fp block's own curve.
+		dev.voidmc.fray.motion.bake.FirstPersonFrame.torso(FP_BUF, fp);
 		SOLVER.solve(parts, rest, FP_BUF);
 
 		poseStack.pushPose();
@@ -131,9 +132,11 @@ public final class FirstPersonBody {
 		model.leftSleeve.visible = avatar.showLeftSleeve;
 		int light = avatar.lightCoords;
 		submitArm(poseStack, collector, model.rightArm, parts[HumanoidRig.RIGHT_ARM], skin, light);
-		submitArm(poseStack, collector, model.leftArm, parts[HumanoidRig.LEFT_ARM], skin, light);
-		submitItem(poseStack, collector, parts[HumanoidRig.RIGHT_ARM], avatar.rightHandItemState, false, light);
-		submitItem(poseStack, collector, parts[HumanoidRig.LEFT_ARM], avatar.leftHandItemState, true, light);
+		submitItem(poseStack, collector, parts[HumanoidRig.RIGHT_ARM], avatar.rightHandItemState, false, light, FP_BUF);
+		if (fp.bothArms()) {
+			submitArm(poseStack, collector, model.leftArm, parts[HumanoidRig.LEFT_ARM], skin, light);
+			submitItem(poseStack, collector, parts[HumanoidRig.LEFT_ARM], avatar.leftHandItemState, true, light, FP_BUF);
+		}
 		poseStack.popPose();
 		return true;
 	}
@@ -176,13 +179,15 @@ public final class FirstPersonBody {
 	}
 
 	/** {@code ItemInHandLayer.submitArmWithItem}'s transform on our posed arm. */
-	private static void submitItem(PoseStack poseStack, SubmitNodeCollector collector, PartPose arm, ItemStackRenderState item, boolean left, int light) {
+	private static void submitItem(PoseStack poseStack, SubmitNodeCollector collector, PartPose arm, ItemStackRenderState item, boolean left, int light,
+		PoseBuffer buf) {
 		if (item.isEmpty()) {
 			return;
 		}
 		poseStack.pushPose();
 		poseStack.translate(arm.x / 16F, arm.y / 16F, arm.z / 16F);
 		poseStack.rotate(new Quaternionf().rotationZYX(arm.zRot, arm.yRot, arm.xRot));
+		PoseApply.itemBone(buf, left, poseStack);
 		poseStack.rotateDegrees(Axis.XP, -90.0F);
 		poseStack.rotateDegrees(Axis.YP, 180.0F);
 		poseStack.translate((left ? -1 : 1) / 16.0F, 2 / 16.0F, -10 / 16.0F);

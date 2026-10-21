@@ -423,12 +423,34 @@ public class MotionStudio implements FabricClientGameTest {
 				this.st.s.runCommand(String.format(Locale.ROOT, "tp @p %.3f %d %.3f 0 0", at.x, Y, at.z));
 				return;
 			}
-			this.st.s.runOnServer(server -> {
-				Entity e = server.overworld().getEntity(entity);
+			// Only the client copy moves: the server's entity stays home, so no position packet ever arrives to drag the
+			// picture back to an older spot (the client would also ease toward a teleport over a few ticks).
+			this.c.runOnClient(mc -> {
+				Entity e = mc.level == null ? null : mc.level.getEntity(entity);
 				if (e != null) {
 					e.snapTo(at.x, at.y, at.z, 0, 0);
+					e.setOldPosAndRot();
+					if (e.getInterpolation() != null) {
+						e.getInterpolation().cancel();
+					}
+					if (e instanceof LivingEntity le) {
+						le.setYBodyRot(0);
+						le.setYHeadRot(0);
+						le.yBodyRotO = 0;
+						le.yHeadRotO = 0;
+					}
 				}
 			});
+		}
+
+		/** The whole travel of the current clip (root motion), as the studio shows it; zero when travel is off. */
+		private Vec3 travelVector() {
+			Clip cl = this.clip == null ? null : ClientClips.get(this.clip);
+			if (!this.travel || cl == null || cl.motion == null) {
+				return Vec3.ZERO;
+			}
+			double rad = Math.toRadians(cl.motion[3]);
+			return new Vec3(Math.sin(rad) * cl.motion[2], 0, Math.cos(rad) * cl.motion[2]);
 		}
 
 		// ------------------------------------------------------------------ onion skin
@@ -529,6 +551,11 @@ public class MotionStudio implements FabricClientGameTest {
 			}
 			float h = this.height(), mid = h * 0.55F, d = h * 1.75F;
 			double x = this.home.x, z = this.home.z;
+			// A clip that travels (a dodge) is framed on the middle of its path, from a little further back.
+			Vec3 travel = this.travelVector();
+			x += travel.x / 2;
+			z += travel.z / 2;
+			d += (float) travel.length() * 0.55F;
 			double[] p = switch (this.cam) {
 				case "front" -> new double[] {x, Y + mid + 0.15, z + d};
 				case "back" -> new double[] {x, Y + mid + 0.15, z - d};
@@ -782,9 +809,12 @@ public class MotionStudio implements FabricClientGameTest {
 					Gizmos.circle(pb, cap.r() * scale, GizmoStyle.stroke(colour));
 				}
 			}
-			String text = String.format(Locale.ROOT, "%s  t%d/%d  %s", this.clip.getPath(), k, tl.ticks, this.phaseAt(el));
-			Gizmos.billboardText(text, e.position().add(0, this.height() + 0.5, 0), TextGizmo.Style.forColorAndCentered(0xFFFFFFFF).withScale(0.5F))
-				.setAlwaysOnTop();
+			if (!dev.voidmc.fray.client.compat.IrisCompat.packInUse()) {
+				// (Iris turns gizmo text into a full-screen haze; with a pack the labels on the pictures say the same.)
+				String text = String.format(Locale.ROOT, "%s  t%d/%d  %s", this.clip.getPath(), k, tl.ticks, this.phaseAt(el));
+				Gizmos.billboardText(text, e.position().add(0, this.height() + 0.5, 0), TextGizmo.Style.forColorAndCentered(0xFFFFFFFF).withScale(0.5F))
+					.setAlwaysOnTop();
+			}
 		}
 
 		// ------------------------------------------------------------------ cost

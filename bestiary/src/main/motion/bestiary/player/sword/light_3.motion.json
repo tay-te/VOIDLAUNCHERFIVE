@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "rig": "fray:humanoid",
+  "ground": "floor",
+  "length": 0.9,
+  "loop": "none",
+  "blend_in": 2, "blend_out": 4,
+  "model_scale": 0.9375,
+  "mask": { "right_leg": 0.8, "left_leg": 0.8 },
+  "move_mask": { "right_leg": 0, "left_leg": 0, "root": 0.3 },
+  "bones": {
+    "root":      { "position": [[0.00, [0, 0, 0], "catmullrom"], [0.22, [0, -0.4, 1.2], "catmullrom"], [0.30, [0, -0.6, 1.0], "catmullrom"], [0.38, [0, -2.2, -3.0], "linear"], [0.45, [0, -2.6, -3.6], "linear"], [0.62, [0, -2.0, -3.0], "catmullrom"], [0.90, [0, 0, 0], "catmullrom"]],
+                   "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.30, [-6, 4, 0], "catmullrom"], [0.42, [10, -4, 0], "linear"], [0.62, [8, -2, 0], "catmullrom"], [0.90, [0, 0, 0], "catmullrom"]] },
+    "torso":     { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.22, [-14, 24, 6], "catmullrom"], [0.30, [-16, 26, 6], "catmullrom"], [0.36, [6, 4, 0], "linear"], [0.44, [22, -22, -6], "linear"], [0.62, [18, -26, -6], "catmullrom"], [0.90, [0, 0, 0], "catmullrom"]] },
+    "head":      { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.30, [-10, -20, 0], "catmullrom"], [0.44, [8, 16, 0], "linear"], [0.62, [6, 20, 0], "catmullrom"], [0.90, [0, 0, 0], "catmullrom"]] },
+    "right_arm": { "rotation": [[0.00, [-14, 0, 4], "catmullrom"], [0.22, [-164, 30, 28], "catmullrom"], [0.30, [-172, 34, 26], "catmullrom"], [0.35, [-120, 10, 4], "linear"], [0.40, [-60, -10, -18], "linear"], [0.45, [-22, -16, -26], "linear"], [0.62, [-26, -12, -20], "catmullrom"], [0.90, [-14, 0, 4], "catmullrom"]] },
+    "left_arm":  { "rotation": [[0.00, [0, 0, -4], "catmullrom"], [0.22, [-150, -20, -18], "catmullrom"], [0.30, [-158, -24, -16], "catmullrom"], [0.40, [-40, 0, -12], "linear"], [0.62, [-6, 0, -18], "catmullrom"], [0.90, [0, 0, -4], "catmullrom"]] },
+    "right_leg": { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.30, [10, 0, 4], "catmullrom"], [0.42, [26, 0, 4], "linear"], [0.62, [22, 0, 4], "catmullrom"], [0.90, [0, 0, 0], "catmullrom"]] },
+    "left_leg":  { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.30, [-18, 0, -4], "catmullrom"], [0.42, [-44, 0, -6], "linear"], [0.62, [-38, 0, -6], "catmullrom"], [0.90, [0, 0, 0], "catmullrom"]] },
+    "item_r":    { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.30, [-30, 0, -10], "catmullrom"], [0.42, [10, 0, -6], "linear"], [0.62, [12, 0, -4], "catmullrom"], [0.90, [0, 0, 0], "catmullrom"]] }
+  },
+  "fp": { "framing": "bestiary:sword_1h", "offset": [0, -0.24, -0.5], "pitch": 0,
+          "camera": { "rotation": [[0.36, [0, 0, 0], "linear"], [0.42, [2.0, 0.4, -0.6], "linear"], [0.60, [0, 0, 0], "catmullrom"]] },
+          "bones": { "right_arm": { "rotation": [[0.00, [-14, 0, 4], "catmullrom"], [0.22, [-120, 22, 26], "catmullrom"], [0.30, [-126, 24, 24], "catmullrom"], [0.35, [-100, 8, 4], "linear"],
+                                                 [0.40, [-60, -10, -18], "linear"], [0.45, [-24, -16, -26], "linear"], [0.62, [-28, -12, -20], "catmullrom"], [0.90, [-14, 0, 4], "catmullrom"]] },
+                     "left_arm": { "rotation": [[0.00, [0, 0, -4], "catmullrom"], [0.22, [-40, 0, -10], "catmullrom"], [0.40, [-10, 0, -12], "linear"], [0.90, [0, 0, -4], "catmullrom"]] } } },
+  "cues": [[0.36, "sound", "minecraft:entity.player.attack.strong"]],
+  "markers": [[0.3, "windup_end"], [0.45, "active_end"]],
+  "windows": { "chain": [9, 17], "dodge_cancel": [12, 17] },
+  "checks": ["ground", "fp_framing"]
+}

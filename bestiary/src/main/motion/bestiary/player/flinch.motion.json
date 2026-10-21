@@ -1,0 +1,175 @@
+{
+ "format": 1,
+ "rig": "fray:humanoid",
+ "length": 0.3,
+ "loop": "none",
+ "blend": "override",
+ "blend_in": 1,
+ "blend_out": 2,
+ "model_scale": 0.9375,
+ "bones": {
+  "root": {
+   "position": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.06,
+     [
+      0,
+      -1.6,
+      1.2
+     ],
+     "linear"
+    ],
+    [
+     0.3,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "torso": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.06,
+     [
+      14,
+      -6,
+      0
+     ],
+     "linear"
+    ],
+    [
+     0.3,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "head": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.06,
+     [
+      20,
+      0,
+      0
+     ],
+     "linear"
+    ],
+    [
+     0.3,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "right_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      -14,
+      0,
+      4
+     ],
+     "catmullrom"
+    ],
+    [
+     0.06,
+     [
+      -46,
+      -20,
+      -20
+     ],
+     "linear"
+    ],
+    [
+     0.3,
+     [
+      -14,
+      0,
+      4
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "left_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      -4
+     ],
+     "catmullrom"
+    ],
+    [
+     0.06,
+     [
+      -50,
+      20,
+      20
+     ],
+     "linear"
+    ],
+    [
+     0.3,
+     [
+      0,
+      0,
+      -4
+     ],
+     "catmullrom"
+    ]
+   ]
+  }
+ },
+ "mask": {
+  "right_leg": 0,
+  "left_leg": 0
+ },
+ "ground": "floor",
+ "checks": [
+  "ground"
+ ]
+}

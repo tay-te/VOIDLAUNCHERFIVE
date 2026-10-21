@@ -118,6 +118,33 @@ public final class PoseApply {
 		p.zScale = in.zScale;
 	}
 
+	/**
+	 * The {@code item_r} / {@code item_l} bone (ANIMATION.md §4.1): rotation about the grip (about 10 px down the arm, in the
+	 * arm's frame) and an offset in pixels, applied right after vanilla's {@code translateToHand}.
+	 */
+	public static void itemBone(Object state, boolean left, com.mojang.blaze3d.vertex.PoseStack poseStack) {
+		PoseBuffer buf = pose(state);
+		if (buf == null || !ClientMotion.enabled || !buf.rig.humanoid) {
+			return;
+		}
+		itemBone(buf, left, poseStack);
+	}
+
+	public static void itemBone(PoseBuffer buf, boolean left, com.mojang.blaze3d.vertex.PoseStack poseStack) {
+		int o = (left ? HumanoidRig.ITEM_L : HumanoidRig.ITEM_R) * PoseBuffer.STRIDE;
+		float[] v = buf.v;
+		float wr = v[o + PoseBuffer.W_ROT], wp = v[o + PoseBuffer.W_POS];
+		float rx = v[o] * wr + v[o + PoseBuffer.ADD_ROT], ry = v[o + 1] * wr + v[o + PoseBuffer.ADD_ROT + 1], rz = v[o + 2] * wr + v[o + PoseBuffer.ADD_ROT + 2];
+		float px = v[o + 3] * wp + v[o + PoseBuffer.ADD_POS], py = v[o + 4] * wp + v[o + PoseBuffer.ADD_POS + 1], pz = v[o + 5] * wp + v[o + PoseBuffer.ADD_POS + 2];
+		if (rx == 0 && ry == 0 && rz == 0 && px == 0 && py == 0 && pz == 0) {
+			return;
+		}
+		float gx = (left ? 1 : -1) / 16F, gy = 10 / 16F;
+		poseStack.translate(gx + px / 16F, gy + py / 16F, pz / 16F);
+		poseStack.rotate(new org.joml.Quaternionf().rotationZYX(rz, ry, rx));
+		poseStack.translate(-gx, -gy, 0);
+	}
+
 	/** The root transform for this state's pose, or null (applied to the PoseStack after setupRotations). */
 	public static boolean root(Object state, org.joml.Matrix4f out) {
 		PoseBuffer buf = pose(state);
