@@ -150,6 +150,12 @@ public record BuildState(
 		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, next, this.guide);
 	}
 
+	/** Forgets every once-only entry starting with {@code prefix} (ops and tests: replay the milestones). */
+	public BuildState withoutOnce(String prefix) {
+		List<String> next = this.once.stream().filter(k -> !k.startsWith(prefix)).toList();
+		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, next, this.guide);
+	}
+
 	public BuildState withFocus(Optional<Identifier> f, long day) {
 		return new BuildState(f, day, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, this.once, this.guide);
 	}

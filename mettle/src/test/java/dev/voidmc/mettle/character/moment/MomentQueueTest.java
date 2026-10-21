@@ -169,4 +169,25 @@ class MomentQueueTest {
 		assertTrue(t.allow(MomentKind.FEAT, 800));
 		assertFalse(t.allow(MomentKind.SYNERGY, 900), "a synergy earned with a feat shares one fanfare");
 	}
+
+	@Test
+	void milestonesWaitForCalmAndNeverMerge() {
+		MomentQueue q = new MomentQueue();
+		q.offer(MomentKind.SET, null, "mettle:deep", 0, 2, 0);
+		q.offer(MomentKind.SET, null, "mettle:deep", 0, 4, 0);
+		assertEquals(2, q.pendingCount(), "the first set and the first 4-set of one keyword are two moments");
+		q.advance(100, MomentQueue.calm(false, 1000));
+		assertNull(q.current(), "a milestone waits while the player was hurt in the last 5 s");
+		q.advance(100, MomentQueue.calm(true, 60_000));
+		assertNull(q.current(), "and while a screen is open");
+		q.advance(100, MomentQueue.calm(false, 60_000));
+		assertEquals(MomentKind.SET, q.current().kind());
+		assertEquals(2, q.current().tier());
+		assertTrue(MomentKind.BYNAME.big(1) && MomentKind.SET.big(6) && !MomentKind.SET.big(4));
+		// Other moments are not held by calm.
+		MomentQueue plain = new MomentQueue();
+		plain.offer(MomentKind.LEVEL, "mettle:mining", null, 3, 0, 0);
+		plain.advance(10, false);
+		assertEquals(MomentKind.LEVEL, plain.current().kind());
+	}
 }

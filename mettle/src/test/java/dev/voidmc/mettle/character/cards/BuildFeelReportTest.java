@@ -35,7 +35,8 @@ import org.junit.jupiter.api.Test;
  * odd-level boons Temper and Inscribe, Mythic shards), prototyped here in the test so the proposal's numbers are
  * measured before any game code changes. Characters are played the way people play: three main skills, two side skills
  * at a third of the pace and three dabbled ones, plus the all-eight lockstep character of CardReportTest for comparison.
- * {@code ./gradlew test --tests '*BuildFeelReportTest' -Dmettle.balance=true} writes {@code build/reports/mettle-build-feel.md}.
+ * {@code ./gradlew test --tests '*BuildFeelReportTest' -Dmettle.balance=true} writes {@code build/reports/mettle-build-feel.md}. Since build feel
+ * shipped (wave 0.3.0) it plays the game's own deal, gate and Temper (CardRules); only the players and the server live here.
  */
 class BuildFeelReportTest {
 	private static final int ATTRIBUTE = 10;
@@ -186,8 +187,14 @@ class BuildFeelReportTest {
 			return this.sheet.level(s);
 		}
 
-		/** Commitment per keyword: slotted cards carrying it, plus the Focus. */
-		Map<Identifier, Integer> commitment() {
+		/**
+		 * Commitment per keyword, as the game counts it (CardRules.Commitment): slotted cards carrying it, plus the Focus,
+		 * capped. Today's rules have none, so the game's own deal is today's deal.
+		 */
+		CardRules.Commitment commitment() {
+			if (this.rules.perkLean <= 0 && this.rules.keywordLean <= 0) {
+				return CardRules.Commitment.NONE;
+			}
 			Map<Identifier, Integer> c = new HashMap<>();
 			for (List<Owned> d : this.decks.values()) {
 				for (Owned o : d) {
@@ -199,7 +206,8 @@ class BuildFeelReportTest {
 			if (this.focus != null && this.rules.focus > 0) {
 				c.merge(this.focus, this.rules.focus, Integer::sum);
 			}
-			return c;
+			c.replaceAll((k, v) -> Math.min(CardConfig.get().momentum_cap, v));
+			return new CardRules.Commitment(c);
 		}
 
 		double score(Owned o) {
@@ -284,127 +292,14 @@ class BuildFeelReportTest {
 
 		List<Card> deal(ResourceKey<Skill> skill, Set<ResourceKey<Perk>> avoid) {
 			Random random = DraftRules.random(this.seed, this.dealt++);
-			Map<Identifier, Integer> commit = commitment();
-			List<ResourceKey<Perk>> own = CardRules.candidates(skill, this.sheet, TestCards.DECK);
-			boolean wild = random.nextDouble() < DraftRules.WILDCARD_CHANCE;
-			long wildPick = random.nextLong();
-			long[] rollSeeds = {random.nextLong(), random.nextLong(), random.nextLong()};
-			if (own.isEmpty()) {
-				return List.of();
-			}
-			List<Card> hand = new ArrayList<>();
-			Set<ResourceKey<Perk>> taken = new HashSet<>();
-			Card wildcard = null;
-			if (wild) {
-				List<ResourceKey<Skill>> others = new ArrayList<>();
-				for (int i = 0; i < this.order.size() && others.size() < 4; i++) {
-					ResourceKey<Skill> s = this.order.get(i);
-					if (!s.equals(skill) && this.rate[i] >= 0.3 && !CardRules.candidates(s, this.sheet, TestCards.DECK).isEmpty()) {
-						others.add(s);
-					}
-				}
-				if (!others.isEmpty()) {
-					Random r = new Random(wildPick);
-					ResourceKey<Skill> from = others.get(r.nextInt(others.size()));
-					ResourceKey<Perk> key = draw(CardRules.candidates(from, this.sheet, TestCards.DECK), from, r, taken, avoid, commit);
-					if (key != null) {
-						wildcard = roll(key, level(from), new Random(rollSeeds[2]), true, commit);
-						taken.add(key);
-					}
+			// Wildcards come from the skills played lately: the mains and sides, as the record's recent list would hold them.
+			List<ResourceKey<Skill>> recent = new ArrayList<>();
+			for (int i = 0; i < this.order.size() && recent.size() < 4; i++) {
+				if (this.rate[i] >= 0.3) {
+					recent.add(this.order.get(i));
 				}
 			}
-			int slots = wildcard == null ? DraftRules.HAND : DraftRules.HAND - 1;
-			for (int i = 0; i < slots; i++) {
-				ResourceKey<Perk> key = draw(own, skill, random, taken, avoid, commit);
-				if (key == null) {
-					break;
-				}
-				hand.add(roll(key, level(skill), new Random(rollSeeds[i]), false, commit));
-				taken.add(key);
-			}
-			if (wildcard != null) {
-				hand.add(wildcard);
-			}
-			return hand;
-		}
-
-		private ResourceKey<Perk> draw(List<ResourceKey<Perk>> cards, ResourceKey<Skill> skill, Random random, Set<ResourceKey<Perk>> taken,
-			Set<ResourceKey<Perk>> avoid, Map<Identifier, Integer> commit) {
-			List<ResourceKey<Perk>> pool = cards.stream().filter(k -> !taken.contains(k) && !avoid.contains(k)).toList();
-			if (pool.isEmpty()) {
-				pool = cards.stream().filter(k -> !taken.contains(k)).toList();
-			}
-			if (pool.isEmpty()) {
-				return null;
-			}
-			int level = level(skill);
-			Map<Rarity, Double> odds = DraftRules.odds(level);
-			Map<Rarity, Integer> count = new EnumMap<>(Rarity.class);
-			for (ResourceKey<Perk> k : pool) {
-				count.merge(DraftRules.rarity(TestCards.def(k)), 1, Integer::sum);
-			}
-			double[] base = new double[pool.size()];
-			double[] lean = new double[pool.size()];
-			Map<Rarity, double[]> band = new EnumMap<>(Rarity.class);
-			for (int i = 0; i < pool.size(); i++) {
-				Perk p = TestCards.def(pool.get(i));
-				Rarity depth = DraftRules.rarity(p);
-				base[i] = odds.get(depth) / count.get(depth) * DraftRules.attributeWeight(p, 20) * CardRules.duplicateWeight(this.sheet.owned(pool.get(i)));
-				Identifier nat = p.kind() == Perk.Kind.CURSED ? CardRules.HEX : TestCards.DATA_SET.nativeKeyword(pool.get(i)).orElse(CardRules.HEX);
-				lean[i] = 1 + this.rules.perkLean * momentum(nat) * Math.min(this.rules.commitCap, commit.getOrDefault(nat, 0)) / (double) this.rules.commitCap;
-				double[] b = band.computeIfAbsent(depth, d -> new double[2]);
-				b[0] += base[i];
-				b[1] += base[i] * lean[i];
-			}
-			double[] weights = new double[pool.size()];
-			double total = 0;
-			for (int i = 0; i < pool.size(); i++) {
-				double[] b = band.get(DraftRules.rarity(TestCards.def(pool.get(i))));
-				weights[i] = base[i] * lean[i] * (b[1] <= 0 ? 1 : b[0] / b[1]);
-				total += weights[i];
-			}
-			double roll = random.nextDouble() * total;
-			for (int i = 0; i < pool.size(); i++) {
-				roll -= weights[i];
-				if (roll < 0) {
-					return pool.get(i);
-				}
-			}
-			return pool.getLast();
-		}
-
-		private Card roll(ResourceKey<Perk> key, int level, Random random, boolean wildcard, Map<Identifier, Integer> commit) {
-			Perk perk = TestCards.def(key);
-			Rarity rarity = CardRules.rollRarity(perk, level, random);
-			int count = CardRules.traitCount(rarity, random);
-			boolean second = random.nextDouble() < this.rules.second[RARITY_INDEX[rarity.ordinal()]];
-			long traitSeed = random.nextLong();
-			long keywordSeed = random.nextLong();
-			List<TraitRoll> traits = CardRules.rollTraits(TestCards.DATA_SET.traits(perk.skill()), rarity, count, new Random(traitSeed));
-			Identifier first = perk.kind() == Perk.Kind.CURSED ? CardRules.HEX : TestCards.DATA_SET.nativeKeyword(key).orElse(CardRules.HEX);
-			List<Identifier> keywords = new ArrayList<>(List.of(first));
-			if (second) {
-				List<Identifier> pool = TestCards.DATA_SET.pool(perk.skill()).stream().filter(k -> !k.equals(first)).sorted(Comparator.comparing(Identifier::toString)).toList();
-				if (!pool.isEmpty()) {
-					double[] w = new double[pool.size()];
-					double sum = 0;
-					for (int i = 0; i < pool.size(); i++) {
-						w[i] = 1 + this.rules.keywordLean * momentum(pool.get(i)) * Math.min(this.rules.commitCap, commit.getOrDefault(pool.get(i), 0));
-						sum += w[i];
-					}
-					double r = new Random(keywordSeed).nextDouble() * sum;
-					Identifier pick = pool.getLast();
-					for (int i = 0; i < pool.size(); i++) {
-						r -= w[i];
-						if (r < 0) {
-							pick = pool.get(i);
-							break;
-						}
-					}
-					keywords.add(pick);
-				}
-			}
-			return new Card(key, CardRules.rank(perk, rarity), rarity, wildcard, keywords, traits, CardRules.needs(perk, rarity));
+			return CardRules.deal(skill, this.sheet, TestCards.DECK, TestCards.DATA_SET, random, recent, avoid, commitment());
 		}
 
 		// ------------------------------------------------------------ keeping
@@ -516,7 +411,7 @@ class BuildFeelReportTest {
 				List<TraitRoll> ts = o.card.traits();
 				for (int i = 0; i < ts.size(); i++) {
 					Trait def = TestCards.TRAITS.get(ts.get(i).trait());
-					double to = tempered(def, o.card.rarity(), ts.get(i).value(), this.rules.temperStep);
+					double to = CardRules.tempered(def, o.card.rarity(), ts.get(i).value());
 					double g = (CardRules.effective(def, to, a -> ATTRIBUTE) - CardRules.effective(def, ts.get(i).value(), a -> ATTRIBUTE)) / CardRules.cardCap(def);
 					if (g > bestGain) {
 						bestGain = g;
@@ -587,11 +482,7 @@ class BuildFeelReportTest {
 		/** A keyword's tier; with the proposed gate the 6 needs two of its decks' skills at {@code sixGate} or more. */
 		int tier(Identifier k, Map<Identifier, Integer> counts, Map<Identifier, Set<ResourceKey<Skill>>> from) {
 			Set<ResourceKey<Skill>> decks = from.getOrDefault(k, Set.of());
-			int t = CardRules.tier(counts.getOrDefault(k, 0), decks.size());
-			if (t == 6 && this.rules.sixGate > 0 && decks.stream().filter(s -> level(s) >= this.rules.sixGate).count() < 2) {
-				return 4;
-			}
-			return t;
+			return this.rules.sixGate > 0 ? CardRules.tier(counts.getOrDefault(k, 0), decks, this::level) : CardRules.tier(counts.getOrDefault(k, 0), decks.size());
 		}
 
 		void measure(int main, int cl) {
@@ -650,24 +541,8 @@ class BuildFeelReportTest {
 	}
 
 	static final boolean INSCRIBE_NEEDS_SEED = Boolean.parseBoolean(lever("bf.inscribeSeed", "true"));
-	/** Temper never lifts a trait above this share of its range (1 = the rarity band's top only). */
-	static final double TEMPER_CAP = Double.parseDouble(lever("bf.temperCap", "1.0"));
 	/** Tempered cards a deck may hold (the boon is refused past it). */
 	static final int TEMPER_DECK_CAP = intLever("bf.temperDeckCap", 3);
-	static final boolean TEMPER_NEAREST = !"floor".equals(lever("bf.temperRound", "nearest"));
-	/** How much momentum each keyword gets (data field {@code momentum}): common keywords none, the scarce ones most. */
-	static final Map<String, Double> MOMENTUM = new HashMap<>();
-
-	static {
-		for (String kv : lever("bf.momentum", "tide=1.0,deep=1.0,kin=0.5,warden=0.5,gale=0.25,echo=0.25,wild=0,swift=0,keen=0,brutal=0,ember=0,hoard=0,iron=0,hex=0").split(",")) {
-			String[] p = kv.split("=");
-			MOMENTUM.put(p[0].trim(), Double.parseDouble(p[1]));
-		}
-	}
-
-	static double momentum(Identifier k) {
-		return MOMENTUM.getOrDefault(k.getPath(), 1.0);
-	}
 
 	static final String[][] SYNERGIES = {{"mining", "smithing"}, {"mining", "heavy_weapons"}, {"blades", "defense"}, {"blades", "heavy_weapons"},
 		{"marksmanship", "survival"}, {"marksmanship", "athletics"}, {"defense", "athletics"}, {"survival", "athletics"}, {"smithing", "defense"}};
@@ -708,11 +583,28 @@ class BuildFeelReportTest {
 	@Test
 	void report() throws IOException {
 		Assumptions.assumeTrue(Boolean.getBoolean("mettle.balance"), "build-feel report: run with -Dmettle.balance=true");
-		int runs = intLever("bf.runs", 800);
+		CardConfig config = new CardConfig();
+		config.momentum_perk_lean = PROPOSED.perkLean;
+		config.momentum_keyword_lean = PROPOSED.keywordLean;
+		config.focus_weight = PROPOSED.focus;
+		config.six_tier_skill = PROPOSED.sixGate;
+		config.temper_step = PROPOSED.temperStep;
+		config.temper_per_deck = TEMPER_DECK_CAP;
+		config.inscribe_per_deck = PROPOSED.inscribeCap;
+		config.inscribe_needs_seed = INSCRIBE_NEEDS_SEED;
+		CardConfig.use(config);
+		try {
+			report(intLever("bf.runs", 800));
+		} finally {
+			CardConfig.reset();
+		}
+	}
+
+	private void report(int runs) throws IOException {
 		StringBuilder out = new StringBuilder("# Build feel simulation (docs/BUILD_FEEL.md §9)\n\n");
 		out.append(String.format(Locale.ROOT, "Levers: perk lean %.2f, keyword lean %.2f, Focus +%d, boons %s, inscribed cards a deck %d, Temper step %.2f of a range, "
-			+ "Rare second keyword %.0f %%, shard cost %d. %d careers a row.%n%n", PROPOSED.perkLean, PROPOSED.keywordLean, PROPOSED.focus, PROPOSED.boons,
-			PROPOSED.inscribeCap, PROPOSED.temperStep, 100 * PROPOSED.second[1], SHARD_COST, runs));
+			+ "shard cost %d; momentum per keyword from the keyword data. %d careers a row. The deal, tiers and Temper are the game's own (CardRules).%n%n",
+			PROPOSED.perkLean, PROPOSED.keywordLean, PROPOSED.focus, PROPOSED.boons, PROPOSED.inscribeCap, PROPOSED.temperStep, SHARD_COST, runs));
 		out.append("A **focused** character plays three main skills, two side skills at 30 % of their XP and three at 8 %: when the mains reach 20 the sides "
 			+ "are at about 12 and the dabbled ones at about 7, character level about 39. **Mid-game** is character level 20 (mains near 11).\n\n");
 
@@ -1142,19 +1034,6 @@ class BuildFeelReportTest {
 			c.measure(m, cl);
 		}
 		return c.shards;
-	}
-
-	/** Today's tempered value: up by {@code step} of the range, never above the rarity band's top, on the step grid. */
-	static double tempered(Trait def, Rarity rarity, double value, double step) {
-		if (step <= 0) {
-			return value;
-		}
-		double top = Math.min(CardRules.band(def, rarity)[1], def.min() + TEMPER_CAP * (def.max() - def.min()));
-		double grid = def.step() <= 0 ? 1 : def.step();
-		top = Math.floor(top / grid + 1e-9) * grid; // the highest value the rarity can roll (CardRules.rollValue)
-		double raised = value + step * (def.max() - def.min());
-		double v = Math.min(top, (TEMPER_NEAREST ? Math.round(raised / grid) : Math.floor(raised / grid + 1e-9)) * grid);
-		return Math.max(value, CardRules.round(v));
 	}
 
 	static double jaccard(Set<String> a, Set<String> b) {

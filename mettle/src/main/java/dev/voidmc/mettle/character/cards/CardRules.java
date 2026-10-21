@@ -419,6 +419,28 @@ public final class CardRules {
 		if (pool.isEmpty()) {
 			return null;
 		}
+		double[] weights = weights(pool, level, attribute, sheet, deck, commitment, data);
+		double total = 0;
+		for (double w : weights) {
+			total += w;
+		}
+		double roll = random.nextDouble() * total;
+		for (int i = 0; i < pool.size(); i++) {
+			roll -= weights[i];
+			if (roll < 0) {
+				return pool.get(i);
+			}
+		}
+		return pool.getLast();
+	}
+
+	/**
+	 * Each perk's weight in one draw (§3.1 and BUILD_FEEL.md §1.2): the depth band's odds split over its perks, times the
+	 * soft attribute gate and the duplicate factor, then times its native keyword's lean, with each band's leaned weights
+	 * scaled back to the band's old total.
+	 */
+	public static double[] weights(List<ResourceKey<Perk>> pool, int level, int attribute, Sheet sheet, DraftRules.Deck deck, Commitment commitment,
+		@org.jspecify.annotations.Nullable Data data) {
 		Map<Rarity, Double> odds = DraftRules.odds(level);
 		Map<Rarity, Integer> count = new EnumMap<>(Rarity.class);
 		for (ResourceKey<Perk> k : pool) {
@@ -436,23 +458,36 @@ public final class CardRules {
 			b[0] += weights[i];
 			b[1] += weights[i] * lean[i];
 		}
-		double total = 0;
 		for (int i = 0; i < pool.size(); i++) {
-			if (lean[i] != 1.0 || data != null) {
-				double[] b = band.get(DraftRules.rarity(deck.get(pool.get(i)).orElseThrow()));
-				// Scaled back to the band's old total: with no lean anywhere in the band the factor is exactly 1.
-				weights[i] = b[1] <= 0 || b[0] == b[1] ? weights[i] * lean[i] : weights[i] * lean[i] * (b[0] / b[1]);
-			}
-			total += weights[i];
-		}
-		double roll = random.nextDouble() * total;
-		for (int i = 0; i < pool.size(); i++) {
-			roll -= weights[i];
-			if (roll < 0) {
-				return pool.get(i);
+			double[] b = band.get(DraftRules.rarity(deck.get(pool.get(i)).orElseThrow()));
+			// Scaled back to the band's old total: with no lean anywhere in the band the weight is exactly today's.
+			if (b[1] > 0 && b[0] != b[1]) {
+				weights[i] = weights[i] * lean[i] * (b[0] / b[1]);
 			}
 		}
-		return pool.getLast();
+		return weights;
+	}
+
+	/**
+	 * A skill's levels from {@code before} to {@code after} in the draft record (BUILD_FEEL.md §3.1): a level that deals no
+	 * draft (odd levels from 7) gives a boon from {@code boons_from}, else a reroll as before (boons_from 0: always a
+	 * reroll). The drafts themselves are the caller's.
+	 */
+	public static dev.voidmc.mettle.core.DraftState levelled(dev.voidmc.mettle.core.DraftState d, ResourceKey<Skill> skill, int before, int after) {
+		int from = CardConfig.get().boons_from;
+		int rerolls = 0;
+		int boons = 0;
+		for (int level = before + 1; level <= after; level++) {
+			if (DraftRules.draftsFor(level - 1, level) > 0) {
+				continue;
+			}
+			if (from > 0 && level >= from) {
+				boons++;
+			} else {
+				rerolls++;
+			}
+		}
+		return d.withRerolls(DraftRules.addRerolls(d.rerolls(), rerolls)).addBoons(skill, boons);
 	}
 
 	/**

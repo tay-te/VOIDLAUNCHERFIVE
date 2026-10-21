@@ -121,7 +121,7 @@ public final class BuildFeel {
 		return CardStore.get(player).build();
 	}
 
-	static void set(ServerPlayer player, BuildState next) {
+	public static void set(ServerPlayer player, BuildState next) {
 		CardsState cards = CardStore.get(player);
 		if (!next.equals(cards.build())) {
 			CardStore.set(player, cards.withBuild(next));
@@ -156,15 +156,7 @@ public final class BuildFeel {
 
 	private static void join(ServerPlayer player) {
 		Cards.ensure(player);
-		BuildState b = get(player);
-		if (!b.done("guide/decided")) {
-			// Only characters made after build feel shipped get the guide; a migrated one (XP, cards) never does.
-			CharacterState state = CharacterStore.get(player);
-			CardsState cards = CardStore.get(player);
-			BuildState next = b.withGuide(GuideRules.decide(state.totalXp(), cards.cards().size(), cards.slotted().size())).withOnce("guide/decided");
-			set(player, next);
-			Mettle.LOGGER.info("{}: build feel's guide is {}", player.getName().getString(), next.guide().on() ? "on (a new character)" : "off");
-		}
+		decideGuide(player);
 		// A save from before build feel: its tier is worked out from the build as it stands, with no moment.
 		CardsState cards = CardStore.get(player);
 		if (!cards.build().done("byname/migrated")) {
@@ -193,6 +185,22 @@ public final class BuildFeel {
 			set(player, next);
 		}
 		publish(player);
+	}
+
+	/**
+	 * The first time a character is seen since build feel: only one made after it shipped (no skill XP, no cards) gets the
+	 * guide; a migrated one never does. Once per character.
+	 */
+	public static void decideGuide(ServerPlayer player) {
+		BuildState b = get(player);
+		if (b.done("guide/decided")) {
+			return;
+		}
+		CharacterState state = CharacterStore.get(player);
+		CardsState cards = CardStore.get(player);
+		BuildState next = b.withGuide(GuideRules.decide(state.totalXp(), cards.cards().size(), cards.slotted().size())).withOnce("guide/decided");
+		set(player, next);
+		Mettle.LOGGER.info("{}: build feel's guide is {}", player.getName().getString(), next.guide().on() ? "on (a new character)" : "off");
 	}
 
 	// ---------------------------------------------------------------- after the deck changed (Cards.derive)
@@ -325,20 +333,7 @@ public final class BuildFeel {
 
 	/** Odd levels from {@code boons_from} give a boon instead of a reroll (DraftState migration keeps old rerolls). */
 	public static DraftState levelled(DraftState d, ResourceKey<Skill> skill, int before, int after) {
-		int from = CardConfig.get().boons_from;
-		int rerolls = 0;
-		int boons = 0;
-		for (int level = before + 1; level <= after; level++) {
-			if (DraftRules.draftsFor(level - 1, level) > 0) {
-				continue;
-			}
-			if (from > 0 && level >= from) {
-				boons++;
-			} else {
-				rerolls++;
-			}
-		}
-		return d.withRerolls(DraftRules.addRerolls(d.rerolls(), rerolls)).addBoons(skill, boons);
+		return CardRules.levelled(d, skill, before, after);
 	}
 
 	private static Optional<CardData> mine(ServerPlayer player, long id) {
@@ -564,7 +559,7 @@ public final class BuildFeel {
 	}
 
 	/** The forge-ready moment, once per forge (§2.4). */
-	static void forgeReady(ServerPlayer player) {
+	public static void forgeReady(ServerPlayer player) {
 		BuildState b = get(player);
 		String key = "ms/forge_ready/" + b.forges();
 		if (b.done(key) || b.shards() < ForgeRules.cost(b.forges())) {
