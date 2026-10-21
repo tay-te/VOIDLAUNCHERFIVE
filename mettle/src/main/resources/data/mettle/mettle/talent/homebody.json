@@ -1,0 +1,16 @@
+{
+	"family": "mind",
+	"min": 10,
+	"max": 20,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:talent/homebody"
+	},
+	"name": {
+		"translate": "mettle.talent.homebody"
+	},
+	"description": {
+		"translate": "mettle.talent.homebody.description"
+	}
+}

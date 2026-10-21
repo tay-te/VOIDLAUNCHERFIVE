@@ -113,8 +113,8 @@ public final class CardEffects {
 		Registry<Trait> traits = player.level().registryAccess().lookupOrThrow(MettleRegistries.TRAIT);
 		Registry<Keyword> keywords = player.level().registryAccess().lookupOrThrow(MettleRegistries.KEYWORD);
 		Set<Identifier> wanted = new HashSet<>();
-		cards.traits().forEach((id, total) -> traits.getOptional(id).ifPresent(t -> {
-			Trait.Effect e = t.effect();
+		Registry<dev.voidmc.mettle.api.Talent> talents = player.level().registryAccess().lookupOrThrow(MettleRegistries.TALENT);
+		cards.traits().forEach((id, total) -> effectOf(traits, talents, id).ifPresent(e -> {
 			if (e.attribute().isPresent() && holds(player, e.when())) {
 				Identifier mid = Mettle.id("trait/" + id.getPath());
 				// A jump or swim promise ("X higher", "X faster") becomes the strength or efficiency that gives it (CardPhysics).
@@ -160,6 +160,15 @@ public final class CardEffects {
 		}
 		// What cards add to movement stays under its ceiling (docs/CARDS.md §14).
 		Ceilings.movement(player);
+	}
+
+	/** A trait's effect, or a talent's (its value is the trait {@code mettle:talent/<id>}, BUILD_FEEL.md §13). */
+	static Optional<Trait.Effect> effectOf(Registry<Trait> traits, Registry<dev.voidmc.mettle.api.Talent> talents, Identifier id) {
+		if (id.getPath().startsWith("talent/")) {
+			return talents.getOptional(Identifier.fromNamespaceAndPath(id.getNamespace(), id.getPath().substring("talent/".length())))
+				.map(dev.voidmc.mettle.api.Talent::effect);
+		}
+		return traits.getOptional(id).map(Trait::effect);
 	}
 
 	/** Sets one modifier, touching it only when its amount changed. False when the attribute doesn't exist here. */

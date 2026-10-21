@@ -544,6 +544,14 @@ public final class CardHooks {
 			if (source.is(DamageTypeTags.IS_FREEZING) || source.is(DamageTypeTags.IS_DROWNING)) {
 				m *= 1 - pct(player, "survival/weathered");
 			}
+			if (source.is(DamageTypeTags.IS_FREEZING)) {
+				m *= 1 - pct(player, "talent/cold_blood");
+			}
+			// Talents: Weathered Hide on every hit, Grit below 30 % health (both under the damage-taken ceiling).
+			m *= 1 - pct(player, "talent/weathered_hide");
+			if (player.getHealth() < player.getMaxHealth() * TalentRules.GRIT_BELOW) {
+				m *= 1 - pct(player, "talent/grit");
+			}
 			if (source.is(DamageTypes.SWEET_BERRY_BUSH) || source.is(DamageTypes.CACTUS)) {
 				m *= 1 - pct(player, "survival/thornwalker");
 			}
@@ -988,6 +996,9 @@ public final class CardHooks {
 			double hoard = set(player, "hoard") >= 4 ? HOARD : 0;
 			double trophy = weapon == Combat.Weapon.BLADE ? pct(player, "blades/trophy") : 0;
 			ItemStack trophied = plain.get(player.getRandom().nextInt(plain.size()));
+			// Scavenger (a talent): one more of a kill's loot, any weapon; a drop of its own, under the same ceiling.
+			double scavenger = pct(player, "talent/scavenger");
+			ItemStack scavenged = plain.get(player.getRandom().nextInt(plain.size()));
 			ItemStack hide = animal ? plain.stream().filter(d -> d.is(SurvivalSkill.HIDES) || d.is(Items.FEATHER) || d.is(ItemTags.WOOL)).findFirst().orElse(null) : null;
 			ItemStack meat = animal ? plain.stream().filter(d -> d.is(SurvivalSkill.GAME_MEAT) || d.is(ItemTags.MEAT)).findFirst().orElse(null) : null;
 			for (ItemStack d : plain) {
@@ -997,6 +1008,9 @@ public final class CardHooks {
 				}
 				if (d == trophied) {
 					single += trophy;
+				}
+				if (d == scavenged) {
+					single += scavenger;
 				}
 				if (d == hide) {
 					single += pct(player, "survival/skinning");
@@ -1064,6 +1078,11 @@ public final class CardHooks {
 		if (skill.identifier().getPath().equals("smithing")) {
 			m *= 1 + pct(player, "smithing/diligent");
 		}
+		// Talents (BUILD_FEEL.md §13.2): Quick Learner always, Night Owl between dusk and dawn.
+		m *= 1 + pct(player, "talent/quick_learner");
+		if (night(player)) {
+			m *= 1 + pct(player, "talent/night_owl");
+		}
 		for (ServerPlayer other : player.level().players()) {
 			if (other != player && other.distanceToSqr(player) <= 64 && allies(player, other) && set(other, "kin") >= 2) {
 				m *= 1.05;
@@ -1071,6 +1090,12 @@ public final class CardHooks {
 			}
 		}
 		return m;
+	}
+
+	/** Between dusk and dawn by the world's clock (Night Owl; the Hunter's Moon's hours). */
+	static boolean night(Player player) {
+		long time = Math.floorMod(player.level().getDefaultClockTime(), 24000L);
+		return time >= 12542 && time <= 23460;
 	}
 
 	// ---------------------------------------------------------------- wear, hunger, effects, air, movement
@@ -1091,6 +1116,8 @@ public final class CardHooks {
 		if (slot.isArmor() || stack.is(Items.SHIELD)) {
 			skip = 1 - (1 - pct(player, "defense/mending")) * (set(player, "iron") >= 2 ? 0.9 : 1);
 		}
+		// Careful Hands (a talent): tools, weapons and armour all wear slower.
+		skip = 1 - (1 - skip) * (1 - pct(player, "talent/careful_hands"));
 		if (skip <= 0) {
 			return amount;
 		}
@@ -1114,7 +1141,7 @@ public final class CardHooks {
 		if (!any(player)) {
 			return amount;
 		}
-		double m = 1 - pct(player, "survival/iron_gut");
+		double m = (1 - pct(player, "survival/iron_gut")) * (1 - pct(player, "talent/iron_gut"));
 		if (Math.abs(amount - 0.005f) < 1e-6) {
 			m *= 1 - pct(player, "mining/tireless");
 		} else if (player.isSprinting()) {
@@ -1148,6 +1175,9 @@ public final class CardHooks {
 			if ((kind.equals(MobEffects.SLOWNESS) || kind.equals(MobEffects.WEAKNESS)) && Combat.melee(player.getMainHandItem()) == Combat.Weapon.HEAVY) {
 				m *= 1 - pct(player, "heavy_weapons/unshaken");
 			}
+			if (kind.equals(MobEffects.DARKNESS) || kind.equals(MobEffects.BLINDNESS) || kind.equals(MobEffects.NAUSEA)) {
+				m *= 1 - pct(player, "talent/steady_nerves");
+			}
 		} else if (kind.value().getCategory() == MobEffectCategory.BENEFICIAL && player.isUsingItem() && player.getUseItem().is(Items.POTION)) {
 			m *= 1 + pct(player, "survival/herbwise");
 		}
@@ -1163,14 +1193,14 @@ public final class CardHooks {
 		if (next >= current || !(entity instanceof Player player) || !any(player)) {
 			return next;
 		}
-		double seconds = flat(player, "athletics/deep_lunged") + (set(player, "tide") >= 2 ? 5 : 0);
+		double seconds = flat(player, "athletics/deep_lunged") + flat(player, "talent/deep_lungs") + (set(player, "tide") >= 2 ? 5 : 0);
 		return seconds > 0 && player.getRandom().nextDouble() < seconds / (15 + seconds) ? current : next;
 	}
 
 	/** Climbing: climb faster (the climb step of LivingEntity#handleRelativeFrictionAndCalculateMovement). */
 	public static Vec3 climb(LivingEntity entity, Vec3 movement) {
 		if (entity instanceof Player player && movement.y == 0.2 && entity.onClimbable()) {
-			double more = pct(player, "athletics/climbing");
+			double more = pct(player, "athletics/climbing") + pct(player, "talent/climber");
 			if (more > 0) {
 				return new Vec3(movement.x, 0.2 * (1 + more), movement.z);
 			}
@@ -1524,6 +1554,11 @@ public final class CardHooks {
 		double rate = 0;
 		if (now - mem.lastHurt >= 100) {
 			rate += pct(player, "defense/recovering");
+		}
+		// Talents: Quick Healer always, Homebody near the bed or respawn point.
+		rate += pct(player, "talent/quick_healer");
+		if (pct(player, "talent/homebody") > 0 && Talents.home(player)) {
+			rate += pct(player, "talent/homebody");
 		}
 		for (ServerPlayer other : player.level().players()) {
 			if (other.distanceToSqr(player) <= 64 && (other == player || helps(other, player)) && set(other, "kin") >= 4) {

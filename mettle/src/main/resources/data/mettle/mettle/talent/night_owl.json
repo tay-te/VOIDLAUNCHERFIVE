@@ -1,0 +1,16 @@
+{
+	"family": "mind",
+	"min": 4,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:talent/night_owl"
+	},
+	"name": {
+		"translate": "mettle.talent.night_owl"
+	},
+	"description": {
+		"translate": "mettle.talent.night_owl.description"
+	}
+}

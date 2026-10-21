@@ -62,6 +62,7 @@ public final class CharacterModule {
 			dev.voidmc.mettle.character.draft.DraftCommands.register(dispatcher);
 			dev.voidmc.mettle.character.cards.CardCommands.register(dispatcher);
 			dev.voidmc.mettle.character.cards.BuildCommands.register(dispatcher);
+			dev.voidmc.mettle.character.cards.TalentCommands.register(dispatcher);
 		});
 	}
 }

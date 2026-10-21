@@ -77,6 +77,7 @@ public final class Cards {
 			if (back > 0) {
 				Mettle.LOGGER.info("cards: {} cards left in trades went back to their owners", back);
 			}
+			Deeds.migrate(server);
 		});
 		dev.voidmc.mettle.api.MettleServices.setCards(CardApi.INSTANCE);
 		ServerPlayerEvents.JOIN.register(Cards::join);
@@ -94,6 +95,8 @@ public final class Cards {
 		MythicEffects.init();
 		dev.voidmc.mettle.character.cards.legend.LegendEffects.init();
 		BuildFeel.init();
+		Deeds.init();
+		Talents.init();
 	}
 
 	// ---------------------------------------------------------------- reading
@@ -152,7 +155,7 @@ public final class Cards {
 	}
 
 	public static String printId(RegistryAccess registries, CardData card) {
-		return CardRules.printId(data(registries).prefix(card.skill()), card.id());
+		return CardRules.printId(card.talent() ? TalentRules.PREFIX : data(registries).prefix(card.skill()), card.id());
 	}
 
 	// ---------------------------------------------------------------- keeping the cache in step
@@ -175,7 +178,7 @@ public final class Cards {
 		MinecraftServer server = player.level().getServer();
 		CardLedger ledger = ledger(server);
 		CardsState cache = CardStore.get(player);
-		CardRules.Reconciled r = CardRules.reconcile(player.getUUID(), cache.cards(), ledger.owned(player.getUUID()), ledger::known);
+		CardRules.Reconciled r = CardRules.reconcile(player.getUUID(), cache.everything(), ledger.owned(player.getUUID()), ledger::known);
 		if (!r.changed()) {
 			return;
 		}
@@ -194,7 +197,7 @@ public final class Cards {
 		if (!r.restored().isEmpty() && !cache.cards().isEmpty()) {
 			Mettle.LOGGER.warn("{}: cards {} were missing from the player's own copy; put back from the ledger", name, r.restored());
 		}
-		CardStore.set(player, cache.withCards(r.cards()));
+		CardStore.set(player, cache.withOwned(r.cards()));
 		if (!r.adopted().isEmpty()) {
 			LedgerFile.commit(server, player);
 		}
@@ -204,11 +207,10 @@ public final class Cards {
 	private static void reclaim(ServerPlayer player, CardLedger ledger, CardData card, Identifier mythic) {
 		Optional<dev.voidmc.mettle.api.Mythic> def = Mythics.def(player.level().registryAccess(), mythic);
 		String path = mythic.getPath();
-		if (def.map(m -> m.source() == dev.voidmc.mettle.api.Mythic.Source.DEED).orElse(false)) {
-			if (!ledger.deeds(path).contains(card.owner())) {
-				ledger.deed(path, card.owner());
-			}
-		} else if (ledger.first(path).isEmpty()) {
+		if (def.map(m -> m.source() == dev.voidmc.mettle.api.Mythic.Source.DEED).orElse(false) && !ledger.deeds(path).contains(card.drawn().player())) {
+			ledger.deed(path, card.drawn().player());
+		}
+		if (ledger.first(path).isEmpty()) {
 			ledger.claim(path, new CardData.Holder(card.owner(), card.drawn().name(), card.drawn().day()));
 		} else if (!ledger.first(path).get().player().equals(card.owner())) {
 			Mettle.LOGGER.warn("{}: adopted Mythic card {} ({}) whose first the ledger gives to {}", player.getName().getString(), card.id(), mythic,
@@ -237,8 +239,8 @@ public final class Cards {
 	public static void sync(ServerPlayer player) {
 		CardsState cache = CardStore.get(player);
 		List<CardData> mine = ledger(player.level().getServer()).owned(player.getUUID());
-		if (!mine.equals(cache.cards())) {
-			CardStore.set(player, cache.withCards(mine));
+		if (!mine.equals(cache.everything())) {
+			CardStore.set(player, cache.withOwned(mine));
 		}
 		EffectsApplier.apply(player);
 		Mythics.publish(player);
@@ -252,7 +254,10 @@ public final class Cards {
 		Registry<Perk> perks = registries.lookupOrThrow(MettleRegistries.PERK);
 		CardRules.Derived d = CardRules.derive(cards.cards(), state::level, wits(registries, state), attributes(registries, state),
 			perks::getOptional, data(registries), cards.pins(), cards.setOrder());
-		CardsState next = cards.withDerived(d.order(), d.active(), d.dormant(), d.traits(), d.sets(), d.tiers());
+		// Talents in their row add their values as traits mettle:talent/<id> (never boosted by attributes, §13).
+		Map<Identifier, Double> traits = new HashMap<>(d.traits());
+		TalentRules.values(cards.talent().cards(), state.characterLevel()).forEach((k, v) -> traits.merge(k, v, Double::sum));
+		CardsState next = cards.withDerived(d.order(), d.active(), d.dormant(), traits, d.sets(), d.tiers());
 		if (!next.equals(cards)) {
 			CardStore.set(player, next);
 			CardApi.tiers(player, cards.tiers(), next.tiers());
@@ -302,7 +307,7 @@ public final class Cards {
 			Mettle.LOGGER.info("{}: {} drafted perks became cards ({} slotted), {} drafts came back", player.getName().getString(), made.size(),
 				made.stream().filter(CardData::slotted).count(), m.drafts().values().stream().mapToInt(Integer::intValue).sum());
 		}
-		CardStore.set(player, cards.withCards(ledger.owned(player.getUUID())));
+		CardStore.set(player, cards.withOwned(ledger.owned(player.getUUID())));
 		Drafts.refresh(player);
 		EffectsApplier.apply(player);
 		if (!made.isEmpty()) {
@@ -319,7 +324,8 @@ public final class Cards {
 		long id = ledger.allocate();
 		RegistryAccess registries = player.level().registryAccess();
 		// A Mythic's perk key isn't a perk: its deck skill is the drawn skill, or none of its own.
-		ResourceKey<Skill> skill = offer.rarity() == Rarity.MYTHIC
+		ResourceKey<Skill> skill = offer.perk().identifier().getPath().startsWith("talent/") ? CardData.TALENT
+			: offer.rarity() == Rarity.MYTHIC
 			? Mythics.def(registries, Identifier.fromNamespaceAndPath(offer.perk().identifier().getNamespace(),
 				offer.perk().identifier().getPath().substring("mythic/".length()))).flatMap(m -> m.skill())
 				.orElse(ResourceKey.create(MettleRegistries.SKILL, Mettle.id("mythic")))

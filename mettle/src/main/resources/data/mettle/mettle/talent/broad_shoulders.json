@@ -1,0 +1,18 @@
+{
+	"family": "hands",
+	"min": 2,
+	"max": 6,
+	"step": 1,
+	"unit": "flat",
+	"effect": {
+		"attribute": "mettle:carry_capacity",
+		"operation": "add_value",
+		"scale": 1.0
+	},
+	"name": {
+		"translate": "mettle.talent.broad_shoulders"
+	},
+	"description": {
+		"translate": "mettle.talent.broad_shoulders.description"
+	}
+}

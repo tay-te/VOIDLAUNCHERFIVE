@@ -109,6 +109,16 @@ public final class CardConfig {
 	// The guide for new characters (§4) and its guaranteed Rare in the first hand.
 	public boolean guide = true;
 	public boolean first_hand_rare = true;
+	// Deed Mythics, one of a kind (BUILD_FEEL.md §12): a later achiever's shards, a migrated (returned) copy's shards.
+	public int deed_later_shards = 10;
+	public int deed_migration_shards = 30;
+	// Talents (§13): slots by character level ([level, slots], ascending), the talent draft's cadence, its rarity odds
+	// (Common a + b × CL, Rare c + d × CL, Epic e + f × CL), and the waking window in seconds (0: only free swaps).
+	public int[][] talent_slots = {{3, 2}, {15, 3}, {27, 4}, {39, 5}};
+	public int talent_draft_from = 3;
+	public int talent_draft_every = 4;
+	public double[] talent_rarity_odds = {70, -0.6, 24, 0.4, 6, 0.2};
+	public int talent_swap_on_wake_s = 60;
 
 	public static CardConfig get() {
 		CardConfig c = client;
@@ -188,6 +198,19 @@ public final class CardConfig {
 		this.legend_stars_max = clampWarn("legend_stars_max", this.legend_stars_max, 1, 10);
 		this.boons_from = clampWarn("boons_from", this.boons_from, 0, 20);
 		this.six_tier_skill = clampWarn("six_tier_skill", this.six_tier_skill, 0, 20);
+		this.deed_later_shards = clampWarn("deed_later_shards", this.deed_later_shards, 0, 1000);
+		this.deed_migration_shards = clampWarn("deed_migration_shards", this.deed_migration_shards, 0, 1000);
+		this.talent_draft_from = clampWarn("talent_draft_from", this.talent_draft_from, 1, 1000);
+		this.talent_draft_every = clampWarn("talent_draft_every", this.talent_draft_every, 1, 1000);
+		this.talent_swap_on_wake_s = clampWarn("talent_swap_on_wake_s", this.talent_swap_on_wake_s, 0, 3600);
+		if (this.talent_slots == null || this.talent_slots.length < 1 || java.util.Arrays.stream(this.talent_slots).anyMatch(r -> r == null || r.length < 2)) {
+			Mettle.LOGGER.warn("config/mettle/cards.json: talent_slots needs [level, slots] pairs; using the defaults");
+			this.talent_slots = new CardConfig().talent_slots;
+		}
+		if (this.talent_rarity_odds == null || this.talent_rarity_odds.length < 6) {
+			Mettle.LOGGER.warn("config/mettle/cards.json: talent_rarity_odds needs six values; using the defaults");
+			this.talent_rarity_odds = new CardConfig().talent_rarity_odds;
+		}
 		if (this.rebuild_emeralds == null || this.rebuild_emeralds.length < 5) {
 			Mettle.LOGGER.warn("config/mettle/cards.json: rebuild_emeralds needs five values; using the defaults");
 			this.rebuild_emeralds = new CardConfig().rebuild_emeralds;

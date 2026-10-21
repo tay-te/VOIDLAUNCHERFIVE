@@ -34,6 +34,8 @@ public final class CoreModule {
 		DynamicRegistries.registerSynced(MettleRegistries.MYTHIC, dev.voidmc.mettle.api.Mythic.CODEC);
 		// Build feel (docs/BUILD_FEEL.md §2.1): the words bynames are made of.
 		DynamicRegistries.registerSynced(MettleRegistries.BYNAME, dev.voidmc.mettle.api.BynameWords.CODEC);
+		// Talents (§13): the third layer, general cards with no keyword.
+		DynamicRegistries.registerSynced(MettleRegistries.TALENT, dev.voidmc.mettle.api.Talent.CODEC);
 		CharacterStore.init();
 		CardStore.init();
 		MettleAttributes.init();

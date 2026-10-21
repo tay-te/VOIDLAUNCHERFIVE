@@ -254,7 +254,13 @@ public final class MettleCards {
 			o.addProperty("claimed", claimed);
 			o.addProperty("holder", claimed ? e.holder() : "");
 			o.addProperty("day", claimed ? e.day() : -1);
+			// Deeds are one of a kind (BUILD_FEEL.md §12): one card, its holder above; "doneBy" counts everyone who did the
+			// deed (the holder and every later achiever, who got its title). "copies" stays for old pages: the same number.
 			o.addProperty("copies", e == null ? 0 : e.copies());
+			o.addProperty("doneBy", e == null ? 0 : e.copies());
+			if (ref.value().source() == dev.voidmc.mettle.api.Mythic.Source.DEED) {
+				o.addProperty("title", dev.voidmc.mettle.character.cards.Deeds.title(ref.key().identifier()).getString());
+			}
 			if (ref.value().source() == dev.voidmc.mettle.api.Mythic.Source.DRAWN && !claimed) {
 				drawnWaiting++;
 			}

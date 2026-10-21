@@ -46,8 +46,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
 
 /**
- * Mythics (docs/CARDS.md §9): twenty single named cards. Seven are world firsts (one in the world, ever), five legendary
- * deeds (anyone, once each, numbered), eight drawn (one per skill, 0.5 % a draft from skill 15, once per world). They
+ * Mythics (docs/CARDS.md §9): single named cards, each one of a kind. Seven are world firsts (one in the world, ever), five
+ * legendary deeds (the first to do the deed holds it; later achievers get shards and the title, BUILD_FEEL.md §12), drawn (one per skill, 0.5 % a draft from skill 15, once per world). They
  * are never released, scarred, dropped or sold; the only way to lose one is to trade it. The world is told when one is
  * earned, the Hall of Firsts keeps who holds what, and every player's Mythics are public ({@code mettle:character/mythics}).
  */
@@ -161,15 +161,15 @@ public final class Mythics {
 		return grant(player, Mettle.id(id), false).isPresent();
 	}
 
-	/** A legendary deed: anyone may earn it, once each. */
+	/**
+	 * A legendary deed (docs/BUILD_FEEL.md §12): one of a kind. The first player to do it gets the card; anyone after them
+	 * gets shards and the deed's title, once each.
+	 */
 	public static boolean deed(ServerPlayer player, String id) {
 		if (player.isCreative() || player.isSpectator()) {
 			return false;
 		}
-		if (Cards.ledger(player.level().getServer()).deeds(id).contains(player.getUUID())) {
-			return false;
-		}
-		return grant(player, Mettle.id(id), false).isPresent();
+		return Deeds.done(player, id);
 	}
 
 	/**
@@ -196,11 +196,13 @@ public final class Mythics {
 		CardData.Holder holder = new CardData.Holder(player.getUUID(), player.getGameProfile().name(), Cards.day(server));
 		Component how;
 		if (m.source() == Mythic.Source.DEED) {
-			if (!op && ledger.deeds(id.getPath()).contains(player.getUUID())) {
+			// One of a kind (§12): claimed in the Hall like a world first; the deed's list remembers who did it.
+			if (!op && ledger.first(id.getPath()).isPresent()) {
 				return Optional.empty();
 			}
-			int n = ledger.deed(id.getPath(), player.getUUID());
-			how = Component.translatable("mettle.mythic.copy", ordinal(n));
+			ledger.claim(id.getPath(), holder);
+			ledger.deed(id.getPath(), player.getUUID());
+			how = Component.translatable("mettle.mythic.how.deed");
 		} else {
 			if (!op && ledger.first(id.getPath()).isPresent()) {
 				return Optional.empty();
@@ -214,6 +216,9 @@ public final class Mythics {
 		CharacterState state = CharacterStore.get(player);
 		CardData card = Cards.create(player, ledger, offer, state.level(skill), made, CardData.Place.BINDER);
 		Cards.sync(player);
+		if (m.source() == Mythic.Source.DEED) {
+			Deeds.giveTitle(player, id);
+		}
 		CardApi.mythicClaimed(player, id, card.id());
 		server.getPlayerList().broadcastSystemMessage(Component.translatable(made == CardData.How.FORGED ? "mettle.mythic.world.forged"
 			: m.source() == Mythic.Source.DRAWN ? "mettle.mythic.world.drawn"
@@ -224,17 +229,6 @@ public final class Mythics {
 		LedgerFile.commit(server, player);
 		Mettle.LOGGER.info("{} earned the Mythic {} ({}, card {})", player.getName().getString(), id, how.getString(), card.id());
 		return Optional.of(card);
-	}
-
-	private static String ordinal(int n) {
-		int t = n % 100;
-		String s = t >= 11 && t <= 13 ? "th" : switch (n % 10) {
-			case 1 -> "st";
-			case 2 -> "nd";
-			case 3 -> "rd";
-			default -> "th";
-		};
-		return n + s;
 	}
 
 	/** Whether the drawn Mythic of a skill still waits in its deck (§3.5). */
@@ -357,7 +351,7 @@ public final class Mythics {
 		}
 	}
 
-	/** The Hall of Firsts for one player's client: every claimed first and draw, every deed's copies. */
+	/** The Hall of Firsts for one player's client: every claimed first, draw and deed, and how many have done each deed. */
 	static void hall(ServerPlayer player) {
 		CardLedger ledger = Cards.ledger(player.level().getServer());
 		List<MettlePayloads.HallEntry> entries = new ArrayList<>();

@@ -216,7 +216,7 @@ public final class CardCommands {
 	static CardData find(ServerPlayer player, String text) throws CommandSyntaxException {
 		CardsState state = CardStore.get(player);
 		String t = text.trim().toUpperCase(Locale.ROOT);
-		for (CardData c : state.cards()) {
+		for (CardData c : state.everything()) {
 			if (String.valueOf(c.id()).equals(t) || Cards.printId(player.level().registryAccess(), c).equals(t)) {
 				return c;
 			}

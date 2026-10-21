@@ -1,0 +1,16 @@
+{
+	"family": "hands",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:talent/careful_hands"
+	},
+	"name": {
+		"translate": "mettle.talent.careful_hands"
+	},
+	"description": {
+		"translate": "mettle.talent.careful_hands.description"
+	}
+}

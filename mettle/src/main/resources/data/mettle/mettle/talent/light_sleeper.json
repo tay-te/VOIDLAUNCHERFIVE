@@ -1,0 +1,17 @@
+{
+	"family": "mind",
+	"min": 1,
+	"max": 1,
+	"step": 1,
+	"unit": "flat",
+	"fixed": "rare",
+	"effect": {
+		"behaviour": "mettle:talent/light_sleeper"
+	},
+	"name": {
+		"translate": "mettle.talent.light_sleeper"
+	},
+	"description": {
+		"translate": "mettle.talent.light_sleeper.description"
+	}
+}

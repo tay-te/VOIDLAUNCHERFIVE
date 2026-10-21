@@ -127,7 +127,39 @@ public final class GearInventory {
 	/** Usable pockets of what is worn there; 0 when nothing (or something that is not that slot's gear) is worn. */
 	public int pocketCount(GearSlot slot) {
 		GearSpec spec = spec(slot);
-		return spec == null || spec.slot() != slot ? 0 : spec.pocketCount();
+		if (spec == null || spec.slot() != slot) {
+			return 0;
+		}
+		// The talent Packrat (docs/BUILD_FEEL.md §13.2): one more belt pocket, up to what the belt row shows.
+		int extra = slot == GearSlot.BELT && dev.voidmc.mettle.core.CardStore.get(this.player).trait(PACKRAT) > 0 ? 1 : 0;
+		return Math.min(spec.pocketCount() + extra, GearRules.maxPockets(slot));
+	}
+
+	private static final net.minecraft.resources.Identifier PACKRAT = net.minecraft.resources.Identifier.fromNamespaceAndPath("mettle", "talent/packrat");
+
+	/**
+	 * Pockets beyond what is usable now (Packrat left the row) hand their contents back to the inventory, or drop them,
+	 * so nothing sits unseen in a pocket nobody can open. Server side.
+	 */
+	public void spillHidden(GearSlot slot) {
+		sync();
+		NonNullList<ItemStack> list = pockets.get(slot.ordinal());
+		boolean changed = false;
+		for (int i = pocketCount(slot); i < list.size(); i++) {
+			ItemStack stack = list.get(i);
+			if (!stack.isEmpty()) {
+				list.set(i, ItemStack.EMPTY);
+				if (!player.getInventory().add(stack) && !stack.isEmpty()) {
+					if (player instanceof ServerPlayer sp) {
+						sp.drop(stack, false, net.minecraft.util.Prediction.SERVER_ONLY);
+					}
+				}
+				changed = true;
+			}
+		}
+		if (changed) {
+			commit();
+		}
 	}
 
 	public ItemStack pocket(GearSlot slot, int index) {

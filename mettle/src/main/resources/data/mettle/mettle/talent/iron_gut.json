@@ -1,0 +1,16 @@
+{
+	"family": "body",
+	"min": 5,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:talent/iron_gut"
+	},
+	"name": {
+		"translate": "mettle.talent.iron_gut"
+	},
+	"description": {
+		"translate": "mettle.talent.iron_gut.description"
+	}
+}

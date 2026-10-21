@@ -1,0 +1,16 @@
+{
+	"family": "motion",
+	"min": 10,
+	"max": 20,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:talent/climber"
+	},
+	"name": {
+		"translate": "mettle.talent.climber"
+	},
+	"description": {
+		"translate": "mettle.talent.climber.description"
+	}
+}

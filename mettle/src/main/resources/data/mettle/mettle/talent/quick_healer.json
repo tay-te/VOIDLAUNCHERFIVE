@@ -1,0 +1,16 @@
+{
+	"family": "body",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:talent/quick_healer"
+	},
+	"name": {
+		"translate": "mettle.talent.quick_healer"
+	},
+	"description": {
+		"translate": "mettle.talent.quick_healer.description"
+	}
+}

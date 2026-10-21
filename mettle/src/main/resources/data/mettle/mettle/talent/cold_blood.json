@@ -1,0 +1,16 @@
+{
+	"family": "body",
+	"min": 15,
+	"max": 30,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:talent/cold_blood"
+	},
+	"name": {
+		"translate": "mettle.talent.cold_blood"
+	},
+	"description": {
+		"translate": "mettle.talent.cold_blood.description"
+	}
+}

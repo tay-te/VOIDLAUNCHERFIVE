@@ -1,0 +1,17 @@
+{
+	"family": "body",
+	"min": 2,
+	"max": 4,
+	"step": 1,
+	"unit": "percent",
+	"ceiling": "taken",
+	"effect": {
+		"behaviour": "mettle:talent/weathered_hide"
+	},
+	"name": {
+		"translate": "mettle.talent.weathered_hide"
+	},
+	"description": {
+		"translate": "mettle.talent.weathered_hide.description"
+	}
+}

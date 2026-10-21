@@ -86,6 +86,10 @@ public final class CardLedger extends SavedData {
 				MettleCodecs.lenientMap(Codec.STRING, net.minecraft.core.UUIDUtil.CODEC.listOf(), "deed").parse(ops, deeds).result()
 					.ifPresent(d -> d.forEach((k, v) -> l.deeds.put(k, new ArrayList<>(v))));
 			}
+			O returns = map.get("deed_returns");
+			if (returns != null) {
+				MettleCodecs.lenientList(Returned.CODEC, "returned deed copy").parse(ops, returns).result().ifPresent(l.returns::addAll);
+			}
 			O released = map.get("released");
 			if (released != null) {
 				Codec.LONG_STREAM.parse(ops, released).result().ifPresent(s -> s.forEach(l::archive));
@@ -124,6 +128,7 @@ public final class CardLedger extends SavedData {
 			b.add("cards", ops.createList(cards.stream()));
 			b.add("firsts", Codec.unboundedMap(Codec.STRING, CardData.Holder.CODEC).encodeStart(ops, Map.copyOf(l.firsts)));
 			b.add("deeds", Codec.unboundedMap(Codec.STRING, net.minecraft.core.UUIDUtil.CODEC.listOf()).encodeStart(ops, Map.copyOf(l.deeds)));
+			b.add("deed_returns", Returned.CODEC.listOf().encodeStart(ops, List.copyOf(l.returns)));
 			long[] ids = released.toLongArray();
 			java.util.Arrays.sort(ids);
 			b.add("released", ops.createLongList(LongStream.of(ids)));
@@ -142,6 +147,8 @@ public final class CardLedger extends SavedData {
 	private final Map<String, CardData.Holder> firsts = new LinkedHashMap<>();
 	/** Each deed Mythic: who earned a copy, in order (the n-th copy in this world). */
 	private final Map<String, List<UUID>> deeds = new LinkedHashMap<>();
+	/** Deed copies returned when deed Mythics became one of a kind (docs/BUILD_FEEL.md §12): kept for good, as the log. */
+	private final List<Returned> returns = new ArrayList<>();
 	/** Ids of released cards archived at load (only the id is kept). */
 	private final LongOpenHashSet archived = new LongOpenHashSet();
 	/** Card entries this version couldn't read, kept as read and written back unchanged. */
@@ -277,9 +284,52 @@ public final class CardLedger extends SavedData {
 		return List.copyOf(this.deeds.getOrDefault(mythic, List.of()));
 	}
 
-	/** Records a deed copy; returns which copy it is (1 = the first in this world). */
+	/**
+	 * A deed copy returned by the one-of-a-kind migration (§12): the card, the deed, who held it, when, and whether its
+	 * holder has had the 30 shards and the title yet (they get them on their next join).
+	 */
+	public record Returned(long card, String deed, UUID player, String name, long day, boolean settled) {
+		public static final Codec<Returned> CODEC = com.mojang.serialization.codecs.RecordCodecBuilder.create(i -> i.group(
+			Codec.LONG.fieldOf("card").forGetter(Returned::card),
+			Codec.STRING.fieldOf("deed").forGetter(Returned::deed),
+			net.minecraft.core.UUIDUtil.CODEC.fieldOf("player").forGetter(Returned::player),
+			Codec.STRING.optionalFieldOf("name", "").forGetter(Returned::name),
+			Codec.LONG.optionalFieldOf("day", 0L).forGetter(Returned::day),
+			Codec.BOOL.optionalFieldOf("settled", false).forGetter(Returned::settled)
+		).apply(i, Returned::new));
+	}
+
+	/** Every deed copy ever returned (the migration's log). */
+	public List<Returned> returns() {
+		return List.copyOf(this.returns);
+	}
+
+	public void addReturn(Returned r) {
+		this.returns.add(r);
+		setDirty();
+	}
+
+	/** A returned copy's holder has had their shards and title. */
+	public void settleReturn(long card) {
+		for (int i = 0; i < this.returns.size(); i++) {
+			Returned r = this.returns.get(i);
+			if (r.card() == card && !r.settled()) {
+				this.returns.set(i, new Returned(r.card(), r.deed(), r.player(), r.name(), r.day(), true));
+				setDirty();
+			}
+		}
+	}
+
+	/**
+	 * Records that a player did a deed (once each; the order is who did it first). Since deeds are one of a kind
+	 * (§12) the card goes only to the first; the list still says who did the deed after them.
+	 */
 	public int deed(String mythic, UUID player) {
 		List<UUID> who = this.deeds.computeIfAbsent(mythic, k -> new ArrayList<>());
+		int at = who.indexOf(player);
+		if (at >= 0) {
+			return at + 1;
+		}
 		who.add(player);
 		setDirty();
 		return who.size();

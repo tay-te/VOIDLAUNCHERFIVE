@@ -27,6 +27,7 @@ import net.minecraft.resources.ResourceKey;
  * @param legendOf     the world the legend title names ("the Legend of …")
  * @param once         shard sources and milestones that happen once per character ("ms/first_set", "shard/skill20/mettle:mining")
  * @param guide        the first-ten-minutes guide (§4)
+ * @param titles       deed titles held and the one worn (§12): "Long Walker", "the Unclad"
  */
 public record BuildState(
 	Optional<Identifier> focus,
@@ -38,8 +39,46 @@ public record BuildState(
 	int legend,
 	String legendOf,
 	List<String> once,
-	Guide guide
+	Guide guide,
+	Titles titles
 ) {
+	/**
+	 * Deed titles (§12): every deed Mythic's title the character earned (its first holder and everyone who did the deed
+	 * after them), the one worn (empty: none) and whether it is worn instead of the byname or beside it.
+	 */
+	public record Titles(Optional<Identifier> worn, boolean instead, List<Identifier> held) {
+		public static final Titles NONE = new Titles(Optional.empty(), false, List.of());
+		public static final Codec<Titles> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Identifier.CODEC.optionalFieldOf("worn").forGetter(Titles::worn),
+			Codec.BOOL.optionalFieldOf("instead", false).forGetter(Titles::instead),
+			MettleCodecs.lenientList(Identifier.CODEC, "deed title").optionalFieldOf("held", List.of()).forGetter(Titles::held)
+		).apply(i, Titles::new));
+
+		public Titles {
+			held = List.copyOf(new java.util.LinkedHashSet<>(held));
+			worn = worn.filter(held::contains);
+		}
+
+		public boolean has(Identifier deed) {
+			return this.held.contains(deed);
+		}
+
+		/** Adds a title (kept once); the first title earned is worn at once, beside the byname. */
+		public Titles with(Identifier deed) {
+			if (has(deed)) {
+				return this;
+			}
+			List<Identifier> next = new ArrayList<>(this.held);
+			next.add(deed);
+			return new Titles(this.worn.isPresent() ? this.worn : Optional.of(deed), this.instead, next);
+		}
+
+		/** Wears a held title (empty: none), beside the byname or instead of it. */
+		public Titles wearing(Optional<Identifier> deed, boolean insteadOfByname) {
+			return new Titles(deed.filter(this::has), deed.isPresent() && insteadOfByname, this.held);
+		}
+	}
+
 	/** A byname as parts (rendered with the byname word tables on any side): tier, keywords, skills, the Mythic's epithet. */
 	public record Byname(int tier, Identifier kw1, Optional<Identifier> kw2, ResourceKey<Skill> skill1, Optional<ResourceKey<Skill>> skill2,
 		Optional<Identifier> mythic) {
@@ -112,7 +151,7 @@ public record BuildState(
 	/** Once-only entries kept at most (every shard source and milestone a character can reach fits well under it). */
 	public static final int KEEP_ONCE = 256;
 
-	public static final BuildState EMPTY = new BuildState(Optional.empty(), -1, Map.of(), Bynames.NONE, 0, 0, 0, "", List.of(), Guide.OFF);
+	public static final BuildState EMPTY = new BuildState(Optional.empty(), -1, Map.of(), Bynames.NONE, 0, 0, 0, "", List.of(), Guide.OFF, Titles.NONE);
 
 	public static final Codec<BuildState> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Identifier.CODEC.optionalFieldOf("focus").forGetter(BuildState::focus),
@@ -125,7 +164,8 @@ public record BuildState(
 		MettleCodecs.clampedInt(0, 10).optionalFieldOf("legend", 0).forGetter(BuildState::legend),
 		Codec.STRING.optionalFieldOf("legend_of", "").forGetter(BuildState::legendOf),
 		MettleCodecs.lenientList(Codec.STRING, "build feel entry").optionalFieldOf("once", List.of()).forGetter(BuildState::once),
-		Guide.CODEC.optionalFieldOf("guide", Guide.OFF).forGetter(BuildState::guide)
+		Guide.CODEC.optionalFieldOf("guide", Guide.OFF).forGetter(BuildState::guide),
+		Titles.CODEC.optionalFieldOf("titles", Titles.NONE).forGetter(BuildState::titles)
 	).apply(i, BuildState::new));
 
 	public BuildState {
@@ -134,6 +174,7 @@ public record BuildState(
 		forges = Math.max(0, forges);
 		legend = Math.clamp(legend, 0, 10);
 		legendOf = legendOf == null ? "" : legendOf;
+		titles = titles == null ? Titles.NONE : titles;
 		once = once.size() > KEEP_ONCE ? List.copyOf(once.subList(once.size() - KEEP_ONCE, once.size())) : List.copyOf(once);
 	}
 
@@ -147,38 +188,42 @@ public record BuildState(
 		}
 		List<String> next = new ArrayList<>(this.once);
 		next.add(key);
-		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, next, this.guide);
+		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, next, this.guide, this.titles);
 	}
 
 	/** Forgets every once-only entry starting with {@code prefix} (ops and tests: replay the milestones). */
 	public BuildState withoutOnce(String prefix) {
 		List<String> next = this.once.stream().filter(k -> !k.startsWith(prefix)).toList();
-		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, next, this.guide);
+		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, next, this.guide, this.titles);
 	}
 
 	public BuildState withFocus(Optional<Identifier> f, long day) {
-		return new BuildState(f, day, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, this.once, this.guide);
+		return new BuildState(f, day, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, this.once, this.guide, this.titles);
 	}
 
 	public BuildState withSignature(ResourceKey<Skill> skill, Optional<Long> card) {
 		Map<ResourceKey<Skill>, Long> next = new HashMap<>(this.signatures);
 		card.ifPresentOrElse(c -> next.put(skill, c), () -> next.remove(skill));
-		return new BuildState(this.focus, this.focusDay, next, this.byname, this.shards, this.forges, this.legend, this.legendOf, this.once, this.guide);
+		return new BuildState(this.focus, this.focusDay, next, this.byname, this.shards, this.forges, this.legend, this.legendOf, this.once, this.guide, this.titles);
 	}
 
 	public BuildState withByname(Bynames b) {
-		return new BuildState(this.focus, this.focusDay, this.signatures, b, this.shards, this.forges, this.legend, this.legendOf, this.once, this.guide);
+		return new BuildState(this.focus, this.focusDay, this.signatures, b, this.shards, this.forges, this.legend, this.legendOf, this.once, this.guide, this.titles);
 	}
 
 	public BuildState withShards(int n) {
-		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, n, this.forges, this.legend, this.legendOf, this.once, this.guide);
+		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, n, this.forges, this.legend, this.legendOf, this.once, this.guide, this.titles);
 	}
 
 	public BuildState withForge(int shardsLeft, int forgesMade, int stars, String of) {
-		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, shardsLeft, forgesMade, stars, of, this.once, this.guide);
+		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, shardsLeft, forgesMade, stars, of, this.once, this.guide, this.titles);
+	}
+
+	public BuildState withTitles(Titles t) {
+		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, this.once, this.guide, t);
 	}
 
 	public BuildState withGuide(Guide g) {
-		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, this.once, g);
+		return new BuildState(this.focus, this.focusDay, this.signatures, this.byname, this.shards, this.forges, this.legend, this.legendOf, this.once, g, this.titles);
 	}
 }

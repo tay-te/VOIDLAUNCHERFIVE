@@ -262,7 +262,17 @@ public final class MettlePayloads {
 		/** The guide: skip it for good. */
 		GUIDE_SKIP,
 		/** The guide: {@code text} happened ("dismiss", "deck", "keyword", "unhover", "not_now"). */
-		GUIDE_ADVANCE
+		GUIDE_ADVANCE,
+		/** Wear deed title {@code text} (empty: none); {@code card} 1 wears it instead of the byname, else beside it (BUILD_FEEL.md §12). */
+		TITLE,
+		/** Keep card {@code card} (its index) of the talent hand (§13). */
+		TALENT_KEEP,
+		/** Reroll the talent hand (one reroll from the shared pool). */
+		TALENT_REROLL,
+		/** Put talent card {@code card} in talent slot {@code text} (empty or -1: the first free). */
+		TALENT_SLOT,
+		/** Take talent card {@code card} out of its slot (free on waking, else a free swap). */
+		TALENT_UNSLOT
 	}
 
 	/** A build feel request from the client: the server checks everything and answers with a chip. */

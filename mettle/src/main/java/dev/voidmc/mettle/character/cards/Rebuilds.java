@@ -285,7 +285,8 @@ public final class Rebuilds {
 		CardsState state = CardStore.get(player);
 		List<CardData> picked = new ArrayList<>();
 		for (long id : ids) {
-			Optional<CardData> c = state.card(id);
+			// Talent cards release for a reroll too, three at a time (BUILD_FEEL.md §13.1); canRelease keeps them apart.
+			Optional<CardData> c = state.card(id).or(() -> state.talent().card(id));
 			if (c.isEmpty()) {
 				return Optional.of(CardRules.Refusal.NO_CARD);
 			}
@@ -319,7 +320,7 @@ public final class Rebuilds {
 		CardsState state = CardStore.get(player);
 		List<CardData> picked = new ArrayList<>();
 		for (long id : ids) {
-			Optional<CardData> c = state.card(id);
+			Optional<CardData> c = state.card(id).or(() -> state.talent().card(id));
 			if (c.isEmpty()) {
 				return Optional.of(CardRules.Refusal.NO_CARD);
 			}
@@ -328,6 +329,10 @@ public final class Rebuilds {
 		Optional<CardRules.Refusal> no = CardRules.canFuse(picked, now(player));
 		if (no.isPresent()) {
 			return no;
+		}
+		if (picked.getFirst().talent()) {
+			// Three of one talent and rarity fuse into the next rarity at a Card Shrine, free (§13.1).
+			return open.get().kind() == Kind.SHRINE ? Talents.fuse(player, picked) : Optional.of(CardRules.Refusal.NOT_AT_SHRINE);
 		}
 		if (!open.get().allows(picked.getFirst().skill())) {
 			return Optional.of(CardRules.Refusal.WRONG_SKILL);

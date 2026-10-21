@@ -1,0 +1,13 @@
+{
+	"required": true,
+	"package": "dev.voidmc.mettle.mixin.talents",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"TalentsEntityMixin",
+		"TalentsLivingEntityMixin",
+		"TalentsPhantomSpawnerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

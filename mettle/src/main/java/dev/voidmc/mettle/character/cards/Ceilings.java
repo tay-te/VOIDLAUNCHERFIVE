@@ -193,7 +193,7 @@ public final class Ceilings {
 
 	/** Traits that add movement speed (as attribute modifiers or timed ones). */
 	public static final List<String> MOVEMENT_TRAITS = List.of("athletics/fleet", "blades/fleet", "survival/wayfaring", "athletics/long_winded",
-		"blades/flourishing");
+		"blades/flourishing", "talent/fleet");
 	/** Traits that multiply dig speed (Surefooted only takes back vanilla's slowness off the ground and is not counted). */
 	public static final List<String> DIG_TRAITS = List.of("mining/deepborn", "mining/rockbreaker", "mining/netherborn", "heavy_weapons/woodcutters");
 	/** Traits that multiply melee damage. */
@@ -201,10 +201,10 @@ public final class Ceilings {
 		"heavy_weapons/thunderous", "heavy_weapons/charging", "heavy_weapons/raging");
 	/** Traits that make one more of a drop. */
 	public static final List<String> DROP_TRAITS = List.of("mining/greedy", "mining/lucky", "mining/seamfinder", "mining/geodic", "heavy_weapons/splitting",
-		"survival/foraging", "survival/skinning", "survival/butchering", "blades/trophy");
+		"survival/foraging", "survival/skinning", "survival/butchering", "blades/trophy", "talent/scavenger");
 	/** Traits that lessen damage taken. */
 	public static final List<String> TAKEN_TRAITS = List.of("mining/stonehide", "mining/cavern_wise", "defense/arrowcatcher", "defense/fireproof",
-		"defense/blastproof", "survival/weathered", "survival/thornwalker", "blades/parrying");
+		"defense/blastproof", "survival/weathered", "survival/thornwalker", "blades/parrying", "talent/weathered_hide", "talent/grit", "talent/cold_blood");
 
 	/**
 	 * A deck's worth for the ceilings: trait totals (in their unit, 9 = 9 %), the active set tiers, the Mythics slotted
@@ -311,14 +311,15 @@ public final class Ceilings {
 	 * Unclad, and either the Lone Banner alone or allies' Warden 4, Shielding and Bodyguard.
 	 */
 	public static double takenPotential(Build b, boolean allies) {
-		double common = (b.mythic("unclad") ? 0.75 : 1) * (b.set("deep") >= 2 ? 0.95 : 1);
+		// Talents (BUILD_FEEL.md §13): Weathered Hide on every hit, Grit below 30 % health (the worst moment counts it).
+		double common = (b.mythic("unclad") ? 0.75 : 1) * (b.set("deep") >= 2 ? 0.95 : 1) * (1 - b.pct("talent/weathered_hide")) * (1 - b.pct("talent/grit"));
 		double company = allies ? 0.92 * (1 - 0.125) * (2.0 / 3) : 1;
 		double alone = b.mythic("lone_banner") ? 0.85 : 1;
 		common *= Math.min(company, alone);
 		double melee = (1 - b.pct("mining/cavern_wise")) * (b.pct("blades/parrying") > 0 ? 0.5 : 1);
 		double fire = (1 - b.pct("defense/fireproof")) * (b.set("ember") >= 2 ? 0.85 : 1);
 		double kinds = Math.min(Math.min(melee, fire), Math.min(Math.min(1 - b.pct("defense/blastproof"), 1 - b.pct("defense/arrowcatcher")),
-			Math.min(Math.min(1 - b.pct("survival/weathered"), 1 - b.pct("mining/stonehide")), 1 - b.pct("survival/thornwalker"))));
+			Math.min(Math.min((1 - b.pct("survival/weathered")) * (1 - b.pct("talent/cold_blood")), 1 - b.pct("mining/stonehide")), 1 - b.pct("survival/thornwalker"))));
 		return common * kinds;
 	}
 
@@ -346,7 +347,7 @@ public final class Ceilings {
 		double ore = Math.max(b.pct("mining/greedy"), b.pct("mining/lucky")) + seam + hoard;
 		double geode = b.pct("mining/geodic") + hoard;
 		double plant = b.pct("survival/foraging") + wild + hoard;
-		double animal = Math.max(b.pct("survival/skinning"), b.pct("survival/butchering")) + b.pct("blades/trophy") + wild + hoard;
+		double animal = Math.max(b.pct("survival/skinning"), b.pct("survival/butchering")) + b.pct("blades/trophy") + b.pct("talent/scavenger") + wild + hoard;
 		return Math.max(Math.max(ore, geode), Math.max(Math.max(plant, animal), b.pct("heavy_weapons/splitting")));
 	}
 

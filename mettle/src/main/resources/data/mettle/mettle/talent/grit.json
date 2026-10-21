@@ -1,0 +1,17 @@
+{
+	"family": "body",
+	"min": 3,
+	"max": 6,
+	"step": 1,
+	"unit": "percent",
+	"ceiling": "taken",
+	"effect": {
+		"behaviour": "mettle:talent/grit"
+	},
+	"name": {
+		"translate": "mettle.talent.grit"
+	},
+	"description": {
+		"translate": "mettle.talent.grit.description"
+	}
+}

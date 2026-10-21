@@ -234,6 +234,49 @@ public final class MettleActions {
 		build(MettlePayloads.BuildActionKind.FORGE, -1, "legend");
 	}
 
+	/**
+	 * Wears a held deed title ({@code cards.build.titles.held[].id}; empty: none), beside the byname or {@code instead}
+	 * of it (BUILD_FEEL.md §12).
+	 */
+	public static void wearTitle(String deed, boolean instead) {
+		build(MettlePayloads.BuildActionKind.TITLE, instead ? 1 : 0, deed == null ? "" : deed);
+	}
+
+	/** {@link #wearTitle(String, boolean)} beside the byname. */
+	public static void wearTitle(String deed) {
+		wearTitle(deed, false);
+	}
+
+	// ---------------------------------------------------------------- talents (BUILD_FEEL.md §13, OVERLAY.md "Talents")
+
+	/** Keeps the {@code index}-th card (0–2) of the talent hand ({@code talents.draft.hand}); it goes into a free slot or the binder. */
+	public static void keepTalent(int index) {
+		CardAudio.pick("mettle:talent", index);
+		build(MettlePayloads.BuildActionKind.TALENT_KEEP, index, "");
+	}
+
+	/** Deals the talent hand again for a reroll from the shared pool ({@code draft.rerolls}). */
+	public static void rerollTalents() {
+		build(MettlePayloads.BuildActionKind.TALENT_REROLL, -1, "");
+	}
+
+	/** Puts a talent card ({@code talents.binder[].id}) in a talent slot (-1: the first free); a better copy takes a worse one's slot. */
+	public static void slotTalent(String card, int slot) {
+		build(MettlePayloads.BuildActionKind.TALENT_SLOT, first(card), String.valueOf(slot));
+	}
+
+	public static void slotTalent(String card) {
+		slotTalent(card, -1);
+	}
+
+	/**
+	 * Takes a talent card out of the row: free while {@code talents.rearrange.way} is {@code wake} or {@code low_level},
+	 * else it uses a free swap; refused with {@code talents.rearrange.way} null.
+	 */
+	public static void unslotTalent(String card) {
+		build(MettlePayloads.BuildActionKind.TALENT_UNSLOT, first(card), "");
+	}
+
 	/** The guide's "Skip the guide". */
 	public static void guideSkip() {
 		build(MettlePayloads.BuildActionKind.GUIDE_SKIP, -1, "");

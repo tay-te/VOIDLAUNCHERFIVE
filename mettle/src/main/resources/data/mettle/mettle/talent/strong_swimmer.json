@@ -1,0 +1,18 @@
+{
+	"family": "motion",
+	"min": 5,
+	"max": 10,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"attribute": "minecraft:water_movement_efficiency",
+		"operation": "add_value",
+		"scale": 0.01
+	},
+	"name": {
+		"translate": "mettle.talent.strong_swimmer"
+	},
+	"description": {
+		"translate": "mettle.talent.strong_swimmer.description"
+	}
+}

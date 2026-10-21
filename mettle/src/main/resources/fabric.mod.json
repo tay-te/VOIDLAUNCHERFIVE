@@ -31,6 +31,11 @@
 		"mettle-gear.mixins.json",
 		"mettle-cards.mixins.json",
 		"mettle-legend.mixins.json",
+		"mettle-talents.mixins.json",
+		{
+			"config": "mettle-talents.client.mixins.json",
+			"environment": "client"
+		},
 		{
 			"config": "mettle-legend.client.mixins.json",
 			"environment": "client"

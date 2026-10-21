@@ -1,0 +1,11 @@
+{
+	"required": true,
+	"package": "dev.voidmc.mettle.client.mixin.talents",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"TalentsLightmapMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

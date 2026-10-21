@@ -1,0 +1,18 @@
+{
+	"family": "hands",
+	"min": 0.25,
+	"max": 0.5,
+	"step": 0.05,
+	"unit": "flat",
+	"effect": {
+		"attribute": "minecraft:block_interaction_range",
+		"operation": "add_value",
+		"scale": 1.0
+	},
+	"name": {
+		"translate": "mettle.talent.long_arms"
+	},
+	"description": {
+		"translate": "mettle.talent.long_arms.description"
+	}
+}

@@ -117,7 +117,8 @@ public final class MettleState {
 		long now = net.minecraft.util.Util.getMillis();
 		long gameTime = player.level().getGameTime();
 		boolean attuning = cards.cards().stream().anyMatch(c -> !c.attuned(gameTime));
-		if (attuning) {
+		// The talent row's waking window counts down in seconds (talents.rearrange.secondsLeft).
+		if (attuning || cards.talent().awake(gameTime)) {
 			h = mix(h, gameTime / 20);
 		}
 		boolean showing = RECENT.stream().anyMatch(f -> now - f.at() < FEEDBACK_MS) || MOMENTS.stream().anyMatch(m -> now - m.at() < FEEDBACK_MS);
@@ -231,6 +232,7 @@ public final class MettleState {
 		root.add("draft", draft(drafts));
 		// Cards v2 (docs/CARDS.md): the binder, decks, sets, trait totals and costs.
 		root.add("cards", MettleCards.build(mc, registries));
+		root.add("talents", MettleTalents.build(mc, registries));
 
 		JsonArray skills = new JsonArray();
 		registries.lookupOrThrow(MettleRegistries.SKILL).listElements()
@@ -317,6 +319,8 @@ public final class MettleState {
 				o.addProperty("inDeck", false);
 			}
 			o.addProperty("icon", Perk.icon(ref.key()).toString());
+			// The general feats are earned talents now (BUILD_FEEL.md §13.2): the Hub shows them in the talent row.
+			o.addProperty("earnedTalent", ref.key().identifier().getPath().startsWith("general/"));
 			perks.add(o);
 		});
 		root.add("perks", perks);

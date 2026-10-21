@@ -1,0 +1,17 @@
+{
+	"family": "fortune",
+	"min": 2,
+	"max": 5,
+	"step": 1,
+	"unit": "percent",
+	"ceiling": "extra_drop",
+	"effect": {
+		"behaviour": "mettle:talent/scavenger"
+	},
+	"name": {
+		"translate": "mettle.talent.scavenger"
+	},
+	"description": {
+		"translate": "mettle.talent.scavenger.description"
+	}
+}

@@ -1,0 +1,16 @@
+{
+	"family": "mind",
+	"min": 2,
+	"max": 5,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:talent/quick_learner"
+	},
+	"name": {
+		"translate": "mettle.talent.quick_learner"
+	},
+	"description": {
+		"translate": "mettle.talent.quick_learner.description"
+	}
+}

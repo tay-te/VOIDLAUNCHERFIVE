@@ -27,6 +27,8 @@ import net.minecraft.util.StringRepresentable;
  * @param recent  skills that gained XP lately, most recent first (wildcards come from these)
  * @param boons   boons waiting per skill (docs/BUILD_FEEL.md §3): odd levels from 7 give one instead of a reroll; they never
  *                expire. An old save has none: the rerolls its odd levels gave stay rerolls.
+ * @param talent  the talent draft (docs/BUILD_FEEL.md §13.1): drafts waiting, the hand dealt, and the character level up to
+ *                which drafts were queued (so a level is never paid twice, and an old character gets its drafts once)
  */
 public record DraftState(
 	Map<ResourceKey<Skill>, Integer> queued,
@@ -35,8 +37,47 @@ public record DraftState(
 	long seed,
 	int dealt,
 	List<ResourceKey<Skill>> recent,
-	Map<ResourceKey<Skill>, Integer> boons
+	Map<ResourceKey<Skill>, Integer> boons,
+	TalentDraft talent
 ) {
+	/**
+	 * The talent draft (§13.1): a hand of three talents, keep one, at character level 3 and every 4 after; separate from
+	 * skill drafts, it waits like one. {@code upTo} is the highest character level whose talent draft was queued.
+	 */
+	public record TalentDraft(int queued, List<Card> hand, int upTo, int dealt) {
+		public static final TalentDraft NONE = new TalentDraft(0, List.of(), 0, 0);
+		public static final Codec<TalentDraft> CODEC = RecordCodecBuilder.create(i -> i.group(
+			MettleCodecs.clampedInt(0, MAX_QUEUED).optionalFieldOf("queued", 0).forGetter(TalentDraft::queued),
+			MettleCodecs.lenientList(Card.CODEC, "talent in a hand").optionalFieldOf("hand", List.of()).forGetter(TalentDraft::hand),
+			MettleCodecs.clampedInt(0, 10_000).optionalFieldOf("up_to", 0).forGetter(TalentDraft::upTo),
+			Codec.INT.optionalFieldOf("dealt", 0).forGetter(TalentDraft::dealt)
+		).apply(i, TalentDraft::new));
+
+		public TalentDraft {
+			queued = Math.clamp(queued, 0, MAX_QUEUED);
+			hand = queued == 0 ? List.of() : List.copyOf(hand);
+			upTo = Math.max(0, upTo);
+			dealt = Math.max(0, dealt);
+		}
+
+		public TalentDraft withQueued(int n) {
+			return new TalentDraft(n, this.hand, this.upTo, this.dealt);
+		}
+
+		/** A hand dealt (the next in the seed's talent sequence). */
+		public TalentDraft dealtHand(List<Card> h) {
+			return new TalentDraft(this.queued, h, this.upTo, this.dealt + 1);
+		}
+
+		public TalentDraft withHand(List<Card> h) {
+			return new TalentDraft(this.queued, h, this.upTo, this.dealt);
+		}
+
+		public TalentDraft withUpTo(int level) {
+			return new TalentDraft(this.queued, this.hand, level, this.dealt);
+		}
+	}
+
 	/** How many skills {@code recent} remembers. */
 	public static final int RECENT = 4;
 
@@ -119,7 +160,8 @@ public record DraftState(
 		Codec.INT.optionalFieldOf("dealt", 0).forGetter(DraftState::dealt),
 		ResourceKey.codec(MettleRegistries.SKILL).listOf().optionalFieldOf("recent", List.of()).forGetter(DraftState::recent),
 		MettleCodecs.lenientMap(ResourceKey.codec(MettleRegistries.SKILL), MettleCodecs.clampedInt(0, MAX_QUEUED), "boon").optionalFieldOf("boons", Map.of())
-			.forGetter(DraftState::boons)
+			.forGetter(DraftState::boons),
+		TalentDraft.CODEC.optionalFieldOf("talent", TalentDraft.NONE).forGetter(DraftState::talent)
 	).apply(i, DraftState::new));
 
 	public DraftState {
@@ -141,12 +183,23 @@ public record DraftState(
 			}
 		});
 		boons = Map.copyOf(b);
+		talent = talent == null ? TalentDraft.NONE : talent;
 	}
 
 	/** A record without boons (every save before build feel). */
 	public DraftState(Map<ResourceKey<Skill>, Integer> queued, Map<ResourceKey<Skill>, List<Card>> hands, int rerolls, long seed, int dealt,
 		List<ResourceKey<Skill>> recent) {
-		this(queued, hands, rerolls, seed, dealt, recent, Map.of());
+		this(queued, hands, rerolls, seed, dealt, recent, Map.of(), TalentDraft.NONE);
+	}
+
+	/** A record without a talent draft (every save before talents). */
+	public DraftState(Map<ResourceKey<Skill>, Integer> queued, Map<ResourceKey<Skill>, List<Card>> hands, int rerolls, long seed, int dealt,
+		List<ResourceKey<Skill>> recent, Map<ResourceKey<Skill>, Integer> boons) {
+		this(queued, hands, rerolls, seed, dealt, recent, boons, TalentDraft.NONE);
+	}
+
+	public DraftState withTalent(TalentDraft t) {
+		return new DraftState(this.queued, this.hands, this.rerolls, this.seed, this.dealt, this.recent, this.boons, t);
 	}
 
 	public int boons(ResourceKey<Skill> skill) {
@@ -165,7 +218,7 @@ public record DraftState(
 		} else {
 			copy.put(skill, n);
 		}
-		return new DraftState(this.queued, this.hands, this.rerolls, this.seed, this.dealt, this.recent, copy);
+		return new DraftState(this.queued, this.hands, this.rerolls, this.seed, this.dealt, this.recent, copy, this.talent);
 	}
 
 	public static DraftState fresh(long seed, int rerolls) {
@@ -192,7 +245,7 @@ public record DraftState(
 		} else {
 			copy.put(skill, count);
 		}
-		return new DraftState(copy, this.hands, this.rerolls, this.seed, this.dealt, this.recent, this.boons);
+		return new DraftState(copy, this.hands, this.rerolls, this.seed, this.dealt, this.recent, this.boons, this.talent);
 	}
 
 	public DraftState addQueued(ResourceKey<Skill> skill, int delta) {
@@ -207,20 +260,20 @@ public record DraftState(
 		} else {
 			copy.put(skill, List.copyOf(cards));
 		}
-		return new DraftState(this.queued, copy, this.rerolls, this.seed, this.dealt, this.recent, this.boons);
+		return new DraftState(this.queued, copy, this.rerolls, this.seed, this.dealt, this.recent, this.boons, this.talent);
 	}
 
 	public DraftState withRerolls(int count) {
-		return new DraftState(this.queued, this.hands, Math.max(0, count), this.seed, this.dealt, this.recent, this.boons);
+		return new DraftState(this.queued, this.hands, Math.max(0, count), this.seed, this.dealt, this.recent, this.boons, this.talent);
 	}
 
 	public DraftState withSeed(long s) {
-		return new DraftState(this.queued, this.hands, this.rerolls, s, this.dealt, this.recent, this.boons);
+		return new DraftState(this.queued, this.hands, this.rerolls, s, this.dealt, this.recent, this.boons, this.talent);
 	}
 
 	/** One more hand dealt from the seed. */
 	public DraftState nextDeal() {
-		return new DraftState(this.queued, this.hands, this.rerolls, this.seed, this.dealt + 1, this.recent, this.boons);
+		return new DraftState(this.queued, this.hands, this.rerolls, this.seed, this.dealt + 1, this.recent, this.boons, this.talent);
 	}
 
 	/** {@code skill} gained XP: it moves to the front of {@link #recent}. Returns this when it already is. */
@@ -235,6 +288,6 @@ public record DraftState(
 				next.add(s);
 			}
 		}
-		return new DraftState(this.queued, this.hands, this.rerolls, this.seed, this.dealt, next, this.boons);
+		return new DraftState(this.queued, this.hands, this.rerolls, this.seed, this.dealt, next, this.boons, this.talent);
 	}
 }

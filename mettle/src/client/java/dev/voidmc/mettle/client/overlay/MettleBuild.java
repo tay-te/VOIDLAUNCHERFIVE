@@ -133,6 +133,22 @@ public final class MettleBuild {
 		byname.add("legend", b.legend() == 0 ? JsonNull.INSTANCE : legend(b.legend(), b.legendOf()));
 		root.add("byname", byname);
 
+		// Deed titles (§12): held, the one worn, and whether it stands instead of the byname or beside it.
+		JsonObject titles = new JsonObject();
+		titles.add("worn", b.titles().worn().map(w -> (JsonElement) new com.google.gson.JsonPrimitive(w.toString())).orElse(JsonNull.INSTANCE));
+		titles.addProperty("wornText", b.titles().worn().map(w -> s(dev.voidmc.mettle.character.cards.Deeds.title(w))).orElse(""));
+		titles.addProperty("instead", b.titles().instead());
+		JsonArray heldTitles = new JsonArray();
+		for (Identifier t : b.titles().held()) {
+			JsonObject o = new JsonObject();
+			o.addProperty("id", t.toString());
+			o.addProperty("text", s(dev.voidmc.mettle.character.cards.Deeds.title(t)));
+			o.addProperty("wearing", b.titles().worn().map(t::equals).orElse(false));
+			heldTitles.add(o);
+		}
+		titles.add("held", heldTitles);
+		root.add("titles", titles);
+
 		// "Your build" (§2.3).
 		root.add("summary", summary(registries, state, cards, build, words));
 

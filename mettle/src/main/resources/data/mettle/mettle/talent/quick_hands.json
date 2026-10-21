@@ -1,0 +1,16 @@
+{
+	"family": "hands",
+	"min": 10,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:talent/quick_hands"
+	},
+	"name": {
+		"translate": "mettle.talent.quick_hands"
+	},
+	"description": {
+		"translate": "mettle.talent.quick_hands.description"
+	}
+}

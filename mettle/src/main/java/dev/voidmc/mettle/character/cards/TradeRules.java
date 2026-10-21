@@ -26,7 +26,7 @@ public final class TradeRules {
 	/** Why a trade can't start, finish, or a card can't go in (lang {@code mettle.trade.refused.<name>}). */
 	public enum Refusal {
 		SELF, TOO_FAR, HURT, DEAD, BUSY, NO_REQUEST, NOT_TRADING, NOT_YOURS, SLOTTED, ATTUNING, IN_TRADE, TOO_MANY_CARDS, TOO_MANY_ITEMS,
-		NO_ROOM, BINDER_FULL, CANT_PAY, NOT_LOCKED, NO_COIN, EMPTY_HAND;
+		NO_ROOM, BINDER_FULL, CANT_PAY, NOT_LOCKED, NO_COIN, EMPTY_HAND, BOUND;
 
 		public String translationKey() {
 			return "mettle.trade.refused." + name().toLowerCase(Locale.ROOT);
@@ -50,10 +50,14 @@ public final class TradeRules {
 		return Optional.empty();
 	}
 
-	/** A card may go in: it is the player's, in the binder (slotted cards are rebuilt out first) and attuned. */
+	/** A card may go in: it is the player's, not a talent (bound), in the binder (slotted cards are rebuilt out first) and attuned. */
 	public static Optional<Refusal> canOffer(CardData card, UUID player, long now, int offered) {
 		if (!card.owner().equals(player)) {
 			return Optional.of(Refusal.NOT_YOURS);
+		}
+		// Talents are you (docs/BUILD_FEEL.md §13.1): bound, never traded or listed.
+		if (card.talent()) {
+			return Optional.of(Refusal.BOUND);
 		}
 		if (card.place().kind() == CardData.PlaceKind.SLOTTED) {
 			return Optional.of(Refusal.SLOTTED);

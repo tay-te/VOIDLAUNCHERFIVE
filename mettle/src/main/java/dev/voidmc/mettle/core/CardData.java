@@ -298,6 +298,20 @@ public record CardData(
 		return this.place.slotted();
 	}
 
+	/** The skill key every talent card carries (docs/BUILD_FEEL.md §13): not a skill in the registry, the talent row's own. */
+	public static final ResourceKey<Skill> TALENT = ResourceKey.create(MettleRegistries.SKILL, Identifier.fromNamespaceAndPath("mettle", "talent"));
+
+	/** A talent card (§13): bound to the character, never traded or listed, never in a skill deck. */
+	public boolean talent() {
+		return this.skill.equals(TALENT);
+	}
+
+	/** The talent's id ({@code mettle:fleet}) for a talent card. */
+	public Optional<Identifier> talentId() {
+		return talent() ? Optional.of(Identifier.fromNamespaceAndPath(this.perk.identifier().getNamespace(),
+			this.perk.identifier().getPath().substring(this.perk.identifier().getPath().indexOf('/') + 1))) : Optional.empty();
+	}
+
 	/** A Mythic card (§9): its perk key is {@code mettle:mythic/<id>}, its rarity MYTHIC. */
 	public boolean mythic() {
 		return this.rarity == Rarity.MYTHIC;

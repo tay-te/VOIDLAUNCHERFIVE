@@ -1,0 +1,19 @@
+{
+	"family": "motion",
+	"min": 2,
+	"max": 4,
+	"step": 1,
+	"unit": "percent",
+	"ceiling": "movement",
+	"effect": {
+		"attribute": "minecraft:movement_speed",
+		"operation": "add_multiplied_base",
+		"scale": 0.01
+	},
+	"name": {
+		"translate": "mettle.talent.fleet"
+	},
+	"description": {
+		"translate": "mettle.talent.fleet.description"
+	}
+}

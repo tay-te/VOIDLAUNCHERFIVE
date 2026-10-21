@@ -32,6 +32,8 @@ import net.minecraft.resources.ResourceKey;
  * @param sets         each keyword's count over slotted, non-dormant cards
  * @param tiers        the active sets (at most three) and the tier each reached (2, 4 or 6)
  * @param build        build feel: Focus, Signatures, bynames, Mythic shards and forges, milestones, the guide (BUILD_FEEL.md)
+ * @param talent       the talent cards the player owns (a cache of the ledger, like {@code cards}, kept apart because talents
+ *                     are bound and never in a skill deck) and until when the waking window lets them be rearranged (§13)
  */
 public record CardsState(
 	int version,
@@ -46,9 +48,42 @@ public record CardsState(
 	Map<Identifier, Double> traits,
 	Map<Identifier, Integer> sets,
 	Map<Identifier, Integer> tiers,
-	BuildState build
+	BuildState build,
+	TalentState talent
 ) {
-	public static final CardsState EMPTY = new CardsState(0, List.of(), 0, List.of(), List.of(), -1, List.of(), Map.of(), List.of(), Map.of(), Map.of(), Map.of(), BuildState.EMPTY);
+	/**
+	 * The talent layer (docs/BUILD_FEEL.md §13): the player's talent cards from the ledger (slotted ones sit in the talent
+	 * row, {@code place.index} their slot), and the game time until which the "Reconsider your talents" window is open.
+	 */
+	public record TalentState(List<CardData> cards, long wakeUntil) {
+		public static final TalentState NONE = new TalentState(List.of(), 0);
+		public static final Codec<TalentState> CODEC = RecordCodecBuilder.create(i -> i.group(
+			MettleCodecs.lenientList(CardData.CODEC, "cached talent").optionalFieldOf("cards", List.of()).forGetter(TalentState::cards),
+			Codec.LONG.optionalFieldOf("wake_until", 0L).forGetter(TalentState::wakeUntil)
+		).apply(i, TalentState::new));
+
+		public TalentState {
+			cards = List.copyOf(cards);
+		}
+
+		/** The talent row, by slot. */
+		public List<CardData> slotted() {
+			List<CardData> out = new ArrayList<>(this.cards.stream().filter(CardData::slotted).toList());
+			out.sort(Comparator.comparingInt(c -> c.place().index()));
+			return out;
+		}
+
+		public Optional<CardData> card(long id) {
+			return this.cards.stream().filter(c -> c.id() == id).findFirst();
+		}
+
+		public boolean awake(long gameTime) {
+			return gameTime < this.wakeUntil;
+		}
+	}
+
+	public static final CardsState EMPTY = new CardsState(0, List.of(), 0, List.of(), List.of(), -1, List.of(), Map.of(), List.of(), Map.of(), Map.of(), Map.of(), BuildState.EMPTY,
+		TalentState.NONE);
 
 	public static final Codec<CardsState> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.INT.optionalFieldOf("version", 0).forGetter(CardsState::version),
@@ -63,7 +98,8 @@ public record CardsState(
 		Codec.unboundedMap(Identifier.CODEC, Codec.DOUBLE).optionalFieldOf("traits", Map.of()).forGetter(CardsState::traits),
 		Codec.unboundedMap(Identifier.CODEC, Codec.INT).optionalFieldOf("sets", Map.of()).forGetter(CardsState::sets),
 		Codec.unboundedMap(Identifier.CODEC, Codec.INT).optionalFieldOf("tiers", Map.of()).forGetter(CardsState::tiers),
-		BuildState.CODEC.optionalFieldOf("build", BuildState.EMPTY).forGetter(CardsState::build)
+		BuildState.CODEC.optionalFieldOf("build", BuildState.EMPTY).forGetter(CardsState::build),
+		TalentState.CODEC.optionalFieldOf("talent", TalentState.NONE).forGetter(CardsState::talent)
 	).apply(i, CardsState::new));
 
 	public CardsState {
@@ -77,6 +113,40 @@ public record CardsState(
 		sets = Map.copyOf(sets);
 		tiers = Map.copyOf(tiers);
 		build = build == null ? BuildState.EMPTY : build;
+		talent = talent == null ? TalentState.NONE : talent;
+	}
+
+	/** A record without talents (tests, old code paths). */
+	public CardsState(int version, List<CardData> cards, int freeSwaps, List<ResourceKey<Skill>> freeRebuilds, List<Identifier> pins, long pinDay,
+		List<Identifier> setOrder, Map<ResourceKey<Perk>, Integer> active, List<Long> dormant, Map<Identifier, Double> traits, Map<Identifier, Integer> sets,
+		Map<Identifier, Integer> tiers, BuildState build) {
+		this(version, cards, freeSwaps, freeRebuilds, pins, pinDay, setOrder, active, dormant, traits, sets, tiers, build, TalentState.NONE);
+	}
+
+	/** Every card the player owns: the skill cards and the talents. */
+	public List<CardData> everything() {
+		List<CardData> all = new ArrayList<>(this.cards);
+		all.addAll(this.talent.cards());
+		return all;
+	}
+
+	/** The cards as the ledger has them, talents apart (§13: skill {@code mettle:talent}). */
+	public CardsState withOwned(List<CardData> owned) {
+		List<CardData> skill = new ArrayList<>();
+		List<CardData> talents = new ArrayList<>();
+		for (CardData c : owned) {
+			(c.talent() ? talents : skill).add(c);
+		}
+		return withCards(skill).withTalent(new TalentState(talents, this.talent.wakeUntil()));
+	}
+
+	public CardsState withWakeUntil(long until) {
+		return withTalent(new TalentState(this.talent.cards(), until));
+	}
+
+	public CardsState withTalent(TalentState t) {
+		return new CardsState(this.version, this.cards, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, this.setOrder, this.active, this.dormant,
+			this.traits, this.sets, this.tiers, this.build, t);
 	}
 
 	public Optional<CardData> card(long id) {
@@ -125,37 +195,37 @@ public record CardsState(
 
 	public CardsState withCards(List<CardData> c) {
 		return new CardsState(this.version, c, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, this.setOrder, this.active, this.dormant,
-			this.traits, this.sets, this.tiers, this.build);
+			this.traits, this.sets, this.tiers, this.build, this.talent);
 	}
 
 	public CardsState withVersion(int v) {
 		return new CardsState(v, this.cards, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, this.setOrder, this.active, this.dormant,
-			this.traits, this.sets, this.tiers, this.build);
+			this.traits, this.sets, this.tiers, this.build, this.talent);
 	}
 
 	public CardsState withFreeSwaps(int n) {
 		return new CardsState(this.version, this.cards, Math.max(0, n), this.freeRebuilds, this.pins, this.pinDay, this.setOrder, this.active,
-			this.dormant, this.traits, this.sets, this.tiers, this.build);
+			this.dormant, this.traits, this.sets, this.tiers, this.build, this.talent);
 	}
 
 	public CardsState withFreeRebuilds(List<ResourceKey<Skill>> skills) {
 		return new CardsState(this.version, this.cards, this.freeSwaps, skills, this.pins, this.pinDay, this.setOrder, this.active, this.dormant,
-			this.traits, this.sets, this.tiers, this.build);
+			this.traits, this.sets, this.tiers, this.build, this.talent);
 	}
 
 	public CardsState withPins(List<Identifier> p, long day) {
 		return new CardsState(this.version, this.cards, this.freeSwaps, this.freeRebuilds, p, day, this.setOrder, this.active, this.dormant,
-			this.traits, this.sets, this.tiers, this.build);
+			this.traits, this.sets, this.tiers, this.build, this.talent);
 	}
 
 	public CardsState withBuild(BuildState b) {
 		return new CardsState(this.version, this.cards, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, this.setOrder, this.active, this.dormant,
-			this.traits, this.sets, this.tiers, b);
+			this.traits, this.sets, this.tiers, b, this.talent);
 	}
 
 	/** The derived fields, as {@code CardRules.derive} worked them out. */
 	public CardsState withDerived(List<Identifier> order, Map<ResourceKey<Perk>, Integer> a, List<Long> d, Map<Identifier, Double> t,
 		Map<Identifier, Integer> s, Map<Identifier, Integer> ti) {
-		return new CardsState(this.version, this.cards, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, order, a, d, t, s, ti, this.build);
+		return new CardsState(this.version, this.cards, this.freeSwaps, this.freeRebuilds, this.pins, this.pinDay, order, a, d, t, s, ti, this.build, this.talent);
 	}
 }

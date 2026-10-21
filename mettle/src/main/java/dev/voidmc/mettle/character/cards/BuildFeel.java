@@ -59,12 +59,14 @@ public final class BuildFeel {
 	 * What everyone may see of a player's build (name cards, chat hover, Hearth): the byname worn, the legend title's stars
 	 * and the world it names, and the crest (the perk or Mythic of skill1's Signature). Synced to all; rebuilt, not saved.
 	 */
-	public record Renown(Optional<Byname> byname, int legend, String legendOf, Optional<Identifier> crest) {
+	public record Renown(Optional<Byname> byname, int legend, String legendOf, Optional<Identifier> crest, Optional<Identifier> title, boolean titleInstead) {
 		public static final Codec<Renown> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Byname.CODEC.optionalFieldOf("byname").forGetter(Renown::byname),
 			Codec.INT.optionalFieldOf("legend", 0).forGetter(Renown::legend),
 			Codec.STRING.optionalFieldOf("legend_of", "").forGetter(Renown::legendOf),
-			Identifier.CODEC.optionalFieldOf("crest").forGetter(Renown::crest)
+			Identifier.CODEC.optionalFieldOf("crest").forGetter(Renown::crest),
+			Identifier.CODEC.optionalFieldOf("title").forGetter(Renown::title),
+			Codec.BOOL.optionalFieldOf("title_instead", false).forGetter(Renown::titleInstead)
 		).apply(i, Renown::new));
 	}
 
@@ -299,7 +301,7 @@ public final class BuildFeel {
 		BuildState b = get(player);
 		Optional<Identifier> crest = b.byname().worn().flatMap(bn -> Optional.ofNullable(b.signatures().get(bn.skill1())))
 			.flatMap(id -> CardStore.get(player).card(id)).map(c -> c.mythicId().orElse(c.perk().identifier()));
-		Renown next = new Renown(b.byname().worn(), b.legend(), b.legendOf(), crest);
+		Renown next = new Renown(b.byname().worn(), b.legend(), b.legendOf(), crest, b.titles().worn(), b.titles().instead());
 		Renown now = player.getAttached(RENOWN);
 		if (!next.equals(now)) {
 			player.setAttached(RENOWN, next);
@@ -731,8 +733,21 @@ public final class BuildFeel {
 			case FORGE -> forge(player, a.text().trim());
 			case GUIDE_SKIP -> guideSkip(player);
 			case GUIDE_ADVANCE -> guideAdvance(player, a.text());
+			case TITLE -> Deeds.wear(player, a.text().isBlank() ? Optional.empty() : Optional.of(parse(a.text())), a.card() == 1);
+			case TALENT_KEEP -> Talents.keep(player, (int) Math.clamp(a.card(), -1, 8));
+			case TALENT_REROLL -> Talents.reroll(player);
+			case TALENT_SLOT -> Talents.slot(player, a.card(), parseIndex(a.text()));
+			case TALENT_UNSLOT -> Talents.unslot(player, a.card());
 		};
 		no.ifPresent(r -> Cards.refused(player, r));
+	}
+
+	private static int parseIndex(String text) {
+		try {
+			return text == null || text.isBlank() ? -1 : Math.clamp(Integer.parseInt(text.trim()), -1, 64);
+		} catch (NumberFormatException e) {
+			return -1;
+		}
 	}
 
 	private static Identifier parse(String text) {

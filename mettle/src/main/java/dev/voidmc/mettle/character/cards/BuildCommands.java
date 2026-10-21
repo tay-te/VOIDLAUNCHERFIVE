@@ -23,7 +23,7 @@ import net.minecraft.server.level.ServerPlayer;
  * Build feel from chat (docs/BUILD_FEEL.md §10), until the Hub draws it: {@code /mettle build} shows the byname, Focus,
  * boons and shards; {@code focus <keyword|none>}, {@code temper <card> <trait>}, {@code inscribe <card> <keyword>},
  * {@code boon reroll <skill>}, {@code signature <card>}, {@code byname [n]}, {@code forge <mythic|legend>},
- * {@code guide skip}. Ops: {@code shards <n> [players]}, {@code boons <skill> <n> [players]}, {@code guide on|off [players]}.
+ * {@code guide skip}, {@code title <deed|none> [instead]}. Ops: {@code shards <n> [players]}, {@code boons <skill> <n> [players]}, {@code guide on|off [players]}.
  */
 public final class BuildCommands {
 	private BuildCommands() {
@@ -50,6 +50,11 @@ public final class BuildCommands {
 			.then(Commands.literal("byname")
 				.executes(c -> answer(c, BuildFeel.wearByname(me(c), -1)))
 				.then(Commands.argument("n", IntegerArgumentType.integer(1, 100)).executes(c -> answer(c, BuildFeel.wearByname(me(c), IntegerArgumentType.getInteger(c, "n") - 1)))))
+			.then(Commands.literal("title")
+				.then(Commands.literal("none").executes(c -> answer(c, Deeds.wear(me(c), Optional.empty(), false))))
+				.then(Commands.argument("deed", StringArgumentType.word())
+					.executes(c -> answer(c, Deeds.wear(me(c), Optional.of(id(StringArgumentType.getString(c, "deed"))), false)))
+					.then(Commands.literal("instead").executes(c -> answer(c, Deeds.wear(me(c), Optional.of(id(StringArgumentType.getString(c, "deed"))), true))))))
 			.then(Commands.literal("forge").then(Commands.argument("what", StringArgumentType.greedyString()).executes(c ->
 				answer(c, BuildFeel.forge(me(c), StringArgumentType.getString(c, "what").trim())))))
 			.then(Commands.literal("guide")
@@ -93,6 +98,7 @@ public final class BuildCommands {
 		c.getSource().sendSuccess(() -> Component.literal("Byname: ").append(byname).append(" (tier " + b.byname().tier() + ") · Focus: "
 			+ b.focus().map(Identifier::toString).orElse("-") + " · boons: " + CharacterStore.get(p).drafts().boons() + " · shards "
 			+ b.shards() + " / " + ForgeRules.cost(b.forges()) + " · forges " + b.forges() + " · legend " + b.legend()
+			+ " · titles " + b.titles().held() + " wearing " + b.titles().worn().map(Identifier::toString).orElse("-")
 			+ " · guide " + (b.guide().on() && !b.guide().skipped() ? "hint " + b.guide().current() + ", seen " + b.guide().seen() : "off")), false);
 		return 1;
 	}
