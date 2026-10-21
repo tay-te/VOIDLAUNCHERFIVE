@@ -378,6 +378,12 @@ public final class Bridge {
 		op("forgeLegend", ""),
 		op("guideSkip", ""),
 		op("guideAdvance", "dismiss|deck|keyword|unhover|not_now|focus"),
+		// Talents and deed titles (Mettle 0.4.0, OVERLAY.md "Deed titles and Talents").
+		op("keepTalent", "[0-2]"),
+		op("rerollTalents", ""),
+		op("slotTalent", "\\d{1,18}(?:#-1|#\\d)?"),
+		op("unslotTalent", "\\d{1,18}"),
+		op("wearTitle", "(?:" + ID + ")?(?:#[01])?"),
 		// The page showed a milestone (toast or banner): Mettle's own HUD toast is not shown again (MettleLink.momentShown).
 		op("momentShown", "[a-z_]{1,24}#(?:" + ID + ")?#(?:" + ID + ")?#\\d{1,2}"));
 

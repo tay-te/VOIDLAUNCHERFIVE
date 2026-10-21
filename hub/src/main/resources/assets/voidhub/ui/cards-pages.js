@@ -85,6 +85,8 @@
     if (c.trade) return "trade";
     if (nav.view === "shrine-info") return "shrine-info";
     if (nav.view === "skill" && nav.skill && skill(nav.skill)) return "skill-" + (SCREENS["skill-" + nav.stab] ? nav.stab : "deck");
+    // The Hall of Firsts opens on the deeds and titles (Mettle 0.4.0); "All Mythics" switches to the shelf.
+    if (nav.tab === "hall" && MC.tl && MC.tl.hallView() === "deeds") return "home-deeds";
     return "home-" + (SCREENS["home-" + nav.tab] ? nav.tab : "skills");
   }
 
@@ -211,6 +213,8 @@
     }
     // A milestone's banner (build feel) comes after a waiting draft: the draft is what the player opened the page for.
     if (MC.bf) MC.bf.banner();
+    // After a night's sleep: "Reconsider your talents" (once per waking).
+    if (MC.tl && !MC.ov.active()) MC.tl.moments();
   }
   MC.onDraftClosed = function () { dismissedWaiting = M().draft ? M().draft.waiting : 0; };
 
@@ -303,17 +307,17 @@
     return h;
   }
 
-  function skillTile(s) {
+  function skillTile(s, narrow) {
     var hue = s.colour, light = MC.mix(hue, "#FFFFFF", 0.42), d = deck(s.id), hot = s.drafts > 0;
     var h = '<div class="sk-halo" style="background:radial-gradient(closest-side,' + MC.rgba(hue, hot ? 0.30 : 0.10) + " 0%," + MC.rgba(hue, 0) + ' 100%)"></div>';
     h += '<div class="o-card" data-skill="' + s.id + '" style="background:' + MC.mix("#191A1C", hue, hot ? 0.075 : 0.05) + ";border:1.5px solid " + MC.rgba(hue, hot ? 0.85 : 0.28) + '">';
     h += '<div class="o-plate" style="background:' + MC.mix("#131315", hue, 0.09) + '"><div class="o-halo" style="background:radial-gradient(circle,' + MC.rgba(hue, 0.5) + " 0%," + MC.rgba(hue, 0.16) + " 45%," + MC.rgba(hue, 0) + ' 72%)"></div>';
     h += '<div style="left:12px;top:9px">' + MC.img(s.icon, 64, "m-img") + '</div><div class="o-num" style="color:' + light + '">' + s.level + '</div><div class="m-eb" style="right:14px;top:56px;color:' + MC.rgba(hue, 0.7) + '">LEVEL</div></div>';
-    h += '<div class="m-h3" style="left:14px;top:100px">' + esc(s.name) + "</div>";
-    if (hot) h += '<div class="o-pill deal" data-deal="' + s.id + '" style="right:12px;top:98px;background:' + MC.mix("#131315", hue, 0.22) + ";border:1px solid " + MC.rgba(hue, 0.7) + ";color:" + light + '"><b style="background:' + hue + '"></b>Deal ' + s.drafts + "</div>";
+    h += '<div class="m-h3 sk-n" style="left:14px;top:100px' + (narrow ? ";max-width:" + (hot ? 104 : 148) + "px" : "") + '">' + esc(s.name) + "</div>";
+    if (hot) h += '<div class="o-pill deal" data-deal="' + s.id + '" style="right:12px;top:98px;background:' + MC.mix("#131315", hue, 0.22) + ";border:1px solid " + MC.rgba(hue, 0.7) + ";color:" + light + '"><b style="background:' + hue + '"></b>' + (narrow ? "" : "Deal ") + s.drafts + "</div>";
     h += '<div class="o-title" style="color:' + MC.mix("#9A9DA1", hue, 0.35) + '">' + esc(s.level > 0 ? s.title : "Untried") + "</div>";
     var frac = s.level >= 20 ? 1 : Math.max(0, Math.min(1, (s.xp - s.levelXp) / Math.max(1, s.nextXp - s.levelXp)));
-    h += '<div class="sk-xp" style="left:14px;top:146px;background:' + MC.mix("#131315", hue, 0.3) + '"><i style="width:' + Math.round(192 * (s.level >= 20 ? 1 : frac)) + "px;background:" + hue + '"></i></div>';
+    h += '<div class="sk-xp" style="left:14px;top:146px;background:' + MC.mix("#131315", hue, 0.3) + '"><i style="width:' + Math.round((narrow ? 148 : 192) * (s.level >= 20 ? 1 : frac)) + "px;background:" + hue + '"></i></div>';
     h += '<div class="o-how' + (s.level === 0 ? " always" : "") + '" style="color:' + MC.mix("#B5B8BC", hue, 0.25) + '"><span class="m-eb" style="color:' + MC.rgba(hue, 0.85) + '">HOW IT LEVELS</span><br>' + esc(s.levelsBy || "") + "</div>";
     if (s.level > 0) h += '<div class="m-eb o-xpt" style="left:14px;top:158px;color:' + MC.mix("#626569", hue, 0.3) + '">' + (s.level >= 20 ? "MASTERED" : fmt(s.xp) + " / " + fmt(s.nextXp) + " XP") + "</div>";
     // The deck: its slotted cards' icons in their rarity colours.
@@ -322,7 +326,7 @@
       for (var i = 0; i < d.row.length; i++) {
         var c = d.row[i].card && byId[d.row[i].card];
         if (!c) continue;
-        if (n < 6) {
+        if (n < (narrow ? 4 : 6)) {
           var rc = MC.RARITY[MC.isMythic(c) ? "mythic" : MC.rarityOf(c)];
           row += '<div class="o-perk" style="background:' + MC.shade(hue) + ";border:1px solid " + MC.rgba(rc, 0.7) + '">' + MC.img(c.icon, 20) + "</div>";
           n++;
@@ -343,11 +347,14 @@
     var c = M().character, b = bg();
     patch(part(cv, "h-strip", "o-strip"), JSON.stringify([c, b && b.id, MC.icons[b && b.art] ? 1 : 0]), strip);
     var list = skills();
-    for (var i = 0; i < 8; i++) {
-      var s = list[i], el = part(cv, "sk-" + i, "sk-wrap", "left:" + (28 + (i % 4) * 237) + "px;top:" + (156 + Math.floor(i / 4) * 216) + "px" + (s ? "" : ";display:none"));
+    // Up to eight skills four to a row; more (Stealth joined the eight in Mettle 0.4.0, Figma 2i-19) five to a row, narrower.
+    var cols = list.length > 8 ? 5 : 4, pitch = cols === 5 ? 188 : 237;
+    MC.toggle(cv, "sk5", cols === 5);
+    for (var i = 0; i < 10; i++) {
+      var s = list[i], el = part(cv, "sk-" + i, "sk-wrap", "left:" + (28 + (i % cols) * pitch) + "px;top:" + (156 + Math.floor(i / cols) * 216) + "px" + (s ? "" : ";display:none"));
       if (!s) continue;
-      var d = deck(s.id), key = JSON.stringify([s.id, s.level, s.xp, s.drafts, s.title, d && d.row, MC.icons[s.icon] ? 1 : 0, iconsKey]);
-      patch(el, key, function () { return skillTile(s); });
+      var d = deck(s.id), key = JSON.stringify([cols, s.id, s.level, s.xp, s.drafts, s.title, d && d.row, MC.icons[s.icon] ? 1 : 0, iconsKey]);
+      patch(el, key, function () { return skillTile(s, cols === 5); });
     }
     var all = cards(), slotted = 0;
     for (var k = 0; k < all.length; k++) if (all[k].place === "slotted") slotted++;
@@ -540,7 +547,8 @@
     st.hall.scroll = Math.max(0, Math.min(st.hall.scroll, maxScroll));
     patch(panel, JSON.stringify([all, st.hall.scroll, mineIds, iconsKey]), function () {
       var h = '<div class="hall-glow"></div><div class="eb9" style="left:20px;top:16px">MYTHICS IN THIS WORLD</div><div class="hall-sub">' + known + " known · " + mine + " yours · each exists once per world" +
-        (my.drawnWaiting ? "  ·  " + my.drawnWaiting + " drawn Mythics still wait" : "") + "</div>";
+        (my.drawnWaiting ? "  ·  " + my.drawnWaiting + " drawn Mythics still wait" : "") + "</div>" +
+        (M().cards.build && M().cards.build.titles ? '<div class="hl-sw" data-hallview="deeds">‹ Deeds and titles</div>' : "");
       for (var j = 0; j < 10; j++) {
         var m = all[st.hall.scroll * 5 + j];
         if (!m) break;
@@ -551,6 +559,13 @@
       return h;
     });
     footer("YOUR MYTHIC SITS ABOVE YOUR SKILL HANDS  ·  OTHERS' MYTHICS ARE PUBLIC", maxScroll > 0 ? "SCROLL FOR MORE" : "");
+  };
+
+  // The deeds, the name card and the title picker (Mettle 0.4.0, cards-talents.js).
+  SCREENS["home-deeds"] = function () {
+    homeHead("hall");
+    MC.tl.hall(cv);
+    footer("DEEDS ARE ONE OF A KIND  ·  THE FIRST TAKES THE CARD, LATER ACHIEVERS THE TITLE", "ONE TITLE AT A TIME");
   };
 
   // ---- a skill: Deck / Tree / Cards ------------------------------------------------------------------------------
@@ -1239,6 +1254,7 @@
       ui();
     }
     if (MC.bf && MC.bf.click(t)) { /* build feel's own controls */ }
+    else if (MC.tl && MC.tl.click(t)) { /* talents and titles */ }
     else if ((el = closest(t, "data-taccept"))) { MC.act("tradeAccept", ""); hideToast(); }
     else if ((el = closest(t, "data-dd"))) { openMenu(el.getAttribute("data-dd"), el); }
     else if ((el = closest(t, "data-tcstep"))) { var tt = M().cards.trade; if (tt && tt.coin) setCoin(tt.me.coin + (+el.getAttribute("data-tcstep"))); }
@@ -1328,7 +1344,7 @@
   }
   function onMove(ev) {
     if (MC.bf && MC.attached && kind === "classes" && !ev.buttons) MC.bf.hover(ev.target);
-    if (MC.ov.kind() === "draft") { MC.ov.hover(ev.target); return; }
+    if (MC.ov.kind() === "draft" || MC.ov.kind() === "talent") { MC.ov.hover(ev.target); return; }
     if (!press) {
       // Only the Classes page has card hovers; any other page's moves (and every drag) pass through untouched.
       if (MC.attached && kind === "classes" && !ev.buttons) { hoverFrom(ev.target); itemHover(ev.target); }
@@ -1443,7 +1459,7 @@
     "data-goshrine", "data-rbskill", "data-rbpick", "data-rebuild", "data-fupick", "data-fuse", "data-rlpick", "data-release", "data-closesit", "data-shtab",
     "data-tab", "data-stab", "data-bskill", "data-bf", "data-df", "data-dd", "data-search", "data-pin", "data-totals",
     "data-boon", "data-bchoice", "data-bcardpick", "data-bnext", "data-bback", "data-btrait", "data-bkw", "data-bconfirm", "data-takebyname", "data-keepmine",
-    "data-sigdeck", "data-forgepick", "data-forge", "data-legend", "data-gbtn", "data-gskip", "data-gx", "data-setsig"];
+    "data-sigdeck", "data-forgepick", "data-forge", "data-legend", "data-gbtn", "data-gskip", "data-gx", "data-setsig", "data-tldraft", "data-tlrow", "data-hallview", "data-wtitle"];
   var FOCUS_SEL = FOCUS_ATTRS.map(function (a) { return "[" + a + "]"; }).join(",");
   // Where a screen's focus starts: its cards, then its main action.
   var PRIMARY = "[data-bcard],[data-dcard],[data-scard],[data-skill],[data-rbpick],[data-fupick],[data-rlpick],[data-ttake],[data-tlock],[data-toffer],[data-perk]";
@@ -1540,7 +1556,7 @@
   }
 
   MC.wheel = function (m) {
-    if (MC.ov.active()) return;
+    if (MC.ov.active()) { MC.ov.wheel(m.dy > 0 ? -1 : 1); return; }
     var el = document.elementFromPoint(m.x * (window.HUBZ || 1), m.y * (window.HUBZ || 1)), box = closest(el, "data-scroll");
     if (!box) return;
     var step = m.dy > 0 ? -1 : 1, which = box.getAttribute("data-scroll");

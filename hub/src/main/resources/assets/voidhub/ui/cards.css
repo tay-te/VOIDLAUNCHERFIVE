@@ -10,7 +10,7 @@
 #cv > *, #c-ov > *, .c-hl > *, .c-hr > * { position: absolute; }
 #c-ov { display: none; z-index: 2; }
 #classes.ov-up .c-hl, #classes.ov-up .c-hr, #classes.ov-up .c-foot, #classes.ov-up .c-toast { visibility: hidden; }
-#c-ov.ov-draft, #c-ov.ov-reveal, #c-ov.ov-set { display: block; }
+#c-ov.ov-draft, #c-ov.ov-reveal, #c-ov.ov-set, #c-ov.ov-panel { display: block; }
 .c-hl { left: 28px; top: 43px; height: 36px; }
 .c-hr { right: 78px; top: 43px; height: 36px; }
 .c-foot { top: 594px; }

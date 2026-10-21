@@ -64,14 +64,17 @@ class BridgeTest {
 		String[][] ok = {{"setFocus", "mettle:deep"}, {"setFocus", ""}, {"temperCard", "12#mettle:mining/deepborn"}, {"inscribeCard", "12#mettle:deep"},
 			{"boonReroll", "mettle:mining"}, {"setSignature", "44"}, {"clearSignature", "mettle:mining"}, {"takeByname", ""}, {"wearByname", "3"},
 			{"forgeMythic", "mettle:stonesong"}, {"forgeLegend", ""}, {"guideSkip", ""}, {"guideAdvance", "dismiss"}, {"guideAdvance", "not_now"},
-			{"guideAdvance", "keyword"}, {"momentShown", "boon##mettle:mining#0"}, {"momentShown", "set#mettle:deep##2"}, {"momentShown", "byname###3"}};
+			{"guideAdvance", "keyword"}, {"momentShown", "boon##mettle:mining#0"}, {"momentShown", "set#mettle:deep##2"}, {"momentShown", "byname###3"},
+			{"keepTalent", "2"}, {"rerollTalents", ""}, {"slotTalent", "41"}, {"slotTalent", "41#-1"}, {"slotTalent", "41#3"}, {"unslotTalent", "41"},
+			{"wearTitle", "mettle:long_walker"}, {"wearTitle", "mettle:long_walker#1"}, {"wearTitle", ""}, {"wearTitle", "#0"}};
 		for (String[] c : ok) {
 			assertEquals(new Bridge.MettleCall(c[0], c[1]), Bridge.decode(Json.object().put("type", "mettle").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
 		}
 		String[][] bad = {{"setFocus", "Deep Keyword"}, {"temperCard", "12"}, {"temperCard", "x#mettle:mining/deepborn"}, {"inscribeCard", "12#<b>"},
 			{"boonReroll", ""}, {"setSignature", "12,13"}, {"wearByname", "-1"}, {"wearByname", "1234"}, {"forgeMythic", ""}, {"forgeLegend", "x"},
 			{"guideAdvance", "explode"}, {"guideSkip", "1"}, {"takeByname", "mettle:x"}, {"momentShown", "Boon#x#y#1"}, {"momentShown", "set#mettle:deep#2"},
-			{"momentShown", "set#<b>##1"}};
+			{"momentShown", "set#<b>##1"}, {"keepTalent", "3"}, {"rerollTalents", "x"}, {"slotTalent", "41#-2"}, {"slotTalent", "x"},
+			{"unslotTalent", "4,5"}, {"wearTitle", "mettle:long_walker#2"}, {"wearTitle", "Long Walker"}};
 		for (String[] c : bad) {
 			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(Json.object().put("type", "mettle").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
 		}

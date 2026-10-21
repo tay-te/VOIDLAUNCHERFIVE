@@ -194,13 +194,20 @@ Mettle's Back, Belt and Quiver wells beside the figure plus a LOAD row:
   checks it covers every perk and Mythic name).
 
 * **Build feel** (Mettle 0.3.0, mettle/docs/BUILD_FEEL.md, Figma 295:2 §2i 679:41228) — a **Character** tab (byname,
-  how it grew, "Your build", sets with the Focus picker, attributes, Signatures; the talent row stays hidden until Mettle
-  reports talents), preview lines under each hand card with Keep & slot, boons (the choice, a card picker, Temper and
+  how it grew, "Your build", sets with the Focus picker, attributes, Signatures, the talent row), preview lines under each hand card with Keep & slot, boons (the choice, a card picker, Temper and
   Inscribe confirms worked out by Mettle's own rules: `mettleAsk` → `MettleLink.ask` → `mettleAnswer`, nothing sent),
   card marks (◆ Tempered, ✎ Inscribed, the Signature corner), the deck's Tempered / Inscribed pips and the set tracker's
   one-away and asleep cues, the Card Shrine's Forge (shards, the 24 drawn Mythics, the legend title), the binder's
   "Completes a set" and "If slotted…", milestone toasts and banners on the page, and the guide's hint chips. Code:
   `ui/cards-build.js`, `ui/build.css`; every action is in `Bridge.METTLE_OPS`, an older Mettle leaves each one off.
+* **Talents, deed titles, Stealth** (Mettle 0.4.0, BUILD_FEEL.md §12-13, Figma §2i frames 16-20 and 23) — the talent row
+  on the character sheet (slots, the next locked slot, earned talents in champagne), the talent draft (ash-edged hand
+  cards drawn natively, a preview line under each, Keep, Redeal all from the shared pool: `keepTalent`,
+  `rerollTalents`), "Reconsider your talents" (opens by itself once per night's sleep, with a once-a-second timer; click
+  a binder talent then a slot, or a slotted one then Take out: `slotTalent`, `unslotTalent`), the Hall of Firsts on the
+  deeds with the name card and the title picker (`wearTitle`, beside or instead of the byname; "All Mythics" keeps the
+  shelf), and a nine-skill gallery (five tiles to a row) and rail for Stealth. Code: `ui/cards-talents.js`. Speech and
+  the effective-level chips wait for a Mettle that reports them.
 
 The hub reaches Mettle only through `dev.voidmc.hub.mettle.MettleLink` (method handles on Mettle's client overlay API,
 mettle/docs/OVERLAY.md), so it builds and runs without Mettle. The page side is `ui/mettle.js` + `ui/mettle.css`,

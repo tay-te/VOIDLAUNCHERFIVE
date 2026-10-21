@@ -120,6 +120,17 @@ final class MettleServer {
 		}
 	}
 
+	/** Gives a deed's title as a later achiever gets it ({@code Deeds.giveTitle}, package-private in Mettle 0.4.0). */
+	static void giveTitle(ServerPlayer p, String deed) {
+		try {
+			Method m = cls(CARDS + "Deeds").getDeclaredMethod("giveTitle", ServerPlayer.class, Identifier.class);
+			m.setAccessible(true);
+			m.invoke(null, p, id(deed));
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("Deeds.giveTitle " + deed, e.getCause() == null ? e : e.getCause());
+		}
+	}
+
 	/** Trades.* with a stand-in partner (a Fabric fake player Mettle treats as a player). */
 	static Object trade(String name, Object... args) {
 		return call(CARDS + "Trades", name, args);

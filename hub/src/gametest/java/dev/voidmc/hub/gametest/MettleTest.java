@@ -680,6 +680,8 @@ public final class MettleTest {
 		this.shot("voidhub_mettle_28_toast_after_close");
 		// 16. The Card Shrine's Forge: shards forge an unclaimed Mythic; with every drawn Mythic held, the legend title.
 		this.forge();
+		// 17. Mettle 0.4.0: talents (the row, the draft, Reconsider on waking), deed titles in the Hall, Stealth.
+		this.talents();
 		this.expect(this.flatRuns.isEmpty(), "no flat untextured colour outside the window in any screenshot: " + this.flatRuns);
 		dev.voidmc.hub.VoidHub.LOGGER.info("VOID Hub + Mettle: all steps passed");
 	}
@@ -777,7 +779,8 @@ public final class MettleTest {
 			}
 		});
 		this.expect(hov.paintP95() < 10, "PERF character sheet hover: UI paint p95 (own CPU) under 10 ms: " + hov);
-		this.expect("false".equals(this.js("String(document.getElementById('ch-talents').style.display!=='none')")), "the talent row stays hidden (Mettle reports no talents)");
+		this.expect(this.js("String(!!MC.M.talents)").equals(this.js("String(document.getElementById('ch-talents').style.display!=='none')")),
+			"the talent row shows exactly when Mettle reports talents (0.4.0)");
 
 		// Focus (§1.3): the picker from the sets panel; once a day.
 		this.ui.clickPage("#ch-sets [data-dd=\"focus\"]");
@@ -1020,11 +1023,169 @@ public final class MettleTest {
 		this.context.waitTicks(4);
 		this.shot("voidhub_mettle_44_legend_taken");
 		this.ui.clickPage("[data-closesit]");
-		this.context.waitTicks(10);
+		this.waitPage("!MC.M.cards.sitting", 60, "Leave the shrine (visible on the Forge tab) ends the sitting");
+		this.context.waitTicks(4);
 		this.js("if(MC.ov.active())MC.ov.close(true);MC.nav.view='home';MC.nav.tab='character';MC.render();''");
 		this.context.waitTicks(6);
 		this.ui.parkMouse();
 		this.shot("voidhub_mettle_45_character_legend");
+	}
+
+	// ---- talents, deed titles and Stealth (Mettle 0.4.0; Figma 2i-16 to -20, -23) -----------------------------------------
+
+	private void talents() {
+		var server = this.world.getServer();
+		if (!"true".equals(this.js("String(!!MC.M.talents)"))) {
+			dev.voidmc.hub.VoidHub.LOGGER.info("SKIP  this Mettle has no talents (before 0.4.0)");
+			return;
+		}
+		if (!this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubInventoryScreen)) {
+			this.context.getInput().pressKey(InputConstants.KEY_K);
+			this.context.waitForScreen(HubInventoryScreen.class);
+			this.context.waitTicks(10);
+		}
+		for (int i = 0; i < 6 && "true".equals(this.js("String(MC.ov.active())")); i++) {
+			this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+			this.context.waitTicks(4);
+		}
+		this.quiet();
+		// A talent in the row and one more; two talent drafts waiting.
+		server.runCommand("execute as Player0 run mettle talents give broad_shoulders rare 5");
+		server.runCommand("execute as Player0 run mettle talents give quick_learner common 3");
+		server.runCommand("execute as Player0 run mettle talents drafts 2");
+		this.waitPage("MC.M.talents.row.some(function(r){return !!r.card})&&MC.M.talents.draft.queued===2&&MC.M.talents.draft.hand.length>0", 100,
+			"Mettle reports slotted talents and two talent drafts");
+		this.js("MC.nav.view='home';MC.nav.tab='character';MC.render();''");
+		this.waitPage("document.querySelectorAll('#ch-talents .tt').length>=2&&!!document.querySelector('#ch-talents [data-tldraft]')", 40,
+			"the sheet's talent row shows the talents and the drafts badge");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_46_talent_row");
+
+		// The talent draft (2i-17): three ash-edged hand cards with their preview lines, the edges native.
+		Perf open = this.perf("talent draft open", () -> {
+			this.ui.clickPage("[data-tldraft]");
+			this.context.waitTicks(10);
+		});
+		this.expect(open.paintP95() < 50, "PERF talent draft open: UI paint p95 (own CPU) under 50 ms: " + open);
+		this.waitPage("MC.ov.kind()==='talent'&&document.querySelectorAll('#dr-hand .hc.tlc').length===Math.min(3,MC.M.talents.draft.hand.length)", 40, "the talent hand is dealt");
+		this.expect(this.js("JSON.stringify(MC.fxDebug())").contains("A39E96"), "the talent cards burn in ash (#A39E96, native edges)");
+		this.expect(this.js("String(document.querySelectorAll('#dr-pv .dr-pvb').length)").equals(this.js("String(Math.min(3,MC.M.talents.draft.hand.length))")),
+			"every talent card has its preview line");
+		this.waitPage("!MC.tl.draftDebug().lock", 40, "the deal settles");
+		this.ui.parkMouse();
+		this.context.waitTicks(6);
+		this.shot("voidhub_mettle_47_talent_draft");
+		Perf hov = this.perf("talent draft hover", () -> {
+			for (int k = 0; k < 2; k++) {
+				for (int c = 0; c < 3; c++) {
+					this.hoverPage("#dr-hand .hc[data-hand=\"" + c + "\"]");
+					this.context.waitTicks(3);
+				}
+			}
+		});
+		this.expect(hov.paintP95() < 10, "PERF talent draft hover: UI paint p95 (own CPU) under 10 ms: " + hov);
+		this.hoverPage("#dr-hand .hc[data-hand=\"1\"]");
+		this.context.waitTicks(4);
+		this.expect("1".equals(this.js("String(MC.tl.draftDebug().hover)")), "hovering a talent card lifts it");
+		this.shot("voidhub_mettle_47b_talent_draft_hover");
+		// Redeal from the shared pool, then keep the first card.
+		String before = this.js("JSON.stringify(MC.M.talents.draft.hand)");
+		int rerolls = Integer.parseInt(this.js("String(MC.M.draft.rerolls||0)"));
+		if (rerolls > 0) {
+			this.ui.clickPage("[data-tredeal]");
+			this.waitPage("JSON.stringify(MC.M.talents.draft.hand)!==" + Json.quote(before) + "&&MC.ov.kind()==='talent'&&!!document.querySelector('[data-tkeep]')", 100,
+				"Redeal all dealt a new talent hand (rerollTalents)");
+		}
+		this.waitPage("!MC.tl.draftDebug().lock", 40, "the redeal settles");
+		int talentsBefore = Integer.parseInt(this.js("String(MC.M.talents.binder.length+MC.M.talents.row.filter(function(r){return !!r.card}).length)"));
+		Perf pick = this.perf("talent draft keep", () -> {
+			this.ui.clickPage("[data-tkeep=\"0\"]");
+			this.context.waitTicks(6);
+		});
+		this.expect(pick.paintP95() < 50, "PERF talent draft keep: UI paint p95 (own CPU) under 50 ms: " + pick);
+		this.waitPage("MC.M.talents.draft.queued===1&&(MC.M.talents.binder.length+MC.M.talents.row.filter(function(r){return !!r.card}).length)===" + (talentsBefore + 1), 100,
+			"keeping a talent used the draft and added the card (keepTalent)");
+		this.shot("voidhub_mettle_48_talent_kept");
+		this.waitPage("MC.ov.kind()==='talent'&&MC.tl.draftDebug().picked<0", 120, "the next talent draft deals");
+		this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+		this.waitPage("!MC.ov.active()", 20, "Esc puts the talent draft away for later");
+
+		// A night's sleep (2i-18): the row's panel opens by itself; take one out, put it back from the binder.
+		server.runCommand("execute as Player0 run mettle talents wake");
+		this.waitPage("MC.M.talents.rearrange.way==='wake'&&MC.ov.kind()==='talents'", 100, "after a night's sleep the reconsider panel opens by itself");
+		this.expect("true".equals(this.js("String(MC.modal())")), "the reconsider panel holds Esc (modal)");
+		this.ui.parkMouse();
+		this.context.waitTicks(6);
+		this.shot("voidhub_mettle_49_reconsider");
+		String slotted = this.js("(function(){var r=MC.M.talents.row.filter(function(r){return !!r.card})[0];return r?r.card.id:''})()");
+		Perf take = this.perf("reconsider take out", () -> {
+			this.ui.clickPage(".rc-body .tt[data-rcslot]:not(.empty)");
+			this.context.waitTicks(3);
+			this.ui.clickPage("[data-rcout]");
+			this.context.waitTicks(6);
+		});
+		this.expect(take.paintP95() < 50, "PERF reconsider take out: UI paint p95 (own CPU) under 50 ms: " + take);
+		this.waitPage("MC.M.talents.binder.some(function(c){return c.id==='" + slotted + "'})", 80, "Take out moved the talent to the binder (unslotTalent, free while awake)");
+		this.ui.clickPage(".rc-body [data-rcbind=\"" + slotted + "\"]");
+		this.context.waitTicks(3);
+		this.ui.clickPage(".rc-body .tt.empty[data-rcslot]");
+		this.waitPage("MC.M.talents.row.some(function(r){return r.card&&r.card.id==='" + slotted + "'})", 80, "a binder talent clicked into a slot went into the row (slotTalent)");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_49b_reconsider_moved");
+		this.ui.clickPage("[data-rcdone]");
+		this.waitPage("!MC.ov.active()", 20, "Done closes the panel");
+
+		// Deed titles (2i-23): two titles held; the Hall lists the deeds, the name card and the picker; wear one instead.
+		server.runOnServer(s -> {
+			var p = s.getPlayerList().getPlayers().getFirst();
+			MettleServer.giveTitle(p, "long_walker");
+			MettleServer.giveTitle(p, "polymath");
+		});
+		this.waitPage("MC.M.cards.build.titles.held.length>=2", 80, "Mettle reports the held deed titles");
+		this.js("MC.nav.view='home';MC.nav.tab='hall';MC.render();''");
+		this.waitPage("!!document.getElementById('hl-deeds')&&document.querySelectorAll('#hl-deeds .hl-row').length>0&&!!document.getElementById('hl-titles')", 40,
+			"the Hall opens on the deeds, the name card and the titles");
+		Perf wear = this.perf("titles wear", () -> {
+			this.ui.clickPage("#hl-titles .ht-row[data-wtitle^=\"mettle:polymath\"]");
+			this.context.waitTicks(8);
+		});
+		this.expect(wear.paintP95() < 50, "PERF titles wear: UI paint p95 (own CPU) under 50 ms: " + wear);
+		this.waitPage("MC.M.cards.build.titles.worn==='mettle:polymath'", 60, "clicking a title wears it (wearTitle)");
+		this.ui.clickPage("#hl-titles .ht-pill[data-wtitle=\"mettle:polymath#1\"]");
+		this.waitPage("MC.M.cards.build.titles.instead===true", 60, "Instead of the byname stands the title in its place");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_50_hall_deeds_titles");
+		Perf hIdle = this.perf("hall deeds idle", () -> this.context.waitTicks(30));
+		this.expect(hIdle.painted() == 0, "PERF hall deeds idle paints nothing: " + hIdle);
+		this.ui.clickPage("#hl-deeds [data-hallview=\"shelf\"]");
+		this.waitPage("!!document.querySelector('.hall .hall-t')", 20, "All Mythics still shows the Mythics shelf");
+		this.ui.clickPage(".hall [data-hallview=\"deeds\"]");
+		this.waitPage("!!document.getElementById('hl-deeds')", 20, "and back to the deeds");
+
+		// Stealth (2i-19, -20): nine skills in the gallery, five to a row; its page with the rail's smaller buttons.
+		this.js("MC.nav.view='home';MC.nav.tab='skills';MC.render();''");
+		this.waitPage("document.getElementById('cv').classList.contains('sk5')&&!!document.querySelector('[data-skill=\"mettle:stealth\"]')", 40,
+			"the gallery shows Stealth, five skills to a row");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_51_gallery_stealth");
+		this.ui.clickPage(".o-card[data-skill=\"mettle:stealth\"]");
+		this.context.waitTicks(4);
+		this.js("MC.nav.stab='tree';MC.render();''");
+		this.waitPage("!!document.querySelector('.o-rail.many')", 40, "Stealth's tree shows with the nine-skill rail");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_52_stealth_tree");
+		this.js("MC.nav.stab='deck';MC.render();''");
+		this.context.waitTicks(6);
+		this.shot("voidhub_mettle_52b_stealth_deck");
+		this.js("MC.nav.view='home';MC.nav.tab='character';MC.render();''");
+		this.context.waitTicks(6);
+		this.ui.parkMouse();
+		this.shot("voidhub_mettle_53_character_titles");
 	}
 
 	/** True when every card the grid shows passes TEST (an expression of c, the card). */

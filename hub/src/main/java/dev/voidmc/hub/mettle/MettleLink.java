@@ -254,6 +254,23 @@ public final class MettleLink {
 				case "temperCard", "inscribeCard" -> invoke(action(op, String.class, String.class), p[0], p[1]);
 				case "takeByname", "forgeLegend", "guideSkip" -> invoke(action(op));
 				case "wearByname" -> invoke(action(op, int.class), Integer.parseInt(arg));
+				case "keepTalent" -> invoke(action(op, int.class), Integer.parseInt(arg));
+				case "rerollTalents" -> invoke(action(op));
+				case "unslotTalent" -> invoke(action(op, String.class), arg);
+				case "slotTalent" -> {
+					if (p.length == 2) {
+						invoke(action(op, String.class, int.class), p[0], Integer.parseInt(p[1]));
+					} else {
+						invoke(action(op, String.class), p[0]);
+					}
+				}
+				case "wearTitle" -> {
+					if (p.length == 2) {
+						invoke(action(op, String.class, boolean.class), p[0], "1".equals(p[1]));
+					} else {
+						invoke(action(op, String.class), p[0]);
+					}
+				}
 				case "momentShown" -> momentShown(p[0], p[1], p[2], Integer.parseInt(p[3]));
 				default -> {
 				}
