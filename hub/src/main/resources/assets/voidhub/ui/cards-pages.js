@@ -403,10 +403,11 @@
     h += '<div class="eb9" style="left:28px;top:' + Y(73) + 'px">SKILL</div>';
     if (!fixed) {
       h += '<div class="bl-row' + (!b.skill ? " on" : "") + '" data-bskill="" style="top:' + Y(91) + 'px"><span class="n">All skills</span><span class="c">' + all.length + "</span></div>";
-      var list = skills();
+      // Nine or ten skills (Stealth, Mettle 0.4.0) pack the rows tighter so the list ends above SHOW.
+      var list = skills(), pitch = list.length <= 8 ? 24 : list.length === 9 ? 22 : 20;
       for (var k = 0; k < list.length && k < 10; k++) {
         var s = list[k];
-        h += '<div class="bl-row' + (b.skill === s.id ? " on" : "") + '" data-bskill="' + s.id + '" style="top:' + Y(115 + k * 24) + 'px"><i style="background:' + s.colour + '"></i><span class="n">' + esc(s.name) + '</span><span class="c">' + (counts[s.id] || 0) + "</span></div>";
+        h += '<div class="bl-row' + (pitch < 24 ? " p" + pitch : "") + (b.skill === s.id ? " on" : "") + '" data-bskill="' + s.id + '" style="top:' + Y(115 + k * pitch) + 'px"><i style="background:' + s.colour + '"></i><span class="n">' + esc(s.name) + '</span><span class="c">' + (counts[s.id] || 0) + "</span></div>";
       }
     } else {
       var fs = skill(fixed);
@@ -445,13 +446,14 @@
     }
     return maxScroll;
   }
-  function cardKey(c) { return c.id + ":" + JSON.stringify([c.place, c.slot, c.attuned, c.attuningMinutes, c.meetsRequirement, c.dormant, c.traits && c.traits.length, c.canSlot, MC.icons[c.icon] ? 1 : 0, c.marks ? [!!c.marks.tempered, c.marks.inscribed ? c.marks.inscribed.keyword : 0] : 0, !!c.signature]); }
+  function cardKey(c) { return c.id + ":" + JSON.stringify([c.place, c.listedDay, c.slot, c.attuned, c.attuningMinutes, c.meetsRequirement, c.dormant, c.traits && c.traits.length, c.canSlot, MC.icons[c.icon] ? 1 : 0, c.marks ? [!!c.marks.tempered, c.marks.inscribed ? c.marks.inscribed.keyword : 0] : 0, !!c.signature]); }
 
   function detail(c) {
     if (!c) return '<div class="bd-empty">Pick a card to see its traits and history.</div>';
     var mythic = MC.isMythic(c);
     var h = '<div class="bd-big" data-nofx="1">' + MC.ccard(c, {}) + "</div>";
-    var inDeck = c.place === "slotted" ? (skill(c.deck) ? skill(c.deck).name : "") + " · slot " + (c.slot + 1) : c.place === "trade" ? "In a trade" : "Binder";
+    var inDeck = c.place === "slotted" ? (skill(c.deck) ? skill(c.deck).name : "") + " · slot " + (c.slot + 1) : c.place === "trade" ? "In a trade"
+      : c.place === "listed" ? "Listed at a broker" + (c.listedDay != null ? " · day " + c.listedDay : "") : "Binder";
     var facts = [["Rarity", mythic ? "Mythic" : (c.rarityName || "") + " · " + (c.tierName || "")], ["Keywords", mythic ? "—" : kwNames(c) || "—"], ["Needs", mythic ? "Any deck" : String(c.needsText || "").replace(/^Needs /, "")], ["In deck", inDeck]];
     for (var i = 0; i < facts.length; i++) h += '<div class="bd-k" style="top:' + (21 + i * 40) + 'px">' + facts[i][0] + '</div><div class="bd-v" style="top:' + (35 + i * 40) + 'px">' + esc(facts[i][1]) + "</div>";
     var y = 225;
@@ -483,6 +485,10 @@
     if (c.scars) lines.push("Scar ×" + c.scars);
     if (c.dormant && c.dormantReason) lines.push("Dormant: " + c.dormantReason);
     if (c.attuned === false && c.attuningMinutes > 0) lines.push("Attuning · " + c.attuningMinutes + " min");
+    // The Hearth card broker (Mettle 0.5.0): a listed card waits on the board; it lapses back after lapseDays.
+    var bk = M().cards.broker;
+    if (c.place === "listed") lines.unshift("Listed at a broker" + (c.listedDay != null ? " on day " + c.listedDay : "") + (bk ? " · lapses after " + bk.lapseDays + " days" : ""));
+    else if (bk && bk.available && c.canList && c.place === "binder") lines.push("Can be listed at a Hearth broker");
     if (MC.bf && c.marks) {
       var bfd = MC.bf.detailExtra(c, y, lines);
       h += bfd.html;
@@ -502,7 +508,7 @@
     if (tr2 && tr2.open && c.place === "binder" && c.attuned !== false) a2 = '<div class="bd-a" data-toffer="' + c.id + '">Offer in trade</div>';
     else if (at && c.place === "binder") a2 = '<div class="bd-a" data-goshrine="release">Release at the shrine</div>';
     else if (!tr2 && c.place === "binder" && c.attuned !== false) a2 = '<div class="bd-a" data-dd="trade-req" data-ddcard="' + c.id + '">Trade…</div>';
-    else a2 = '<div class="bd-a off">' + (c.attuned === false ? "Attuning" : "Trade") + "</div>";
+    else a2 = '<div class="bd-a off">' + (c.place === "listed" ? "Listed" : c.attuned === false ? "Attuning" : "Trade") + "</div>";
     h += '<div class="bd-acts">' + a1 + a2 + "</div>";
     return h;
   }
@@ -735,8 +741,27 @@
     skillHead(s, "tree");
     var key = JSON.stringify([s, M().perks, M().character, MC.treeSel, iconsKey]);
     patch(part(cv, "tree", "c-tree"), key, function () { return window.hubMettle && window.hubMettle.treeHtml ? window.hubMettle.treeHtml(s.id) : ""; });
-    footer("", "");
+    // Speech (Mettle 0.5.0, Figma 2i-21): what Hearth reads of it, under the tree.
+    var sp = s.id === "mettle:speech" ? M().speech : null;
+    if (sp) footer(speechLine(sp), speechHearth(sp));
+    else footer("", "");
   };
+
+  /** "SPEECH 9 READS AS 13 · PRESENCE 10 READS AS 14 · MARKET EDGE +8.0 % · …" (Mettle's speech numbers). */
+  function speechLine(sp) {
+    var o = ["SPEECH " + sp.level + (sp.effectiveLevel !== sp.level ? " READS AS " + sp.effectiveLevel : ""),
+      "PRESENCE " + sp.presence + (sp.effectivePresence !== sp.presence ? " READS AS " + sp.effectivePresence : ""), "MARKET EDGE " + sp.edgeText];
+    if (sp.retriesPerDay) o.push("SECOND WORD: " + sp.retriesPerDay + " RETRY A DAY");
+    if (sp.appraiser) o.push("APPRAISER");
+    if (sp.coinWeight < 100) o.push("COIN WEIGHS " + sp.coinWeight + " %");
+    return o.join("  ·  ");
+  }
+  /** What the loaded Hearth makes of Speech: it reads the bonus keys, an older one leaves perks on their fallback, or none. */
+  function speechHearth(sp) {
+    if (!sp.hearth) return "NO HEARTH  ·  SPEECH STILL RISES FROM TRADES";
+    if (sp.readsKeys) return "HEARTH READS YOUR SPEECH" + (sp.keys.length ? "  ·  " + sp.keys.length + (sp.keys.length === 1 ? " BONUS KEY" : " BONUS KEYS") : "");
+    return "AN OLDER HEARTH" + (sp.fallbacks.length ? "  ·  " + sp.fallbacks.length + (sp.fallbacks.length === 1 ? " PERK ON ITS FALLBACK" : " PERKS ON THEIR FALLBACK") : "");
+  }
 
   SCREENS["skill-cards"] = function () {
     var s = skill(nav.skill);

@@ -549,5 +549,8 @@
 .sk5 .o-how { width: 148px; top: 152px; font-size: 10.5px; line-height: 12.5px; }
 .sk5 .sk-n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sk5 .o-title { width: 148px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bl-row.p22 { height: 22px; } .bl-row.p22 i { top: 8px; } .bl-row.p22 .n, .bl-row.p22 .c { top: 3px; }
+.bl-row.p20 { height: 20px; } .bl-row.p20 i { top: 7px; } .bl-row.p20 .n, .bl-row.p20 .c { top: 2px; }
+.cc-chip.listed { left: 6px; width: 84px; background: #1E1A10; border-color: #8A7A4A; color: #E8C46A; }
 .o-rail.many { gap: 6px; }
 .o-rail.many .o-rb { width: 42px; height: 42px; border-radius: 12px; }

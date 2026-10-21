@@ -1186,6 +1186,39 @@ public final class MettleTest {
 		this.context.waitTicks(6);
 		this.ui.parkMouse();
 		this.shot("voidhub_mettle_53_character_titles");
+		this.speech();
+	}
+
+	/** Mettle 0.5.0: the Speech page (2i-21) and a card listed at a Hearth broker in the binder. */
+	private void speech() {
+		if (!"true".equals(this.js("String(!!MC.M.speech&&MC.M.skills.some(function(s){return s.id==='mettle:speech'&&s.released}))"))) {
+			dev.voidmc.hub.VoidHub.LOGGER.info("SKIP  this Mettle has no Speech (before 0.5.0)");
+			return;
+		}
+		this.js("MC.nav.view='home';MC.nav.tab='skills';MC.render();''");
+		this.waitPage("document.querySelectorAll('.sk-wrap:not([style*=\"display:none\"]) .o-card').length===10", 40, "the gallery shows ten skills, Speech among them");
+		this.js("MC.nav.view='skill';MC.nav.skill='mettle:speech';MC.nav.stab='tree';MC.render();''");
+		this.waitPage("!!document.querySelector('.o-rail.many')&&document.getElementById('cv').textContent.indexOf('MARKET EDGE')>=0", 40,
+			"the Speech tree shows what Hearth reads of Speech (effective Speech, Presence, market edge)");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_54_speech_tree");
+		// A card on a broker's board: Hearth lists it (no Hearth here), so the page is handed the state Mettle 0.5.0 sends
+		// for a listed card (place "listed", listing, listedDay) and must show it on the tile, the row and the detail.
+		this.js("MC.nav.view='home';MC.nav.tab='cards';MC.st.binder.skill='mettle:mining';MC.st.binder.scroll=0;MC.render();''");
+		this.context.waitTicks(4);
+		String id = this.js("(function(){window.__real=MC.M;var s=JSON.parse(JSON.stringify(MC.M));var by={};s.cards.binder.cards.forEach(function(x){by[x.id]=x});var c=[].map.call(document.querySelectorAll('.bin-grid [data-bcard]'),function(e){return by[e.getAttribute('data-bcard')]})"
+			+ ".filter(function(x){return x&&x.place==='binder'&&x.rarity!=='mythic'})[0];"
+			+ "if(!c)return '';c.place='listed';c.listing='7';c.listedDay=12;c.canSlot=false;c.canList=false;s.cards.broker.listed=1;MC.state(s);MC.st.binder.sel=c.id;"
+			+ "MC.st.binder.sort='newest';MC.render();return c.id})()");
+		this.expect(!id.isEmpty(), "a binder card to show as listed");
+		this.waitPage("!!document.querySelector('.cc-chip.listed')&&document.getElementById('b-detail').textContent.indexOf('Listed at a broker on day 12')>=0", 40,
+			"a listed card shows \"Listed · day 12\" on its tile and the broker line in the detail");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_55_binder_listed");
+		this.js("MC.st.binder.sel=null;MC.st.binder.skill='';MC.state(window.__real);delete window.__real;MC.render();''");
+		this.context.waitTicks(4);
 	}
 
 	/** True when every card the grid shows passes TEST (an expression of c, the card). */

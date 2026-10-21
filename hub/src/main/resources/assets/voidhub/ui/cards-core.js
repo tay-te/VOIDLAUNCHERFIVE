@@ -452,7 +452,10 @@
     var g = glyphRow(c.keywords, 16, 6, MC.inscribedKw(c));
     if (g.html) h += '<div class="cc-k" style="width:' + g.w + "px;left:" + (48 - g.w / 2) + 'px">' + g.html + "</div>";
     h += traitDots((c.traits || []).length, rc);
-    if (!mythic && c.place !== "slotted" && c.attuned === false && c.attuningMinutes > 0) {
+    if (c.place === "listed") {
+      // On a Hearth broker's board (Mettle 0.5.0): not slottable or tradeable until it sells or comes back.
+      h += '<div class="cc-dim"></div><div class="cc-chip listed">' + esc(c.listedDay != null ? "Listed · day " + c.listedDay : "Listed") + "</div>";
+    } else if (!mythic && c.place !== "slotted" && c.attuned === false && c.attuningMinutes > 0) {
       h += '<div class="cc-dim"></div><div class="cc-chip att">' + c.attuningMinutes + " min</div>";
     } else if (!mythic && c.meetsRequirement === false) {
       h += '<div class="cc-chip amber"><i class="lock"></i>' + esc(MC.shortNeed(c)) + "</div>";
@@ -691,7 +694,7 @@
     h += '<div class="rw-gem" style="left:' + (x + 33) + "px;background:" + rc + '"></div>';
     var kwn = [];
     for (var k = 0; k < (c.keywords || []).length; k++) kwn.push(c.keywords[k].name);
-    var sub = mythic ? "Mythic" : (c.rarityName || rar) + " · " + (c.tierName || "I") + (kwn.length ? " · " + kwn.join(", ") : "") + (c.scars ? " · scar ×" + c.scars : "");
+    var sub = mythic ? "Mythic" : (c.rarityName || rar) + " · " + (c.tierName || "I") + (kwn.length ? " · " + kwn.join(", ") : "") + (c.scars ? " · scar ×" + c.scars : "") + (c.place === "listed" ? " · listed" : "");
     var gx = opt.glyphX || (x + 202), tw = "max-width:" + (gx - x - 60) + "px";
     var mk = (MC.temperedTrait(c) ? '<i class="mk dia"></i>' : "") + (MC.inscribedKw(c) ? '<i class="mk quill"></i>' : "") + (c.signature ? '<i class="mk sigc"></i>' : "");
     h += '<div class="rw-n" style="left:' + (x + 52) + "px;" + tw + '">' + esc(c.baseName || c.name) + mk + '</div><div class="rw-s" style="left:' + (x + 52) + "px;" + tw + '">' + esc(opt.sub || sub) + "</div>";
