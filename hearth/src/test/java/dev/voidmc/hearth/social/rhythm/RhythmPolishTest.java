@@ -1,6 +1,7 @@
 package dev.voidmc.hearth.social.rhythm;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -105,5 +106,21 @@ class RhythmPolishTest {
 		assertEquals(seats.size(), order.size());
 		assertNotEquals(order.get(0).pos().getX() < 5, order.get(1).pos().getX() < 5, "the first two drinkers sit at two tables");
 		assertNotNull(order.get(7));
+	}
+
+	@Test
+	void settlesAtNoTableComeAfterEveryTableSeat() {
+		List<Poi> tables = List.of(new Poi(PoiType.TABLE, new BlockPos(0, 64, 0), Direction.NORTH, null),
+			new Poi(PoiType.TABLE, new BlockPos(10, 64, 0), Direction.NORTH, null));
+		// two settles by the walls nearer the first table's middle than its far chair would be, but 4+ blocks off
+		List<Poi> seats = List.of(seat(0, 5), seat(-5, 0), seat(1, 0), seat(-1, 0), seat(9, 0), seat(11, 0));
+		List<Poi> order = TavernNight.seatOrder(seats, tables);
+		assertEquals(6, order.size());
+		for (int k = 0; k < 4; k++) {
+			assertTrue(TavernNight.byTable(order.get(k), tables), "seat " + k + " is at a table: " + order.get(k).pos());
+		}
+		assertFalse(TavernNight.byTable(order.get(4), tables));
+		assertFalse(TavernNight.byTable(order.get(5), tables));
+		assertNotEquals(order.get(0).pos().getX() < 5, order.get(1).pos().getX() < 5, "still round the tables");
 	}
 }

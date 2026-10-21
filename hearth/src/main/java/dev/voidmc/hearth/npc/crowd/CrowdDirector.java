@@ -69,8 +69,12 @@ public final class CrowdDirector {
 
 	/** At most this long between full looks at a quiet player (a refreshed reaction holds 60 ticks). */
 	static final int QUIET_TICKS = 40;
-	/** How long a player's title, outlawry and menace are kept between reads (the law's guards act on an outlaw at once). */
-	static final int SEEN_TICKS = 100;
+	/**
+	 * How long a player's title and menace are kept between reads (15 s; a change of standing or title forgets them at
+	 * once). The title walks every plot of the town and the look the whole inventory: they are most of a look's cost.
+	 * Outlawry is the law's word, read every pass (a lookup), so the street empties the moment a warrant is out.
+	 */
+	static final int SEEN_TICKS = 300;
 
 	/** A thing worth watching. {@code settlement} 0 for any. */
 	record Spectacle(long settlement, ResourceKey<Level> dimension, BlockPos at, String kind, long until, int max) {
@@ -79,8 +83,13 @@ public final class CrowdDirector {
 	record Body(ResourceKey<Level> dimension, BlockPos at, long until) {
 	}
 
-	/** A player's title, outlawry and menace in a town, refreshed every {@link #SEEN_TICKS} (standing caches them too). */
-	private record Seen(long settlement, Title title, boolean outlaw, float menace, long until) {
+	/** A player's title and menace in a town, refreshed every {@link #SEEN_TICKS}. */
+	private record Seen(long settlement, Title title, float menace, long until) {
+	}
+
+	/** A player's standing or title moved somewhere: read them afresh on the next look. */
+	public void forget(UUID player) {
+		this.seen.remove(player);
 	}
 
 	/** The home plots with a child in them, for which women are mothers in a crowd. */
@@ -158,6 +167,7 @@ public final class CrowdDirector {
 			long nanos = System.nanoTime() - t0;
 			CrowdStats.DIRECTOR.add(nanos);
 			CrowdStats.DIRECTOR_NANOS.add(nanos);
+			CrowdStats.DIRECTOR_MAX.accumulateAndGet(nanos, Math::max);
 		}
 	}
 
@@ -170,8 +180,15 @@ public final class CrowdDirector {
 		long cooldown = cfg.reactionCooldownSeconds() * 20L;
 		if (this.tick % 200 == 0) {
 			prune(now);
+			// what is kept per player, for those still here (once in a while: a pass need not gather who is online)
+			Set<UUID> online = new HashSet<>();
+			for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+				online.add(p.getUUID());
+			}
+			this.drawnSince.keySet().retainAll(online);
+			this.quiet.keySet().retainAll(online);
+			this.seen.keySet().retainAll(online);
 		}
-		Set<UUID> online = new HashSet<>();
 		for (ServerLevel level : server.getAllLevels()) {
 			if (level.players().isEmpty()) {
 				continue;
@@ -182,7 +199,6 @@ public final class CrowdDirector {
 			}
 			Map<Settlement, List<ServerPlayer>> towns = new LinkedHashMap<>();
 			for (ServerPlayer p : level.players()) {
-				online.add(p.getUUID());
 				if (p.isSpectator() || !p.isAlive()) {
 					continue;
 				}
@@ -195,8 +211,7 @@ public final class CrowdDirector {
 			for (Map.Entry<Settlement, List<ServerPlayer>> e : towns.entrySet()) {
 				Settlement s = e.getKey();
 				List<CrowdSelector.PlayerInput> inputs = new ArrayList<>(e.getValue().size());
-				Map<UUID, PlayerFacts> facts = new HashMap<>();
-				Map<UUID, FolkHandle> handles = new HashMap<>();
+				Map<UUID, PlayerFacts> facts = new HashMap<>(4);
 				Map<UUID, Role> roles = new HashMap<>();
 				for (ServerPlayer p : e.getValue()) {
 					CrowdStats.PLAYER_PASSES.increment();
@@ -234,7 +249,6 @@ public final class CrowdDirector {
 							continue;
 						}
 						Role role = roles.computeIfAbsent(h.resident().id, k -> role(s, h.resident(), now));
-						handles.put(h.resident().id, h);
 						near.add(new CrowdSelector.Candidate(h.resident().id, role, h.entity().distanceTo(p)));
 					}
 					CrowdStats.NEAR_NANOS.add(System.nanoTime() - n0);
@@ -242,14 +256,21 @@ public final class CrowdDirector {
 						inputs.add(new CrowdSelector.PlayerInput(p.getUUID(), sensed, near));
 					}
 				}
-				Map<UUID, CrowdSelector.Ongoing> ongoing = new HashMap<>();
-				for (Order o : this.orders.values()) {
-					if (o.live(now) || o.done && now <= o.until) {
-						ongoing.put(o.folk, new CrowdSelector.Ongoing(o.player == null ? NOBODY : o.player, o.stimulus, o.reaction));
+				long c0 = System.nanoTime();
+				List<CrowdSelector.Assignment> picks = List.of();
+				if (!inputs.isEmpty()) {
+					// what the folk looked at are in the middle of (the selector asks of no one else: not every order on the books)
+					Map<UUID, CrowdSelector.Ongoing> ongoing = new HashMap<>();
+					for (CrowdSelector.PlayerInput in : inputs) {
+						for (CrowdSelector.Candidate c : in.near()) {
+							Order o = this.orders.get(c.folk());
+							if (o != null && (o.live(now) || o.done && now <= o.until)) {
+								ongoing.putIfAbsent(c.folk(), new CrowdSelector.Ongoing(o.player == null ? NOBODY : o.player, o.stimulus, o.reaction));
+							}
+						}
 					}
+					picks = CrowdSelector.select(inputs, ongoing, this.cooldowns, now, cooldown, cap, admitting);
 				}
-				List<CrowdSelector.Assignment> picks = inputs.isEmpty() ? List.of()
-					: CrowdSelector.select(inputs, ongoing, this.cooldowns, now, cooldown, cap, admitting);
 				Set<UUID> taken = new HashSet<>();
 				for (CrowdSelector.Assignment a : picks) {
 					taken.add(a.folk());
@@ -265,6 +286,9 @@ public final class CrowdDirector {
 					}
 					issue(a, p, facts.get(a.player()), roles.getOrDefault(a.folk(), Role.FOLK), level, now);
 				}
+				if (!inputs.isEmpty()) {
+					CrowdStats.CHOOSE_NANOS.add(System.nanoTime() - c0);
+				}
 				if (admitting && !this.spectacles.isEmpty()) {
 					long x0 = System.nanoTime();
 					spectacles(s, level, npc, now, taken, roles);
@@ -272,9 +296,6 @@ public final class CrowdDirector {
 				}
 			}
 		}
-		this.drawnSince.keySet().retainAll(online);
-		this.quiet.keySet().retainAll(online);
-		this.seen.keySet().retainAll(online);
 	}
 
 	/** Stands in for "no player" in the selector's ongoing map (a spectacle's onlookers). */
@@ -395,13 +416,13 @@ public final class CrowdDirector {
 		Seen seen = this.seen.get(p.getUUID());
 		if (seen == null || seen.settlement != s.id() || seen.until < now) {
 			StandingService standing = HearthServices.standing();
-			LawService law = HearthServices.law();
 			Title title = standing == null ? Title.STRANGER : standing.title(s.id(), p.getUUID());
-			boolean outlaw = law != null && law.outlaw(p.getUUID(), s.id());
 			float menace = standing == null ? 0 : standing.menace(p);
-			seen = new Seen(s.id(), title, outlaw, menace, now + SEEN_TICKS);
+			seen = new Seen(s.id(), title, menace, now + SEEN_TICKS);
 			this.seen.put(p.getUUID(), seen);
 		}
+		LawService law = HearthServices.law();
+		boolean outlaw = law != null && law.outlaw(p.getUUID(), s.id());
 		int combat = Integer.MAX_VALUE;
 		LivingEntity by = p.getLastHurtByMob();
 		if (by != null && by.isAlive() && by.distanceToSqr(p) < 24 * 24) {
@@ -413,7 +434,7 @@ public final class CrowdDirector {
 		}
 		boolean night = minute >= 22 * 60 || minute < 5 * 60;
 		float health = p.getMaxHealth() <= 0 ? 1 : p.getHealth() / p.getMaxHealth();
-		return new PlayerFacts(drawn, drawnTicks, p.getArmorValue(), Math.max(0, combat), seen.title, seen.outlaw, seen.menace, p.isShiftKeyDown(), night,
+		return new PlayerFacts(drawn, drawnTicks, p.getArmorValue(), Math.max(0, combat), seen.title, outlaw, seen.menace, p.isShiftKeyDown(), night,
 			health, nearestBody(level, p.blockPosition()) != null);
 	}
 
@@ -497,6 +518,96 @@ public final class CrowdDirector {
 		this.spectacles.clear();
 		this.bodies.clear();
 		this.quiet.clear();
+	}
+
+	/**
+	 * For the tours' bench (a warm JIT, the town as it is): each part of a full look at every player in an embodied town,
+	 * {@code n} times over, then {@code n} whole passes with nobody quiet. Microseconds a player. Orders and cooldowns change
+	 * as in play; nothing else is touched.
+	 */
+	public String bench(MinecraftServer server, int n) {
+		NpcService npc = HearthServices.npc();
+		StandingService standing = HearthServices.standing();
+		LawService law = HearthServices.law();
+		if (npc == null) {
+			return "crowd bench: no npc service";
+		}
+		long town = 0, cold = 0, title = 0, outlaw = 0, menace = 0, warm = 0, stim = 0, near = 0, whole = 0;
+		int looks = 0;
+		int wholePlayers = 0;
+		for (int i = 0; i < n; i++) {
+			for (ServerLevel level : server.getAllLevels()) {
+				HearthWorld world = HearthWorld.of(level);
+				if (world == null) {
+					continue;
+				}
+				long now = level.getGameTime();
+				int minute = NpcTime.minuteOfDay(level);
+				for (ServerPlayer p : level.players()) {
+					long t0 = System.nanoTime();
+					Settlement s = world.settlementAt(p.blockPosition());
+					long t1 = System.nanoTime();
+					town += t1 - t0;
+					if (s == null || !s.embodied()) {
+						continue;
+					}
+					looks++;
+					this.seen.remove(p.getUUID());
+					t0 = System.nanoTime();
+					facts(p, s, level, now, minute);
+					cold += System.nanoTime() - t0;
+					t0 = System.nanoTime();
+					if (standing != null) {
+						standing.title(s.id(), p.getUUID());
+					}
+					t1 = System.nanoTime();
+					title += t1 - t0;
+					if (law != null) {
+						law.outlaw(p.getUUID(), s.id());
+					}
+					long t2 = System.nanoTime();
+					outlaw += t2 - t1;
+					if (standing != null) {
+						standing.menace(p);
+					}
+					long t3 = System.nanoTime();
+					menace += t3 - t2;
+					PlayerFacts f = facts(p, s, level, now, minute);
+					long t4 = System.nanoTime();
+					warm += t4 - t3;
+					Stimuli.of(f);
+					long t5 = System.nanoTime();
+					stim += t5 - t4;
+					int k = 0;
+					for (FolkHandle h : npc.folkNear(level, p.position(), RADIUS)) {
+						if (k >= MAX_NEAR) {
+							break;
+						}
+						if (h.settlement().id() != s.id() || !available(h)) {
+							continue;
+						}
+						role(s, h.resident(), now);
+						h.entity().distanceTo(p);
+						k++;
+					}
+					near += System.nanoTime() - t5;
+				}
+			}
+		}
+		CrowdConfig.Crowds cfg = Crowds.config().crowds();
+		long passes0 = CrowdStats.PLAYER_PASSES.sum();
+		for (int i = 0; i < n; i++) {
+			this.quiet.clear();
+			long t0 = System.nanoTime();
+			pass(server, npc, cfg);
+			whole += System.nanoTime() - t0;
+		}
+		wholePlayers = (int) (CrowdStats.PLAYER_PASSES.sum() - passes0);
+		double per = Math.max(1, looks);
+		return String.format(java.util.Locale.ROOT, "crowd bench (%d looks): town %.2f us, reading the player afresh %.2f us (title %.2f, outlaw %.2f, menace %.2f), "
+			+ "read again %.2f us, stimuli %.2f us, the folk near %.2f us; a whole pass %.2f us a player (%d player passes)", looks, town / 1e3 / per, cold / 1e3 / per,
+			title / 1e3 / per, outlaw / 1e3 / per, menace / 1e3 / per, warm / 1e3 / per, stim / 1e3 / per, near / 1e3 / per, whole / 1e3 / Math.max(1, wholePlayers),
+			wholePlayers);
 	}
 
 	/** For {@code /hearth crowds}: what the crowd sees about a player right now. */
