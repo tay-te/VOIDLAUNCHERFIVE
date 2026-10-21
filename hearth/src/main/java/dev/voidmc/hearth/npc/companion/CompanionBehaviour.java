@@ -15,7 +15,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.npc.villager.AbstractVillager;
 import net.minecraft.world.phys.AABB;
 import org.jspecify.annotations.Nullable;
@@ -32,6 +32,12 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 	public static final int PRIORITY = 280;
 	private static final int SCAN_TICKS = 10;
 	private static final double FIGHT_RANGE = 12.0;
+	/** Server time spent in companions' ticks and the ticks counted, for the sim stats and the tour (§9.1: ~5 µs each). */
+	public static final java.util.concurrent.atomic.LongAdder NANOS = new java.util.concurrent.atomic.LongAdder();
+	public static final java.util.concurrent.atomic.LongAdder TICKS = new java.util.concurrent.atomic.LongAdder();
+	/** Where each companion last set off for (the player's place then): no new path while the player stays near it. */
+	private static final java.util.Map<java.util.UUID, BlockPos> GOALS = new java.util.HashMap<>();
+	private static final dev.voidmc.hearth.sim.LivingWorldStats.Timer FOLK_TIMER = dev.voidmc.hearth.sim.LivingWorldStats.timer("companion folk");
 
 	@Override
 	public Identifier id() {
@@ -61,6 +67,24 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 
 	@Override
 	public boolean tick(NpcService.FolkHandle folk) {
+		long t0 = System.nanoTime();
+		try {
+			return step(folk);
+		} finally {
+			long dt = System.nanoTime() - t0;
+			NANOS.add(dt);
+			TICKS.increment();
+			FOLK_TIMER.add(dt);
+		}
+	}
+
+	/** The average cost of a companion's tick so far, in microseconds. */
+	public static double averageMicros() {
+		long n = TICKS.sum();
+		return n == 0 ? 0 : NANOS.sum() / 1e3 / n;
+	}
+
+	private boolean step(NpcService.FolkHandle folk) {
 		CompanionState st = CompanionState.of(folk.resident());
 		if (st == null || !(folk.entity().level() instanceof ServerLevel level)) {
 			return false;
@@ -97,7 +121,7 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 		}
 		// ---- keeping to the player
 		double d2 = me.distanceToSqr(player);
-		if (d2 > cfg.catchUp() * cfg.catchUp() && st.follow() != CompanionState.Follow.WAIT && !player.hasLineOfSight(me)) {
+		if (scan && d2 > cfg.catchUp() * cfg.catchUp() && st.follow() != CompanionState.Follow.WAIT && !player.hasLineOfSight(me)) {
 			BlockPos spot = FolkSpots.standableNear(level, player.blockPosition().relative(player.getDirection().getOpposite(), 2), 3);
 			if (spot != null && level.isPositionEntityTicking(spot)) {
 				me.getNavigation().stop();
@@ -109,9 +133,11 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 			case WAIT -> {
 				BlockPos at = st.waitAt();
 				if (at != null && me.blockPosition().distSqr(at) > 9) {
-					folk.moveTo(at, 0.6);
+					if (scan) {
+						folk.moveTo(at, 0.6);
+					}
 				} else {
-					folk.stop();
+					halt(folk, me);
 					if (d2 < 16 * 16) {
 						folk.lookAt(player);
 					}
@@ -121,11 +147,18 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 				double near = st.follow() == CompanionState.Follow.DISTANCE ? 6 : 2.5;
 				double far = st.follow() == CompanionState.Follow.DISTANCE ? 9 : 4;
 				if (d2 > far * far) {
-					folk.moveTo(player.blockPosition(), d2 > 12 * 12 ? 0.9 : 0.65);
+					// a path at most every ten ticks (the pathfinder is the costly part of following)
+					// a new path only when the player has gone on from the last goal, or the old path ran out
+					BlockPos goal = GOALS.get(folk.resident().id);
+					boolean slow = (me.tickCount + me.getId()) % 20 == 0;
+					if (scan && (goal == null || me.getNavigation().isDone()) || slow && goal.distSqr(player.blockPosition()) > 16) {
+						GOALS.put(folk.resident().id, player.blockPosition());
+						follow(me, player, d2 > 12 * 12 ? 0.9 : 0.65);
+					}
 				} else if (d2 < near * near * 0.5 && st.follow() == CompanionState.Follow.DISTANCE) {
-					folk.stop();
+					halt(folk, me);
 				} else if (d2 <= far * far) {
-					folk.stop();
+					halt(folk, me);
 					if (scan) {
 						folk.lookAt(player);
 					}
@@ -186,7 +219,8 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 			return mine;
 		}
 		AABB box = me.getBoundingBox().inflate(FIGHT_RANGE);
-		List<Mob> near = level.getEntitiesOfClass(Mob.class, box, m -> m.isAlive() && m instanceof Enemy && (m.getTarget() == player || m.getTarget() == me
+		// by class: the entity sections index monsters by class, so a crowded town costs nothing here
+		List<Monster> near = level.getEntitiesOfClass(Monster.class, box, m -> m.isAlive() && (m.getTarget() == player || m.getTarget() == me
 			|| m.distanceToSqr(player) < 6 * 6));
 		Mob best = null;
 		double bestD = Double.MAX_VALUE;
@@ -220,13 +254,31 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 				me.swing(InteractionHand.MAIN_HAND, net.minecraft.world.item.component.SwingAnimation.DEFAULT, true);
 				me.doHurtTarget(level, target);
 			}
-		} else if (me.tickCount % 10 == 0) {
+		} else if ((me.tickCount + me.getId()) % 20 == 0 || me.getNavigation().isDone() && me.tickCount % 5 == 0) {
 			me.getNavigation().moveTo(target, 0.9);
+		}
+	}
+
+	/**
+	 * A path toward the player, its search bounded by the distance (the costly part of following): a straight vanilla
+	 * path to the player's feet, without the routine's search for a door's approaches.
+	 */
+	private static void follow(Mob me, ServerPlayer player, double speed) {
+		var nav = me.getNavigation();
+		nav.setRequiredPathLength((float) Math.min(48.0, Math.sqrt(me.distanceToSqr(player)) * 1.5 + 8.0));
+		nav.moveTo(player.getX(), player.getY(), player.getZ(), speed);
+	}
+
+	/** Stops walking, without asking the navigation again when it is idle already. */
+	private static void halt(NpcService.FolkHandle folk, Mob me) {
+		if (!me.getNavigation().isDone()) {
+			folk.stop();
 		}
 	}
 
 	@Override
 	public void stop(NpcService.FolkHandle folk) {
+		GOALS.remove(folk.resident().id);
 		folk.stop();
 		folk.entity().setTarget(null);
 	}

@@ -967,6 +967,53 @@ the Crag"), barks, dialogue for its keepers, two or three quest templates (`hear
 
 Hire companions, own a house with servants, rise to burgher, take a lord's commissions.
 
+> **Built (lane B4, 2026-10-21)** in `npc/companion/`, `economy/household/`, `social/burgher/`, `quest/commission/`.
+> **Companions**: "Any hands for hire?" at an innkeeper or tavern keeper names up to three willing hands (adults out of
+> office, brave or greedy, guards and hunters first); hired for 5 days' wage, paid twice their station's wage at the home
+> town's dawn from carried coin (`CompanionRules.payday`; offline days neither charged nor worked; two unpaid and they go
+> home). They are residents flagged away with `extra("companion")`, pinned through `Escorts`' pin registry
+> (`NpcService.pin`), indexed by the player's `hearth:npc/companions`; folded at logout, embodied beside the player at
+> login, never across dimensions (they wait; after `wait_ticks` 24 000 they go home; `CompanionRules.presence`), within
+> 64 a server shrinking with `LoadCaps` (shed when far and the server is over budget). `CompanionBehaviour` (280) follows
+> 2–4 blocks (6–9 at a distance), waits where told, catches up out of sight beyond 24, fights monsters and the player's
+> target (never townsfolk, villagers, animals or players) unless told to hold back, sits by the sleeping player, and barks
+> by trait and culture (`barks/place.json`, 80 lines). Gear by "Take this" / "Give that back", drawn by the folk
+> renderer's new armour layer, handed back on leaving and dropped where they fall. Loyalty: crimes in their own town cost
+> dearly, the greedy do not mind elsewhere; quests done please them. Death removes the resident (the funeral follows as
+> for any death), their kin remember it against the player. A town's own embodiment pass no longer makes any **away**
+> resident flesh at home. **Household**: "Will you keep my house?" to a poor adult, up to `servants_per_house` 3 (no more
+> than the beds), job `SERVANT` with home and work at the house through `ResidentClaims` (`Servants.CLAIMS`), wages and a
+> 16-portion larder bought at the town's price from the owner's bank (`EconomyService.chargeDeposit`, new), food put in
+> the house's storage chest only when its chunk is loaded (`Larder`; else pending), three unpaid days and they leave,
+> serving whoever holds the deed. `ServantWork` (130) does rounds, the larder, the doors at dusk, and greets the owner
+> home with the report (days away, the town's notices since, the title folk give them, what the house cost). Town data
+> `hearth:economy/houses`, the player's index `hearth:economy/household`. **Burghers**: owners are **Householders**
+> (`Title.HOUSEHOLDER`); the oath before the reeve (standing ≥ 40, property held 30 days, a crown a tier, on a market day
+> where the town keeps one) makes a **Burgher** (`Titles.setSworn`; staged as `hearth:burgher_oath` when B1's scenes are
+> there). Market dues waived (a `PriceModifier`, 5 % each way, inside 0.5–1.5); the council sits on a rest day every
+> 28 days and the burghers' vote among the planner's next three public works is funded first
+> (`Projects.councilChoice`). Data `hearth:social/burghers`. **Commissions**: at a seat with a lord, the lord or steward
+> takes a Known player's service; twelve `hearth_quest/commission/*` templates (weight 0, never on a board) are bound
+> to the domain's real state by `Binder` (the most dangerous road, the takings to the neighbouring seat, a reeve whose
+> coffers run dry, a feud from `LivesService`, a letter to the neighbouring lord, the poacher where there is crime, a
+> toll gate, a raid on the worst-guarded village or one in B1's book, a tournament from B1's book, ground for a village,
+> the Great Mine, the lord's road by night), skipped where the world does not bear them out, paid from the seat's
+> treasury. Ranks petitioner → retainer (pledge + 1) → sworn man (3, Friend; a horse) → household knight (6, standing
+> 70, a raid repelled or tournament ridden; dubbed at the throne, a house by deed); an heir keeps the service one rank
+> lower until the player pledges again. Player data `hearth:quest/retinue`. Screens F2/F3/F5 are not built: the
+> conversations act and the hub state's `household` section carries the data (`PlaceSummary`). Tests `CompanionTest`,
+> `HouseholdTest`, `BurgherTest`, `CommissionTest`, bench `PlaceBenchTest` (household day 1.6 µs, companion payday
+> 0.2 µs, burghers' owner check 2 µs on 120 plots); tour `-Dhearth.tour=place` (2026-10-21, Ulfdal, a 248-soul northern
+> city on seed 20261003: a hired farmer in a given iron chestplate fights a husk beside the player; a servant greets the
+> owner at the longhouse door; the oath before the reeve makes the player a sworn Burgher; the lord dubs a sworn man a
+> household knight (no house free in the full city: the steward owes one); a commission binds to "ground for a village").
+> Measured in the tour (one companion, cold JIT): a companion's tick 16 µs at the player's side and 30 µs following
+> (paths at most every 10–20 ticks, a new one only when the player has gone on 4 blocks; 5 ms worst tick, a path), the
+> presence pass 0.10 ms every 20 ticks, the burghers' day 0.02 ms, asking for a commission 5–8 ms once per click. At the
+> 64 cap that is ~1–2 ms a tick, over §9.1's 0.3 ms: the cap shrinks with `LoadCaps` and the far ones are folded when
+> the server is over budget; a cheaper follow (vanilla's FollowOwner pace) is the next step if servers need it. Requests and touched
+> files in `docs/requests/lwB4.md`.
+
 ### 8.1 What the player sees and does
 
 - **Companions**: at an inn or tavern, ask about hands for hire: a few residents (adults, not office holders, brave or

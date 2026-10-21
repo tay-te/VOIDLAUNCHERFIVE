@@ -45,6 +45,8 @@ public final class Household {
 	public static final HearthDataKey<HouseBook> HOUSES = HearthDataKey.register(Hearth.id("economy/houses"), HearthDataKey.Scope.SETTLEMENT,
 		HouseBook.CODEC, HouseBook::new);
 	static final LivingWorldStats.Timer TIMER = LivingWorldStats.timer("household");
+	/** Owners greeted home since the server started (the tour checks it). */
+	public static final java.util.concurrent.atomic.AtomicInteger GREETINGS = new java.util.concurrent.atomic.AtomicInteger();
 
 	private Household() {
 	}
@@ -108,6 +110,7 @@ public final class Household {
 		if (h == null) {
 			return;
 		}
+		GREETINGS.incrementAndGet();
 		Barks.say(folk, "servant_greet", Role.of(folk.resident(), false), player, null);
 		HearthWorld w = HearthWorld.of(level);
 		long today = w == null ? h.lastVisitDay : w.day();

@@ -65,7 +65,16 @@ public final class Burghers {
 	 */
 	public static boolean sworn(long settlementId, UUID player) {
 		Settlement s = settlement(settlementId);
-		return s != null && s.data(KEY).isSworn(player);
+		return s != null && owns(s, player) && s.data(KEY).isSworn(player);
+	}
+
+	private static boolean owns(Settlement s, UUID player) {
+		for (PlotView p : s.plots()) {
+			if (player.equals(p.owner())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Whether the player is a sworn burgher of this town. */
@@ -90,6 +99,10 @@ public final class Burghers {
 
 	/** The town's day: owners kept in step, the council opened on its rest day and closed the day after. */
 	static void daily(HearthWorld world, Settlement s, long day) {
+		if (!anyOwner(s)) {
+			// no player holds property here: no householders, no burghers, no council (and no book written)
+			return;
+		}
 		BurgherBook book = s.data(KEY);
 		boolean dirty = BurgherRules.owners(book, s, day);
 		if (book.sitting != Long.MIN_VALUE && book.sitting < day) {
@@ -115,6 +128,15 @@ public final class Burghers {
 		if (dirty) {
 			s.markDirty();
 		}
+	}
+
+	private static boolean anyOwner(Settlement s) {
+		for (PlotView p : s.plots()) {
+			if (p.owner() != null) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Whether the town keeps a market day within a week (so the oath waits for it). */
