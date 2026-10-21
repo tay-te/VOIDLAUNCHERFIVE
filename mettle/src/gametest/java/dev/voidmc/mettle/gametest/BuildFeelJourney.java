@@ -158,10 +158,10 @@ final class BuildFeelJourney {
 			return CardStore.get(p).slotted().isEmpty() ? "Keep & slot slotted nothing (the hand: " + CharacterStore.get(p).drafts().hand(MINING) + ")" : null;
 		}));
 		check(hint(context, 4, null));
-		// The Deck opened: it goes. A keyword badge hovered: hint 5.
-		context.runOnClient(mc -> MettleActions.guideAdvance("deck"));
-		context.waitTicks(5);
+		// A keyword badge hovered while hint 4 is up, then the Deck opened: hint 4 goes and hint 5 comes (lowest first).
 		context.runOnClient(mc -> MettleActions.guideAdvance("keyword"));
+		context.waitTicks(2);
+		context.runOnClient(mc -> MettleActions.guideAdvance("deck"));
 		context.waitTicks(45);
 		check(hint(context, 5, null));
 		// Skip the guide: every hint off; each was seen once.
