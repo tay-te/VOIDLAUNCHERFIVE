@@ -18,19 +18,28 @@
 					"amount": 0.04,
 					"operation": "add_multiplied_base"
 				}
-			]
+			],
+			"summary": {
+				"translate": "mettle.keyword.brutal.set.2.summary"
+			}
 		},
 		"4": {
 			"description": {
 				"translate": "mettle.keyword.brutal.set.4"
 			},
-			"behaviour": "mettle:set_brutal_4"
+			"behaviour": "mettle:set_brutal_4",
+			"summary": {
+				"translate": "mettle.keyword.brutal.set.4.summary"
+			}
 		},
 		"6": {
 			"description": {
 				"translate": "mettle.keyword.brutal.set.6"
 			},
-			"behaviour": "mettle:set_brutal_6"
+			"behaviour": "mettle:set_brutal_6",
+			"summary": {
+				"translate": "mettle.keyword.brutal.set.6.summary"
+			}
 		}
 	}
 }

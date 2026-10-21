@@ -13,5 +13,8 @@
 	},
 	"source": "deed",
 	"trigger": "all_fifteen",
-	"icon": "mettle:textures/gui/mythic/polymath.png"
+	"icon": "mettle:textures/gui/mythic/polymath.png",
+	"epithet": {
+		"translate": "mettle.mythic.polymath.epithet"
+	}
 }

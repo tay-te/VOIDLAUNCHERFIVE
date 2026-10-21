@@ -14,5 +14,8 @@
 	"source": "drawn",
 	"trigger": "draw",
 	"icon": "mettle:textures/gui/mythic/heart_of_the_mountain.png",
+	"epithet": {
+		"translate": "mettle.mythic.heart_of_the_mountain.epithet"
+	},
 	"skill": "mettle:mining"
 }

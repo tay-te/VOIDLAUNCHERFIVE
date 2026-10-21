@@ -18,7 +18,10 @@
 					"amount": 1.5,
 					"operation": "add_value"
 				}
-			]
+			],
+			"summary": {
+				"translate": "mettle.keyword.gale.set.2.summary"
+			}
 		},
 		"4": {
 			"description": {
@@ -32,13 +35,20 @@
 					"when": "sprinting"
 				}
 			],
-			"behaviour": "mettle:set_gale_4"
+			"behaviour": "mettle:set_gale_4",
+			"summary": {
+				"translate": "mettle.keyword.gale.set.4.summary"
+			}
 		},
 		"6": {
 			"description": {
 				"translate": "mettle.keyword.gale.set.6"
 			},
-			"behaviour": "mettle:set_gale_6"
+			"behaviour": "mettle:set_gale_6",
+			"summary": {
+				"translate": "mettle.keyword.gale.set.6.summary"
+			}
 		}
-	}
+	},
+	"momentum": 0.25
 }

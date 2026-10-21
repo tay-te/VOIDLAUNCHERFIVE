@@ -14,5 +14,8 @@
 	"source": "drawn",
 	"trigger": "draw",
 	"icon": "mettle:textures/gui/mythic/aegis.png",
+	"epithet": {
+		"translate": "mettle.mythic.aegis.epithet"
+	},
 	"skill": "mettle:defense"
 }

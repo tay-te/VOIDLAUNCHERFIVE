@@ -13,5 +13,8 @@
 	},
 	"source": "world_first",
 	"trigger": "first_dragon",
-	"icon": "mettle:textures/gui/mythic/dragonfall.png"
+	"icon": "mettle:textures/gui/mythic/dragonfall.png",
+	"epithet": {
+		"translate": "mettle.mythic.dragonfall.epithet"
+	}
 }

@@ -264,7 +264,7 @@ class CardAuditTest {
 	@Test
 	void everyMythicIsWiredAndWorded() {
 		List<Executable> checks = new ArrayList<>();
-		assertEquals(20, MYTHICS.size());
+		assertEquals(36, MYTHICS.size());
 		MYTHICS.forEach((id, m) -> {
 			String path = id.getPath();
 			checks.add(text(path + " name", m.name(), false));

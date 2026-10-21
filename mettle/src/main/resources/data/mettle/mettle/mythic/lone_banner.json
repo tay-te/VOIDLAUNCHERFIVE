@@ -13,5 +13,8 @@
 	},
 	"source": "deed",
 	"trigger": "lone_raid",
-	"icon": "mettle:textures/gui/mythic/lone_banner.png"
+	"icon": "mettle:textures/gui/mythic/lone_banner.png",
+	"epithet": {
+		"translate": "mettle.mythic.lone_banner.epithet"
+	}
 }

@@ -13,5 +13,8 @@
 	},
 	"source": "world_first",
 	"trigger": "first_elder_guardian",
-	"icon": "mettle:textures/gui/mythic/elders_eye.png"
+	"icon": "mettle:textures/gui/mythic/elders_eye.png",
+	"epithet": {
+		"translate": "mettle.mythic.elders_eye.epithet"
+	}
 }

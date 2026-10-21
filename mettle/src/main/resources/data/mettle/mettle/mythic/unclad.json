@@ -13,5 +13,8 @@
 	},
 	"source": "deed",
 	"trigger": "unclad_warden",
-	"icon": "mettle:textures/gui/mythic/unclad.png"
+	"icon": "mettle:textures/gui/mythic/unclad.png",
+	"epithet": {
+		"translate": "mettle.mythic.unclad.epithet"
+	}
 }

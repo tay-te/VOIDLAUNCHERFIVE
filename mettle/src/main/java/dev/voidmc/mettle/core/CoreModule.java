@@ -32,6 +32,8 @@ public final class CoreModule {
 		DynamicRegistries.registerSynced(MettleRegistries.KEYWORD, dev.voidmc.mettle.api.Keyword.CODEC);
 		DynamicRegistries.registerSynced(MettleRegistries.CARD_SKILL, dev.voidmc.mettle.api.CardSkill.CODEC);
 		DynamicRegistries.registerSynced(MettleRegistries.MYTHIC, dev.voidmc.mettle.api.Mythic.CODEC);
+		// Build feel (docs/BUILD_FEEL.md §2.1): the words bynames are made of.
+		DynamicRegistries.registerSynced(MettleRegistries.BYNAME, dev.voidmc.mettle.api.BynameWords.CODEC);
 		CharacterStore.init();
 		CardStore.init();
 		MettleAttributes.init();

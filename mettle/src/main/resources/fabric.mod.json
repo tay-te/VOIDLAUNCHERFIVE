@@ -30,6 +30,11 @@
 		"mettle-burden.mixins.json",
 		"mettle-gear.mixins.json",
 		"mettle-cards.mixins.json",
+		"mettle-legend.mixins.json",
+		{
+			"config": "mettle-legend.client.mixins.json",
+			"environment": "client"
+		},
 		{
 			"config": "mettle-character.client.mixins.json",
 			"environment": "client"

@@ -1,0 +1,21 @@
+{
+	"name": {
+		"translate": "mettle.mythic.stonesong"
+	},
+	"lore": {
+		"translate": "mettle.mythic.stonesong.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.stonesong.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.stonesong.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/stonesong.png",
+	"epithet": {
+		"translate": "mettle.mythic.stonesong.epithet"
+	},
+	"skill": "mettle:mining"
+}

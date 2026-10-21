@@ -1,0 +1,228 @@
+{
+	"words": {
+		"mettle:mining+mettle:blades": {
+			"noun": {
+				"translate": "mettle.byname.pair.mining.blades"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.mining.blades.description"
+			}
+		},
+		"mettle:mining+mettle:heavy_weapons": {
+			"noun": {
+				"translate": "mettle.byname.pair.mining.heavy_weapons"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.mining.heavy_weapons.description"
+			}
+		},
+		"mettle:mining+mettle:marksmanship": {
+			"noun": {
+				"translate": "mettle.byname.pair.mining.marksmanship"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.mining.marksmanship.description"
+			}
+		},
+		"mettle:mining+mettle:defense": {
+			"noun": {
+				"translate": "mettle.byname.pair.mining.defense"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.mining.defense.description"
+			}
+		},
+		"mettle:mining+mettle:athletics": {
+			"noun": {
+				"translate": "mettle.byname.pair.mining.athletics"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.mining.athletics.description"
+			}
+		},
+		"mettle:mining+mettle:survival": {
+			"noun": {
+				"translate": "mettle.byname.pair.mining.survival"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.mining.survival.description"
+			}
+		},
+		"mettle:mining+mettle:smithing": {
+			"noun": {
+				"translate": "mettle.byname.pair.mining.smithing"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.mining.smithing.description"
+			}
+		},
+		"mettle:blades+mettle:heavy_weapons": {
+			"noun": {
+				"translate": "mettle.byname.pair.blades.heavy_weapons"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.blades.heavy_weapons.description"
+			}
+		},
+		"mettle:blades+mettle:marksmanship": {
+			"noun": {
+				"translate": "mettle.byname.pair.blades.marksmanship"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.blades.marksmanship.description"
+			}
+		},
+		"mettle:blades+mettle:defense": {
+			"noun": {
+				"translate": "mettle.byname.pair.blades.defense"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.blades.defense.description"
+			}
+		},
+		"mettle:blades+mettle:athletics": {
+			"noun": {
+				"translate": "mettle.byname.pair.blades.athletics"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.blades.athletics.description"
+			}
+		},
+		"mettle:blades+mettle:survival": {
+			"noun": {
+				"translate": "mettle.byname.pair.blades.survival"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.blades.survival.description"
+			}
+		},
+		"mettle:blades+mettle:smithing": {
+			"noun": {
+				"translate": "mettle.byname.pair.blades.smithing"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.blades.smithing.description"
+			}
+		},
+		"mettle:heavy_weapons+mettle:marksmanship": {
+			"noun": {
+				"translate": "mettle.byname.pair.heavy_weapons.marksmanship"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.heavy_weapons.marksmanship.description"
+			}
+		},
+		"mettle:heavy_weapons+mettle:defense": {
+			"noun": {
+				"translate": "mettle.byname.pair.heavy_weapons.defense"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.heavy_weapons.defense.description"
+			}
+		},
+		"mettle:heavy_weapons+mettle:athletics": {
+			"noun": {
+				"translate": "mettle.byname.pair.heavy_weapons.athletics"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.heavy_weapons.athletics.description"
+			}
+		},
+		"mettle:heavy_weapons+mettle:survival": {
+			"noun": {
+				"translate": "mettle.byname.pair.heavy_weapons.survival"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.heavy_weapons.survival.description"
+			}
+		},
+		"mettle:heavy_weapons+mettle:smithing": {
+			"noun": {
+				"translate": "mettle.byname.pair.heavy_weapons.smithing"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.heavy_weapons.smithing.description"
+			}
+		},
+		"mettle:marksmanship+mettle:defense": {
+			"noun": {
+				"translate": "mettle.byname.pair.marksmanship.defense"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.marksmanship.defense.description"
+			}
+		},
+		"mettle:marksmanship+mettle:athletics": {
+			"noun": {
+				"translate": "mettle.byname.pair.marksmanship.athletics"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.marksmanship.athletics.description"
+			}
+		},
+		"mettle:marksmanship+mettle:survival": {
+			"noun": {
+				"translate": "mettle.byname.pair.marksmanship.survival"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.marksmanship.survival.description"
+			}
+		},
+		"mettle:marksmanship+mettle:smithing": {
+			"noun": {
+				"translate": "mettle.byname.pair.marksmanship.smithing"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.marksmanship.smithing.description"
+			}
+		},
+		"mettle:defense+mettle:athletics": {
+			"noun": {
+				"translate": "mettle.byname.pair.defense.athletics"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.defense.athletics.description"
+			}
+		},
+		"mettle:defense+mettle:survival": {
+			"noun": {
+				"translate": "mettle.byname.pair.defense.survival"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.defense.survival.description"
+			}
+		},
+		"mettle:defense+mettle:smithing": {
+			"noun": {
+				"translate": "mettle.byname.pair.defense.smithing"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.defense.smithing.description"
+			}
+		},
+		"mettle:athletics+mettle:survival": {
+			"noun": {
+				"translate": "mettle.byname.pair.athletics.survival"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.athletics.survival.description"
+			}
+		},
+		"mettle:athletics+mettle:smithing": {
+			"noun": {
+				"translate": "mettle.byname.pair.athletics.smithing"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.athletics.smithing.description"
+			}
+		},
+		"mettle:survival+mettle:smithing": {
+			"noun": {
+				"translate": "mettle.byname.pair.survival.smithing"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.survival.smithing.description"
+			}
+		}
+	}
+}

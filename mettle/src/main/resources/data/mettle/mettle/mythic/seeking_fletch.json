@@ -14,5 +14,8 @@
 	"source": "drawn",
 	"trigger": "draw",
 	"icon": "mettle:textures/gui/mythic/seeking_fletch.png",
+	"epithet": {
+		"translate": "mettle.mythic.seeking_fletch.epithet"
+	},
 	"skill": "mettle:marksmanship"
 }

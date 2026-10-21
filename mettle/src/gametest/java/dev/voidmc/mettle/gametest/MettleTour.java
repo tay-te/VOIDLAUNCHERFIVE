@@ -129,9 +129,20 @@ public class MettleTour implements FabricClientGameTest {
 				MythicJourney.run(context, world);
 				CardServiceJourney.run(world);
 				CardEffectsJourney.run(context, world);
+				BuildFeelJourney.run(context, world);
+				LegendJourney.run(context, world);
+			}
+			// -Dmettle.tour.feel_only=true plays only build feel (docs/BUILD_FEEL.md); -Dmettle.tour.legend_only=true only
+			// its sixteen drawn Mythics.
+			if (Boolean.getBoolean("mettle.tour.feel_only")) {
+				BuildFeelJourney.run(context, world);
+			}
+			if (Boolean.getBoolean("mettle.tour.legend_only")) {
+				LegendJourney.run(context, world);
 			}
 			// -Dmettle.tour.hearth_only=true (with -Phearth) plays only the Hearth journey, for a quick check.
-			if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.cards_only")) {
+			if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.cards_only") && !Boolean.getBoolean("mettle.tour.feel_only")
+				&& !Boolean.getBoolean("mettle.tour.legend_only")) {
 				// Progress moments first, while the character is fresh (it is put back as it was).
 				MomentJourney.run(context, world);
 				signaturePerks(world);
@@ -155,6 +166,8 @@ public class MettleTour implements FabricClientGameTest {
 				CardServiceJourney.run(world);
 				CardSoundJourney.run(context);
 				CardEffectsJourney.run(context, world);
+				BuildFeelJourney.run(context, world);
+				LegendJourney.run(context, world);
 			}
 			// With VOID Hearth loaded (-Phearth): its slots filled by Mettle. HearthJourney names Hearth types, so it is
 			// only touched then.
@@ -169,7 +182,7 @@ public class MettleTour implements FabricClientGameTest {
 			save = world.getWorldSave();
 		}
 		// Saved, quit and opened again (a restart and a relog): what must last did (CardEffectsJourney's cooldowns).
-		if (!Boolean.getBoolean("mettle.tour.hearth_only")) {
+		if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.feel_only") && !Boolean.getBoolean("mettle.tour.legend_only")) {
 			try (TestSingleplayerContext again = save.open()) {
 				CardEffectsJourney.afterRestart(context, again);
 			}

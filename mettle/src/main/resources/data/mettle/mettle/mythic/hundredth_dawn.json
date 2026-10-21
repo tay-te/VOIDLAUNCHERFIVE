@@ -13,5 +13,8 @@
 	},
 	"source": "deed",
 	"trigger": "hundred_days",
-	"icon": "mettle:textures/gui/mythic/hundredth_dawn.png"
+	"icon": "mettle:textures/gui/mythic/hundredth_dawn.png",
+	"epithet": {
+		"translate": "mettle.mythic.hundredth_dawn.epithet"
+	}
 }

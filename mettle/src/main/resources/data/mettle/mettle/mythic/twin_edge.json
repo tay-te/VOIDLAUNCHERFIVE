@@ -14,5 +14,8 @@
 	"source": "drawn",
 	"trigger": "draw",
 	"icon": "mettle:textures/gui/mythic/twin_edge.png",
+	"epithet": {
+		"translate": "mettle.mythic.twin_edge.epithet"
+	},
 	"skill": "mettle:blades"
 }

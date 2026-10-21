@@ -21,6 +21,12 @@ public final class MettleRegistries {
 	/** Each skill's card prefix, native keywords and keyword pool (§2.1, §6.2), {@code .../card_skill/<skill>.json}. */
 	public static final ResourceKey<Registry<CardSkill>> CARD_SKILL = ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("mettle", "card_skill"));
 
+	/**
+	 * The words bynames are made of (docs/BUILD_FEEL.md §2.1): {@code .../byname/keywords.json}, {@code skills.json} and
+	 * {@code pairs.json}, so a server can rename them.
+	 */
+	public static final ResourceKey<Registry<BynameWords>> BYNAME = ResourceKey.createRegistryKey(Identifier.fromNamespaceAndPath("mettle", "byname"));
+
 	private MettleRegistries() {
 	}
 }

@@ -12,19 +12,28 @@
 			"description": {
 				"translate": "mettle.keyword.ember.set.2"
 			},
-			"behaviour": "mettle:set_ember_2"
+			"behaviour": "mettle:set_ember_2",
+			"summary": {
+				"translate": "mettle.keyword.ember.set.2.summary"
+			}
 		},
 		"4": {
 			"description": {
 				"translate": "mettle.keyword.ember.set.4"
 			},
-			"behaviour": "mettle:set_ember_4"
+			"behaviour": "mettle:set_ember_4",
+			"summary": {
+				"translate": "mettle.keyword.ember.set.4.summary"
+			}
 		},
 		"6": {
 			"description": {
 				"translate": "mettle.keyword.ember.set.6"
 			},
-			"behaviour": "mettle:set_ember_6"
+			"behaviour": "mettle:set_ember_6",
+			"summary": {
+				"translate": "mettle.keyword.ember.set.6.summary"
+			}
 		}
 	}
 }

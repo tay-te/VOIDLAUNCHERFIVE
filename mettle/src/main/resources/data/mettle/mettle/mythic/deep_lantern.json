@@ -1,0 +1,21 @@
+{
+	"name": {
+		"translate": "mettle.mythic.deep_lantern"
+	},
+	"lore": {
+		"translate": "mettle.mythic.deep_lantern.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.deep_lantern.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.deep_lantern.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/deep_lantern.png",
+	"epithet": {
+		"translate": "mettle.mythic.deep_lantern.epithet"
+	},
+	"skill": "mettle:mining"
+}

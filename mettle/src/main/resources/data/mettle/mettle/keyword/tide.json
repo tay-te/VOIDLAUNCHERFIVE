@@ -19,7 +19,10 @@
 					"operation": "add_value"
 				}
 			],
-			"behaviour": "mettle:set_tide_2"
+			"behaviour": "mettle:set_tide_2",
+			"summary": {
+				"translate": "mettle.keyword.tide.set.2.summary"
+			}
 		},
 		"4": {
 			"description": {
@@ -32,13 +35,20 @@
 					"operation": "add_value"
 				}
 			],
-			"behaviour": "mettle:set_tide_4"
+			"behaviour": "mettle:set_tide_4",
+			"summary": {
+				"translate": "mettle.keyword.tide.set.4.summary"
+			}
 		},
 		"6": {
 			"description": {
 				"translate": "mettle.keyword.tide.set.6"
 			},
-			"behaviour": "mettle:set_tide_6"
+			"behaviour": "mettle:set_tide_6",
+			"summary": {
+				"translate": "mettle.keyword.tide.set.6.summary"
+			}
 		}
-	}
+	},
+	"momentum": 1.0
 }

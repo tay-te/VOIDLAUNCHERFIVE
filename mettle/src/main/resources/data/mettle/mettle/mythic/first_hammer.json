@@ -14,5 +14,8 @@
 	"source": "drawn",
 	"trigger": "draw",
 	"icon": "mettle:textures/gui/mythic/first_hammer.png",
+	"epithet": {
+		"translate": "mettle.mythic.first_hammer.epithet"
+	},
 	"skill": "mettle:smithing"
 }

@@ -19,9 +19,10 @@ import net.minecraft.util.StringRepresentable;
  * @param skill   drawn Mythics: the skill whose drafts can deal it
  * @param effect  what it does, one plain sentence
  * @param deed    how it is earned, one plain sentence ("First to fell the Ender Dragon")
+ * @param epithet the last words of a tier IV byname worn with it slotted ("of the Mountain", docs/BUILD_FEEL.md §2.1)
  */
 public record Mythic(Component name, Component lore, Component effect, Component deed, Source source, String trigger,
-	Optional<ResourceKey<Skill>> skill, Identifier icon) {
+	Optional<ResourceKey<Skill>> skill, Identifier icon, Component epithet) {
 	public enum Source implements StringRepresentable {
 		WORLD_FIRST, DEED, DRAWN;
 
@@ -41,6 +42,7 @@ public record Mythic(Component name, Component lore, Component effect, Component
 		Source.CODEC.fieldOf("source").forGetter(Mythic::source),
 		Codec.STRING.fieldOf("trigger").forGetter(Mythic::trigger),
 		ResourceKey.codec(MettleRegistries.SKILL).optionalFieldOf("skill").forGetter(Mythic::skill),
-		Identifier.CODEC.fieldOf("icon").forGetter(Mythic::icon)
+		Identifier.CODEC.fieldOf("icon").forGetter(Mythic::icon),
+		ComponentSerialization.CODEC.optionalFieldOf("epithet", Component.empty()).forGetter(Mythic::epithet)
 	).apply(i, Mythic::new));
 }

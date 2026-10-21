@@ -1,0 +1,116 @@
+{
+	"words": {
+		"mettle:brutal": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.brutal.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.brutal.word"
+			}
+		},
+		"mettle:deep": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.deep.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.deep.word"
+			}
+		},
+		"mettle:echo": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.echo.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.echo.word"
+			}
+		},
+		"mettle:ember": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.ember.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.ember.word"
+			}
+		},
+		"mettle:gale": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.gale.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.gale.word"
+			}
+		},
+		"mettle:hex": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.hex.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.hex.word"
+			}
+		},
+		"mettle:hoard": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.hoard.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.hoard.word"
+			}
+		},
+		"mettle:iron": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.iron.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.iron.word"
+			}
+		},
+		"mettle:keen": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.keen.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.keen.word"
+			}
+		},
+		"mettle:kin": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.kin.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.kin.word"
+			}
+		},
+		"mettle:swift": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.swift.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.swift.word"
+			}
+		},
+		"mettle:tide": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.tide.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.tide.word"
+			}
+		},
+		"mettle:warden": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.warden.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.warden.word"
+			}
+		},
+		"mettle:wild": {
+			"prefix": {
+				"translate": "mettle.byname.keyword.wild.prefix"
+			},
+			"word": {
+				"translate": "mettle.byname.keyword.wild.word"
+			}
+		}
+	}
+}

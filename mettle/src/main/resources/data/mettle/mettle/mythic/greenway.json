@@ -1,0 +1,21 @@
+{
+	"name": {
+		"translate": "mettle.mythic.greenway"
+	},
+	"lore": {
+		"translate": "mettle.mythic.greenway.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.greenway.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.greenway.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/greenway.png",
+	"epithet": {
+		"translate": "mettle.mythic.greenway.epithet"
+	},
+	"skill": "mettle:survival"
+}

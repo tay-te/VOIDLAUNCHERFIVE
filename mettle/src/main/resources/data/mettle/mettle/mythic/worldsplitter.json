@@ -14,5 +14,8 @@
 	"source": "drawn",
 	"trigger": "draw",
 	"icon": "mettle:textures/gui/mythic/worldsplitter.png",
+	"epithet": {
+		"translate": "mettle.mythic.worldsplitter.epithet"
+	},
 	"skill": "mettle:heavy_weapons"
 }

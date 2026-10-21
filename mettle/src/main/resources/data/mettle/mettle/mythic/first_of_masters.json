@@ -13,5 +13,8 @@
 	},
 	"source": "world_first",
 	"trigger": "first_master",
-	"icon": "mettle:textures/gui/mythic/first_of_masters.png"
+	"icon": "mettle:textures/gui/mythic/first_of_masters.png",
+	"epithet": {
+		"translate": "mettle.mythic.first_of_masters.epithet"
+	}
 }

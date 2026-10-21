@@ -1,0 +1,21 @@
+{
+	"name": {
+		"translate": "mettle.mythic.cats_way"
+	},
+	"lore": {
+		"translate": "mettle.mythic.cats_way.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.cats_way.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.cats_way.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/cats_way.png",
+	"epithet": {
+		"translate": "mettle.mythic.cats_way.epithet"
+	},
+	"skill": "mettle:athletics"
+}

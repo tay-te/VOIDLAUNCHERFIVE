@@ -12,19 +12,29 @@
 			"description": {
 				"translate": "mettle.keyword.kin.set.2"
 			},
-			"behaviour": "mettle:set_kin_2"
+			"behaviour": "mettle:set_kin_2",
+			"summary": {
+				"translate": "mettle.keyword.kin.set.2.summary"
+			}
 		},
 		"4": {
 			"description": {
 				"translate": "mettle.keyword.kin.set.4"
 			},
-			"behaviour": "mettle:set_kin_4"
+			"behaviour": "mettle:set_kin_4",
+			"summary": {
+				"translate": "mettle.keyword.kin.set.4.summary"
+			}
 		},
 		"6": {
 			"description": {
 				"translate": "mettle.keyword.kin.set.6"
 			},
-			"behaviour": "mettle:set_kin_6"
+			"behaviour": "mettle:set_kin_6",
+			"summary": {
+				"translate": "mettle.keyword.kin.set.6.summary"
+			}
 		}
-	}
+	},
+	"momentum": 0.5
 }

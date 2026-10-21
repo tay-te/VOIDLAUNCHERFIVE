@@ -13,5 +13,8 @@
 	},
 	"source": "world_first",
 	"trigger": "first_far",
-	"icon": "mettle:textures/gui/mythic/far_horizon.png"
+	"icon": "mettle:textures/gui/mythic/far_horizon.png",
+	"epithet": {
+		"translate": "mettle.mythic.far_horizon.epithet"
+	}
 }

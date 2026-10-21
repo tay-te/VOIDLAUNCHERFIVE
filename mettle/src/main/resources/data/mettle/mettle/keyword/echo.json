@@ -12,19 +12,29 @@
 			"description": {
 				"translate": "mettle.keyword.echo.set.2"
 			},
-			"behaviour": "mettle:set_echo_2"
+			"behaviour": "mettle:set_echo_2",
+			"summary": {
+				"translate": "mettle.keyword.echo.set.2.summary"
+			}
 		},
 		"4": {
 			"description": {
 				"translate": "mettle.keyword.echo.set.4"
 			},
-			"behaviour": "mettle:set_echo_4"
+			"behaviour": "mettle:set_echo_4",
+			"summary": {
+				"translate": "mettle.keyword.echo.set.4.summary"
+			}
 		},
 		"6": {
 			"description": {
 				"translate": "mettle.keyword.echo.set.6"
 			},
-			"behaviour": "mettle:set_echo_6"
+			"behaviour": "mettle:set_echo_6",
+			"summary": {
+				"translate": "mettle.keyword.echo.set.6.summary"
+			}
 		}
-	}
+	},
+	"momentum": 0.25
 }

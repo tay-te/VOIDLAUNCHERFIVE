@@ -92,6 +92,7 @@ public final class Cards {
 		Trades.init();
 		Mythics.init();
 		MythicEffects.init();
+		dev.voidmc.mettle.character.cards.legend.LegendEffects.init();
 	}
 
 	// ---------------------------------------------------------------- reading

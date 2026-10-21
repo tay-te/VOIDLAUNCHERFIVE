@@ -14,5 +14,8 @@
 	"source": "drawn",
 	"trigger": "draw",
 	"icon": "mettle:textures/gui/mythic/seven_league_stride.png",
+	"epithet": {
+		"translate": "mettle.mythic.seven_league_stride.epithet"
+	},
 	"skill": "mettle:athletics"
 }

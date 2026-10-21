@@ -34,14 +34,15 @@ class MythicRulesTest {
 	}
 
 	@Test
-	void theTwentyAreThere() {
-		assertEquals(20, MYTHICS.size());
+	void theThirtySixAreThere() {
+		// Seven world firsts, five deeds, and the drawn pool widened to three a skill (docs/BUILD_FEEL.md §5).
+		assertEquals(36, MYTHICS.size());
 		assertEquals(7, MYTHICS.values().stream().filter(m -> m.source() == Mythic.Source.WORLD_FIRST).count());
 		assertEquals(5, MYTHICS.values().stream().filter(m -> m.source() == Mythic.Source.DEED).count());
-		assertEquals(8, MYTHICS.values().stream().filter(m -> m.source() == Mythic.Source.DRAWN).count());
+		assertEquals(24, MYTHICS.values().stream().filter(m -> m.source() == Mythic.Source.DRAWN).count());
 		for (String skill : TestCards.RELEASED) {
-			assertEquals(1, MYTHICS.values().stream().filter(m -> m.skill().map(TestCards.skill(skill)::equals).orElse(false)).count(),
-				skill + " has one drawn Mythic");
+			assertEquals(3, MYTHICS.values().stream().filter(m -> m.skill().map(TestCards.skill(skill)::equals).orElse(false)).count(),
+				skill + " has three drawn Mythics");
 		}
 	}
 

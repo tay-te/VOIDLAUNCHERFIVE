@@ -13,5 +13,8 @@
 	},
 	"source": "world_first",
 	"trigger": "first_honoured",
-	"icon": "mettle:textures/gui/mythic/open_hand.png"
+	"icon": "mettle:textures/gui/mythic/open_hand.png",
+	"epithet": {
+		"translate": "mettle.mythic.open_hand.epithet"
+	}
 }

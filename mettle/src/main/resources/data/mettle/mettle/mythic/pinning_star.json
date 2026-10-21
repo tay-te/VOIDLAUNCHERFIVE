@@ -1,0 +1,21 @@
+{
+	"name": {
+		"translate": "mettle.mythic.pinning_star"
+	},
+	"lore": {
+		"translate": "mettle.mythic.pinning_star.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.pinning_star.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.pinning_star.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/pinning_star.png",
+	"epithet": {
+		"translate": "mettle.mythic.pinning_star.epithet"
+	},
+	"skill": "mettle:marksmanship"
+}

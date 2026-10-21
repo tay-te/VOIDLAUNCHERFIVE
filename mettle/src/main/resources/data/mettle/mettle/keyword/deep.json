@@ -12,19 +12,29 @@
 			"description": {
 				"translate": "mettle.keyword.deep.set.2"
 			},
-			"behaviour": "mettle:set_deep_2"
+			"behaviour": "mettle:set_deep_2",
+			"summary": {
+				"translate": "mettle.keyword.deep.set.2.summary"
+			}
 		},
 		"4": {
 			"description": {
 				"translate": "mettle.keyword.deep.set.4"
 			},
-			"behaviour": "mettle:set_deep_4"
+			"behaviour": "mettle:set_deep_4",
+			"summary": {
+				"translate": "mettle.keyword.deep.set.4.summary"
+			}
 		},
 		"6": {
 			"description": {
 				"translate": "mettle.keyword.deep.set.6"
 			},
-			"behaviour": "mettle:set_deep_6"
+			"behaviour": "mettle:set_deep_6",
+			"summary": {
+				"translate": "mettle.keyword.deep.set.6.summary"
+			}
 		}
-	}
+	},
+	"momentum": 1.0
 }

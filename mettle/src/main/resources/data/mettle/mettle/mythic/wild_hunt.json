@@ -14,5 +14,8 @@
 	"source": "drawn",
 	"trigger": "draw",
 	"icon": "mettle:textures/gui/mythic/wild_hunt.png",
+	"epithet": {
+		"translate": "mettle.mythic.wild_hunt.epithet"
+	},
 	"skill": "mettle:survival"
 }

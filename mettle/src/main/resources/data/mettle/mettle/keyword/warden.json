@@ -18,19 +18,29 @@
 					"amount": 1.0,
 					"operation": "add_value"
 				}
-			]
+			],
+			"summary": {
+				"translate": "mettle.keyword.warden.set.2.summary"
+			}
 		},
 		"4": {
 			"description": {
 				"translate": "mettle.keyword.warden.set.4"
 			},
-			"behaviour": "mettle:set_warden_4"
+			"behaviour": "mettle:set_warden_4",
+			"summary": {
+				"translate": "mettle.keyword.warden.set.4.summary"
+			}
 		},
 		"6": {
 			"description": {
 				"translate": "mettle.keyword.warden.set.6"
 			},
-			"behaviour": "mettle:set_warden_6"
+			"behaviour": "mettle:set_warden_6",
+			"summary": {
+				"translate": "mettle.keyword.warden.set.6.summary"
+			}
 		}
-	}
+	},
+	"momentum": 0.5
 }

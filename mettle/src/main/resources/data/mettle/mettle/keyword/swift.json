@@ -18,7 +18,10 @@
 					"amount": 0.03,
 					"operation": "add_multiplied_base"
 				}
-			]
+			],
+			"summary": {
+				"translate": "mettle.keyword.swift.set.2.summary"
+			}
 		},
 		"4": {
 			"description": {
@@ -31,13 +34,19 @@
 					"operation": "add_multiplied_base"
 				}
 			],
-			"behaviour": "mettle:set_swift_4"
+			"behaviour": "mettle:set_swift_4",
+			"summary": {
+				"translate": "mettle.keyword.swift.set.4.summary"
+			}
 		},
 		"6": {
 			"description": {
 				"translate": "mettle.keyword.swift.set.6"
 			},
-			"behaviour": "mettle:set_swift_6"
+			"behaviour": "mettle:set_swift_6",
+			"summary": {
+				"translate": "mettle.keyword.swift.set.6.summary"
+			}
 		}
 	}
 }

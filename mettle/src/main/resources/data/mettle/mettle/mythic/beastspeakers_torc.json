@@ -1,0 +1,21 @@
+{
+	"name": {
+		"translate": "mettle.mythic.beastspeakers_torc"
+	},
+	"lore": {
+		"translate": "mettle.mythic.beastspeakers_torc.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.beastspeakers_torc.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.beastspeakers_torc.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/beastspeakers_torc.png",
+	"epithet": {
+		"translate": "mettle.mythic.beastspeakers_torc.epithet"
+	},
+	"skill": "mettle:survival"
+}

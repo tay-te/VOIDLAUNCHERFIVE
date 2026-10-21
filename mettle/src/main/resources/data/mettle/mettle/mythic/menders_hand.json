@@ -1,0 +1,21 @@
+{
+	"name": {
+		"translate": "mettle.mythic.menders_hand"
+	},
+	"lore": {
+		"translate": "mettle.mythic.menders_hand.lore"
+	},
+	"effect": {
+		"translate": "mettle.mythic.menders_hand.effect"
+	},
+	"deed": {
+		"translate": "mettle.mythic.menders_hand.deed"
+	},
+	"source": "drawn",
+	"trigger": "draw",
+	"icon": "mettle:textures/gui/mythic/menders_hand.png",
+	"epithet": {
+		"translate": "mettle.mythic.menders_hand.epithet"
+	},
+	"skill": "mettle:smithing"
+}

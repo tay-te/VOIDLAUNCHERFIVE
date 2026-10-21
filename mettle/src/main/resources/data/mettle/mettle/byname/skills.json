@@ -1,0 +1,92 @@
+{
+	"words": {
+		"mettle:mining": {
+			"suffix": {
+				"translate": "mettle.byname.skill.mining.suffix"
+			},
+			"noun": {
+				"translate": "mettle.byname.skill.mining.noun"
+			},
+			"description": {
+				"translate": "mettle.byname.skill.mining.description"
+			}
+		},
+		"mettle:blades": {
+			"suffix": {
+				"translate": "mettle.byname.skill.blades.suffix"
+			},
+			"noun": {
+				"translate": "mettle.byname.skill.blades.noun"
+			},
+			"description": {
+				"translate": "mettle.byname.skill.blades.description"
+			}
+		},
+		"mettle:heavy_weapons": {
+			"suffix": {
+				"translate": "mettle.byname.skill.heavy_weapons.suffix"
+			},
+			"noun": {
+				"translate": "mettle.byname.skill.heavy_weapons.noun"
+			},
+			"description": {
+				"translate": "mettle.byname.skill.heavy_weapons.description"
+			}
+		},
+		"mettle:marksmanship": {
+			"suffix": {
+				"translate": "mettle.byname.skill.marksmanship.suffix"
+			},
+			"noun": {
+				"translate": "mettle.byname.skill.marksmanship.noun"
+			},
+			"description": {
+				"translate": "mettle.byname.skill.marksmanship.description"
+			}
+		},
+		"mettle:defense": {
+			"suffix": {
+				"translate": "mettle.byname.skill.defense.suffix"
+			},
+			"noun": {
+				"translate": "mettle.byname.skill.defense.noun"
+			},
+			"description": {
+				"translate": "mettle.byname.skill.defense.description"
+			}
+		},
+		"mettle:athletics": {
+			"suffix": {
+				"translate": "mettle.byname.skill.athletics.suffix"
+			},
+			"noun": {
+				"translate": "mettle.byname.skill.athletics.noun"
+			},
+			"description": {
+				"translate": "mettle.byname.skill.athletics.description"
+			}
+		},
+		"mettle:survival": {
+			"suffix": {
+				"translate": "mettle.byname.skill.survival.suffix"
+			},
+			"noun": {
+				"translate": "mettle.byname.skill.survival.noun"
+			},
+			"description": {
+				"translate": "mettle.byname.skill.survival.description"
+			}
+		},
+		"mettle:smithing": {
+			"suffix": {
+				"translate": "mettle.byname.skill.smithing.suffix"
+			},
+			"noun": {
+				"translate": "mettle.byname.skill.smithing.noun"
+			},
+			"description": {
+				"translate": "mettle.byname.skill.smithing.description"
+			}
+		}
+	}
+}

@@ -299,6 +299,144 @@ MYTHICS = {
                      'Every hammer since has been a copy.'),
 }
 
+# The sixteen drawn Mythics of build feel (BUILD_FEEL.md §5.4): three a skill with the eight above.
+NEW_MYTHICS = {
+    'stonesong': ('The Stonesong', 'drawn', 'draw', 'mining', 'Drawn from the Mining deck (0.5 % a draft from 15), or forged with Mythic shards',
+                  'Stand still sneaking with a pickaxe for 2 s: the nearest unmined diamond, emerald or ancient-debris vein within 24 blocks hums from its direction (60 s cooldown).',
+                  'Listen long enough and the stone tells you where it keeps its best.'),
+    'deep_lantern': ('The Deep Lantern', 'drawn', 'draw', 'mining', 'Drawn from the Mining deck (0.5 % a draft from 15), or forged with Mythic shards',
+                     "Below y 0, hostiles can't spawn within 12 blocks of you.",
+                     'A small light the dark agrees to leave alone.'),
+    'misericorde': ('Misericorde', 'drawn', 'draw', 'blades', 'Drawn from the Blades deck (0.5 % a draft from 15), or forged with Mythic shards',
+                    'A blade hit on a mob below 15 % health ends it (never a player or a boss).',
+                    'The mercy stroke, for what has fought long enough.'),
+    'red_harvest': ('Red Harvest', 'drawn', 'draw', 'blades', 'Drawn from the Blades deck (0.5 % a draft from 15), or forged with Mythic shards',
+                    'A blade kill readies your swing at once, and your next swing within 2 s sweeps.',
+                    'One falls, and the edge is already moving.'),
+    'thunderhead': ('Thunderhead', 'drawn', 'draw', 'heavy_weapons', 'Drawn from the Heavy Weapons deck (0.5 % a draft from 15), or forged with Mythic shards',
+                    'In a thunderstorm, a fully charged heavy hit calls lightning on the target (20 s cooldown; never fire on ground you may not build on).',
+                    'The storm leans in when it hears the swing.'),
+    'dread_maul': ('The Dread Maul', 'drawn', 'draw', 'heavy_weapons', 'Drawn from the Heavy Weapons deck (0.5 % a draft from 15), or forged with Mythic shards',
+                   'A heavy kill makes hostiles within 6 blocks flee for 3 s (bosses and players untouched; 15 s cooldown).',
+                   'They have heard what it does.'),
+    'hunters_moon': ("Hunter's Moon", 'drawn', 'draw', 'marksmanship', 'Drawn from the Marksmanship deck (0.5 % a draft from 15), or forged with Mythic shards',
+                     'Under the night sky, a fully drawn arrow that hits looses a silent second arrow at the same target for half its damage.',
+                     'Two shadows on the grass, one string.'),
+    'pinning_star': ('The Pinning Star', 'drawn', 'draw', 'marksmanship', 'Drawn from the Marksmanship deck (0.5 % a draft from 15), or forged with Mythic shards',
+                     "A fully drawn arrow that hits a mob's legs (its lower half) roots it for 2 s (once per target every 10 s).",
+                     'Where it lands, things stay.'),
+    'iron_vow': ('The Iron Vow', 'drawn', 'draw', 'defense', 'Drawn from the Defense deck (0.5 % a draft from 15), or forged with Mythic shards',
+                 'Once per in-game day, a blow that would kill an ally within 8 blocks lands on you instead (after your armour).',
+                 'Said once, kept once a day.'),
+    'long_watch': ('The Long Watch', 'drawn', 'draw', 'defense', 'Drawn from the Defense deck (0.5 % a draft from 15), or forged with Mythic shards',
+                   'Sneak still with a shield raised for 3 s: hostiles within 16 blocks glow for you and allies near you for 10 s (30 s cooldown).',
+                   'The one who watches is the one who sees.'),
+    'ferrymans_stride': ("The Ferryman's Stride", 'drawn', 'draw', 'athletics', 'Drawn from the Athletics deck (0.5 % a draft from 15), or forged with Mythic shards',
+                         'While you sprint, water bears you like ground (no swimming, no ice made); allies sprinting within 4 blocks too.',
+                         'The river owes the ferryman a crossing.'),
+    'cats_way': ("The Cat's Way", 'drawn', 'draw', 'athletics', 'Drawn from the Athletics deck (0.5 % a draft from 15), or forged with Mythic shards',
+                 'Sprint along a wall for up to 2 s without falling (8 s cooldown).',
+                 'Walls are only floors turned sideways.'),
+    'beastspeakers_torc': ("The Beastspeaker's Torc", 'drawn', 'draw', 'survival', 'Drawn from the Survival deck (0.5 % a draft from 15), or forged with Mythic shards',
+                           'Wolves, bears, bees, llamas and other provoked animals never turn on you; an animal you feed follows you for an in-game day.',
+                           'They know the voice, and the voice knows them.'),
+    'greenway': ('The Greenway', 'drawn', 'draw', 'survival', 'Drawn from the Survival deck (0.5 % a draft from 15), or forged with Mythic shards',
+                 'Leaves, vines and berry bushes neither slow nor hurt you, and hostiles that lose sight of you lose your trail twice as fast.',
+                 'The woods close behind you like a door.'),
+    'ever_ember': ('The Ever-Ember', 'drawn', 'draw', 'smithing', 'Drawn from the Smithing deck (0.5 % a draft from 15), or forged with Mythic shards',
+                   'Furnaces, smokers and blast furnaces you last filled smelt twice as fast and burn half the fuel.',
+                   'A coal that remembers every fire it was part of.'),
+    'menders_hand': ("The Mender's Hand", 'drawn', 'draw', 'smithing', 'Drawn from the Smithing deck (0.5 % a draft from 15), or forged with Mythic shards',
+                     'Once per in-game day, repair any item fully at an anvil for no levels and with no prior-work cost.',
+                     'Some hands only have to touch a thing for it to be whole.'),
+}
+
+# The eight drawn Mythics can be forged too: their "how" line says so.
+FORGEABLE = ' or forged with Mythic shards'
+
+# Each Mythic's epithet, the last words of a tier IV byname (BUILD_FEEL.md §2.1).
+EPITHETS = {
+    'dragonfall': 'Dragonfelled', 'wardens_hush': 'of the Hush', 'witherbane': 'of the Three Skulls', 'far_horizon': 'of the Far Horizon',
+    'elders_eye': "of the Elder's Eye", 'open_hand': 'of the Open Hand', 'first_of_masters': 'of the First Mastery', 'unclad': 'the Unclad',
+    'hundredth_dawn': 'of the Hundredth Dawn', 'lone_banner': 'of the Lone Banner', 'long_walker': 'of the Long Road', 'polymath': 'of Many Crafts',
+    'heart_of_the_mountain': 'of the Mountain', 'twin_edge': 'of the Twin Edge', 'worldsplitter': 'of the Split World',
+    'seeking_fletch': 'of the Seeking Fletch', 'aegis': 'of the Aegis', 'seven_league_stride': 'of Seven Leagues', 'wild_hunt': 'of the Wild Hunt',
+    'first_hammer': 'of the First Hammer', 'stonesong': 'of the Stonesong', 'deep_lantern': 'of the Deep Lantern', 'misericorde': 'of the Mercy Stroke',
+    'red_harvest': 'of the Red Harvest', 'thunderhead': 'of the Thunderhead', 'dread_maul': 'of the Dread Maul', 'hunters_moon': "of the Hunter's Moon",
+    'pinning_star': 'of the Pinning Star', 'iron_vow': 'of the Iron Vow', 'long_watch': 'of the Long Watch', 'ferrymans_stride': 'of the Ferry',
+    'cats_way': "of the Cat's Way", 'beastspeakers_torc': 'Beastspeaker', 'greenway': 'of the Greenway', 'ever_ember': 'of the Ever-Ember',
+    'menders_hand': "of the Mender's Hand",
+}
+
+# How much each keyword leans the deal toward it (BUILD_FEEL.md §1.2): the scarce ones most, the common ones not at all.
+MOMENTUM = {'tide': 1.0, 'deep': 1.0, 'kin': 0.5, 'warden': 0.5, 'gale': 0.25, 'echo': 0.25}
+
+# Each set tier in plain words, for "Your build" (BUILD_FEEL.md §2.3).
+SUMMARY = {
+    'ember': ('Fire and lava hurt you less.', 'Your hits sometimes set foes alight.', 'Burning makes you Kindled: harder hits that set foes alight.'),
+    'deep': ('Below ground you dig faster and take less.', 'Below ground, hostiles notice you later.', 'In the dark you heal, and your first hit is a critical.'),
+    'swift': ('You move a little faster.', 'You swing and draw faster.', 'A sprint makes your next hit land harder.'),
+    'brutal': ('Your melee hits land harder.', 'Your critical hits stagger and throw foes back.', 'Damage past a kill spills onto the next enemy.'),
+    'echo': ('Your perk cooldowns are shorter.', 'Your perk cooldowns are much shorter.', 'Perks sometimes come back at once.'),
+    'warden': ('You wear a little more armour.', 'Allies near you take less damage.', 'You take part of the hits meant for allies.'),
+    'keen': ('Your critical hits deal more.', 'Your first hit on a fresh foe is a critical.', 'Three quick hits expose a foe to everyone.'),
+    'wild': ('Hunting and gathering give a little more.', 'Your tamed animals are tougher and hit harder.', 'On wild ground you heal and run faster.'),
+    'iron': ('Armour and shields wear slower.', 'Your armour is tougher.', 'Every few seconds a hit on you lands lighter.'),
+    'tide': ('You swim faster and hold your breath longer.', 'You mine at full speed under water.', 'In water or rain you hit harder and slow your foes.'),
+    'gale': ('Falls hurt you later.', 'Your shots fly faster and your sprint-jumps go higher.', 'You can jump once more in mid-air.'),
+    'hoard': ('What you carry weighs less.', 'Blocks and mobs sometimes drop extra.', 'Loot chests sometimes roll twice.'),
+    'hex': ('Your curses bite less.', 'Your curses give more.', 'Now and then a killing blow leaves you standing.'),
+    'kin': ('Allies near you learn faster.', 'You and your allies heal faster.', 'A rally cry spurs every ally near you.'),
+}
+
+# Bynames (BUILD_FEEL.md §2.1): keyword prefix and word, skill suffix and noun, pair nouns with their lines.
+BYNAME_KEYWORDS = {
+    'brutal': ('Grim', 'Grim'), 'deep': ('Deep', 'Deep'), 'echo': ('Echo', 'Echoing'), 'ember': ('Ember', 'Ember'), 'gale': ('Gale', 'Gale'),
+    'hex': ('Hex', 'Hexed'), 'hoard': ('Gold', 'Gilded'), 'iron': ('Iron', 'Iron'), 'keen': ('Keen', 'Keen'), 'kin': ('Kin', 'Kindred'),
+    'swift': ('Swift', 'Swift'), 'tide': ('Tide', 'Tidal'), 'warden': ('Ward', 'Warding'), 'wild': ('Wild', 'Wild'),
+}
+BYNAME_SKILLS = {
+    'mining': ('delver', 'Delver', 'One who lives below the stone.'),
+    'blades': ('blade', 'Blade', 'A fighter who trusts the edge.'),
+    'heavy_weapons': ('hammer', 'Breaker', 'One who settles things with weight.'),
+    'marksmanship': ('shot', 'Bowman', 'A hunter who strikes from afar.'),
+    'defense': ('guard', 'Shield', 'One who stands in front.'),
+    'athletics': ('runner', 'Runner', 'One who is always already there.'),
+    'survival': ('walker', 'Strider', 'One at home in the wild.'),
+    'smithing': ('smith', 'Smith', 'One who makes what others carry.'),
+}
+BYNAME_PAIRS = {
+    ('mining', 'blades'): ('Undercutter', 'A miner who fights in close.'),
+    ('mining', 'heavy_weapons'): ('Stonebreaker', 'A miner who breaks what stands in the way.'),
+    ('mining', 'marksmanship'): ('Cavehunter', 'A miner who hunts in the dark.'),
+    ('mining', 'defense'): ('Warden', 'A miner who holds the line.'),
+    ('mining', 'athletics'): ('Pathcutter', 'A miner who opens the way.'),
+    ('mining', 'survival'): ('Spelunker', 'A miner at home in deep places.'),
+    ('mining', 'smithing'): ('Forgemaster', 'A miner who forges what they dig.'),
+    ('blades', 'heavy_weapons'): ('Weaponmaster', 'A fighter at home with any weapon.'),
+    ('blades', 'marksmanship'): ('Skirmisher', 'A fighter who strikes near and far.'),
+    ('blades', 'defense'): ('Knight', 'A blade behind a shield.'),
+    ('blades', 'athletics'): ('Bladedancer', 'A blade that never stands still.'),
+    ('blades', 'survival'): ('Reaver', 'A blade that lives off the land.'),
+    ('blades', 'smithing'): ('Swordsmith', 'One who makes the blades they wield.'),
+    ('heavy_weapons', 'marksmanship'): ('Raider', 'A brute with a bow.'),
+    ('heavy_weapons', 'defense'): ('Vanguard', 'The first into the fight.'),
+    ('heavy_weapons', 'athletics'): ('Marauder', 'A brute who runs the field.'),
+    ('heavy_weapons', 'survival'): ('Woodsman', 'An axe at home in the forest.'),
+    ('heavy_weapons', 'smithing'): ('Hammerwright', 'A hammer at the anvil and in the fight.'),
+    ('marksmanship', 'defense'): ('Sentinel', 'A watcher who shoots from cover.'),
+    ('marksmanship', 'athletics'): ('Outrider', 'A rider of the far edges.'),
+    ('marksmanship', 'survival'): ('Huntsman', 'A hunter who reads the wild.'),
+    ('marksmanship', 'smithing'): ('Fletchwright', 'One who makes the arrows they loose.'),
+    ('defense', 'athletics'): ('Legionary', 'A shield that keeps pace.'),
+    ('defense', 'survival'): ('Keeper', 'One who keeps others safe out there.'),
+    ('defense', 'smithing'): ('Armourer', 'One who makes the armour they wear.'),
+    ('athletics', 'survival'): ('Trailblazer', 'One who walks where no road goes.'),
+    ('athletics', 'smithing'): ('Wandersmith', 'A smith who takes the forge on the road.'),
+    ('survival', 'smithing'): ('Hearthwright', 'One who makes a home anywhere.'),
+}
+
+
 # skill -> (prefix, pool, {perk: native keyword})
 SKILLS = {
     'mining': ('MN', ['deep', 'hoard', 'brutal', 'echo', 'iron', 'ember'], {
@@ -367,7 +505,7 @@ def write(path, obj):
 
 def main():
     lang = {}
-    for sub in ('trait', 'keyword', 'card_skill', 'mythic'):
+    for sub in ('trait', 'keyword', 'card_skill', 'mythic', 'byname'):
         shutil.rmtree(os.path.join(DATA, sub), ignore_errors=True)
     for skill, traits in TRAITS.items():
         for (tid, name, desc, lo, hi, step, unit, kind, scope, effect, arsenal) in traits:
@@ -397,29 +535,66 @@ def main():
                     entry['effects'].append(e)
             if behaviour:
                 entry['behaviour'] = 'mettle:' + behaviour
+            lang['%s.set.%d.summary' % (key, tier)] = SUMMARY[kid][tier // 2 - 1]
+            entry['summary'] = comp('%s.set.%d.summary' % (key, tier))
             out[str(tier)] = entry
-        write(os.path.join(DATA, 'keyword', kid + '.json'), {
-            'name': comp(key), 'theme': comp(key + '.theme'), 'colour': '#C9CCD1',
-            'icon': 'mettle:textures/gui/keyword/%s.png' % kid, 'sets': out})
+        obj = {'name': comp(key), 'theme': comp(key + '.theme'), 'colour': '#C9CCD1',
+               'icon': 'mettle:textures/gui/keyword/%s.png' % kid, 'sets': out}
+        if MOMENTUM.get(kid, 0) > 0:
+            obj['momentum'] = MOMENTUM[kid]
+        write(os.path.join(DATA, 'keyword', kid + '.json'), obj)
     for skill, (prefix, pool, natives) in SKILLS.items():
         write(os.path.join(DATA, 'card_skill', skill + '.json'), {
             'prefix': prefix, 'keyword_pool': ['mettle:' + k for k in pool],
             'natives': {'mettle:%s/%s' % (skill, p): 'mettle:' + k for p, k in sorted(natives.items())}})
-    for mid, (name, source, trigger, skill, deed, effect, lore) in MYTHICS.items():
+    for mid, (name, source, trigger, skill, deed, effect, lore) in ALL_MYTHICS.items():
         key = 'mettle.mythic.' + mid
+        if source == 'drawn' and FORGEABLE not in deed:
+            deed += FORGEABLE
+        lang[key + '.epithet'] = EPITHETS[mid]
         lang[key] = name
         lang[key + '.lore'] = lore
         lang[key + '.effect'] = effect
         lang[key + '.deed'] = deed
         obj = {'name': comp(key), 'lore': comp(key + '.lore'), 'effect': comp(key + '.effect'), 'deed': comp(key + '.deed'),
-               'source': source, 'trigger': trigger, 'icon': 'mettle:textures/gui/mythic/%s.png' % mid}
+               'source': source, 'trigger': trigger, 'icon': 'mettle:textures/gui/mythic/%s.png' % mid, 'epithet': comp(key + '.epithet')}
         if skill:
             obj['skill'] = 'mettle:' + skill
         write(os.path.join(DATA, 'mythic', mid + '.json'), obj)
+    byname(lang)
     write(LANG, dict(sorted(lang.items())))
     mythic_icons()
     glyphs()
     print('traits %d, keywords %d, skills %d' % (sum(len(t) for t in TRAITS.values()), len(KEYWORDS), len(SKILLS)))
+
+
+ALL_MYTHICS = {**MYTHICS, **NEW_MYTHICS}
+
+
+def byname(lang):
+    """data/mettle/mettle/byname/{keywords,skills,pairs}.json: the words bynames are made of, all in lang."""
+    words = {}
+    for kid, (prefix, word) in BYNAME_KEYWORDS.items():
+        key = 'mettle.byname.keyword.' + kid
+        lang[key + '.prefix'] = prefix
+        lang[key + '.word'] = word
+        words['mettle:' + kid] = {'prefix': comp(key + '.prefix'), 'word': comp(key + '.word')}
+    write(os.path.join(DATA, 'byname', 'keywords.json'), {'words': words})
+    words = {}
+    for sid, (suffix, noun, line) in BYNAME_SKILLS.items():
+        key = 'mettle.byname.skill.' + sid
+        lang[key + '.suffix'] = suffix
+        lang[key + '.noun'] = noun
+        lang[key + '.description'] = line
+        words['mettle:' + sid] = {'suffix': comp(key + '.suffix'), 'noun': comp(key + '.noun'), 'description': comp(key + '.description')}
+    write(os.path.join(DATA, 'byname', 'skills.json'), {'words': words})
+    words = {}
+    for (a, b), (noun, line) in BYNAME_PAIRS.items():
+        key = 'mettle.byname.pair.%s.%s' % (a, b)
+        lang[key] = noun
+        lang[key + '.description'] = line
+        words['mettle:%s+mettle:%s' % (a, b)] = {'noun': comp(key), 'description': comp(key + '.description')}
+    write(os.path.join(DATA, 'byname', 'pairs.json'), {'words': words})
 
 
 def glyphs():
@@ -441,7 +616,8 @@ def mythic_icons():
     out = os.path.join(RES, 'assets', 'mettle', 'textures', 'gui', 'mythic')
     os.makedirs(out, exist_ok=True)
     gold = [(242, 230, 194, 255), (214, 186, 118, 255), (150, 112, 48, 255)]
-    for n, mid in enumerate(sorted(MYTHICS)):
+    numbered = list(enumerate(sorted(MYTHICS))) + [(len(MYTHICS) + i, m) for i, m in enumerate(sorted(NEW_MYTHICS))]
+    for n, mid in numbered:
         img = Image.new('RGBA', (16, 16), (0, 0, 0, 0))
         for y in range(16):
             for x in range(16):

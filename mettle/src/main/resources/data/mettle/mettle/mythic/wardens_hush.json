@@ -13,5 +13,8 @@
 	},
 	"source": "world_first",
 	"trigger": "first_warden",
-	"icon": "mettle:textures/gui/mythic/wardens_hush.png"
+	"icon": "mettle:textures/gui/mythic/wardens_hush.png",
+	"epithet": {
+		"translate": "mettle.mythic.wardens_hush.epithet"
+	}
 }

@@ -12,7 +12,10 @@
 			"description": {
 				"translate": "mettle.keyword.iron.set.2"
 			},
-			"behaviour": "mettle:set_iron_2"
+			"behaviour": "mettle:set_iron_2",
+			"summary": {
+				"translate": "mettle.keyword.iron.set.2.summary"
+			}
 		},
 		"4": {
 			"description": {
@@ -24,13 +27,19 @@
 					"amount": 1.0,
 					"operation": "add_value"
 				}
-			]
+			],
+			"summary": {
+				"translate": "mettle.keyword.iron.set.4.summary"
+			}
 		},
 		"6": {
 			"description": {
 				"translate": "mettle.keyword.iron.set.6"
 			},
-			"behaviour": "mettle:set_iron_6"
+			"behaviour": "mettle:set_iron_6",
+			"summary": {
+				"translate": "mettle.keyword.iron.set.6.summary"
+			}
 		}
 	}
 }

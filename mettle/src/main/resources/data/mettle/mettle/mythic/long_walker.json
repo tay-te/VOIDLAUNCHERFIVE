@@ -13,5 +13,8 @@
 	},
 	"source": "deed",
 	"trigger": "walk_100km",
-	"icon": "mettle:textures/gui/mythic/long_walker.png"
+	"icon": "mettle:textures/gui/mythic/long_walker.png",
+	"epithet": {
+		"translate": "mettle.mythic.long_walker.epithet"
+	}
 }
