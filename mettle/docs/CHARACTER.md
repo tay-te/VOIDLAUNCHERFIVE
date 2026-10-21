@@ -13,6 +13,12 @@ Perk decks (the trees)     ← 4 tiers; a tier opens at a skill level, the gover
 Character level (1–50)     ← all skill XP added together
 ```
 
+> **Approved 2026-10-21 ([BUILD_FEEL.md](BUILD_FEEL.md) §13–§14, not built):** a third layer, **Talents**, sits between
+> attributes and skill decks: 2–5 general, keyword-free cards (Hardy, Broad Shoulders, Lucky…) from a talent draft at
+> character level 3 and every 4 levels, changed freely after a night's sleep; the five general feats become earned
+> talents. **Stealth** and **Speech** are the next released skills, with full trees there (the Rogue and Merchant
+> backgrounds already favour them).
+
 ---
 
 ## 1. Backgrounds
@@ -236,7 +242,7 @@ else is a behaviour.
 | III | **Master Temper** — diamond and netherite gear you craft or upgrade lasts 25 % longer. · **Steady Anvil** — anvils never wear down when you use them. · **Keen Edge** — swords and axes you craft deal +1 damage. |
 | IV | **Masterwork** — one in ten things you craft is Masterwork: +1 to its main stat and a gold name. · **Artisan** — gear you craft sells for 50 % more in towns (with villagers: one more emerald). · **Clean Work** — anvil repairs never add the "prior work" cost. |
 
-### Wave 2 and 3 (headlines; full trees written before their phase)
+### Wave 2 and 3 (headlines; full trees written before their phase; Stealth and Speech: BUILD_FEEL.md §14)
 
 | Skill | Headline perks |
 |---|---|

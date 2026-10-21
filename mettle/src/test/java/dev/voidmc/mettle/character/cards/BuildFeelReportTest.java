@@ -608,7 +608,7 @@ class BuildFeelReportTest {
 		out.append("A **focused** character plays three main skills, two side skills at 30 % of their XP and three at 8 %: when the mains reach 20 the sides "
 			+ "are at about 12 and the dabbled ones at about 7, character level about 39. **Mid-game** is character level 20 (mains near 11).\n\n");
 
-		String sections = lever("bf.sections", "123456");
+		String sections = lever("bf.sections", "1234567");
 		// 1. Sets for focused and all-eight characters.
 		out.append("## 1. Sets: when they come (character level; share of careers that get there by the mains' skill 20)\n\n");
 		out.append("| Character · rules · player | first 2-set | first 4-set | first 6-set | a 4-set by mid-game (char 20) | a 6-set by 20 | own Focus: 4-set by mid-game · 6-set by 20 | boons: temper / inscribe / reroll |\n"
@@ -851,6 +851,10 @@ class BuildFeelReportTest {
 			out.append(servers(intLever("bf.servers", 200) / 2, 3));
 		}
 
+		if (sections.contains("7")) {
+			out.append(talentReport(intLever("bf.talentRuns", 400)));
+		}
+
 		String text = out.toString();
 		System.out.println(text);
 		Path file = Path.of("build", "reports", "mettle-build-feel.md");
@@ -986,6 +990,258 @@ class BuildFeelReportTest {
 					byDraw / n, byForge / n, left / n, 100 * dedicated / dedicatedN, 100 * maxed / (n * roster), maxedHeld / (n * roster), 100 * regular / regularN, legends / n));
 			}
 		}
+		return out.toString();
+	}
+
+	// ---------------------------------------------------------------- talents (docs/BUILD_FEEL.md §13)
+
+	/**
+	 * A talent: a general card with no keyword. {@code stat} names the §14 ceiling it adds to (movement, taken, drop) or
+	 * is null. Rolled talents roll a value by rarity as traits do (Common the low two thirds, Rare the whole range, Epic
+	 * the top two thirds); a fixed one has one rarity and is worth {@code fixedPoints}.
+	 */
+	record Talent(String id, String stat, double min, double max, double step, Rarity fixed, double fixedPoints) {
+		static Talent rolled(String id, String stat, double min, double max, double step) {
+			return new Talent(id, stat, min, max, step, null, 0);
+		}
+
+		static Talent fixed(String id, Rarity rarity, double points) {
+			return new Talent(id, null, 0, 0, 0, rarity, points);
+		}
+	}
+
+	static final List<Talent> TALENTS = List.of(
+		// Body
+		Talent.rolled("hardy", null, 0.5, 1.5, 0.5), Talent.rolled("iron_gut", null, 5, 15, 1), Talent.rolled("deep_lungs", null, 3, 8, 1),
+		Talent.rolled("quick_healer", null, 10, 25, 1), Talent.rolled("weathered_hide", "taken", 2, 4, 1), Talent.rolled("grit", "taken", 3, 6, 1),
+		Talent.rolled("cold_blood", null, 15, 30, 1), Talent.rolled("steady_nerves", null, 15, 30, 1),
+		// Motion
+		Talent.rolled("fleet", "movement", 2, 4, 1), Talent.rolled("climber", null, 10, 20, 1), Talent.rolled("sure_footed", null, 0.5, 1.5, 0.5),
+		Talent.rolled("strong_swimmer", null, 5, 10, 1), Talent.fixed("light_step", Rarity.RARE, 0.75),
+		// Hands
+		Talent.rolled("broad_shoulders", null, 2, 6, 1), Talent.rolled("long_arms", null, 0.25, 0.5, 0.05), Talent.rolled("careful_hands", null, 5, 12, 1),
+		Talent.rolled("quick_hands", null, 10, 25, 1), Talent.fixed("packrat", Rarity.EPIC, 1.0),
+		// Mind
+		Talent.rolled("quick_learner", null, 2, 5, 1), Talent.rolled("night_owl", null, 4, 8, 1), Talent.rolled("night_eyes", null, 10, 30, 1),
+		Talent.fixed("light_sleeper", Rarity.RARE, 0.75), Talent.rolled("homebody", null, 10, 20, 1),
+		// Fortune
+		Talent.rolled("lucky", null, 0.5, 1.5, 0.5), Talent.rolled("scavenger", "drop", 2, 5, 1), Talent.rolled("silver_tongue", null, 1, 3, 1));
+
+	/** Talent drafts at these character levels: 3, then every 4 (3, 7 … 47). */
+	static boolean talentDraftAt(int characterLevel) {
+		return characterLevel >= 3 && (characterLevel - 3) % 4 == 0;
+	}
+
+	/** Talent slots by character level: 2 from 3, 3 at 15, 4 at 27, 5 at 39. */
+	static int talentSlots(int characterLevel) {
+		return characterLevel < 3 ? 0 : characterLevel < 15 ? 2 : characterLevel < 27 ? 3 : characterLevel < 39 ? 4 : 5;
+	}
+
+	record TalentCard(Talent talent, Rarity rarity, double value) {
+		double points() {
+			return this.talent.fixed != null ? this.talent.fixedPoints : this.value / this.talent.max;
+		}
+	}
+
+	static TalentCard rollTalent(Talent t, int characterLevel, Random r) {
+		// Rarity odds by character level: Common 70 − 0.6 CL, Rare 24 + 0.4 CL, Epic 6 + 0.2 CL (40 / 44 / 16 at 50).
+		double roll = r.nextDouble() * 100;
+		Rarity rarity = roll < 70 - 0.6 * characterLevel ? Rarity.COMMON : roll < 94 - 0.2 * characterLevel ? Rarity.RARE : Rarity.EPIC;
+		if (t.fixed != null) {
+			return new TalentCard(t, t.fixed, 0);
+		}
+		double span = t.max - t.min;
+		double lo = rarity == Rarity.EPIC ? t.min + span / 3 : t.min;
+		double hi = rarity == Rarity.COMMON ? t.min + span * 2 / 3 : t.max;
+		double v = lo + r.nextDouble() * (hi - lo);
+		v = Math.max(lo, Math.min(hi, Math.floor(v / t.step + 1e-9) * t.step));
+		return new TalentCard(t, rarity, v);
+	}
+
+	/** The best talent deck from owned talent cards: one per talent, the most points (or the ceiling stats first). */
+	static List<TalentCard> talentDeck(List<TalentCard> owned, int slots, boolean ceilingChaser) {
+		List<TalentCard> sorted = new ArrayList<>(owned);
+		sorted.sort(Comparator.comparingDouble((TalentCard c) -> -(c.points() + (ceilingChaser && c.talent.stat != null ? 10 : 0))));
+		List<TalentCard> deck = new ArrayList<>();
+		Set<String> ids = new HashSet<>();
+		for (TalentCard c : sorted) {
+			if (deck.size() < slots && ids.add(c.talent.id)) {
+				deck.add(c);
+			}
+		}
+		return deck;
+	}
+
+	/** A career's talents: a draft at each talent level the character passes, keep the card that adds most. */
+	static List<TalentCard> talents(Char c, int upToCharacterLevel, long seed, boolean ceilingChaser) {
+		Random r = new Random(seed);
+		List<TalentCard> owned = new ArrayList<>();
+		int top = 0;
+		for (int m = 1; m <= 20; m++) {
+			top = Math.max(top, c.charLevelAt[m]);
+		}
+		for (int cl = 2; cl <= Math.min(top, upToCharacterLevel); cl++) {
+			if (!talentDraftAt(cl)) {
+				continue;
+			}
+			List<Talent> pool = new ArrayList<>(TALENTS);
+			List<TalentCard> hand = new ArrayList<>();
+			for (int i = 0; i < 3; i++) {
+				double total = 0;
+				double[] w = new double[pool.size()];
+				for (int j = 0; j < pool.size(); j++) {
+					String id = pool.get(j).id;
+					long copies = owned.stream().filter(o -> o.talent.id.equals(id)).count();
+					w[j] = CardRules.duplicateWeight((int) copies);
+					total += w[j];
+				}
+				double x = r.nextDouble() * total;
+				int pick = pool.size() - 1;
+				for (int j = 0; j < pool.size(); j++) {
+					x -= w[j];
+					if (x < 0) {
+						pick = j;
+						break;
+					}
+				}
+				hand.add(rollTalent(pool.remove(pick), cl, r));
+			}
+			int slots = talentSlots(cl);
+			TalentCard keep = hand.getFirst();
+			double best = Double.NEGATIVE_INFINITY;
+			for (TalentCard h : hand) {
+				List<TalentCard> with = new ArrayList<>(owned);
+				with.add(h);
+				double g = talentDeck(with, Math.max(slots, 5), ceilingChaser).stream().mapToDouble(t -> t.points() + (ceilingChaser && t.talent.stat != null ? 10 : 0)).sum();
+				if (g > best) {
+					best = g;
+					keep = h;
+				}
+			}
+			owned.add(keep);
+		}
+		return talentDeck(owned, talentSlots(Math.min(top, upToCharacterLevel)), ceilingChaser);
+	}
+
+	/** What a character's skill decks hold for the §14 ceilings (the same Build the game's {@code Ceilings} reads). */
+	static Ceilings.Build build(Char c) {
+		Map<String, Double> traits = new HashMap<>();
+		Map<Identifier, Integer> counts = new HashMap<>();
+		Map<Identifier, Set<ResourceKey<Skill>>> from = new HashMap<>();
+		Map<String, Perk> cursed = new HashMap<>();
+		for (Map.Entry<ResourceKey<Skill>, List<Owned>> e : c.decks.entrySet()) {
+			for (Owned o : e.getValue()) {
+				for (TraitRoll t : o.card.traits()) {
+					Trait def = TestCards.TRAITS.get(t.trait());
+					traits.merge(t.trait().getPath(), CardRules.effective(def, t.value(), a -> ATTRIBUTE), Double::sum);
+				}
+				for (Identifier k : o.card.keywords()) {
+					counts.merge(k, 1, Integer::sum);
+					from.computeIfAbsent(k, x -> new HashSet<>()).add(e.getKey());
+				}
+				Perk p = TestCards.def(o.card.perk());
+				if (p.kind() == Perk.Kind.CURSED) {
+					cursed.put(o.card.perk().identifier().getPath(), p);
+				}
+			}
+		}
+		traits.replaceAll((id, v) -> Math.min(v, CardRules.totalCap(TestCards.TRAITS.get(Identifier.fromNamespaceAndPath("mettle", id)))));
+		List<Identifier> ranked = new ArrayList<>(counts.keySet());
+		ranked.sort(Comparator.comparingInt((Identifier k) -> -c.tier(k, counts, from)).thenComparingInt(k -> -counts.get(k)));
+		Map<String, Integer> sets = new HashMap<>();
+		for (Identifier k : ranked.subList(0, Math.min(3, ranked.size()))) {
+			int t = c.tier(k, counts, from);
+			if (t > 0) {
+				sets.put(k.getPath(), t);
+			}
+		}
+		return new Ceilings.Build(traits, sets, Set.of(), cursed);
+	}
+
+	static double setPoints(Ceilings.Build b) {
+		return b.sets().values().stream().mapToDouble(t -> t >= 6 ? 5 : t >= 4 ? 2 : t >= 2 ? 0.5 : 0).sum();
+	}
+
+	static double talentStat(List<TalentCard> deck, String stat) {
+		return deck.stream().filter(t -> stat.equals(t.talent.stat)).mapToDouble(t -> t.value / 100).sum();
+	}
+
+	static String talentReport(int runs) {
+		StringBuilder out = new StringBuilder(String.format(Locale.ROOT, "%n## 7. Talents (%d careers a row; a talent = its value ÷ its max, fixed ones 0.75 Rare / 1 Epic)%n%n", runs));
+		out.append("**Pacing** (a focused character; hours at about 3,070 character XP an hour, PacingReportTest's per-skill rates over three mains, two sides and three dabbled):\n\n");
+		out.append("| Talent event | character level | the mains' skill then | about hours in |\n|---|---|---|---|\n");
+		Char probe = focused(PROPOSED, Policy.GUIDED, 1);
+		probe.play();
+		for (int cl : new int[] {3, 7, 11, 15, 19, 27, 31, 39, 47}) {
+			int mains = 0;
+			for (int m = 1; m <= 20; m++) {
+				if (probe.charLevelAt[m] >= cl) {
+					mains = m;
+					break;
+				}
+			}
+			String what = cl == 3 ? "first talent draft, 2 slots" : cl == 15 ? "3rd slot (draft at 15)" : cl == 27 ? "4th slot (draft at 27)" : cl == 39 ? "5th slot (draft at 39)" : "talent draft";
+			out.append(String.format(Locale.ROOT, "| %s | %d | %s | %.1f |%n", what, cl, mains == 0 ? "past 20 (the sides grow)" : Integer.toString(mains), Curves.characterXpFor(cl) / 3070.0));
+		}
+		out.append("\n**Power** (skill decks + the three active sets + talents, CARDS.md §14 points):\n\n");
+		out.append("| Character | character level | skill decks | sets | talents (slots) | talents' share of the whole |\n|---|---|---|---|---|---|\n");
+		String[] stats = {"movement", "taken", "drop"};
+		Ceilings.Stat[] ceil = {Ceilings.Stat.MOVEMENT, Ceilings.Stat.TAKEN, Ceilings.Stat.EXTRA_DROP};
+		StringBuilder ceilings = new StringBuilder("\n**The §14 ceilings** (the ceilings' own potential functions on each simulated character's real decks: traits, active sets, "
+			+ "cursed cards; no Mythics). Mean potential and the share of characters at the ceiling, without → with talents:\n\n"
+			+ "| Character · player | movement (+35 %) | damage taken (−45 %) | extra drops (+50 %) |\n|---|---|---|---|\n");
+		for (String kind : List.of("focused", "all-eight")) {
+			for (boolean chaser : new boolean[] {false, true}) {
+				double decks = 0;
+				double sets = 0;
+				double tal = 0;
+				double slots = 0;
+				double cls = 0;
+				double[][] mean = new double[3][2];
+				int[][] at = new int[3][2];
+				for (int run = 0; run < runs; run++) {
+					Char c = "focused".equals(kind) ? focused(PROPOSED, Policy.GUIDED, run)
+						: new Char(PROPOSED, Policy.GUIDED, null, new ArrayList<>(SKILLS), ALL_EIGHT, new Random(run * 1_000_003L + 5).nextLong(), 3);
+					c.play();
+					int cl = c.charLevelAt[20];
+					List<TalentCard> deck = talents(c, cl, run * 31L + 7, chaser);
+					cls += cl;
+					slots += talentSlots(cl);
+					for (List<Owned> d : c.decks.values()) {
+						decks += d.stream().mapToDouble(o -> CardReportTest.points(o.card)).sum();
+					}
+					Ceilings.Build b = build(c);
+					sets += setPoints(b);
+					tal += deck.stream().mapToDouble(TalentCard::points).sum();
+					Map<Ceilings.Stat, Double> pot = Ceilings.potential(b);
+					double move = pot.get(Ceilings.Stat.MOVEMENT);
+					double taken = pot.get(Ceilings.Stat.TAKEN);
+					double drop = pot.get(Ceilings.Stat.EXTRA_DROP);
+					double[] without = {move, taken, drop};
+					double[] with = {move + talentStat(deck, "movement"),
+						1 - (1 - taken) * (1 - talentStat(deck, "taken")), drop + talentStat(deck, "drop")};
+					for (int s = 0; s < 3; s++) {
+						mean[s][0] += without[s];
+						mean[s][1] += with[s];
+						at[s][0] += without[s] >= ceil[s].ceiling - 1e-9 ? 1 : 0;
+						at[s][1] += with[s] >= ceil[s].ceiling - 1e-9 ? 1 : 0;
+					}
+				}
+				double whole = decks + sets + tal;
+				out.append(String.format(Locale.ROOT, "| %s · %s | %.1f | %.1f | %.1f | %.1f (%.1f) | %.1f %% |%n", kind, chaser ? "ceiling chaser" : "points",
+					cls / runs, decks / runs, sets / runs, tal / runs, slots / runs, 100 * tal / whole));
+				ceilings.append(String.format(Locale.ROOT, "| %s · %s | +%.1f %% → +%.1f %% · %d → %d %% | −%.1f %% → −%.1f %% · %d → %d %% | +%.1f %% → +%.1f %% · %d → %d %% |%n", kind,
+					chaser ? "ceiling chaser" : "points", 100 * mean[0][0] / runs, 100 * mean[0][1] / runs, 100 * at[0][0] / runs, 100 * at[0][1] / runs,
+					100 * mean[1][0] / runs, 100 * mean[1][1] / runs, 100 * at[1][0] / runs, 100 * at[1][1] / runs, 100 * mean[2][0] / runs, 100 * mean[2][1] / runs,
+					100 * at[2][0] / runs, 100 * at[2][1] / runs));
+			}
+		}
+		double fleet = 0.04;
+		double taken = 1 - (1 - 0.04) * (1 - 0.06);
+		double drop = 0.05;
+		out.append(ceilings);
+		out.append(String.format(Locale.ROOT, "%nWorst case from talents alone (every ceiling talent at its Epic top): movement +%.0f %%, damage taken −%.1f %%, extra drops +%.0f %%; "
+			+ "the game's ceilings clamp the sum with the cards as they do today.%n", 100 * fleet, 100 * taken, 100 * drop));
 		return out.toString();
 	}
 

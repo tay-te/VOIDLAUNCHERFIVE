@@ -4,13 +4,14 @@
 `CardService` api and card events, built 2026-10-12 (§25); the Hearth card broker and Arsenal's tie-ins belong to those
 branches (INTEGRATION.md §1.4, §5).**
 
-> **Build feel (design approved 2026-10-20; first wave built 2026-10-21 in Mettle 0.3.0: [BUILD_FEEL.md](BUILD_FEEL.md) §12).** The next pass adds build
+> **Build feel (design approved 2026-10-20; first wave built 2026-10-21 in Mettle 0.3.0: [BUILD_FEEL.md](BUILD_FEEL.md) §15).** The next pass adds build
 > momentum (deals lean toward the keywords you have slotted and a chosen **Focus**, scaled by how scarce the keyword
 > is: §3.1's perk weight within its depth band and §3.4's second keyword), a **6 tier that wakes when two of its decks
 > reach skill 12** (§6.1), **bynames** from your build, odd-level **boons** (Temper a trait, Inscribe a keyword; new slot
 > rules: three tempered and one inscribed card a deck, §5.2), a hand preview of what a card does to your build, a
 > guided first draft, sixteen new drawn Mythics and **Mythic shards** that forge an unclaimed one (every Mythic stays
-> one of a kind, §9). Simulated: every committed 6-set lands at skill 12–17 (Tide 7 → 79 % by skill 20), power
+> one of a kind, deeds included, §9). Talents, a keyword-free third deck, and Stealth and Speech as card skills
+> (`SL`, `SP`) follow in BUILD_FEEL.md §13–§14. Simulated: every committed 6-set lands at skill 12–17 (Tide 7 → 79 % by skill 20), power
 > 1.11× → 1.12×.
 
 Builds on the perk draft
@@ -713,7 +714,9 @@ NPCs never sell cards of their own; the broker only lists players' cards.
 | **The Open Hand** | First to be Honoured in a Hearth city (without Hearth: first Hero of the Village) | Your Hearth market edge (BALANCE.md §9.2) also applies to allies within 8 blocks of you at a counter. |
 | **First of Masters** | First to bring any skill to 20 | **Mentor**: allies within 16 blocks gain skill XP 20 % faster in every skill where yours is higher than theirs. |
 
-**Legendary deeds** (anyone, once each; each copy is numbered: "the 3rd in this world"):
+**Legendary deeds** (anyone, once each; each copy is numbered: "the 3rd in this world"). *Approved 2026-10-21
+([BUILD_FEEL.md](BUILD_FEEL.md) §12): deed Mythics become one of a kind, the first to do the deed holds it; later
+achievers get 10 shards and the deed title; existing extra copies migrate to 30 shards and the title.*
 
 | Mythic | Earned by | Effect |
 |---|---|---|

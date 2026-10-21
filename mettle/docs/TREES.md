@@ -483,6 +483,10 @@ skill is in at least one.
 
 ## 12. General feats
 
+*Approved 2026-10-21 ([BUILD_FEEL.md](BUILD_FEEL.md) §13.2): these become **earned talents**, shown in the talent row
+and always on; how each is earned and what it grants don't change. Stealth's and Speech's trees are in BUILD_FEEL.md
+§14.*
+
 Not tied to one tree. They show in the character screen's feats strip (silhouette and hint until earned), and they
 grant something everyone can use.
 
