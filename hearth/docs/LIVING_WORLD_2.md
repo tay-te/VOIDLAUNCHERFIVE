@@ -724,8 +724,11 @@ it matters, and by standing title.
 Woodcutters felling, charcoal burners at kilns, shepherds moving flocks over Expanse pastures, miners walking to the
 Great Mine, boats at docks, stalls stocked with the town's real goods.
 
-**Status (lane A4, 2026-10-20): built**, but for the two steps that wait on other lanes (the handcarts and logs by cart
-need A1's cart entity; market-day stalls' wares need A2's stall callback; `requests/lwA4.md`). Where it lives:
+**Status (lane A4, 2026-10-21): built**, but for the one step that waits on another lane (market-day stalls' wares need
+A2's stall callback; `requests/lwA4.md`). The handcarts landed on A1's `hearth:cart` (A4 merged `hearth-lwA1`, so A1
+merges first): `npc/work/field/Handcarts` (haulers draw a handcart on hauls of `carts.min_haul` 16 blocks and more, 4 a
+town, 32 a server, through `LoadCaps`, swept when the hauler is gone), the logging camp's logs riding to the sawmill on
+its bed. Where it lives:
 `npc/work/field/*` — `RemoteSites` and `FieldSites` (sites from plots and territory, cached a sim hour), `Commute` and
 `FieldPlacement` (the record on the track or the meadow), `RemoteEmbodiment` (sites embodied on their own, from the
 embodiment manager every `sites.pass_ticks`), `Flocks` (sizes, kinds, `hearth:npc/flocks` losses), `Herds` (the beasts

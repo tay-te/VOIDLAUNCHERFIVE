@@ -1,6 +1,6 @@
 # Lane A4 (visible work, LIVING_WORLD_2.md §6): what landed, and what it asks of others
 
-From lane A4, 2026-10-20, branch `hearth-lwA4`.
+From lane A4, 2026-10-20 (updated 2026-10-21), branch `hearth-lwA4`.
 
 ## No new screens
 
@@ -12,10 +12,15 @@ Mine's pithead) or said aloud (barks in chat, `hearth_dialogue/barks/work.json`)
 | From | What | Where it plugs in | Status |
 |---|---|---|---|
 | **A2** daily rhythm | the stall callback in `social/life/Dressings`: when a market day sets a stall up (`setUpMarket`), tell listeners the stall's keeper, counter and customer cells and the shop's plot (a `Dressings.onStall(Consumer<StallSetUp>)` or the like) | `social/life/StallWares` lays wares on the market-day stalls' counters the same way it does for built counters (`StallWares.lay` takes the counter points; a market-day stall needs only its counter cell and the keeper's shop) | **not landed** (A2 commit 8b3d7a78 has laundry and winter dressings, no stall callback). TODO in `StallWares` ("market-day stalls"). |
-| **A1** roads and travellers | the cart entity (`hearth:cart`, registered from `npc/travel/Travel.init`) and a way to spawn one hitched to a folk or a draught animal | `npc/work/HaulerWork` (handcarts on the town's streets) and the logging camp's logs to the sawmill (`npc/work/ForesterWork` or a camp-to-sawmill haul) | **not landed** (A1 part 1, 0df39178, is the road network). TODO in `HaulerWork`. |
+| **A1** roads and travellers | the cart entity (`hearth:cart`, `npc/travel/cart/Carts`, `CartEntity.setup/hitchTo`) | `npc/work/HaulerWork` through `npc/work/field/Handcarts` (handcarts on the town's streets, the logging camp's logs to the sawmill) | **landed and used**: A4 merged `hearth-lwA1` at 9a230767 (A1 part 3 plus hearth), so **merge A1 into `hearth` before A4**. |
 
-When either lands, the step is small: A4's views are already caps-checked and noSave-tagged (`FieldWork.NO_SAVE`),
-and a cart can be tagged the same way.
+When A2's callback lands the step is small: `StallWares.lay` already takes counter points and is caps-checked and
+noSave-tagged (`FieldWork.NO_SAVE`).
+
+## Asked of A1
+
+- The handcart is drawn from behind (the cart trails its puller), which reads as a hauler pulling it; a pushed handcart
+  (cart ahead of the folk) would suit `Kind.HANDCART` better if A1 ever adds a "pushed" hitch.
 
 ## Asked of owners outside the lane (worked around meanwhile)
 

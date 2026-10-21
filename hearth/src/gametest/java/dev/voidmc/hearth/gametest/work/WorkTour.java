@@ -15,6 +15,9 @@ import dev.voidmc.hearth.npc.work.field.Boats;
 import dev.voidmc.hearth.npc.work.field.ClampCycle;
 import dev.voidmc.hearth.npc.work.field.Clamps;
 import dev.voidmc.hearth.npc.work.field.FieldSites;
+import dev.voidmc.hearth.npc.work.field.Handcarts;
+import dev.voidmc.hearth.npc.travel.cart.CartEntity;
+import dev.voidmc.hearth.npc.travel.cart.Carts;
 import dev.voidmc.hearth.npc.work.field.Herds;
 import dev.voidmc.hearth.npc.work.field.RemoteSites;
 import dev.voidmc.hearth.sim.LivingWorldStats;
@@ -102,8 +105,9 @@ public class WorkTour implements FabricClientGameTest {
 			leg("clamp", () -> clamp(context, world, town));
 			leg("boat", () -> boat(context, world, town));
 			leg("great mine", () -> greatMine(context, world, town));
+			leg("handcart", () -> handcart(context, world, town));
 			log("caps: " + world.getServer().computeOnServer(server -> "flock entities " + Herds.count() + " (cap 96), boats " + Boats.count()
-				+ " (cap 24), stall wares " + StallWares.count() + " (cap 1500); server " + String.format(Locale.ROOT, "%.2f",
+				+ " (cap 24), stall wares " + StallWares.count() + " (cap 1500), handcarts " + Handcarts.count() + " (cap 32); server " + String.format(Locale.ROOT, "%.2f",
 				dev.voidmc.hearth.sim.LoadCaps.mspt(server)) + " ms a tick"));
 			for (String line : world.getServer().computeOnServer(server -> LivingWorldStats.lines())) {
 				log("stats: " + line);
@@ -416,6 +420,49 @@ public class WorkTour implements FabricClientGameTest {
 		teleport(world, mine.getX() - 18.5, mine.getY() + 14, mine.getZ() - 18.5, -45, 25);
 		settle(context, 10_000);
 		context.takeScreenshot("hearth_work_great_mine");
+	}
+
+	/** A hauler drawing a handcart on the town's streets (lane A1's cart). */
+	private static void handcart(ClientGameTestContext context, TestSingleplayerContext world, Town t) {
+		timeTo(world, 3000);
+		teleport(world, t.center.getX() + 0.5, surface(world, t.center) + 24, t.center.getZ() + 0.5, 0, 70);
+		double[] view = null;
+		for (int i = 0; i < 90 && view == null; i++) {
+			settle(context, 1_000);
+			view = world.getServer().computeOnServer(server -> {
+				for (CartEntity c : server.overworld().getEntities(Carts.CART, e -> e.entityTags().contains(Handcarts.TAG))) {
+					if (c.puller() == null) {
+						continue;
+					}
+					log("handcart: " + c.kind() + " with " + c.load() + " at " + c.blockPosition().toShortString() + ", drawn by "
+						+ (c.puller() instanceof Folk f && f.brain() != null ? f.brain().resident.fullName() + " " + f.brain().describe() : "?"));
+					float yaw = c.getYRot();
+					double x = c.getX() + Math.sin(yaw * Mth.DEG_TO_RAD) * 7 + 3;
+					double z = c.getZ() - Math.cos(yaw * Mth.DEG_TO_RAD) * 7 + 3;
+					double dx = c.getX() - x;
+					double dz = c.getZ() - z;
+					return new double[]{x, c.getY() + 4, z, (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90F, 25};
+				}
+				return null;
+			});
+		}
+		if (view == null) {
+			log("handcart: none out in 90 s (" + world.getServer().computeOnServer(server -> {
+				int haulers = 0;
+				for (Folk f : NpcModule.embodiment().entities()) {
+					if (f.brain() != null && f.brain().resident.job == JobType.HAULER) {
+						haulers++;
+						log("handcart: hauler " + f.brain().resident.fullName() + " " + f.brain().describe());
+					}
+				}
+				return haulers + " haulers embodied";
+			}) + ")");
+			return;
+		}
+		teleport(world, view[0], view[1], view[2], (float) view[3], (float) view[4]);
+		settle(context, 1_500);
+		context.takeScreenshot("hearth_work_handcart");
+		log("handcart: " + world.getServer().computeOnServer(server -> Handcarts.count(t.id)) + " out for the town");
 	}
 
 	// ---------------------------------------------------------------- helpers
