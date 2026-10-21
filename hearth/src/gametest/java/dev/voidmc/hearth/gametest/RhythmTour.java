@@ -170,8 +170,6 @@ public class RhythmTour implements FabricClientGameTest {
 			settle(context, 25_000);
 			log("children: " + world.getServer().computeOnServer(server -> behaviours(server, town, PlayBehaviour.ID)));
 			shotAt(context, world, town, "hearth_rhythm_play", server -> folkCamera(server, town, PlayBehaviour.ID, 7));
-			// from here on the JIT is warm: the director's own time a town a pass, the stretch to the night watch
-			world.getServer().runOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector.resetTimes());
 
 			// a market day: the stalls go up on the square with their keepers' wares on the counters
 			world.getServer().runOnServer(server -> dev.voidmc.hearth.social.life.TownLife.force(settlement(server, town),
@@ -192,6 +190,8 @@ public class RhythmTour implements FabricClientGameTest {
 			settle(context, 6_000);
 			shotAt(context, world, town, "hearth_rhythm_smoke", server -> overview(server, town));
 			log("at supper: " + world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector.bench(server, 1000)));
+			// from here on the JIT is warm: the director's own time a town a pass, supper to the night watch
+			world.getServer().runOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector.resetTimes());
 
 			// a tavern night
 			timeTo(world, Schedule.dayTimeOf(19 * 60 + 10));
@@ -266,7 +266,7 @@ public class RhythmTour implements FabricClientGameTest {
 			shotAt(context, world, town, "hearth_rhythm_watch", server -> folkCamera(server, town, WatchRounds.ID, 5));
 			log("rhythm: " + world.getServer().computeOnServer(server -> String.join(" | ", Rhythm.stats())));
 			log("living world: " + String.join(" | ", LivingWorldStats.lines()));
-			log("warm stretch (market, smoke, tavern night, watch): " + world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector
+			log("warm stretch (supper smoke, tavern night, watch): " + world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector
 				.timesLine()));
 			log(world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector.bench(server, 1000)));
 

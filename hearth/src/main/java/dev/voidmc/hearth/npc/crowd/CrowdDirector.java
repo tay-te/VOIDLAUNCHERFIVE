@@ -64,7 +64,20 @@ public final class CrowdDirector {
 	private int tick;
 
 	/** The last full look at a player: their stimuli, where they stood, when, and whether anyone new reacted. */
-	private record Quiet(long stimuli, BlockPos at, long when, boolean fresh) {
+	private record Quiet(long stimuli, BlockPos at, long when, boolean fresh, Glance glance) {
+	}
+
+	/**
+	 * What can be seen of a player without asking anyone: the thing in hand, the armour, the last blows given and taken,
+	 * crouching, the dead of night, health in tenths. While it is unchanged so are their stimuli (the title and menace are
+	 * kept 15 s anyway; outlawry is looked at again within {@link #QUIET_TICKS}).
+	 */
+	private record Glance(net.minecraft.world.item.Item hand, int armour, int hurtBy, int hurt, boolean sneaking, boolean night, int health) {
+		static Glance of(ServerPlayer p, int minute) {
+			int health = p.getMaxHealth() <= 0 ? 10 : (int) (p.getHealth() * 10 / p.getMaxHealth());
+			return new Glance(p.getMainHandItem().getItem(), p.getArmorValue(), p.getLastHurtByMobTimestamp(), p.getLastHurtMobTimestamp(),
+				p.isShiftKeyDown(), minute >= 22 * 60 || minute < 5 * 60, health);
+		}
 	}
 
 	/** At most this long between full looks at a quiet player (a refreshed reaction holds 60 ticks). */
@@ -90,6 +103,7 @@ public final class CrowdDirector {
 	/** A player's standing or title moved somewhere: read them afresh on the next look. */
 	public void forget(UUID player) {
 		this.seen.remove(player);
+		this.quiet.remove(player);
 	}
 
 	/** The home plots with a child in them, for which women are mothers in a crowd. */
@@ -161,10 +175,15 @@ public final class CrowdDirector {
 			return;
 		}
 		long t0 = System.nanoTime();
+		long players0 = CrowdStats.PLAYER_PASSES.sum();
 		try {
 			pass(server, npc, cfg);
 		} finally {
 			long nanos = System.nanoTime() - t0;
+			long players = CrowdStats.PLAYER_PASSES.sum() - players0;
+			if (players > 0) {
+				CrowdStats.sample(nanos / players);
+			}
 			CrowdStats.DIRECTOR.add(nanos);
 			CrowdStats.DIRECTOR_NANOS.add(nanos);
 			CrowdStats.DIRECTOR_MAX.accumulateAndGet(nanos, Math::max);
@@ -215,6 +234,15 @@ public final class CrowdDirector {
 				Map<UUID, Role> roles = new HashMap<>();
 				for (ServerPlayer p : e.getValue()) {
 					CrowdStats.PLAYER_PASSES.increment();
+					// at a glance nothing has changed since the last look a moment ago, and nobody new reacted then: nothing to
+					// read (a player with nothing about them may walk on; one who drew notice must stand where they were)
+					Glance glance = Glance.of(p, minute);
+					Quiet q = this.quiet.get(p.getUUID());
+					if (q != null && !q.fresh && now - q.when < QUIET_TICKS && glance.equals(q.glance)
+						&& (q.stimuli == 0 && this.bodies.isEmpty() || q.at.closerThan(p.blockPosition(), 2))) {
+						CrowdStats.QUIET_SKIPS.increment();
+						continue;
+					}
 					long f0 = System.nanoTime();
 					PlayerFacts f = facts(p, s, level, now, minute);
 					CrowdStats.FACTS_NANOS.add(System.nanoTime() - f0);
@@ -224,7 +252,7 @@ public final class CrowdDirector {
 						this.outlawSeen.put(s.id(), now);
 					}
 					if (sensed.isEmpty()) {
-						this.quiet.remove(p.getUUID());
+						this.quiet.put(p.getUUID(), new Quiet(0, p.blockPosition(), now, false, glance));
 						continue;
 					}
 					// the same stimuli, the player where they were, nobody new reacting last time: the folk near have had their say
@@ -233,12 +261,11 @@ public final class CrowdDirector {
 					for (Stimuli.Sensed x : sensed) {
 						sig |= 1L << x.stimulus().ordinal();
 					}
-					Quiet q = this.quiet.get(p.getUUID());
 					if (q != null && q.stimuli == sig && !q.fresh && now - q.when < QUIET_TICKS && q.at.closerThan(p.blockPosition(), 2)) {
 						CrowdStats.QUIET_SKIPS.increment();
 						continue;
 					}
-					this.quiet.put(p.getUUID(), new Quiet(sig, p.blockPosition(), now, false));
+					this.quiet.put(p.getUUID(), new Quiet(sig, p.blockPosition(), now, false, glance));
 					long n0 = System.nanoTime();
 					List<CrowdSelector.Candidate> near = new ArrayList<>();
 					for (FolkHandle h : npc.folkNear(level, p.position(), RADIUS)) {
@@ -277,7 +304,7 @@ public final class CrowdDirector {
 					if (!a.refresh()) {
 						Quiet q = this.quiet.get(a.player());
 						if (q != null && !q.fresh) {
-							this.quiet.put(a.player(), new Quiet(q.stimuli, q.at, q.when, true));
+							this.quiet.put(a.player(), new Quiet(q.stimuli, q.at, q.when, true, q.glance));
 						}
 					}
 					ServerPlayer p = server.getPlayerList().getPlayer(a.player());

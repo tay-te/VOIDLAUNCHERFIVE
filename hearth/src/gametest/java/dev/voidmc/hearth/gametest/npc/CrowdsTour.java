@@ -191,18 +191,19 @@ public class CrowdsTour implements FabricClientGameTest {
 
 	/**
 	 * The crowds' cost with a warm JIT (docs/LIVING_WORLD_2.md §9.1: 20 us a player a pass): a stretch in the busiest street
-	 * with a blade and without, timed on its own, then the director's bench (each part of a look, and whole passes).
+	 * with a blade and without, timed on its own, after the director's bench (each part of a look, and whole passes).
 	 */
 	private static void bench(ClientGameTestContext context, TestSingleplayerContext world, BlockPos spot) {
 		stand(world, spot);
 		settle(context, 3_000);
+		// the bench first: its loops compile the director as a busy server's many players would, then the stretch in real time
+		log(world.getServer().computeOnServer(server -> Crowds.director().bench(server, 2000)));
 		world.getServer().runOnServer(server -> CrowdStats.resetTimes());
 		world.getServer().runCommand("item replace entity @a weapon.mainhand with iron_sword");
 		settle(context, 20_000);
 		world.getServer().runCommand("item replace entity @a weapon.mainhand with air");
 		settle(context, 20_000);
 		log("warm stretch (40 s in the busiest street, 20 s with a blade): " + CrowdStats.line());
-		log(world.getServer().computeOnServer(server -> Crowds.director().bench(server, 2000)));
 	}
 
 	/** A fight with a (tethered) pig before the player: the ring that gathers. */
@@ -499,7 +500,7 @@ public class CrowdsTour implements FabricClientGameTest {
 			for (Folk f : all) {
 				boolean far = true;
 				for (BlockPos t : taken) {
-					far &= !f.blockPosition().closerThan(t, 20);
+					far &= !f.blockPosition().closerThan(t, 12);
 				}
 				if (!far) {
 					continue;

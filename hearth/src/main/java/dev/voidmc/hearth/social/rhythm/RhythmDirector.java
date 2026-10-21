@@ -213,8 +213,36 @@ public final class RhythmDirector {
 			TOWN_PASSES.increment();
 			TOWN_NANOS.add(took);
 			TOWN_MAX.accumulateAndGet(took, Math::max);
+			sample(took);
 		}
 		TIMER.add(System.nanoTime() - t0);
+	}
+
+	/** The last {@code SAMPLES} passes' times (ns, a player's share), for the median: a mean on a busy machine is a few stalls. */
+	private static final int SAMPLES = 4096;
+	private static final long[] RING = new long[SAMPLES];
+	private static int ringNext;
+	private static int ringSize;
+
+	static synchronized void sample(long nanos) {
+		RING[ringNext] = nanos;
+		ringNext = (ringNext + 1) % SAMPLES;
+		ringSize = Math.min(SAMPLES, ringSize + 1);
+	}
+
+	/** The median and the 90th percentile of the sampled passes, in microseconds ({0, 0} with none). */
+	public static synchronized double[] percentiles() {
+		if (ringSize == 0) {
+			return new double[2];
+		}
+		long[] a = java.util.Arrays.copyOf(RING, ringSize);
+		java.util.Arrays.sort(a);
+		return new double[]{a[a.length / 2] / 1e3, a[Math.min(a.length - 1, a.length * 9 / 10)] / 1e3};
+	}
+
+	private static synchronized void resetSamples() {
+		ringNext = 0;
+		ringSize = 0;
 	}
 
 	/** A town's pass (one embodied town, every {@code pass_ticks}): how many, their time, the dearest (ns). */
@@ -227,13 +255,15 @@ public final class RhythmDirector {
 		TOWN_PASSES.reset();
 		TOWN_NANOS.reset();
 		TOWN_MAX.set(0);
+		resetSamples();
 	}
 
 	/** One line: a town's pass on average and at worst since the last reset. */
 	public static String timesLine() {
 		long n = TOWN_PASSES.sum();
-		return String.format(java.util.Locale.ROOT, "rhythm director: %d town passes, %.1f us avg, %.0f us the dearest", n, n == 0 ? 0.0 : TOWN_NANOS.sum() / 1e3 / n,
-			TOWN_MAX.get() / 1e3);
+		double[] p = percentiles();
+		return String.format(java.util.Locale.ROOT, "rhythm director: %d town passes, %.1f us avg, median %.1f us, p90 %.1f us, %.0f us the dearest", n,
+			n == 0 ? 0.0 : TOWN_NANOS.sum() / 1e3 / n, p[0], p[1], TOWN_MAX.get() / 1e3);
 	}
 
 	/**
