@@ -110,3 +110,11 @@ built; lanes keep shipping through conversation options until one is picked.
 | F5 | Reputation with burgher status per town and retinue ranks per lord | 712:47881 |
 | F6 | Contest line under the quest HUD (archery table, melee rounds) | 715:50448 |
 | F7 | Event line under the arrival banner | 715:50620 |
+
+## Living-world screens: decisions (user, 2026-10-21)
+
+From the "Hearth - Living world screens (explore)" section on 295:2 (PNGs in the scratchpad lwfig/): **Household B, the
+roster** (everyone in your service on the left, the selected companion or servant in full on the right); **People A, the
+list with story** (folk of note by town on the left, the selected character's story beats and choices on the right); and
+build the other five as designed: F1 conversation with a stranger, F3 companion gear, F5 retinue ranks and burgher status on
+the reputation page, F6 contest line HUD, F7 event line under the arrival banner. F8 (roads and posts on Atlas) is Atlas's.
