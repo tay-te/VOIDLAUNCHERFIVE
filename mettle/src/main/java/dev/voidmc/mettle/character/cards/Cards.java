@@ -78,6 +78,13 @@ public final class Cards {
 				Mettle.LOGGER.info("cards: {} cards left in trades went back to their owners", back);
 			}
 			Deeds.migrate(server);
+			Listings.lapse(server);
+		});
+		// Broker listings Hearth never closed (a board lost in a crash) go back after Listings.LAPSE_DAYS.
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+			if (server.overworld().getGameTime() % 24000L == 0) {
+				Listings.lapse(server);
+			}
 		});
 		dev.voidmc.mettle.api.MettleServices.setCards(CardApi.INSTANCE);
 		ServerPlayerEvents.JOIN.register(Cards::join);

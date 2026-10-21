@@ -24,14 +24,13 @@ abstract class VillagerMixin {
 		// Silver Tongue (a talent), without Hearth: villagers' prices X better (with Hearth it is market edge, MettlePrices).
 		double silver = dev.voidmc.mettle.compat.HearthLink.hearth() ? 0
 			: dev.voidmc.mettle.core.CardStore.get(player).trait(dev.voidmc.mettle.character.skill.StealthSkill.SILVER_TONGUE) / 100.0;
-		if (!coinSense && silver <= 0) {
-			return;
-		}
 		for (MerchantOffer offer : ((Villager) (Object) this).getOffers()) {
 			int cost = offer.getBaseCostA().getCount();
-			int cut = (coinSense ? Math.max(1, cost / 10) : 0) + (int) Math.round(cost * silver);
+			// Haggler (Speech) on dear offers, and Haggling without Hearth (docs/BUILD_FEEL.md §14.2).
+			int cut = (coinSense ? Math.max(1, cost / 10) : 0) + (int) Math.round(cost * silver)
+				+ dev.voidmc.mettle.character.skill.speech.SpeechHooks.villagerCut(player, cost);
 			if (cut > 0) {
-				offer.addToSpecialPriceDiff(-cut);
+				offer.addToSpecialPriceDiff(-Math.min(cut, cost - 1));
 			}
 		}
 	}

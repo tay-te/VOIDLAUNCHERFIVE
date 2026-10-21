@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:speech",
+	"kind": "root",
+	"tier": 1,
+	"ranks": 3,
+	"cost": 1,
+	"name": {
+		"translate": "mettle.perk.speech.glib"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.glib.description"
+	},
+	"rank_values": [
+		"1",
+		"2",
+		"3"
+	],
+	"order": 1
+}

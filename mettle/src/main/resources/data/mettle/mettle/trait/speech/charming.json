@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:speech",
+	"kind": "fortune",
+	"scope": "broad",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:standing_gain"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.charming"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.charming.description"
+	},
+	"requires": "hearth_bonus"
+}

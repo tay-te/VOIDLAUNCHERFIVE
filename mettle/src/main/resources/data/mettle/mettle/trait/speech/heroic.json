@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:speech",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 25,
+	"max": 50,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:hero_longer"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.heroic"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.heroic.description"
+	}
+}

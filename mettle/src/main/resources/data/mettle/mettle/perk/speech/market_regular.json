@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:speech",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.speech.market_regular"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.market_regular.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.speech.market_regular.hint"
+	},
+	"feat": {
+		"counter": "speech_market_regular",
+		"target": 200
+	},
+	"order": 16
+}

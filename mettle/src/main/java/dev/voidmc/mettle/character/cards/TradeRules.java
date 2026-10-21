@@ -26,7 +26,7 @@ public final class TradeRules {
 	/** Why a trade can't start, finish, or a card can't go in (lang {@code mettle.trade.refused.<name>}). */
 	public enum Refusal {
 		SELF, TOO_FAR, HURT, DEAD, BUSY, NO_REQUEST, NOT_TRADING, NOT_YOURS, SLOTTED, ATTUNING, IN_TRADE, TOO_MANY_CARDS, TOO_MANY_ITEMS,
-		NO_ROOM, BINDER_FULL, CANT_PAY, NOT_LOCKED, NO_COIN, EMPTY_HAND, BOUND;
+		NO_ROOM, BINDER_FULL, CANT_PAY, NOT_LOCKED, NO_COIN, EMPTY_HAND, BOUND, COIN_ROOM;
 
 		public String translationKey() {
 			return "mettle.trade.refused." + name().toLowerCase(Locale.ROOT);

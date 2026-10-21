@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:speech",
+	"kind": "path",
+	"tier": 2,
+	"path": "a",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.speech.appraiser"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.appraiser.description"
+	},
+	"order": 3
+}

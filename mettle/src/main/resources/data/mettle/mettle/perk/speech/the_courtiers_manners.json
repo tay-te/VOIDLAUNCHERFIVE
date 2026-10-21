@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:speech",
+	"kind": "teaching",
+	"name": {
+		"translate": "mettle.perk.speech.the_courtiers_manners"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.the_courtiers_manners.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.speech.the_courtiers_manners.hint"
+	},
+	"order": 19
+}

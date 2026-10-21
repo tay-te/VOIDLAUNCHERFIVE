@@ -81,8 +81,8 @@ tables against the copied enums and odds rule.
 | hunter | Marksmanship, Survival | Steppe Draw |
 | courier, hauler | Athletics | Courier's Stride (courier) |
 | healer | Survival | Poultice |
-| merchant, trader | Speech | — (no tree yet) |
-| fence | Thievery, Stealth | — (no trees yet) |
+| merchant, trader | Speech | The Courtier's Manners (merchant) |
+| fence | Thievery, Stealth | The Quiet Way (Stealth) |
 
 - **A lesson**: "Train Blades · 40 bits", hint "+N XP" (after the player's multipliers). Worth 40 % of the XP from the
   player's level to the next (so a lesson never makes a level on its own), through `Progress.award`. Once a sim day
@@ -139,6 +139,23 @@ option and coin fees (`HearthFees`), the Signature trait (forged goods sell for 
 set's 5 % market edge. For the broker's listing board Hearth can already read cards through `CardService` (the binder,
 `card(server, id)` with its `code`, rarity, keywords, traits and history) and watch `CARD_TRADED` / `MYTHIC_CLAIMED`
 (CARDS.md §25); moving a listed card between owners still needs request 7's hold, release and transfer.
+
+### 1.5 Requests 7–14 wired (Mettle 0.5.0, 2026-10-21)
+
+Hearth shipped requests 7–14 on branch `hearth` (ae4da055, merged b3224c30; Hearth's ARCHITECTURE.md §11 has its clamps).
+`src/hearthApi` carries `PlayerSkills`, `StandingEvents` and `VirtualGoods` verbatim and `EconomyService.canReceive` /
+`transfer`, `HearthServices.addVirtualGoods` / `virtualGoods`, `SettlementEvents.STANDING_CHANGED` and
+`StandingService.Title` with Hearth's signatures. `compat.HearthLink` reads what the running Hearth has, once at init, so
+an older Hearth jar keeps working with the fallbacks (docs/BUILD_FEEL.md §14, §18).
+
+| Request | Mettle's side |
+|---|---|
+| 7 virtual goods, the card broker | `compat.hearth.CardGoods` (kind `mettle:card`) over `character.cards.Listings`: escrow as ledger place `LISTED` (listing id, day), one sale with attunement and history for the buyer, release only of a listed card, committed with the ledger like a trade; listings Hearth never closed lapse after 14 days |
+| 8 coin between players | `HearthFees.transfer` → `EconomyService.transfer`; a trade whose coin the receiver can't hold is refused (`canReceive`, `COIN_ROOM`) |
+| 9 standing bands | `HearthStanding`: the first player Honoured (`HERO`) in a city earns The Open Hand |
+| 10, 14 titles | `MettlePlayerSkills.titles` (Mythics held) and `title` (a deed title, the byname or the legend title) |
+| 12 bonus keys | `MettlePlayerSkills.bonus`: Speech's and Stealth's keys from `SpeechRules` / `StealthRules`, one channel per effect (`compat.HearthChannels`, `compat.HearthKeys` = Hearth's `BONUS_*`) |
+| 13 check events | `HearthCheckEvents` → `HearthChecks`: Golden Mouth (checks won, full XP for a failure), with Market Regular from the haggle award |
 
 ## 2. Expanse
 

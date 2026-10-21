@@ -161,7 +161,8 @@ class BuildFeelRulesTest {
 		assertEquals(1.5, CardRules.perkLean(TIDE, commit("tide", 2), DATA), 1e-9);
 		assertEquals(1.0, CardRules.perkLean(BRUTAL, commit("brutal", 4), DATA), 1e-9);
 		assertEquals(1.0, CardRules.perkLean(CardRules.HEX, commit("hex", 4), DATA), 1e-9, "Hex never leans");
-		assertEquals(1 + 0.5 * 0.5 * 4, CardRules.keywordLean(TestCards.id("kin"), commit("kin", 4), DATA), 1e-9);
+		// Kin leans at a quarter since Speech shipped (BUILD_FEEL.md §18.3).
+		assertEquals(1 + 0.5 * 0.25 * 4, CardRules.keywordLean(TestCards.id("kin"), commit("kin", 4), DATA), 1e-9);
 		// The cap: ten Deep cards count as four.
 		List<CardData> deep = new ArrayList<>();
 		for (int i = 0; i < 10; i++) {

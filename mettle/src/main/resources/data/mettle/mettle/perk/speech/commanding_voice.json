@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:speech",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.speech.commanding_voice"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.commanding_voice.description"
+	},
+	"order": 8
+}

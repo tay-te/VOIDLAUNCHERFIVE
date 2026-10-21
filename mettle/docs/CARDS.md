@@ -661,6 +661,13 @@ display stack Hearth can draw. Hearth owns the listing board, prices, fees and t
 who are away. The asks are in [hearth/docs/requests/mettle-cards.md](../../hearth/docs/requests/mettle-cards.md).
 NPCs never sell cards of their own; the broker only lists players' cards.
 
+**Built (Mettle 0.5.0, Hearth ae4da055).** `compat.hearth.CardGoods` over `character.cards.Listings`: a listable card is
+the seller's own, in the binder, attuned and not a talent; listed, it waits in the ledger as `LISTED` (can't be slotted,
+traded, released or listed again); a sale moves it once, to a buyer with binder room (Mythics always fit), attuning
+for a day with its history passed on; a withdrawn or lapsed listing goes back only while still listed; each move is
+committed with the ledger at once, so a crash between Hearth's payment and the transfer leaves it unsold and a stale
+listing can never sell or take back a sold card. Cards listed 14 days come back on their own (BUILD_FEEL.md §18).
+
 ### 8.3 Attunement and history
 
 - A card received by trade or bought at a broker is **attuning** for one in-game day (24,000 server ticks, 20

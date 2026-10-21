@@ -104,7 +104,9 @@ final class HearthXp {
 			today[1] = 0;
 		}
 		double crowns = bits / (double) HearthRules.BITS_PER_CROWN;
-		double xp = HearthRules.tradeXp(today[1], crowns);
+		// Ledger-Keeper (Speech): business never tapers.
+		boolean ledger = dev.voidmc.mettle.character.Perks.has(player, dev.voidmc.mettle.character.skill.SpeechSkill.LEDGER_KEEPER);
+		double xp = ledger ? crowns * HearthRules.SPEECH_XP_PER_CROWN : HearthRules.tradeXp(today[1], crowns);
 		today[1] += crowns;
 		if (xp > 0) {
 			Progress.award(player, MettlePrices.SPEECH, xp);

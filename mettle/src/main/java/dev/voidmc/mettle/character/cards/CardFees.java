@@ -28,6 +28,11 @@ public interface CardFees {
 		return 0;
 	}
 
+	/** Whether the player can take this much coin without any dropping at their feet (Hearth's request 8). */
+	default boolean canReceive(ServerPlayer player, long bits) {
+		return true;
+	}
+
 	/** Moves coin from one player to another (a trade); false when it can't. */
 	default boolean transfer(ServerPlayer from, ServerPlayer to, long bits) {
 		return bits <= 0;

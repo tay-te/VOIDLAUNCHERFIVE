@@ -789,6 +789,14 @@ public final class CardRules {
 		return value * (1 + CardConfig.get().trait_boost_per_point * Math.max(0, attribute - CharacterAttribute.BASE));
 	}
 
+	/**
+	 * Whether a trait may be rolled now: always, unless it {@code requires} the loaded Hearth to read bonus keys
+	 * ({@link Trait#HEARTH_BONUS}) and it doesn't (docs/BUILD_FEEL.md §14: no card carries a dead trait).
+	 */
+	public static boolean rollable(Trait trait, boolean hearthBonus) {
+		return trait.requires().map(r -> !Trait.HEARTH_BONUS.equals(r) || hearthBonus).orElse(true);
+	}
+
 	/** One card's most for a trait: its max × the card-cap boost (a broad 12 % reaches 15 %). */
 	public static double cardCap(Trait trait) {
 		return round(trait.max() * CardConfig.get().card_cap_boost);
@@ -804,6 +812,9 @@ public final class CardRules {
 
 	/** One card's effective value for a trait, for this character: boosted, then capped at the card cap. */
 	public static double effective(Trait trait, double rolled, Attributes attributes) {
+		if (!trait.boosted()) {
+			return Math.min(cardCap(trait), round(rolled));
+		}
 		return Math.min(cardCap(trait), round(boost(rolled, attributes.value(trait.kind().attribute))));
 	}
 
@@ -1320,7 +1331,8 @@ public final class CardRules {
 			if (known.test(c.id()) || !c.owner().equals(player)) {
 				dropped.add(c.id());
 			} else {
-				adopted.add(c.place().kind() == CardData.PlaceKind.TRADE ? c.withPlace(CardData.Place.BINDER) : c);
+				// A card the ledger lost while in a trade or listed at a broker comes back to the binder.
+				adopted.add(c.place().kind() == CardData.PlaceKind.TRADE || c.place().kind() == CardData.PlaceKind.LISTED ? c.withPlace(CardData.Place.BINDER) : c);
 			}
 		}
 		dropped.sort(Long::compare);

@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:speech",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "b",
+	"name": {
+		"translate": "mettle.perk.speech.voice_of_the_realm"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.voice_of_the_realm.description"
+	},
+	"order": 12
+}

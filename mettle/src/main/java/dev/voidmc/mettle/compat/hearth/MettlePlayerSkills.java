@@ -10,6 +10,7 @@ import dev.voidmc.mettle.api.Skill;
 import dev.voidmc.mettle.character.Perks;
 import dev.voidmc.mettle.character.Progress;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
+import dev.voidmc.mettle.character.skill.SpeechSkill;
 import dev.voidmc.mettle.character.skill.StealthSkill;
 import dev.voidmc.mettle.core.CharacterState;
 import dev.voidmc.mettle.core.CharacterStore;
@@ -29,8 +30,9 @@ import org.jspecify.annotations.Nullable;
  */
 final class MettlePlayerSkills implements PlayerSkills {
 	/**
-	 * The level Hearth reads: Stealth's is its effective level (Shadow, and the fallbacks while this Hearth reads no bonus
-	 * keys; docs/BUILD_FEEL.md §14), at most 20; every other skill its plain level.
+	 * The level Hearth reads: Stealth's and Speech's are their effective levels (the perks, traits and Teachings that
+	 * count higher wherever Hearth reads them, and the fallbacks while this Hearth reads no bonus keys; docs/BUILD_FEEL.md
+	 * §14), at most 20; every other skill its plain level.
 	 */
 	@Override
 	public int level(ServerPlayer player, String skill) {
@@ -38,13 +40,30 @@ final class MettlePlayerSkills implements PlayerSkills {
 		if (key == null) {
 			return UNKNOWN_LEVEL;
 		}
-		return key.equals(StealthSkill.STEALTH) ? StealthSkill.effectiveLevel(player) : CharacterStore.get(player).level(key);
+		return effective(player, key);
 	}
 
-	/** Request 12: Mettle's bonus at one of Hearth's decision points (Stealth's keys today; 0 for any other key). */
+	static int effective(ServerPlayer player, ResourceKey<Skill> key) {
+		if (key.equals(StealthSkill.STEALTH)) {
+			return StealthSkill.effectiveLevel(player);
+		}
+		if (key.equals(SpeechSkill.SPEECH)) {
+			return SpeechSkill.effectiveLevel(player);
+		}
+		return CharacterStore.get(player).level(key);
+	}
+
+	/**
+	 * Request 12: Mettle's bonus at one of Hearth's decision points ({@code PlayerSkills.BONUS_*}): Speech's haggling,
+	 * speech-check, retry, standing and greeting keys and Stealth's sight, give-up, unseen-beyond and pickpocket keys; 0 for
+	 * any other. Each effect answers here or through {@link #level} / {@link #attribute}, never both (HearthChannels).
+	 */
 	@Override
 	public double bonus(ServerPlayer player, String key) {
-		return StealthSkill.bonus(player, key);
+		if (key.startsWith("hearth:stealth/") || key.startsWith("hearth:pickpocket/")) {
+			return StealthSkill.bonus(player, key);
+		}
+		return SpeechSkill.bonus(player, key);
 	}
 
 	/**
@@ -81,6 +100,10 @@ final class MettlePlayerSkills implements PlayerSkills {
 		if (a == null) {
 			return UNKNOWN_ATTRIBUTE;
 		}
+		if (a == CharacterAttribute.PRESENCE) {
+			// Commanding Voice, Voice of the Realm, Demagogue, The Courtier's Manners (and Charmer's fallback): at most 20.
+			return SpeechSkill.effectivePresence(player);
+		}
 		CharacterState state = CharacterStore.get(player);
 		return state.attribute(a, CharacterStore.background(player.level().registryAccess(), state));
 	}
@@ -105,8 +128,9 @@ final class MettlePlayerSkills implements PlayerSkills {
 		CharacterState state = CharacterStore.get(player);
 		Background background = CharacterStore.background(player.level().registryAccess(), state);
 		Skill s = player.level().registryAccess().lookupOrThrow(MettleRegistries.SKILL).getValueOrThrow(key);
-		int level = key.equals(StealthSkill.STEALTH) ? StealthSkill.effectiveLevel(player) : state.level(key);
-		return HearthRules.checkOdds(level, state.attribute(s.attribute(), background), difficulty);
+		int level = effective(player, key);
+		int attribute = s.attribute() == CharacterAttribute.PRESENCE ? SpeechSkill.effectivePresence(player) : state.attribute(s.attribute(), background);
+		return HearthRules.checkOdds(level, attribute, difficulty);
 	}
 
 	/**
@@ -125,7 +149,11 @@ final class MettlePlayerSkills implements PlayerSkills {
 		if (reason.startsWith("hearth:law/unseen/") && !player.isCreative()) {
 			dev.voidmc.mettle.character.FeatCounters.add(player, StealthSkill.NEVER_SEEN_COUNTER, dev.voidmc.mettle.character.skill.stealth.StealthRules.NEVER_SEEN_CRIME);
 		}
-		Progress.award(player, key, xp);
+		double base = xp;
+		if (key.equals(SpeechSkill.SPEECH)) {
+			base = HearthChecks.awarded(player, reason, xp);
+		}
+		Progress.award(player, key, base);
 	}
 
 	/** A registered Mettle skill by id, or null. */

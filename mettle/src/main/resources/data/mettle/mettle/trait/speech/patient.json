@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:speech",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 5,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:haggle_patience"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.patient"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.patient.description"
+	},
+	"requires": "hearth_bonus"
+}

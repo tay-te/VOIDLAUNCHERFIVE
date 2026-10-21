@@ -132,7 +132,7 @@ class CardAuditTest {
 	@Test
 	void everyTraitIsWiredAndSized() {
 		List<Executable> checks = new ArrayList<>();
-		assertEquals(134, TestCards.TRAITS.size(), "CARDS.md §4.2 lists 120 traits, BUILD_FEEL.md §14.1 Stealth's 14");
+		assertEquals(148, TestCards.TRAITS.size(), "CARDS.md §4.2 lists 120 traits, BUILD_FEEL.md §14.1 Stealth's 14 and §14.2 Speech's 14");
 		TestCards.TRAITS.forEach((id, t) -> {
 			String path = id.getPath();
 			checks.add(text(path + " name", t.name(), false));
@@ -150,7 +150,10 @@ class CardAuditTest {
 				checks.add(() -> assertTrue(SOURCES.contains("\"" + path + "\""), path + ": behaviour trait never read in code (no \"" + path + "\" in src/main)"));
 			}
 			// §4.1: broad ≤ 12 % rolled, narrow ≤ 25 %; a card's cap is max × 1.25, one trait's total twice that.
-			if (t.percent()) {
+			// Speech's Heroic (Hero of the Village's length) and Coinwise (coins' weight) are no power: BUILD_FEEL.md §14.2
+			// gives them 25–50 % and 20–40 %.
+			boolean exempt = path.equals("speech/heroic") || path.equals("speech/coinwise");
+			if (t.percent() && !exempt) {
 				double limit = t.scope() == Trait.Scope.BROAD ? 12 : 25;
 				checks.add(() -> assertTrue(t.max() <= limit, path + ": max " + t.max() + " over the " + t.scope() + " limit " + limit));
 			}
@@ -159,7 +162,9 @@ class CardAuditTest {
 			checks.add(() -> assertEquals(CardRules.round(t.max() * 1.25 * 2), CardRules.totalCap(t), 1e-9, path + ": total cap"));
 			// The value the tooltip prints for a viewer at 20 is the value the server applies (CardRules.effective both sides).
 			CardRules.Attributes twenty = a -> 20;
-			checks.add(() -> assertEquals(Math.min(CardRules.cardCap(t), CardRules.round(t.max() * 1.255)), CardRules.effective(t, t.max(), twenty), 1e-9,
+			// Whole-level traits (Speech's Persuasive and Shrewd) are never boosted.
+			double boosted = t.boosted() ? CardRules.round(t.max() * 1.255) : t.max();
+			checks.add(() -> assertEquals(Math.min(CardRules.cardCap(t), boosted), CardRules.effective(t, t.max(), twenty), 1e-9,
 				path + ": boosted value"));
 		});
 		assertAll(checks);
@@ -237,7 +242,8 @@ class CardAuditTest {
 				coded.add(k.identifier().getPath());
 			}
 		});
-		assertEquals(Set.of("marksmanship/heavy_draw", "marksmanship/snap_shot", "smithing/brittle_edge", "smithing/slapdash", "stealth/cowards_edge"),
+		assertEquals(Set.of("marksmanship/heavy_draw", "marksmanship/snap_shot", "smithing/brittle_edge", "smithing/slapdash", "stealth/cowards_edge",
+			"speech/honeyed_lies", "speech/demagogue"),
 			Set.copyOf(coded),
 			"the cursed cards with no attribute effect at all");
 		assertAll(

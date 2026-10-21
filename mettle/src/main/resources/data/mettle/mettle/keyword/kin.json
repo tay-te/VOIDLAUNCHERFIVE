@@ -36,5 +36,5 @@
 			}
 		}
 	},
-	"momentum": 0.5
+	"momentum": 0.25
 }

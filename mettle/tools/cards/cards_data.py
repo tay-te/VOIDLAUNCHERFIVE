@@ -188,6 +188,25 @@ TRAITS = {
         ('unseen', 'Unseen', "Hearth's witnesses see you %s nearer (until Hearth reads it: your Stealth counts 1 higher at night).", 5, 12, 1, P, FIN, B, beh('witness_sight'), None),
         ('lootfinger', 'Lootfinger', 'Mobs you kill unseen drop one more of their loot %s of the time.', 3, 8, 1, P, FOR, N, beh('unseen_loot'), None),
     ],
+    # Speech (BUILD_FEEL.md §14.2). A twelfth field adds data: 'requires' (rolled only while the loaded Hearth reads bonus
+    # keys) and 'boosted' (whole-level traits are not boosted by their attribute).
+    'speech': [
+        ('haggling', 'Haggling', "Your market edge at Hearth +%s (without Hearth: villagers' prices that much better).", 1, 3, 1, P, FOR, B, beh('market_edge'), None),
+        ('persuasive', 'Persuasive', 'Your Speech counts %s higher wherever Hearth reads it.', 1, 2, 1, F, FOR, B, beh('speech_levels'), None, {'boosted': False}),
+        ('appraising', 'Appraising', 'Tools, weapons and armour sell %s dearer at Hearth markets.', 3, 8, 1, P, FOR, N, beh('gear_sells_dearer'), None),
+        ('provisioning', 'Provisioning', 'Food and drink cost %s less at Hearth markets.', 3, 8, 1, P, FOR, N, beh('food_cheaper'), None),
+        ('charming', 'Charming', 'Reputation you gain with Hearth folk +%s.', 5, 12, 1, P, FOR, B, beh('standing_gain'), None, {'requires': 'hearth_bonus'}),
+        ('imposing', 'Imposing', 'Your odds to intimidate Hearth folk +%s.', 3, 8, 1, P, MIGHT, N, beh('intimidate_odds'), None, {'requires': 'hearth_bonus'}),
+        ('smooth', 'Smooth', 'Your odds to persuade and flatter Hearth folk +%s.', 3, 8, 1, P, FOR, N, beh('persuade_odds'), None, {'requires': 'hearth_bonus'}),
+        ('patient', 'Patient', "A Hearth merchant's patience with you +%s.", 5, 15, 1, P, END, N, beh('haggle_patience'), None, {'requires': 'hearth_bonus'}),
+        ('shrewd', 'Shrewd', "You read a Hearth merchant's limit band as if your Speech were %s higher.", 1, 3, 1, F, FOR, N, beh('haggle_band'), None,
+         {'requires': 'hearth_bonus', 'boosted': False}),
+        ('bartering', 'Bartering', 'Piglins give one more item %s of the time.', 5, 12, 1, P, FOR, N, beh('barter_extra'), None),
+        ('gregarious', 'Gregarious', 'Speech XP +%s.', 5, 12, 1, P, FOR, B, beh('speech_xp'), None),
+        ('rallying', 'Rallying', 'Allies within 8 blocks gain %s more skill XP.', 2, 5, 1, P, FOR, B, beh('ally_xp'), None),
+        ('heroic', 'Heroic', 'Hero of the Village lasts %s longer.', 25, 50, 1, P, FOR, N, beh('hero_longer'), None),
+        ('coinwise', 'Coinwise', 'Coins you carry weigh %s less.', 20, 40, 1, P, MIGHT, N, beh('coin_lighter'), None),
+    ],
 }
 
 KEYWORDS = {
@@ -385,7 +404,7 @@ EPITHETS = {
 }
 
 # How much each keyword leans the deal toward it (BUILD_FEEL.md §1.2): the scarce ones most, the common ones not at all.
-MOMENTUM = {'tide': 1.0, 'deep': 0, 'kin': 0.5, 'warden': 0.5, 'gale': 0.25, 'echo': 0.25}
+MOMENTUM = {'tide': 1.0, 'deep': 0, 'kin': 0.25, 'warden': 0.5, 'gale': 0.25, 'echo': 0.25}
 
 # Each set tier in plain words, for "Your build" (BUILD_FEEL.md §2.3).
 SUMMARY = {
@@ -421,6 +440,7 @@ BYNAME_SKILLS = {
     'survival': ('walker', 'Strider', 'One at home in the wild.'),
     'smithing': ('smith', 'Smith', 'One who makes what others carry.'),
     'stealth': ('shade', 'Shadow', 'One who is never seen coming.'),
+    'speech': ('tongue', 'Envoy', 'One whose word opens doors.'),
 }
 BYNAME_PAIRS = {
     ('mining', 'blades'): ('Undercutter', 'A miner who fights in close.'),
@@ -459,6 +479,15 @@ BYNAME_PAIRS = {
     ('athletics', 'stealth'): ('Footpad', 'Quick feet, quiet feet.'),
     ('survival', 'stealth'): ('Poacher', 'A hunter the woods never hear.'),
     ('smithing', 'stealth'): ('Locksmith', 'One who makes the tools of quiet work.'),
+    ('mining', 'speech'): ('Assayer', 'A miner who knows what the ore is worth.'),
+    ('blades', 'speech'): ('Courtblade', 'A courtier who carries a blade.'),
+    ('heavy_weapons', 'speech'): ('Enforcer', 'A heavy hand behind a soft word.'),
+    ('marksmanship', 'speech'): ('Huntmaster', 'One who leads the hunt and speaks for it.'),
+    ('defense', 'speech'): ('Castellan', 'One who keeps the gate and the peace.'),
+    ('athletics', 'speech'): ('Caravan Master', 'One who keeps the road and the trade moving.'),
+    ('survival', 'speech'): ('Tavern-Keeper', 'One whose fire feeds the town.'),
+    ('smithing', 'speech'): ('Guildmaster', 'A maker who sells what they make.'),
+    ('stealth', 'speech'): ('Spymaster', 'A soft word and a hidden hand.'),
 }
 
 
@@ -500,6 +529,10 @@ SKILLS = {
         'soft_step': 'swift', 'shadow': 'deep', 'quiet_feet': 'gale', 'cloak_of_dusk': 'deep', 'vanish': 'echo', 'silent_fall': 'gale',
         'ambusher': 'keen', 'hamstring': 'keen', 'unseen_blade': 'echo', 'poisoner': 'wild', 'ghost': 'deep', 'shadowstep': 'swift',
         'assassin': 'keen', 'skulker': 'hex', 'cowards_edge': 'hex'}),
+    'speech': ('SP', ['kin', 'hoard', 'keen', 'warden', 'ember'], {
+        'haggler': 'hoard', 'glib': 'kin', 'provisioner': 'ember', 'appraiser': 'keen', 'ledger_keeper': 'hoard', 'shrewd_eye': 'keen',
+        'charmer': 'kin', 'barterer': 'hoard', 'commanding_voice': 'kin', 'second_word': 'echo', 'merchant_prince': 'hoard',
+        'heros_welcome': 'warden', 'voice_of_the_realm': 'kin', 'honeyed_lies': 'hex', 'demagogue': 'hex'}),
 }
 
 # 9 × 9 glyphs, one per keyword: '#' ink, '.' clear. Drawn small and plain; the name always sits beside it.
@@ -537,10 +570,13 @@ def main():
     for sub in ('trait', 'keyword', 'card_skill', 'mythic', 'byname'):
         shutil.rmtree(os.path.join(DATA, sub), ignore_errors=True)
     for skill, traits in TRAITS.items():
-        for (tid, name, desc, lo, hi, step, unit, kind, scope, effect, arsenal) in traits:
+        for t in traits:
+            (tid, name, desc, lo, hi, step, unit, kind, scope, effect, arsenal) = t[:11]
+            extra = t[11] if len(t) > 11 else {}
             key = 'mettle.trait.%s.%s' % (skill, tid)
             obj = {'skill': 'mettle:' + skill, 'kind': kind, 'scope': scope, 'min': lo, 'max': hi, 'step': step, 'unit': unit,
                    'effect': effect, 'name': comp(key), 'description': comp(key + '.description')}
+            obj.update(extra)
             lang[key] = name
             lang[key + '.description'] = desc
             if arsenal:

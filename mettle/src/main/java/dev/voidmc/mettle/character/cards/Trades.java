@@ -371,6 +371,11 @@ public final class Trades {
 		return STAND_INS.containsKey(id);
 	}
 
+	/** A player in the player list, or a test's registered stand-in; null when neither. */
+	public static @Nullable ServerPlayer present(MinecraftServer server, UUID id) {
+		return player(server, id);
+	}
+
 	private static @Nullable ServerPlayer player(MinecraftServer server, UUID id) {
 		ServerPlayer p = server.getPlayerList().getPlayer(id);
 		return p != null ? p : STAND_INS.get(id);
@@ -400,6 +405,10 @@ public final class Trades {
 		CardFees fees = Rebuilds.fees();
 		if (room.isEmpty() && (fees.balance(a) < s.a.coin || fees.balance(b) < s.b.coin)) {
 			room = Optional.of(TradeRules.Refusal.CANT_PAY);
+		}
+		// Coin that wouldn't fit the receiver's pouches would drop at their feet: refuse the trade instead (request 8).
+		if (room.isEmpty() && (s.a.coin > 0 && !fees.canReceive(b, s.a.coin) || s.b.coin > 0 && !fees.canReceive(a, s.b.coin))) {
+			room = Optional.of(TradeRules.Refusal.COIN_ROOM);
 		}
 		if (room.isPresent()) {
 			unlock(server, s, room.get().translationKey());

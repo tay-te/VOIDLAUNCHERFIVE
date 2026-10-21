@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:speech",
+	"kind": "fortune",
+	"scope": "broad",
+	"min": 2,
+	"max": 5,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:ally_xp"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.rallying"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.rallying.description"
+	}
+}

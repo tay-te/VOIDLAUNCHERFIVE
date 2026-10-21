@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:speech",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.speech.caravan_master"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.caravan_master.description"
+	},
+	"synergy": {
+		"mettle:speech": 10,
+		"mettle:athletics": 10
+	},
+	"order": 17
+}

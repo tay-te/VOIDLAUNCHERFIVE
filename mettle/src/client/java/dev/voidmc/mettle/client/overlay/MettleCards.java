@@ -115,6 +115,16 @@ public final class MettleCards {
 		binder.add("cards", all);
 		root.add("binder", binder);
 
+		// The Hearth card broker (CARDS.md §8.2, Hearth's request 7): Hearth's screen lists and buys; this says what may go.
+		JsonObject broker = new JsonObject();
+		broker.addProperty("available", dev.voidmc.mettle.compat.HearthLink.broker());
+		broker.addProperty("kind", dev.voidmc.mettle.character.cards.Listings.KIND);
+		broker.addProperty("listed", cards.cards().stream().filter(dev.voidmc.mettle.character.cards.Listings::listed).count());
+		broker.addProperty("listable", cards.cards().stream().filter(c -> dev.voidmc.mettle.character.cards.Listings.canList(c, player.getUUID(), now).isEmpty()).count());
+		broker.addProperty("lapseDays", dev.voidmc.mettle.character.cards.Listings.LAPSE_DAYS);
+		broker.addProperty("attuneTicks", config.attune_ticks);
+		root.add("broker", broker);
+
 		Registry<Skill> skills = registries.lookupOrThrow(MettleRegistries.SKILL);
 		JsonArray decks = new JsonArray();
 		skills.listElements().filter(r -> r.value().released()).sorted(Comparator.comparingInt(r -> r.value().order())).forEach(ref ->
@@ -353,6 +363,13 @@ public final class MettleCards {
 		o.addProperty("attuned", attuned);
 		o.addProperty("attuningMinutes", attuned ? 0 : (int) Math.ceil((c.attunedAt() - now) / 1200.0));
 		o.addProperty("place", c.place().kind().getSerializedName());
+		// The Hearth card broker (CARDS.md §8.2): a listed card's listing id and the day it went up; whether it may be listed.
+		if (dev.voidmc.mettle.character.cards.Listings.listed(c)) {
+			o.addProperty("listing", String.valueOf(c.place().ref()));
+			o.addProperty("listedDay", c.place().index());
+		}
+		java.util.Optional<dev.voidmc.mettle.character.cards.TradeRules.Refusal> listRefusal = dev.voidmc.mettle.character.cards.Listings.canList(c, c.owner(), now);
+		o.addProperty("canList", listRefusal.isEmpty());
 		o.addProperty("slot", c.slotted() ? c.place().index() : -1);
 		o.addProperty("deck", c.place().deck().orElse(c.skill()).identifier().toString());
 		boolean dormant = cards.isDormant(c.id());

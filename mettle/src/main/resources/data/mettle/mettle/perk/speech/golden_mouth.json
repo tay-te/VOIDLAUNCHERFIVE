@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:speech",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.speech.golden_mouth"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.golden_mouth.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.speech.golden_mouth.hint"
+	},
+	"feat": {
+		"counter": "speech_golden_mouth",
+		"target": 50
+	},
+	"order": 15
+}

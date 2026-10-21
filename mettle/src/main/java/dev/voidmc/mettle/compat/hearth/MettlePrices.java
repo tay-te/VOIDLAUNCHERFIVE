@@ -6,6 +6,9 @@ import dev.voidmc.mettle.api.CharacterAttribute;
 import dev.voidmc.mettle.api.Skill;
 import dev.voidmc.mettle.character.Progress;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
+import dev.voidmc.mettle.character.skill.SpeechSkill;
+import dev.voidmc.mettle.character.skill.speech.SpeechHooks;
+import dev.voidmc.mettle.character.skill.speech.SpeechRules;
 import dev.voidmc.mettle.core.CharacterState;
 import dev.voidmc.mettle.core.CharacterStore;
 import net.minecraft.resources.ResourceKey;
@@ -29,6 +32,10 @@ final class MettlePrices implements PriceModifier {
 		if (!playerBuys && forged != null && forged.smith().equals(player.getName().getString())) {
 			factor *= 1 + dev.voidmc.mettle.character.cards.CardHooks.pct(player, "smithing/signature");
 		}
+		// Speech by kind of goods (docs/BUILD_FEEL.md §14.2): Provisioner, Provisioning, Appraising, Tavern-Keeper.
+		var speech = SpeechSkill.holdings(player);
+		factor *= SpeechRules.kindFactor(speech, SpeechHooks.food(one), SpeechHooks.drinkOrPotion(one), SpeechHooks.gear(one),
+			SpeechHooks.cookedBy(one, player), playerBuys);
 		return factor;
 	}
 
@@ -40,7 +47,11 @@ final class MettlePrices implements PriceModifier {
 		double magpie = dev.voidmc.mettle.character.cards.CardHooks.set(player, "hoard") >= 6 ? 0.05 : 0;
 		// Silver Tongue (a talent): market edge through this price factor only (docs/BUILD_FEEL.md §14, one channel).
 		double silverTongue = dev.voidmc.mettle.core.CardStore.get(player).trait(dev.voidmc.mettle.character.skill.StealthSkill.SILVER_TONGUE) / 100.0;
-		return HearthRules.priceEdge(presence, speech, SignaturePerks.has(player, SignaturePerks.COIN_SENSE)) + magpie + silverTongue;
+		// Speech's perks and traits (Haggler, Haggling, Merchant Prince, Honeyed Lies' cost, the fallbacks while Hearth reads no
+		// keys): the price channel only. Presence and Speech here are the character's own, never the effective ones Hearth
+		// reads through PlayerSkills (one channel per effect).
+		double perks = SpeechRules.edge(SpeechSkill.holdings(player), dev.voidmc.mettle.compat.HearthLink.bonus());
+		return HearthRules.priceEdge(presence, speech, SignaturePerks.has(player, SignaturePerks.COIN_SENSE)) + magpie + silverTongue + perks;
 	}
 
 	/** The edge with The Open Hand (a Mythic): a holder within 8 blocks lends their edge if it is better. */

@@ -464,4 +464,29 @@ public final class MettlePayloads {
 			return TYPE;
 		}
 	}
+
+	/** Client → server: Appraiser's tooltip asks what the market here (or the nearest villager) pays and asks for a stack. */
+	public record Appraise(net.minecraft.world.item.ItemStack stack) implements CustomPacketPayload {
+		public static final Type<Appraise> TYPE = new Type<>(Mettle.id("speech/appraise"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Appraise> STREAM_CODEC = StreamCodec.composite(
+			net.minecraft.world.item.ItemStack.OPTIONAL_STREAM_CODEC, Appraise::stack, Appraise::new);
+
+		@Override
+		public Type<Appraise> type() {
+			return TYPE;
+		}
+	}
+
+	/** Server → client: the answer, the stack it was for and the line to show (empty: nothing to say). */
+	public record Appraised(net.minecraft.world.item.ItemStack stack, Component line) implements CustomPacketPayload {
+		public static final Type<Appraised> TYPE = new Type<>(Mettle.id("speech/appraised"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Appraised> STREAM_CODEC = StreamCodec.composite(
+			net.minecraft.world.item.ItemStack.OPTIONAL_STREAM_CODEC, Appraised::stack, ComponentSerialization.TRUSTED_STREAM_CODEC, Appraised::line,
+			Appraised::new);
+
+		@Override
+		public Type<Appraised> type() {
+			return TYPE;
+		}
+	}
 }

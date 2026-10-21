@@ -37,6 +37,7 @@
 			"environment": "client"
 		},
 		"mettle-stealth.mixins.json",
+		"mettle-speech.mixins.json",
 		{
 			"config": "mettle-legend.client.mixins.json",
 			"environment": "client"

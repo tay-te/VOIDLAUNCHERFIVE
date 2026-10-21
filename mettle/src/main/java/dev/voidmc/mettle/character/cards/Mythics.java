@@ -324,11 +324,21 @@ public final class Mythics {
 
 	/** A raid won (Hero of the Village given): the first is The Open Hand without Hearth; alone, The Lone Banner. */
 	static void heroOfTheVillage(ServerPlayer player) {
-		first(player, "open_hand");
+		if (!dev.voidmc.mettle.compat.HearthLink.hearth()) {
+			first(player, "open_hand");
+		}
 		boolean alone = player.level().players().stream().noneMatch(p -> p != player && p.distanceToSqr(player) <= 96 * 96);
 		if (alone) {
 			deed(player, "lone_banner");
 		}
+	}
+
+	/**
+	 * With VOID Hearth: the first player Honoured (Hearth's {@code HERO} standing) in a city earns The Open Hand (CARDS.md
+	 * §9.3; Hearth's request 9, {@code SettlementEvents.STANDING_CHANGED}).
+	 */
+	public static void honouredInCity(ServerPlayer player) {
+		first(player, "open_hand");
 	}
 
 	static boolean isHero(net.minecraft.world.effect.MobEffectInstance effect) {

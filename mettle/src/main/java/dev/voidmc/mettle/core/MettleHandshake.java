@@ -23,9 +23,10 @@ public final class MettleHandshake {
 	 * (no handshake); 2 is 0.2.0 (the cards view attachment, the card config payload, the hidden draft seed); 3 is 0.3.0
 	 * (build feel: the byname registry, keyword momentum and Mythic epithets, the build action payload, words on moments,
 	 * the public renown attachment, boons in the draft record); 4 is 0.4.0 (deed titles in the renown attachment, the talent
-	 * registry, the talent draft and talent cards in the synced records, the new build actions, Stealth released).
+	 * registry, the talent draft and talent cards in the synced records, the new build actions, Stealth released); 5 is 0.5.0 (Speech released: the trait
+	 * registry's requires and boosted fields, the cooked-by item component, the appraise payloads, listed cards on the broker).
 	 */
-	public static final int PROTOCOL = 4;
+	public static final int PROTOCOL = 5;
 
 	private static final ConfigurationTask.Type KEY = new ConfigurationTask.Type(Mettle.id("hello").toString());
 

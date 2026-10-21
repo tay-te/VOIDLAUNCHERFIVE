@@ -1164,6 +1164,8 @@ public final class CardHooks {
 	public static MobEffectInstance effect(LivingEntity entity, MobEffectInstance effect) {
 		if (entity instanceof ServerPlayer hero && Mythics.isHero(effect)) {
 			Mythics.heroOfTheVillage(hero);
+			// Speech: Hero of the Village teaches Speech; Hero's Welcome and Heroic make it last longer.
+			effect = dev.voidmc.mettle.character.skill.speech.SpeechHooks.hero(hero, effect);
 		}
 		effect = MythicEffects.effect(entity, effect);
 		if (!(entity instanceof ServerPlayer player) || effect.isInfiniteDuration() || effect.getDuration() <= 1 || !any(player)) {

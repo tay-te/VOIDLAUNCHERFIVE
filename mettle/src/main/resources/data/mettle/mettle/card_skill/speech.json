@@ -1,0 +1,27 @@
+{
+	"prefix": "SP",
+	"keyword_pool": [
+		"mettle:kin",
+		"mettle:hoard",
+		"mettle:keen",
+		"mettle:warden",
+		"mettle:ember"
+	],
+	"natives": {
+		"mettle:speech/appraiser": "mettle:keen",
+		"mettle:speech/barterer": "mettle:hoard",
+		"mettle:speech/charmer": "mettle:kin",
+		"mettle:speech/commanding_voice": "mettle:kin",
+		"mettle:speech/demagogue": "mettle:hex",
+		"mettle:speech/glib": "mettle:kin",
+		"mettle:speech/haggler": "mettle:hoard",
+		"mettle:speech/heros_welcome": "mettle:warden",
+		"mettle:speech/honeyed_lies": "mettle:hex",
+		"mettle:speech/ledger_keeper": "mettle:hoard",
+		"mettle:speech/merchant_prince": "mettle:hoard",
+		"mettle:speech/provisioner": "mettle:ember",
+		"mettle:speech/second_word": "mettle:echo",
+		"mettle:speech/shrewd_eye": "mettle:keen",
+		"mettle:speech/voice_of_the_realm": "mettle:kin"
+	}
+}

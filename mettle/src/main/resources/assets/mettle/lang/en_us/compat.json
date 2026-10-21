@@ -15,5 +15,10 @@
 	"mettle.compat.hearth.reply.lesson.0": "There. Do that a hundred times and it will be yours.",
 	"mettle.compat.hearth.reply.lesson.1": "Better. Slower is faster, remember that.",
 	"mettle.compat.hearth.reply.lesson.2": "Enough for today. Practise what I showed you.",
-	"mettle.compat.hearth.reply.teaching": "Few ever learn %s. Use it well."
+	"mettle.compat.hearth.reply.teaching": "Few ever learn %s. Use it well.",
+	"mettle.broker.gone": "A card no longer listed",
+	"mettle.broker.needs": "Needs %2$s %1$s",
+	"mettle.broker.drawn": "Drawn by %s · day %s",
+	"mettle.broker.owners": "Held by %s · %s scars",
+	"mettle.trade.refused.coin_room": "They can't carry that much coin."
 }

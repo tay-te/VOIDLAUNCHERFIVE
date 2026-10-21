@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:speech",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 5,
+	"max": 12,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:barter_extra"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.bartering"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.bartering.description"
+	}
+}

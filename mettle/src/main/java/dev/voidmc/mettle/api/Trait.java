@@ -22,6 +22,9 @@ import net.minecraft.util.StringRepresentable;
  * @param effect      an attribute modifier (sized value × scale), or a behaviour id handled in code
  * @param description one plain sentence with {@code %s} for the value
  * @param arsenal     Smithing only: the sentence when VOID Arsenal is loaded (§10)
+ * @param requires    rolled only while this holds ({@code hearth_bonus}: the loaded VOID Hearth reads bonus keys,
+ *                    docs/BUILD_FEEL.md §14), so no card carries a trait that does nothing; empty: always
+ * @param boosted     whether its attribute boosts it (§4.3); whole-level traits (Speech's Persuasive, Shrewd) are not
  */
 public record Trait(
 	ResourceKey<Skill> skill,
@@ -34,8 +37,18 @@ public record Trait(
 	Effect effect,
 	Component name,
 	Component description,
-	Optional<Component> arsenal
+	Optional<Component> arsenal,
+	Optional<String> requires,
+	boolean boosted
 ) {
+	/** {@link #requires}: the loaded VOID Hearth reads {@code PlayerSkills.bonus} keys. */
+	public static final String HEARTH_BONUS = "hearth_bonus";
+
+	public Trait(ResourceKey<Skill> skill, Kind kind, Scope scope, double min, double max, double step, String unit, Effect effect, Component name,
+		Component description, Optional<Component> arsenal) {
+		this(skill, kind, scope, min, max, step, unit, effect, name, description, arsenal, Optional.empty(), true);
+	}
+
 	public enum Kind implements StringRepresentable {
 		MIGHT(CharacterAttribute.STRENGTH),
 		FINESSE(CharacterAttribute.AGILITY),
@@ -98,7 +111,9 @@ public record Trait(
 		Effect.CODEC.fieldOf("effect").forGetter(Trait::effect),
 		ComponentSerialization.CODEC.fieldOf("name").forGetter(Trait::name),
 		ComponentSerialization.CODEC.fieldOf("description").forGetter(Trait::description),
-		ComponentSerialization.CODEC.optionalFieldOf("arsenal").forGetter(Trait::arsenal)
+		ComponentSerialization.CODEC.optionalFieldOf("arsenal").forGetter(Trait::arsenal),
+		Codec.STRING.optionalFieldOf("requires").forGetter(Trait::requires),
+		Codec.BOOL.optionalFieldOf("boosted", true).forGetter(Trait::boosted)
 	).apply(i, Trait::new));
 
 	public boolean percent() {

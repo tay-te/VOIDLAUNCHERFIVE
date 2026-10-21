@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:speech",
+	"kind": "path",
+	"tier": 2,
+	"path": "b",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.speech.charmer"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.charmer.description"
+	},
+	"order": 6
+}

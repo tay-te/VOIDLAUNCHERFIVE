@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:speech",
+	"kind": "path",
+	"tier": 3,
+	"path": "a",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.speech.ledger_keeper"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.ledger_keeper.description"
+	},
+	"order": 4
+}

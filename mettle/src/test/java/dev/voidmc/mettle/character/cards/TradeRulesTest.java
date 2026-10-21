@@ -16,6 +16,21 @@ import org.junit.jupiter.api.Test;
 
 /** Trading's rules (docs/CARDS.md §8): who may meet, what may be offered, room on both sides, what a received card becomes. */
 class TradeRulesTest {
+	// Its own bootstrap: roomForCardsAndItems makes ItemStacks, and run alone (no TestCards loaded first) it would find the
+	// registries unbound ("Components not bound yet").
+	static {
+		net.minecraft.SharedConstants.tryDetectVersion();
+		net.minecraft.server.Bootstrap.bootStrap();
+		// Item components are bound when a world loads its registries (WeightDerivationTest does the same); bind them here
+		// unless an earlier test in this JVM already did.
+		try {
+			new ItemStack(Items.STONE);
+		} catch (NullPointerException unbound) {
+			net.minecraft.core.registries.BuiltInRegistries.DATA_COMPONENT_INITIALIZERS.build(net.minecraft.data.registries.VanillaRegistries.createWorldLookup())
+				.forEach(net.minecraft.core.component.DataComponentInitializers.PendingComponents::apply);
+		}
+	}
+
 	private static final UUID A = TestCards.PLAYER;
 	private static final UUID B = new UUID(3, 4);
 

@@ -55,6 +55,7 @@ public final class CharacterModule {
 		SurvivalSkill.init();
 		SmithingSkill.init();
 		dev.voidmc.mettle.character.skill.StealthSkill.init();
+		dev.voidmc.mettle.character.skill.SpeechSkill.init();
 		Tomes.init();
 		dev.voidmc.mettle.character.respec.Draughts.init();
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> {

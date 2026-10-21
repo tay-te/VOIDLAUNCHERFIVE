@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:speech",
+	"kind": "path",
+	"tier": 3,
+	"path": "a",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.speech.shrewd_eye"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.shrewd_eye.description"
+	},
+	"order": 5
+}

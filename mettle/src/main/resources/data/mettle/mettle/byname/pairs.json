@@ -287,6 +287,78 @@
 			"description": {
 				"translate": "mettle.byname.pair.smithing.stealth.description"
 			}
+		},
+		"mettle:mining+mettle:speech": {
+			"noun": {
+				"translate": "mettle.byname.pair.mining.speech"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.mining.speech.description"
+			}
+		},
+		"mettle:blades+mettle:speech": {
+			"noun": {
+				"translate": "mettle.byname.pair.blades.speech"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.blades.speech.description"
+			}
+		},
+		"mettle:heavy_weapons+mettle:speech": {
+			"noun": {
+				"translate": "mettle.byname.pair.heavy_weapons.speech"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.heavy_weapons.speech.description"
+			}
+		},
+		"mettle:marksmanship+mettle:speech": {
+			"noun": {
+				"translate": "mettle.byname.pair.marksmanship.speech"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.marksmanship.speech.description"
+			}
+		},
+		"mettle:defense+mettle:speech": {
+			"noun": {
+				"translate": "mettle.byname.pair.defense.speech"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.defense.speech.description"
+			}
+		},
+		"mettle:athletics+mettle:speech": {
+			"noun": {
+				"translate": "mettle.byname.pair.athletics.speech"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.athletics.speech.description"
+			}
+		},
+		"mettle:survival+mettle:speech": {
+			"noun": {
+				"translate": "mettle.byname.pair.survival.speech"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.survival.speech.description"
+			}
+		},
+		"mettle:smithing+mettle:speech": {
+			"noun": {
+				"translate": "mettle.byname.pair.smithing.speech"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.smithing.speech.description"
+			}
+		},
+		"mettle:stealth+mettle:speech": {
+			"noun": {
+				"translate": "mettle.byname.pair.stealth.speech"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.stealth.speech.description"
+			}
 		}
 	}
 }

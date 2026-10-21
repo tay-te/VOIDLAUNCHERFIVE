@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:speech",
+	"kind": "fortune",
+	"scope": "broad",
+	"min": 1,
+	"max": 2,
+	"step": 1,
+	"unit": "flat",
+	"effect": {
+		"behaviour": "mettle:speech_levels"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.persuasive"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.persuasive.description"
+	},
+	"boosted": false
+}

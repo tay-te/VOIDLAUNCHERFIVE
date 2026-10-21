@@ -8,6 +8,7 @@ import dev.voidmc.hearth.api.HearthWorld;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.MarketEvents;
 import dev.voidmc.hearth.api.PlayerSkills;
+import dev.voidmc.mettle.character.skill.SpeechSkill;
 import dev.voidmc.mettle.character.skill.StealthSkill;
 import dev.voidmc.hearth.api.QuestEvents;
 import dev.voidmc.hearth.api.QuestType;
@@ -93,7 +94,15 @@ final class HearthJourney {
 			if (p != null) {
 				return p;
 			}
-			return trainers(player, economy, town, tutors);
+			p = trainers(player, economy, town, tutors);
+			if (p != null) {
+				return p;
+			}
+			p = speech(player, economy, town, tutors);
+			if (p != null) {
+				return p;
+			}
+			return broker(player, economy, town);
 		} finally {
 			for (Resident t : tutors) {
 				town.removeResident(t.id);
@@ -366,6 +375,390 @@ final class HearthJourney {
 		dev.voidmc.mettle.character.cards.Rebuilds.close(player);
 		dev.voidmc.mettle.character.cards.Cards.clear(player);
 		return null;
+	}
+
+	// ------------------------------------------------------------------ Speech at Hearth (docs/BUILD_FEEL.md §14.2)
+
+	/**
+	 * Speech through Hearth's own code (its internals by reflection: this journey compiles against the api only): the
+	 * effective Speech and Presence through the slot; a real haggle at the town's market whose limit band Shrewd Eye opens
+	 * (Speech 3 hides it, Shrewd Eye's +5 reads it); a speech check won (Golden Mouth's tally from the check event), a
+	 * failed one taken back once by Second Word and a second not, with Golden Mouth's full XP; a greeting by the worn
+	 * title and Hero's Welcome. Every bonus key through the slot equals Mettle's own number.
+	 */
+	private static @Nullable String speech(ServerPlayer player, EconomyService economy, Settlement town, List<Resident> tutors) {
+		PlayerSkills skills = HearthServices.playerSkills();
+		boolean keys = dev.voidmc.mettle.compat.HearthLink.bonus();
+		if (!keys || !dev.voidmc.mettle.compat.HearthLink.checks()) {
+			return "this Hearth (" + town.name() + ") should read bonus keys and fire check events (ae4da055 or later): keys " + keys + ", events "
+				+ dev.voidmc.mettle.compat.HearthLink.checks();
+		}
+		var buildBefore = dev.voidmc.mettle.character.cards.BuildFeel.get(player);
+		Map<ResourceKey<dev.voidmc.mettle.api.Perk>, Integer> perksBefore = new java.util.HashMap<>(CharacterStore.get(player).perks());
+		Map<String, Long> countersBefore = Map.of(SpeechSkill.GOLDEN_MOUTH_COUNTER, dev.voidmc.mettle.character.FeatCounters.get(player, SpeechSkill.GOLDEN_MOUTH_COUNTER),
+			SpeechSkill.MARKET_REGULAR_COUNTER, dev.voidmc.mettle.character.FeatCounters.get(player, SpeechSkill.MARKET_REGULAR_COUNTER));
+		try {
+			// The effective Speech and Presence: Glib II and Commanding Voice.
+			set(player, CharacterStore.get(player).withXp(SPEECH, Curves.skillXpFor(6)).withPerks(Map.of()), 4);
+			int presence = presence(player);
+			perk(player, SpeechSkill.GLIB, 2);
+			perk(player, SpeechSkill.COMMANDING_VOICE, 1);
+			if (skills.level(player, PlayerSkills.SPEECH) != 8 || skills.attribute(player, PlayerSkills.PRESENCE) != Math.min(20, presence + 2)) {
+				return "Hearth reads Speech " + skills.level(player, PlayerSkills.SPEECH) + " (expected 6 + Glib II = 8) and Presence "
+					+ skills.attribute(player, PlayerSkills.PRESENCE) + " (expected " + presence + " + 2)";
+			}
+			// Every key through Hearth's slot is Mettle's number.
+			perk(player, SpeechSkill.SHREWD_EYE, 1);
+			perk(player, SpeechSkill.CHARMER, 1);
+			perk(player, SpeechSkill.MERCHANT_PRINCE, 1);
+			perk(player, SpeechSkill.HEROS_WELCOME, 1);
+			perk(player, SpeechSkill.SECOND_WORD, 1);
+			for (String key : dev.voidmc.mettle.compat.HearthKeys.ALL) {
+				double mine = key.startsWith("hearth:stealth/") || key.startsWith("hearth:pickpocket/") ? StealthSkill.bonus(player, key) : SpeechSkill.bonus(player, key);
+				if (Math.abs(skills.bonus(player, key) - mine) > 1e-9) {
+					return "Hearth's bonus(" + key + ") reads " + skills.bonus(player, key) + ", Mettle's number is " + mine;
+				}
+			}
+			if (skills.bonus(player, PlayerSkills.BONUS_HAGGLE_BAND) != 5 || skills.bonus(player, PlayerSkills.BONUS_HAGGLE_NEVER_SOUR) != 1
+				|| skills.bonus(player, PlayerSkills.BONUS_STANDING_GAIN) != 0.25 || skills.bonus(player, PlayerSkills.BONUS_GREET_HERO) != 1
+				|| skills.bonus(player, PlayerSkills.BONUS_SPEECH_RETRY) != 1) {
+				return "the Speech keys through Hearth's slot: band " + skills.bonus(player, PlayerSkills.BONUS_HAGGLE_BAND) + ", never-sour "
+					+ skills.bonus(player, PlayerSkills.BONUS_HAGGLE_NEVER_SOUR) + ", standing " + skills.bonus(player, PlayerSkills.BONUS_STANDING_GAIN)
+					+ ", hero " + skills.bonus(player, PlayerSkills.BONUS_GREET_HERO) + ", retry " + skills.bonus(player, PlayerSkills.BONUS_SPEECH_RETRY);
+			}
+			String p = haggle(player, economy, town);
+			if (p != null) {
+				return p;
+			}
+			p = checks(player, town, tutors);
+			if (p != null) {
+				return p;
+			}
+			return greeting(player, town, tutors);
+		} finally {
+			CharacterStore.set(player, CharacterStore.get(player).withPerks(perksBefore));
+			EffectsApplier.apply(player);
+			dev.voidmc.mettle.character.cards.BuildFeel.set(player, buildBefore);
+			countersBefore.forEach((k, v) -> dev.voidmc.mettle.character.FeatCounters.add(player, k, v - dev.voidmc.mettle.character.FeatCounters.get(player, k)));
+		}
+	}
+
+	/** A real haggle at the town's market: Speech 3 alone doesn't read the merchant's limit band; Shrewd Eye's +5 does. */
+	private static @Nullable String haggle(ServerPlayer player, EconomyService economy, Settlement town) {
+		set(player, CharacterStore.get(player).withXp(SPEECH, Curves.skillXpFor(3)).withPerks(Map.of()), 0);
+		economy.pay(player, 5000);
+		for (var item : List.of(Items.WHEAT, Items.BREAD, Items.COBBLESTONE, Items.OAK_LOG, Items.COAL)) {
+			player.getInventory().add(new ItemStack(item, 32));
+		}
+		int[] plain = haggleSpeech(player, town, false);
+		if (plain == null) {
+			return "no row at " + town.name() + "'s market to haggle over";
+		}
+		int[] shrewd = haggleSpeech(player, town, true);
+		Mettle.LOGGER.info("Hearth journey: a haggle at {}: Speech 3 reads the band as {} (shown {}), with Shrewd Eye as {} (shown {})", town.name(), plain[0],
+			plain[1] == 1, shrewd[0], shrewd[1] == 1);
+		if (plain[0] != 3 || plain[1] != 0) {
+			return "a haggle at Speech 3 without Shrewd Eye read the band as Speech " + plain[0] + ", shown " + (plain[1] == 1);
+		}
+		if (shrewd[0] != 8 || shrewd[1] != 1) {
+			return "a haggle with Shrewd Eye read the band as Speech " + shrewd[0] + " (expected 8), shown " + (shrewd[1] == 1);
+		}
+		// Glib III (the effective level, not a key) moves the band too: Speech 3 counts as 6.
+		perk(player, SpeechSkill.GLIB, 3);
+		int[] glib = haggleSpeech(player, town, false);
+		perk(player, SpeechSkill.GLIB, 0);
+		if (glib == null || glib[0] != 6 || glib[1] != 1) {
+			return "a haggle with Glib III read the band as " + (glib == null ? "nothing" : "Speech " + glib[0] + ", shown " + (glib[1] == 1));
+		}
+		// Provisioner: food 10 % cheaper at this market; Appraiser's tooltip line names its prices.
+		ItemStack bread = new ItemStack(Items.BREAD, 16);
+		long plainBread = economy.price(player, town, bread, true);
+		perk(player, SpeechSkill.PROVISIONER, 1);
+		long provisioned = economy.price(player, town, bread, true);
+		perk(player, SpeechSkill.PROVISIONER, 0);
+		Mettle.LOGGER.info("Hearth journey: 16 bread at {}: {} bits, with Provisioner {}", town.name(), plainBread, provisioned);
+		if (plainBread >= 10 && provisioned >= plainBread) {
+			return "Provisioner did not make bread cheaper: " + plainBread + " → " + provisioned;
+		}
+		// Appraiser in the town (the player stands at its centre for it, then goes back).
+		perk(player, SpeechSkill.APPRAISER, 1);
+		net.minecraft.world.phys.Vec3 home = player.position();
+		player.teleportTo(town.center().getX() + 0.5, town.center().getY() + 1, town.center().getZ() + 0.5);
+		String appraised = dev.voidmc.mettle.character.skill.speech.SpeechHooks.line(player, new ItemStack(Items.IRON_INGOT, 8)).getString();
+		player.teleportTo(home.x, home.y, home.z);
+		perk(player, SpeechSkill.APPRAISER, 0);
+		Mettle.LOGGER.info("Hearth journey: Appraiser on 8 iron at {}: {}", town.name(), appraised);
+		return appraised.contains(town.name()) ? null : "Appraiser's line at " + town.name() + ": " + appraised;
+	}
+
+	/** Opens a haggle over the market's first row (what it sells, else what it buys): the band's Speech and whether it shows. */
+	private static int @Nullable [] haggleSpeech(ServerPlayer player, Settlement town, boolean shrewdEye) {
+		perk(player, SpeechSkill.SHREWD_EYE, shrewdEye ? 1 : 0);
+		try {
+			Class<?> marketType = Class.forName("dev.voidmc.hearth.economy.market.Market");
+			Object market = marketType.getConstructor(Settlement.class).newInstance(town);
+			Object view = call(market, "view", player);
+			Integer row = null;
+			for (String side : new String[] {"sells", "buys"}) {
+				for (Object offer : (List<?>) call(view, side)) {
+					if ((int) call(offer, "available") > 0) {
+						row = (int) call(offer, "id");
+						break;
+					}
+				}
+				if (row != null) {
+					break;
+				}
+			}
+			if (row == null) {
+				return null;
+			}
+			call(market, "haggleStart", player, row, false);
+			Object haggle = call(call(market, "view", player), "haggle");
+			if (haggle == null) {
+				return null;
+			}
+			int speech = (int) call(haggle, "speech");
+			boolean shown = (boolean) call(haggle, "bandShown");
+			call(market, "haggleCancel");
+			return new int[] {speech, shown ? 1 : 0};
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("Hearth journey: Hearth's market by reflection: " + e, e);
+		}
+	}
+
+	/** Speech checks through Hearth's SpeechCheck: a win counts for Golden Mouth; Second Word takes one failure back a day. */
+	private static @Nullable String checks(ServerPlayer player, Settlement town, List<Resident> tutors) {
+		Resident folk = tutor(town, tutors, JobType.FARMER);
+		try {
+			Class<?> check = Class.forName("dev.voidmc.hearth.standing.speech.SpeechCheck");
+			@SuppressWarnings({"unchecked", "rawtypes"})
+			Object persuade = Enum.valueOf((Class) Class.forName("dev.voidmc.hearth.standing.speech.SpeechKind"), "PERSUADE");
+			java.lang.reflect.Method attempt = null;
+			for (java.lang.reflect.Method m : check.getMethods()) {
+				if (m.getName().equals("attempt") && m.getParameterCount() == 6) {
+					attempt = m;
+				}
+			}
+			java.lang.reflect.Method xp = check.getMethod("xp", boolean.class, double.class);
+			if (attempt == null) {
+				return "no SpeechCheck.attempt";
+			}
+			// A win (Speech 20, Presence 20, an easy ask): Golden Mouth counts it from the check event.
+			set(player, CharacterStore.get(player).withXp(SPEECH, Curves.skillXpFor(20)), CharacterAttribute.MAX);
+			perk(player, SpeechSkill.SECOND_WORD, 0);
+			long golden = dev.voidmc.mettle.character.FeatCounters.get(player, SpeechSkill.GOLDEN_MOUTH_COUNTER);
+			boolean won = false;
+			for (int i = 0; i < 20 && !won; i++) {
+				won = (boolean) call(attempt.invoke(null, player, town, folk, persuade, 0.0, 0L), "success");
+			}
+			long counted = dev.voidmc.mettle.character.FeatCounters.get(player, SpeechSkill.GOLDEN_MOUTH_COUNTER) - golden;
+			if (!won || counted < 1) {
+				return "a won speech check: won " + won + ", counted " + counted + " toward Golden Mouth";
+			}
+			// Failures (Speech 0, a hard ask): Second Word takes the first back; the second of the day stays; Golden Mouth pays full XP.
+			set(player, CharacterStore.get(player).withXp(SPEECH, 0), 0);
+			perk(player, SpeechSkill.GOLDEN_MOUTH, 1);
+			perk(player, SpeechSkill.SECOND_WORD, 1);
+			List<Boolean> retries = new ArrayList<>();
+			double fullXp = -1;
+			for (int i = 0; i < 60 && retries.size() < 2; i++) {
+				double before = CharacterStore.get(player).xp(SPEECH);
+				Object outcome = attempt.invoke(null, player, town, folk, persuade, 1.0, 0L);
+				if (!(boolean) call(outcome, "success")) {
+					retries.add((boolean) call(outcome, "retry"));
+					if (fullXp < 0) {
+						fullXp = CharacterStore.get(player).xp(SPEECH) - before;
+					}
+				}
+			}
+			if (!retries.equals(List.of(true, false))) {
+				return "two failed checks with Second Word were taken back " + retries + ", expected [true, false]";
+			}
+			double full = (float) xp.invoke(null, false, 1.0) * 3 * speechMultiplier(player);
+			if (Math.abs(fullXp - full) > 0.05) {
+				return "Golden Mouth: a failed check gave " + fullXp + " Speech XP, expected full " + full;
+			}
+			return null;
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("Hearth journey: Hearth's speech check by reflection: " + e, e);
+		}
+	}
+
+	/** Folk greet a legend: the worn title in a greeting, and Hero's Welcome read as a hero's welcome. */
+	private static @Nullable String greeting(ServerPlayer player, Settlement town, List<Resident> tutors) {
+		perk(player, SpeechSkill.HEROS_WELCOME, 1);
+		Identifier walker = Identifier.fromNamespaceAndPath("mettle", "long_walker");
+		var b = dev.voidmc.mettle.character.cards.BuildFeel.get(player);
+		dev.voidmc.mettle.character.cards.BuildFeel.set(player, b.withTitles(dev.voidmc.mettle.core.BuildState.Titles.NONE.with(walker)
+			.wearing(java.util.Optional.of(walker), true)));
+		String title = HearthServices.playerSkills().title(player).getString();
+		if (!"Long Walker".equals(title)) {
+			return "Hearth's title(player) reads \"" + title + "\", expected the worn deed title Long Walker";
+		}
+		Resident folk = tutor(town, tutors, JobType.MERCHANT);
+		try {
+			Class<?> greetings = Class.forName("dev.voidmc.hearth.npc.talk.Greetings");
+			java.lang.reflect.Method greet = null;
+			for (java.lang.reflect.Method m : greetings.getMethods()) {
+				if (m.getName().equals("greeting") && m.getParameterCount() == 6) {
+					greet = m;
+				}
+			}
+			if (greet == null) {
+				return "no Greetings.greeting";
+			}
+			Object fame = Class.forName("dev.voidmc.hearth.npc.talk.Legends").getMethod("of", ServerPlayer.class).invoke(null, player);
+			if (!(boolean) call(fame, "hero") || !"Long Walker".equals(call(fame, "title"))) {
+				return "Hearth's Legends read " + fame + ", expected the title and a hero's welcome";
+			}
+			String line = null;
+			for (int seed = 0; seed < 64; seed++) {
+				String g = (String) greet.invoke(null, player.level(), town, folk, player, player.blockPosition(), net.minecraft.util.RandomSource.create(seed));
+				if (g.contains("Long Walker")) {
+					line = g;
+					break;
+				}
+			}
+			if (line == null) {
+				return "no greeting in 64 named the worn title Long Walker";
+			}
+			Mettle.LOGGER.info("Hearth journey: greeted as \"{}\"", line);
+			return null;
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("Hearth journey: Hearth's greetings by reflection: " + e, e);
+		}
+	}
+
+	// ------------------------------------------------------------------ the card broker (request 7)
+
+	/**
+	 * Mettle's cards at Hearth's broker: a card listed (fee paid, escrow: the ledger says LISTED, the seller's cache
+	 * agrees), bought by a second player (the card theirs, attuning, its history passed on; the coin taken), a second buy
+	 * of the same listing refused, another listing withdrawn back to the binder.
+	 */
+	private static @Nullable String broker(ServerPlayer player, EconomyService economy, Settlement town) {
+		if (!dev.voidmc.mettle.compat.HearthLink.broker()) {
+			return "Mettle's cards are not registered with this Hearth's broker";
+		}
+		MinecraftServer server = player.level().getServer();
+		var ledger = dev.voidmc.mettle.character.cards.Cards.ledger(server);
+		net.fabricmc.fabric.api.entity.FakePlayer bree = net.fabricmc.fabric.api.entity.FakePlayer.get(server.overworld(),
+			new com.mojang.authlib.GameProfile(UUID.randomUUID(), "Bree"));
+		dev.voidmc.mettle.character.cards.Trades.standIn(bree);
+		List<Long> made = new ArrayList<>();
+		try {
+			Class<?> broker = Class.forName("dev.voidmc.hearth.economy.broker.Broker");
+			long today = HearthServices.world(server.overworld()).day();
+			var sell = dev.voidmc.mettle.character.cards.Cards.giveExact(player, card("mining/quarryman"));
+			var keep = dev.voidmc.mettle.character.cards.Cards.giveExact(player, card("mining/prospector"));
+			made.add(sell.id());
+			made.add(keep.id());
+			economy.pay(player, 1000);
+			Object listed = broker.getMethod("list", ServerPlayer.class, Settlement.class, String.class, long.class, long.class, long.class)
+				.invoke(null, player, town, dev.voidmc.mettle.character.cards.Listings.KIND, sell.id(), 250L, today);
+			if (!"LISTED".equals(((Enum<?>) listed).name())) {
+				return "listing a card at " + town.name() + "'s broker: " + listed;
+			}
+			var held = ledger.get(sell.id()).orElseThrow();
+			boolean cached = dev.voidmc.mettle.core.CardStore.get(player).cards().stream().anyMatch(c -> c.id() == sell.id()
+				&& c.place().kind() == dev.voidmc.mettle.core.CardData.PlaceKind.LISTED);
+			if (held.place().kind() != dev.voidmc.mettle.core.CardData.PlaceKind.LISTED || !cached) {
+				return "a listed card: the ledger says " + held.place() + ", the seller's cache " + cached;
+			}
+			Object board = broker.getMethod("board", Settlement.class).invoke(null, town);
+			long listing = -1;
+			for (Object l : (List<?>) call(board, "bySeller", player.getUUID())) {
+				if ((long) call(l, "goods") == sell.id()) {
+					listing = (long) call(l, "id");
+				}
+			}
+			if (held.place().ref() != listing) {
+				return "the card's escrow names listing " + held.place().ref() + ", the board " + listing;
+			}
+			// Bree buys it.
+			economy.pay(bree, 1000);
+			long breeCoin = economy.balance(bree);
+			java.lang.reflect.Method buy = broker.getMethod("buy", ServerPlayer.class, Settlement.class, long.class, long.class);
+			Object sold = buy.invoke(null, bree, town, listing, today);
+			var after = ledger.get(sell.id()).orElseThrow();
+			if (!"SOLD".equals(((Enum<?>) sold).name()) || !after.owner().equals(bree.getUUID())
+				|| after.place().kind() != dev.voidmc.mettle.core.CardData.PlaceKind.BINDER || after.attuned(server.overworld().getGameTime())) {
+				return "Bree's purchase: " + sold + ", the card " + after;
+			}
+			if (breeCoin - economy.balance(bree) != 250 || !"Bree".equals(after.history().last().getLast().name())) {
+				return "Bree paid " + (breeCoin - economy.balance(bree)) + " of 250 bits; the card's last holder " + after.history().last().getLast().name();
+			}
+			if (dev.voidmc.mettle.core.CardStore.get(player).cards().stream().anyMatch(c -> c.id() == sell.id())) {
+				return "the sold card is still in the seller's binder";
+			}
+			Object again = buy.invoke(null, bree, town, listing, today);
+			if ("SOLD".equals(((Enum<?>) again).name())) {
+				return "the same listing sold twice";
+			}
+			// Another card listed, then withdrawn: back to the binder.
+			economy.pay(player, 100);
+			broker.getMethod("list", ServerPlayer.class, Settlement.class, String.class, long.class, long.class, long.class)
+				.invoke(null, player, town, dev.voidmc.mettle.character.cards.Listings.KIND, keep.id(), 120L, today);
+			long second = -1;
+			for (Object l : (List<?>) call(board, "bySeller", player.getUUID())) {
+				if ((long) call(l, "goods") == keep.id()) {
+					second = (long) call(l, "id");
+				}
+			}
+			Object withdrawn = broker.getMethod("withdraw", ServerPlayer.class, Settlement.class, long.class).invoke(null, player, town, second);
+			var back = ledger.get(keep.id()).orElseThrow();
+			if (!"WITHDRAWN".equals(((Enum<?>) withdrawn).name()) || back.place().kind() != dev.voidmc.mettle.core.CardData.PlaceKind.BINDER
+				|| !back.owner().equals(player.getUUID())) {
+				return "a withdrawn listing: " + withdrawn + ", the card " + back;
+			}
+			Mettle.LOGGER.info("Hearth journey: card {} listed at {}'s broker for 250 bits and bought by Bree; card {} listed and withdrawn", sell.id(),
+				town.name(), keep.id());
+			return null;
+		} catch (ReflectiveOperationException e) {
+			throw new AssertionError("Hearth journey: Hearth's broker by reflection: " + e, e);
+		} finally {
+			for (long id : made) {
+				ledger.update(id, c -> c.withPlace(dev.voidmc.mettle.core.CardData.Place.RELEASED));
+			}
+			dev.voidmc.mettle.character.cards.Cards.sync(player);
+		}
+	}
+
+	private static dev.voidmc.mettle.core.DraftState.Card card(String perk) {
+		return new dev.voidmc.mettle.core.DraftState.Card(dev.voidmc.mettle.character.Perks.key(Identifier.fromNamespaceAndPath("mettle", perk)), 1,
+			dev.voidmc.mettle.core.DraftState.Rarity.COMMON, false, List.of(Identifier.fromNamespaceAndPath("mettle", "hoard")), List.of(), 2);
+	}
+
+	/** Calls a public method by name and argument count (Hearth's internals: not on this journey's compile path). */
+	private static @Nullable Object call(Object target, String name, Object... args) throws ReflectiveOperationException {
+		for (java.lang.reflect.Method m : target.getClass().getMethods()) {
+			if (m.getName().equals(name) && m.getParameterCount() == args.length) {
+				m.setAccessible(true);
+				return m.invoke(target, args);
+			}
+		}
+		throw new NoSuchMethodException(target.getClass().getName() + "." + name + "/" + args.length);
+	}
+
+	private static void perk(ServerPlayer player, Identifier perk, int rank) {
+		CharacterState state = CharacterStore.get(player);
+		Map<ResourceKey<dev.voidmc.mettle.api.Perk>, Integer> perks = new java.util.HashMap<>(state.perks());
+		if (rank > 0) {
+			perks.put(dev.voidmc.mettle.character.Perks.key(perk), rank);
+		} else {
+			perks.remove(dev.voidmc.mettle.character.Perks.key(perk));
+		}
+		CharacterStore.set(player, state.withPerks(perks));
+		EffectsApplier.apply(player);
+	}
+
+	/** One base XP of Speech as it lands: favoured and Wits, cursed cards, every MODIFY_XP listener. */
+	private static double speechMultiplier(ServerPlayer player) {
+		CharacterState state = CharacterStore.get(player);
+		double m = Progress.multiplier(state, CharacterStore.background(player.level().registryAccess(), state), SPEECH)
+			* dev.voidmc.mettle.character.draft.Cursed.cardXp(player, state, SPEECH);
+		return dev.voidmc.mettle.api.MettleEvents.MODIFY_XP.invoker().modify(player, SPEECH, m);
 	}
 
 	private static Resident tutor(Settlement town, List<Resident> tutors, JobType job) {

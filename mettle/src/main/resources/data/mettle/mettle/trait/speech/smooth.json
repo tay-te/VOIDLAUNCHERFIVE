@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:speech",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:persuade_odds"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.smooth"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.smooth.description"
+	},
+	"requires": "hearth_bonus"
+}

@@ -352,7 +352,10 @@ class CardRulesTest {
 		for (Map.Entry<Identifier, Trait> e : TestCards.TRAITS.entrySet()) {
 			Trait t = e.getValue();
 			assertTrue(t.min() > 0 && t.min() < t.max(), e.getKey() + " range");
-			if (t.percent()) {
+			// Speech's Heroic (Hero of the Village's length) and Coinwise (coins' weight) are no power: BUILD_FEEL.md §14.2
+			// gives them 25–50 % and 20–40 %.
+			boolean exempt = e.getKey().getPath().equals("speech/heroic") || e.getKey().getPath().equals("speech/coinwise");
+			if (t.percent() && !exempt) {
 				double cap = t.scope() == Trait.Scope.BROAD ? 12 : 25;
 				assertTrue(t.max() <= cap, e.getKey() + ": a " + t.scope().getSerializedName() + " trait rolls at most " + cap + " %");
 				assertTrue(CardRules.cardCap(t) <= (t.scope() == Trait.Scope.BROAD ? 15 : 31.25) + 1e-9);

@@ -56,7 +56,10 @@ public final class RegistryCardData implements CardRules.Data {
 
 	@Override
 	public List<CardRules.TraitEntry> traits(ResourceKey<Skill> skill) {
-		return this.traits.getOrDefault(skill, List.of());
+		List<CardRules.TraitEntry> all = this.traits.getOrDefault(skill, List.of());
+		boolean bonus = dev.voidmc.mettle.compat.HearthLink.bonus();
+		// A trait whose only effect is a bonus key rolls only while the loaded Hearth reads keys (docs/BUILD_FEEL.md §14).
+		return all.stream().allMatch(e -> CardRules.rollable(e.trait(), bonus)) ? all : all.stream().filter(e -> CardRules.rollable(e.trait(), bonus)).toList();
 	}
 
 	@Override

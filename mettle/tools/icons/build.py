@@ -18,7 +18,7 @@ import perkkit
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PERK_DIR = os.path.normpath(os.path.join(HERE, '..', '..', 'src', 'main', 'resources', 'assets', 'mettle', 'textures', 'gui', 'perk'))
-TREES = ['blades', 'heavy_weapons', 'marksmanship', 'defense', 'mining', 'athletics', 'survival', 'smithing', 'general', 'stealth']
+TREES = ['blades', 'heavy_weapons', 'marksmanship', 'defense', 'mining', 'athletics', 'survival', 'smithing', 'general', 'stealth', 'speech']
 # drawn by icons.py, kept as they are
 ORIGINAL = {'quarryman', 'ore_sense', 'sure_footing', 'rock_hauler', 'gem_cutter', 'hard_hat', 'strike_the_seam',
             'lantern_eyes', 'tunneler', 'motherlode', 'deep_delver', 'mountain_breaker'}

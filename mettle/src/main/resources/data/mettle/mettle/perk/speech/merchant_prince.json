@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:speech",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "a",
+	"name": {
+		"translate": "mettle.perk.speech.merchant_prince"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.merchant_prince.description"
+	},
+	"order": 10
+}

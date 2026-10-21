@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:speech",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:gear_sells_dearer"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.appraising"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.appraising.description"
+	}
+}

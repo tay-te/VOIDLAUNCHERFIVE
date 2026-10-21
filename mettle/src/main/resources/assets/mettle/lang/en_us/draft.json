@@ -76,5 +76,11 @@
 	"mettle.perk.stealth.cowards_edge.downside": "While not sneaking, you take 15%% more damage.",
 	"mettle.perk.stealth.skulker": "Skulker",
 	"mettle.perk.stealth.skulker.description": "You sneak 40%% faster.",
-	"mettle.perk.stealth.skulker.downside": "In light 12 or more, hostiles notice you from 25%% further."
+	"mettle.perk.stealth.skulker.downside": "In light 12 or more, hostiles notice you from 25%% further.",
+	"mettle.perk.speech.honeyed_lies": "Honeyed Lies",
+	"mettle.perk.speech.honeyed_lies.description": "Your Speech counts 4 higher wherever Hearth reads it.",
+	"mettle.perk.speech.honeyed_lies.downside": "Your market edge at Hearth is 5%% worse.",
+	"mettle.perk.speech.demagogue": "Demagogue",
+	"mettle.perk.speech.demagogue.description": "Your Presence counts 4 higher wherever Hearth reads it.",
+	"mettle.perk.speech.demagogue.downside": "Skill XP from everything but Speech is 20%% lower."
 }

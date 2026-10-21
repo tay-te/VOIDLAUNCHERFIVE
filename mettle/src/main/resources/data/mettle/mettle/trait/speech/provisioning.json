@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:speech",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:food_cheaper"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.provisioning"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.provisioning.description"
+	}
+}

@@ -1,0 +1,20 @@
+{
+	"skill": "mettle:speech",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 1,
+	"max": 3,
+	"step": 1,
+	"unit": "flat",
+	"effect": {
+		"behaviour": "mettle:haggle_band"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.shrewd"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.shrewd.description"
+	},
+	"requires": "hearth_bonus",
+	"boosted": false
+}

@@ -1,0 +1,16 @@
+{
+	"skill": "mettle:speech",
+	"kind": "cursed",
+	"tier": 3,
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.speech.demagogue"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.demagogue.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.speech.demagogue.downside"
+	},
+	"order": 21
+}

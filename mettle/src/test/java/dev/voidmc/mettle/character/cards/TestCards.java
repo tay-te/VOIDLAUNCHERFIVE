@@ -40,7 +40,7 @@ final class TestCards {
 	static final Path DATA = Path.of("src/main/resources/data/mettle/mettle");
 	/** The skills with drawn Mythics (three each, docs/BUILD_FEEL.md §5): Stealth has none of its own yet. */
 	static final String[] MYTHIC_SKILLS = {"mining", "blades", "heavy_weapons", "marksmanship", "defense", "athletics", "survival", "smithing"};
-	static final String[] RELEASED = {"mining", "blades", "heavy_weapons", "marksmanship", "defense", "athletics", "survival", "smithing", "stealth"};
+	static final String[] RELEASED = {"mining", "blades", "heavy_weapons", "marksmanship", "defense", "athletics", "survival", "smithing", "stealth", "speech"};
 	static final UUID PLAYER = new UUID(1, 2);
 
 	static final Map<ResourceKey<Perk>, Perk> PERKS = load("perk", Perk.CODEC);

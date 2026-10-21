@@ -233,6 +233,7 @@ public final class MettleState {
 		// Cards v2 (docs/CARDS.md): the binder, decks, sets, trait totals and costs.
 		root.add("cards", MettleCards.build(mc, registries));
 		root.add("talents", MettleTalents.build(mc, registries));
+		root.add("speech", MettleSpeech.build(mc));
 
 		JsonArray skills = new JsonArray();
 		registries.lookupOrThrow(MettleRegistries.SKILL).listElements()

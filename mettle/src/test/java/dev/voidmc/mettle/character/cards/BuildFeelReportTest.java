@@ -129,12 +129,12 @@ class BuildFeelReportTest {
 	// ---------------------------------------------------------------- a character
 
 	/**
-	 * Skill XP rates: three mains at 1, two sides at 0.3, three dabbled at 0.08 (of the mains' XP), and since Stealth
-	 * shipped one released skill left untouched; the all-skills character plays every released skill.
+	 * Skill XP rates: three mains at 1, two sides at 0.3, three dabbled at 0.08 (of the mains' XP), and since Stealth and
+	 * Speech shipped two released skills left untouched; the all-skills character plays every released skill.
 	 */
-	static final double[] FOCUSED = {1, 1, 1, 0.3, 0.3, 0.08, 0.08, 0.08, 0};
-	static final double[] ALL_EIGHT = {1, 1, 1, 1, 1, 1, 1, 1, 1};
-	static final double[] SINGLE = {1, 0, 0, 0, 0, 0, 0, 0, 0};
+	static final double[] FOCUSED = {1, 1, 1, 0.3, 0.3, 0.08, 0.08, 0.08, 0, 0};
+	static final double[] ALL_EIGHT = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+	static final double[] SINGLE = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 	static final class Char {
 		final Rules rules;

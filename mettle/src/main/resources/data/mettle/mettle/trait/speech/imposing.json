@@ -1,0 +1,19 @@
+{
+	"skill": "mettle:speech",
+	"kind": "might",
+	"scope": "narrow",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:intimidate_odds"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.imposing"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.imposing.description"
+	},
+	"requires": "hearth_bonus"
+}

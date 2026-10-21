@@ -98,6 +98,17 @@
 			"description": {
 				"translate": "mettle.byname.skill.stealth.description"
 			}
+		},
+		"mettle:speech": {
+			"suffix": {
+				"translate": "mettle.byname.skill.speech.suffix"
+			},
+			"noun": {
+				"translate": "mettle.byname.skill.speech.noun"
+			},
+			"description": {
+				"translate": "mettle.byname.skill.speech.description"
+			}
 		}
 	}
 }

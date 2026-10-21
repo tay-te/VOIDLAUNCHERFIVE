@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:speech",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "any",
+	"name": {
+		"translate": "mettle.perk.speech.heros_welcome"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.heros_welcome.description"
+	},
+	"order": 11
+}

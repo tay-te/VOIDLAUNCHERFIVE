@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:speech",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.speech.tavern_keeper"
+	},
+	"description": {
+		"translate": "mettle.perk.speech.tavern_keeper.description"
+	},
+	"synergy": {
+		"mettle:speech": 10,
+		"mettle:survival": 10
+	},
+	"order": 18
+}

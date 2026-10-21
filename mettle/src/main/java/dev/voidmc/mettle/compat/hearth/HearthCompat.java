@@ -15,6 +15,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 public final class HearthCompat {
 	private static final Trainers TRAINERS = new Trainers();
 	private static boolean pricesAdded;
+	private static volatile net.minecraft.server.@org.jspecify.annotations.Nullable MinecraftServer server;
 
 	private HearthCompat() {
 	}
@@ -22,8 +23,26 @@ public final class HearthCompat {
 	public static void init() {
 		TrainerSessions.init();
 		HearthServices.setPlayerSkills(new MettlePlayerSkills());
-		// Request 12: does the Hearth actually loaded read bonus keys? Until it does, each keyed effect takes its fallback.
-		dev.voidmc.mettle.compat.HearthLink.set(true, declares(dev.voidmc.hearth.api.PlayerSkills.class, "bonus"));
+		// What the Hearth actually loaded has of requests 7-14 (an older one lacks them; our api copy is never packaged):
+		// bonus keys (12; until then each keyed effect takes its fallback), check events (13), the card broker (7), coin
+		// between players (8) and standing bands (9).
+		boolean bonus = declares(dev.voidmc.hearth.api.PlayerSkills.class, "bonus");
+		boolean checks = present("dev.voidmc.hearth.api.StandingEvents");
+		boolean broker = present("dev.voidmc.hearth.api.VirtualGoods") && declares(HearthServices.class, "addVirtualGoods");
+		dev.voidmc.mettle.compat.HearthLink.set(true, bonus, checks, broker);
+		HearthFees.transfers = declares(EconomyService.class, "transfer") && declares(EconomyService.class, "canReceive");
+		if (checks) {
+			HearthCheckEvents.init();
+		}
+		if (broker) {
+			CardGoods.init();
+		}
+		if (field("dev.voidmc.hearth.api.SettlementEvents", "STANDING_CHANGED")) {
+			HearthStanding.init();
+		}
+		dev.voidmc.mettle.character.skill.speech.SpeechHooks.marketAppraiser = HearthAppraiser::appraise;
+		ServerLifecycleEvents.SERVER_STARTING.register(s -> server = s);
+		ServerLifecycleEvents.SERVER_STOPPED.register(s -> server = null);
 		DialogueProvider.register(TRAINERS);
 		HearthXp.init();
 		// Cards v2: rebuild fees in coin (to a trainer, or burned at a Card Shrine).
@@ -33,9 +52,10 @@ public final class HearthCompat {
 		ServerPlayerEvents.LEAVE.register(player -> {
 			TRAINERS.forget(player.getUUID());
 			HearthXp.forget(player.getUUID());
+			HearthChecks.forget(player.getUUID());
 		});
-		Mettle.LOGGER.info("VOID Hearth found: skills, prices, trainers and quest XP are on; bonus keys {}",
-			dev.voidmc.mettle.compat.HearthLink.bonus() ? "read" : "not read yet (fallbacks on)");
+		Mettle.LOGGER.info("VOID Hearth found: skills, prices, trainers and quest XP are on; bonus keys {}; check events {}; card broker {}; coin transfers {}",
+			bonus ? "read" : "not read yet (fallbacks on)", checks ? "on" : "absent", broker ? "on" : "absent", HearthFees.transfers ? "on" : "charge and pay");
 	}
 
 	/**
@@ -49,6 +69,32 @@ public final class HearthCompat {
 			}
 		}
 		return false;
+	}
+
+	/** Whether the running Hearth has this class. */
+	static boolean present(String type) {
+		try {
+			Class.forName(type, false, HearthCompat.class.getClassLoader());
+			return true;
+		} catch (ClassNotFoundException | LinkageError e) {
+			return false;
+		}
+	}
+
+	/** Whether the running Hearth's class has this public field. */
+	static boolean field(String type, String name) {
+		try {
+			Class.forName(type, false, HearthCompat.class.getClassLoader()).getField(name);
+			return true;
+		} catch (ReflectiveOperationException | LinkageError e) {
+			return false;
+		}
+	}
+
+	/** An online player by id (Hearth's standing events carry ids), or null. */
+	static net.minecraft.server.level.@org.jspecify.annotations.Nullable ServerPlayer player(java.util.UUID id) {
+		net.minecraft.server.MinecraftServer s = server;
+		return s == null ? null : s.getPlayerList().getPlayer(id);
 	}
 
 	/** Once per game: the modifier list lives as long as Hearth's classes, across integrated-server restarts. */

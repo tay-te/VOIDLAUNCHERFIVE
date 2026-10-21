@@ -1,7 +1,7 @@
 """Cursed card icons (docs/DRAFT.md §4): each is a sibling perk's icon recast in the curse palette, with a small
-crimson brand in the top-left corner, so the sixteen read as one family next to the trees they come from.
+crimson brand in the top-left corner, so the twenty read as one family next to the trees they come from.
 
-    python cursed.py          # writes the 16 PNGs next to the other perk icons
+    python cursed.py          # writes the 20 PNGs next to the other perk icons
 
 A stand-in set for the mechanics pass; the draft UI pass may draw them properly.
 """
@@ -23,6 +23,7 @@ BASE = {
     'wolfs_hunger': 'iron_stomach', 'wild_luck': 'gatherer',
     'brittle_edge': 'keen_edge', 'slapdash': 'forged',
     'skulker': 'soft_step', 'cowards_edge': 'ambusher',
+    'honeyed_lies': 'glib', 'demagogue': 'commanding_voice',
 }
 
 # dark -> light: bruise violet into ember red into a pale, sickly bone

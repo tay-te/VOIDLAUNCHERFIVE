@@ -4,6 +4,14 @@
 	},
 	"attribute": "presence",
 	"order": 13,
-	"released": false,
+	"released": true,
+	"paths": {
+		"a": {
+			"translate": "mettle.path.speech.a"
+		},
+		"b": {
+			"translate": "mettle.path.speech.b"
+		}
+	},
 	"colour": "#E8C46A"
 }

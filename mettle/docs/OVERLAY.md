@@ -367,6 +367,30 @@ Talent cards also release three for a reroll and fuse three of one talent and ra
 (`releaseCards`, `fuseCards`, as skill cards). Chat fallback: `/mettle talents` (`keep`, `reroll`, `slot`, `unslot`) and
 `/mettle build title <deed|none> [instead]`.
 
+**Speech and the card broker (BUILD_FEEL.md §14.2, §18; CARDS.md §8.2, built 2026-10-21, Mettle 0.5.0).** Speech is a
+released skill like the others (`skills[]`, `perks[]`, its deck, colour honey `#E8C46A`); the Speech page's Hearth
+numbers come in `speech` (`client.overlay.MettleSpeech`), and the broker's in `cards.broker` and on each card. Hearth
+draws the broker itself (its card table in conversation until its screen is designed), so Mettle adds no actions for it.
+
+```ts
+speech: {
+  colour: "#E8C46A";
+  hearth: boolean; readsKeys: boolean; checkEvents: boolean;   // what the loaded Hearth has (requests 12, 13)
+  level: number; effectiveLevel: number;        // Speech, and as Hearth reads it (Glib, Persuasive, Voice, Honeyed Lies…), ≤ 20
+  presence: number; effectivePresence: number;  // Presence, and as Hearth reads it (Commanding Voice, Demagogue, Manners…), ≤ 20
+  edge: number; edgeText: "+8.0 %";             // Speech's share of the market edge (Haggler, Haggling, Merchant Prince, Honeyed Lies)
+  keys: { key: "hearth:haggle/band"; value: 5 }[];   // the bonus keys Speech answers now (only while Hearth reads keys)
+  fallbacks: string[];                          // held effects on their fallback (an older Hearth): "speech/shrewd_eye"
+  retriesPerDay: 0 | 1;                         // Second Word
+  appraiser: boolean;                           // item tooltips carry the market's prices
+  coinWeight: number;                           // % of a coin's weight carried (Ledger-Keeper 0, Coinwise)
+};
+cards.broker: { available: boolean;             // Mettle's cards are registered with the loaded Hearth's broker
+                kind: "mettle:card"; listed: number; listable: number; lapseDays: 14; attuneTicks: 24000 };
+Card gains canList: boolean (in the binder, attuned, not a talent), and when place is "listed": listing (the board's
+listing id, a string) and listedDay.
+```
+
 Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`
 (the text says what happened and names the heaviest stack), so the HUD can show the chip without polling.
 

@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "dev.voidmc.mettle.mixin.speech",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"SpeechAbstractVillagerMixin",
+		"SpeechCuredMixin",
+		"SpeechFurnaceResultSlotMixin",
+		"SpeechPiglinAiMixin",
+		"SpeechVillagerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

@@ -35,6 +35,31 @@ public interface PlayerSkills {
 	String STRENGTH = "strength";
 	String VITALITY = "vitality";
 
+	// ---- named bonuses at Hearth's decision points (docs/requests/mettle-speech-stealth.md §12, added 2026-10-21)
+
+	/** Speech levels added only for reading a merchant's limit band (Hearth clamps to 0–10). */
+	String BONUS_HAGGLE_BAND = "hearth:haggle/band";
+	/** Share added to a merchant's patience at the haggle (Hearth clamps to 0–0.5). */
+	String BONUS_HAGGLE_PATIENCE = "hearth:haggle/patience";
+	/** 1: a merchant walking away from a haggle is never sour with the player. */
+	String BONUS_HAGGLE_NEVER_SOUR = "hearth:haggle/never_sour";
+	/** Odds added to a speech check of one kind before Hearth's clamp: append the kind ({@code persuade}, {@code intimidate}, {@code bribe}, {@code flatter}). */
+	String BONUS_SPEECH = "hearth:speech/";
+	/** Failed speech checks per sim day that may be tried again at once (Hearth clamps to 0–3). */
+	String BONUS_SPEECH_RETRY = "hearth:speech/retry";
+	/** Share added to positive standing changes only (Hearth clamps to 0–0.5). */
+	String BONUS_STANDING_GAIN = "hearth:standing/gain";
+	/** Share off how far a sneaking player is seen, on top of Stealth's (Hearth clamps to 0–0.5). */
+	String BONUS_STEALTH_SIGHT = "hearth:stealth/sight";
+	/** Blocks beyond which a sneaking player is not seen at all; 0 = off (Hearth clamps to 2–32 when on). */
+	String BONUS_STEALTH_UNSEEN_BEYOND = "hearth:stealth/unseen_beyond";
+	/** Share off how long a guard searches after losing the player (Hearth clamps to 0–0.75). */
+	String BONUS_STEALTH_GIVE_UP = "hearth:stealth/give_up";
+	/** Share off how fast a pickpocketing mark notices (Hearth clamps to 0–0.5). */
+	String BONUS_PICKPOCKET_AWARENESS = "hearth:pickpocket/awareness";
+	/** 1: folk greet the player as a hero; flavour only, standing and the per-town HERO title untouched. */
+	String BONUS_GREET_HERO = "hearth:greet/hero";
+
 	/** A skill's level when the skills mod does not know it (or is absent). Skills run 0–20. */
 	int UNKNOWN_LEVEL = 0;
 	/** An attribute's value when unknown: the starting value. Attributes run 1–20. */
@@ -59,22 +84,39 @@ public interface PlayerSkills {
 	void award(ServerPlayer player, String skill, float xp, String reason);
 
 	/**
-	 * A character mod's bonus at one of Hearth's decision points (keys in docs/requests/mettle-speech-stealth.md, request
-	 * 12: {@code hearth:haggle/band}, {@code hearth:stealth/sight}...); 0 when unknown or without a skills mod. Hearth keeps
-	 * every clamp of its own.
+	 * A character mod's bonus at one of Hearth's decision points ({@code BONUS_*} keys above); 0 when unknown or without
+	 * a skills mod. Hearth applies and clamps it where it decides (docs/ARCHITECTURE.md §11); a perk answers either here
+	 * or through {@link #level}, never both. Added 2026-10-21.
 	 */
 	default double bonus(ServerPlayer player, String key) {
 		return 0;
 	}
 
-	/** The title the player wears ("the Deep Ember Warden", "Long Walker"); empty when none (request 14). */
+	/** Mythic cards the player holds ({@code mettle:mythic/dragonfall}); empty when unknown. Folk may greet them by it. */
+	default List<Identifier> titles(ServerPlayer player) {
+		return List.of();
+	}
+
+	/** The title the player wears ("the Deep Ember Warden", "Long Walker"); empty when none. Folk may greet them by it. */
 	default Component title(ServerPlayer player) {
 		return Component.empty();
 	}
 
-	/** Mythic cards the player holds ({@code mettle:mythic/dragonfall}); empty when unknown (request 10). */
-	default List<Identifier> titles(ServerPlayer player) {
-		return List.of();
+	/**
+	 * A bonus as Hearth applies it: {@link #bonus} within {@code lo}–{@code hi}, and 0 for a missing player, NaN or a
+	 * skills mod that throws (a broken partner never breaks a Hearth check).
+	 */
+	static double bonus(PlayerSkills skills, @org.jspecify.annotations.Nullable ServerPlayer player, String key, double lo, double hi) {
+		double v;
+		try {
+			v = skills.bonus(player, key);
+		} catch (RuntimeException e) {
+			return 0;
+		}
+		if (Double.isNaN(v) || v == 0) {
+			return 0;
+		}
+		return Math.clamp(v, lo, hi);
 	}
 
 	/**

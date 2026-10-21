@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:speech",
+	"kind": "might",
+	"scope": "narrow",
+	"min": 20,
+	"max": 40,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:coin_lighter"
+	},
+	"name": {
+		"translate": "mettle.trait.speech.coinwise"
+	},
+	"description": {
+		"translate": "mettle.trait.speech.coinwise.description"
+	}
+}
