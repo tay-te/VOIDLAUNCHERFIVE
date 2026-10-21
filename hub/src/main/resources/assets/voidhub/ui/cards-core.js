@@ -381,11 +381,30 @@
     return s + "</div>";
   }
 
-  function glyphRow(kws, size, gap) {
+  function glyphRow(kws, size, gap, inscribed) {
     var s = "", n = 0;
-    for (var i = 0; i < (kws || []).length; i++) if (MC.glyphIndex(kws[i]) >= 0) { s += MC.glyph(kws[i], size); n++; }
+    for (var i = 0; i < (kws || []).length; i++) {
+      if (MC.glyphIndex(kws[i]) < 0) continue;
+      // An inscribed keyword (build feel's ✎ mark): its glyph carries a small quill badge.
+      s += inscribed && kws[i].id === inscribed ? '<span class="gq">' + MC.glyph(kws[i], size) + '<i class="quill"></i></span>' : MC.glyph(kws[i], size);
+      n++;
+    }
     return {html: s, w: n * size + Math.max(0, n - 1) * gap};
   }
+
+  // ---- build feel's card marks (Figma 2i-15): ◆ Tempered (Temper blue), ✎ Inscribed (a quill), the Signature corner ----
+  /** The trait id a card's Temper raised, or null. */
+  MC.temperedTrait = function (c) { return c && c.marks && c.marks.tempered ? c.marks.tempered.trait : null; };
+  /** The keyword a card's Inscription set, or null. */
+  MC.inscribedKw = function (c) { return c && c.marks && c.marks.inscribed ? c.marks.inscribed.keyword : null; };
+  /** The marks' words for a tooltip and the rows: "Tempered · Inscribed · Signature". */
+  MC.markWords = function (c) {
+    var o = [];
+    if (MC.temperedTrait(c)) o.push("Tempered");
+    if (MC.inscribedKw(c)) o.push("Inscribed");
+    if (c && c.signature) o.push("Signature");
+    return o.join(" · ");
+  };
 
   /** "Mining 13" chip text: a requirement short enough for a 96 px card. */
   MC.shortNeed = function (c) {
@@ -405,15 +424,18 @@
     var hov = mythic ? "" : "hover-" + (c.cursed ? "cursed" : c.wildcard ? "wildcard" : rar);
     var long = String(c.baseName || c.name || "").length > 13;
     var bare = !(c.keywords || []).length && !(c.traits || []).length;
-    var h = '<div class="cc' + (mythic ? " my" : "") + (long ? " long" : "") + (bare ? " bare" : "") + (opt.sel ? " sel" : "") + (opt.cls ? " " + opt.cls : "") + '"' + (hov ? ' data-fxhover="' + hov + '"' : "") +
+    var marks = MC.markWords(c);
+    var h = '<div class="cc' + (mythic ? " my" : "") + (long ? " long" : "") + (bare ? " bare" : "") + (opt.sel ? " sel" : "") + (opt.cls ? " " + opt.cls : "") + '"' + (hov ? ' data-fxhover="' + hov + '"' : "") + (marks ? ' title="' + esc(marks) + '"' : "") +
       ' data-fxtint="' + (c.cursed ? MC.CURSED : hue) + '"' + (opt.attrs || "") + ' style="--c:' + (c.cursed ? MC.CURSED : hue) + (opt.style ? ";" + opt.style : "") + '">';
     if (opt.sel) h += '<div class="cc-sel"></div>';
     if (mythic) h += '<div class="cc-glow"></div>';  // the steady white-gold glow (a still texture: no idle paints)
     h += '<div class="cc-b' + (mythic ? " my" : "") + '" style="border-color:' + (mythic ? "#F3D28B" : MC.rgba(rc, 0.7)) + '"></div>';
     h += '<div class="cc-p" style="background:' + (mythic ? "#2a2236" : MC.shade(hue)) + '">' + MC.img(c.icon, 48) + "</div>";
     h += '<div class="cc-gem" style="background:' + rc + '"></div>';
+    if (c.signature) h += '<div class="cc-sig"></div>';
+    if (MC.temperedTrait(c)) h += '<div class="cc-tm' + (c.signature ? " sig" : "") + '"><i></i></div>';
     h += '<div class="cc-n">' + esc(c.baseName || c.name) + "</div>";
-    var g = glyphRow(c.keywords, 16, 6);
+    var g = glyphRow(c.keywords, 16, 6, MC.inscribedKw(c));
     if (g.html) h += '<div class="cc-k" style="width:' + g.w + "px;left:" + (48 - g.w / 2) + 'px">' + g.html + "</div>";
     h += traitDots((c.traits || []).length, rc);
     if (!mythic && c.place !== "slotted" && c.attuned === false && c.attuningMinutes > 0) {
@@ -596,7 +618,12 @@
     h += '<div class="hc-desc">' + esc(c.description) + "</div>";
     if (c.keywords && c.keywords.length) {
       h += '<div class="hc-kws">';
-      for (var k = 0; k < c.keywords.length; k++) h += '<span class="hc-kw">' + MC.glyph(c.keywords[k], 16) + esc(c.keywords[k].name) + "</span>";
+      var ins = MC.inscribedKw(c), lit = opt.lit || {};
+      for (var k = 0; k < c.keywords.length; k++) {
+        var kid = c.keywords[k].id;
+        h += '<span class="hc-kw' + (kid === ins ? " ins" : "") + (lit[kid] ? " lit" : "") + (lit[kid] === "focus" ? " focus" : "") + '" data-kwhover="' + esc(kid) + '">' + MC.glyph(c.keywords[k], 16) + esc(c.keywords[k].name) +
+          (kid === ins ? '<i class="quill"></i>' : "") + (lit[kid] === "focus" ? '<i class="fring"></i>' : "") + "</span>";
+      }
       h += "</div>";
     }
     h += '</div><div class="hc-bot">';
@@ -606,12 +633,15 @@
       h += '<div class="hc-div"></div>';
     }
     var ts = c.traits || [];
+    var tt = MC.temperedTrait(c);
     for (var t = 0; t < ts.length && t < 3; t++) {
-      var L = traitLine(ts[t]);
-      h += '<div class="hc-tr"><span class="n">' + esc(L.name) + '</span><span class="v">' + esc(L.value) + '</span><span class="b">' + esc(L.boost) + "</span></div>";
+      var L = traitLine(ts[t]), tm = tt && ts[t].id === tt;
+      h += '<div class="hc-tr' + (tm ? " tm" : "") + '"><span class="n">' + esc(L.name) + (tm ? '<i class="dia"></i>' : "") + '</span><span class="v">' + esc(L.value) + '</span><span class="b">' + esc(L.boost) + "</span></div>";
     }
     h += "</div>";
     if (c.slotsAt) h += '<div class="hc-need"><i class="lock"></i>' + esc(c.slotsAt) + "</div>";
+    if (c.signature) h += '<div class="hc-sigc"></div>';
+    if (tt) h += '<div class="hc-tmd"></div>';
     h += "</div>";
     // The burning edge, embers, the hot frame and the lift are CardFx layers (cards-draft.js draftFx), not markup.
     // MC.layoutCard sizes the art and places the two blocks once the card is in the page.
@@ -649,14 +679,15 @@
     for (var k = 0; k < (c.keywords || []).length; k++) kwn.push(c.keywords[k].name);
     var sub = mythic ? "Mythic" : (c.rarityName || rar) + " · " + (c.tierName || "I") + (kwn.length ? " · " + kwn.join(", ") : "") + (c.scars ? " · scar ×" + c.scars : "");
     var gx = opt.glyphX || (x + 202), tw = "max-width:" + (gx - x - 60) + "px";
-    h += '<div class="rw-n" style="left:' + (x + 52) + "px;" + tw + '">' + esc(c.baseName || c.name) + '</div><div class="rw-s" style="left:' + (x + 52) + "px;" + tw + '">' + esc(opt.sub || sub) + "</div>";
-    var g = glyphRow(c.keywords, 16, 4);
+    var mk = (MC.temperedTrait(c) ? '<i class="mk dia"></i>' : "") + (MC.inscribedKw(c) ? '<i class="mk quill"></i>' : "") + (c.signature ? '<i class="mk sigc"></i>' : "");
+    h += '<div class="rw-n" style="left:' + (x + 52) + "px;" + tw + '">' + esc(c.baseName || c.name) + mk + '</div><div class="rw-s" style="left:' + (x + 52) + "px;" + tw + '">' + esc(opt.sub || sub) + "</div>";
+    var g = glyphRow(c.keywords, 16, 4, MC.inscribedKw(c));
     if (g.html) h += '<div class="rw-k" style="left:' + gx + 'px">' + g.html + "</div>";
     var tx = opt.traitX || (gx + 50), ts = c.traits || [], shown = 0;
     h += '<div class="rw-ts" style="left:' + tx + "px;max-width:" + (opt.traitW || 330) + 'px">';
     for (var t = 0; t < ts.length && shown < (opt.maxTraits || 3); t++, shown++) {
-      var best = opt.best === ts[t].id;
-      h += '<span class="rw-t' + (best ? " best" : "") + '">' + esc((ts[t].name || "") + " " + (ts[t].valueText || "")) + "</span>";
+      var best = opt.best === ts[t].id, rtm = MC.temperedTrait(c) === ts[t].id;
+      h += '<span class="rw-t' + (best ? " best" : "") + (rtm ? " tm" : "") + '">' + esc((ts[t].name || "") + " " + (ts[t].valueText || "")) + (rtm ? '<i class="dia"></i>' : "") + "</span>";
     }
     if (ts.length > shown) h += '<span class="rw-more">+' + (ts.length - shown) + "</span>";
     if (!ts.length && !mythic) h += '<span class="rw-none">no traits</span>';

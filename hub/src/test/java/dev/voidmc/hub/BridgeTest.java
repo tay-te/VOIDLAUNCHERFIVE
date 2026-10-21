@@ -60,6 +60,32 @@ class BridgeTest {
 	}
 
 	@Test
+	void buildFeelActionsAndQuestionsKeepTheirShapes() {
+		String[][] ok = {{"setFocus", "mettle:deep"}, {"setFocus", ""}, {"temperCard", "12#mettle:mining/deepborn"}, {"inscribeCard", "12#mettle:deep"},
+			{"boonReroll", "mettle:mining"}, {"setSignature", "44"}, {"clearSignature", "mettle:mining"}, {"takeByname", ""}, {"wearByname", "3"},
+			{"forgeMythic", "mettle:stonesong"}, {"forgeLegend", ""}, {"guideSkip", ""}, {"guideAdvance", "dismiss"}, {"guideAdvance", "not_now"},
+			{"guideAdvance", "keyword"}};
+		for (String[] c : ok) {
+			assertEquals(new Bridge.MettleCall(c[0], c[1]), Bridge.decode(Json.object().put("type", "mettle").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
+		}
+		String[][] bad = {{"setFocus", "Deep Keyword"}, {"temperCard", "12"}, {"temperCard", "x#mettle:mining/deepborn"}, {"inscribeCard", "12#<b>"},
+			{"boonReroll", ""}, {"setSignature", "12,13"}, {"wearByname", "-1"}, {"wearByname", "1234"}, {"forgeMythic", ""}, {"forgeLegend", "x"},
+			{"guideAdvance", "explode"}, {"guideSkip", "1"}, {"takeByname", "mettle:x"}};
+		for (String[] c : bad) {
+			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(Json.object().put("type", "mettle").put("op", c[0]).put("arg", c[1]).end()), c[0] + " " + c[1]);
+		}
+		assertEquals(new Bridge.MettleAsk("previewTemper", "12#mettle:mining/deepborn", 7),
+			Bridge.decode("{\"type\":\"mettleAsk\",\"op\":\"previewTemper\",\"arg\":\"12#mettle:mining/deepborn\",\"req\":7}"));
+		assertEquals(new Bridge.MettleAsk("boonOptions", "12", 0), Bridge.decode("{\"type\":\"mettleAsk\",\"op\":\"boonOptions\",\"arg\":\"12\",\"req\":0}"));
+		assertEquals(new Bridge.MettleAsk("previewSlot", "9", 3), Bridge.decode("{\"type\":\"mettleAsk\",\"op\":\"previewSlot\",\"arg\":\"9\",\"req\":3}"));
+		for (String bad2 : new String[] {"{\"type\":\"mettleAsk\",\"op\":\"temperCard\",\"arg\":\"12#mettle:x\",\"req\":1}",
+			"{\"type\":\"mettleAsk\",\"op\":\"previewTemper\",\"arg\":\"12\",\"req\":1}", "{\"type\":\"mettleAsk\",\"op\":\"boonOptions\",\"arg\":\"12\"}",
+			"{\"type\":\"mettleAsk\",\"op\":\"boonOptions\",\"arg\":\"12\",\"req\":1.5}", "{\"type\":\"mettleAsk\",\"op\":\"boonOptions\",\"arg\":\"12\",\"req\":-1}"}) {
+			assertInstanceOf(Bridge.Invalid.class, Bridge.decode(bad2), bad2);
+		}
+	}
+
+	@Test
 	void nativeCardLayersAreChecked() {
 		Bridge.Message m = Bridge.decode("{\"type\":\"fx\",\"items\":[{\"i\":\"g1c0-e\",\"k\":\"edge-rare\",\"x\":120,\"y\":199,\"c\":\"#4DA3F5\",\"a\":0.4,"
 			+ "\"d\":240},{\"i\":\"mfoil\",\"k\":\"foil\",\"x\":1,\"y\":2,\"clip\":[1,2,3,4]}]}");

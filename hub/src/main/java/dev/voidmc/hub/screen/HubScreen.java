@@ -408,6 +408,7 @@ public abstract class HubScreen<T extends AbstractContainerMenu> extends Abstrac
 		}
 		w.putInts("filled", filled.stream().mapToInt(Integer::intValue).toArray());
 		w.put("world", worldName());
+		w.put("player", this.minecraft.player.getName().getString());  // the character sheet and name card (Mettle)
 		w.put("day", this.minecraft.level == null ? 0 : this.minecraft.level.getOverworldClockTime() / 24000L + 1);
 		w.put("page", this.page());
 		w.put("atlas", HubMap.available());

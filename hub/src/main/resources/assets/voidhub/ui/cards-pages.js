@@ -13,7 +13,7 @@
 
   var nav = MC.nav = {view: "home", tab: "skills", skill: null, stab: "deck", shrine: "rebuild"};
   var st = MC.st = {
-    binder: {skill: "", rarity: "", kw: "", trait: "", slot: false, att: false, sort: "newest", q: "", scroll: 0, sel: null},
+    binder: {skill: "", rarity: "", kw: "", trait: "", slot: false, att: false, sets: false, sort: "newest", q: "", scroll: 0, sel: null},
     deck: {rarity: "", kw: "", trait: "", slot: false, sort: "rarity", scroll: 0, sel: null, pop: null, totals: false},
     rebuild: {skill: null, pick: {}}, fuse: {pick: []}, release: {pick: []}, hall: {scroll: 0},
     trade: {adding: false, scroll: 0, coinDraft: null, req: null, meScroll: 0, themScroll: 0},
@@ -73,9 +73,9 @@
     MC.text(part(cv, "c-fl", "footer c-foot"), l || "");
     MC.text(part(cv, "c-fr", "footer right c-foot"), r || "");
   }
-  function draftsBadge() {
+  function draftsBadge(short) {
     var n = M().draft ? M().draft.waiting : 0;
-    return n > 0 ? '<div class="ov-badge hd-badge" data-deal-any="1"><i class="backs"></i><span>' + n + (n === 1 ? " draft waiting" : " drafts waiting") + "</span></div>" : "";
+    return n > 0 ? '<div class="ov-badge hd-badge" data-deal-any="1"><i class="backs"></i><span>' + n + (short ? (n === 1 ? " draft" : " drafts") : n === 1 ? " draft waiting" : " drafts waiting") + "</span></div>" : "";
   }
 
   // ---- the router ------------------------------------------------------------------------------------------------
@@ -84,8 +84,8 @@
     if (c.sitting) return "shrine";
     if (c.trade) return "trade";
     if (nav.view === "shrine-info") return "shrine-info";
-    if (nav.view === "skill" && nav.skill && skill(nav.skill)) return "skill-" + nav.stab;
-    return "home-" + nav.tab;
+    if (nav.view === "skill" && nav.skill && skill(nav.skill)) return "skill-" + (SCREENS["skill-" + nav.stab] ? nav.stab : "deck");
+    return "home-" + (SCREENS["home-" + nav.tab] ? nav.tab : "skills");
   }
 
   /** Draws the current screen: builds its skeleton when the screen changed, then patches what the state changed. */
@@ -108,6 +108,7 @@
     if (id !== "trade") MC.itemsSet([]);
     toast();
     moments();
+    if (MC.bf) MC.bf.render(id);
     pageFx();
     ring();
     ui();
@@ -140,6 +141,7 @@
         items.push({i: "pl" + ds[i].getAttribute("data-slot"), k: "pulse", x: a.x, y: a.y, w: sz.w, h: sz.h, c: "#F5B03C", a: 0.16});
       }
     }
+    if (MC.bf && MC.attached && kind === "classes" && !MC.ov.active()) items = items.concat(MC.bf.pulses(cv));
     MC.fxSet("pulse", items);
     if (hoverEl && (!document.documentElement.contains(hoverEl) || st.deck.drag || MC.ov.active())) setHover(null);
   }
@@ -173,7 +175,7 @@
   // the sound panel, the deck's take-out popover, the trade's card picker, or the keyboard focus ring. Esc closes the
   // top one, not the window; the hotbar keys stay quiet. force: a new screen (Java starts from "nothing").
   var uiSent = "";
-  function modal() { return MC.ov.active() || !!st.menu || !!st.deck.pop || !!st.trade.adding || !!focus.key; }
+  function modal() { return MC.ov.active() || !!st.menu || !!st.deck.pop || !!st.trade.adding || !!focus.key || !!(MC.bf && MC.bf.modal()); }
   function ui(force) {
     var m = modal(), k = (m ? "m" : "") + (MC.textFocus ? "t" : "");
     if (k === uiSent && !force) return;
@@ -201,6 +203,8 @@
       var list = skills();
       for (var i = 0; i < list.length; i++) if (list[i].drafts > 0 && list[i].hand && list[i].hand.length) { MC.ov.draft(list[i].id); return; }
     }
+    // A milestone's banner (build feel) comes after a waiting draft: the draft is what the player opened the page for.
+    if (MC.bf) MC.bf.banner();
   }
   MC.onDraftClosed = function () { dismissedWaiting = M().draft ? M().draft.waiting : 0; };
 
@@ -233,8 +237,11 @@
   }
 
   function homeHead(on) {
-    var right = on === "cards" ? countBox() : draftsBadge();
-    head(tabs([["skills", "Skills"], ["cards", "Cards"], ["hall", "Hall of Firsts", 146]], on, "data-tab", 300),
+    var boons = MC.bf ? MC.bf.homeBoons() : "";
+    var right = on === "cards" ? countBox() : on === "character" && MC.bf ? MC.bf.shardsPill() : draftsBadge(!!boons) + boons;
+    var bf = !!(M().cards && M().cards.build);
+    head(tabs(bf ? [["character", "Character", 85], ["skills", "Skills", 55], ["cards", "Cards", 60], ["hall", "Hall of Firsts", 97]]
+      : [["skills", "Skills"], ["cards", "Cards"], ["hall", "Hall of Firsts", 146]], on, "data-tab", bf ? 307 : 300),
       '<div class="hd-row">' + right + soundButton() + "</div>");
   }
 
@@ -356,6 +363,7 @@
       if (b.trait && !hasTrait(c, b.trait)) continue;
       if (b.slot && !c.canSlot) continue;
       if (b.att && c.attuned !== false) continue;
+      if (b.sets && !(MC.bf && MC.bf.completesSet(c))) continue;
       if (q && (c.name + " " + kwNames(c) + " " + (c.code || "") + " " + traitText(c)).toLowerCase().indexOf(q) < 0) continue;
       out.push(c);
     }
@@ -387,11 +395,17 @@
     h += ddPill("bl-f", "b-trait", b.trait ? traitName(b.trait) : "Any trait", !!b.trait, "top:" + Y(403) + "px");
     h += '<div class="bl-f half' + (b.slot ? " on" : "") + '" data-bf="slot" style="top:' + Y(435) + 'px">Slottable</div>';
     h += '<div class="bl-f half r' + (b.att ? " on" : "") + '" data-bf="att" style="top:' + Y(435) + 'px">Attuning</div>';
-    h += '<div class="bl-f half" data-shrineinfo="1" style="top:' + Y(467) + 'px">Shrine ›</div>';
-    h += '<div class="bl-f half r" data-dd="trade-req" style="top:' + Y(467) + 'px">Trade ›</div>';
+    if (M().cards.build && MC.bf) {
+      h += '<div class="bl-f' + (b.sets ? " on" : "") + '" data-bf="sets" style="top:' + Y(467) + 'px">Completes a set · ' + MC.bf.completesCount(fixed) + "</div>";
+      h += '<div class="bl-f half" data-shrineinfo="1" style="top:' + Y(499) + 'px">Shrine ›</div>';
+      h += '<div class="bl-f half r" data-dd="trade-req" style="top:' + Y(499) + 'px">Trade ›</div>';
+    } else {
+      h += '<div class="bl-f half" data-shrineinfo="1" style="top:' + Y(467) + 'px">Shrine ›</div>';
+      h += '<div class="bl-f half r" data-dd="trade-req" style="top:' + Y(467) + 'px">Trade ›</div>';
+    }
     var mine = null;
     for (var m = 0; m < all.length; m++) if (MC.isMythic(all[m])) { mine = all[m]; break; }
-    h += '<div class="bl-my" data-tab="hall" style="top:' + Y(517) + 'px"><div class="t">' + (mine ? MC.img(mine.icon, 24) : "") + '</div><div class="n">' + esc(mine ? mine.name : "No Mythic yet") +
+    h += '<div class="bl-my" data-tab="hall" style="top:' + Y(M().cards.build ? 538 : 517) + 'px"><div class="t">' + (mine ? MC.img(mine.icon, 24) : "") + '</div><div class="n">' + esc(mine ? mine.name : "No Mythic yet") +
       '</div><div class="s">Hall of Firsts ›</div></div>';
     return h;
   }
@@ -408,7 +422,7 @@
     }
     return maxScroll;
   }
-  function cardKey(c) { return c.id + ":" + JSON.stringify([c.place, c.slot, c.attuned, c.attuningMinutes, c.meetsRequirement, c.dormant, c.traits && c.traits.length, c.canSlot, MC.icons[c.icon] ? 1 : 0]); }
+  function cardKey(c) { return c.id + ":" + JSON.stringify([c.place, c.slot, c.attuned, c.attuningMinutes, c.meetsRequirement, c.dormant, c.traits && c.traits.length, c.canSlot, MC.icons[c.icon] ? 1 : 0, c.marks ? [!!c.marks.tempered, c.marks.inscribed ? c.marks.inscribed.keyword : 0] : 0, !!c.signature]); }
 
   function detail(c) {
     if (!c) return '<div class="bd-empty">Pick a card to see its traits and history.</div>';
@@ -446,12 +460,18 @@
     if (c.scars) lines.push("Scar ×" + c.scars);
     if (c.dormant && c.dormantReason) lines.push("Dormant: " + c.dormantReason);
     if (c.attuned === false && c.attuningMinutes > 0) lines.push("Attuning · " + c.attuningMinutes + " min");
-    for (var l = 0; l < lines.length && l < 4; l++) { h += '<div class="bd-h" style="top:' + y + 'px">' + esc(lines[l]) + "</div>"; y += 19; }
-    if (c.code) h += '<div class="bd-code" style="top:' + (y + 2) + 'px">' + esc(c.code) + "</div>";
+    if (MC.bf && c.marks) {
+      var bfd = MC.bf.detailExtra(c, y, lines);
+      h += bfd.html;
+      y = bfd.y;
+    } else {
+      for (var l = 0; l < lines.length && l < 4; l++) { h += '<div class="bd-h" style="top:' + y + 'px">' + esc(lines[l]) + "</div>"; y += 19; }
+      if (c.code) h += '<div class="bd-code" style="top:' + (y + 2) + 'px">' + esc(c.code) + "</div>";
+    }
     // Actions: slot or take out, trade.
     var a1, a2, at = M().cards.atShrine, tr2 = M().cards.trade;
     if (c.place === "slotted") a1 = '<div class="bd-a" data-takeout="' + c.id + '">Take out…</div>';
-    else if (c.canSlot) a1 = '<div class="bd-a" data-slotbest="' + c.id + '">Slot</div>';
+    else if (c.canSlot) a1 = '<div class="bd-a" data-slotbest="' + c.id + '">Slot' + (M().cards.build && !MC.isMythic(c) && skill(c.skill) ? " in " + esc(skill(c.skill).name) : "") + "</div>";
     else {
       a1 = '<div class="bd-a off">Can’t slot</div>';
       if (c.lockedReason) h += '<div class="bd-why">' + esc(c.lockedReason) + "</div>";
@@ -469,7 +489,9 @@
     var b = st.binder;
     if (fixed && b.skill !== "") b.skill = "";
     var list = binderList(fixed);
-    patch(part(cv, "b-left", "b-left"), JSON.stringify([b, fixed, cards().length, MC.icons ? iconsKey : 0, st.menu && st.menu.id]), function () { return binderLeft(fixed); });
+    // The left column does not move with the grid: a scroll or a selection leaves it alone (no rewrite, no repaint).
+    var leftKey = [b.skill, b.rarity, b.kw, b.trait, b.slot, b.att, b.sets, fixed, cards().length, MC.icons ? iconsKey : 0, st.menu && st.menu.id, MC.bf && b.sets !== undefined ? MC.bf.completesCount(fixed) : 0];
+    patch(part(cv, "b-left", "b-left"), JSON.stringify(leftKey), function () { return binderLeft(fixed); });
     var search = '<div class="b-search' + (MC.textFocus ? " on" : "") + '" data-search="1">' + (b.q ? esc(b.q) + (MC.textFocus ? '<i class="caret"></i>' : "") : (MC.textFocus ? '<i class="caret"></i>' : '<span class="ph">Search cards, traits, ids</span>')) + "</div>";
     search += ddPill("b-sort", "b-sort", sortLabel(b.sort), false, "", st.menu && st.menu.id === "b-sort");
     patch(part(cv, "b-top", "b-top"), b.q + MC.textFocus + b.sort + (st.menu && st.menu.id), search);
@@ -478,7 +500,7 @@
     MC.text(part(cv, "b-note", "b-note", "left:204px;top:" + Y(515) + "px"), Math.max(0, shown) + " of " + list.length + (maxScroll > 0 ? " · scroll" : "") + "  ·  release three of one skill for a reroll at a Card Shrine");
     var sel = b.sel ? byId[b.sel] : null;
     if (b.sel && !sel) b.sel = null;
-    patch(part(cv, "b-detail", "b-detail"), sel ? cardKey(sel) + JSON.stringify([sel.traits, sel.drawn, M().cards.atShrine, !!M().cards.trade]) : "none", function () { return detail(sel); });
+    patch(part(cv, "b-detail", "b-detail"), sel ? cardKey(sel) + JSON.stringify([sel.traits, sel.drawn, M().cards.atShrine, !!M().cards.trade, sel.marks, sel.signature, MC.bf ? MC.bf.slotPreviewKey(sel) : 0]) : "none", function () { return detail(sel); });
   }
 
   SCREENS["home-cards"] = function () {
@@ -517,7 +539,8 @@
 
   // ---- a skill: Deck / Tree / Cards ------------------------------------------------------------------------------
   function skillHead(s, on) {
-    head(skillChip(s, true), tabs([["deck", "Deck"], ["tree", "Tree"], ["cards", "Cards"]], on, "data-stab", 230));
+    var d = deck(s.id), b = d && d.boons > 0 && MC.bf ? MC.bf.boonBadge(s, d.boons, on === "boon" || on === "temper" || on === "inscribe") : "";
+    head('<div class="hd-row">' + skillChip(s, true) + b + "</div>", tabs([["deck", "Deck"], ["tree", "Tree"], ["cards", "Cards"]], on === "boon" || on === "temper" || on === "inscribe" ? "deck" : on, "data-stab", 230));
   }
 
   var SLOT = {x: 28, y: 95, pitch: 104};
@@ -541,8 +564,10 @@
     var sets = M().cards.sets, pins = M().cards.pins, h = "", y = 41, active = 0;
     var shown = sets.slice().sort(function (a, b) { return (b.active ? 1 : 0) - (a.active ? 1 : 0) || b.count - a.count; });
     for (var i = 0; i < sets.length; i++) if (sets[i].active) active++;
-    h += '<div class="eb9" style="left:15px;top:13px">SETS · ' + active + " ACTIVE</div>";
-    h += '<div class="sc-pin" data-pinauto="1">' + (pins.keywords.length ? "Pinned" : "Automatic") + (pins.canChange ? "" : " · once a day") + "</div>";
+    var bfx = M().cards.build;
+    h += '<div class="eb9" style="left:15px;top:13px">SETS · ' + (active ? active + " ACTIVE" : "NONE YET") + "</div>";
+    if (bfx && MC.bf) h += MC.bf.focusChip("sc-focus");
+    else h += '<div class="sc-pin" data-pinauto="1">' + (pins.keywords.length ? "Pinned" : "Automatic") + (pins.canChange ? "" : " · once a day") + "</div>";
     if (st.deck.totals) {
       var tr = M().cards.traits;
       for (var t = 0; t < tr.length && y < 270; t++) { h += '<div class="sc-tt" style="top:' + y + 'px">' + esc(tr[t].text) + "</div>"; y += 22; }
@@ -552,9 +577,11 @@
         var s = shown[k];
         if (!s.active && !s.count) continue;
         var pinned = pins.keywords.indexOf(s.id) >= 0;
-        if (s.active) {
-          h += '<div class="sc-set on" data-pin="' + s.id + '" style="top:' + y + 'px">' + MC.glyph(s, 16) + '<span class="n">' + esc(s.name) + '</span><span class="c">' + s.count + "</span>" + pips(s.tier, true) +
-            (pinned ? '<span class="pinmark">PINNED</span>' : "") + '<div class="sub">' + esc(setSkills(s)) + "</div></div>";
+        var near = s.oneAway && s.next >= 4, cue = s.asleep ? " asleep" : near ? " away" : "";
+        if (s.active || near || s.asleep) {
+          var sub = s.asleep ? s.asleepText : near && s.nextText ? "One card away · " + s.nextText : setSkills(s);
+          h += '<div class="sc-set on' + cue + '" data-pin="' + s.id + '" data-kwhover="1" style="top:' + y + 'px">' + MC.glyph(s, 16) + '<span class="n">' + esc(s.name) + (s.focus ? '<i class="fmark"></i>' : "") + '</span><span class="c">' + s.count + "</span>" + pips(s.tier, true, s.asleep) +
+            (near && s.nextText ? '<span class="away">' + esc(s.nextText) + "</span>" : pinned ? '<span class="pinmark">PINNED</span>' : "") + '<div class="sub">' + esc(sub) + "</div></div>";
           y += 50;
         } else {
           h += '<div class="sc-set" data-pin="' + s.id + '" style="top:' + y + 'px">' + MC.glyph(s, 16) + '<span class="n">' + esc(s.name) + '</span><span class="c">' + s.count + "</span>" + pips(s.tier, false) + "</div>";
@@ -565,9 +592,9 @@
     h += '<div class="sc-tog" data-totals="1"><span>Trait totals</span><span class="r">' + (st.deck.totals ? "hide ‹" : "show ›") + "</span></div>";
     return h;
   }
-  function pips(tier, on) {
+  function pips(tier, on, asleep) {
     var h = '<span class="pips3">';
-    for (var i = 0; i < 3; i++) h += '<i class="' + (tier >= (i + 1) * 2 ? (on ? "on" : "dim") : on ? "" : "off") + '"></i>';
+    for (var i = 0; i < 3; i++) h += '<i class="' + (tier >= (i + 1) * 2 ? (on ? "on" : "dim") : asleep && i === 2 ? "sleep" : on ? "" : "off") + '"></i>';
     return h + "</span>";
   }
   function setSkills(set) {
@@ -605,7 +632,7 @@
     var slot = d.row.indexOf ? 0 : 0;
     for (var i = 0; i < d.row.length; i++) if (d.row[i].card === c.id) slot = i;
     var x = Math.max(28, Math.min(669, SLOT.x + slot * SLOT.pitch - 20));
-    var h = '<div class="pop" style="left:' + x + "px;top:" + Y(231) + 'px"><i class="ptr" style="left:' + (SLOT.x + slot * SLOT.pitch + 40 - x) + 'px"></i>';
+    var h = '<div class="pop" style="left:' + x + "px;top:" + Y(231) + "px" + (M().cards.build ? ";height:236px" : "") + '"><i class="ptr" style="left:' + (SLOT.x + slot * SLOT.pitch + 40 - x) + 'px"></i>';
     h += '<div class="pt">Take ' + esc(c.baseName || c.name) + " out</div>";
     h += '<div class="pk" style="top:41px">Fee</div><div class="pv" style="top:40px">' + (free ? "free" : esc(feeText(rb))) + "</div>";
     h += '<div class="pk" style="top:63px">Draught</div><div class="pv" style="top:62px">' + (free ? "none" : "Forgetting · " + esc(s.name) + " · once a sitting") + "</div>";
@@ -614,6 +641,7 @@
     if (free) h += '<div class="pb pri" data-unslot="' + c.id + '">' + esc(how) + "</div>";
     else if (M().cards.atShrine) h += '<div class="pb pri" data-goshrine="rebuild">Rebuild at the shrine</div>';
     else h += '<div class="pb pri off">Needs a trainer or a shrine</div>';
+    if (MC.bf && M().cards.build) h += MC.bf.signatureButton(c, d);
     h += '<div class="pb" data-popclose="1">Cancel</div>';
     return h + "</div>";
   }
@@ -626,9 +654,10 @@
     for (var i = 0; i < d.row.length; i++) if (d.row[i].card) used++;
     var costs = M().cards.costs, sw = "";
     for (var p = 0; p < costs.maxFreeSwaps; p++) sw += '<i class="' + (p < costs.freeSwaps ? "on" : "") + '"></i>';
-    patch(part(cv, "dk-head", "dk-head"), JSON.stringify([s.name, used, d.slots, costs.freeSwaps, costs.maxFreeSwaps]),
+    var marksPips = MC.bf ? MC.bf.deckMarks(d) : "";
+    patch(part(cv, "dk-head", "dk-head"), JSON.stringify([s.name, used, d.slots, costs.freeSwaps, costs.maxFreeSwaps, marksPips]),
       '<div class="eb9" style="left:28px;top:' + Y(71) + 'px">' + esc(upper(s.name)) + ' DECK</div><div class="dk-n" style="left:' + (28 + upper(s.name).length * 9 + 50) + "px;top:" + Y(69) + 'px">' + used + " of " + d.slots + " slots</div>" +
-      '<div class="dk-swaps"><span class="pp">' + sw + "</span>" + costs.freeSwaps + (costs.freeSwaps === 1 ? " free swap" : " free swaps") + "</div>");
+      '<div class="dk-swaps"><span class="pp">' + sw + "</span>" + costs.freeSwaps + (costs.freeSwaps === 1 ? " free swap" : " free swaps") + "</div>" + marksPips);
     var row = part(cv, "dk-row", "dk-row", "left:" + SLOT.x + "px;top:" + Y(SLOT.y) + "px");
     var n = d.row.length, scale = n > 9 ? 929 / (n * SLOT.pitch - 8) : 1;
     row.style.transform = scale < 1 ? "scale(" + scale.toFixed(4) + ")" : "";
@@ -666,7 +695,7 @@
     patch(part(cv, "dk-sets", "dk-sets"), JSON.stringify([M().cards.sets, M().cards.pins, st.deck.totals, st.deck.totals ? M().cards.traits : 0, iconsKey]), setsColumn);
     var pc = st.deck.pop && byId[st.deck.pop];
     if (st.deck.pop && !pc) st.deck.pop = null;
-    patch(part(cv, "dk-pop", "dk-pop"), pc ? cardKey(pc) + JSON.stringify([pc.rebuild, costs, M().cards.atShrine]) : "", pc ? function () { return popover(pc, d, s); } : "");
+    patch(part(cv, "dk-pop", "dk-pop"), pc ? cardKey(pc) + JSON.stringify([pc.rebuild, costs, M().cards.atShrine, pc.signature, d.signature]) : "", pc ? function () { return popover(pc, d, s); } : "");
     footer(upper(s.name) + " " + s.level + "  ·  " + (d.nextSlotAt ? "NEXT SLOT AT " + upper(s.name) + " " + d.nextSlotAt : "EVERY SLOT OPEN") + "  ·  SLOTTING IS FREE, ANYWHERE", upper(d.rebuildHint || ""));
   };
 
@@ -695,9 +724,11 @@
 
   function shrineHead() {
     var sit = M().cards.sitting, name = sit.kind === "shrine" ? "Card Shrine" : (sit.master ? "Master trainer" : "Trainer") + (sit.skills.length === 1 && skill(sit.skills[0]) ? " · " + skill(sit.skills[0]).name : "");
-    var t = sit.kind === "shrine" ? [["rebuild", "Rebuild"], ["fuse", "Fuse"], ["release", "Release"]] : [["rebuild", "Rebuild"], ["fuse", "Fuse"]];
+    var forge = sit.kind === "shrine" && M().cards.build && MC.bf;
+    var t = sit.kind === "shrine" ? (forge ? [["rebuild", "Rebuild", 62], ["fuse", "Fuse", 47], ["release", "Release", 64], ["forge", "Forge", 68]] : [["rebuild", "Rebuild"], ["fuse", "Fuse"], ["release", "Release"]]) : [["rebuild", "Rebuild"], ["fuse", "Fuse"]];
+    if (nav.shrine === "forge" && !forge) nav.shrine = "rebuild";
     if (sit.kind !== "shrine" && nav.shrine === "release") nav.shrine = "rebuild";
-    head('<div class="hd-chip plain"><span class="nm">' + esc(name) + "</span></div>", tabs(t, nav.shrine, "data-shtab", 230));
+    head('<div class="hd-chip plain"><span class="nm">' + esc(name) + "</span></div>", tabs(t, nav.shrine, "data-shtab", forge ? 251 : 230));
   }
 
   var LIST_Y = 131, ROW = 60;
@@ -706,7 +737,9 @@
     var sit = M().cards.sitting;
     if (nav.shrine === "fuse") fuseTab();
     else if (nav.shrine === "release") releaseTab();
+    else if (nav.shrine === "forge" && MC.bf) { shrineClear("fg"); MC.bf.forgeTab(cv); }
     else rebuildTab();
+    if (nav.shrine !== "forge" && MC.bf) MC.bf.forgeClear(cv);
     footer(sit.kind === "shrine" ? "THE SHRINE BURNS ITS FEES  ·  WALK 8 BLOCKS AWAY TO LEAVE" : "A TRAINER KEEPS THE FEE  ·  CAPS CARDS BY ITS TIER", "");
     patch(part(cv, "sh-leave", "sh-leave"), "1", '<span data-closesit="1">LEAVE THE ' + (sit.kind === "shrine" ? "SHRINE" : "TRAINER") + "</span>");
   };
@@ -1056,6 +1089,7 @@
       case "d-trait": return {title: "Trait", opts: [["", "Any trait"]].concat(traitsOf(deckCards())), cur: d.trait};
       case "d-sort": return {title: "Sort by", opts: SORTS, cur: d.sort};
       case "sound": return {custom: soundPanel, w: 220, h: 168, opts: []};
+      case "focus": case "bynames": return MC.bf ? MC.bf.menuSpec(id) : {opts: []};
       case "trade-req":
         var rows = [];
         for (i = 0; i < MC.near.length; i++) rows.push([MC.near[i].name, MC.near[i].name, '<span class="ddo-d">' + Math.max(1, Math.round(MC.near[i].d)) + " m</span>"]);
@@ -1074,6 +1108,7 @@
       case "d-kw": d.kw = v; d.scroll = 0; break;
       case "d-trait": d.trait = v; d.scroll = 0; break;
       case "d-sort": d.sort = v; break;
+      case "focus": case "bynames": if (MC.bf) MC.bf.menuPick(id, v); break;
       case "trade-req":
         MC.act("tradeRequest", v);
         st.trade.req = {name: v, at: Date.now(), card: st.menu && st.menu.card || null};
@@ -1154,9 +1189,16 @@
   function onClick(ev) {
     if (!MC.attached || kind !== "classes" || !M() || !M().cards) return;
     var t = ev.target, el, v;
+    // The guide's chip sits over everything, a draft included: its ×, Skip and buttons answer first.
+    if (MC.bf && MC.bf.guideClick(t)) { ev.stopPropagation(); ev.preventDefault(); MC.render(); return; }
     if (MC.ov.active()) {
-      if (MC.ov.click(t)) { ev.stopPropagation(); ev.preventDefault(); }
-      return;
+      var through = MC.ov.click(t);
+      if (through !== "through") {
+        if (through) { ev.stopPropagation(); ev.preventDefault(); }
+        return;
+      }
+      // The banner went: the click lands on what is under the pointer now.
+      t = document.elementFromPoint(ev.clientX, ev.clientY) || t;
     }
     if (dragJustEnded) { dragJustEnded = false; ev.stopPropagation(); return; }
     if (!kbdClick && focus.key) focus.key = null;  // the mouse took over: the focus ring goes
@@ -1173,6 +1215,7 @@
         MC.render();
         return;
       }
+      if (MC.bf && MC.bf.menuClick(id, t)) { ev.stopPropagation(); MC.render(); return; }
       if (opt) menuPick(id, opt.getAttribute("data-ddv"));
       if (opt || !closest(t, "data-ddm") || opener) closeMenu();
       ev.stopPropagation();
@@ -1184,7 +1227,8 @@
       MC.textFocus = false;
       ui();
     }
-    if ((el = closest(t, "data-taccept"))) { MC.act("tradeAccept", ""); hideToast(); }
+    if (MC.bf && MC.bf.click(t)) { /* build feel's own controls */ }
+    else if ((el = closest(t, "data-taccept"))) { MC.act("tradeAccept", ""); hideToast(); }
     else if ((el = closest(t, "data-dd"))) { openMenu(el.getAttribute("data-dd"), el); }
     else if ((el = closest(t, "data-tcstep"))) { var tt = M().cards.trade; if (tt && tt.coin) setCoin(tt.me.coin + (+el.getAttribute("data-tcstep"))); }
     else if ((el = closest(t, "data-tcoinf"))) { if (!MC.textFocus) { MC.textFocus = true; st.textTarget = "coin"; st.trade.coinDraft = ""; ui(); } }
@@ -1201,6 +1245,7 @@
       v = el.getAttribute("data-bf");
       if (v === "slot") st.binder.slot = !st.binder.slot;
       if (v === "att") st.binder.att = !st.binder.att;
+      if (v === "sets") st.binder.sets = !st.binder.sets;
       st.binder.scroll = 0;
     }
     else if ((el = closest(t, "data-shrineinfo"))) { nav.view = "shrine-info"; }
@@ -1271,6 +1316,7 @@
     press = {id: id, x: MC.ex(ev), y: MC.ey(ev), ox: MC.ex(ev) - r.left, oy: MC.ey(ev) - r.top, from: el.getAttribute("data-scard") ? "slot" : "binder"};
   }
   function onMove(ev) {
+    if (MC.bf && MC.attached && kind === "classes" && !ev.buttons) MC.bf.hover(ev.target);
     if (MC.ov.kind() === "draft") { MC.ov.hover(ev.target); return; }
     if (!press) {
       // Only the Classes page has card hovers; any other page's moves (and every drag) pass through untouched.
@@ -1366,9 +1412,11 @@
       MC.render();
       return;
     }
+    if (MC.bf && MC.bf.key(m.key)) return;
     if (m.key === "Escape") {
       // The top popover first, then the keyboard focus; with none of them up Java closes the window (not modal).
-      if (st.trade.adding) st.trade.adding = false;
+      if (MC.bf && MC.bf.escape()) { /* a build feel step went back */ }
+      else if (st.trade.adding) st.trade.adding = false;
       else if (st.deck.pop) st.deck.pop = null;
       else if (focus.key) focus.key = null;
       MC.render();
@@ -1382,7 +1430,9 @@
   var FOCUS_ATTRS = ["data-ddv", "data-bcard", "data-dcard", "data-scard", "data-slot", "data-skill", "data-deal", "data-perk", "data-slotbest", "data-takeout", "data-toffer",
     "data-ttake", "data-tlock", "data-tconfirm", "data-tcancel", "data-tadd", "data-titem", "data-toffitem", "data-tcstep", "data-taccept", "data-unslot", "data-popclose",
     "data-goshrine", "data-rbskill", "data-rbpick", "data-rebuild", "data-fupick", "data-fuse", "data-rlpick", "data-release", "data-closesit", "data-shtab",
-    "data-tab", "data-stab", "data-bskill", "data-bf", "data-df", "data-dd", "data-search", "data-pin", "data-totals"];
+    "data-tab", "data-stab", "data-bskill", "data-bf", "data-df", "data-dd", "data-search", "data-pin", "data-totals",
+    "data-boon", "data-bchoice", "data-bcardpick", "data-bnext", "data-bback", "data-btrait", "data-bkw", "data-bconfirm", "data-takebyname", "data-keepmine",
+    "data-sigdeck", "data-forgepick", "data-forge", "data-legend", "data-gbtn", "data-gskip", "data-gx", "data-setsig"];
   var FOCUS_SEL = FOCUS_ATTRS.map(function (a) { return "[" + a + "]"; }).join(",");
   // Where a screen's focus starts: its cards, then its main action.
   var PRIMARY = "[data-bcard],[data-dcard],[data-scard],[data-skill],[data-rbpick],[data-fupick],[data-rlpick],[data-ttake],[data-tlock],[data-toffer],[data-perk]";
@@ -1499,6 +1549,7 @@
     else if (which === "tpick") st.trade.scroll = Math.max(0, st.trade.scroll + step);
     else if (which === "tme") st.trade.meScroll = Math.max(0, (st.trade.meScroll || 0) + step);
     else if (which === "tthem") st.trade.themScroll = Math.max(0, (st.trade.themScroll || 0) + step);
+    else if (MC.bf) MC.bf.wheel(which, step);
   }
 
   // ---- hooks mettle.js calls -----------------------------------------------------------------------------------
@@ -1573,6 +1624,7 @@
     var all = state.cards.binder.cards;
     for (var i = 0; i < all.length; i++) byId[all[i].id] = all[i];
     watchSets();
+    if (MC.bf) MC.bf.state(state);
     if (slotSoundFor && byId[slotSoundFor] && byId[slotSoundFor].place === "slotted") slotSoundFor = null;
     MC.ov.onState();
   };
@@ -1625,6 +1677,12 @@
     MC.ov.show();
     ui(true);
   };
+
+  // Build feel (cards-build.js) works on these.
+  MC.pg = {SCREENS: SCREENS, nav: nav, st: st, head: head, footer: footer, tabs: tabs, skillChip: skillChip, skillHead: skillHead, skill: skill, skills: skills,
+    deck: deck, cards: cards, byId: function () { return byId; }, cv: function () { return cv; }, root: function () { return root; }, screen: function () { return screen; },
+    closest: closest, closeMenu: closeMenu, openMenu: openMenu, cardKey: cardKey, setSkills: setSkills, pips: pips, homeHead: homeHead, kwName: kwName,
+    iconsKey: function () { return iconsKey; }, kind: function () { return kind; }, ui: ui, bg: bg, fmt: fmt, strip: strip};
 
   /** What the tests print when a step fails. */
   MC.debug = function () {

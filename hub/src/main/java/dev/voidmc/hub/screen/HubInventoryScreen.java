@@ -262,6 +262,14 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 			// The server's answer changes Mettle's client state: MettleSync sees it within a tick.
 			case Bridge.MettleChoose choose -> MettleLink.chooseBackground(choose.json());
 			case Bridge.MettleCall call -> MettleLink.act(call.op(), call.arg());
+			// Build feel's previews: Mettle answers from the synced cards at once; the page gets the answer by its number.
+			case Bridge.MettleAsk ask -> {
+				if (this.onClasses()) {
+					String result = MettleLink.ask(ask.op(), ask.arg());
+					this.hub.send(Json.object().put("type", "mettleAnswer").put("req", ask.req()).put("op", ask.op()).put("arg", ask.arg())
+						.raw("result", result == null ? "null" : result).end());
+				}
+			}
 			case Bridge.Fx f -> {
 				if (this.onClasses()) {
 					this.fx.set(f.items());

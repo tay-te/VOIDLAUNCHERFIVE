@@ -21,7 +21,7 @@ public final class Bridge {
 	private Bridge() {
 	}
 
-	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Page, Waypoint, Tip, MettleCall, MettleChoose, MettleUi, Fx,
+	public sealed interface Message permits Ready, Close, Filter, Sort, MoveAll, Segment, Turn, Page, Waypoint, Tip, MettleCall, MettleAsk, MettleChoose, MettleUi, Fx,
 		Items, HearthCall, HearthUi, HearthFx, Invalid {
 	}
 
@@ -63,6 +63,14 @@ public final class Bridge {
 	 * broken page can never pass Mettle something it would not take from its own overlay.
 	 */
 	public record MettleCall(String op, String arg) implements Message {
+	}
+
+	/**
+	 * A question to VOID Mettle's client rules from the Classes page ({@link #METTLE_ASKS}: build feel's previews,
+	 * mettle/docs/OVERLAY.md "Build feel"): nothing is sent to the server; the render thread asks Mettle and posts the
+	 * answer back as {@code {type: "mettleAnswer", req, op, arg, result}}. {@code req} is the page's request number.
+	 */
+	public record MettleAsk(String op, String arg, int req) implements Message {
 	}
 
 	/**
@@ -348,7 +356,27 @@ public final class Bridge {
 		op("tradeCancel", ""),
 		op("setCardSounds", "[01]"),
 		op("setCardSoundsVolume", "100|[1-9]?\\d"),
-		op("cardSound", "(?:deal|hover|unhover|mythic_reveal|slot|set_complete|stop|pick|burn)#[a-z0-9_:./#-]{0,64}"));
+		op("cardSound", "(?:deal|hover|unhover|mythic_reveal|slot|set_complete|stop|pick|burn)#[a-z0-9_:./#-]{0,64}"),
+		// Build feel (Mettle 0.3.0, BUILD_FEEL.md): Focus, boons, Signatures, bynames, the forge, the guide.
+		op("setFocus", "(?:" + ID + ")?"),
+		op("temperCard", "\\d{1,18}#" + ID),
+		op("inscribeCard", "\\d{1,18}#" + ID),
+		op("boonReroll", ID),
+		op("setSignature", "\\d{1,18}"),
+		op("clearSignature", ID),
+		op("takeByname", ""),
+		op("wearByname", "\\d{1,3}"),
+		op("forgeMythic", ID),
+		op("forgeLegend", ""),
+		op("guideSkip", ""),
+		op("guideAdvance", "dismiss|deck|keyword|unhover|not_now|focus"));
+
+	/** Build feel's questions (answered on the client, nothing sent): the card id, and for the two previews the trait or keyword. */
+	static final Map<String, java.util.regex.Pattern> METTLE_ASKS = Map.ofEntries(
+		op("boonOptions", "\\d{1,18}"),
+		op("previewSlot", "\\d{1,18}"),
+		op("previewTemper", "\\d{1,18}#" + ID),
+		op("previewInscribe", "\\d{1,18}#" + ID));
 
 	private static Map.Entry<String, java.util.regex.Pattern> op(String name, String argShape) {
 		return Map.entry(name, java.util.regex.Pattern.compile(argShape));
@@ -364,6 +392,19 @@ public final class Bridge {
 			return new Invalid("mettle " + op + " arg");
 		}
 		return new MettleCall(op, arg);
+	}
+
+	private static Message mettleAsk(Map<String, Object> m) {
+		if (!(m.get("op") instanceof String op) || !METTLE_ASKS.containsKey(op)) {
+			return new Invalid("mettleAsk op");
+		}
+		if (!(m.get("arg") instanceof String arg) || arg.length() > 256 || !METTLE_ASKS.get(op).matcher(arg).matches()) {
+			return new Invalid("mettleAsk " + op + " arg");
+		}
+		if (!(m.get("req") instanceof Double d) || d != Math.floor(d) || d < 0 || d > 1_000_000_000) {
+			return new Invalid("mettleAsk req");
+		}
+		return new MettleAsk(op, arg, d.intValue());
 	}
 	static final Set<String> MOVE_TARGETS = Set.of("inventory", "container");
 	static final Set<String> SEGMENTS = Set.of("inventory", "chest", "gear", "classes");
@@ -405,6 +446,7 @@ public final class Bridge {
 			case "turn" -> m.get("deg") instanceof Double d && Double.isFinite(d) ? new Turn(d) : new Invalid("turn deg");
 			case "mettleChoose" -> choose(m);
 			case "mettle" -> mettle(m);
+			case "mettleAsk" -> mettleAsk(m);
 			case "fx" -> fx(m);
 			case "items" -> items(m);
 			case "mettleUi" -> new MettleUi(Boolean.TRUE.equals(m.get("modal")), Boolean.TRUE.equals(m.get("text")));

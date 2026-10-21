@@ -193,6 +193,15 @@ Mettle's Back, Belt and Quiver wells beside the figure plus a LOAD row:
   by `screen/CardFx`. Card names in hand mode use a hand-drawn pixel font (`MC.pix`, no font file; `PixelFontTest`
   checks it covers every perk and Mythic name).
 
+* **Build feel** (Mettle 0.3.0, mettle/docs/BUILD_FEEL.md, Figma 295:2 §2i 679:41228) — a **Character** tab (byname,
+  how it grew, "Your build", sets with the Focus picker, attributes, Signatures; the talent row stays hidden until Mettle
+  reports talents), preview lines under each hand card with Keep & slot, boons (the choice, a card picker, Temper and
+  Inscribe confirms worked out by Mettle's own rules: `mettleAsk` → `MettleLink.ask` → `mettleAnswer`, nothing sent),
+  card marks (◆ Tempered, ✎ Inscribed, the Signature corner), the deck's Tempered / Inscribed pips and the set tracker's
+  one-away and asleep cues, the Card Shrine's Forge (shards, the 24 drawn Mythics, the legend title), the binder's
+  "Completes a set" and "If slotted…", milestone toasts and banners on the page, and the guide's hint chips. Code:
+  `ui/cards-build.js`, `ui/build.css`; every action is in `Bridge.METTLE_OPS`, an older Mettle leaves each one off.
+
 The hub reaches Mettle only through `dev.voidmc.hub.mettle.MettleLink` (method handles on Mettle's client overlay API,
 mettle/docs/OVERLAY.md), so it builds and runs without Mettle. The page side is `ui/mettle.js` + `ui/mettle.css`,
 hooked into `hub.js` in four places. Mettle's icons reach the page as data URLs, enlarged nearest-neighbour first

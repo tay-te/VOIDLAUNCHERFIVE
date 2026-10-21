@@ -249,11 +249,66 @@ public final class MettleLink {
 					int hash = arg.indexOf('#');
 					invoke(action("cardSound", String.class, String.class), arg.substring(0, hash), arg.substring(hash + 1));
 				}
+				// Build feel (Mettle 0.3.0): an older Mettle has none of these, and each one stays off on its own.
+				case "setFocus", "boonReroll", "setSignature", "clearSignature", "forgeMythic", "guideAdvance" -> invoke(action(op, String.class), arg);
+				case "temperCard", "inscribeCard" -> invoke(action(op, String.class, String.class), p[0], p[1]);
+				case "takeByname", "forgeLegend", "guideSkip" -> invoke(action(op));
+				case "wearByname" -> invoke(action(op, int.class), Integer.parseInt(arg));
 				default -> {
 				}
 			}
 		} catch (RuntimeException e) {
 			VoidHub.LOGGER.warn("VOID Hub: Mettle {}({}) could not be read", op, arg, e);
+		}
+	}
+
+	/** MettleActions questions (String results) by name and arity, looked up on first use; a missing one is remembered. */
+	private static final Map<String, Optional<MethodHandle>> QUERIES = new HashMap<>();
+
+	private static MethodHandle query(String name, int args) {
+		String key = name + args;
+		Optional<MethodHandle> hit = QUERIES.get(key);
+		if (hit == null) {
+			hit = Optional.empty();
+			try {
+				Class<?>[] params = new Class<?>[args];
+				java.util.Arrays.fill(params, String.class);
+				hit = Optional.of(MethodHandles.publicLookup().findStatic(Class.forName(OVERLAY + "MettleActions"), name,
+					MethodType.methodType(String.class, params)));
+			} catch (ReflectiveOperationException | LinkageError e) {
+				VoidHub.LOGGER.warn("VOID Hub: this Mettle has no MettleActions.{}({} args); that preview stays off", name, args);
+			}
+			QUERIES.put(key, hit);
+		}
+		return hit.orElse(null);
+	}
+
+	/**
+	 * One of build feel's questions from the Classes page ({@code Bridge.METTLE_ASKS}, already shape-checked): Mettle works
+	 * the answer out from the synced cards with its own rules and sends nothing (OVERLAY.md: boonOptions, previewTemper,
+	 * previewInscribe, previewSlot). Render thread. The answer is Mettle's JSON object as text, or null (no Mettle, an
+	 * older one without the call, or an answer that is not an object).
+	 */
+	public static String ask(String op, String arg) {
+		if (!present()) {
+			return null;
+		}
+		String[] p = arg.split("#", -1);
+		MethodHandle h = switch (op) {
+			case "boonOptions", "previewSlot" -> query(op, 1);
+			case "previewTemper", "previewInscribe" -> p.length == 2 ? query(op, 2) : null;
+			default -> null;
+		};
+		if (h == null) {
+			return null;
+		}
+		try {
+			Object out = p.length == 2 && !op.equals("boonOptions") && !op.equals("previewSlot") ? h.invoke(p[0], p[1]) : h.invoke(arg);
+			String json = out == null ? null : out.toString().trim();
+			return json != null && json.startsWith("{") && json.endsWith("}") ? json : null;
+		} catch (Throwable t) {
+			VoidHub.LOGGER.warn("VOID Hub: Mettle {}({}) failed: {}", op, arg, t.toString());
+			return null;
 		}
 	}
 

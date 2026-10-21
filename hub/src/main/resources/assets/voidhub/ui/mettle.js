@@ -779,6 +779,7 @@
     },
     state: function (s) {
       toggle(document.body, "mettle", !!s.mettle);
+      if (window.MC && s.player) window.MC.player = s.player;
       if (s.inactive && window.hub && window.hub.wells) {
         var off = {};
         for (var i = 0; i < s.inactive.length; i++) off[s.inactive[i]] = true;
@@ -815,6 +816,8 @@
         else if (m.key) treeKey(m.key);
       } else if (m.type === "nearby") {
         if (window.MC && window.MC.nearby) window.MC.nearby(m.players);
+      } else if (m.type === "mettleAnswer") {
+        if (window.MC && window.MC.bf) window.MC.bf.answer(m);
       } else if (m.type === "wheel") {
         if (window.MC && kind === "classes") window.MC.wheel(m);
       } else if (m.type === "mettle") {

@@ -154,6 +154,8 @@ public final class MettleTest {
 		this.context.waitTicks(12);
 		this.shot("voidhub_mettle_04_draft_hand");
 		this.dumpState("draft");
+		this.guide();
+		this.previewLines();
 		// The copy matches the hand, the badge says it counts every skill, cards fit their content, values carry units.
 		String copy = this.js("(function(){var n=document.querySelectorAll('.dr-hand .hc').length,e=document.querySelector('#dr-title .ov-eb').textContent;"
 			+ "return n+'|'+e+'|'+(document.querySelector('#dr-badge')?document.querySelector('#dr-badge').textContent:'');})()");
@@ -482,6 +484,10 @@ public final class MettleTest {
 		this.ui.clickPage("[data-stab=\"deck\"]");
 		this.context.waitTicks(3);
 
+		// 12b. Build feel (Mettle 0.3.0): the character sheet, Focus, bynames, a Signature, boons with Temper and Inscribe,
+		// a milestone banner, the binder's "Completes a set".
+		this.buildFeel(deep);
+
 		// 13. A Card Shrine: used as a player would, the hub shows the sitting; rebuild one card, fuse three, release.
 		this.world.getServer().runOnServer(s -> {
 			var p = s.getPlayerList().getPlayers().getFirst();
@@ -662,8 +668,349 @@ public final class MettleTest {
 		this.context.runOnClient(mc -> mc.gui.setScreen(null));
 		this.context.waitTicks(20);
 		this.shot("voidhub_mettle_28_toast_after_close");
+		// 16. The Card Shrine's Forge: shards forge an unclaimed Mythic; with every drawn Mythic held, the legend title.
+		this.forge();
 		this.expect(this.flatRuns.isEmpty(), "no flat untextured colour outside the window in any screenshot: " + this.flatRuns);
 		dev.voidmc.hub.VoidHub.LOGGER.info("VOID Hub + Mettle: all steps passed");
+	}
+
+	// ---- build feel (Mettle 0.3.0, BUILD_FEEL.md; Figma 295:2 section 2i) ------------------------------------------------
+
+	@SuppressWarnings("unchecked")
+	private Map<String, Object> build() {
+		return (Map<String, Object>) this.cards().get("build");
+	}
+
+	/** The guide on a new character: the hint chip anchored on the page, × steps it on, "Skip the guide" turns it off. */
+	private void guide() {
+		if (!"true".equals(this.js("String(!!(MC.M.cards.build&&MC.M.cards.build.guide&&MC.M.cards.build.guide.on))"))) {
+			dev.voidmc.hub.VoidHub.LOGGER.info("SKIP  the guide is off for this character");
+			return;
+		}
+		this.waitPage("MC.bf.guideDebug().indexOf(':shown')>0", 400, "a guide hint shows on the Classes page, anchored to what it talks about");
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.shot("voidhub_mettle_bf_01_guide_hint");
+		String first = this.js("MC.M.cards.build.guide.hint.key");
+		this.ui.clickPage("#g-chip [data-gx]");
+		this.waitPage("!MC.M.cards.build.guide.hint||MC.M.cards.build.guide.hint.key!=='" + first + "'", 100, "× on the hint stepped the guide on (guideAdvance dismiss): was " + first);
+		this.expect(this.js("MC.lastAct").startsWith("guideAdvance dismiss"), "× sent guideAdvance(dismiss): " + this.js("MC.lastAct"));
+		// The guide again from its first hint (an operator's "guide on"): it carries Skip, which turns every hint off.
+		this.world.getServer().runCommand("mettle build guide on Player0");
+		this.waitPage("MC.bf.guideDebug().indexOf(':shown')>0&&!!document.querySelector('#g-chip [data-gskip]')", 400, "the guide's first hint carries Skip the guide");
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.shot("voidhub_mettle_bf_02_guide_skip");
+		this.ui.clickPage("#g-chip [data-gskip]");
+		this.waitPage("MC.M.cards.build.guide.on===false&&MC.bf.guideDebug()==='none'", 60, "Skip the guide turned the guide off and its chip went");
+	}
+
+	/** The hand's build preview: up to three lines under each card, and the Keep & slot button its placement allows. */
+	private void previewLines() {
+		String r = this.js("(function(){var bs=document.querySelectorAll('.dr-pvb'),n=[];for(var i=0;i<bs.length;i++)n.push(bs[i].querySelectorAll('.pl').length);"
+			+ "return document.querySelectorAll('.dr-hand .hc').length+'|'+n.join(',')+'|'+document.querySelectorAll('[data-keepslot]').length+'|'+(bs[0]?bs[0].textContent:'')})()");
+		String[] v = r.split(java.util.regex.Pattern.quote("|"), -1);
+		this.expect(Integer.parseInt(v[0]) > 0 && v[1].split(",").length == Integer.parseInt(v[0]), "every card in the hand has its preview lines: " + r);
+		for (String n : v[1].split(",")) {
+			this.expect(Integer.parseInt(n) >= 1 && Integer.parseInt(n) <= 3, "a preview shows one to three lines: " + r);
+		}
+		this.expect(Integer.parseInt(v[2]) == Integer.parseInt(v[0]), "each card has its second Keep button: " + r);
+		this.ui.parkMouse();
+		this.context.waitTicks(2);
+		this.shot("voidhub_mettle_bf_03_preview_lines");
+	}
+
+	/** Waits until no milestone toast shows or waits (they paint as they come and go), then a little more. */
+	private void quiet() {
+		this.waitPage("!MC.bf.toasts().up&&!MC.bf.toasts().queued", 300, "the milestone toasts have played");
+		this.context.waitTicks(10);
+	}
+
+	/** Closes a set moment or a banner that came up; returns the kind it closed. */
+	private String closeMoment() {
+		String k = this.js("String(MC.ov.kind())");
+		if ("set".equals(k) || "banner".equals(k)) {
+			this.ui.clickPage("#c-ov");
+			this.context.waitTicks(3);
+		}
+		return k;
+	}
+
+	@SuppressWarnings("unchecked")
+	private void buildFeel(long[] deep) {
+		var server = this.world.getServer();
+		for (int i = 0; i < 3 && !"null".equals(this.closeMoment()); i++) {
+			this.context.waitTicks(10);
+		}
+		// The character sheet (2i-1): byname, how it grew, Your build, sets with Focus, attributes, Signatures.
+		this.js("MC.nav.view='home';MC.nav.tab='skills';MC.render();''");
+		this.context.waitTicks(2);
+		Perf open = this.perf("character sheet open", () -> {
+			this.ui.clickPage("[data-tab=\"character\"]");
+			this.context.waitTicks(10);
+		});
+		this.expect(open.uiP95() < 50, "PERF character sheet open: UI p95 under 50 ms: " + open);
+		this.waitPage("!!document.getElementById('ch-build')&&!!document.getElementById('ch-name')", 20, "the Character tab shows the sheet");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_30_character_sheet");
+		this.quiet();
+		Perf idle = this.perf("character sheet idle", () -> this.context.waitTicks(40));
+		this.expect(idle.painted() == 0, "PERF character sheet idle paints nothing: " + idle);
+		Perf hov = this.perf("character sheet hover", () -> {
+			for (int k = 0; k < 2; k++) {
+				for (String sel : List.of("#ch-sets .ss-set", "#ch-build .yb-line", "#ch-sigs .sg-t", "#ch-name .ch-pill", "#ch-attr .at-v", "#ch-grew > div")) {
+					this.hoverPage(sel);
+					this.context.waitTicks(3);
+				}
+			}
+		});
+		this.expect(hov.uiP95() < 10, "PERF character sheet hover: UI p95 under 10 ms: " + hov);
+		this.expect("false".equals(this.js("String(document.getElementById('ch-talents').style.display!=='none')")), "the talent row stays hidden (Mettle reports no talents)");
+
+		// Focus (§1.3): the picker from the sets panel; once a day.
+		this.ui.clickPage("#ch-sets [data-dd=\"focus\"]");
+		this.context.waitTicks(3);
+		this.expect("focus".equals(this.js("MC.st.menu?MC.st.menu.id:''")), "the Focus picker opened");
+		this.expect("true".equals(this.js("String(MC.modal())")), "the Focus picker holds Esc (modal)");
+		this.ui.clickPage(".ddm [data-fkw=\"mettle:deep\"]");
+		this.context.waitTicks(2);
+		this.ui.parkMouse();
+		this.context.waitTicks(3);
+		this.shot("voidhub_mettle_31_focus_picker");
+		this.ui.clickPage(".ddm [data-fgo]");
+		this.waitPage("MC.M.cards.build.focus.keyword==='mettle:deep'", 60, "Focus Deep reached Mettle (setFocus)");
+		this.waitPage("!!document.querySelector('#ch-sets .bf-focus.on')", 20, "the sets panel shows the Focus");
+
+		// Bynames: three Iron cards in Survival make the build read differently (Iron 4 beats Deep 2): "Take it", then the list.
+		long[] iron = new long[3];
+		server.runOnServer(s -> {
+			var p = s.getPlayerList().getPlayers().getFirst();
+			iron[0] = MettleServer.giveExact(p, "survival/gatherer", "RARE", List.of("iron"), List.of(), 2);
+			iron[1] = MettleServer.giveExact(p, "survival/field_cook", "RARE", List.of("iron"), List.of(), 2);
+		});
+		this.context.waitTicks(3);
+		server.runCommand("execute as Player0 run mettle cards slot " + iron[0]);
+		server.runCommand("execute as Player0 run mettle cards slot " + iron[1]);
+		this.context.waitTicks(15);
+		for (int i = 0; i < 4 && !"null".equals(this.closeMoment()); i++) {
+			this.context.waitTicks(10);
+		}
+		this.js("MC.nav.view='home';MC.nav.tab='character';MC.render();''");
+		this.context.waitTicks(3);
+		Map<String, Object> bn = (Map<String, Object>) this.build().get("byname");
+		if (Boolean.TRUE.equals(bn.get("offer"))) {
+			this.waitPage("!!document.querySelector('#ch-grew [data-takebyname]')", 20, "the sheet offers the byname the build reads as");
+			this.ui.parkMouse();
+			this.context.waitTicks(3);
+			this.shot("voidhub_mettle_32_byname_offer");
+			String reads = (String) ((Map<String, Object>) bn.get("reads")).get("text");
+			this.ui.clickPage("#ch-grew [data-takebyname]");
+			this.waitPage("MC.M.cards.build.byname.worn&&MC.M.cards.build.byname.worn.text===" + Json.quote(reads), 60, "Take it wears " + reads + " (takeByname)");
+		} else {
+			dev.voidmc.hub.VoidHub.LOGGER.info("SKIP  no byname offer to take: " + bn);
+		}
+		int held = ((List<Object>) ((Map<String, Object>) this.build().get("byname")).get("held")).size();
+		if (held > 0) {
+			this.ui.clickPage("#ch-name [data-dd=\"bynames\"]");
+			this.context.waitTicks(3);
+			this.ui.parkMouse();
+			this.context.waitTicks(3);
+			this.shot("voidhub_mettle_33_bynames_list");
+			this.ui.clickPage(".ddm [data-bnw=\"0\"]");
+			this.waitPage("MC.M.cards.build.byname.held[0].wearing===true", 60, "picking a held byname wears it (wearByname 0)");
+		}
+		// A 4-set: a byname tier rises, and its banner plays (2i-7).
+		server.runOnServer(s -> iron[2] = MettleServer.giveExact(s.getPlayerList().getPlayers().getFirst(), "survival/iron_stomach", "EPIC", List.of("iron"), List.of(), 2));
+		this.context.waitTicks(3);
+		server.runCommand("execute as Player0 run mettle cards slot " + iron[2]);
+		boolean banner = false;
+		for (int i = 0; i < 120 && !banner; i++) {
+			String k = this.js("String(MC.ov.kind())");
+			if ("banner".equals(k)) {
+				banner = true;
+			} else if ("set".equals(k)) {
+				this.ui.clickPage("#c-ov");
+			}
+			this.context.waitTicks(2);
+		}
+		this.expect(banner, "a byname tier rise played its banner (2i-7): " + this.build().get("byname"));
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_34_milestone_banner");
+		this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+		this.context.waitTicks(3);
+		this.expect(!"banner".equals(this.js("String(MC.ov.kind())")) && this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubInventoryScreen),
+			"any key skipped the banner (Esc did not close the hub)");
+		for (int i = 0; i < 3 && !"null".equals(this.closeMoment()); i++) {
+			this.context.waitTicks(10);
+		}
+
+		// A Signature: a slotted card's take-out popover makes it its deck's Signature (the crest).
+		this.js("MC.nav.view='skill';MC.nav.skill='mettle:mining';MC.nav.stab='deck';MC.render();''");
+		this.context.waitTicks(3);
+		this.ui.clickPage("[data-scard=\"" + deep[0] + "\"]");
+		this.context.waitTicks(3);
+		this.ui.clickPage("#dk-pop [data-setsig]");
+		this.waitPage("(MC.M.cards.build.signatures||[]).some(function(x){return x.card==='" + deep[0] + "'})", 60, "the Tunneler became Mining's Signature (setSignature)");
+		this.waitPage("!!document.querySelector('[data-scard=\"" + deep[0] + "\"] .cc-sig')", 20, "the Signature corner shows on the card");
+		this.ui.parkMouse();
+		this.context.waitTicks(10);
+		this.shot("voidhub_mettle_35_signature");
+
+		// Boons (§3): two Mining boons; the badge opens the choice (2i-3), Temper (2i-4), then Inscribe (2i-5).
+		server.runCommand("mettle build boons mettle:mining 2 Player0");
+		this.waitPage("!!document.querySelector('.hd-boon')", 60, "the skill header shows the boons badge");
+		Perf choice = this.perf("boon choice open", () -> {
+			this.ui.clickPage(".hd-boon");
+			this.context.waitTicks(4);
+			this.ui.clickPage("[data-bchoice=\"temper\"]");
+			this.context.waitTicks(8);
+		});
+		this.expect(choice.uiP95() < 50, "PERF boon choice open: UI p95 under 50 ms: " + choice);
+		this.waitPage("!!document.querySelector('[data-bcardpick=\"" + deep[0] + "\"]')", 60, "the picker lights the Tunneler for a Temper");
+		this.quiet();
+		Perf bIdle = this.perf("boon choice idle", () -> this.context.waitTicks(40));
+		this.expect(bIdle.painted() == 0, "PERF boon choice idle paints nothing: " + bIdle);
+		Perf bHover = this.perf("boon choice hover", () -> {
+			for (int k = 0; k < 2; k++) {
+				for (int c = 0; c < 4; c++) {
+					this.hoverPage("#bo-c" + (c % 3) + " .bo-in");
+					this.context.waitTicks(3);
+					this.hoverPage("#bo-pick .bo-t:nth-of-type(" + (c + 3) + ")");
+					this.context.waitTicks(3);
+				}
+			}
+		});
+		this.expect(bHover.uiP95() < 10, "PERF boon choice hover: UI p95 under 10 ms: " + bHover);
+		Perf bPick = this.perf("boon choice pick", () -> {
+			this.ui.clickPage("[data-bcardpick=\"" + deep[0] + "\"]");
+			this.context.waitTicks(6);
+		});
+		this.expect(bPick.uiP95() < 50, "PERF boon choice pick: UI p95 under 50 ms: " + bPick);
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_36_boon_choice");
+		this.ui.clickPage("[data-bnext]");
+		this.waitPage("!!document.querySelector('.tc-to')&&!!document.querySelector('[data-bconfirm]')", 60, "the Temper confirm shows before and after (previewTemper)");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_37_temper_confirm");
+		String trait = this.js("MC.boonSel.trait");
+		this.ui.clickPage("[data-bconfirm]");
+		this.waitPage("(function(){var c=MC.M.cards.binder.cards.filter(function(x){return x.id==='" + deep[0] + "'})[0];return !!(c&&c.marks&&c.marks.tempered)})()", 60,
+			"Temper marked the card (temperCard " + trait + ")");
+		this.context.waitTicks(4);
+		this.ui.parkMouse();
+		this.waitPage("!!document.getElementById('bf-toast')&&document.getElementById('bf-toast').style.opacity==='1'", 80, "the Temper milestone toast shows (2i-6)");
+		this.shot("voidhub_mettle_38_milestone_toast");
+		this.waitPage("!!document.querySelector('.hd-boon')", 40, "one boon still waits");
+		this.ui.clickPage(".hd-boon");
+		this.context.waitTicks(3);
+		this.ui.clickPage("[data-bchoice=\"inscribe\"]");
+		this.context.waitTicks(4);
+		this.waitPage("!!document.querySelector('[data-bcardpick=\"" + deep[1] + "\"]')", 60, "the picker lights the Hard Hat for an Inscription");
+		this.ui.clickPage("[data-bcardpick=\"" + deep[1] + "\"]");
+		this.context.waitTicks(3);
+		this.ui.clickPage("[data-bnext]");
+		this.waitPage("!!document.querySelector('.ic-k.on')&&!!document.querySelector('[data-bconfirm]')", 60, "the Inscribe confirm shows the pool and the set deltas (previewInscribe)");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_39_inscribe_confirm");
+		this.ui.clickPage("[data-bconfirm]");
+		this.waitPage("(function(){var c=MC.M.cards.binder.cards.filter(function(x){return x.id==='" + deep[1] + "'})[0];return !!(c&&c.marks&&c.marks.inscribed)})()", 60,
+			"Inscribe marked the card (inscribeCard)");
+		this.context.waitTicks(20);
+		for (int i = 0; i < 4 && !"null".equals(this.closeMoment()); i++) {
+			this.context.waitTicks(10);
+		}
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_40_marks_on_deck");
+
+		// The binder: "Completes a set" and the "If slotted…" preview (2i-14): a Keen card makes Keen 1 a 2-set.
+		server.runOnServer(s -> MettleServer.giveExact(s.getPlayerList().getPlayers().getFirst(), "mining/prospector", "RARE", List.of("keen"), List.of("mining/lucky=5"), 2));
+		this.context.waitTicks(10);
+		this.js("MC.nav.view='home';MC.nav.tab='cards';MC.st.binder.sel=null;MC.render();''");
+		this.context.waitTicks(3);
+		this.ui.clickPage("[data-bf=\"sets\"]");
+		this.context.waitTicks(3);
+		this.expect("true".equals(this.js("String(MC.st.binder.sets)")), "the Completes a set filter is on");
+		if (!"".equals(this.js("(function(){var e=document.querySelector('.bin-grid [data-bcard]');return e?e.getAttribute('data-bcard'):''})()"))) {
+			this.ui.clickPage(".bin-grid [data-bcard]");
+			this.waitPage("!!document.querySelector('.bd-pv')", 40, "the binder's side panel shows If slotted… (previewSlot)");
+		}
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_41_binder_completes_set");
+		this.js("MC.st.binder.sets=false;MC.st.binder.sel=null;MC.render();''");
+		this.js("MC.nav.view='skill';MC.nav.skill='mettle:mining';MC.nav.stab='deck';MC.render();''");
+		this.context.waitTicks(3);
+	}
+
+	/** The Forge at a Card Shrine: forge a Mythic of a skill at 18, then (every drawn Mythic held) the legend title. */
+	@SuppressWarnings("unchecked")
+	private void forge() {
+		var server = this.world.getServer();
+		server.runCommand("mettle xp mettle:mining 400000 Player0");
+		server.runCommand("mettle build shards 30 Player0");
+		this.context.waitTicks(10);
+		if (!this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubInventoryScreen)) {
+			this.context.getInput().pressKey(InputConstants.KEY_K);
+			this.context.waitForScreen(HubInventoryScreen.class);
+			this.context.waitTicks(10);
+		}
+		// The XP dealt drafts: Esc keeps them for later (the shrine's screen deals none).
+		for (int i = 0; i < 6 && "true".equals(this.js("String(MC.ov.active())")); i++) {
+			this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+			this.context.waitTicks(4);
+		}
+		server.runOnServer(s -> {
+			var p = s.getPlayerList().getPlayers().getFirst();
+			BlockPos at = p.blockPosition().relative(p.getDirection(), 2);
+			s.overworld().setBlockAndUpdate(at, BuiltInRegistries.BLOCK.getValue(Identifier.fromNamespaceAndPath("mettle", "card_shrine")).defaultBlockState());
+			s.overworld().getBlockState(at).useWithoutItem(s.overworld(), p, new BlockHitResult(Vec3.atCenterOf(at), Direction.UP, at, false));
+		});
+		this.waitPage("document.getElementById('cv').className.indexOf('scr-shrine')>=0", 60, "the Card Shrine sitting shows (for the Forge)");
+		for (int i = 0; i < 6 && "true".equals(this.js("String(MC.ov.active())")); i++) {
+			this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+			this.context.waitTicks(4);
+		}
+		this.ui.clickPage("[data-shtab=\"forge\"]");
+		this.waitPage("!!document.getElementById('fg-grid')&&!!document.querySelector('[data-forgepick]')", 60, "the Forge tab lists forgeable Mythics");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_42_forge");
+		String pick = this.js("(function(){var e=document.querySelector('[data-forgepick]');return e?e.getAttribute('data-forgepick'):''})()");
+		this.ui.clickPage("[data-forgepick=\"" + pick + "\"]");
+		this.context.waitTicks(3);
+		int mythics = this.mythicsOwned();
+		this.ui.clickPage("[data-forge]");
+		this.waitPage("MC.M.cards.build.forge.pool.some(function(m){return m.id===" + Json.quote(pick) + "&&m.state==='held'})", 80, "forging claimed " + pick + " (forgeMythic)");
+		this.expect(this.mythicsOwned() == mythics + 1, "the forged Mythic is in the binder: " + mythics + " -> " + this.mythicsOwned());
+		// Every drawn Mythic held: the shards buy the legend title and frame instead.
+		List<Object> pool = (List<Object>) ((Map<String, Object>) this.build().get("forge")).get("pool");
+		for (Object o : pool) {
+			Map<String, Object> m = (Map<String, Object>) o;
+			if (!"held".equals(m.get("state"))) {
+				server.runCommand("mettle cards mythic grant " + m.get("id") + " Player0");
+			}
+		}
+		server.runCommand("mettle build shards 45 Player0");
+		this.waitPage("MC.M.cards.build.forge.legendOffered===true&&!!document.querySelector('[data-legend]')", 120, "with every drawn Mythic held the Forge offers the legend title");
+		this.ui.parkMouse();
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_43_forge_legend");
+		this.ui.clickPage("[data-legend]");
+		this.waitPage("!!MC.M.cards.build.byname.legend", 80, "the legend title was taken (forgeLegend)");
+		this.context.waitTicks(4);
+		this.shot("voidhub_mettle_44_legend_taken");
+		this.ui.clickPage("[data-closesit]");
+		this.context.waitTicks(10);
+		this.js("if(MC.ov.active())MC.ov.close(true);MC.nav.view='home';MC.nav.tab='character';MC.render();''");
+		this.context.waitTicks(6);
+		this.ui.parkMouse();
+		this.shot("voidhub_mettle_45_character_legend");
 	}
 
 	/** True when every card the grid shows passes TEST (an expression of c, the card). */

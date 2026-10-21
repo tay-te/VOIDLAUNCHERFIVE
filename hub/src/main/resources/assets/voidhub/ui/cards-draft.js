@@ -54,7 +54,7 @@
     if (!cur) return;
     if (cur.kind === "draft" && cur.picked >= 0 && !cur.claimed) { next(); return; }
     if (cur.revealing) { skipReveal(true); return; }
-    if (cur.kind === "set") { ov.close(true); return; }
+    if (cur.kind === "set" || cur.kind === "banner") { ov.close(true); return; }
     for (var i = 0; i < list.length; i++) later(list[i].left, list[i].fn);
   };
   ov.paused = function () { return !!paused; };
@@ -117,6 +117,10 @@
   // a short CSS one-shot here.
   // The hand sits low enough that a lifted card's flames (16 px lift, 5 % grow, 28 px of fire) stay under the title.
   var TOP = 192, gen = 0, OLD_BOTTOM = 175 + 328;
+  // Build feel (Mettle 0.3.0, Figma 2i-2): with preview lines under the cards the hand sits 48 higher, the lines below it,
+  // the Keep row and the redeal under them.
+  var TOP_PV = 144, PV_TOP = 485;
+  function T() { return cur && cur.pv ? TOP_PV : TOP; }
   /** What burns when one of n cards is kept. */
   function burnText(n) { return n >= 3 ? "THE OTHER TWO BURN" : n === 2 ? "THE OTHER ONE BURNS" : "NOTHING ELSE BURNS"; }
   function keepText(n) { return n >= 3 ? "KEEP ONE, THE OTHER TWO BURN" : n === 2 ? "KEEP ONE, THE OTHER ONE BURNS" : "KEEP IT"; }
@@ -127,11 +131,11 @@
   function fitHand(els) {
     for (var k = 0; k < els.length; k++) MC.layoutCard(els[k]);
     var H = cur.H = 328;
-    var bottom = TOP + H, dy = bottom - OLD_BOTTOM;
+    var bottom = T() + H, dy = cur.pv ? 0 : bottom - OLD_BOTTOM;
     var keys = MC.$("dr-keys"), act = MC.$("dr-act"), halo = MC.$("dr-halo");
     if (keys) keys.style.top = dy + "px";
     if (act) act.style.top = dy + "px";
-    if (halo) { halo.style.top = (TOP - 50) + "px"; halo.style.height = (bottom - TOP + 60) + "px"; }
+    if (halo) { halo.style.top = (T() - 50) + "px"; halo.style.height = (bottom - T() + 60) + "px"; }
     return H;
   }
   /**
@@ -149,7 +153,7 @@
     for (var k = 0; k < n; k++) {
       var c = cur.hand[k];
       if (!c || cur.pos[k] == null || MC.isMythic(c) || cur.faded) continue;
-      var x = w.x + cur.pos[k], y = w.y + TOP, H = cur.H || 328, tint = tintOf(c), id = "g" + cur.gen + "c" + k;
+      var x = w.x + cur.pos[k], y = w.y + T(), H = cur.H || 328, tint = tintOf(c), id = "g" + cur.gen + "c" + k;
       if (cur.burnt && cur.burnt[k]) {
         items.push({i: id + "-bf", k: "bfront", x: x, y: y, c: tint, d: burnDelay()});
         items.push({i: id + "-ash", k: "ash", x: x, y: y, d: burnDelay()});
@@ -193,14 +197,16 @@
     cur.H = 328;
     cur.hand = (s.hand || []).slice();
     cur.handKey = handKey(s);
+    cur.pv = false;
+    for (var pi = 0; pi < cur.hand.length; pi++) if (cur.hand[pi] && cur.hand[pi].preview && cur.hand[pi].preview.lines) cur.pv = true;
     cur.gen = ++gen;
     cur.pos = {};
     if (!again) cur.n++;
     var el = host();
-    el.className = "ov-draft";
+    el.className = "ov-draft" + (cur.pv ? " pv" : "");
     if (first) setUi();
     var h = '<div class="ov-dim"></div><div class="ov-halo" id="dr-halo"></div><div id="dr-chip">' + chip(s) + '</div><div id="dr-badge">' + badge(waiting() - 1) + "</div>";
-    h += '<div id="dr-title"></div><div class="dr-hand" id="dr-hand"></div><div id="dr-keys"></div><div id="dr-act"></div>';
+    h += '<div id="dr-title"></div><div class="dr-hand" id="dr-hand"></div><div id="dr-pv"></div><div id="dr-keys"></div><div id="dr-act"></div>';
     h += '<div class="footer ov-fl" id="dr-fl"></div><div class="footer right ov-fr" id="dr-fr"></div>';
     el.innerHTML = h;
     var mythicAt = s.mythicOffer != null && s.mythicOffer >= 0 ? s.mythicOffer : -1;
@@ -219,9 +225,10 @@
       : title("LEVEL UP  ·  DRAFT " + cur.n + " OF " + Math.max(cur.n, cur.total) + "  ·  " + keepText(n), MC.upper(s.name) + " REACHED LEVEL " + s.level);
     for (var k = 0; k < n; k++) {
       cur.pos[k] = leftOf(k, n);
-      hand += MC.hcard(cur.hand[k], k, s, {cls: "deal", style: "left:" + cur.pos[k] + "px;top:" + TOP + "px;animation-delay:" + k * 80 + "ms"});
+      hand += MC.hcard(cur.hand[k], k, s, {cls: "deal", lit: litKeywords(), style: "left:" + cur.pos[k] + "px;top:" + T() + "px;animation-delay:" + k * 80 + "ms"});
     }
     MC.$("dr-hand").innerHTML = hand;
+    previews();
     keys();
     redeal(s);
     fitHand(MC.$("dr-hand").children);
@@ -245,14 +252,25 @@
       var h = "";
       for (var i = 0; i < n; i++) {
         if (cur.pos[i] == null) continue;
-        h += '<div class="dr-key" data-key="' + i + '" style="left:' + (cur.pos[i] + 124 - 40) + 'px"><span class="kc">' + (i + 1) +
-          '</span><span class="kl">Keep</span></div>';
+        if (cur.pv && cur.hand[i] && cur.hand[i].preview) {
+          var kb = keepButton(cur.hand[i]);
+          h += '<div class="dr-key pv" data-key="' + i + '" style="left:' + (cur.pos[i] + 124 - 100) + 'px"><span class="kc">' + (i + 1) +
+            '</span><span class="kl">Keep</span><span class="kp' + (kb.off ? " off" : "") + '" data-keepslot="' + i + '">' + esc(kb.text) + "</span></div>";
+        } else {
+          h += '<div class="dr-key" data-key="' + i + '" style="left:' + (cur.pos[i] + 124 - 40) + 'px"><span class="kc">' + (i + 1) +
+            '</span><span class="kl">Keep</span></div>';
+        }
       }
       row.__k = key;
       row.innerHTML = h;
     }
     for (var el = row.firstChild; el; el = el.nextSibling) {
       var k = +el.getAttribute("data-key"), on = cur.hover === k, c = cur.hand[k];
+      if (el.classList.contains("pv")) {
+        // Only the keycap and its word change (a small repaint; the row with its Keep & slot button stays put).
+        for (var q = 0; q < 2; q++) { if (on) el.children[q].style.setProperty("--c", tintOf(c)); MC.toggle(el.children[q], "on", on); }
+        continue;
+      }
       if (on) el.style.setProperty("--c", tintOf(c));
       MC.toggle(el, "on", on);
       MC.text(el.lastChild, on ? "Keep " + (c.baseName || c.name) : "Keep");
@@ -309,19 +327,27 @@
   }
 
   /** Keeps card i: it flares, the other two burn away, and the next draft deals (or the page returns). */
-  ov.pick = function (i) {
+  ov.pick = function (i, mode) {
     if (!cur || cur.kind !== "draft" || cur.lock || cur.picked >= 0 || !cur.hand[i] || cur.pos[i] == null) return;
     var c = cur.hand[i];
     if (MC.isMythic(c)) { claim(i); return; }
     cur.picked = i;
     cur.lock = true;
-    MC.act("pickCard", cur.skill + "#" + i);  // plays the flare, the thunk and the burn (SOUNDS.md)
+    var pl = c.preview && c.preview.placement;
+    if (mode === "slot" && pl && pl.kind === "fill") MC.act("keepCard", cur.skill + "#" + i + "#1");  // Keep & slot (a free legal slot)
+    else if (mode === "slot" && pl && pl.kind === "replace" && /free/i.test(pl.cost || "") && pl.replaces) {
+      // Keep & swap with a free swap: keep it, then (when it lands in the binder) take the old card out and slot the new one.
+      MC.act("keepCard", cur.skill + "#" + i + "#0");
+      if (MC.bf) MC.bf.swapAfterKeep(c, pl);
+    } else if (mode === "slot") MC.act("keepCard", cur.skill + "#" + i + "#0");
+    else MC.act("pickCard", cur.skill + "#" + i);  // plays the flare, the thunk and the burn (SOUNDS.md)
     burnAway(i);
     var more = waiting() - 1;
     MC.$("dr-title").innerHTML = title("KEPT  ·  " + burnText(Math.min(3, cur.hand.length)), (c.baseName || c.name) + " JOINS YOUR HAND");
     MC.$("dr-badge").innerHTML = badge(more - 1 < 0 ? 0 : more);
     MC.$("dr-keys").innerHTML = "";
     MC.$("dr-keys").__k = null;
+    if (MC.$("dr-pv")) MC.$("dr-pv").innerHTML = "";
     MC.$("dr-act").innerHTML = '<div class="dr-toast" style="--c:' + tintOf(c) + '">Kept ' + esc(c.baseName || c.name) + "  ·  " +
       (more > 0 ? "next draft deals in a moment" : "back to your cards") + "</div>";
     MC.text(MC.$("dr-fl"), MC.upper(skill(cur.skill).name) + "  ·  DRAFT " + cur.n + " OF " + Math.max(cur.n, cur.total) + " DONE");
@@ -383,6 +409,66 @@
     var s = skill(cur.skill);
     if (s && handKey(s) !== cur.handKey) { cur.rerolling = false; ov.draft(cur.skill, true); MC.sound("deal", cur.skill); }
   }
+
+  /** Keyword badges that light in a hand: an active set's keyword (white), the Focus keyword (its ring). */
+  function litKeywords() {
+    var out = {}, c = MC.M && MC.M.cards;
+    if (!c || !c.build) return out;
+    for (var i = 0; i < (c.sets || []).length; i++) if (c.sets[i].active) out[c.sets[i].id] = "set";
+    if (c.build.focus && c.build.focus.keyword) out[c.build.focus.keyword] = "focus";
+    return out;
+  }
+  MC.litKeywords = litKeywords;
+
+  /** What the second Keep button says for a card, from its preview's placement. */
+  function keepButton(c) {
+    var pl = c.preview && c.preview.placement;
+    if (!pl) return {text: "Keep", off: true};
+    if (pl.kind === "fill") return {text: "Keep & slot"};
+    if (pl.kind === "replace") return /free/i.test(pl.cost || "") ? {text: "Keep & swap"} : {text: "Keep · swap at a shrine", off: true};
+    if (pl.kind === "waits") return {text: "Keep · it waits", off: true};
+    return {text: "Keep · can't slot", off: true};
+  }
+
+  /** One preview line, its lead in white and the rest grey; "… opens" in Temper blue, losses and waits in amber. */
+  MC.previewLine = function (line, k, pv) {
+    var t = String(line || ""), cls = "";
+    if (k === 0 && pv && pv.placement && (pv.placement.kind === "waits" || pv.placement.kind === "blocked")) cls = " amber";
+    var cut = t.search(/ · |: /), lead = cut > 0 ? t.slice(0, cut) : t, rest = cut > 0 ? t.slice(cut) : "";
+    var h = esc(rest).replace(/([A-Z][a-z]+ \d opens)/, '<b class="op">$1</b>').replace(/(loses [^·]+)/, '<b class="ls">$1</b>').replace(/(rebuild [^·]+)/, '<b class="ls">$1</b>');
+    return '<div class="pl' + cls + '"><b>' + esc(lead) + "</b>" + h + "</div>";
+  };
+
+  /** The preview lines under each card (Figma 2i-2, B5): where it goes, what it does to your sets, to you. */
+  function previews() {
+    var el = MC.$("dr-pv");
+    if (!el) return;
+    if (!cur.pv) { el.innerHTML = ""; return; }
+    var h = "", n = Math.min(3, cur.hand.length);
+    for (var k = 0; k < n; k++) {
+      var c = cur.hand[k], pv = c && c.preview;
+      if (!pv || cur.pos[k] == null) continue;
+      var lines = (pv.lines || []).slice(0, 3), b = "";
+      for (var i = 0; i < lines.length; i++) b += MC.previewLine(lines[i], i, pv);
+      if (pv.focus && lines.length < 3) b += '<div class="pl fc"><i class="fring"></i><b>+1 to your Focus</b></div>';
+      h += '<div class="dr-pvb" data-pv="' + k + '" style="left:' + cur.pos[k] + "px;top:" + PV_TOP + 'px">' + b + "</div>";
+    }
+    el.innerHTML = h;
+  }
+
+  // ---- a milestone banner (Figma 2i-7): a byname tier or a keyword's first 6-set, 2.5 s, any key or click skips ------
+  ov.banner = function (html, fx, ms) {
+    if (cur) return false;
+    cur = {kind: "banner"};
+    setUi();
+    var el = host();
+    el.className = "ov-banner";
+    el.innerHTML = html;
+    cur.mythicFx = fx || [];
+    MC.fxSet("draft", cur.mythicFx);
+    later(ms || 2500, function () { if (cur && cur.kind === "banner") ov.close(true); });
+    return true;
+  };
 
   // ---- the Mythic --------------------------------------------------------------------------------------------
   function markers() {
@@ -494,12 +580,12 @@
       if (k === at) continue;
       var pos = n === 3 ? free[f++] : k;
       cur.pos[k] = leftOf(pos, n);
-      others += MC.hcard(cur.hand[k], k, s, {cls: "faded", style: "left:" + cur.pos[k] + "px;top:" + TOP + "px"});
+      others += MC.hcard(cur.hand[k], k, s, {cls: "faded", style: "left:" + cur.pos[k] + "px;top:" + T() + "px"});
     }
     MC.$("dr-hand").innerHTML = others;
     fitHand(MC.$("dr-hand").children);
     cur.rvX = leftOf(slot, n);
-    cur.rvY = TOP;
+    cur.rvY = T();
     MC.$("dr-hand").insertAdjacentHTML("afterend", mythicStage(c, cur.rvX, cur.rvY));
     fitMythic();
     var claimOnly = s.mythicOffer != null;  // Mettle with claimMythic: claiming keeps the draft open
@@ -623,7 +709,7 @@
       ov.close(false);
       return true;
     }
-    if (cur.kind === "set") { ov.close(true); return true; }
+    if (cur.kind === "set" || cur.kind === "banner") { ov.close(true); return true; }
     if (cur.kind === "draft") {
       if (k >= "1" && k <= "3") { ov.pick(+k - 1); return true; }
       if (k === "Left" || k === "ShiftTab") { step(-1); return true; }
@@ -647,10 +733,13 @@
   ov.click = function (t) {
     if (!cur) return false;
     if (cur.kind === "set") { ov.close(true); return true; }
+    // A banner skips with any click, and the click still does what it was for (the banner is no screen of its own).
+    if (cur.kind === "banner") { ov.close(true); return "through"; }
     while (t && t !== document.body) {
       if (t.getAttribute) {
         var v;
         if ((v = t.getAttribute("data-claim")) != null) { claim(+v); return true; }
+        if ((v = t.getAttribute("data-keepslot")) != null) { if (!t.classList.contains("off")) ov.pick(+v, "slot"); return true; }
         if (t.getAttribute("data-close-ov")) { ov.close(true); return true; }
         if (t.getAttribute("data-redeal")) { ov.reroll(); return true; }
         if (t.classList && t.classList.contains("hc") && t.parentNode && t.parentNode.id === "dr-hand") { ov.pick(+t.getAttribute("data-hand")); return true; }

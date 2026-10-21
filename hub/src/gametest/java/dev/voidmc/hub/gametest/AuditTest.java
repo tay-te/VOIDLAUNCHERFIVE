@@ -110,8 +110,14 @@ public final class AuditTest {
 		this.context.waitTicks(3);
 	}
 
+	/** Build feel's milestone toasts come and go on their own timers: an idle measurement starts without one. */
+	private void quietToasts() {
+		this.js("(function(){if(MC.bf)MC.bf.clearToasts();return ''})()");
+		this.context.waitTicks(5);
+	}
+
 	private void dismiss() {
-		this.js("(function(){if(MC.ov.active())MC.ov.close(true);if(MC.st.menu){MC.st.menu=null;}MC.st.deck.pop=null;MC.textFocus=false;MC.render();return ''})()");
+		this.js("(function(){if(MC.bf)MC.bf.clearToasts();if(MC.ov.active())MC.ov.close(true);if(MC.st.menu){MC.st.menu=null;}MC.st.deck.pop=null;MC.textFocus=false;MC.render();return ''})()");
 		this.context.waitTicks(2);
 	}
 
@@ -454,6 +460,8 @@ public final class AuditTest {
 		this.ui.clickPage("[data-begin]");
 		this.context.waitTicks(30);
 		this.check("chosen".equals(this.state().get("phase")), "the picker began the character");
+		// Build feel's guide hints (Mettle 0.3.0, a new character) are MettleTest's; here they would sit over what the audits click.
+		server.runCommand("mettle build guide off Player0");
 
 		this.section("empty binder", () -> {
 			this.dismiss();
@@ -665,6 +673,7 @@ public final class AuditTest {
 		this.check(this.ensureDraft(), "1920x1080 GUI 2 (" + this.actual() + "): a draft hand is up");
 		this.ui.parkMouse();
 		this.context.waitTicks(10);
+		this.quietToasts();
 		Perf idle = this.perf("gs2 draft idle", () -> this.context.waitTicks(60));
 		this.check(idle.painted() == 0, "PERF gs2 draft idle paints nothing: " + idle);
 		int hand = Integer.parseInt(this.js("String(document.querySelectorAll('.dr-hand .hc').length)"));
@@ -746,6 +755,14 @@ public final class AuditTest {
 			this.context.waitTicks(4);
 			Spaces.Result home = Spaces.run(this.context);
 			this.spaceCheck(gate, home.spaces() > 5 && home.collapsed().isEmpty(), tag + " Classes home: spaces between words are not collapsed: " + home);
+			if ("true".equals(this.js("String(!!(MC.M&&MC.M.cards&&MC.M.cards.build))"))) {
+				this.js("MC.nav.view='home';MC.nav.tab='character';MC.render();''");
+				this.context.waitTicks(4);
+				Spaces.Result sheet = Spaces.run(this.context);
+				this.spaceCheck(gate, sheet.spaces() > 5 && sheet.collapsed().isEmpty(), tag + " character sheet: spaces between words are not collapsed: " + sheet);
+				this.js("MC.nav.view='home';MC.nav.tab='cards';MC.render();''");
+				this.context.waitTicks(2);
+			}
 			if (this.ensureDraft()) {
 				this.context.waitTicks(4);
 				Spaces.Result draft = Spaces.run(this.context);
@@ -989,6 +1006,7 @@ public final class AuditTest {
 		this.overflow("binder 400");
 		this.shot("audit_11_binder_400");
 		int builds0 = dev.voidmc.hub.mettle.MettleSync.builds;
+		this.quietToasts();
 		Perf idle = this.perf("binder400 idle", () -> this.context.waitTicks(80));
 		int idleBuilds = dev.voidmc.hub.mettle.MettleSync.builds - builds0;
 		log("PERF binder400 idle: Mettle state built " + idleBuilds + " times in 80 ticks");
@@ -1068,6 +1086,7 @@ public final class AuditTest {
 		this.ui.parkMouse();
 		this.context.waitTicks(10);
 		log("NOTE gs2 binder: " + this.actual() + ", " + this.binder().size() + " cards, u " + this.ui.layout().u);
+		this.quietToasts();
 		Perf idle = this.perf("gs2 binder idle", () -> this.context.waitTicks(60));
 		this.check(idle.painted() == 0, "PERF gs2 binder idle paints nothing: " + idle);
 		Perf scroll = this.perf("gs2 binder wheel scroll", () -> {
