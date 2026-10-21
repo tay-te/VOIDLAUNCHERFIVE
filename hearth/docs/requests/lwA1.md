@@ -69,3 +69,13 @@ No other new screen. Paying toward a road is a conversation option at the reeve 
   scheduling 0.006 ms avg.
 - `TrafficBenchTest` (journey cap full, 50 players on one road): 0.006 ms a tick avg, the players' lookups 0.18 ms p50.
 - Three routes on the dev seed find no way (sea between the places): those places stay unjoined.
+
+## Open
+
+- **Water let out by a new road at a perched lake** (roads tour, hamlet "Roadsend" on a lake shore above the land): water
+  runs down the hamlet's road and spreads below. The bank kept by a cut beside water outside the corridor
+  (`Roadbed.waterBeside`, `RoadBankTest`) did not stop it, so the likely way out is a ford inside the corridor (wet
+  columns filled only to the walking level next to dug columns), or the hamlet's own works. To look at next: the route's
+  types at that end and whether fords on water above the walking level next to a cut need a lip or a causeway.
+- A party spawning costs up to ~6 ms in its tick (six entities at once); spreading the members over a few ticks would
+  keep the parties under 0.6 ms in every tick.
