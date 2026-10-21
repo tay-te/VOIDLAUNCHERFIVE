@@ -450,4 +450,7 @@ draught. Levers added in code: `card_cap_boost` 1.25 (a card's trait cap over it
 6 tier wakes when two of its decks reach skill 12; boons from skill 7 (Temper ¼ of a range, three tempered cards a
 deck; Inscribe one card a deck, the keyword already in that deck); 24 drawn Mythics (three a skill), shards forge an
 unclaimed one (30, 45, 60). Simulated by `BuildFeelReportTest`: 1.12× / 1.23× v1 (worst skill 1.13× / 1.24×), deck
-overlap 0.16, every committed 6-set at skill 12–17.
+overlap 0.16, every committed 6-set at skill 12–17. Deed Mythics one of a kind (later achievers 10 shards, migrated
+copies 30). **Talents** (§13 there): slots 2 / 3 / 4 / 5 at character level 3 / 15 / 27 / 39, a talent draft at 3 and
+every 4 levels, rarity Common 70 − 0.6 CL · Rare 24 + 0.4 CL · Epic 6 + 0.2 CL; simulated at 1.6–1.9 % of a whole
+character's power, the §14 ceilings clamping as before. Stealth and Speech XP and trees: BUILD_FEEL.md §14.

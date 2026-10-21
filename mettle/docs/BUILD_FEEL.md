@@ -12,7 +12,7 @@ Builds on [CARDS.md](CARDS.md) (cards, keywords, sets, rebuilds, Mythics, §14 c
 **What the user asked for:** "make it exciting and fun. We want players to feel like they are building out their
 character."
 
-A player has to know five more things:
+A player has to know seven more things:
 
 1. **Your deck pulls.** The cards you slot make cards like them likelier (more for the scarce keywords), so a set you
    start comes together. You can also **Focus** one keyword to say where you are heading. A 6-set wakes once two of
@@ -22,7 +22,11 @@ A player has to know five more things:
 3. **Odd levels give a boon.** Temper a card's trait, Inscribe a keyword on a card, or take a reroll.
 4. **The hand shows what a card would do to you** before you keep it: "Deep 3 → 4: Deep 4 opens".
 5. **Mythics can be forged.** Shards come from mastery and deeds; thirty forge an **unclaimed** Mythic of your choice
-   at a Card Shrine. Every Mythic stays one of a kind; when none is left, shards give a legend title and frame.
+   at a Card Shrine. Every Mythic stays one of a kind, deeds included (the first to do a deed holds it, later ones get
+   shards and its title); when none is left, shards give a legend title and frame.
+6. **Talents** are a third layer between attributes and skill decks: 2 to 5 general cards (Hardy, Broad Shoulders,
+   Lucky…) from a talent draft every few character levels, changed freely after a night's sleep.
+7. **Stealth and Speech** join the released skills, built for VOID Hearth's witnesses, markets and conversations.
 
 ---
 
@@ -314,6 +318,7 @@ turns them all off.
 | 8 | first card you can't slot yet | "Slots at Mining 7. It waits in your binder." | the card | 6 s |
 | 9 | first full deck and a better card | "Swapping costs. You hold 3 free swaps." | the free-swap counter | 6 s |
 | 10 | first boon (skill 7; past the first ten minutes) | "An odd level: temper a card, inscribe one, or reroll." | the boon badge | spent |
+| 11 | first talent draft (character level 3, a few minutes in) | "A talent: who you are, not what you trained. Keep one." | the talent hand | kept |
 
 **The guided first hand.** A new character's first hand holds at least one **Rare** card (so a trait and a rank show
 and can be explained) and is dealt in the background's first favoured skill if that skill reaches 2 first. Nothing
@@ -328,8 +333,8 @@ else is forced. In the first ten minutes a player sees hints 1–5 and usually 6
 
 **User rule: every Mythic is one of a kind.** Shards never make copies. World firsts (seven) are unchanged. Instead the
 **drawn pool widens from 8 to 24** (three per skill), the drawn roll keeps its odds (0.5 % per draft from skill 15, now
-offering an unclaimed Mythic of that skill), and shards let a dedicated player **choose** an unclaimed one. Deeds keep
-their existing numbered copies (CARDS.md §9.3); they are not touched here.
+offering an unclaimed Mythic of that skill), and shards let a dedicated player **choose** an unclaimed one. Deed
+Mythics are one of a kind too, since 2026-10-21 (§12).
 
 ### 5.1 Deeds show progress
 
@@ -348,6 +353,7 @@ Shards are bound to the character (not items, not tradeable), shown as "Shards 2
 | A feat or a synergy earned | 1 |
 | A keyword's first 6-set | 2 |
 | A drawn-Mythic roll when that skill's three are all held | 3 |
+| A legendary deed someone already holds (§12) | 10 |
 | Taking part (≥ 25 % of the damage) in killing an Ender Dragon, Wither, Warden or Elder Guardian after its world first is claimed: once per kind | 2 |
 
 ### 5.3 Forging an unclaimed Mythic
@@ -372,7 +378,7 @@ in Mettle has, and stays inside the whole-character ceilings (none adds movement
 
 | Skill | Mythic | Effect | Fit |
 |---|---|---|---|
-| Mining | **The Stonesong** | Stand still sneaking with a pickaxe for 2 s: the nearest unmined diamond, emerald or ancient-debris vein within 24 blocks hums from its direction (60 s cooldown). | Ore Sense grown into a gift; finds, never shows through walls |
+| Mining | **The Keystone** | Sneak-use a pickaxe on a wall to set your keystone (one, moved freely); underground within 256 blocks, the way back to it shows on your locator bar. | The delver who is never lost; it marks, it never moves you (Homeward stays the Far Horizon's) |
 | Mining | **The Deep Lantern** | Below y 0, hostiles can't spawn within 12 blocks of you. | The Deep keyword's safety, for the delver who lives down there |
 | Blades | **Misericorde** | A blade hit on a mob below 15 % health ends it (never a player or a boss). | The mercy dagger: a finisher's card, Executioner taken to its end |
 | Blades | **Red Harvest** | A blade kill readies your swing at once, and your next swing within 2 s sweeps. | Chains fights for the duellist; the swing is still clamped by the melee ceiling |
@@ -389,7 +395,7 @@ in Mettle has, and stays inside the whole-character ceilings (none adds movement
 | Smithing | **The Ever-Ember** | Furnaces, smokers and blast furnaces you last filled smelt twice as fast and burn half the fuel. | The forge that never cools |
 | Smithing | **The Mender's Hand** | Once per in-game day, repair any item fully at an anvil for no levels and with no prior-work cost. | The master smith's touch; Arsenal: one smith repair a day at no cost |
 
-Names, art (stand-in sigils first, as wave D), lore lines and epithets (§2.1: "of the Stonesong", "of the Iron Vow")
+Names, art (stand-in sigils first, as wave D), lore lines and epithets (§2.1: "of the Keystone", "of the Iron Vow")
 go in the Mythic data and lang. The pool is per world and reads `mythic/*.json` as now (`source: drawn`, `skill`), so
 a server can add or remove drawn Mythics.
 
@@ -482,6 +488,11 @@ New fields in `config/mettle/cards.json` (CARDS.md §15):
 | `shard_forge_costs` | `[30, 45, 60]` (the last repeats) |
 | `shard_sources` | draft_from_15 1, skill_20 2, feat 1, synergy 1, first_six 2, claimed_roll 3, boss_after_first 2 |
 | `guide` / `first_hand_rare` | true / true |
+| `deed_later_shards` / `deed_migration_shards` | 10 / 30 (§12) |
+| `talent_slots` | `[[3, 2], [15, 3], [27, 4], [39, 5]]` (character level, slots) |
+| `talent_draft_from` / `talent_draft_every` | 3 / 4 |
+| `talent_rarity_odds` | Common 70 − 0.6 CL, Rare 24 + 0.4 CL, Epic 6 + 0.2 CL |
+| `talent_swap_on_wake_s` | 60 (the "Reconsider your talents" window after a night's sleep; 0 = only free swaps) |
 
 Data: `data/mettle/mettle/byname/{keywords,skills,pairs}.json` (prefix, word, suffix, noun, pair noun and description),
 `summary` lines per set tier and `momentum` in keyword data, `epithet` in Mythic data, sixteen new
@@ -518,6 +529,13 @@ what ships on page 295:2. VOID rules: flat, rounded, no gradients; skill hue = w
 | B14 | **Shards and forge** | Card Shrine screen (CARDS.md §13.5) new tab "Forge" | Shard meter "24 / 30"; the 24 drawn Mythics by skill: unclaimed and forgeable (lit), unclaimed but locked ("needs Smithing 18"), held (holder's name, not selectable); Confirm → the reveal; the empty-pool state offering the legend title and frame |
 | B15 | **Deed progress and the pool** | Hall of Firsts (CARDS.md §13.1) | Progress bars per deed, hints, holders and copies; "17 of 24 drawn Mythics still wait"; shards line |
 | B17 | **The sixteen new Mythic cards** | Mythic frame (CARDS.md §19.3, M1–M4) | Sixteen sigils / pixel art and the reveal for each |
+| B18 | **Talent row** | character sheet, under the attributes | 2–5 talent slots (locked ones: "Opens at character level 27"), the earned talents (the five feats) as gold cards beside them, an empty state, the talent-draft badge |
+| B19 | **Talent card face** | all three card sizes | the ash edge (`#A39E96`), rarity gem, family glyph (Body, Motion, Hands, Mind, Fortune) in place of the skill band, the value line, no keyword area; earned (gold) variant; 26 + 5 pixel-art icons |
+| B20 | **Talent draft hand** | the draft screen | "Talent draft · character level 7", three talent cards, Keep / Keep & slot, reroll; what it does to you (§6.1: "Carry 84 → 88 kg") |
+| B21 | **Reconsider your talents** | on waking in a bed, 60 s | the talent row with binder talents to drag in, Done; the chip that opens it |
+| B22 | **Stealth and Speech pages** | Classes page, skill gallery and deck | the two skill cards in violet `#7E7AE6` and honey `#E8C46A`, their trees (roots, Ghost / Knife, Trader / Courtier, Masteries, cursed, feats, synergies, Teachings), 30 perk icons; a "Hearth" tag on perks that read through Hearth, and the fallback line when Hearth is absent |
+| B23 | **Effective level chips** | Hub conversation odds chips, haggle panel, Stealth HUD | "Speech 12 (+3)" with a hover listing what adds (Glib II, Persuasive, The Courtier's Manners) |
+| B24 | **Deed titles and legend cosmetics** | name card, character sheet, Hall | the deed-title chip ("Long Walker") and a picker of held titles; the Hall's deed rows (holder, "also done by" list with titles); the legend frame (white-gold border, 1–3 stars) and "the Legend of …" title; the migration notice ("Your Long Walker returned: 30 shards and the title") |
 | B16 | **Binder filter and preview** | Binder (§13.1) | "Completes a set" filter; the side panel's "If slotted…" preview |
 
 ---
@@ -590,6 +608,9 @@ any tempered deck already (it puts every trait at its total cap).
 
 ### 9.4 Mythic shards and the one-of-a-kind server: §5.5 (report §5 and §6).
 
+### 9.5 Talents: §13.3 (report §7: pacing, power with talents, and the ceilings through `Ceilings.potential` on each
+simulated character's real decks; lever `bf.talentRuns`).
+
 ---
 
 ## 10. Build plan
@@ -604,6 +625,10 @@ new pure classes, server in `character.cards`, screens in the Hub from overlay s
 | **F3 · Identity** | `Bynames` (pure, data-driven) and tiers, held list, the "Take it" offer, `CardService.byname`; Signatures; `BuildSummary`; milestone moments (new `Moment` kinds `set`, `byname`, `signature`, `boon`, `forge_ready`) and the banner; name card and chat hover | tour: a fresh character to byname II in a scripted session, shots of B1–B3, B10–B11 |
 | **F4 · Guide** | journal `guide`; the ten hints with anchors (overlay `guide.hint`), skip and the options switch; the guided first hand (one Rare, favoured skill) | tour: a new character's first ten minutes, every hint seen once and none for a migrated character |
 | **F5 · Mythics within reach** | the sixteen new drawn Mythics (data, effects in `MythicEffects`, ceilings checked by CardReportTest's worst-case search); the drawn roll offering an unclaimed one of the skill; shard sources (events already exist: drafts, levels, feats, synergies, set tiers, claims, boss credit); the forge at the shrine (cost ladder, unclaimed only, skill 18); the legend title and frame; deed progress in the Hall (`cards.mythics` gains `progress`) | tour: each new Mythic granted and checked; shards granted by op, a forge, a refused forge of a held Mythic, the legend title on an emptied pool |
+| **F6 · Deeds one of a kind** | `MythicRules` drops copy numbering; deed credit as world firsts; later achievers' 10 shards and titles; titles on the record and name card; the one-time migration (§12) with its log and notice | JUnit below; tour: a second player finishing Long Walker gets shards and the title, a world with two Unclad copies migrates to one |
+| **F7 · Talents** | `talent` registry (26 talents as data, `tools/cards/cards_data.py`), the `TL` ledger prefix (bound), `TalentRules` (pure: slots, cadence, rarity, values, one per talent), the talent draft beside skill drafts (`DraftState.talents`), the talent row and slot rules, the wake-up window, earned talents (the five feats re-homed, no change to how they're earned), effects (attribute modifiers and hooks; Fleet, Weathered Hide, Grit and Scavenger feed `Ceilings`) | BuildFeelReportTest §7 with `TalentRules`; tour: drafts at 3 and 7, a swap on waking, Packrat's pocket, ceilings still clamp |
+| **F8 · Stealth** | the tree, traits and card skill as data; XP sources (sneak proximity, sneak attacks, Warden pass, Hearth's unseen awards); visibility through `LivingEntity#getVisibilityPercent`, vibrations, Vanish, Shadowstep; effective Stealth in `MettlePlayerSkills.level` | PacingReportTest Stealth phase near 600–750 XP/h; tour: a sneak attack, Vanish, Ghost in the dark; with `-Phearth` a witness sees an effective Stealth |
+| **F9 · Speech** | the tree, traits, card skill; villager and piglin hooks without Hearth; effective Speech and Presence in `MettlePlayerSkills`; item-kind factors in `MettlePrices`; Appraiser tooltips; feats counted from award reasons; Hearth request 12–14 slots used when present (fallbacks otherwise) | tour with `-Phearth`: Glib moves a haggle's band and a check's odds chip; Provisioner and Appraiser at a market; without Hearth, a villager discount |
 
 ### Tests
 
@@ -625,6 +650,15 @@ new pure classes, server in `character.cards`, screens in the Hub from overlay s
   a copy: every Mythic id exists once in the ledger); the legend title only when no drawn Mythic is unclaimed; the
   drawn roll never offers a held one.
 - Guide: new characters only; each hint once; skip turns all off.
+- Deeds: one holder per deed; a later achiever gets 10 shards and the title, never a card; migration keeps the earliest
+  copy, returns the rest with 30 shards and the title, empties their slots for free, and is idempotent (a second run
+  changes nothing).
+- Talents: slots and draft levels by character level; rarity odds and value bands over 100,000 rolls (±1 %); one card
+  per talent in the deck; bound (trade and listing refused); the wake window opens only after a full night; earned
+  talents always on and never slotted; Fleet / Weathered Hide / Grit / Scavenger counted in `Ceilings`.
+- Stealth and Speech: every perk, trait and keyword table loads; effective levels never pass 20 and include only the
+  listed sources; `MettlePrices` item-kind factors; request-12 effects fall back exactly as written when the slot is
+  absent; feats count the right award reasons.
 
 **Simulator:** `BuildFeelReportTest` asserts: power ≤ 1.15× / 1.3× in every skill; deck overlap < 0.25 (any two, and
 two chasing one keyword in one skill); no identical decks; every keyword reaches a 6-set when chased. CardReportTest
@@ -639,19 +673,370 @@ their marks; a fourth tempered card can't be slotted.
 
 **Confirmed by the user (2026-10-20):** boons (Temper, Inscribe, Reroll) with the rules of §3; the byname grammar and
 word tables (§2.1); Signatures cosmetic; the guide for new characters with a guaranteed Rare in the first hand; no
-loadouts; Temper's small power step (1.11× → 1.12×). **The user's two changes, applied:** momentum scaled by keyword
-commonness so every committed 6-set lands around skill 12–16 (§1.2, §3.5); Mythics stay one of a kind, shards forge
-only unclaimed ones from a pool widened to 24, and an empty pool gives a cosmetic legend title and frame (§5).
+loadouts; Temper's small power step (1.11× → 1.12×); momentum scaled by keyword commonness so every committed 6-set
+lands around skill 12–16 (§1.2, §3.5); Mythics one of a kind, shards forging only unclaimed ones from a pool of 24, an
+empty pool giving a cosmetic legend title and frame (§5).
 
-**Still open (smaller calls this pass made to meet the changes):**
+**Confirmed by the user (2026-10-21, "let's get working on this"):** the skill-12 rule for 6-sets (§1.2b), the keyword
+`momentum` values, the sixteen new Mythics (§5.4), the forge rules; and three additions designed in §12–§14: deed
+Mythics one of a kind, Talents, and Stealth and Speech as the next released skills.
 
-1. **The skill-12 gate on 6-sets** (§1.2b). It is what moves the common keywords off skill 7–8 (lean alone can't: they
-   need no help today). It also makes a points player's first 6-set later (character level 18 → 22). Alternative: a
-   negative lean for common keywords, which would make committing feel like it works against you.
-2. **The keyword `momentum` values** (§1.2): Tide and Deep 1.0, Kin and Warden 0.5, Gale and Echo 0.25, the rest 0.
-3. **The sixteen new drawn Mythics** (§5.4): names and effects for a look; a pool of 24 keeps 96 % of dedicated players
-   finding one even on a server whose players turn over three times (16 gives 75 %).
-4. **Forge rules**: 30 / 45 / 60 shards, a skill at 18 in the Mythic's skill, the shards wait while something is left
-   but not in your skills. The legend title's wording ("the Legend of {world}").
-5. **Deeds keep their numbered copies** (CARDS.md §9.3, as built). If "one of a kind" should cover deeds too, each deed
-   would become a world first; not changed here.
+**Small calls this round made, for the user to see:**
+
+1. Later deed achievers get **10 shards** and the deed title; migrated copies **30 shards** (one forge) and the title.
+2. Talents: 2 → 5 slots (character level 3 / 15 / 27 / 39), a talent draft at 3 and every 4 levels (twelve), changed
+   freely on waking from a night's sleep, bound to the character (never traded), Wits adds no talent slot.
+3. The five general feats become **earned talents** (gold, always on, no slot).
+4. Speech and Stealth perks reach Hearth through **effective levels** ("counts N higher wherever Hearth reads it") and
+   price factors; the per-context ones wait on Hearth request 12, each with a working fallback.
+5. Speech's honey colour sits near the earned champagne gold: Figma checks they read apart.
+
+---
+
+## 12. Deed Mythics, one of a kind (approved 2026-10-21)
+
+Every Mythic is now one of a kind, deeds included. **A deed Mythic goes to the first player who does the deed**, like a
+world first; numbered copies are gone everywhere (CARDS.md §9.1, §9.3, MythicRules, the Hall, the reveal's "the 3rd in
+this world").
+
+- **Later achievers** get **10 shards** (a third of a forge, §5.2) and the deed's **title**, a cosmetic: "Long Walker",
+  "the Unclad", "of the Hundredth Dawn", "the Lone Banner", "Polymath". A deed title can be worn instead of the byname or
+  beside it on the name card ("Ashford the Deep Ember Warden · Long Walker"); one at a time, chosen on the character
+  sheet. The first holder gets the title too.
+- **Progress still shows** (§5.1), with the holder: "Long Walker · held by Bree since day 112 · you: 63.2 / 100 km
+  (title and 10 shards)".
+- **Credit** follows the world-first rules (CARDS.md §9.2): deed counters are server-side; two players finishing in the
+  same tick, the earlier event wins.
+- Mythics per world: 7 world firsts + 5 deeds + 24 drawn = **36, each once**.
+
+**Migration** (once, when this ships; logged, and told to each player on join):
+
+1. For each deed Mythic with several copies in the ledger, the **earliest** (the lowest copy number; ties by claim day)
+   stays: it becomes the one card, its history "the first to do it" kept.
+2. Every other copy is **returned**: taken from binder or deck (no fee, no free swap spent, no scar), released with the
+   history line "Returned: deed Mythics are one of a kind", and its holder gets **30 shards** (one forge, enough to claim
+   an unclaimed drawn Mythic at once if they have a skill at 18) and the deed's title.
+3. A returned copy that was one of a player's two slotted Mythics leaves the slot empty. Polymath's extra slot goes with
+   it: a card in that slot goes dormant (no cost, CARDS.md §5.2 rule 6).
+
+---
+
+## 13. Talents: the third layer (approved 2026-10-21)
+
+```
+Background      → where you start
+Attributes (5)  → what your body and mind are
+TALENTS (2-5)   → what kind of person you are: general, build-agnostic cards      ← new
+Skill decks     → what you have trained: keyworded cards, sets
+Character level → all skill XP added together
+```
+
+A **talent** is a card with no keyword and no skill: a modest, general gift (more carry, a heart, longer breath, a
+little luck). Talents never make sets; their numbers are small and the ones that touch a §14 stat count toward its
+ceiling like any card. Each skill keeps its own flavour and its biggest numbers: Athletics' Ox (+25 kg and its special
+moves) stays the largest load, a talent's carry tops at +6 kg.
+
+### 13.1 The talent deck and the talent draft
+
+| | Rule |
+|---|---|
+| **Slots** | 2 from character level 3, 3 at 15, 4 at 27, 5 at 39 (Wits adds none: Wits widens skill decks) |
+| **Talent draft** | a hand of three talents, keep one, at character level **3 and every 4 levels after** (3, 7, 11 … 47: twelve), separate from skill drafts; waits like a draft (a badge on the character sheet); rerolls come from the shared pool |
+| **Rarity** | rolled per card by character level: Common 70 − 0.6 CL, Rare 24 + 0.4 CL, Epic 6 + 0.2 CL (40 / 44 / 16 % at 50); values roll as traits do (Common the low two thirds, Rare the whole range, Epic the top two thirds) |
+| **Duplicates** | dealt at ½ weight per copy owned (as skill cards), one card of a talent per deck; a better copy replaces a worse one |
+| **Changing them** | cheap, on purpose: **all talent slots can be rearranged freely when you wake from a night's sleep in a bed** (a "Reconsider your talents" prompt on waking, open 60 s), or any time for a free swap (§7.4); no draught, fee or scar |
+| **Bound** | talents are cards in the ledger (prefix `TL`) but never traded or listed: they are you. Three talent cards release for a reroll and three of one talent and rarity fuse into the next, at a Card Shrine (CARDS.md §7.5, §24) |
+| **Look** | the card look of direction D with a neutral **ash** edge (`#A39E96`), the rarity in the gem, no keyword badges; a family glyph (Body, Motion, Hands, Mind, Fortune) where the skill band would be |
+
+### 13.2 The twenty-six talents
+
+Values per rarity: Common / Rare / Epic are the bands of the range. "Ceiling" names the §14 stat it counts toward.
+
+| Family | Talent | What it does | Range | Ceiling |
+|---|---|---|---|---|
+| Body | **Hardy** | +X max health | ½–1½ hearts | |
+| Body | **Iron Gut** | You get hungry X slower. | 5–15 % | |
+| Body | **Deep Lungs** | You hold your breath X longer. | 3–8 s | |
+| Body | **Quick Healer** | Natural regeneration X faster (costs hunger as vanilla). | 10–25 % | |
+| Body | **Weathered Hide** | All damage you take is X smaller. | 2–4 % | taken |
+| Body | **Grit** | Below 30 % health, damage you take is X smaller. | 3–6 % | taken |
+| Body | **Cold Blood** | Freezing and powder snow hurt X less and chill you X slower. | 15–30 % | |
+| Body | **Steady Nerves** | Darkness, Blindness and Nausea on you last X less. | 15–30 % | |
+| Motion | **Fleet** | +X movement speed. | 2–4 % | movement |
+| Motion | **Climber** | You climb ladders, vines and scaffolding X faster. | 10–20 % | |
+| Motion | **Sure-Footed** | You fall X more blocks before taking damage. | ½–1½ | (jump ceiling untouched) |
+| Motion | **Strong Swimmer** | You swim X faster. | 5–10 % | |
+| Motion | **Light Step** (Rare) | Sneaking, you never trigger pressure plates or tripwires. | fixed | |
+| Hands | **Broad Shoulders** | +X carry capacity. | 2–6 kg | |
+| Hands | **Long Arms** | You reach X blocks further for blocks (not for hits). | 0.25–0.5 | |
+| Hands | **Careful Hands** | Tools, weapons and armour wear X slower. | 5–12 % | |
+| Hands | **Quick Hands** | You eat and drink X faster. | 10–25 % | |
+| Hands | **Packrat** (Epic) | One more belt pocket (BURDEN.md §5). | fixed | |
+| Mind | **Quick Learner** | Skill XP +X (all skills, before anti-farm). | 2–5 % | |
+| Mind | **Night Owl** | Between dusk and dawn, skill XP +X. | 4–8 % | |
+| Mind | **Night Eyes** | The dark is X less dark for you (a client brightness lift in light 0–4). | 10–30 % | |
+| Mind | **Light Sleeper** (Rare) | You wake when a hostile comes within 10 blocks of your bed, and phantoms leave you be one night in two. | fixed | |
+| Mind | **Homebody** | Within 64 blocks of your bed or respawn point, you regenerate X faster. | 10–20 % | |
+| Fortune | **Lucky** | +X Luck (fishing, loot chests). | ½–1½ | |
+| Fortune | **Scavenger** | Mobs you kill drop one more of their loot X of the time (plain stacks only). | 2–5 % | extra drop |
+| Fortune | **Silver Tongue** | Your market edge at Hearth +X (Mettle's price hook, `MettlePrices`); without Hearth, villagers' prices X better. | 1–3 % | |
+
+**Earned talents.** The five general feats (TREES.md §12) move into this layer as **earned talents**: Pack Horse (+8 kg),
+Seasoned (+1 heart), Seen It All (+1 attribute point), Jack of All Trades (+25 % XP below 10), Nine Lives (+20 % speed
+below 3 hearts). They show in the talent row as gold cards beside the slots and are always on (earned perks never take a
+slot, CARDS.md §18.4); new general feats join them there. Nine Lives' speed counts toward the movement ceiling as it does
+today.
+
+### 13.3 Power and pacing (simulator, report §7; 400 careers a row)
+
+| Character | character level | skill decks | three sets | talents (slots) | talents' share of the whole |
+|---|---|---|---|---|---|
+| focused (mains to 20), keeps for points | 38 | 160.1 | 14.9 | 3.4 (4) | **1.9 %** |
+| focused, chases ceiling stats | 38 | 160.1 | 14.9 | 2.8 (4) | 1.6 % |
+| all-eight (maxed) | 50 | 249.6 | 15.0 | 4.3 (5) | **1.6 %** |
+
+Average power with talents: a whole character is **1.6–1.9 % stronger** than its decks and sets alone (in skill terms
+the per-skill ratio stays 1.12× / 1.23×; talents are not in it).
+
+**§14 ceilings** (each simulated character's real decks through the game's own `Ceilings.potential`; mean potential and
+the share already at the ceiling, without → with talents):
+
+| Character · player | movement (+35 %) | damage taken (−45 %) | extra drops (+50 %) |
+|---|---|---|---|
+| focused · points | +26.2 → +26.5 % · 30 → 30 % | −44.0 → −44.5 % · 61 → 62 % | +36.0 → +36.4 % · 19 → 20 % |
+| focused · ceiling chaser | +26.2 → +27.8 % · 30 → 32 % | −44.0 → −46.4 % · 61 → 64 % | +36.0 → +37.9 % · 19 → 24 % |
+| all-eight · points | +37.1 → +37.4 % · 55 → 56 % | −51.3 → −51.8 % · 79 → 80 % | +43.4 → +43.8 % · 35 → 36 % |
+| all-eight · ceiling chaser | +37.1 → +39.1 % · 55 → 57 % | −51.3 → −53.7 % · 79 → 83 % | +43.4 → +45.6 % · 35 → 40 % |
+
+("Potential" is the worst moment the ceilings imagine: every condition at once, the best damage kind.) Talents alone add
+at most movement +4 %, damage taken −9.8 % (Weathered Hide and Grit at their Epic tops, Grit only below 30 % health),
+extra drops +5 %. `Ceilings` clamps the sum exactly as it does today, so no deck passes a ceiling in any state.
+
+**Pacing** (a focused character, about 3,070 character XP an hour: PacingReportTest's per-skill rates over three mains,
+two sides and three dabbled):
+
+| Talent event | character level | the mains' skill then | about hours in |
+|---|---|---|---|
+| first talent draft, 2 slots | 3 | 2 | 0.05 (in the first ten minutes) |
+| drafts | 7 · 11 | 5 · 7 | 0.5 · 1.7 |
+| 3rd slot (and a draft) | 15 | 9 | 3.6 |
+| draft | 19 · 23 | 11 · 13 | 6.5 · 10 |
+| 4th slot (and a draft) | 27 | 15 | 15 |
+| 5th slot (and a draft) | 39 | past 20 (the sides grow) | 36 |
+| last draft | 47 | — | 56 |
+
+The talent draft lands where the skill cadence thins (after skill 6, drafts come every other level): at mains 7, 9,
+11, 13, 15, 17 a talent draft or a slot arrives between skill drafts, so the mid-game always has a next thing.
+
+---
+
+## 14. Stealth and Speech, the next released skills (approved 2026-10-21)
+
+Both exist as unreleased skills (`skill/stealth.json` Agility, colour `#7E7AE6`; `skill/speech.json` Presence, colour
+`#E8C46A`) whose XP has banked since Hearth began reporting it. Releasing them: their trees below as data, card skills
+(prefix `SL` and `SP`), trait pools, keywords, trainers (Hearth's fence trains Stealth; merchant and trader train
+Speech: `HearthRules.TRAINERS`, already there), and Teachings from a city's fence and merchant (`TEACHERS`). The
+**split holds**: Mettle owns the numbers (levels, perks, traits, effective levels and price factors); Hearth owns the
+minigames, witnesses, odds rules and reactions. Backgrounds already point at them: the **Rogue** favours Stealth (and
+Thievery, still unreleased: its XP keeps banking), the **Merchant** favours Speech (and Riding); a Wanderer may now pick
+either.
+
+**How Mettle reaches Hearth, using only existing slots** (the Hearth api in `src/hearthApi`):
+
+- **Effective levels**: `PlayerSkills.level(player, "mettle:speech" | "mettle:stealth")` answers the skill level **plus**
+  the perks, traits and Teachings that say "counts N higher wherever Hearth reads it", at most 20; `attribute(player,
+  "presence")` likewise. Every Hearth reading (speech checks, haggling room and patience, the haggle band from Speech 5
+  to 15, witnesses, the pickpocket mark, bandits) gets them for free.
+- **Prices**: `PriceModifier` via `MettlePrices` (per item kind, so "food is cheaper", "gear sells dearer" work).
+- **Values**: `EconomyService.price(player, settlement, stack, playerBuys)` for the Appraiser's tooltips.
+- **XP and feats**: Hearth's `award` reasons (`hearth:speech/<kind>`, `hearth:economy/haggle`, `hearth:law/unseen/<offence>`)
+  are counted for feats.
+- **Training**: inline, paid in conversation in the 300–399 band (built), as the Hub's conversation shows it.
+
+Effects that need one number Hearth doesn't read yet are asked for in
+[hearth/docs/requests/mettle-speech-stealth.md](../../hearth/docs/requests/mettle-speech-stealth.md) (requests 12–14);
+until Hearth answers, each such perk names a fallback that works through the slots above.
+
+### 14.1 Stealth (Agility) — "unseen, unheard, first to strike"
+
+**XP**
+
+| Source | XP |
+|---|---|
+| Sneaking within 12 blocks of a hostile that isn't targeting you | 1 every 4 s (at most 15 a minute); none from spawner mobs, caged, boated or leashed ones, or one that can't path to you |
+| A sneak attack: damage dealt to a mob not targeting you | 1 a point (capped at its health), kill bonus ¼ of its max health (the weapon's skill gets its own XP too) |
+| Sneaking within 16 blocks of a Warden without angering it | 2 a second (at most 60 a minute) |
+| A crime nobody saw (Hearth) | Hearth's 5–25 (`hearth:law/unseen/<offence>`) |
+
+Anti-farm as CHARACTER.md §3.3 (the same source tapers after about 60 in 5 minutes). Target: about 600–750 XP an hour
+for a player who hunts by night; PacingReportTest gets a Stealth phase when it is built.
+
+**Roots**
+
+| Perk | Ranks |
+|---|---|
+| **Soft Step** | You sneak 10 / 20 / 30 % faster. |
+| **Shadow** | While you sneak, hostiles notice you at 90 / 80 / 70 % of their range; your Stealth counts 1 / 2 / 3 higher with Hearth folk. |
+
+**Path A · Ghost** (never seen)
+
+| Tier | Perk | What it does |
+|---|---|---|
+| II | **Quiet Feet** | Your sneaking steps and landings make no vibration for sculk sensors and shriekers. |
+| II | **Cloak of Dusk** | In light 7 or less, hostiles notice you at 75 % of their range (request 12: and Hearth's witnesses see you at 75 %; until then your Stealth counts 2 higher with folk at night). |
+| III | **Vanish** | Sneak for 2 s out of a hostile's sight: it loses you at once (30 s cooldown). |
+| III | **Silent Fall** | Falls while sneaking make no vibration and land 2 blocks softer. |
+
+**Path B · Knife in the Dark** (strike first)
+
+| Tier | Perk | What it does |
+|---|---|---|
+| II | **Ambusher** | Sneak attacks on a mob that isn't targeting you deal 30 % more. |
+| II | **Hamstring** | A sneak attack slows its target by half for 3 s. |
+| III | **Unseen Blade** | A kill no mob saw alerts nothing within 8 blocks. |
+| III | **Poisoner** | Sneak attacks with a blade poison the target for 3 s. |
+
+**Masteries**
+
+| Mastery | Needs | What it does |
+|---|---|---|
+| **Ghost** | 2 Ghost perks | Sneaking in light 7 or less and not attacking, hostiles beyond 4 blocks can't see you at all; your Stealth counts 5 higher with Hearth folk. |
+| **Shadowstep** | any 2 path perks | Sneak-jump at a mob within 8 blocks that isn't targeting you to step behind it (12 s cooldown; never at a player; walls stop it). |
+| **Assassin** | 2 Knife perks | Your first sneak attack on a mob that hasn't seen you deals triple damage (a boss: half again). |
+
+**Cursed**
+
+| Card | Tier | Gives | Costs |
+|---|---|---|---|
+| **Skulker** | II | You sneak 40 % faster. | In light 12 or more, hostiles notice you from 25 % further. |
+| **Coward's Edge** | III | Sneak attacks deal 50 % more. | While not sneaking, you take 15 % more damage. |
+
+**Feats**
+
+| Feat | Hint | Earned by | Grants |
+|---|---|---|---|
+| **Never Seen** | "Nobody remembers your face." | 20 crimes in Hearth settlements that nobody saw (without Hearth: 50 kills of mobs that never noticed you) | Mobs that lose you forget you twice as fast. |
+| **Under Its Nose** | "It listened. It did not hear." | Pass within 8 blocks of a Warden without it noticing you | Darkness lasts half as long on you. |
+
+**Synergies**: **Night Hunter** (Stealth 10 + Marksmanship 10): arrows you loose while sneaking at a mob that isn't
+targeting you always crit. **Footpad** (Stealth 10 + Athletics 10): climbing and swimming make no sound and keep
+sneaking's cover.
+
+**Teaching**: **The Quiet Way** (a city's fence, or *The Nightwalker's Book* in an Expanse ruin): your Stealth counts 2
+higher with Hearth folk, and a guard who loses sight of you gives up a third sooner (request 12; until then +1 more).
+
+**Traits** (X rolled; Attr as CARDS.md §4.2; "Hearth" lines read through request 12, else the fallback in brackets)
+
+| Trait | What it does | Range | Attr |
+|---|---|---|---|
+| **Shadowed** | While sneaking, hostiles notice you X closer. | 5–12 % | Agi |
+| **Hushed** | Your vibrations reach sculk X less far. | 15–25 % | Agi |
+| **Nightstalker** | In light 7 or less you sneak X faster. | 10–25 % | Agi |
+| **Backbiting** | Sneak attacks deal X more. | 8–20 % | Str |
+| **Hamstringing** | Sneak attacks slow the target X for 2 s. | 15–25 % | Agi |
+| **Vanishing** | A mob that loses sight of you gives up X sooner. | 15–25 % | Agi |
+| **Catfooted** | Falls while sneaking hurt X less. | 10–25 % | Agi |
+| **Muffled** | A kill from stealth alerts mobs nearby X less often. | 10–25 % | Agi |
+| **Patient** | After sneaking still for 2 s, your next hit deals X more. | 6–15 % | Agi |
+| **Lurking** | Darkness and Blindness on you last X less. | 15–25 % | Vit |
+| **Swift Exit** | After a sneak attack, +X speed for 2 s. | 4–10 % | Agi (movement ceiling) |
+| **Light-fingered** | The pickpocket mark notices you X slower (Hearth, request 12) [animals notice you X closer]. | 5–12 % | Pre |
+| **Unseen** | Hearth's witnesses see you X nearer (request 12) [hostiles, as Shadowed]. | 5–12 % | Agi |
+| **Lootfinger** | Mobs you kill unseen drop one more of their loot X of the time. | 3–8 % | Pre (extra-drop ceiling) |
+
+**Keywords**: natives Soft Step Swift · Shadow Deep · Quiet Feet Gale · Cloak of Dusk Deep · Vanish Echo · Silent Fall
+Gale · Ambusher Keen · Hamstring Keen · Unseen Blade Echo · Poisoner Wild · Ghost Deep · Shadowstep Swift · Assassin
+Keen · Skulker, Coward's Edge Hex. Second-keyword pool: **Deep, Keen, Swift, Wild, Echo**. Stealth adds Deep cards
+(3 natives, a pool): when it ships, re-run the simulator and lower Deep's `momentum` if its 6-set lands before skill 13.
+
+### 14.2 Speech (Presence) — "the right word, the right price"
+
+**XP**: Hearth's reports as today (a speech check 15–45 by difficulty, a third on failure; a struck haggle 5–40;
+business 5 a crown, 1 past 20 crowns a sim day; a personal quest 80; a law check 20 or 7). Without Hearth Speech still
+rises, slowly: a villager trade 3 + 1 per emerald (tapers like any source), a zombie villager cured 60, Hero of the
+Village 100, a piglin barter 1.
+
+**Roots**
+
+| Perk | Ranks |
+|---|---|
+| **Haggler** | Your market edge at Hearth +2 / 4 / 6 % (`MettlePrices`); villagers' trades of 4+ emeralds cost 1 / 2 / 3 less. |
+| **Glib** | Your Speech counts 1 / 2 / 3 higher wherever Hearth reads it (checks, haggling room, patience and the limit band); without Hearth, villagers' gossip about you grows 25 / 50 / 75 % faster. |
+
+**Path A · Trader** (coin)
+
+| Tier | Perk | What it does |
+|---|---|---|
+| II | **Provisioner** | Food, drink and potions: you buy 10 % cheaper and sell 10 % dearer. |
+| II | **Appraiser** | Item tooltips show what this settlement's market pays and asks (`EconomyService.price`); without Hearth, what the nearest villager pays. |
+| III | **Ledger-Keeper** | Speech XP from business never tapers, and coins you carry weigh nothing. |
+| III | **Shrewd Eye** | You read a merchant's limit band as if your Speech were 5 higher (request 12; until then your market edge +2 %). |
+
+**Path B · Courtier** (people)
+
+| Tier | Perk | What it does |
+|---|---|---|
+| II | **Charmer** | Reputation you gain with Hearth folk +25 % (request 12; until then your Presence counts 1 higher). |
+| II | **Barterer** | Piglins give one more item a quarter of the time; wandering traders restock once more. |
+| III | **Commanding Voice** | Your Presence counts 2 higher wherever Hearth reads it; allies within 8 blocks gain 5 % more skill XP. |
+| III | **Second Word** | Once a sim day, a failed Hearth speech check may be tried again at once (request 12; until then your Speech counts 1 higher). |
+
+**Masteries**
+
+| Mastery | Needs | What it does |
+|---|---|---|
+| **Merchant Prince** | 2 Trader perks | Your market edge +5 %, and a merchant you walked away from is never sour with you (request 12; until then +2 % more edge). |
+| **Hero's Welcome** | any 2 path perks | Hero of the Village after a raid you helped win lasts 3 in-game days; Hearth folk greet you as a hero (request 14). |
+| **Voice of the Realm** | 2 Courtier perks | Your Speech counts 4 higher and your Presence 2 higher wherever Hearth reads them. |
+
+**Cursed**
+
+| Card | Tier | Gives | Costs |
+|---|---|---|---|
+| **Honeyed Lies** | II | Your Speech counts 4 higher wherever Hearth reads it. | Your market edge is 5 % worse. |
+| **Demagogue** | III | Your Presence counts 4 higher wherever Hearth reads it. | Skill XP from everything but Speech −20 %. |
+
+**Feats**
+
+| Feat | Hint | Earned by | Grants |
+|---|---|---|---|
+| **Golden Mouth** | "They came to argue and left agreeing." | 50 Hearth speech checks won (request 13; until then 50 checks tried) · without Hearth: 5 zombie villagers cured | Failed speech checks give full XP. |
+| **Market Regular** | "Every stall knows your name." | 100 struck haggles (`hearth:economy/haggle`) · without Hearth: 200 villager trades | Speech XP from haggles +25 %. |
+
+**Synergies**: **Caravan Master** (Speech 10 + Athletics 10): you and allies within 8 blocks carry 10 % more on paths
+and roads. **Tavern-Keeper** (Speech 10 + Survival 10): food you cooked sells 20 % dearer at Hearth markets (cooked food
+gains a "cooked by" stamp like Smithing's "Forged by").
+
+**Teaching**: **The Courtier's Manners** (a city's merchant, or *A Treatise on Courtesy* in an Expanse manor): your
+Presence counts 2 higher wherever Hearth reads it.
+
+**Traits**
+
+| Trait | What it does | Range | Attr |
+|---|---|---|---|
+| **Haggling** | Market edge +X (Hearth); villagers' prices X better without. | 1–3 % | Pre |
+| **Persuasive** | Your Speech counts X higher wherever Hearth reads it. | 1–2 levels | Pre (whole levels, not boosted) |
+| **Appraising** | Tools, weapons and armour sell X dearer. | 3–8 % | Pre |
+| **Provisioning** | Food and drink cost X less. | 3–8 % | Pre |
+| **Charming** | Reputation gains +X (request 12) [Presence +1 with folk at X ≥ 10 %]. | 5–12 % | Pre |
+| **Imposing** | Intimidate odds +X (request 12) [none]. | 3–8 % | Str |
+| **Smooth** | Persuade and flatter odds +X (request 12) [none]. | 3–8 % | Pre |
+| **Patient** | A merchant's patience +X (request 12) [none]. | 5–15 % | Vit |
+| **Shrewd** | You read the haggle band as if your Speech were X higher (request 12). | 1–3 levels | Pre (whole levels, not boosted) |
+| **Bartering** | Piglins give one more item X of the time. | 5–12 % | Pre |
+| **Gregarious** | Speech XP +X. | 5–12 % | Pre |
+| **Rallying** | Allies within 8 blocks gain X more skill XP. | 2–5 % | Pre |
+| **Heroic** | Hero of the Village lasts X longer. | 25–50 % | Pre |
+| **Coinwise** | Coins you carry weigh X less. | 20–40 % | Str |
+
+Traits whose only effect waits on request 12 roll only once Hearth answers it (the pool reads `requires: hearth_bonus`),
+so no card carries a dead trait.
+
+**Keywords**: natives Haggler Hoard · Glib Kin · Provisioner Ember · Appraiser Keen · Ledger-Keeper Hoard · Shrewd Eye
+Keen · Charmer Kin · Barterer Hoard · Commanding Voice Kin · Second Word Echo · Merchant Prince Hoard · Hero's Welcome
+Warden · Voice of the Realm Kin · Honeyed Lies, Demagogue Hex. Second-keyword pool: **Kin, Hoard, Keen, Warden, Ember**.
+Speech is Kin's home (4 natives, a pool): when it ships, re-run the simulator and lower Kin's `momentum` (0.5 → 0.25 or 0)
+so its 6-set stays in the 12–16 band.
+
+**Card colours**: Stealth violet `#7E7AE6`, Speech honey `#E8C46A` (both already in the skill data). Speech's honey sits
+near champagne gold (`#E8DDBC`, earned); the Figma pass should check they read apart (§8).
