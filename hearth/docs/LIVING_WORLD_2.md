@@ -961,6 +961,26 @@ the Crag"), barks, dialogue for its keepers, two or three quest templates (`hear
 - Tour (`HEARTH_LW_TOUR=wild`, `/hearth wild tp <type>`): one shot of each of the ten types by day; the hospice in a
   snowstorm with its bell; the toll stop conversation.
 
+### 7.9 As built (lane B3, 2026-10-21)
+
+- `sim/wild`: `PostSites` (the overlay, a pure function of seed, region, rough probe, biomes, atlas sites and historic
+  roads), `PostWorld` (per level: the overlay cached per region, the squares as `Claims`, founding as chunks within 96 of
+  a square load), `PostHistory` (the post's record: programme laid out and built whole, two days of books, on the
+  `hearth-wild` worker; adopted with `SimWorld.adoptRecord`), `PostData` (`hearth:plan/wild`), `PostBook`
+  (`hearth:sim/wild`, world: which site became which settlement), `PostRules` (guests' board, the nomads' move every 14
+  days, the `TOLLKEEPER` and `HERMIT` trades), `WildFolk` (the toll stop at priority 150, guards barring the gate at 151,
+  toll evasion, the fog bell, the posts' conversation options at 150–179), `WildCommands` (`/hearth wild stats|near|tp
+  <type>|found|move`), `PostNames` (`hearth_names/posts.json`).
+- `plan/wild`: `PostLayouts` (each type's programme: a close with its head building facing down a lane from the road or
+  the front, the rest along the lane; the toll gate astride the road; the yurts' ring; the harbour's pier and fishery),
+  `PostPlanner` (found; next only rebuilds; exits), dispatched from `HearthPlanner` for `kind() == POST`.
+- Archetypes: `civic/hospice` (the `Precinct` cloister, chapel with its bell, porter's lodge, travellers' room,
+  refectory, infirmary and healer, dormitory) and `wild/yurt` (the round house in felt); both weight 0, city tier and one
+  culture so no town ever chooses them. Every other building of the programmes is an existing archetype.
+- Posts go to Atlas as `hearth:post/<type>` places. Quests: `hearth_quest/wild/` (firewood and the thing on the pass at
+  the hospice, the torn-eared wolf at a hunters' camp, the hermit's herbs, the ford cutter at a toll).
+- Deviations, requests and measurements: `docs/requests/lwB3.md`.
+
 ---
 
 ## 8. The player's place

@@ -398,6 +398,11 @@ public final class WildFolk {
 		level.playSound(null, bell, SoundEvents.BELL_BLOCK, SoundSource.BLOCKS, 4.0F, 0.8F + phase * 0.03F);
 	}
 
+	/** Where a hospice's bell was rung from (null until it has been): for the tour. */
+	public static @Nullable BlockPos bellOf(SimSettlement s) {
+		return BELLS.get(s.id());
+	}
+
 	/** The bell of the hospice's chapel (searched once in its plot), or a point over its middle. */
 	private static BlockPos findBell(ServerLevel level, SimSettlement s) {
 		PlotView p = PostRules.main(s, "civic/hospice");

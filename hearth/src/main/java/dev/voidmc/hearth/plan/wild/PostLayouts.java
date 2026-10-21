@@ -407,12 +407,33 @@ public final class PostLayouts {
 
 		/** The harbour: the pier out from the shore, the fishery on the shore beside it, cottages up the lane behind. */
 		void harbour() {
-			// the shore along the front (toward the water)
+			// the shore along the front (toward the water), and the pier's line: the longest run of water out from it
+			// (on the post's middle line or a little to either side), inside the post's square
 			int shore = -1;
-			for (int v = 0; v <= this.r; v++) {
-				if (this.t.isWater(this.f.x(0, v), this.f.z(0, v))) {
-					shore = v - 1;
-					break;
+			int pierU = 0;
+			int len = 0;
+			for (int u : new int[]{0, 3, -3, 6}) {
+				int sh = -1;
+				for (int v = 0; v <= this.r; v++) {
+					if (this.t.isWater(this.f.x(u, v), this.f.z(u, v))) {
+						sh = v - 1;
+						break;
+					}
+				}
+				if (sh < 4) {
+					continue;
+				}
+				int n = 0;
+				for (int v = sh + 1; v <= Math.min(sh + 16, this.r - 2); v++) {
+					if (!this.t.isWater(this.f.x(u, v), this.f.z(u, v))) {
+						break;
+					}
+					n++;
+				}
+				if (shore < 0 || n > len) {
+					shore = sh;
+					pierU = u;
+					len = n;
 				}
 			}
 			if (shore < 4) {
@@ -421,20 +442,13 @@ public final class PostLayouts {
 					"lane", 3));
 				return;
 			}
-			int landY = this.t.groundY(this.f.x(0, shore), this.f.z(0, shore));
-			int len = 0;
-			for (int v = shore + 1; v <= shore + 16; v++) {
-				if (!this.t.isWater(this.f.x(0, v), this.f.z(0, v))) {
-					break;
-				}
-				len++;
-			}
-			if (len >= 6) {
-				int ex = this.f.x(0, shore + len);
-				int ez = this.f.z(0, shore + len);
+			int landY = this.t.groundY(this.f.x(pierU, shore), this.f.z(pierU, shore));
+			if (len >= 4) {
+				int ex = this.f.x(pierU, shore + len);
+				int ez = this.f.z(pierU, shore + len);
 				int water = this.t.waterY(ex, ez);
 				int deck = Math.max(water, landY - 1);
-				line(DOCK, new int[]{this.f.x(0, shore), landY, this.f.z(0, shore), ex, deck, ez}, 3, "");
+				line(DOCK, new int[]{this.f.x(pierU, shore), landY, this.f.z(pierU, shore), ex, deck, ez}, 3, "");
 			}
 			// the fishery on the shore beside the pier, its back to the water and its door to the lane's side
 			PlotSpec fishery = building(Piece.of("work/fishery", 9, 9), -13, shore - 8, 9, 9, Face.BACK, null);
@@ -443,7 +457,7 @@ public final class PostLayouts {
 			}
 			// the lane back from the pier's root, the cottages on its sides
 			int back = -this.r + 3;
-			double[] uv = {0, shore, 0, (shore + back) / 2.0, 0, back + 1};
+			double[] uv = {pierU, shore, 0, shore - 4, 0, (shore - 4 + back) / 2.0, 0, back + 1};
 			road(uv, null, "lane", 3);
 			side(List.of(Piece.of("house/cottage", 9, 9)), -1, shore - 12, back, 1);
 			side(List.of(Piece.of("house/cottage", 9, 9), Piece.of("house/cottage", 9, 9)), 1, shore - 3, back, 1);

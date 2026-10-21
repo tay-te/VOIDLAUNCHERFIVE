@@ -224,7 +224,7 @@ public final class PostSites {
 					run++;
 					continue;
 				}
-				if (run >= 10) {
+				if (run >= 8) {
 					for (int end : new int[]{i + 3, i - run - 4}) {
 						if (end < 2 || end >= n - 2 || r.types[end] == 2) {
 							continue;
@@ -626,7 +626,7 @@ public final class PostSites {
 			return null;
 		}
 		int un = unevenness(t, x, z, h, 20);
-		if (un > 4) {
+		if (un > 6) {
 			return null;
 		}
 		double score = 20 - un * 3 + (c == Culture.MOORLAND || c == Culture.ALPINE ? 8 : 0);
