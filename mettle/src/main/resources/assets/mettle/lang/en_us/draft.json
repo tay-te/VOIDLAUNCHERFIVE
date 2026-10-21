@@ -70,5 +70,11 @@
 	"mettle.perk.survival.wild_luck.downside": "Two fewer hearts.",
 	"mettle.perk.survival.wolfs_hunger": "Wolf's Hunger",
 	"mettle.perk.survival.wolfs_hunger.description": "Two more hearts.",
-	"mettle.perk.survival.wolfs_hunger.downside": "You get hungry 40%% faster."
+	"mettle.perk.survival.wolfs_hunger.downside": "You get hungry 40%% faster.",
+	"mettle.perk.stealth.cowards_edge": "Coward's Edge",
+	"mettle.perk.stealth.cowards_edge.description": "Sneak attacks deal 50%% more.",
+	"mettle.perk.stealth.cowards_edge.downside": "While not sneaking, you take 15%% more damage.",
+	"mettle.perk.stealth.skulker": "Skulker",
+	"mettle.perk.stealth.skulker.description": "You sneak 40%% faster.",
+	"mettle.perk.stealth.skulker.downside": "In light 12 or more, hostiles notice you from 25%% further."
 }

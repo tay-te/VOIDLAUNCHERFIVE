@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.stealth.never_seen"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.never_seen.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.stealth.never_seen.hint"
+	},
+	"feat": {
+		"counter": "stealth_never_seen",
+		"target": 100
+	},
+	"order": 13
+}

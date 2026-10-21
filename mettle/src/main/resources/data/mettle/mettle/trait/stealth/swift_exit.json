@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 4,
+	"max": 10,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:sneak_attack_speed"
+	},
+	"name": {
+		"translate": "mettle.trait.stealth.swift_exit"
+	},
+	"description": {
+		"translate": "mettle.trait.stealth.swift_exit.description"
+	}
+}

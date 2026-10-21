@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "path",
+	"tier": 3,
+	"path": "b",
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.stealth.poisoner"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.poisoner.description"
+	},
+	"order": 9
+}

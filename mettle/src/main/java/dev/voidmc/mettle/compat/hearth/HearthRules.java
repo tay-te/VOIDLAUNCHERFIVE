@@ -217,7 +217,8 @@ public final class HearthRules {
 		"defense", "guard",
 		"athletics", "courier",
 		"survival", "healer",
-		"smithing", "smith");
+		"smithing", "smith",
+		"stealth", "fence");
 
 	/** Skills a resident of this job trains; empty for most folk. */
 	public static List<String> trains(String job) {

@@ -237,6 +237,7 @@ tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	systemProperty 'mettle.tour.cards_only', System.getProperty('mettle.tour.cards_only', 'false')
 	systemProperty 'mettle.tour.feel_only', System.getProperty('mettle.tour.feel_only', 'false')
 	systemProperty 'mettle.tour.legend_only', System.getProperty('mettle.tour.legend_only', 'false')
+	systemProperty 'mettle.tour.stealth_only', System.getProperty('mettle.tour.stealth_only', 'false')
 	// The world secret is pinned in game tests so their deals repeat run to run (MettleSecret); never on a real server.
 	systemProperty 'mettle.salt', System.getProperty('mettle.salt', '20261012')
 	systemProperty 'mettle.audit.role', System.getProperty('mettle.audit.role', '')

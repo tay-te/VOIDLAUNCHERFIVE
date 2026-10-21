@@ -11,6 +11,7 @@ import dev.voidmc.mettle.api.Mythic;
 import dev.voidmc.mettle.api.Perk;
 import dev.voidmc.mettle.api.Trait;
 import dev.voidmc.mettle.character.draft.Cursed;
+import dev.voidmc.mettle.character.skill.stealth.StealthRules;
 import dev.voidmc.mettle.core.CardData;
 import dev.voidmc.mettle.core.CardData.TraitRoll;
 import dev.voidmc.mettle.core.CardsState;
@@ -131,7 +132,7 @@ class CardAuditTest {
 	@Test
 	void everyTraitIsWiredAndSized() {
 		List<Executable> checks = new ArrayList<>();
-		assertEquals(120, TestCards.TRAITS.size(), "CARDS.md §4.2 lists 120 traits");
+		assertEquals(134, TestCards.TRAITS.size(), "CARDS.md §4.2 lists 120 traits, BUILD_FEEL.md §14.1 Stealth's 14");
 		TestCards.TRAITS.forEach((id, t) -> {
 			String path = id.getPath();
 			checks.add(text(path + " name", t.name(), false));
@@ -236,7 +237,8 @@ class CardAuditTest {
 				coded.add(k.identifier().getPath());
 			}
 		});
-		assertEquals(Set.of("marksmanship/heavy_draw", "marksmanship/snap_shot", "smithing/brittle_edge", "smithing/slapdash"), Set.copyOf(coded),
+		assertEquals(Set.of("marksmanship/heavy_draw", "marksmanship/snap_shot", "smithing/brittle_edge", "smithing/slapdash", "stealth/cowards_edge"),
+			Set.copyOf(coded),
 			"the cursed cards with no attribute effect at all");
 		assertAll(
 			// Heavy Draw: slower draw (down), harder arrows (up).
@@ -255,6 +257,10 @@ class CardAuditTest {
 			// Greedy Pick's crumble and Wolf's Hunger's drain are downsides.
 			() -> assertEquals(0.125 * 0.75, Cursed.crumbleChance(2), 1e-6, "Greedy Pick's crumble at Hex 2"),
 			() -> assertEquals(1 + 0.4 * 0.75, Cursed.wolfsHunger(2), 1e-6, "Wolf's Hunger's drain at Hex 2"),
+			// Coward's Edge (coded in Stealth): +50 % sneak attacks (up), 15 % more taken in the open (down); Skulker's bright-light cost (down).
+			() -> assertEquals(0.5 * 1.15, Cursed.up(1 + StealthRules.COWARD, 4) - 1, 1e-9, "Coward's Edge's sneak attacks at Hex 4"),
+			() -> assertEquals(1 + 0.15 * 0.75, Cursed.down(1 + StealthRules.COWARD_TAKEN, 2), 1e-9, "Coward's Edge's cost at Hex 2"),
+			() -> assertEquals(1 + 0.25 * 0.75, Cursed.down(StealthRules.SKULKER_COST, 2), 1e-9, "Skulker's cost at Hex 2"),
 			// Without Hex nothing changes.
 			() -> assertEquals(Cursed.HEAVY_DRAW_SPEED, Cursed.drawSpeed(true, false, 0), 1e-6),
 			() -> assertEquals(Cursed.GREEDY_PICK_CRUMBLE, Cursed.crumbleChance(0), 1e-6),

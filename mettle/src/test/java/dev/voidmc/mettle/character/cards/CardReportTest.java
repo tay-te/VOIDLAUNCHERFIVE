@@ -145,8 +145,9 @@ class CardReportTest {
 			out.append("\n");
 		});
 		out.append(limits);
-		out.append(String.format(Locale.ROOT, "%nMean over the eight skills: **%.2f×** v1 with base slots (limit 1.15×), **%.2f×** with Wits 14 (limit 1.3×); "
-			+ "worst skill %.2f× / %.2f×.%n", ratioSum / 8, ratioWitsSum / 8, worstRatio, worstWits));
+		out.append(String.format(Locale.ROOT, "%nMean over the %d released skills: **%.2f×** v1 with base slots (limit 1.15×), **%.2f×** with Wits 14 (limit 1.3×); "
+			+ "worst skill %.2f× / %.2f×.%n", TestCards.RELEASED.length, ratioSum / TestCards.RELEASED.length, ratioWitsSum / TestCards.RELEASED.length,
+			worstRatio, worstWits));
 		out.append(distinct).append(migration);
 		out.append(sets());
 		out.append(mythics());

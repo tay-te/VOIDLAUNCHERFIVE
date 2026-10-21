@@ -22,6 +22,8 @@ public final class HearthCompat {
 	public static void init() {
 		TrainerSessions.init();
 		HearthServices.setPlayerSkills(new MettlePlayerSkills());
+		// Request 12: does the Hearth actually loaded read bonus keys? Until it does, each keyed effect takes its fallback.
+		dev.voidmc.mettle.compat.HearthLink.set(true, declares(dev.voidmc.hearth.api.PlayerSkills.class, "bonus"));
 		DialogueProvider.register(TRAINERS);
 		HearthXp.init();
 		// Cards v2: rebuild fees in coin (to a trainer, or burned at a Card Shrine).
@@ -32,7 +34,21 @@ public final class HearthCompat {
 			TRAINERS.forget(player.getUUID());
 			HearthXp.forget(player.getUUID());
 		});
-		Mettle.LOGGER.info("VOID Hearth found: skills, prices, trainers and quest XP are on");
+		Mettle.LOGGER.info("VOID Hearth found: skills, prices, trainers and quest XP are on; bonus keys {}",
+			dev.voidmc.mettle.compat.HearthLink.bonus() ? "read" : "not read yet (fallbacks on)");
+	}
+
+	/**
+	 * Whether the loaded interface declares a method (our src/hearthApi copy is compile-only and never packaged, so this
+	 * reads the running Hearth's own class).
+	 */
+	static boolean declares(Class<?> type, String method) {
+		for (java.lang.reflect.Method m : type.getDeclaredMethods()) {
+			if (m.getName().equals(method)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Once per game: the modifier list lives as long as Hearth's classes, across integrated-server restarts. */

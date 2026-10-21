@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "any",
+	"name": {
+		"translate": "mettle.perk.stealth.shadowstep"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.shadowstep.description"
+	},
+	"order": 11
+}

@@ -87,6 +87,17 @@
 			"description": {
 				"translate": "mettle.byname.skill.smithing.description"
 			}
+		},
+		"mettle:stealth": {
+			"suffix": {
+				"translate": "mettle.byname.skill.stealth.suffix"
+			},
+			"noun": {
+				"translate": "mettle.byname.skill.stealth.noun"
+			},
+			"description": {
+				"translate": "mettle.byname.skill.stealth.description"
+			}
 		}
 	}
 }

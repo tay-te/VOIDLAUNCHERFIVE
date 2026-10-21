@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "fortune",
+	"scope": "narrow",
+	"min": 3,
+	"max": 8,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:unseen_loot"
+	},
+	"name": {
+		"translate": "mettle.trait.stealth.lootfinger"
+	},
+	"description": {
+		"translate": "mettle.trait.stealth.lootfinger.description"
+	}
+}

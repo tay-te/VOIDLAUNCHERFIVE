@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.stealth.footpad"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.footpad.description"
+	},
+	"synergy": {
+		"mettle:stealth": 10,
+		"mettle:athletics": 10
+	},
+	"order": 17
+}

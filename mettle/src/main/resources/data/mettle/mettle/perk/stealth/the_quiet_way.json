@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "teaching",
+	"name": {
+		"translate": "mettle.perk.stealth.the_quiet_way"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.the_quiet_way.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.stealth.the_quiet_way.hint"
+	},
+	"order": 15
+}

@@ -1,0 +1,16 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "cursed",
+	"tier": 3,
+	"cost": 3,
+	"name": {
+		"translate": "mettle.perk.stealth.cowards_edge"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.cowards_edge.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.stealth.cowards_edge.downside"
+	},
+	"order": 21
+}

@@ -31,6 +31,7 @@
 		"mettle-gear.mixins.json",
 		"mettle-cards.mixins.json",
 		"mettle-legend.mixins.json",
+		"mettle-stealth.mixins.json",
 		{
 			"config": "mettle-legend.client.mixins.json",
 			"environment": "client"

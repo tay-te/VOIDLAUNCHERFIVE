@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "b",
+	"name": {
+		"translate": "mettle.perk.stealth.assassin"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.assassin.description"
+	},
+	"order": 12
+}

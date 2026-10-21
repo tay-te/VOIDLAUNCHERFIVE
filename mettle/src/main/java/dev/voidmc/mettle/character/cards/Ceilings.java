@@ -193,15 +193,18 @@ public final class Ceilings {
 
 	/** Traits that add movement speed (as attribute modifiers or timed ones). */
 	public static final List<String> MOVEMENT_TRAITS = List.of("athletics/fleet", "blades/fleet", "survival/wayfaring", "athletics/long_winded",
-		"blades/flourishing");
+		"blades/flourishing",
+		"stealth/swift_exit");
 	/** Traits that multiply dig speed (Surefooted only takes back vanilla's slowness off the ground and is not counted). */
 	public static final List<String> DIG_TRAITS = List.of("mining/deepborn", "mining/rockbreaker", "mining/netherborn", "heavy_weapons/woodcutters");
 	/** Traits that multiply melee damage. */
 	public static final List<String> MELEE_TRAITS = List.of("blades/keen", "blades/sweeping", "blades/finishing", "blades/ambushing", "heavy_weapons/crushing",
-		"heavy_weapons/thunderous", "heavy_weapons/charging", "heavy_weapons/raging");
+		"heavy_weapons/thunderous", "heavy_weapons/charging", "heavy_weapons/raging",
+		"stealth/backbiting", "stealth/patient");
 	/** Traits that make one more of a drop. */
 	public static final List<String> DROP_TRAITS = List.of("mining/greedy", "mining/lucky", "mining/seamfinder", "mining/geodic", "heavy_weapons/splitting",
-		"survival/foraging", "survival/skinning", "survival/butchering", "blades/trophy");
+		"survival/foraging", "survival/skinning", "survival/butchering", "blades/trophy",
+		"stealth/lootfinger");
 	/** Traits that lessen damage taken. */
 	public static final List<String> TAKEN_TRAITS = List.of("mining/stonehide", "mining/cavern_wise", "defense/arrowcatcher", "defense/fireproof",
 		"defense/blastproof", "survival/weathered", "survival/thornwalker", "blades/parrying");
@@ -297,6 +300,8 @@ public final class Ceilings {
 		double heavy = (1 + 4 * b.pct("heavy_weapons/crushing")) * (1 + b.pct("heavy_weapons/thunderous")) * (1 + b.pct("heavy_weapons/charging"))
 			* (1 + 3 * b.pct("heavy_weapons/raging")) * Math.max(keen2, first);
 		double m = Math.max(blade, heavy);
+		// Stealth's sneak attack and patient hit, with either weapon.
+		m *= (1 + b.pct("stealth/backbiting")) * (1 + b.pct("stealth/patient"));
 		m *= b.set("keen") >= 6 ? 1.2 : 1;
 		m *= b.set("ember") >= 6 ? 1.15 : 1;
 		m *= b.set("swift") >= 6 ? 1.3 : 1;
@@ -347,6 +352,8 @@ public final class Ceilings {
 		double geode = b.pct("mining/geodic") + hoard;
 		double plant = b.pct("survival/foraging") + wild + hoard;
 		double animal = Math.max(b.pct("survival/skinning"), b.pct("survival/butchering")) + b.pct("blades/trophy") + wild + hoard;
+		// Lootfinger rides on Trophy's drop (a kill from a sneak attack).
+		animal += b.pct("stealth/lootfinger");
 		return Math.max(Math.max(ore, geode), Math.max(Math.max(plant, animal), b.pct("heavy_weapons/splitting")));
 	}
 

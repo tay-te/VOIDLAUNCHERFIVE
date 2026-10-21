@@ -25,7 +25,7 @@ final class TestDeck {
 	}
 
 	static final Path PERKS = Path.of("src/main/resources/data/mettle/mettle/perk");
-	static final String[] RELEASED = {"mining", "blades", "heavy_weapons", "marksmanship", "defense", "athletics", "survival", "smithing"};
+	static final String[] RELEASED = {"mining", "blades", "heavy_weapons", "marksmanship", "defense", "athletics", "survival", "smithing", "stealth"};
 
 	private TestDeck() {
 	}
