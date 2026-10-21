@@ -90,6 +90,15 @@ public final class EventBook {
 	/** Adds an event if there is room (oldest ended ones make way); returns whether it went in. */
 	public boolean add(Scheduled e) {
 		if (this.scheduled.size() >= MAX_SCHEDULED) {
+			// the oldest event that has ended makes way (its outcome is in the recent list)
+			for (int i = 0; i < this.scheduled.size(); i++) {
+				if (this.scheduled.get(i).phase() == Scheduled.Phase.ENDED) {
+					this.scheduled.remove(i);
+					break;
+				}
+			}
+		}
+		if (this.scheduled.size() >= MAX_SCHEDULED) {
 			return false;
 		}
 		this.scheduled.add(e);

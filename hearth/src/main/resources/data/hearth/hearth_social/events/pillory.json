@@ -29,6 +29,11 @@
 			"name": "children",
 			"pick": "children",
 			"count": 4
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 10
 		}
 	],
 	"timeline": [
@@ -45,6 +50,13 @@
 			"do": "walk",
 			"to": "pillory",
 			"ticks": 2
+		},
+		{
+			"at": 2,
+			"role": "crowd",
+			"do": "walk",
+			"to": "pillory",
+			"ticks": 6
 		},
 		{
 			"at": 3,
@@ -72,6 +84,12 @@
 			"role": "children",
 			"do": "bark",
 			"arg": "event_pillory_children"
+		},
+		{
+			"at": 14,
+			"role": "crowd",
+			"do": "bark",
+			"arg": "crowd_spectacle_pillory"
 		},
 		{
 			"at": 18,

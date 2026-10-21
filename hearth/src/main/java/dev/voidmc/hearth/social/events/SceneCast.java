@@ -41,10 +41,30 @@ public final class SceneCast {
 	 * @param near where the scene is (neighbours are those living nearest it)
 	 */
 	public static Map<String, List<UUID>> cast(Settlement s, Scheduled e, EventRule rule, BlockPos near) {
+		return cast(s, e, rule, near, id -> false);
+	}
+
+	/** Picks that name the event's own people: who they are does not depend on who is about. */
+	static final Set<String> OWN = Set.of("principals", "principal", "defendant", "family", "kin", "parents", "household");
+
+	/**
+	 * As above; {@code about}: residents who are folk now — for the open parts (the crowd, the guards, the musician) they
+	 * are taken first, so a scene is played by those a player can see rather than by records.
+	 */
+	public static Map<String, List<UUID>> cast(Settlement s, Scheduled e, EventRule rule, BlockPos near, Predicate<UUID> about) {
 		Map<String, List<UUID>> out = new java.util.LinkedHashMap<>();
 		Set<UUID> taken = new LinkedHashSet<>();
 		for (EventRule.RoleSpec role : rule.roles()) {
 			List<UUID> pool = pool(s, e, role.pick(), near, taken);
+			if (!OWN.contains(role.pick())) {
+				List<UUID> first = new ArrayList<>(pool.size());
+				List<UUID> rest = new ArrayList<>();
+				for (UUID id : pool) {
+					(about.test(id) ? first : rest).add(id);
+				}
+				first.addAll(rest);
+				pool = first;
+			}
 			List<UUID> chosen = new ArrayList<>();
 			for (UUID id : pool) {
 				if (chosen.size() >= role.count()) {

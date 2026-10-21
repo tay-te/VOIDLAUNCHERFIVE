@@ -102,6 +102,18 @@ public final class Scenes implements SceneService {
 
 	/** Stages an event: casts it, plays the beats already due (a scene joined late), starts its director. */
 	static @Nullable SceneRun begin(HearthWorld w, Settlement s, Scheduled e) {
+		long t0 = System.nanoTime();
+		try {
+			return begin0(w, s, e);
+		} finally {
+			COSTS.merge("begin " + e.kind().id(), System.nanoTime() - t0, Math::max);
+		}
+	}
+
+	/** The worst a scene's start and each kind of beat has cost (ns), for the status and the tours. */
+	static final Map<String, Long> COSTS = new java.util.TreeMap<>();
+
+	private static @Nullable SceneRun begin0(HearthWorld w, Settlement s, Scheduled e) {
 		EventRule rule = e.kind() == EventKind.SCENE ? EventRules.scene(e.args().getStringOr("scene", "")) : EventRules.of(e.kind());
 		if (rule == null || !canStage(s, e)) {
 			return null;
@@ -116,10 +128,10 @@ public final class Scenes implements SceneService {
 		if (!level.isLoaded(anchor)) {
 			return null;
 		}
-		Map<String, List<UUID>> cast = SceneCast.cast(s, e, rule, anchor);
+		NpcService npc = HearthServices.npc();
+		Map<String, List<UUID>> cast = SceneCast.cast(s, e, rule, anchor, id -> npc != null && npc.folk(id) != null);
 		SceneRun run = new SceneRun(w, s, e, rule, cast, anchor, SceneDirector.of(e.kind()), level.getGameTime());
 		RUNNING.computeIfAbsent(s.id(), k -> new ArrayList<>()).add(run);
-		NpcService npc = HearthServices.npc();
 		int embodied = 0;
 		for (Map.Entry<String, List<UUID>> role : cast.entrySet()) {
 			for (UUID id : role.getValue()) {
@@ -209,11 +221,13 @@ public final class Scenes implements SceneService {
 		for (EventRule.Beat b : due) {
 			// joining late: where folk stand and what they hold still matter; a toll or a cry long past does not
 			boolean stale = first && b.at() < minute - 3;
+			long t0 = System.nanoTime();
 			try {
 				beat(run, s, b, stale);
 			} catch (RuntimeException ex) {
 				Hearth.LOG.debug("events: beat {} of {} failed", b.action(), run.event.kind().id(), ex);
 			}
+			COSTS.merge("beat " + b.action() + (b.action().equals("dress") ? " " + b.arg() : ""), System.nanoTime() - t0, Math::max);
 		}
 	}
 
@@ -515,6 +529,11 @@ public final class Scenes implements SceneService {
 		}
 		out.add(String.format(Locale.ROOT, "scenes running: %d, cast with orders: %d, scene passes %.3f ms avg, %d not staged for the server's load", n,
 			ORDERS.size(), TIMER.averageMs(), refusedForLoad));
+		if (!COSTS.isEmpty()) {
+			StringBuilder b = new StringBuilder("worst (ms):");
+			COSTS.forEach((k, v) -> b.append(' ').append(k).append(' ').append(String.format(Locale.ROOT, "%.2f", v / 1e6)).append(';'));
+			out.add(b.toString());
+		}
 		for (List<SceneRun> l : RUNNING.values()) {
 			for (SceneRun r : l) {
 				Settlement s = r.settlement();

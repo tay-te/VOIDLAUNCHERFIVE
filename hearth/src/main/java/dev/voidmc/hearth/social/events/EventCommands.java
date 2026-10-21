@@ -54,6 +54,13 @@ final class EventCommands {
 		d.register(Commands.literal("hearth").then(Commands.literal("events")
 			.then(Commands.literal("status").executes(EventCommands::status))
 			.then(Commands.literal("book").executes(EventCommands::book))
+			.then(Commands.literal("bench").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(c -> {
+				HearthWorld w = HearthWorld.of(c.getSource().getLevel());
+				double us = w == null ? 0 : TownEvents.bench(w, 28);
+				c.getSource().sendSuccess(() -> Component.literal(String.format(java.util.Locale.ROOT, "a town's day of events: %.1f µs (28 days, every town)",
+					us)), false);
+				return 1;
+			}))
 			.then(Commands.literal("shell").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(EventCommands::shell))
 			.then(Commands.literal("stage").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
 				.then(Commands.argument("scene", StringArgumentType.word()).executes(c -> {

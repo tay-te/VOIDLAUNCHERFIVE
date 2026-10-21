@@ -97,7 +97,6 @@ public class EventsTour implements FabricClientGameTest {
 			event(context, world, town, "trial", "courthouse", 8_000, 4000);
 			event(context, world, town, "pillory", "pillory", 12_000, 5000);
 			event(context, world, town, "fair", "square", 30_000, 4000);
-			shotAt(context, world, town, "fair", "range", "fair_targets");
 			event(context, world, town, "tournament", "tilt_yard", 10_000, 4000);
 			event(context, world, town, "tax", "town_hall", 25_000, 4000);
 			fire(context, world, town);
@@ -111,6 +110,8 @@ public class EventsTour implements FabricClientGameTest {
 			for (String l : world.getServer().computeOnServer(server -> TownEvents.book(settlement(server, town)))) {
 				log("book: " + l);
 			}
+			Double bench = world.getServer().computeOnServer(server -> Double.valueOf(TownEvents.bench(HearthWorld.of(server.overworld()), 28)));
+			log(String.format(Locale.ROOT, "bench: a town's day of events costs %.1f µs (every town, 28 days ahead)", bench));
 			for (String l : world.getServer().computeOnServer(server -> TownEvents.stats())) {
 				log(l);
 			}
@@ -141,6 +142,9 @@ public class EventsTour implements FabricClientGameTest {
 		}
 		settle(context, wait);
 		shotAt(context, world, town, kind, venue, kind);
+		if (kind.equals("fair")) {
+			shotAt(context, world, town, "fair", "range", "fair_targets");
+		}
 		log(kind + ": cast about " + world.getServer().computeOnServer(server -> TownEvents.castAbout(settlement(server, town), kind)) + ", folk within 10 of "
 			+ venue + ": " + world.getServer().computeOnServer(server -> near(server, town, kind, venue, 10)) + extra(world, town, kind));
 		world.getServer().runOnServer(server -> TownEvents.endScenes(settlement(server, town)));

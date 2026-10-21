@@ -239,6 +239,37 @@ public final class TownEvents {
 		return lines;
 	}
 
+	/**
+	 * The abstract cost of a day in the world's towns as it stands (tours, {@code /hearth events bench}): every town's facts
+	 * read, its crime rolled and its day planned, {@code days} days ahead, nothing applied. Returns µs per town-day.
+	 */
+	public static double bench(HearthWorld w, int days) {
+		java.util.List<Settlement> towns = new java.util.ArrayList<>();
+		for (Settlement s : w.settlements()) {
+			if (s.population() > 0) {
+				towns.add(s);
+			}
+		}
+		if (towns.isEmpty()) {
+			return 0;
+		}
+		long today = w.day();
+		long t0 = System.nanoTime();
+		int n = 0;
+		for (int d = 1; d <= days; d++) {
+			for (Settlement s : towns) {
+				TownFacts f = FactsReader.read(w, s, today + d);
+				dev.voidmc.hearth.law.justice.Trials.roll(s.id(), today + d, s.residents(), f.prosperity(), 0, 0, java.util.Set.of(), java.util.Set.of(),
+					java.util.List.of());
+				int[] ids = {1};
+				EventScheduler.plan(f, today + d, EventRules.all(), java.util.List.of(), Long.MIN_VALUE, Long.MIN_VALUE, EventScheduler.Filler.NONE,
+					() -> ids[0]++);
+				n++;
+			}
+		}
+		return (System.nanoTime() - t0) / 1e3 / n;
+	}
+
 	/** Every scene in a town ends now and resolves (tours: to see the outcome without waiting out the hours). */
 	public static void endScenes(Settlement s) {
 		Scenes.fold(s);

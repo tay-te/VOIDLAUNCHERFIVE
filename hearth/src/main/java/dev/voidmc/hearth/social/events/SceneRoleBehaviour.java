@@ -71,15 +71,13 @@ public final class SceneRoleBehaviour implements NpcService.FolkBehaviour {
 			goal = target.offset(q == 0 ? 1 : q == 2 ? -1 : 0, 0, q == 1 ? 1 : q == 3 ? -1 : 0);
 		}
 		double d2 = folk.entity().blockPosition().distSqr(goal);
-		if (d2 > 2.2 * 2.2) {
+		if (d2 > (o.dance ? 0.7 : 2.2 * 2.2)) {
 			if (t >= o.nextMove || !o.moved) {
-				boolean ok = folk.moveTo(goal, o.dance ? 0.5 : o.speed);
+				// asked again every second: the handle keeps one path, repaths when it may, and brings an unseen folk stuck on the
+				// way to its goal (as the routine's own walks do)
+				folk.moveTo(goal, o.dance ? 0.5 : o.speed);
 				o.moved = true;
-				o.nextMove = t + (ok ? 60 : 200);
-				if (!ok && d2 > 24 * 24) {
-					// no way there from far off: the part is played where they are
-					o.target = null;
-				}
+				o.nextMove = t + 20;
 			}
 			return true;
 		}

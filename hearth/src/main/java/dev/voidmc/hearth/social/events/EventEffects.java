@@ -167,8 +167,9 @@ public final class EventEffects {
 			return;
 		}
 		long until = day + 3 + Math.round(burned * 6);
-		// a live fire's damage is real already (the repairs have it): no shell is laid over it
-		book.burnt.add(new EventBook.Burnt(plotId, day, until, live, 0));
+		// a live fire's damage is real already (the repairs have it); the shell makes up the rest of the outcome's share
+		// (only blocks still burnable as built are touched), so a fire put out quickly and one nobody saw agree
+		book.burnt.add(new EventBook.Burnt(plotId, day, until, false, 0));
 		String whose = household(s, plotId);
 		post(w, s, "news", day, whose.isEmpty() ? "hearth.events.notice.fire" : "hearth.events.notice.fire_home", List.of(whose));
 		if (!s.embodied()) {
