@@ -546,7 +546,8 @@
 .sk5 .sk-halo { width: 236px; }
 .sk5 .o-plate { width: 154px; }
 .sk5 .sk-xp { width: 148px; }
-.sk5 .o-how { width: 148px; top: 152px; font-size: 10.5px; line-height: 12.5px; }
+.sk5 .o-how { width: 148px; top: 140px; font-size: 10.5px; line-height: 12.5px; }
+.sk5 .o-card:hover .sk-xp { opacity: 0; }
 .sk5 .sk-n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sk5 .o-title { width: 148px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bl-row.p22 { height: 22px; } .bl-row.p22 i { top: 8px; } .bl-row.p22 .n, .bl-row.p22 .c { top: 3px; }

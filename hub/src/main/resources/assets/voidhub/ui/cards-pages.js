@@ -317,8 +317,9 @@
     if (hot) h += '<div class="o-pill deal" data-deal="' + s.id + '" style="right:12px;top:98px;background:' + MC.mix("#131315", hue, 0.22) + ";border:1px solid " + MC.rgba(hue, 0.7) + ";color:" + light + '"><b style="background:' + hue + '"></b>' + (narrow ? "" : "Deal ") + s.drafts + "</div>";
     h += '<div class="o-title" style="color:' + MC.mix("#9A9DA1", hue, 0.35) + '">' + esc(s.level > 0 ? s.title : "Untried") + "</div>";
     var frac = s.level >= 20 ? 1 : Math.max(0, Math.min(1, (s.xp - s.levelXp) / Math.max(1, s.nextXp - s.levelXp)));
-    h += '<div class="sk-xp" style="left:14px;top:146px;background:' + MC.mix("#131315", hue, 0.3) + '"><i style="width:' + Math.round((narrow ? 148 : 192) * (s.level >= 20 ? 1 : frac)) + "px;background:" + hue + '"></i></div>';
-    h += '<div class="o-how' + (s.level === 0 ? " always" : "") + '" style="color:' + MC.mix("#B5B8BC", hue, 0.25) + '"><span class="m-eb" style="color:' + MC.rgba(hue, 0.85) + '">HOW IT LEVELS</span><br>' + esc(s.levelsBy || "") + "</div>";
+    // A narrow untried tile drops its empty bar: "How it levels" takes the room (up to four lines).
+    if (!(narrow && s.level === 0)) h += '<div class="sk-xp" style="left:14px;top:146px;background:' + MC.mix("#131315", hue, 0.3) + '"><i style="width:' + Math.round((narrow ? 148 : 192) * (s.level >= 20 ? 1 : frac)) + "px;background:" + hue + '"></i></div>';
+    h += '<div class="o-how' + (s.level === 0 ? " always" : "") + '" style="color:' + MC.mix("#B5B8BC", hue, 0.25) + '">' + (narrow ? "" : '<span class="m-eb" style="color:' + MC.rgba(hue, 0.85) + '">HOW IT LEVELS</span><br>') + esc(s.levelsBy || "") + "</div>";
     if (s.level > 0) h += '<div class="m-eb o-xpt" style="left:14px;top:158px;color:' + MC.mix("#626569", hue, 0.3) + '">' + (s.level >= 20 ? "MASTERED" : fmt(s.xp) + " / " + fmt(s.nextXp) + " XP") + "</div>";
     // The deck: its slotted cards' icons in their rarity colours.
     var row = "", n = 0, extra = 0;
