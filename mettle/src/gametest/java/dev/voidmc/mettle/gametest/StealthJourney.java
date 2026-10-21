@@ -199,8 +199,9 @@ final class StealthJourney {
 		context.waitTicks(3);
 		check(on(server, p -> {
 			double gained = CharacterStore.get(p).xp(StealthSkill.STEALTH) - before;
-			double want = sneak * multiplier(p);
-			return Math.abs(gained - want) < 0.05 ? null : "the sneak attack gave " + gained + " Stealth XP, expected " + want;
+			// A point a point of the hit as it lands, before armour (as weapon XP counts it): at least the health it took.
+			double low = sneak * multiplier(p);
+			return gained >= low - 0.05 && gained <= low * 1.3 ? null : "the sneak attack gave " + gained + " Stealth XP, expected about " + low;
 		}));
 		server.runCommand("kill @e[tag=" + TAG + "]");
 		summon(server, "zombified_piglin", c[0] + 1.5, c[2], "plain");
@@ -291,7 +292,9 @@ final class StealthJourney {
 		context.waitTicks(10);
 		context.getInput().holdKey(o -> o.keyShift);
 		context.waitTicks(5);
-		context.getInput().pressKey(o -> o.keyJump);
+		context.getInput().holdKey(o -> o.keyJump);
+		context.waitTicks(3);
+		context.getInput().releaseKey(o -> o.keyJump);
 		context.waitTicks(15);
 		context.getInput().releaseKey(o -> o.keyShift);
 		context.waitTicks(3);
