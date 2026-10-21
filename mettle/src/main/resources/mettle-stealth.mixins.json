@@ -1,0 +1,17 @@
+{
+	"required": true,
+	"package": "dev.voidmc.mettle.mixin.stealth",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"StealthHurtByTargetGoalMixin",
+		"StealthLivingEntityMixin",
+		"StealthServerLevelMixin",
+		"StealthServerPlayerMixin",
+		"StealthTargetGoalMixin",
+		"StealthVibrationListenerMixin",
+		"TargetGoalAccess"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

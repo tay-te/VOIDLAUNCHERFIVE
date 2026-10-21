@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "path",
+	"tier": 2,
+	"path": "b",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.stealth.ambusher"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.ambusher.description"
+	},
+	"order": 6
+}

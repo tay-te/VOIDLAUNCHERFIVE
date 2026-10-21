@@ -5,7 +5,8 @@
  * them when Hearth is loaded.
  *
  * <p>Whole files are verbatim copies (PlayerSkills, PriceModifier, DialogueProvider, QuestEvents, QuestType, MarketEvents,
- * SettlementTier, JobType, AgeStage, Culture). HearthServices, EconomyService, HearthWorld, Settlement and Resident keep only the
+ * SettlementTier, JobType, AgeStage, Culture). PlayerSkills also carries the defaults Hearth accepted in requests 10, 12 and 14,
+ * and StandingEvents is request 13, ahead of Hearth shipping them (Mettle checks the loaded Hearth before using them). HearthServices, EconomyService, HearthWorld, Settlement and Resident keep only the
  * members Mettle and its client tour use, with Hearth's exact signatures; bodies Mettle never runs are stubbed. When Hearth's api changes,
  * copy the file again ({@code git show hearth:hearth/src/main/java/dev/voidmc/hearth/api/<X>.java}).
  */

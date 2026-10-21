@@ -2,6 +2,8 @@ package dev.voidmc.mettle.character;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.voidmc.mettle.character.skill.stealth.StealthRules;
+
 import dev.voidmc.mettle.api.LoadBand;
 import dev.voidmc.mettle.character.skill.CombatXp;
 import dev.voidmc.mettle.character.skill.MiningSkill;
@@ -125,6 +127,18 @@ class PacingReportTest {
 		SKILLS.put("Smithing", h -> h.plainPieces() * SmithingSkill.XP_PLAIN_PIECE + h.ingots() * SmithingSkill.XP_INGOT
 			+ h.ironUnits() * SmithingSkill.XP_PER_UNIT + h.diamondUnits() * SmithingSkill.XP_PER_DIAMOND_UNIT
 			+ h.anvilJobs() * (SmithingSkill.XP_ANVIL + SmithingSkill.XP_ANVIL_PER_LEVEL * h.anvilLevels()) + h.upgrades() * SmithingSkill.XP_UPGRADE);
+		// Stealth (docs/BUILD_FEEL.md §14.1): a player who hunts by night, every phase alike: 18 minutes of an hour sneaking near
+		// hostiles that haven't seen them, 15 of the hour's kills made as sneak attacks on an average hostile.
+		SKILLS.put("Stealth (night hunter)", h -> StealthRules.hourly(PacingReportTest.NIGHT_SNEAK_MINUTES, PacingReportTest.NIGHT_SNEAK_KILLS, HOSTILE_HP));
+	}
+
+	static final double NIGHT_SNEAK_MINUTES = 18;
+	static final double NIGHT_SNEAK_KILLS = 15;
+
+	@Test
+	void stealthLandsInItsTarget() {
+		double xp = rate("Stealth (night hunter)", "h2-3");
+		assertTrue(xp >= 600 && xp <= 750, "BUILD_FEEL.md §14.1 aims Stealth at 600-750 XP an hour for a night hunter: " + xp);
 	}
 
 	/** The skills a sword-fighter levels in the mixed session (Heavy only from logs), for character XP. */

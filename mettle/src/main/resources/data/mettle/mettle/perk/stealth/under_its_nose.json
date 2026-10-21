@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "feat",
+	"name": {
+		"translate": "mettle.perk.stealth.under_its_nose"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.under_its_nose.description"
+	},
+	"hint": {
+		"translate": "mettle.perk.stealth.under_its_nose.hint"
+	},
+	"feat": {
+		"counter": "stealth_warden_pass",
+		"target": 1
+	},
+	"order": 14
+}

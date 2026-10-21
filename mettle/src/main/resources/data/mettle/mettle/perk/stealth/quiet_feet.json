@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "path",
+	"tier": 2,
+	"path": "a",
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.stealth.quiet_feet"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.quiet_feet.description"
+	},
+	"order": 2
+}

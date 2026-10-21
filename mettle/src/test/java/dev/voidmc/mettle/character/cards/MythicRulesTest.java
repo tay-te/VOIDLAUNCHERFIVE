@@ -40,7 +40,7 @@ class MythicRulesTest {
 		assertEquals(7, MYTHICS.values().stream().filter(m -> m.source() == Mythic.Source.WORLD_FIRST).count());
 		assertEquals(5, MYTHICS.values().stream().filter(m -> m.source() == Mythic.Source.DEED).count());
 		assertEquals(24, MYTHICS.values().stream().filter(m -> m.source() == Mythic.Source.DRAWN).count());
-		for (String skill : TestCards.RELEASED) {
+		for (String skill : TestCards.MYTHIC_SKILLS) {
 			assertEquals(3, MYTHICS.values().stream().filter(m -> m.skill().map(TestCards.skill(skill)::equals).orElse(false)).count(),
 				skill + " has three drawn Mythics");
 		}

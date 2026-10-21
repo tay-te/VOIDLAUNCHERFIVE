@@ -5,14 +5,18 @@ import dev.voidmc.mettle.Mettle;
 import dev.voidmc.mettle.api.Background;
 import dev.voidmc.mettle.api.CharacterAttribute;
 import dev.voidmc.mettle.api.MettleRegistries;
+import dev.voidmc.mettle.api.MettleServices;
 import dev.voidmc.mettle.api.Skill;
 import dev.voidmc.mettle.character.Perks;
 import dev.voidmc.mettle.character.Progress;
 import dev.voidmc.mettle.character.signature.SignaturePerks;
+import dev.voidmc.mettle.character.skill.StealthSkill;
 import dev.voidmc.mettle.core.CharacterState;
 import dev.voidmc.mettle.core.CharacterStore;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,10 +28,51 @@ import org.jspecify.annotations.Nullable;
  * {@code speech} is taken as Mettle's), attributes by name ({@code presence}). Server thread.
  */
 final class MettlePlayerSkills implements PlayerSkills {
+	/**
+	 * The level Hearth reads: Stealth's is its effective level (Shadow, and the fallbacks while this Hearth reads no bonus
+	 * keys; docs/BUILD_FEEL.md §14), at most 20; every other skill its plain level.
+	 */
 	@Override
 	public int level(ServerPlayer player, String skill) {
 		ResourceKey<Skill> key = skillKey(player, skill);
-		return key == null ? UNKNOWN_LEVEL : CharacterStore.get(player).level(key);
+		if (key == null) {
+			return UNKNOWN_LEVEL;
+		}
+		return key.equals(StealthSkill.STEALTH) ? StealthSkill.effectiveLevel(player) : CharacterStore.get(player).level(key);
+	}
+
+	/** Request 12: Mettle's bonus at one of Hearth's decision points (Stealth's keys today; 0 for any other key). */
+	@Override
+	public double bonus(ServerPlayer player, String key) {
+		return StealthSkill.bonus(player, key);
+	}
+
+	/**
+	 * Request 14: the title the player wears: a deed title worn instead of the byname, else the byname, else a deed title
+	 * worn beside it, else the legend title (BUILD_FEEL.md §2.1, §5.3, §12); empty when none.
+	 */
+	@Override
+	public Component title(ServerPlayer player) {
+		var b = dev.voidmc.mettle.character.cards.BuildFeel.get(player);
+		java.util.Optional<Component> deed = b.titles().worn().map(dev.voidmc.mettle.character.cards.Deeds::title);
+		if (deed.isPresent() && b.titles().instead()) {
+			return deed.get();
+		}
+		java.util.Optional<Component> byname = MettleServices.cards().byname(player);
+		if (byname.isPresent()) {
+			return byname.get();
+		}
+		if (deed.isPresent()) {
+			return deed.get();
+		}
+		return b.legend() > 0 ? Component.translatable("mettle.byname.legend", b.legendOf()) : Component.empty();
+	}
+
+	/** Request 10: the Mythics the player holds, as {@code mettle:mythic/<id>}. */
+	@Override
+	public List<Identifier> titles(ServerPlayer player) {
+		List<Identifier> held = player.getAttached(dev.voidmc.mettle.character.cards.Mythics.PUBLIC);
+		return held == null ? List.of() : held.stream().map(id -> id.withPath("mythic/" + id.getPath())).toList();
 	}
 
 	@Override
@@ -60,12 +105,13 @@ final class MettlePlayerSkills implements PlayerSkills {
 		CharacterState state = CharacterStore.get(player);
 		Background background = CharacterStore.background(player.level().registryAccess(), state);
 		Skill s = player.level().registryAccess().lookupOrThrow(MettleRegistries.SKILL).getValueOrThrow(key);
-		return HearthRules.checkOdds(state.level(key), state.attribute(s.attribute(), background), difficulty);
+		int level = key.equals(StealthSkill.STEALTH) ? StealthSkill.effectiveLevel(player) : state.level(key);
+		return HearthRules.checkOdds(level, state.attribute(s.attribute(), background), difficulty);
 	}
 
 	/**
 	 * Hearth's XP for a passed check, a struck haggle, a picked lock... through {@link Progress#award}, so the favoured and
-	 * Wits multipliers and every {@code MODIFY_XP} listener apply. Unreleased skills (Speech, Thievery, Stealth) bank it
+	 * Wits multipliers and every {@code MODIFY_XP} listener apply. Unreleased skills (Speech, Thievery) bank it
 	 * for when their trees ship.
 	 */
 	@Override
@@ -75,6 +121,10 @@ final class MettlePlayerSkills implements PlayerSkills {
 			return;
 		}
 		Mettle.LOGGER.debug("Hearth awards {} {} XP in {} ({})", player.getName().getString(), xp, key.identifier(), reason);
+		// A crime nobody saw counts toward Stealth's Never Seen (20 of them).
+		if (reason.startsWith("hearth:law/unseen/") && !player.isCreative()) {
+			dev.voidmc.mettle.character.FeatCounters.add(player, StealthSkill.NEVER_SEEN_COUNTER, dev.voidmc.mettle.character.skill.stealth.StealthRules.NEVER_SEEN_CRIME);
+		}
 		Progress.award(player, key, xp);
 	}
 

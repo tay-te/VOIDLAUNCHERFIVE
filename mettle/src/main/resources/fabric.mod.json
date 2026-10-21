@@ -36,6 +36,7 @@
 			"config": "mettle-talents.client.mixins.json",
 			"environment": "client"
 		},
+		"mettle-stealth.mixins.json",
 		{
 			"config": "mettle-legend.client.mixins.json",
 			"environment": "client"

@@ -44,7 +44,8 @@ public final class Tomes {
 		"defense/roll_with_the_blow", new Source("frost_outpost_hidden", "igloo_chest"),
 		"athletics/couriers_stride", new Source("palm_harbour_hidden", "shipwreck_map"),
 		"survival/poultice", new Source("cloud_monastery_hidden", "jungle_temple"),
-		"smithing/folded_steel", new Source("karst_pagoda_hidden", "bastion_other"));
+		"smithing/folded_steel", new Source("karst_pagoda_hidden", "bastion_other"),
+		"stealth/the_quiet_way", new Source("gallows_hill_hidden", "simple_dungeon"));
 
 	/** A landmark's hidden chest is the place to look: a fair chance. A vanilla chest is a stand-in: a smaller one. */
 	public static final float EXPANSE_CHANCE = 0.3f;

@@ -38,7 +38,9 @@ final class MettlePrices implements PriceModifier {
 		int speech = state.level(SPEECH);
 		// Magpie (Hoard 6, a card set): 5 % more edge.
 		double magpie = dev.voidmc.mettle.character.cards.CardHooks.set(player, "hoard") >= 6 ? 0.05 : 0;
-		return HearthRules.priceEdge(presence, speech, SignaturePerks.has(player, SignaturePerks.COIN_SENSE)) + magpie;
+		// Silver Tongue (a talent): market edge through this price factor only (docs/BUILD_FEEL.md §14, one channel).
+		double silverTongue = dev.voidmc.mettle.core.CardStore.get(player).trait(dev.voidmc.mettle.character.skill.StealthSkill.SILVER_TONGUE) / 100.0;
+		return HearthRules.priceEdge(presence, speech, SignaturePerks.has(player, SignaturePerks.COIN_SENSE)) + magpie + silverTongue;
 	}
 
 	/** The edge with The Open Hand (a Mythic): a holder within 8 blocks lends their edge if it is better. */

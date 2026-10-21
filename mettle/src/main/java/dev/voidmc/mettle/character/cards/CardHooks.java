@@ -462,6 +462,8 @@ public final class CardHooks {
 				m *= 1 + pct(player, "marksmanship/poised");
 			}
 		}
+		// Stealth's traits on a sneak attack (Backbiting) and a patient hit (Patient), inside the melee ceiling.
+		m *= dev.voidmc.mettle.character.skill.stealth.StealthHooks.traitHit(player, target, source);
 		long now = player.level().getGameTime();
 		Memory mem6 = memory(player);
 		if (weapon != null) {
@@ -995,6 +997,8 @@ public final class CardHooks {
 			double wild = animal && set(player, "wild") >= 2 ? 0.10 : 0;
 			double hoard = set(player, "hoard") >= 4 ? HOARD : 0;
 			double trophy = weapon == Combat.Weapon.BLADE ? pct(player, "blades/trophy") : 0;
+			// Lootfinger (Stealth): a kill from a sneak attack, on the same drop as Trophy.
+			trophy += dev.voidmc.mettle.character.skill.stealth.StealthHooks.lootfinger(player, killed);
 			ItemStack trophied = plain.get(player.getRandom().nextInt(plain.size()));
 			// Scavenger (a talent): one more of a kill's loot, any weapon; a drop of its own, under the same ceiling.
 			double scavenger = pct(player, "talent/scavenger");
@@ -1260,7 +1264,8 @@ public final class CardHooks {
 		if (!(mob instanceof Animal) || !(avoided instanceof Player player)) {
 			return false;
 		}
-		double stalk = pct(player, "survival/stalking");
+		// Light-fingered's fallback while Hearth reads no bonus keys (docs/BUILD_FEEL.md §14): animals notice you closer too.
+		double stalk = pct(player, "survival/stalking") + dev.voidmc.mettle.character.skill.stealth.StealthHooks.animalsCloser(player);
 		double near = maxDist * (1 - stalk);
 		return stalk > 0 && mob.distanceToSqr(player) > near * near;
 	}

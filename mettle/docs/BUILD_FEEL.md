@@ -1200,3 +1200,49 @@ plays the game's own `TalentRules` on the shipped talent data. Tour: `DeedJourne
    lives in the ledger's `deed_returns` (card, deed, holder, day, settled) and the server log, and in the chat line its
    holder gets on the next join.
 6. **Talent fusion is free** (the skill cards' fee table is by skill level, which a talent has none of).
+
+---
+
+## 17. Built (F8 Stealth, 2026-10-21)
+
+Stealth ships as the ninth released skill (§14.1), built on branch `mettle-stealth`. Speech (F9) waits for Hearth's
+requests 12–14.
+
+### 17.1 Where it lives
+
+| Part | Code |
+|---|---|
+| The tree | `data/mettle/mettle/perk/stealth/` (20 perks), `skill/stealth.json` (`released`, paths Ghost / Knife in the Dark), lang `stealth.json` (the two cursed cards' lines in `draft.json`, with the others) |
+| Traits, card skill, bynames | `tools/cards/cards_data.py` tables (14 traits, prefix `SL`, natives and pool as §14.1, the skill's byname words and its eight pairs) |
+| XP, perks, traits | `character.skill.StealthSkill` (ids, XP with the anti-farm taper), `skill.stealth.Sneaking` (sneak timers, near-hostile and Warden XP, Vanish, Nightstalker, Under Its Nose), `StealthHooks` (visibility, sneak attacks, slows, poison, Swift Exit, alerts, vibrations, falls, Darkness, Lootfinger, Night Hunter), `Shadowstep`, pure numbers in `StealthRules`; mixins `mixin.stealth` |
+| Hearth | `src/hearthApi`: `PlayerSkills.bonus` / `title` / `titles` defaults and `StandingEvents` (`SPEECH_CHECK`, `LAW_CHECK`); `compat.HearthLink` (Hearth loaded, `bonus` declared by the loaded interface: reflection once at init), `compat.HearthKeys`, `compat.HearthChannels` (the one-channel table); `MettlePlayerSkills.level` answers the effective Stealth, `bonus` the four keys, `title` the worn byname, `titles` the Mythics held; unseen crimes (`hearth:law/unseen/…`) count toward Never Seen |
+| Teaching | a city's fence (`HearthRules.TEACHERS`); *The Nightwalker's Book* in Expanse's gallows hill hidden chest, a dungeon chest without Expanse (`Tomes`) |
+| Silver Tongue (talent) | `MettlePrices.edge` (market edge, the price channel only) and, without Hearth, `VillagerMixin` (villagers' prices) |
+| Icons | `tools/icons/tree_stealth.py` (18), the two cursed cards recast by `cursed.py` (Skulker from Soft Step, Coward's Edge from Ambusher) |
+
+### 17.2 Checked
+
+`StealthDataTest` (the tree's shape, every id has a file, text and icon, the 14 traits' ranges and attributes, the card
+skill), `StealthRulesTest` (XP rules, caps and exclusions; sight; sneak-attack perks; giving up; Darkness; Hush; the
+effective level never past 20 and only the listed sources over 20,000 random characters; bonus keys, `unseen_beyond`
+4 or 0; fallbacks off with keys), `HearthChannelsTest` (each Stealth effect and Silver Tongue alone reaches Hearth
+through exactly the channel the table names, with and without keys; every Stealth line that speaks of Hearth has a
+route), `PacingReportTest` (a night hunter: 636 XP an hour), `CardAuditTest` (134 traits; Coward's Edge and Skulker
+under Hex). The simulator plays nine skills: per-skill power 1.13× / 1.24× (Wits 14) worst, Stealth 1.13× / 1.24×.
+Client tour: `StealthJourney` (a level from real XP and a card kept from the overlay; XP sneaking near an unaware
+hostile and none walking; a sneak attack's XP and Ambusher's 30 %; Vanish; Ghost at midnight, its key and fallback;
+Shadowstep's sneak-jump) and, with `-Phearth`, `HearthJourney` reads the effective Stealth through Hearth's own slot.
+
+### 17.3 Where it differs, and why
+
+1. **Deep's `momentum` is now 0** (was 1.0): Stealth carries three Deep natives and Deep in its pool, and the re-run put
+   a committed Deep 6-set at skill 12.2 (0.5: 12.3, 0.25: 12.5); at 0 it lands at 13.1, 98 % by skill 20.
+2. **A sneak attack** is a hit on a mob that isn't targeting you while you sneak (an arrow loosed while sneaking counts
+   wherever it lands). Its XP counts the hit before armour, as weapon XP does.
+3. **Unseen Blade and Muffled** stop the struck mob calling its kind (`HurtByTargetGoal#alertOthers`): vanilla raises no
+   other alarm at a kill.
+4. **Fallbacks while Hearth reads no keys**: Cloak of Dusk +2 and Unseen +1 at night, Ghost +5 while Ghost holds, The
+   Quiet Way +2 (all on the effective level), Light-fingered as animals noticing you closer. With keys, none of them.
+5. **Never Seen**: one tally to 100, an unseen Hearth crime 5 (20 crimes), without Hearth an unnoticed kill 2 (50).
+   **Under Its Nose**: within 8 blocks of a Warden that never noticed you, then past 16 (or it gone).
+6. Stealth has **no drawn Mythics** of its own yet, so its drafts roll for none (Drafts skips a skill with no drawn pool).

@@ -172,6 +172,22 @@ TRAITS = {
         ('runewise', 'Runewise', 'Smithing XP from anvil jobs +%s.', 10, 25, 1, P, FOR, N, beh('anvil_xp'), None),
         ('diligent', 'Diligent', 'Smithing XP +%s.', 5, 12, 1, P, FOR, B, beh('smithing_xp'), None),
     ],
+    'stealth': [
+        ('shadowed', 'Shadowed', 'While you sneak, hostiles notice you %s closer.', 5, 12, 1, P, FIN, B, beh('sneak_unseen'), None),
+        ('hushed', 'Hushed', 'Your vibrations reach sculk %s less far.', 15, 25, 1, P, FIN, N, beh('vibration_hush'), None),
+        ('nightstalker', 'Nightstalker', 'In light 7 or less you sneak %s faster.', 10, 25, 1, P, FIN, N, beh('sneak_dark_speed'), None),
+        ('backbiting', 'Backbiting', 'Sneak attacks deal %s more.', 8, 20, 1, P, MIGHT, N, beh('sneak_attack_damage'), None),
+        ('hamstringing', 'Hamstringing', 'Sneak attacks slow the target %s for 2 s.', 15, 25, 1, P, FIN, N, beh('sneak_attack_slow'), None),
+        ('vanishing', 'Vanishing', 'A mob that loses sight of you gives up %s sooner.', 15, 25, 1, P, FIN, N, beh('lose_sooner'), None),
+        ('catfooted', 'Catfooted', 'Falls while sneaking hurt %s less.', 10, 25, 1, P, FIN, N, beh('sneak_fall'), None),
+        ('muffled', 'Muffled', 'A kill from stealth alerts mobs nearby %s less often.', 10, 25, 1, P, FIN, N, beh('stealth_alert'), None),
+        ('patient', 'Patient', 'After sneaking still for 2 s, your next hit deals %s more.', 6, 15, 1, P, FIN, N, beh('still_hit'), None),
+        ('lurking', 'Lurking', 'Darkness and Blindness on you last %s less.', 15, 25, 1, P, END, N, beh('dark_shorter'), None),
+        ('swift_exit', 'Swift Exit', 'After a sneak attack, +%s speed for 2 s.', 4, 10, 1, P, FIN, N, beh('sneak_attack_speed'), None),
+        ('light_fingered', 'Light-fingered', "The pickpocket's mark notices you %s slower (until Hearth reads it: animals notice you that much closer).", 5, 12, 1, P, FOR, B, beh('pickpocket_awareness'), None),
+        ('unseen', 'Unseen', "Hearth's witnesses see you %s nearer (until Hearth reads it: your Stealth counts 1 higher at night).", 5, 12, 1, P, FIN, B, beh('witness_sight'), None),
+        ('lootfinger', 'Lootfinger', 'Mobs you kill unseen drop one more of their loot %s of the time.', 3, 8, 1, P, FOR, N, beh('unseen_loot'), None),
+    ],
 }
 
 KEYWORDS = {
@@ -369,7 +385,7 @@ EPITHETS = {
 }
 
 # How much each keyword leans the deal toward it (BUILD_FEEL.md §1.2): the scarce ones most, the common ones not at all.
-MOMENTUM = {'tide': 1.0, 'deep': 1.0, 'kin': 0.5, 'warden': 0.5, 'gale': 0.25, 'echo': 0.25}
+MOMENTUM = {'tide': 1.0, 'deep': 0, 'kin': 0.5, 'warden': 0.5, 'gale': 0.25, 'echo': 0.25}
 
 # Each set tier in plain words, for "Your build" (BUILD_FEEL.md §2.3).
 SUMMARY = {
@@ -404,6 +420,7 @@ BYNAME_SKILLS = {
     'athletics': ('runner', 'Runner', 'One who is always already there.'),
     'survival': ('walker', 'Strider', 'One at home in the wild.'),
     'smithing': ('smith', 'Smith', 'One who makes what others carry.'),
+    'stealth': ('shade', 'Shadow', 'One who is never seen coming.'),
 }
 BYNAME_PAIRS = {
     ('mining', 'blades'): ('Undercutter', 'A miner who fights in close.'),
@@ -434,6 +451,14 @@ BYNAME_PAIRS = {
     ('athletics', 'survival'): ('Trailblazer', 'One who walks where no road goes.'),
     ('athletics', 'smithing'): ('Wandersmith', 'A smith who takes the forge on the road.'),
     ('survival', 'smithing'): ('Hearthwright', 'One who makes a home anywhere.'),
+    ('mining', 'stealth'): ('Deepcreeper', 'A miner who moves unseen through the dark.'),
+    ('blades', 'stealth'): ('Cutthroat', 'A blade out of the dark.'),
+    ('heavy_weapons', 'stealth'): ('Waylayer', 'A heavy blow from nowhere.'),
+    ('marksmanship', 'stealth'): ('Nightbow', 'An arrow nobody saw loosed.'),
+    ('defense', 'stealth'): ('Shadowguard', 'A guard nobody sees standing watch.'),
+    ('athletics', 'stealth'): ('Footpad', 'Quick feet, quiet feet.'),
+    ('survival', 'stealth'): ('Poacher', 'A hunter the woods never hear.'),
+    ('smithing', 'stealth'): ('Locksmith', 'One who makes the tools of quiet work.'),
 }
 
 
@@ -471,6 +496,10 @@ SKILLS = {
         'tinker': 'ember', 'thrifty': 'hoard', 'light_hand': 'iron', 'riveted': 'iron', 'proofed': 'iron', 'shieldwright': 'warden',
         'forged': 'ember', 'salvager': 'hoard', 'keen_edge': 'keen', 'true_temper': 'ember', 'reforge': 'echo', 'masterwork': 'ember',
         'honing': 'keen', 'brittle_edge': 'hex', 'slapdash': 'hex'}),
+    'stealth': ('SL', ['deep', 'keen', 'swift', 'wild', 'echo'], {
+        'soft_step': 'swift', 'shadow': 'deep', 'quiet_feet': 'gale', 'cloak_of_dusk': 'deep', 'vanish': 'echo', 'silent_fall': 'gale',
+        'ambusher': 'keen', 'hamstring': 'keen', 'unseen_blade': 'echo', 'poisoner': 'wild', 'ghost': 'deep', 'shadowstep': 'swift',
+        'assassin': 'keen', 'skulker': 'hex', 'cowards_edge': 'hex'}),
 }
 
 # 9 × 9 glyphs, one per keyword: '#' ink, '.' clear. Drawn small and plain; the name always sits beside it.

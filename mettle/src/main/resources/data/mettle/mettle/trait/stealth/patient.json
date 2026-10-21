@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 6,
+	"max": 15,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:still_hit"
+	},
+	"name": {
+		"translate": "mettle.trait.stealth.patient"
+	},
+	"description": {
+		"translate": "mettle.trait.stealth.patient.description"
+	}
+}

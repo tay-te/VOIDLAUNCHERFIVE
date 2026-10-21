@@ -1,0 +1,25 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "cursed",
+	"tier": 2,
+	"cost": 2,
+	"name": {
+		"translate": "mettle.perk.stealth.skulker"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.skulker.description"
+	},
+	"downside": {
+		"translate": "mettle.perk.stealth.skulker.downside"
+	},
+	"effects": [
+		{
+			"attribute": "minecraft:sneaking_speed",
+			"amounts": [
+				0.4
+			],
+			"operation": "add_multiplied_base"
+		}
+	],
+	"order": 20
+}

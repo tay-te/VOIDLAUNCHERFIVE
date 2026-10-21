@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "finesse",
+	"scope": "narrow",
+	"min": 15,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:sneak_attack_slow"
+	},
+	"name": {
+		"translate": "mettle.trait.stealth.hamstringing"
+	},
+	"description": {
+		"translate": "mettle.trait.stealth.hamstringing.description"
+	}
+}

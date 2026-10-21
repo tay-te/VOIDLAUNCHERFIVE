@@ -128,10 +128,13 @@ class BuildFeelReportTest {
 
 	// ---------------------------------------------------------------- a character
 
-	/** Skill XP rates: three mains at 1, two sides at 0.3, three dabbled at 0.08 (of the mains' XP). */
-	static final double[] FOCUSED = {1, 1, 1, 0.3, 0.3, 0.08, 0.08, 0.08};
-	static final double[] ALL_EIGHT = {1, 1, 1, 1, 1, 1, 1, 1};
-	static final double[] SINGLE = {1, 0, 0, 0, 0, 0, 0, 0};
+	/**
+	 * Skill XP rates: three mains at 1, two sides at 0.3, three dabbled at 0.08 (of the mains' XP), and since Stealth
+	 * shipped one released skill left untouched; the all-skills character plays every released skill.
+	 */
+	static final double[] FOCUSED = {1, 1, 1, 0.3, 0.3, 0.08, 0.08, 0.08, 0};
+	static final double[] ALL_EIGHT = {1, 1, 1, 1, 1, 1, 1, 1, 1};
+	static final double[] SINGLE = {1, 0, 0, 0, 0, 0, 0, 0, 0};
 
 	static final class Char {
 		final Rules rules;
@@ -166,7 +169,7 @@ class BuildFeelReportTest {
 		/** Drafts from skill 15: {main step, skill index}; the server simulation rolls the drawn Mythic on them. */
 		final List<int[]> draws15 = new ArrayList<>();
 		final double[] shardsAt = new double[21];
-		final int[][] levelsAt = new int[21][8];
+		final int[][] levelsAt = new int[21][SKILLS.size()];
 
 		Char(Rules rules, Policy policy, Identifier focus, List<ResourceKey<Skill>> order, double[] rate, long seed, int wits) {
 			this.rules = rules;
@@ -783,7 +786,7 @@ class BuildFeelReportTest {
 				deck[0] / single, deck[0] / single / v1, wits[0] / single / v1, deck[1] / single, ratio, ratioW, jac[0], jac[1], same, tempered / single));
 		}
 		out.append(String.format(Locale.ROOT, "%nMean: **%.2f×** v1 with base slots (limit 1.15×), **%.2f×** with Wits 14 (limit 1.3×); worst skill %.2f× / %.2f×.%n",
-			ratioSum / 8, ratioWitsSum / 8, worstRatio, worstWits));
+			ratioSum / SKILLS.size(), ratioWitsSum / SKILLS.size(), worstRatio, worstWits));
 
 		// 4. Overlap between committed players chasing the same keyword (the worst case for variety).
 		out.append("\n## 4. Variety among players chasing the same keyword (first main's deck at 20, perk + trait pairs)\n\n| Keyword | mean Jaccard |\n|---|---|\n");
@@ -906,8 +909,14 @@ class BuildFeelReportTest {
 				double legends = 0;
 				for (int srv = 0; srv < n; srv++) {
 					Random rng = new Random(srv * 7_777_777L + perSkill * 31L + variant);
-					int[] remaining = new int[8];
+					int[] remaining = new int[SKILLS.size()];
 					java.util.Arrays.fill(remaining, perSkill);
+					// Skills without drawn Mythics of their own (Stealth) have none to draw.
+					for (int i = 0; i < remaining.length; i++) {
+						if (!java.util.Arrays.asList(TestCards.MYTHIC_SKILLS).contains(SKILLS.get(i).identifier().getPath())) {
+							remaining[i] = 0;
+						}
+					}
 					List<double[]> events = new ArrayList<>(); // {time, player, kind 0 draw / 1 step, step, skill}
 					Char[] players = new Char[ENDS.length * roster];
 					for (int p = 0; p < players.length; p++) {

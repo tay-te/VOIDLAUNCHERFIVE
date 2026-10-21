@@ -1,0 +1,27 @@
+{
+	"prefix": "SL",
+	"keyword_pool": [
+		"mettle:deep",
+		"mettle:keen",
+		"mettle:swift",
+		"mettle:wild",
+		"mettle:echo"
+	],
+	"natives": {
+		"mettle:stealth/ambusher": "mettle:keen",
+		"mettle:stealth/assassin": "mettle:keen",
+		"mettle:stealth/cloak_of_dusk": "mettle:deep",
+		"mettle:stealth/cowards_edge": "mettle:hex",
+		"mettle:stealth/ghost": "mettle:deep",
+		"mettle:stealth/hamstring": "mettle:keen",
+		"mettle:stealth/poisoner": "mettle:wild",
+		"mettle:stealth/quiet_feet": "mettle:gale",
+		"mettle:stealth/shadow": "mettle:deep",
+		"mettle:stealth/shadowstep": "mettle:swift",
+		"mettle:stealth/silent_fall": "mettle:gale",
+		"mettle:stealth/skulker": "mettle:hex",
+		"mettle:stealth/soft_step": "mettle:swift",
+		"mettle:stealth/unseen_blade": "mettle:echo",
+		"mettle:stealth/vanish": "mettle:echo"
+	}
+}

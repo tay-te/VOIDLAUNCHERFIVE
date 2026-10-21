@@ -4,6 +4,14 @@
 	},
 	"attribute": "agility",
 	"order": 12,
-	"released": false,
+	"released": true,
+	"paths": {
+		"a": {
+			"translate": "mettle.path.stealth.a"
+		},
+		"b": {
+			"translate": "mettle.path.stealth.b"
+		}
+	},
 	"colour": "#7E7AE6"
 }

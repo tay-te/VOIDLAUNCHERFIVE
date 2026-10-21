@@ -1,0 +1,14 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "mastery",
+	"tier": 4,
+	"cost": 5,
+	"side": "a",
+	"name": {
+		"translate": "mettle.perk.stealth.ghost"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.ghost.description"
+	},
+	"order": 10
+}

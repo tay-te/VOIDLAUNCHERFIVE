@@ -1,0 +1,30 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "root",
+	"tier": 1,
+	"ranks": 3,
+	"cost": 1,
+	"name": {
+		"translate": "mettle.perk.stealth.soft_step"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.soft_step.description"
+	},
+	"rank_values": [
+		"10",
+		"20",
+		"30"
+	],
+	"effects": [
+		{
+			"attribute": "minecraft:sneaking_speed",
+			"amounts": [
+				0.1,
+				0.2,
+				0.3
+			],
+			"operation": "add_multiplied_base"
+		}
+	],
+	"order": 0
+}

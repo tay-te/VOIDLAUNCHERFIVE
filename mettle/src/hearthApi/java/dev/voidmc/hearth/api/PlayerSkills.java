@@ -1,5 +1,7 @@
 package dev.voidmc.hearth.api;
 
+import java.util.List;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -55,6 +57,25 @@ public interface PlayerSkills {
 
 	/** Hearth reports something worth XP in a skill (a lock picked, a check passed); a no-op without a skills mod. */
 	void award(ServerPlayer player, String skill, float xp, String reason);
+
+	/**
+	 * A character mod's bonus at one of Hearth's decision points (keys in docs/requests/mettle-speech-stealth.md, request
+	 * 12: {@code hearth:haggle/band}, {@code hearth:stealth/sight}...); 0 when unknown or without a skills mod. Hearth keeps
+	 * every clamp of its own.
+	 */
+	default double bonus(ServerPlayer player, String key) {
+		return 0;
+	}
+
+	/** The title the player wears ("the Deep Ember Warden", "Long Walker"); empty when none (request 14). */
+	default Component title(ServerPlayer player) {
+		return Component.empty();
+	}
+
+	/** Mythic cards the player holds ({@code mettle:mythic/dragonfall}); empty when unknown (request 10). */
+	default List<Identifier> titles(ServerPlayer player) {
+		return List.of();
+	}
 
 	/**
 	 * @param odds the chance it had, 0–1

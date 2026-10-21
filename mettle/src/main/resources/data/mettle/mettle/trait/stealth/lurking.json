@@ -1,0 +1,18 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "endurance",
+	"scope": "narrow",
+	"min": 15,
+	"max": 25,
+	"step": 1,
+	"unit": "percent",
+	"effect": {
+		"behaviour": "mettle:dark_shorter"
+	},
+	"name": {
+		"translate": "mettle.trait.stealth.lurking"
+	},
+	"description": {
+		"translate": "mettle.trait.stealth.lurking.description"
+	}
+}

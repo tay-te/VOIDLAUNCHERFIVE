@@ -8,6 +8,7 @@ import dev.voidmc.hearth.api.HearthWorld;
 import dev.voidmc.hearth.api.JobType;
 import dev.voidmc.hearth.api.MarketEvents;
 import dev.voidmc.hearth.api.PlayerSkills;
+import dev.voidmc.mettle.character.skill.StealthSkill;
 import dev.voidmc.hearth.api.QuestEvents;
 import dev.voidmc.hearth.api.QuestType;
 import dev.voidmc.hearth.api.Resident;
@@ -142,7 +143,48 @@ final class HearthJourney {
 		if (Math.abs(gained - 20 * multiplier(player, THIEVERY)) > EPS) {
 			return "a picked lock gave " + gained + " Thievery XP, expected 20 × multipliers";
 		}
-		return null;
+		return stealth(player, skills);
+	}
+
+	/**
+	 * Stealth (docs/BUILD_FEEL.md §14): Hearth's witnesses read the effective level (Stealth 6, Shadow II +2, and The Quiet
+	 * Way's +2 while this Hearth reads no bonus keys, its key otherwise), never more than one channel; a crime nobody saw
+	 * teaches Stealth and counts toward Never Seen.
+	 */
+	private static @Nullable String stealth(ServerPlayer player, PlayerSkills skills) {
+		boolean declared = java.util.Arrays.stream(PlayerSkills.class.getDeclaredMethods()).anyMatch(m -> m.getName().equals("bonus"));
+		if (declared != dev.voidmc.mettle.compat.HearthLink.bonus()) {
+			return "the loaded Hearth " + (declared ? "declares" : "lacks") + " PlayerSkills.bonus, but Mettle thinks otherwise";
+		}
+		CharacterState state = CharacterStore.get(player).withXp(StealthSkill.STEALTH, Curves.skillXpFor(6));
+		java.util.Map<net.minecraft.resources.ResourceKey<dev.voidmc.mettle.api.Perk>, Integer> perks = new java.util.HashMap<>(state.perks());
+		perks.put(dev.voidmc.mettle.character.Perks.key(StealthSkill.SHADOW), 2);
+		perks.put(dev.voidmc.mettle.character.Perks.key(StealthSkill.THE_QUIET_WAY), 1);
+		CharacterStore.set(player, state.withPerks(perks));
+		EffectsApplier.apply(player);
+		int want = 6 + 2 + (declared ? 0 : dev.voidmc.mettle.character.skill.stealth.StealthRules.FALLBACK_QUIET_WAY);
+		if (skills.level(player, PlayerSkills.STEALTH) != want) {
+			return "Hearth reads Stealth " + skills.level(player, PlayerSkills.STEALTH) + ", expected the effective " + want + " (bonus keys "
+				+ (declared ? "read" : "not read") + ")";
+		}
+		double sight = StealthSkill.bonus(player, dev.voidmc.mettle.compat.HearthKeys.STEALTH_SIGHT);
+		if (Math.abs(sight - 0.10) > 1e-9) {
+			return "The Quiet Way's hearth:stealth/sight reads " + sight + ", expected 0.10";
+		}
+		if (declared && Math.abs(skills.bonus(player, dev.voidmc.mettle.compat.HearthKeys.STEALTH_SIGHT) - sight) > 1e-9) {
+			return "Hearth's bonus(stealth/sight) differs from Mettle's";
+		}
+		long counted = dev.voidmc.mettle.character.FeatCounters.get(player, StealthSkill.NEVER_SEEN_COUNTER);
+		double before = CharacterStore.get(player).xp(StealthSkill.STEALTH);
+		skills.award(player, PlayerSkills.STEALTH, 10, "hearth:law/unseen/theft");
+		double gained = CharacterStore.get(player).xp(StealthSkill.STEALTH) - before;
+		long now = dev.voidmc.mettle.character.FeatCounters.get(player, StealthSkill.NEVER_SEEN_COUNTER);
+		dev.voidmc.mettle.character.FeatCounters.add(player, StealthSkill.NEVER_SEEN_COUNTER, counted - now);
+		if (Math.abs(gained - 10 * multiplier(player, StealthSkill.STEALTH)) > EPS) {
+			return "a crime nobody saw gave " + gained + " Stealth XP, expected 10 × multipliers";
+		}
+		return now - counted == dev.voidmc.mettle.character.skill.stealth.StealthRules.NEVER_SEEN_CRIME ? null
+			: "a crime nobody saw counted " + (now - counted) + " toward Never Seen, expected 5";
 	}
 
 	// ------------------------------------------------------------------ quests and trade

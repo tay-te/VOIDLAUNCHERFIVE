@@ -223,6 +223,70 @@
 			"description": {
 				"translate": "mettle.byname.pair.survival.smithing.description"
 			}
+		},
+		"mettle:mining+mettle:stealth": {
+			"noun": {
+				"translate": "mettle.byname.pair.mining.stealth"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.mining.stealth.description"
+			}
+		},
+		"mettle:blades+mettle:stealth": {
+			"noun": {
+				"translate": "mettle.byname.pair.blades.stealth"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.blades.stealth.description"
+			}
+		},
+		"mettle:heavy_weapons+mettle:stealth": {
+			"noun": {
+				"translate": "mettle.byname.pair.heavy_weapons.stealth"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.heavy_weapons.stealth.description"
+			}
+		},
+		"mettle:marksmanship+mettle:stealth": {
+			"noun": {
+				"translate": "mettle.byname.pair.marksmanship.stealth"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.marksmanship.stealth.description"
+			}
+		},
+		"mettle:defense+mettle:stealth": {
+			"noun": {
+				"translate": "mettle.byname.pair.defense.stealth"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.defense.stealth.description"
+			}
+		},
+		"mettle:athletics+mettle:stealth": {
+			"noun": {
+				"translate": "mettle.byname.pair.athletics.stealth"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.athletics.stealth.description"
+			}
+		},
+		"mettle:survival+mettle:stealth": {
+			"noun": {
+				"translate": "mettle.byname.pair.survival.stealth"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.survival.stealth.description"
+			}
+		},
+		"mettle:smithing+mettle:stealth": {
+			"noun": {
+				"translate": "mettle.byname.pair.smithing.stealth"
+			},
+			"description": {
+				"translate": "mettle.byname.pair.smithing.stealth.description"
+			}
 		}
 	}
 }

@@ -1,0 +1,15 @@
+{
+	"skill": "mettle:stealth",
+	"kind": "synergy",
+	"name": {
+		"translate": "mettle.perk.stealth.night_hunter"
+	},
+	"description": {
+		"translate": "mettle.perk.stealth.night_hunter.description"
+	},
+	"synergy": {
+		"mettle:stealth": 10,
+		"mettle:marksmanship": 10
+	},
+	"order": 16
+}

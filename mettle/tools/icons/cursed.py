@@ -22,6 +22,7 @@ BASE = {
     'featherweight': 'runner', 'bulls_back': 'pack_mule',
     'wolfs_hunger': 'iron_stomach', 'wild_luck': 'gatherer',
     'brittle_edge': 'keen_edge', 'slapdash': 'forged',
+    'skulker': 'soft_step', 'cowards_edge': 'ambusher',
 }
 
 # dark -> light: bruise violet into ember red into a pale, sickly bone

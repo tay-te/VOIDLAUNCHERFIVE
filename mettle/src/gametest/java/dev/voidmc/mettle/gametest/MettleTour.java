@@ -147,9 +147,14 @@ public class MettleTour implements FabricClientGameTest {
 			if (Boolean.getBoolean("mettle.tour.legend_only")) {
 				LegendJourney.run(context, world);
 			}
+			// -Dmettle.tour.stealth_only=true plays only Stealth (and the Hearth journey with -Phearth).
+			if (Boolean.getBoolean("mettle.tour.stealth_only")) {
+				StealthJourney.run(context, world);
+			}
 			// -Dmettle.tour.hearth_only=true (with -Phearth) plays only the Hearth journey, for a quick check.
 			if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.cards_only") && !Boolean.getBoolean("mettle.tour.feel_only")
-				&& !Boolean.getBoolean("mettle.tour.legend_only") && !Boolean.getBoolean("mettle.tour.talents_only")) {
+				&& !Boolean.getBoolean("mettle.tour.legend_only") && !Boolean.getBoolean("mettle.tour.talents_only")
+				&& !Boolean.getBoolean("mettle.tour.stealth_only")) {
 				// Progress moments first, while the character is fresh (it is put back as it was).
 				MomentJourney.run(context, world);
 				signaturePerks(world);
@@ -177,6 +182,7 @@ public class MettleTour implements FabricClientGameTest {
 				LegendJourney.run(context, world);
 				DeedJourney.run(context, world);
 				TalentJourney.run(context, world);
+				StealthJourney.run(context, world);
 			}
 			// With VOID Hearth loaded (-Phearth): its slots filled by Mettle. HearthJourney names Hearth types, so it is
 			// only touched then.
@@ -192,7 +198,7 @@ public class MettleTour implements FabricClientGameTest {
 		}
 		// Saved, quit and opened again (a restart and a relog): what must last did (CardEffectsJourney's cooldowns).
 		if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.feel_only") && !Boolean.getBoolean("mettle.tour.legend_only")
-			&& !Boolean.getBoolean("mettle.tour.talents_only")) {
+			&& !Boolean.getBoolean("mettle.tour.talents_only") && !Boolean.getBoolean("mettle.tour.stealth_only")) {
 			try (TestSingleplayerContext again = save.open()) {
 				CardEffectsJourney.afterRestart(context, again);
 			}
