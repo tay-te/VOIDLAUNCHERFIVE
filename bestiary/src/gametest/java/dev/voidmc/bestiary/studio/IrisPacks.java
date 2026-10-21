@@ -3,11 +3,11 @@ package dev.voidmc.bestiary.studio;
 import java.nio.file.Files;
 
 /** Switches Iris's shader pack at runtime (studio and showcase runs with -Piris): a pack folder or zip in shaderpacks, or off. */
-final class IrisPacks {
+public final class IrisPacks {
 	private IrisPacks() {
 	}
 
-	static String select(String name) {
+	public static String select(String name) {
 		try {
 			var config = net.irisshaders.iris.Iris.getIrisConfig();
 			if (name.equals("off") || name.equals("none")) {

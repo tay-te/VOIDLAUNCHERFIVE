@@ -163,6 +163,7 @@ tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	systemProperty 'fray.show.only', System.getProperty('fray.show.only', '')
 	systemProperty 'fray.show.tag', System.getProperty('fray.show.tag', '')
 	systemProperty 'fray.perf.mobs', System.getProperty('fray.perf.mobs', '24')
+	systemProperty 'fray.show.packs', System.getProperty('fray.show.packs', '')
 	systemProperty 'fray.duo.role', System.getProperty('fray.duo.role', '')
 	systemProperty 'fray.duo.dir', System.getProperty('fray.duo.dir', 'duo')
 	systemProperty 'fray.duo.lag', System.getProperty('fray.duo.lag', '0')

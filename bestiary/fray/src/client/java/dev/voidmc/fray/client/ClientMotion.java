@@ -170,7 +170,8 @@ public final class ClientMotion {
 		double now = now(partialTick);
 		long frame = FrayStats.frameId;
 		PoseBuffer buf;
-		if (a.cachedFrame == frame && a.cachedNow == now) {
+		// Keyed by the frame alone: Iris's shadow pass extracts with its own partial tick, a hair from the main pass's.
+		if (a.cachedFrame == frame) {
 			// Iris's shadow pass (or any second extraction this frame): the pose is already sampled.
 			buf = a.cached;
 			cacheHits++;

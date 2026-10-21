@@ -127,10 +127,19 @@ public class MotionShowcase implements FabricClientGameTest {
 				latency(stage);
 			}
 			if (want("perf")) {
-				perf(stage, 24);
-				int more = Integer.getInteger("fray.perf.mobs", 24);
-				if (more != 24) {
-					perf(stage, more);
+				// -Dfray.show.packs=complementary,welkin: the same measurements under each Iris pack in turn.
+				String packs = System.getProperty("fray.show.packs", "");
+				for (String pack : packs.isEmpty() ? new String[] {""} : packs.split(",")) {
+					if (!pack.isEmpty()) {
+						Stage.log("pack " + c.computeOnClient(mc -> dev.voidmc.bestiary.studio.IrisPacks.select(pack)));
+						c.waitTicks(60);
+					}
+					int more = Integer.getInteger("fray.perf.mobs", 24);
+					perf(stage, 24, "zombie");
+					if (more != 24) {
+						perf(stage, more, "zombie");
+					}
+					perf(stage, 24, "knight");
 				}
 			}
 		}
@@ -570,7 +579,7 @@ public class MotionShowcase implements FabricClientGameTest {
 
 	// ------------------------------------------------------------------ performance
 
-	private static void perf(Stage st, int count) {
+	private static void perf(Stage st, int count, String kind) {
 		st.clearCreatures();
 		st.s.runCommand("tp @p 12 " + Y + " 12");
 		// A grid clear of the platform's pillars (at x, z = +-9).
@@ -578,14 +587,20 @@ public class MotionShowcase implements FabricClientGameTest {
 		int rows = (count + cols - 1) / cols;
 		float spacing = count <= 24 ? 1.6F : 1.2F;
 		List<Integer> ids = new ArrayList<>();
+		boolean knight = kind.equals("knight");
+		if (knight) {
+			spacing *= 1.6F;
+		}
 		for (int i = 0; i < count; i++) {
 			int col = i % cols, row = i / cols;
-			ids.add(st.zombie(0.5 + (col - (cols - 1) / 2.0) * spacing, 0.5 + row * spacing, 180, false));
+			double x = 0.5 + (col - (cols - 1) / 2.0) * spacing, zz = 0.5 + row * spacing;
+			ids.add(knight ? st.knight(x, zz, 180) : st.zombie(x, zz, 180, false));
 		}
+		Identifier attack = knight ? dev.voidmc.bestiary.anim.GallowsKnight.CHAIN_SWEEP : CLAW;
 		double back = count <= 24 ? -7 : -10;
 		st.cam(0.5, Y + 4.5, back, 0.5, Y + 0.8, rows * spacing / 2);
 		st.c.waitTicks(40);
-		st.shot("perf_" + count + "_zombies");
+		st.shot("perf_" + count + "_" + kind);
 		double[][] results = new double[2][];
 		StringBuilder line = new StringBuilder();
 		double[] onMedian = new double[2], offMedian = new double[2];
@@ -601,7 +616,7 @@ public class MotionShowcase implements FabricClientGameTest {
 					if (tick % 10 == 0) {
 						// A quarter of the crowd starts a claw every half second (the server's cost is the same both ways).
 						for (int i = tick / 10 % 4; i < ids.size(); i += 4) {
-							st.play(ids.get(i), CLAW);
+							st.play(ids.get(i), attack);
 						}
 					}
 					st.c.waitTick();
@@ -610,17 +625,17 @@ public class MotionShowcase implements FabricClientGameTest {
 				double[] stats = st.c.computeOnClient(mc -> {
 					long[] f = FrayStats.sortedFrames();
 					return new double[] {f.length, f.length == 0 ? 0 : f[f.length / 2] / 1e6, f.length == 0 ? 0 : f[(int) (f.length * 0.95)] / 1e6,
-						FrayStats.samples, FrayStats.sampleNanos, FrayStats.applies, FrayStats.applyNanos, FrayStats.shadowApplies, FrayStats.frames};
+						FrayStats.samples, FrayStats.sampleNanos, FrayStats.applies, FrayStats.applyNanos, FrayStats.shadowApplies, FrayStats.frames, FrayStats.extracts};
 				});
 				// The ring keeps the last 4096 frame times; the count is every frame.
 				double frames = stats[8];
 				double perFrameUs = (stats[4] + stats[6]) / 1000.0 / Math.max(1, stats[8]);
 				String r = String.format(Locale.ROOT,
-					"perf %d zombies, Fray %s: %.0f frames in %.1f s (%.0f fps), frame ms median %.3f p95 %.3f | sample %.2f us x %.1f/frame, apply %.2f us x %.1f/frame"
-						+ " (%.0f in shadow passes), Fray %.1f us/frame = %.2f us per zombie",
-					count, on ? "on " : "off", frames, wall, frames / wall, stats[1], stats[2], stats[3] == 0 ? 0 : stats[4] / 1000.0 / stats[3],
-					stats[3] / Math.max(1, stats[8]), stats[5] == 0 ? 0 : stats[6] / 1000.0 / stats[5], stats[5] / Math.max(1, stats[8]), stats[7], perFrameUs,
-					perFrameUs / count);
+					"perf %d %s, Fray %s: %.0f frames in %.1f s (%.0f fps), frame ms median %.3f p95 %.3f | %.1f extracts/frame (%.1f sampled, the rest from the frame cache) at %.2f us,"
+						+ " %.1f applies/frame at %.2f us (%.0f in shadow passes) | Fray %.1f us/frame = %.2f us per mob per frame",
+					count, kind, on ? "on " : "off", frames, wall, frames / wall, stats[1], stats[2], stats[9] / Math.max(1, stats[8]), stats[3] / Math.max(1, stats[8]),
+					stats[9] == 0 ? 0 : stats[4] / 1000.0 / stats[9], stats[5] / Math.max(1, stats[8]), stats[5] == 0 ? 0 : stats[6] / 1000.0 / stats[5], stats[7],
+					perFrameUs, perFrameUs / count);
 				Stage.log(r);
 				if (on) {
 					onMedian[round] = stats[1];
@@ -636,10 +651,10 @@ public class MotionShowcase implements FabricClientGameTest {
 			}
 		}
 		st.c.runOnClient(mc -> ClientMotion.enabled = true);
-		Stage.log("server cost with " + count + " zombies clawing: " + MotionServer.costLine());
-		Stage.log(String.format(Locale.ROOT, "perf %d zombies: median frame %.3f / %.3f ms with Fray, %.3f / %.3f ms without (two rounds): difference %.3f ms",
-			count, onMedian[0], onMedian[1], offMedian[0], offMedian[1], (onMedian[0] + onMedian[1] - offMedian[0] - offMedian[1]) / 2));
-		st.shot("perf_" + count + "_zombies_end");
+		Stage.log("server cost with " + count + " " + kind + " attacking: " + MotionServer.costLine());
+		Stage.log(String.format(Locale.ROOT, "perf %d %s: median frame %.3f / %.3f ms with Fray, %.3f / %.3f ms without (two rounds): difference %.3f ms",
+			count, kind, onMedian[0], onMedian[1], offMedian[0], offMedian[1], (onMedian[0] + onMedian[1] - offMedian[0] - offMedian[1]) / 2));
+		st.shot("perf_" + count + "_" + kind + "_end");
 	}
 
 	// ------------------------------------------------------------------ dedicated server and the clip hash

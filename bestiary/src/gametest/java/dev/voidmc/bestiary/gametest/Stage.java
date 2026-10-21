@@ -213,6 +213,22 @@ public final class Stage {
 		});
 	}
 
+	/** A NoAI Gallows Knight (the custom rig) facing {@code yaw}. */
+	public int knight(double x, double z, float yaw) {
+		return this.s.computeOnServer(server -> {
+			ServerLevel level = server.overworld();
+			var k = dev.voidmc.bestiary.anim.BestiaryAnim.GALLOWS_KNIGHT.create(level, EntitySpawnReason.COMMAND);
+			k.snapTo(x, Y, z, yaw, 0);
+			k.setYHeadRot(yaw);
+			k.setYBodyRot(yaw);
+			k.setNoAi(true);
+			k.setPersistenceRequired();
+			k.setSilent(true);
+			level.addFreshEntity(k);
+			return k.getId();
+		});
+	}
+
 	/** A NoAI pig to be hit: the dummy of the authority test. */
 	public int dummy(double x, double z) {
 		return this.s.computeOnServer(server -> {
