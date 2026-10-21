@@ -185,6 +185,9 @@ public final class Clamps {
 		for (Direction d : Direction.Plane.HORIZONTAL) {
 			for (int r = 3; r <= 4; r++) {
 				BlockPos c = crown.relative(d, r).relative(d.getClockWise(), r == 3 ? 1 : -1);
+				if (!level.isLoaded(c)) {
+					continue;
+				}
 				BlockPos g = FieldPlacement.ground(level, c);
 				if (inside(spec, g) && level.getBlockState(g).isAir() && level.getBlockState(g.below()).isSolidRender()
 					&& level.getBlockState(g.above()).isAir()) {
@@ -256,7 +259,8 @@ public final class Clamps {
 				boolean ok = true;
 				for (int i = 0; i < 4 && ok; i++) {
 					BlockPos c = start.relative(along, i);
-					ok = inside(p.spec(), c) && (level.getBlockState(c).isAir() || placedHere(ledger, c, p.id())) && level.getBlockState(c.below()).isSolidRender();
+					// (never a block read in a chunk not loaded: that would load it on the server thread)
+					ok = inside(p.spec(), c) && level.isLoaded(c) && (level.getBlockState(c).isAir() || placedHere(ledger, c, p.id())) && level.getBlockState(c.below()).isSolidRender();
 				}
 				if (ok) {
 					base = start;

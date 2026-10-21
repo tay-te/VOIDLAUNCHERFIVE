@@ -143,7 +143,7 @@ public final class Boats {
 					}
 					if (here.isEmpty() && level.isLoaded(dock.pos())) {
 						for (BlockPos w : waters(level, dock, cfg.perDock())) {
-							Mooring m = new Mooring(s.id(), dock.pos(), w, dock.facing());
+							Mooring m = new Mooring(s.id(), dock.pos(), w, outFrom(dock.pos(), w));
 							moorings.add(m);
 							here.add(m);
 						}
@@ -222,9 +222,21 @@ public final class Boats {
 	 */
 	static List<BlockPos> waters(ServerLevel level, Poi dock, int max) {
 		List<BlockPos> out = new ArrayList<>();
-		Direction f = dock.facing();
+		// off the dock's face first; a dock whose face is not on open water (a landing along a bank) tries its other sides
+		List<Direction> faces = new ArrayList<>(List.of(dock.facing(), dock.facing().getClockWise(), dock.facing().getCounterClockWise(),
+			dock.facing().getOpposite()));
+		for (Direction f : faces) {
+			if (!out.isEmpty()) {
+				break;
+			}
+			waters(level, dock, f, max, out);
+		}
+		return out;
+	}
+
+	private static void waters(ServerLevel level, Poi dock, Direction f, int max, List<BlockPos> out) {
 		Direction side = f.getClockWise();
-		int[][] offsets = {{4, 0}, {4, -3}, {4, 3}, {6, 0}, {5, -2}, {5, 2}};
+		int[][] offsets = {{4, 0}, {4, -3}, {4, 3}, {6, 0}, {5, -2}, {5, 2}, {8, 0}, {7, -3}, {7, 3}};
 		for (int[] o : offsets) {
 			if (out.size() >= max) {
 				break;
@@ -244,7 +256,16 @@ public final class Boats {
 				}
 			}
 		}
-		return out;
+	}
+
+	/** The way out from a dock to its mooring (the side the water was found on). */
+	static Direction outFrom(BlockPos dock, BlockPos water) {
+		int dx = water.getX() - dock.getX();
+		int dz = water.getZ() - dock.getZ();
+		if (Math.abs(dx) >= Math.abs(dz)) {
+			return dx >= 0 ? Direction.EAST : Direction.WEST;
+		}
+		return dz >= 0 ? Direction.SOUTH : Direction.NORTH;
 	}
 
 	/** Water a boat floats on: a water source with air over it. */

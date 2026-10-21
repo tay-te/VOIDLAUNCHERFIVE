@@ -30,6 +30,10 @@ import net.minecraft.world.entity.Entity;
 public final class FieldWork {
 	private static FieldWorkConfig config = FieldWorkConfig.DEFAULTS;
 	private static final LivingWorldStats.Timer TIMER = LivingWorldStats.timer("field work");
+	// its parts, so a spike can be told apart (the flocks' budget is §9.1's ≤ 1 ms a tick at the cap)
+	private static final LivingWorldStats.Timer FLOCKS = LivingWorldStats.timer("field work: flocks");
+	private static final LivingWorldStats.Timer CLAMPS = LivingWorldStats.timer("field work: clamps");
+	private static final LivingWorldStats.Timer BOATS = LivingWorldStats.timer("field work: boats");
 	/** Entity tags of the views this lane puts into the world (flocks, boats, stall wares): never saved with a chunk. */
 	public static final Set<String> NO_SAVE = Set.of(Herds.TAG, Boats.TAG, StallWares.TAG, Handcarts.TAG);
 	private static long ticks;
@@ -105,9 +109,9 @@ public final class FieldWork {
 			return;
 		}
 		TIMER.time(() -> {
-			Herds.tick(server);
-			Clamps.tick(server);
-			Boats.tick(server);
+			FLOCKS.time(() -> Herds.tick(server));
+			CLAMPS.time(() -> Clamps.tick(server));
+			BOATS.time(() -> Boats.tick(server));
 			Handcarts.tick(server);
 			if (ticks % 1200 == 0) {
 				daily(server);

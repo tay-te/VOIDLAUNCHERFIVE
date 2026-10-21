@@ -59,7 +59,8 @@ final class HaulerWork implements WorkBehaviour {
 	@Override
 	public @Nullable Task next(FolkBrain brain, ServerLevel level) {
 		long now = level.getGameTime();
-		if (now - this.routesAt > REFRESH) {
+		// (routesAt starts at MIN_VALUE: now - MIN_VALUE overflows, so the first read is asked for by name)
+		if (this.routesAt == Long.MIN_VALUE || now - this.routesAt > REFRESH) {
 			routes(brain, level);
 			this.routesAt = now;
 		}
