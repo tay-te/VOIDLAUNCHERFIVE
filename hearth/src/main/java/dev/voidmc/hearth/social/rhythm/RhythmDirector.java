@@ -65,7 +65,7 @@ public final class RhythmDirector {
 	private static final Set<String> ATTENDED = new HashSet<>();
 	/** Wash day's laundry search per town: {day, next home (MAX: done), lines up}. */
 	private static final Map<Long, int[]> LAUNDRY = new HashMap<>();
-	static final int LAUNDRY_YARDS_A_PASS = 3;
+	static final int LAUNDRY_YARDS_A_PASS = 1;
 
 	private RhythmDirector() {
 	}

@@ -99,7 +99,7 @@ public final class ServiceBehaviour implements NpcService.FolkBehaviour {
 		ServerLevel level = (ServerLevel) folk.entity().level();
 		Resident r = folk.resident();
 		boolean leads = r.id.equals(d.officiant());
-		Integer seatIndex = d.seatOf().get(r.id);
+		Integer seatIndex = leads ? null : takeSeat(s, d, r);
 		Poi seat = seatIndex == null ? null : c.seats().get(seatIndex);
 		BlockPos stand;
 		if (leads) {
@@ -244,9 +244,66 @@ public final class ServiceBehaviour implements NpcService.FolkBehaviour {
 		};
 	}
 
+	/** Town → {day, seat index → who sits there}: the pews as folk come in. */
+	private static final Map<Long, Object[]> PEWS = new HashMap<>();
+
+	/**
+	 * A pew for one coming in: their own (the lord and the elders in front) if it is free, else the first free one not kept
+	 * for someone of the town who is here and has not sat yet. Null: the pews are full, they stand.
+	 */
+	@SuppressWarnings("unchecked")
+	static synchronized @Nullable Integer takeSeat(Settlement s, Service.Day d, Resident r) {
+		int n = d.church() == null ? 0 : d.church().seats().size();
+		if (n == 0) {
+			return null;
+		}
+		Object[] cur = PEWS.get(s.id());
+		if (cur == null || (long) cur[0] != d.day()) {
+			cur = new Object[] {d.day(), new HashMap<Integer, UUID>()};
+			PEWS.put(s.id(), cur);
+		}
+		Map<Integer, UUID> taken = (Map<Integer, UUID>) cur[1];
+		for (Map.Entry<Integer, UUID> e : taken.entrySet()) {
+			if (e.getValue().equals(r.id)) {
+				return e.getKey();
+			}
+		}
+		Integer own = d.seatOf().get(r.id);
+		if (own != null && !taken.containsKey(own)) {
+			taken.put(own, r.id);
+			return own;
+		}
+		Map<Integer, UUID> keptFor = new HashMap<>();
+		for (Map.Entry<UUID, Integer> e : d.seatOf().entrySet()) {
+			keptFor.put(e.getValue(), e.getKey());
+		}
+		for (int i = 0; i < n; i++) {
+			UUID holder = keptFor.get(i);
+			if (!taken.containsKey(i) && (holder == null || !s.isResidentEmbodied(holder))) {
+				taken.put(i, r.id);
+				return i;
+			}
+		}
+		return null;
+	}
+
+	static synchronized void leaveSeat(Settlement s, UUID who) {
+		Object[] cur = PEWS.get(s.id());
+		if (cur != null) {
+			@SuppressWarnings("unchecked")
+			Map<Integer, UUID> taken = (Map<Integer, UUID>) cur[1];
+			taken.values().removeIf(who::equals);
+		}
+	}
+
+	static synchronized void clearPews() {
+		PEWS.clear();
+	}
+
 	@Override
 	public void stop(NpcService.FolkHandle folk) {
 		State st = this.states.remove(folk.resident().id);
+		leaveSeat(folk.settlement(), folk.resident().id);
 		if (st != null) {
 			if (st.seated) {
 				folk.standUp();

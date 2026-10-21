@@ -35,3 +35,5 @@ nothing for Figma.
    if A1 wishes), `washDay`, `feast` (a festival's id or `first_snow`).
 5. **Tour harness** — `runClientGameTest` runs fabric's `acceptGameTestEula` task as configured in `build.gradle`
    (`configureTests { eula = true }`): that is the project's existing client-tour setup, not something this lane added.
+6. **B1 / B2 — a town with no priest.** The service is led by a monk, else an elder, else a grown-up of the town
+   (`Service.officiant`, `Rhythm.officiant(s)` for tours). If B2's notables ever name a lay reader, that is the hook.

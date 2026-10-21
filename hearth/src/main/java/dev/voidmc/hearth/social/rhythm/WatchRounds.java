@@ -74,14 +74,18 @@ public final class WatchRounds implements NpcService.FolkBehaviour {
 				return false;
 			}
 			Settlement s = folk.settlement();
-			if (!Rhythm.config().rhythm().enabled() || !s.embodied() || !folk.awake()) {
+			if (!Rhythm.config().rhythm().enabled() || !s.embodied()) {
 				return false;
 			}
 			if (!RhythmData.of(s.culture()).watch().covers(RhythmFolk.minute(s))) {
 				return false;
 			}
 			NpcService npc = HearthServices.npc();
-			return npc == null || npc.onDuty(s, r);
+			boolean duty = npc == null || npc.onDuty(s, r);
+			if (duty && !folk.awake() && (folk.gameTime() & 127) == 0) {
+				folk.wake(); // a watchman on duty asleep in his bed (his night duty began while he lay down): up and out
+			}
+			return duty && folk.awake();
 		} finally {
 			RhythmFolk.t1(t0);
 		}

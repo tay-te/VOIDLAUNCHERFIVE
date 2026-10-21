@@ -131,6 +131,7 @@ public final class Rhythm {
 	static void clearCaches() {
 		RhythmSchedule.clear();
 		Service.clear();
+		ServiceBehaviour.clearPews();
 		WashBehaviour.clear();
 		WashPlaces.clear();
 		WatchLights.clear();
@@ -152,6 +153,37 @@ public final class Rhythm {
 
 	public static java.util.Set<UUID> drinkers(Settlement s, long day) {
 		return RhythmSchedule.drinkers(s, day);
+	}
+
+	/** Taverns of a town where a drinker took up the instrument tonight (tours). */
+	public static int musicians(Settlement s, long day) {
+		int n = 0;
+		for (var e : TavernNight.PLAYING.entrySet()) {
+			if (Math.floorDiv(e.getKey(), 4096L) == s.id() && (long) e.getValue()[0] == day) {
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** Tonight's drinkers of a town by the tavern each goes to (plot id), the fullest first (tours). */
+	public static List<java.util.Set<UUID>> drinkersByTavern(Settlement s, long day) {
+		List<dev.voidmc.hearth.api.PlotView> taverns = RhythmSchedule.taverns(s);
+		java.util.Map<Integer, java.util.Set<UUID>> by = new java.util.HashMap<>();
+		if (!taverns.isEmpty()) {
+			for (Resident r : TavernNight.order(s, day)) {
+				by.computeIfAbsent(TavernNight.nearest(s, taverns, r).id(), k -> new java.util.LinkedHashSet<>()).add(r.id);
+			}
+		}
+		List<java.util.Set<UUID>> out = new java.util.ArrayList<>(by.values());
+		out.sort((a, b) -> b.size() - a.size());
+		return out;
+	}
+
+	/** The town's minute and the part of the service at it (tours). */
+	public static String serviceNow(Settlement s) {
+		int m = RhythmFolk.minute(s);
+		return String.format(java.util.Locale.ROOT, "%02d:%02d %s", m / 60, m % 60, Service.part(RhythmData.of(s.culture()).service(), m));
 	}
 
 	/** Who leads the rest day's service in a town (its priest, a monk, an elder), or null (tours). */

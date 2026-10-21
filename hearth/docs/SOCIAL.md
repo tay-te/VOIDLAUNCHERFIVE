@@ -312,16 +312,17 @@ and the walk home; in a cold culture's winter, folk keep in by the fire 17:30–
 
 | behaviour | priority | who, when | does |
 |---|---|---|---|
-| `ServiceBehaviour` | 85 | rest day: priest (or monk), elders, the pious, the lord, three adults in five (fixed a week), children with their parents | walk to the chapel/temple/church as the bell peals (20 min), sit in the pews (`SEAT`s nearest the altar: the lord and elders in front), stand at the two chants; the priest at the `ALTAR` says a sermon line every 20 s and leads the chant (flute notes); 15 min at the door after, the priest greeting regular players. No church: an open-air blessing at the square |
+| `ServiceBehaviour` | 85 | rest day: priest (or monk), elders, the pious, the lord, three adults in five (fixed a week), children with their parents | walk to the church nearest the square as the bell peals (20 min), sit in the pews (`SEAT`s nearest the altar: the lord and elders keep the front ones while they are here, else the pews fill as folk come in), stand at the two chants; the officiant (the priest, else a monk, else an elder, else a grown-up of the town, the pious first) at the `ALTAR` says a sermon line every 20 s and leads the chant (flute notes); 15 min at the door after, the officiant greeting regular players. No church: an open-air blessing at the square |
 | `WatchRounds` | 70 | guards and jailers on night duty, the culture's watch hours (21:00–06:00) | round from the gate to the square and past the doors, a torch and **real light** (`WatchLights`), the hours called, a challenge to players abroad or sneaking (2 min a player), "Bell's gone" after curfew |
-| `TavernNight.Hands` | 55 | the innkeeper and the town's entertainer, tavern hours | the musician plays the night's tunes (the culture's or the data's instrument); the innkeeper goes round the tables, rings the hand bell at closing |
+| `TavernNight.Hands` | 55 | the innkeeper and the town's entertainer, tavern hours | the entertainer plays the night's tunes (the culture's or the data's instrument); the innkeeper goes round the tables, rings the hand bell at closing. A tavern with no entertainer: the first drinker in (the cheerful and sociable before the shy) takes up the instrument, one a tavern a night |
 | `WashBehaviour` | 55 | wash day 08:00–12:00: one adult from a quarter of households (three at least) | to the wash place (river, lake, well, fountain by the culture's liking; `WashPlaces` scans loaded water within 48 blocks of the bounds once per embodiment), kneels (pose tend) with white wool, splashes, gossip |
 | `TavernNight` | 45 | tonight's drinkers (`RhythmSchedule.drinkers`: adults drawn each night, the sociable twice as often, as many as the taverns' seats, ≤ 16) | sit at the tables with mugs, drink, toast, cheer when a tune ends, two arm-wrestle one night in three; at closing they weave home |
 | `PlayBehaviour` | 25 | children by daylight | the town's game of the hour (hide-and-seek — one counts at the square, the rest hide at plot corners and are found —, hoop and stick, stick fights, snowballs in winter), or their own (skipping stones, chasing chickens, watching the smith); a third left to the routine's tag |
 
 **Town-wide** (`RhythmDirector`, every `pass_ticks` per embodied town): the curfew bell (21:00, five strokes), the
 rest-day peal, parents calling children in at supper by name, laundry lines in the washers' yards on wash day (posts,
-string, white and grey linen; `Dressings.setUpLaundry`, up till 17:00), winter on the ledges in the cold cultures
+string, white and grey wool linen on open earth or grass round the house, not in another plot; one yard searched a pass;
+`Dressings.setUpLaundry`, up till 17:00), winter on the ledges in the cold cultures
 (`winter` dressing), chimney smoke at the meal times from homes whose family is in (campfire smoke over the `HEARTH`
 column, ≤ 24 a town every 40 ticks) and from the bakery before dawn, players at the service (`social:attended_mass` +1,
 once a week a town; the priest counts regulars in his `extra("social").regulars`). Abstract, every settlement once a

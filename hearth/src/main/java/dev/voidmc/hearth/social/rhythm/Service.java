@@ -194,22 +194,38 @@ public final class Service {
 		return d;
 	}
 
-	/** Who in the town is the officiant: its priest, else a monk, else an elder (a pious one first) says the words. */
+	/**
+	 * Who in the town is the officiant: its priest, else a monk, else an elder says the words (a pious one first), else a
+	 * grown-up of the town who goes (a pious one first). Null only for a town with no grown folk.
+	 */
 	static @Nullable Resident officiant(Settlement s) {
-		Resident monk = null;
-		Resident elder = null;
+		Resident best = null;
+		int bestRank = Integer.MAX_VALUE;
 		for (Resident r : s.residents()) {
 			if (r.job == JobType.PRIEST) {
 				return r;
 			}
-			if (r.job == JobType.MONK && monk == null) {
-				monk = r;
-			}
-			if (r.age == AgeStage.ELDER && (elder == null || FolkFacts.has(r, "pious") && !FolkFacts.has(elder, "pious"))) {
-				elder = r;
+			int rank = officiantRank(r);
+			if (rank < bestRank) {
+				best = r;
+				bestRank = rank;
 			}
 		}
-		return monk != null ? monk : elder;
+		return best;
+	}
+
+	private static int officiantRank(Resident r) {
+		if (r.age == AgeStage.CHILD || r.job == JobType.GUARD || r.job == JobType.JAILER || r.job == JobType.INNKEEPER || r.job == JobType.LORD) {
+			return Integer.MAX_VALUE;
+		}
+		boolean pious = FolkFacts.has(r, "pious");
+		if (r.job == JobType.MONK) {
+			return 0;
+		}
+		if (r.age == AgeStage.ELDER) {
+			return pious ? 1 : 2;
+		}
+		return pious ? 3 : 4;
 	}
 
 	static synchronized void clear() {

@@ -158,8 +158,19 @@ public class RhythmTour implements FabricClientGameTest {
 
 			// a tavern night
 			timeTo(world, Schedule.dayTimeOf(19 * 60 + 10));
-			world.getServer().runOnServer(server -> gather(server, town, Rhythm.drinkers(settlement(server, town),
-				dev.voidmc.hearth.social.life.TownLife.today(settlement(server, town))), 8));
+			world.getServer().runOnServer(server -> {
+				SimSettlement s = settlement(server, town);
+				// the drinkers of the fullest tavern, so one room fills
+				List<java.util.Set<java.util.UUID>> by = Rhythm.drinkersByTavern(s, dev.voidmc.hearth.social.life.TownLife.today(s));
+				gather(server, town, by.isEmpty() ? java.util.Set.of() : by.get(0), 10);
+				java.util.Set<java.util.UUID> hands = new java.util.HashSet<>();
+				for (dev.voidmc.hearth.api.Resident r : s.residents()) {
+					if (r.job == JobType.INNKEEPER || r.job == JobType.ENTERTAINER) {
+						hands.add(r.id);
+					}
+				}
+				gather(server, town, hands, 4);
+			});
 			settle(context, 40_000);
 			log("tavern night: " + world.getServer().computeOnServer(server -> tavern(server, town)));
 			shotAt(context, world, town, "hearth_rhythm_tavern", server -> tavernCamera(server, town));
@@ -289,8 +300,13 @@ public class RhythmTour implements FabricClientGameTest {
 				priest = String.format(Locale.ROOT, "%s %s %.1f from the altar (%s)", f.brain().resident.job.getSerializedName(), f.folkName(), d, doing(f, ServiceBehaviour.ID) ? "officiating" : f.brain().describe());
 			}
 		}
-		return String.format(Locale.ROOT, "%s: %d of %d seats filled (%.0f %%), %d folk at the service, %s", church.spec().archetype().getPath(), filled,
-			seats.size(), seats.isEmpty() ? 0 : 100.0 * filled / seats.size(), at, priest);
+		java.util.UUID leads = Rhythm.officiant(s);
+		dev.voidmc.hearth.api.Resident lr = leads == null ? null : s.resident(leads);
+		Folk lf = leads == null ? null : NpcModule.embodiment().entityOf(leads);
+		String who = lr == null ? "none" : lr.fullName() + " (" + lr.job.getSerializedName() + " " + lr.age.getSerializedName() + "), "
+			+ (lf == null ? "not embodied" : lf.brain() == null ? "no brain" : lf.brain().describe() + " at " + lf.blockPosition().toShortString());
+		return String.format(Locale.ROOT, "%s at %s: %d of %d seats filled (%.0f %%), %d folk at the service, %s; officiant %s", church.spec().archetype().getPath(),
+			Rhythm.serviceNow(s), filled, seats.size(), seats.isEmpty() ? 0 : 100.0 * filled / seats.size(), at, priest, who);
 	}
 
 	private static String wash(MinecraftServer server, long town) {
@@ -346,17 +362,22 @@ public class RhythmTour implements FabricClientGameTest {
 			}
 		}
 		int tablesInUse = 0;
+		int busiest = 0;
 		for (PlotView p : Venues.built(s, "commerce/inn", "commerce/tavern")) {
+			int here = 0;
 			for (Poi t : Venues.inPlot(s.pois(PoiType.TABLE), p)) {
 				for (Folk f : NpcModule.embodiment().entities()) {
 					if (f.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(t.pos())) < 2.5 * 2.5 && doing(f, TavernNight.ID)) {
-						tablesInUse++;
+						here++;
 						break;
 					}
 				}
 			}
+			tablesInUse += here;
+			busiest = Math.max(busiest, here);
 		}
-		return String.format(Locale.ROOT, "%d drinkers (%d seated), %d tables in use, %d innkeeper/musician at work", drinkers, seated, tablesInUse, hands);
+		return String.format(Locale.ROOT, "%d drinkers (%d seated), %d tables in use (the busiest tavern %d), %d innkeeper/entertainer at work, %d taverns with a drinker playing",
+			drinkers, seated, tablesInUse, busiest, hands, Rhythm.musicians(s, dev.voidmc.hearth.social.life.TownLife.today(s)));
 	}
 
 	private static String watch(MinecraftServer server, long town) {
@@ -458,11 +479,14 @@ public class RhythmTour implements FabricClientGameTest {
 			if (f.brain() == null || f.brain().settlement.id() != town || !doing(f, id)) {
 				continue;
 			}
-			for (int turn = 0; turn < 8; turn++) {
-				double a = turn * Math.PI / 4;
-				BlockPos q = BlockPos.containing(f.getX() + Math.cos(a) * back, f.getY() + 1.5, f.getZ() + Math.sin(a) * back);
-				if (level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir()) {
-					return new double[] {q.getX() + 0.5, q.getY(), q.getZ() + 0.5, f.getX(), f.getY() + 1.0, f.getZ()};
+			net.minecraft.world.phys.Vec3 at = new net.minecraft.world.phys.Vec3(f.getX(), f.getY() + 1.0, f.getZ());
+			for (double lift : new double[] {1.5, 3.0, 5.0}) {
+				for (int turn = 0; turn < 8; turn++) {
+					double a = turn * Math.PI / 4;
+					BlockPos q = BlockPos.containing(f.getX() + Math.cos(a) * back, f.getY() + lift, f.getZ() + Math.sin(a) * back);
+					if (level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir() && sees(level, q, at)) {
+						return new double[] {q.getX() + 0.5, q.getY(), q.getZ() + 0.5, f.getX(), f.getY() + 1.0, f.getZ()};
+					}
 				}
 			}
 		}
@@ -477,11 +501,18 @@ public class RhythmTour implements FabricClientGameTest {
 				continue;
 			}
 			BlockPos p = BlockPos.of(d.pos());
-			for (int turn = 0; turn < 8; turn++) {
-				double a = turn * Math.PI / 4 + 0.3;
-				BlockPos q = BlockPos.containing(p.getX() + Math.cos(a) * 6, p.getY() + 1.5, p.getZ() + Math.sin(a) * 6);
-				if (level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir()) {
-					return new double[] {q.getX() + 0.5, q.getY(), q.getZ() + 0.5, p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5};
+			for (int lift = 2; lift <= 6; lift += 2) {
+				for (int turn = 0; turn < 8; turn++) {
+					double a = turn * Math.PI / 4 + 0.3;
+					BlockPos q = BlockPos.containing(p.getX() + Math.cos(a) * 7, p.getY() + lift, p.getZ() + Math.sin(a) * 7);
+					net.minecraft.world.phys.Vec3 eye = new net.minecraft.world.phys.Vec3(q.getX() + 0.5, q.getY() + 1.62, q.getZ() + 0.5);
+					net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atCenterOf(p);
+					// a clear view of the line: nothing solid between the eye and the linen
+					if (level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir()
+						&& level.clip(new net.minecraft.world.level.ClipContext(eye, at, net.minecraft.world.level.ClipContext.Block.VISUAL,
+							net.minecraft.world.level.ClipContext.Fluid.NONE, net.minecraft.world.phys.shapes.CollisionContext.empty())).getBlockPos().distManhattan(p) <= 1) {
+						return new double[] {q.getX() + 0.5, q.getY(), q.getZ() + 0.5, p.getX() + 0.5, p.getY() + 0.5, p.getZ() + 0.5};
+					}
 				}
 			}
 		}
@@ -491,7 +522,18 @@ public class RhythmTour implements FabricClientGameTest {
 	private static double @Nullable [] tavernCamera(MinecraftServer server, long town) {
 		SimSettlement s = settlement(server, town);
 		ServerLevel level = server.overworld();
-		for (PlotView p : Venues.built(s, "commerce/inn", "commerce/tavern")) {
+		// the busiest tavern first
+		List<PlotView> taverns = new java.util.ArrayList<>(Venues.built(s, "commerce/inn", "commerce/tavern"));
+		taverns.sort(java.util.Comparator.comparingInt(p -> {
+			int n = 0;
+			for (Folk f : NpcModule.embodiment().entities()) {
+				if ((doing(f, TavernNight.ID) || doing(f, TavernNight.Hands.ID)) && Venues.inside(p.spec(), f.blockPosition())) {
+					n--;
+				}
+			}
+			return n;
+		}));
+		for (PlotView p : taverns) {
 			List<Poi> tables = Venues.inPlot(s.pois(PoiType.TABLE), p);
 			if (tables.isEmpty()) {
 				continue;
@@ -501,13 +543,22 @@ public class RhythmTour implements FabricClientGameTest {
 				for (int turn = 0; turn < 8; turn++) {
 					double a = turn * Math.PI / 4;
 					BlockPos q = BlockPos.containing(t.getX() + Math.cos(a) * r, t.getY() + 1.2, t.getZ() + Math.sin(a) * r);
-					if (level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir() && !level.canSeeSky(q)) {
+					if (level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir() && !level.canSeeSky(q)
+						&& sees(level, q, net.minecraft.world.phys.Vec3.atCenterOf(t))) {
 						return new double[] {q.getX() + 0.5, q.getY(), q.getZ() + 0.5, t.getX() + 0.5, t.getY() + 0.5, t.getZ() + 0.5};
 					}
 				}
 			}
 		}
 		return null;
+	}
+
+	/** Whether an eye standing at {@code q} sees {@code at} with nothing solid between (the target's own block aside). */
+	private static boolean sees(ServerLevel level, BlockPos q, net.minecraft.world.phys.Vec3 at) {
+		net.minecraft.world.phys.Vec3 eye = new net.minecraft.world.phys.Vec3(q.getX() + 0.5, q.getY() + 1.62, q.getZ() + 0.5);
+		var hit = level.clip(new net.minecraft.world.level.ClipContext(eye, at, net.minecraft.world.level.ClipContext.Block.VISUAL,
+			net.minecraft.world.level.ClipContext.Fluid.NONE, net.minecraft.world.phys.shapes.CollisionContext.empty()));
+		return hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS || hit.getLocation().distanceTo(at) < 1.2;
 	}
 
 	private static double[] overview(MinecraftServer server, long town) {

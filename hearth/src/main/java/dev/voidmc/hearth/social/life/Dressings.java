@@ -86,7 +86,7 @@ public final class Dressings {
 			// the plots round this one (a part may not stand in them): a short list, not the whole town
 			List<PlotView> round = near(s, centre(home), Math.max(spec.sizeX(), spec.sizeZ()) + 12, 16);
 			int tries = 0;
-			for (int k = 0; k < 40 && tries < 40; k++, tries++) {
+			for (int k = 0; k < 24 && tries < 24; k++, tries++) {
 				long h = TownCalendar.mix(seed + k);
 				Direction along = (h & 1) == 0 ? Direction.EAST : Direction.SOUTH;
 				int span = 3;
