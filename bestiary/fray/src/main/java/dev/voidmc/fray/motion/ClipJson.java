@@ -19,7 +19,11 @@ import org.jspecify.annotations.Nullable;
 /**
  * Reads clips ({@code .motion.json} sources and baked client clips: the same format, the source with extra
  * server-only keys) and writes the canonical client clip. Common code with no Minecraft registries, so the Gradle bake
- * runs it as a plain {@code main}.
+ * runs it as a plain {@code main}. The clip's rig must be registered first ({@link RigJson#register}); the humanoid
+ * always is.
+ *
+ * <p>Source keys: {@code format id rig length loop blend blend_in blend_out mask move_mask sync_walk bones fp motion
+ * cues} (client) and {@code markers locators hits hurts windows checks model_scale damage} (server, bake).
  */
 public final class ClipJson {
 	public static final int FORMAT = 1;
@@ -37,28 +41,38 @@ public final class ClipJson {
 			throw new IllegalArgumentException(fallbackId + ": clip format " + format + ", this Fray reads " + FORMAT);
 		}
 		Identifier id = o.has("id") ? Identifier.parse(o.get("id").getAsString()) : fallbackId;
-		Identifier rig = Identifier.parse(o.has("rig") ? o.get("rig").getAsString() : HumanoidRig.ID.toString());
-		if (!rig.equals(HumanoidRig.ID)) {
-			throw new IllegalArgumentException(id + ": rig " + rig + " (the prototype knows only " + HumanoidRig.ID + ")");
-		}
+		Rig rig = RigJson.require(Identifier.parse(o.has("rig") ? o.get("rig").getAsString() : HumanoidRig.ID.toString()));
+		int n = rig.bones();
 		float length = o.get("length").getAsFloat();
 		Clip.Loop loop = o.has("loop") ? (o.get("loop").isJsonPrimitive() && o.get("loop").getAsJsonPrimitive().isBoolean()
 			? (o.get("loop").getAsBoolean() ? Clip.Loop.LOOP : Clip.Loop.NONE) : Clip.Loop.parse(o.get("loop").getAsString())) : Clip.Loop.NONE;
+		Clip.Blend blend = o.has("blend") ? Clip.Blend.valueOf(o.get("blend").getAsString().toUpperCase(Locale.ROOT)) : Clip.Blend.OVERRIDE;
 		int blendIn = o.has("blend_in") ? o.get("blend_in").getAsInt() : 3;
 		int blendOut = o.has("blend_out") ? o.get("blend_out").getAsInt() : 4;
-		float[] mask = new float[HumanoidRig.BONES];
+		float[] mask = new float[n];
 		Arrays.fill(mask, 1);
 		if (o.has("mask")) {
 			for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("mask").entrySet()) {
-				mask[HumanoidRig.bone(e.getKey())] = e.getValue().getAsFloat();
+				mask[rig.bone(e.getKey())] = e.getValue().getAsFloat();
 			}
 		}
-		Channel[] rot = new Channel[HumanoidRig.BONES];
-		Channel[] pos = new Channel[HumanoidRig.BONES];
-		Channel[] scl = new Channel[HumanoidRig.BONES];
+		float[] moveMask = null;
+		if (o.has("move_mask")) {
+			moveMask = mask.clone();
+			for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("move_mask").entrySet()) {
+				moveMask[rig.bone(e.getKey())] = e.getValue().getAsFloat();
+			}
+		}
+		float syncWalk = o.has("sync_walk") ? o.get("sync_walk").getAsFloat() : 0;
+		Channel[] rot = new Channel[n];
+		Channel[] pos = new Channel[n];
+		Channel[] scl = new Channel[n];
 		if (o.has("bones")) {
 			for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("bones").entrySet()) {
-				int bone = HumanoidRig.bone(e.getKey());
+				int bone = rig.bone(e.getKey());
+				if (rig.helper[bone]) {
+					throw new IllegalArgumentException(id + ": bone " + e.getKey() + " is a cube-rotation helper of " + rig.id + " and can't be animated");
+				}
 				JsonObject b = e.getValue().getAsJsonObject();
 				for (String key : b.keySet()) {
 					if (!key.equals("rotation") && !key.equals("position") && !key.equals("scale")) {
@@ -73,14 +87,21 @@ public final class ClipJson {
 		Clip.FirstPerson fp = null;
 		if (o.has("fp")) {
 			JsonObject f = o.getAsJsonObject("fp");
-			Channel[] fpRot = new Channel[HumanoidRig.BONES];
+			Channel[] fpRot = new Channel[n];
+			Channel[] fpPos = new Channel[n];
 			if (f.has("bones")) {
 				for (Map.Entry<String, JsonElement> e : f.getAsJsonObject("bones").entrySet()) {
-					fpRot[HumanoidRig.bone(e.getKey())] = channel(e.getValue().getAsJsonObject().getAsJsonArray("rotation"));
+					JsonObject b = e.getValue().getAsJsonObject();
+					int bone = rig.bone(e.getKey());
+					fpRot[bone] = b.has("rotation") ? channel(b.getAsJsonArray("rotation")) : null;
+					fpPos[bone] = b.has("position") ? channel(b.getAsJsonArray("position")) : null;
 				}
 			}
+			JsonObject cam = f.has("camera") ? f.getAsJsonObject("camera") : null;
 			fp = new Clip.FirstPerson(f.has("framing") ? f.get("framing").getAsString() : "fray:default", f.has("offset") ? vec(f.getAsJsonArray("offset")) : new float[3],
-				f.has("pitch") ? f.get("pitch").getAsFloat() : 0, f.has("camera") ? channel(f.getAsJsonObject("camera").getAsJsonArray("rotation")) : null, fpRot);
+				f.has("pitch") ? f.get("pitch").getAsFloat() : 0, cam != null && cam.has("rotation") ? channel(cam.getAsJsonArray("rotation")) : null,
+				cam != null && cam.has("position") ? channel(cam.getAsJsonArray("position")) : null, fpRot, fpPos,
+				f.has("hide_arms") && f.get("hide_arms").getAsBoolean());
 		}
 		List<Clip.Cue> cues = new ArrayList<>();
 		if (o.has("cues")) {
@@ -100,8 +121,9 @@ public final class ClipJson {
 		if (o.has("locators")) {
 			for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("locators").entrySet()) {
 				JsonObject l = e.getValue().getAsJsonObject();
-				locators.put(e.getKey(), new Clip.Locator(e.getKey(), HumanoidRig.bone(l.get("bone").getAsString()), vec(l.getAsJsonArray("a")),
-					vec(l.getAsJsonArray("b")), l.has("radius") ? l.get("radius").getAsFloat() : 0.3F));
+				float[] a = vec(l.getAsJsonArray("a"));
+				locators.put(e.getKey(), new Clip.Locator(e.getKey(), rig.bone(l.get("bone").getAsString()), a,
+					l.has("b") ? vec(l.getAsJsonArray("b")) : a.clone(), l.has("radius") ? l.get("radius").getAsFloat() : 0.3F));
 			}
 		}
 		List<String> hits = new ArrayList<>();
@@ -112,11 +134,50 @@ public final class ClipJson {
 		} else {
 			hits.addAll(locators.keySet());
 		}
-		float modelScale = o.has("model_scale") ? o.get("model_scale").getAsFloat() : 1;
+		Map<String, int[]> hurts = new LinkedHashMap<>();
+		if (o.has("hurts")) {
+			for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("hurts").entrySet()) {
+				hurts.put(e.getKey(), ticks(e.getValue().getAsJsonArray()));
+			}
+		}
+		// Hit and hurt volumes may name the rig's own locators (authored in Blockbench as hv_ locators).
+		for (String h : concat(hits, hurts.keySet())) {
+			if (!locators.containsKey(h) && rig.locators.containsKey(h)) {
+				Rig.Locator rl = rig.locators.get(h);
+				locators.put(h, new Clip.Locator(h, rl.bone(), rl.a(), rl.b(), rl.radius()));
+			}
+		}
+		Map<String, int[]> windows = new LinkedHashMap<>();
+		if (o.has("windows")) {
+			for (Map.Entry<String, JsonElement> e : o.getAsJsonObject("windows").entrySet()) {
+				windows.put(e.getKey(), ticks(e.getValue().getAsJsonArray()));
+			}
+		}
+		List<String> checks = new ArrayList<>();
+		if (o.has("checks")) {
+			for (JsonElement e : o.getAsJsonArray("checks")) {
+				checks.add(e.getAsString());
+			}
+		}
+		float modelScale = o.has("model_scale") ? o.get("model_scale").getAsFloat() : rig.modelScale;
 		float damage = o.has("damage") ? o.get("damage").getAsFloat() : 0;
-		float[] motion = o.has("motion") ? vec(o.getAsJsonArray("motion")) : null;
-		return new Clip(id, rig, length, loop, blendIn, blendOut, mask, rot, pos, scl, fp, List.copyOf(cues), List.copyOf(markers), locators,
-			List.copyOf(hits), modelScale, damage, motion);
+		float[] motion = null;
+		if (o.has("motion")) {
+			JsonArray m = o.getAsJsonArray("motion");
+			motion = new float[] {m.get(0).getAsFloat(), m.get(1).getAsFloat(), m.get(2).getAsFloat(), m.size() > 3 ? m.get(3).getAsFloat() : 0};
+		}
+		return new Clip(id, rig, length, loop, blend, blendIn, blendOut, mask, moveMask, syncWalk, rot, pos, scl, fp, List.copyOf(cues), List.copyOf(markers),
+			locators, List.copyOf(hits), hurts, windows, List.copyOf(checks), modelScale, damage, motion);
+	}
+
+	private static List<String> concat(List<String> a, java.util.Collection<String> b) {
+		List<String> out = new ArrayList<>(a);
+		out.addAll(b);
+		return out;
+	}
+
+	private static int[] ticks(JsonArray a) {
+		return new int[] {a.get(0).getAsInt(), a.get(1).getAsInt()};
 	}
 
 	private static float[] vec(JsonArray a) {
@@ -147,30 +208,32 @@ public final class ClipJson {
 	 * always gives the same bytes (and the same hash).
 	 */
 	public static String writeClient(Clip c) {
+		Rig rig = c.rig;
 		StringBuilder s = new StringBuilder(1024);
 		s.append("{\n");
 		s.append("  \"format\": ").append(FORMAT).append(",\n");
 		s.append("  \"id\": \"").append(c.id).append("\",\n");
-		s.append("  \"rig\": \"").append(c.rig).append("\",\n");
+		s.append("  \"rig\": \"").append(rig.id).append("\",\n");
 		s.append("  \"length\": ").append(num(c.length)).append(",\n");
 		s.append("  \"loop\": \"").append(c.loop.id()).append("\",\n");
-		s.append("  \"blend_in\": ").append(c.blendIn).append(", \"blend_out\": ").append(c.blendOut).append(",\n");
-		s.append("  \"mask\": {");
-		boolean first = true;
-		for (int b = 0; b < HumanoidRig.BONES; b++) {
-			if (c.mask[b] != 1) {
-				s.append(first ? " " : ", ").append('"').append(HumanoidRig.NAMES.get(b)).append("\": ").append(num(c.mask[b]));
-				first = false;
-			}
+		if (c.blend != Clip.Blend.OVERRIDE) {
+			s.append("  \"blend\": \"").append(c.blend.id()).append("\",\n");
 		}
-		s.append(first ? "},\n" : " },\n");
+		s.append("  \"blend_in\": ").append(c.blendIn).append(", \"blend_out\": ").append(c.blendOut).append(",\n");
+		s.append("  \"mask\": ").append(maskJson(rig, c.mask, null)).append(",\n");
+		if (c.moveMask != null) {
+			s.append("  \"move_mask\": ").append(maskJson(rig, c.moveMask, c.mask)).append(",\n");
+		}
+		if (c.syncWalk > 0) {
+			s.append("  \"sync_walk\": ").append(num(c.syncWalk)).append(",\n");
+		}
 		s.append("  \"bones\": {");
-		first = true;
-		for (int b = 0; b < HumanoidRig.BONES; b++) {
+		boolean first = true;
+		for (int b = 0; b < rig.bones(); b++) {
 			if (c.rotation[b] == null && c.position[b] == null && c.scale[b] == null) {
 				continue;
 			}
-			s.append(first ? "\n" : ",\n").append("    \"").append(HumanoidRig.NAMES.get(b)).append("\": {");
+			s.append(first ? "\n" : ",\n").append("    \"").append(rig.name(b)).append("\": {");
 			boolean firstCh = true;
 			String[] names = {"rotation", "position", "scale"};
 			Channel[] chs = {c.rotation[b], c.position[b], c.scale[b]};
@@ -186,21 +249,42 @@ public final class ClipJson {
 		}
 		s.append(first ? "},\n" : "\n  },\n");
 		if (c.fp != null) {
-			s.append("  \"fp\": { \"framing\": \"").append(c.fp.framing()).append("\", \"offset\": [").append(num(c.fp.offset()[0])).append(", ")
-				.append(num(c.fp.offset()[1])).append(", ").append(num(c.fp.offset()[2])).append("], \"pitch\": ").append(num(c.fp.pitch()));
-			if (c.fp.camera() != null) {
-				s.append(", \"camera\": { \"rotation\": ");
-				writeChannel(s, c.fp.camera());
+			Clip.FirstPerson f = c.fp;
+			s.append("  \"fp\": { \"framing\": \"").append(f.framing()).append("\", \"offset\": [").append(num(f.offset()[0])).append(", ")
+				.append(num(f.offset()[1])).append(", ").append(num(f.offset()[2])).append("], \"pitch\": ").append(num(f.pitch()));
+			if (f.hideArms()) {
+				s.append(", \"hide_arms\": true");
+			}
+			if (f.camera() != null || f.cameraPos() != null) {
+				s.append(",\n    \"camera\": {");
+				if (f.camera() != null) {
+					s.append(" \"rotation\": ");
+					writeChannel(s, f.camera());
+				}
+				if (f.cameraPos() != null) {
+					s.append(f.camera() != null ? ", \"position\": " : " \"position\": ");
+					writeChannel(s, f.cameraPos());
+				}
 				s.append(" }");
 			}
 			boolean anyBone = false;
-			for (int b = 0; b < HumanoidRig.BONES; b++) {
-				if (c.fp.rotation() != null && c.fp.rotation()[b] != null) {
-					s.append(anyBone ? ",\n      \"" : ",\n    \"bones\": {\n      \"").append(HumanoidRig.NAMES.get(b)).append("\": { \"rotation\": ");
-					writeChannel(s, c.fp.rotation()[b]);
-					s.append(" }");
-					anyBone = true;
+			for (int b = 0; b < rig.bones(); b++) {
+				Channel r = f.rotation() == null ? null : f.rotation()[b];
+				Channel p = f.position() == null ? null : f.position()[b];
+				if (r == null && p == null) {
+					continue;
 				}
+				s.append(anyBone ? ",\n      \"" : ",\n    \"bones\": {\n      \"").append(rig.name(b)).append("\": {");
+				if (r != null) {
+					s.append(" \"rotation\": ");
+					writeChannel(s, r);
+				}
+				if (p != null) {
+					s.append(r != null ? ", \"position\": " : " \"position\": ");
+					writeChannel(s, p);
+				}
+				s.append(" }");
+				anyBone = true;
 			}
 			if (anyBone) {
 				s.append("\n    }");
@@ -208,7 +292,11 @@ public final class ClipJson {
 			s.append(" },\n");
 		}
 		if (c.motion != null) {
-			s.append("  \"motion\": [").append(num(c.motion[0])).append(", ").append(num(c.motion[1])).append(", ").append(num(c.motion[2])).append("],\n");
+			s.append("  \"motion\": [").append(num(c.motion[0])).append(", ").append(num(c.motion[1])).append(", ").append(num(c.motion[2]));
+			if (c.motion[3] != 0) {
+				s.append(", ").append(num(c.motion[3]));
+			}
+			s.append("],\n");
 		}
 		s.append("  \"cues\": [");
 		for (int i = 0; i < c.cues.size(); i++) {
@@ -217,6 +305,18 @@ public final class ClipJson {
 		}
 		s.append("]\n}\n");
 		return s.toString();
+	}
+
+	private static String maskJson(Rig rig, float[] mask, float @Nullable [] base) {
+		StringBuilder s = new StringBuilder("{");
+		boolean first = true;
+		for (int b = 0; b < rig.bones(); b++) {
+			if (base == null ? mask[b] != 1 : mask[b] != base[b]) {
+				s.append(first ? " " : ", ").append('"').append(rig.name(b)).append("\": ").append(num(mask[b]));
+				first = false;
+			}
+		}
+		return s.append(first ? "}" : " }").toString();
 	}
 
 	private static void writeChannel(StringBuilder s, Channel ch) {

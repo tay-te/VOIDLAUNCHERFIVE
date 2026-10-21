@@ -65,6 +65,29 @@ public final class MotionPayloads {
 		}
 	}
 
+	/** Server → client, once a second: the RTT probe for defender-favoured timing (echoed at once). */
+	public record Clock(long serverNanos) implements CustomPacketPayload {
+		public static final Type<Clock> TYPE = new Type<>(Fray.id("motion/clock"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Clock> STREAM_CODEC = StreamCodec.composite(ByteBufCodecs.VAR_LONG, Clock::serverNanos, Clock::new);
+
+		@Override
+		public Type<Clock> type() {
+			return TYPE;
+		}
+	}
+
+	/** Client → server: the probe's echo. */
+	public record ClockAck(long serverNanos) implements CustomPacketPayload {
+		public static final Type<ClockAck> TYPE = new Type<>(Fray.id("motion/clock_ack"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, ClockAck> STREAM_CODEC = StreamCodec.composite(ByteBufCodecs.VAR_LONG, ClockAck::serverNanos,
+			ClockAck::new);
+
+		@Override
+		public Type<ClockAck> type() {
+			return TYPE;
+		}
+	}
+
 	/** Configuration phase, both ways: protocol, the clip set's hash and size (the family handshake, CONTRACTS.md §16). */
 	public record Hello(int protocol, String version, String clipSet, int clips) implements CustomPacketPayload {
 		public static final Type<Hello> TYPE = new Type<>(Fray.id("hello"));

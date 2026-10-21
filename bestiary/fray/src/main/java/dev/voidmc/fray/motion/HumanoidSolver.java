@@ -51,16 +51,27 @@ public final class HumanoidSolver {
 				p.yScale += (r.yScale + v[o + 7] - p.yScale) * w;
 				p.zScale += (r.zScale + v[o + 8] - p.zScale) * w;
 			}
+			// Additive layers (hit reactions, breathing) on top of everything else.
+			p.xRot += v[o + PoseBuffer.ADD_ROT];
+			p.yRot += v[o + PoseBuffer.ADD_ROT + 1];
+			p.zRot += v[o + PoseBuffer.ADD_ROT + 2];
+			p.x += v[o + PoseBuffer.ADD_POS];
+			p.y += v[o + PoseBuffer.ADD_POS + 1];
+			p.z += v[o + PoseBuffer.ADD_POS + 2];
 		}
 		int t = HumanoidRig.TORSO * PoseBuffer.STRIDE;
 		float wr = v[t + PoseBuffer.W_ROT];
 		float wp = v[t + PoseBuffer.W_POS];
-		if (wr <= 0 && wp <= 0) {
+		float ax = v[t + PoseBuffer.ADD_ROT], ay = v[t + PoseBuffer.ADD_ROT + 1], az = v[t + PoseBuffer.ADD_ROT + 2];
+		float px = v[t + PoseBuffer.ADD_POS], py = v[t + PoseBuffer.ADD_POS + 1], pz = v[t + PoseBuffer.ADD_POS + 2];
+		boolean rotates = wr > 0 || ax != 0 || ay != 0 || az != 0;
+		if (!rotates && wp <= 0 && px == 0 && py == 0 && pz == 0) {
 			return;
 		}
-		// The torso has nothing underneath (it is virtual): lerp(0, offset, weight).
-		this.torso.rotationZYX(v[t + 2] * wr, v[t + 1] * wr, v[t] * wr);
-		float dx = v[t + 3] * wp, dy = v[t + 4] * wp, dz = v[t + 5] * wp;
+		// The torso has nothing underneath (it is virtual): lerp(0, offset, weight), plus the additive layers.
+		this.torso.rotationZYX(v[t + 2] * wr + az, v[t + 1] * wr + ay, v[t] * wr + ax);
+		float dx = v[t + 3] * wp + px, dy = v[t + 4] * wp + py, dz = v[t + 5] * wp + pz;
+		wr = rotates ? 1 : 0;
 		for (int b : CARRIED) {
 			PartPose p = parts[b];
 			this.tmp.set(p.x - HumanoidRig.HIP_X, p.y - HumanoidRig.HIP_Y, p.z - HumanoidRig.HIP_Z);
@@ -86,16 +97,19 @@ public final class HumanoidSolver {
 	 */
 	public boolean rootTransform(PoseBuffer buf, Matrix4f out) {
 		int o = HumanoidRig.ROOT * PoseBuffer.STRIDE;
-		float wr = buf.v[o + PoseBuffer.W_ROT];
-		float wp = buf.v[o + PoseBuffer.W_POS];
-		if (wr <= 0 && wp <= 0) {
+		float[] v = buf.v;
+		float wr = v[o + PoseBuffer.W_ROT];
+		float wp = v[o + PoseBuffer.W_POS];
+		float ax = v[o + PoseBuffer.ADD_ROT], ay = v[o + PoseBuffer.ADD_ROT + 1], az = v[o + PoseBuffer.ADD_ROT + 2];
+		float ux = v[o + PoseBuffer.ADD_POS], uy = v[o + PoseBuffer.ADD_POS + 1], uz = v[o + PoseBuffer.ADD_POS + 2];
+		if (wr <= 0 && wp <= 0 && ax == 0 && ay == 0 && az == 0 && ux == 0 && uy == 0 && uz == 0) {
 			return false;
 		}
 		float px = HumanoidRig.ROOT_PIVOT_X / 16, py = HumanoidRig.ROOT_PIVOT_Y / 16, pz = HumanoidRig.ROOT_PIVOT_Z / 16;
 		out.identity()
-			.translate(buf.v[o + 3] * wp / 16, buf.v[o + 4] * wp / 16, buf.v[o + 5] * wp / 16)
+			.translate((v[o + 3] * wp + ux) / 16, (v[o + 4] * wp + uy) / 16, (v[o + 5] * wp + uz) / 16)
 			.translate(px, py, pz)
-			.rotate(this.quat.rotationZYX(buf.v[o + 2] * wr, buf.v[o + 1] * wr, buf.v[o] * wr))
+			.rotate(this.quat.rotationZYX(v[o + 2] * wr + az, v[o + 1] * wr + ay, v[o] * wr + ax))
 			.translate(-px, -py, -pz);
 		return true;
 	}

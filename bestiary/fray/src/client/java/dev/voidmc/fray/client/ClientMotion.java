@@ -24,7 +24,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The client half of Fray Motion: one {@link Animator} per animated entity, fed by the server's {@code motion/play}
- * packets (and by the local player's predicted actions), sampled once per extracted render state.
+ * packets (and by the local player's predicted actions), sampled once per frame per entity (the render state carries
+ * the pose to every later {@code setupAnim}, Iris's shadow pass included).
  */
 public final class ClientMotion {
 	/** The sampled pose rides in the entity's render state (Fabric's render state data), so every later setupAnim sees it. */
@@ -34,7 +35,9 @@ public final class ClientMotion {
 	public static boolean enabled = true;
 
 	private static final Int2ObjectMap<Animator> ANIMATORS = new Int2ObjectOpenHashMap<>();
-	private static final Map<EntityType<?>, Identifier> BASE_CLIPS = new HashMap<>();
+	/** Per entity type: idle variants (BASE) and walk variants (LOCO), picked per entity. */
+	private static final Map<EntityType<?>, Identifier[]> BASE_CLIPS = new HashMap<>();
+	private static final Map<EntityType<?>, Identifier[]> LOCO_CLIPS = new HashMap<>();
 	private static final Map<Integer, Double> PENDING = new HashMap<>();
 	private static int seq;
 
@@ -42,13 +45,26 @@ public final class ClientMotion {
 	public static final List<String> LOG = new CopyOnWriteArrayList<>();
 	/** Last ack: server start tick minus the predicted local start (ticks). */
 	public static double lastAckOffset = Double.NaN;
+	/** Frames sampled and frames served from the per-frame cache (Iris's shadow pass), for the perf report. */
+	public static long cacheHits;
 
 	private ClientMotion() {
 	}
 
-	/** Every entity of this type loops {@code clip} on its BASE layer (client-side, like locomotion: never sent). */
-	public static void registerBase(EntityType<?> type, Identifier clip) {
-		BASE_CLIPS.put(type, clip);
+	/** Fray's client networking for motion (play, stop, ack, the RTT probe's echo). */
+	public static void init() {
+		ClientPlayNetworking.registerGlobalReceiver(MotionPayloads.Clock.TYPE, (payload, context) -> context.responseSender()
+			.sendPacket(new MotionPayloads.ClockAck(payload.serverNanos())));
+	}
+
+	/** Every entity of this type loops one of {@code clips} on its BASE layer (client-side, never sent), picked per entity. */
+	public static void registerBase(EntityType<?> type, Identifier... clips) {
+		BASE_CLIPS.put(type, clips);
+	}
+
+	/** Every entity of this type plays one of these walk loops on its LOCO layer, synced to its walk cycle. */
+	public static void registerLocomotion(EntityType<?> type, Identifier... clips) {
+		LOCO_CLIPS.put(type, clips);
 	}
 
 	public static double now(float partialTick) {
@@ -76,6 +92,11 @@ public final class ClientMotion {
 		ANIMATORS.remove(entityId);
 	}
 
+	/** Every live animator drops its clips and picks them again (the studio's reload). */
+	public static void restartAll() {
+		ANIMATORS.clear();
+	}
+
 	public static void onPlay(MotionPayloads.Play p) {
 		Clip clip = ClientClips.byIndex(p.clip());
 		if (clip == null) {
@@ -83,7 +104,7 @@ public final class ClientMotion {
 			return;
 		}
 		double now = now(0);
-		animator(p.entity()).play(p.layer(), clip, p.startTick(), p.speed());
+		animator(p.entity()).play(clip.blend == Clip.Blend.ADDITIVE ? Animator.ADD : p.layer(), clip, p.startTick(), p.speed());
 		LOG.add(String.format(Locale.ROOT, "play %d %s start %d now %.0f", p.entity(), clip.id, p.startTick(), now));
 	}
 
@@ -106,8 +127,9 @@ public final class ClientMotion {
 			LOG.add("refused " + ack.seq());
 			return;
 		}
-		// Prediction: the clip started at the press. The server's start is later by about the round trip; the prototype
-		// keeps the predicted start (re-basing smoothly is stage 1) and records the offset.
+		// Prediction: the clip started at the press, on this client's clock (which runs behind the server's by the
+		// downlink latency). The server's start on its own clock is later by about the round trip; on this client's clock
+		// the two agree within a tick or two, so the predicted start stays (no visible correction).
 		lastAckOffset = ack.startTick() - local;
 		LOG.add(String.format(Locale.ROOT, "ack %d server start %d local start %.0f offset %.1f ticks", ack.seq(), ack.startTick(), local, lastAckOffset));
 	}
@@ -120,7 +142,7 @@ public final class ClientMotion {
 			return false;
 		}
 		double start = now(0);
-		animator(mc.player.getId()).play(Animator.ACTION, clip, start, 1);
+		animator(mc.player.getId()).play(clip.blend == Clip.Blend.ADDITIVE ? Animator.ADD : Animator.ACTION, clip, start, 1);
 		int s = ++seq;
 		PENDING.put(s, start);
 		ClientPlayNetworking.send(new MotionPayloads.ActionRequest(ClientClips.indexOf(id), s, (long) start));
@@ -135,29 +157,51 @@ public final class ClientMotion {
 		long t0 = System.nanoTime();
 		Animator a = ANIMATORS.get(entity.getId());
 		if (a == null) {
-			Identifier base = BASE_CLIPS.get(entity.getType());
-			if (base == null) {
-				return;
-			}
-			Clip clip = ClientClips.get(base);
-			if (clip == null) {
+			Identifier[] base = BASE_CLIPS.get(entity.getType());
+			Identifier[] loco = LOCO_CLIPS.get(entity.getType());
+			if (base == null && loco == null) {
 				return;
 			}
 			a = animator(entity.getId());
-			// Each creature's idle starts at its own phase, so a crowd doesn't sway in step.
-			a.play(Animator.BASE, clip, -(entity.getId() * 7L % 40), 1);
+			startLoops(a, entity, base, loco);
 		}
 		double now = now(partialTick);
-		// An idle gives way as the creature walks (vanilla's walk cycle is underneath).
-		float walk = state.walkAnimationSpeed;
-		float baseWeight = walk >= 0.25F ? 0 : 1 - walk * 4;
-		PoseBuffer buf = a.sample(now, baseWeight);
+		long frame = FrayStats.frameId;
+		PoseBuffer buf;
+		if (a.cachedFrame == frame && a.cachedNow == now) {
+			// Iris's shadow pass (or any second extraction this frame): the pose is already sampled.
+			buf = a.cached;
+			cacheHits++;
+		} else {
+			buf = a.sample(now, state.walkAnimationPos, state.walkAnimationSpeed);
+			a.cached = buf;
+			a.cachedFrame = frame;
+			a.cachedNow = now;
+			FrayStats.samples++;
+		}
 		if (buf != null) {
 			state.setData(POSE, buf);
 		}
 		a.lastUsed = Minecraft.getInstance().level == null ? 0 : Minecraft.getInstance().level.getGameTime();
 		FrayStats.sampleNanos += System.nanoTime() - t0;
-		FrayStats.samples++;
+		FrayStats.extracts++;
+	}
+
+	private static void startLoops(Animator a, LivingEntity entity, Identifier @Nullable [] base, Identifier @Nullable [] loco) {
+		// Each creature picks its own variant and starts at its own phase, so a crowd doesn't sway in step.
+		int h = Math.floorMod(entity.getUUID().hashCode() * 31 + entity.getId(), 9973);
+		if (base != null && base.length > 0) {
+			Clip clip = ClientClips.get(base[h % base.length]);
+			if (clip != null) {
+				a.play(Animator.BASE, clip, -(h % 40), 1);
+			}
+		}
+		if (loco != null && loco.length > 0) {
+			Clip clip = ClientClips.get(loco[(h / 7) % loco.length]);
+			if (clip != null) {
+				a.play(Animator.LOCO, clip, 0, 1);
+			}
+		}
 	}
 
 	/** Client tick: the local player's root motion, and pruning animators of entities no longer drawn. */
@@ -172,18 +216,24 @@ public final class ClientMotion {
 		if (player != null) {
 			Animator a = ANIMATORS.get(player.getId());
 			Clip c = a == null ? null : a.clip(Animator.ACTION);
-			if (c != null && c.motion != null) {
+			if (c != null && c.motion != null && Double.isNaN(a.frozenElapsed)) {
 				double e = (now(0) - a.start(Animator.ACTION)) / 20.0;
 				float from = c.motion[0], to = c.motion[1];
 				if (e >= from && e < to && player.onGround()) {
-					double speed = c.motion[2] / ((to - from) * 20.0);
-					Vec3 look = Vec3.directionFromRotation(0, player.getYRot());
+					// Eased: fast at the start of the move, slowing into the recovery (a dash, not a slide).
+					double span = to - from, x = (e - from) / span;
+					double speed = c.motion[2] / (span * 20.0) * 2 * (1 - x) / 1.0;
+					Vec3 dir = Vec3.directionFromRotation(0, player.getYRot() - c.motion[3]);
 					Vec3 v = player.getDeltaMovement();
-					player.setDeltaMovement(look.x * speed, v.y, look.z * speed);
+					player.setDeltaMovement(dir.x * speed, v.y, dir.z * speed);
 				}
 			}
 		}
 		long now = mc.level.getGameTime();
-		ANIMATORS.int2ObjectEntrySet().removeIf(e -> e.getValue().idle() || now - e.getValue().lastUsed > 600);
+		ANIMATORS.int2ObjectEntrySet().removeIf(e -> {
+			Animator an = e.getValue();
+			boolean loopsOnly = an.clip(Animator.ACTION) == null && an.layers[Animator.ADD].cur.clip == null;
+			return an.idle() || now - an.lastUsed > (loopsOnly ? 100 : 600);
+		});
 	}
 }

@@ -9,7 +9,11 @@ import java.util.Arrays;
  */
 public final class FrayStats {
 	public static long sampleNanos;
+	/** Poses sampled (cache misses) and extractions served (every extraction of an animated entity, every pass). */
 	public static long samples;
+	public static long extracts;
+	/** Increments every rendered frame (never reset): the per-frame sample cache's key. */
+	public static long frameId;
 	public static long applyNanos;
 	public static long applies;
 	/** Applies made while Iris draws its shadow pass. */
@@ -27,11 +31,12 @@ public final class FrayStats {
 	}
 
 	public static void reset() {
-		sampleNanos = samples = applyNanos = applies = shadowApplies = rootApplies = fpDraws = frames = 0;
+		sampleNanos = samples = extracts = applyNanos = applies = shadowApplies = rootApplies = fpDraws = frames = 0;
 		lastFrame = 0;
 	}
 
 	public static void frame() {
+		frameId++;
 		long now = System.nanoTime();
 		if (lastFrame != 0) {
 			FRAME_NANOS[(int) (frames % RING)] = now - lastFrame;
@@ -49,8 +54,8 @@ public final class FrayStats {
 	}
 
 	public static String line() {
-		return String.format(java.util.Locale.ROOT, "samples %d (%.2f us each), applies %d (%.2f us each, %d in shadow passes), roots %d, fp draws %d, frames %d",
-			samples, samples == 0 ? 0 : sampleNanos / 1000.0 / samples, applies, applies == 0 ? 0 : applyNanos / 1000.0 / applies, shadowApplies, rootApplies,
+		return String.format(java.util.Locale.ROOT, "extracts %d, samples %d (%.2f us per extract), applies %d (%.2f us each, %d in shadow passes), roots %d, fp draws %d, frames %d",
+			extracts, samples, extracts == 0 ? 0 : sampleNanos / 1000.0 / extracts, applies, applies == 0 ? 0 : applyNanos / 1000.0 / applies, shadowApplies, rootApplies,
 			fpDraws, frames);
 	}
 }

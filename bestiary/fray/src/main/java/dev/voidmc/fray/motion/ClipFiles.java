@@ -64,6 +64,11 @@ public final class ClipFiles {
 		}
 	}
 
+	/** One clip's entry in the set hash: its clip hash, plus its custom rig's hash (hit volumes depend on both). */
+	public static String entryHash(String clipHash, String rigHash) {
+		return rigHash == null || rigHash.isEmpty() ? clipHash : clipHash + "+" + rigHash;
+	}
+
 	/** The clip-set hash: SHA-256 over "id hash" lines in id order. Both sides build it from what they actually loaded. */
 	public static String setHash(Map<Identifier, String> clipHashes) {
 		StringBuilder s = new StringBuilder();

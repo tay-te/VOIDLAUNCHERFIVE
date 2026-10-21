@@ -1,76 +1,163 @@
 package dev.voidmc.fray.motion.bake;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import dev.voidmc.fray.motion.Clip;
 import dev.voidmc.fray.motion.ClipJson;
+import dev.voidmc.fray.motion.Rig;
+import dev.voidmc.fray.motion.RigJson;
 import dev.voidmc.fray.motion.Timeline;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 import net.minecraft.resources.Identifier;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The bake (Gradle task {@code motionBake}): every {@code <src>/<namespace>/<path>.motion.json} becomes
+ * The bake (Gradle task {@code motionBake}):
  * <ul>
- * <li>{@code assets/<namespace>/fray/clip/<path>.json}, the client clip, in the canonical layout of
- * {@link ClipJson#writeClient};</li>
- * <li>{@code data/<namespace>/fray/timeline/<path>.json}, the server timeline, carrying the SHA-256 of the client
- * clip's bytes (the login handshake compares the clip set built from these).</li>
+ * <li>every rig project {@code <rigs>/<namespace>/<path>.bbmodel} (Blockbench, geometry) becomes
+ * {@code assets/<namespace>/fray/rig/<path>.json} (canonical, see {@link RigJson}) and
+ * {@code assets/<namespace>/textures/entity/<path>.png};</li>
+ * <li>every {@code <src>/<namespace>/<path>.motion.json} becomes {@code assets/<namespace>/fray/clip/<path>.json}, the
+ * client clip in the canonical layout of {@link ClipJson#writeClient}, and {@code data/<namespace>/fray/timeline/<path>.json},
+ * the server timeline carrying the SHA-256 of the client clip's bytes (and of its custom rig's file);</li>
+ * <li>a source with {@code "mirror_of": "<path>"} is that clip mirrored left to right (bones swapped, Y and Z
+ * rotations and X positions negated), with its own keys on top;</li>
+ * <li>a report: phases, windows, hit-volume reach, the lowest point of the body (ground check), first-person screen
+ * coverage, warnings. A clip that doesn't validate, or fails a check it asks for, fails the build.</li>
  * </ul>
- * and a report of phases and hit-volume reach. A clip that doesn't validate fails the build.
  */
 public final class MotionBake {
 	private MotionBake() {
 	}
 
+	/** {@code <motion src> <out> <report> [<rig src>]}. */
 	public static void main(String[] args) throws IOException {
 		Path src = Path.of(args[0]);
 		Path out = Path.of(args[1]);
 		Path report = Path.of(args[2]);
+		Path rigs = args.length > 3 ? Path.of(args[3]) : null;
+		Result r = bakeAll(src, rigs, out);
+		Files.createDirectories(report.getParent());
+		Files.write(report, r.lines(), StandardCharsets.UTF_8);
+		for (String l : r.lines()) {
+			System.out.println(l);
+		}
+		if (!r.failures().isEmpty()) {
+			throw new IllegalStateException("motionBake: " + r.failures().size() + " check(s) failed:\n  " + String.join("\n  ", r.failures()));
+		}
+	}
+
+	public record Baked(Clip clip, String clientJson, String clipHash, Timeline timeline) {
+	}
+
+	public record BakedRig(Rig rig, String json, byte @Nullable [] png) {
+	}
+
+	public record Result(Map<Identifier, Baked> clips, Map<Identifier, BakedRig> rigs, List<String> lines, List<String> warnings, List<String> failures) {
+	}
+
+	/** Bakes everything; writes the files under {@code out} when it isn't null (the studio bakes in memory). */
+	public static Result bakeAll(Path src, @Nullable Path rigSrc, @Nullable Path out) throws IOException {
 		List<String> lines = new ArrayList<>();
 		List<String> warnings = new ArrayList<>();
-		int n = 0;
-		List<Path> files;
-		try (Stream<Path> walk = Files.walk(src)) {
-			files = walk.filter(p -> p.getFileName().toString().endsWith(".motion.json")).sorted().toList();
+		List<String> failures = new ArrayList<>();
+		Map<Identifier, BakedRig> rigs = new LinkedHashMap<>();
+		if (rigSrc != null && Files.isDirectory(rigSrc)) {
+			for (Path file : list(rigSrc, ".bbmodel")) {
+				Identifier id = idOf(rigSrc, file, ".bbmodel");
+				List<String> rep = new ArrayList<>();
+				Identifier tex = Identifier.fromNamespaceAndPath(id.getNamespace(), "textures/entity/" + id.getPath() + ".png");
+				BlockbenchImport.RigResult rr = BlockbenchImport.convertRig(JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject(),
+					id, tex, rep);
+				String json = RigJson.write(rr.rig());
+				Rig rig = RigJson.parse(json, ClipJson.sha256(ClipJson.utf8(json)));
+				RigJson.register(rig);
+				rigs.put(id, new BakedRig(rig, json, rr.texturePng()));
+				lines.addAll(rep);
+				if (out != null) {
+					write(out.resolve("assets/" + id.getNamespace() + "/fray/rig/" + id.getPath() + ".json"), json);
+					if (rr.texturePng() != null) {
+						Path png = out.resolve("assets/" + id.getNamespace() + "/textures/entity/" + id.getPath() + ".png");
+						Files.createDirectories(png.getParent());
+						Files.write(png, rr.texturePng());
+					}
+				}
+			}
 		}
+		Map<Identifier, Baked> clips = new LinkedHashMap<>();
+		List<Path> files = list(src, ".motion.json");
 		for (Path file : files) {
 			Path rel = src.relativize(file);
 			if (rel.getNameCount() < 2) {
 				throw new IllegalArgumentException(file + ": motion sources live in <namespace>/<path>.motion.json");
 			}
-			String ns = rel.getName(0).toString();
-			String path = rel.subpath(1, rel.getNameCount()).toString().replace('\\', '/');
-			path = path.substring(0, path.length() - ".motion.json".length());
-			Identifier id = Identifier.fromNamespaceAndPath(ns, path);
+			Identifier id = idOf(src, file, ".motion.json");
 			Baked baked;
 			try {
-				baked = bake(id, Files.readString(file, StandardCharsets.UTF_8), warnings);
+				baked = bake(id, resolve(src, id.getNamespace(), Files.readString(file, StandardCharsets.UTF_8), 0), warnings);
 			} catch (RuntimeException e) {
 				throw new IllegalArgumentException("motionBake: " + rel + ": " + e.getMessage(), e);
 			}
-			write(out.resolve("assets/" + ns + "/fray/clip/" + path + ".json"), baked.clientJson);
-			write(out.resolve("data/" + ns + "/fray/timeline/" + path + ".json"), baked.timeline.write());
+			if (out != null) {
+				write(out.resolve("assets/" + id.getNamespace() + "/fray/clip/" + id.getPath() + ".json"), baked.clientJson);
+				write(out.resolve("data/" + id.getNamespace() + "/fray/timeline/" + id.getPath() + ".json"), baked.timeline.write());
+			}
 			lines.add(describe(baked.clip, baked.timeline));
-			n++;
+			lines.add(checks(baked.clip, warnings, failures));
+			clips.put(id, baked);
 		}
-		lines.add(0, "Fray motion bake: " + n + " clips from " + src);
+		lines.add(0, "Fray motion bake: " + clips.size() + " clips from " + src + ", " + rigs.size() + " custom rigs");
 		for (String w : warnings) {
 			lines.add("WARNING " + w);
 		}
-		Files.createDirectories(report.getParent());
-		Files.write(report, lines, StandardCharsets.UTF_8);
-		for (String l : lines) {
-			System.out.println(l);
+		for (String f : failures) {
+			lines.add("FAILED " + f);
+		}
+		return new Result(clips, rigs, lines, warnings, failures);
+	}
+
+	private static List<Path> list(Path root, String suffix) throws IOException {
+		try (Stream<Path> walk = Files.walk(root)) {
+			return walk.filter(p -> p.getFileName().toString().endsWith(suffix)).sorted().toList();
 		}
 	}
 
-	public record Baked(Clip clip, String clientJson, String clipHash, Timeline timeline) {
+	private static Identifier idOf(Path root, Path file, String suffix) {
+		Path rel = root.relativize(file);
+		String ns = rel.getName(0).toString();
+		String path = rel.subpath(1, rel.getNameCount()).toString().replace('\\', '/');
+		return Identifier.fromNamespaceAndPath(ns, path.substring(0, path.length() - suffix.length()));
+	}
+
+	/** A source with {@code mirror_of} becomes that source mirrored, with its own keys on top. */
+	static String resolve(Path src, String ns, String source, int depth) throws IOException {
+		JsonObject o = JsonParser.parseString(source).getAsJsonObject();
+		if (!o.has("mirror_of")) {
+			return source;
+		}
+		if (depth > 4) {
+			throw new IllegalArgumentException("mirror_of chain too deep");
+		}
+		String of = o.get("mirror_of").getAsString();
+		Path base = src.resolve(ns).resolve(of + ".motion.json");
+		JsonObject mirrored = Mirror.mirror(JsonParser.parseString(resolve(src, ns, Files.readString(base, StandardCharsets.UTF_8), depth + 1)).getAsJsonObject());
+		for (Map.Entry<String, JsonElement> e : o.entrySet()) {
+			if (!e.getKey().equals("mirror_of")) {
+				mirrored.add(e.getKey(), e.getValue());
+			}
+		}
+		return mirrored.toString();
 	}
 
 	/** Parses a source, writes its client clip, hashes it and bakes the timeline from the client clip as parsed back. */
@@ -87,10 +174,38 @@ public final class MotionBake {
 		}
 		// Bake from exactly the curves the client will read (the canonical file rounds to four decimals), with the
 		// source's server-only parts.
-		Clip forBake = new Clip(parsed.id, parsed.rig, client.length, client.loop, client.blendIn, client.blendOut, client.mask, client.rotation,
-			client.position, client.scale, client.fp, client.cues, parsed.markers, parsed.locators, parsed.hits, parsed.modelScale, parsed.damage, client.motion);
+		Clip forBake = client.withServerParts(parsed);
 		Timeline timeline = TimelineBaker.bake(forBake, hash, warnings);
-		return new Baked(parsed, clientJson, hash, timeline);
+		Checks.euler(forBake, warnings);
+		return new Baked(forBake, clientJson, hash, timeline);
+	}
+
+	/** The looks checks' report line; failures for the checks the clip asked for. */
+	public static String checks(Clip clip, List<String> warnings, List<String> failures) {
+		StringBuilder s = new StringBuilder("      checks:");
+		if (clip.blend == Clip.Blend.ADDITIVE) {
+			return s.append(" (additive: none)").toString();
+		}
+		Checks.Ground g = Checks.ground(clip);
+		s.append(String.format(Locale.ROOT, " lowest %.3f blocks at %.2f s", g.lowest(), g.atSeconds()));
+		if (g.lowest() < -Checks.GROUND_TOLERANCE) {
+			String msg = String.format(Locale.ROOT, "%s: the body goes %.1f px below the ground at %.2f s", clip.id, -g.lowest() * 16, g.atSeconds());
+			if (clip.checks.contains("ground")) {
+				failures.add(msg);
+			} else if (clip.motion != null || clip.rotation[0] != null) {
+				warnings.add(msg);
+			}
+		}
+		if (clip.fp != null) {
+			Checks.Framing f = Checks.firstPerson(clip);
+			s.append(String.format(Locale.ROOT, " | first person: arms cover up to %.0f %% of the screen at %.2f s%s", f.maxCoverage() * 100, f.atSeconds(),
+				f.throughCamera() ? " (an arm reaches the camera)" : ""));
+			if (clip.checks.contains("fp_framing") && (f.maxCoverage() > Checks.FP_LIMIT || f.throughCamera())) {
+				failures.add(String.format(Locale.ROOT, "%s: first-person arms cover %.0f %% of the screen at %.2f s%s (limit %.0f %%)", clip.id, f.maxCoverage() * 100,
+					f.atSeconds(), f.throughCamera() ? " and reach the camera" : "", Checks.FP_LIMIT * 100));
+			}
+		}
+		return s.toString();
 	}
 
 	private static void write(Path file, String text) throws IOException {
@@ -100,28 +215,141 @@ public final class MotionBake {
 
 	public static String describe(Clip clip, Timeline t) {
 		StringBuilder s = new StringBuilder();
-		s.append(String.format(Locale.ROOT, "%-34s %3d ticks %-5s hash %s", clip.id, t.ticks, clip.loop.id(), t.clipHash.substring(0, 12)));
+		s.append(String.format(Locale.ROOT, "%-38s %3d ticks %-5s hash %s", clip.id, t.ticks, clip.loop.id(), t.clipHash.substring(0, 12)));
+		if (!clip.rig.humanoid) {
+			s.append(" rig ").append(clip.rig.id);
+		}
+		for (int[] st : t.strikes) {
+			s.append(String.format(Locale.ROOT, " | active %d-%d", st[0], st[1] - 1));
+		}
 		if (t.hasPhases()) {
-			s.append(String.format(Locale.ROOT, " | windup 0-%d active %d-%d recovery %d-%d", t.activeStart - 1, t.activeStart, t.activeEnd - 1, t.activeEnd,
-				t.ticks - 1));
+			s.append(String.format(Locale.ROOT, " (windup 0-%d, recovery %d-%d)", t.activeStart - 1, t.strikes[t.strikes.length - 1][1], t.ticks - 1));
+		}
+		for (Map.Entry<String, int[]> w : t.windows.entrySet()) {
+			s.append(" | ").append(w.getKey()).append(' ').append(w.getValue()[0]).append('-').append(w.getValue()[1]);
 		}
 		if (t.tellFrom >= 0) {
 			s.append(" | tell ").append(t.tellColour).append(" from ").append(t.tellFrom);
 		}
-		for (Map.Entry<String, Timeline.Capsule[]> e : t.volumes.entrySet()) {
+		for (Map.Entry<String, Timeline.Track> e : t.volumes.entrySet()) {
 			float reach = 0, lo = Float.MAX_VALUE, hi = -Float.MAX_VALUE;
-			for (Timeline.Capsule c : e.getValue()) {
+			Timeline.Track tr = e.getValue();
+			for (int i = 0; i < tr.caps().length; i++) {
+				if (!t.isActive(tr.from() + i)) {
+					continue;
+				}
+				Timeline.Capsule c = tr.caps()[i];
 				reach = Math.max(reach, c.reach());
 				lo = Math.min(lo, Math.min(c.ay(), c.by()) - c.r());
 				hi = Math.max(hi, Math.max(c.ay(), c.by()) + c.r());
 			}
 			s.append(String.format(Locale.ROOT, " | %s reach %.2f, height %.2f-%.2f", e.getKey(), reach, lo, hi));
-			for (int i = 0; i < e.getValue().length; i++) {
-				Timeline.Capsule c = e.getValue()[i];
-				s.append(String.format(Locale.ROOT, "%n      tick %2d  a(%5.2f %5.2f %5.2f) b(%5.2f %5.2f %5.2f) r %.2f", t.activeStart + i, c.ax(), c.ay(), c.az(), c.bx(),
-					c.by(), c.bz(), c.r()));
+			for (int i = 0; i < tr.caps().length; i++) {
+				Timeline.Capsule c = tr.caps()[i];
+				s.append(String.format(Locale.ROOT, "%n      tick %2d%s a(%5.2f %5.2f %5.2f) b(%5.2f %5.2f %5.2f) r %.2f", tr.from() + i, t.isActive(tr.from() + i) ? "*" : " ",
+					c.ax(), c.ay(), c.az(), c.bx(), c.by(), c.bz(), c.r()));
 			}
 		}
+		for (Map.Entry<String, Timeline.Track> e : t.hurtVolumes.entrySet()) {
+			s.append(String.format(Locale.ROOT, " | hurt %s ticks %d-%d", e.getKey(), e.getValue().from(), e.getValue().from() + e.getValue().caps().length - 1));
+		}
 		return s.toString();
+	}
+
+	/** Left-right mirroring of a motion source (model space mirrors across X). */
+	static final class Mirror {
+		private Mirror() {
+		}
+
+		static JsonObject mirror(JsonObject o) {
+			JsonObject m = o.deepCopy();
+			if (m.has("bones")) {
+				m.add("bones", bones(m.getAsJsonObject("bones")));
+			}
+			if (m.has("fp") && m.getAsJsonObject("fp").has("bones")) {
+				JsonObject fp = m.getAsJsonObject("fp");
+				fp.add("bones", bones(fp.getAsJsonObject("bones")));
+				if (fp.has("offset")) {
+					JsonArray off = fp.getAsJsonArray("offset");
+					off.set(0, new com.google.gson.JsonPrimitive(-off.get(0).getAsFloat()));
+				}
+				if (fp.has("camera") && fp.getAsJsonObject("camera").has("rotation")) {
+					// Camera yaw and roll flip; pitch stays.
+					fp.getAsJsonObject("camera").add("rotation", keys(fp.getAsJsonObject("camera").getAsJsonArray("rotation"), 1, -1, -1));
+				}
+			}
+			for (String k : new String[] {"mask", "move_mask"}) {
+				if (m.has(k)) {
+					JsonObject in = m.getAsJsonObject(k), outM = new JsonObject();
+					for (Map.Entry<String, JsonElement> e : in.entrySet()) {
+						outM.add(Rig.mirrorName(e.getKey()), e.getValue());
+					}
+					m.add(k, outM);
+				}
+			}
+			if (m.has("locators")) {
+				JsonObject in = m.getAsJsonObject("locators"), outL = new JsonObject();
+				for (Map.Entry<String, JsonElement> e : in.entrySet()) {
+					JsonObject l = e.getValue().getAsJsonObject().deepCopy();
+					l.addProperty("bone", Rig.mirrorName(l.get("bone").getAsString()));
+					for (String ab : new String[] {"a", "b"}) {
+						if (l.has(ab)) {
+							JsonArray v = l.getAsJsonArray(ab);
+							v.set(0, new com.google.gson.JsonPrimitive(-v.get(0).getAsFloat()));
+						}
+					}
+					outL.add(Rig.mirrorName(e.getKey()), l);
+				}
+				m.add("locators", outL);
+			}
+			if (m.has("hits")) {
+				JsonArray h = new JsonArray();
+				for (JsonElement e : m.getAsJsonArray("hits")) {
+					h.add(Rig.mirrorName(e.getAsString()));
+				}
+				m.add("hits", h);
+			}
+			if (m.has("motion")) {
+				JsonArray mo = m.getAsJsonArray("motion");
+				if (mo.size() > 3) {
+					mo.set(3, new com.google.gson.JsonPrimitive(-mo.get(3).getAsFloat()));
+				}
+			}
+			m.remove("id");
+			return m;
+		}
+
+		private static JsonObject bones(JsonObject in) {
+			JsonObject out = new JsonObject();
+			for (Map.Entry<String, JsonElement> e : in.entrySet()) {
+				JsonObject b = e.getValue().getAsJsonObject(), nb = new JsonObject();
+				if (b.has("rotation")) {
+					nb.add("rotation", keys(b.getAsJsonArray("rotation"), 1, -1, -1));
+				}
+				if (b.has("position")) {
+					nb.add("position", keys(b.getAsJsonArray("position"), -1, 1, 1));
+				}
+				if (b.has("scale")) {
+					nb.add("scale", b.get("scale"));
+				}
+				out.add(Rig.mirrorName(e.getKey()), nb);
+			}
+			return out;
+		}
+
+		private static JsonArray keys(JsonArray keys, float sx, float sy, float sz) {
+			JsonArray out = new JsonArray();
+			for (JsonElement ke : keys) {
+				JsonArray k = ke.getAsJsonArray().deepCopy();
+				JsonArray v = k.get(1).getAsJsonArray();
+				JsonArray nv = new JsonArray();
+				nv.add(v.get(0).getAsFloat() * sx + 0F);
+				nv.add(v.get(1).getAsFloat() * sy + 0F);
+				nv.add(v.get(2).getAsFloat() * sz + 0F);
+				k.set(1, nv);
+				out.add(k);
+			}
+			return out;
+		}
 	}
 }

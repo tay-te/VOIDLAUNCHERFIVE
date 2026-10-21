@@ -31,7 +31,10 @@ class BakeTest {
 		assertEquals(11, t.activeStart);
 		assertEquals(14, t.activeEnd);
 		assertEquals(3, t.tellFrom);
-		Timeline.Capsule[] caps = t.volumes.get("claw_r");
+		Timeline.Track track = t.volumes.get("claw_r");
+		// The track starts the tick before ACTIVE (where the first sweep starts).
+		assertEquals(10, track.from());
+		Timeline.Capsule[] caps = java.util.Arrays.copyOfRange(track.caps(), 1, track.caps().length);
 		assertEquals(3, caps.length);
 		float reach = 0;
 		for (Timeline.Capsule c : caps) {

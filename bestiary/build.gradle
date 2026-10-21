@@ -77,6 +77,8 @@ dependencies {
 //   ./gradlew bbImport -Pbb=<file.bbmodel>   Blockbench animations → src/main/motion/<rig>/<name>.motion.json
 // ---------------------------------------------------------------------------------------------
 def motionSrc = file('src/main/motion')
+// Custom rigs (VOID's own creatures): Blockbench projects with geometry, src/main/blockbench/rig/<ns>/<name>.bbmodel.
+def rigSrc = file('src/main/blockbench/rig')
 def motionOut = layout.buildDirectory.dir('generated/motion')
 def motionReport = layout.buildDirectory.file('motion-report.txt')
 tasks.register('motionBake', JavaExec) {
@@ -84,6 +86,7 @@ tasks.register('motionBake', JavaExec) {
 	description = 'Bakes src/main/motion into client clips and server timelines'
 	dependsOn ':fray:classes'
 	inputs.dir(motionSrc).withPropertyName('motion')
+	inputs.dir(rigSrc).withPropertyName('rigs').optional()
 	inputs.files(frayProject.sourceSets.main.output).withPropertyName('bakerClasses')
 	outputs.dir(motionOut)
 	outputs.file(motionReport)
@@ -92,7 +95,7 @@ tasks.register('motionBake', JavaExec) {
 	doFirst {
 		project.delete(motionOut)
 	}
-	args motionSrc.absolutePath, motionOut.get().asFile.absolutePath, motionReport.get().asFile.absolutePath
+	args motionSrc.absolutePath, motionOut.get().asFile.absolutePath, motionReport.get().asFile.absolutePath, rigSrc.absolutePath
 }
 
 tasks.register('bbImport', JavaExec) {

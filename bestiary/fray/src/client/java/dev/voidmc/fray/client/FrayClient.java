@@ -24,6 +24,7 @@ public final class FrayClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(MotionPayloads.Play.TYPE, (payload, context) -> ClientMotion.onPlay(payload));
 		ClientPlayNetworking.registerGlobalReceiver(MotionPayloads.Stop.TYPE, (payload, context) -> ClientMotion.onStop(payload));
 		ClientPlayNetworking.registerGlobalReceiver(MotionPayloads.ActionAck.TYPE, (payload, context) -> ClientMotion.onAck(payload));
+		ClientMotion.init();
 		ClientTickEvents.END_CLIENT_TICK.register(ClientMotion::tick);
 		ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> ClientMotion.remove(entity.getId()));
 	}

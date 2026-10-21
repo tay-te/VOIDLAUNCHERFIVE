@@ -6,7 +6,6 @@ import dev.voidmc.fray.motion.HumanoidSolver;
 import dev.voidmc.fray.motion.PartPose;
 import dev.voidmc.fray.motion.PoseBuffer;
 import java.util.Map;
-import java.util.WeakHashMap;
 import net.fabricmc.fabric.api.client.rendering.v1.FabricRenderState;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.Model;
@@ -24,11 +23,10 @@ import org.jspecify.annotations.Nullable;
 public final class PoseApply {
 	private static final HumanoidSolver SOLVER = new HumanoidSolver();
 	private static final PartPose[] UNDER = HumanoidRig.restPose();
-	private record Binding(ModelPart[] parts, PartPose[] rest) {
-	}
+	private static final ModelPart[] PARTS = new ModelPart[HumanoidRig.LAST_PART - HumanoidRig.FIRST_PART + 1];
 
-	/** Per model instance: its parts in bone order and its rest pose (looked up once). */
-	private static final Map<HumanoidModel<?>, Binding> BINDINGS = new WeakHashMap<>();
+	/** Per model class: its rest pose (looked up once; every instance of a class shares its part layout). */
+	private static final Map<Class<?>, PartPose[]> REST = new java.util.concurrent.ConcurrentHashMap<>();
 
 	private PoseApply() {
 	}
@@ -43,7 +41,7 @@ public final class PoseApply {
 			return;
 		}
 		PoseBuffer buf = pose(state);
-		if (buf == null || !ClientMotion.enabled) {
+		if (buf == null || !ClientMotion.enabled || !buf.rig.humanoid) {
 			return;
 		}
 		long t0 = System.nanoTime();
@@ -56,9 +54,14 @@ public final class PoseApply {
 	}
 
 	public static void applyHumanoid(HumanoidModel<?> m, PoseBuffer buf) {
-		Binding bind = BINDINGS.computeIfAbsent(m, k -> new Binding(parts(k), rest(k)));
-		ModelPart[] parts = bind.parts();
-		PartPose[] rest = bind.rest();
+		PartPose[] rest = REST.computeIfAbsent(m.getClass(), k -> rest(m));
+		ModelPart[] parts = PARTS;
+		parts[0] = m.head;
+		parts[1] = m.body;
+		parts[2] = m.rightArm;
+		parts[3] = m.leftArm;
+		parts[4] = m.rightLeg;
+		parts[5] = m.leftLeg;
 		for (int b = HumanoidRig.FIRST_PART; b <= HumanoidRig.LAST_PART; b++) {
 			read(parts[b - HumanoidRig.FIRST_PART], UNDER[b]);
 		}
@@ -118,6 +121,6 @@ public final class PoseApply {
 	/** The root transform for this state's pose, or null (applied to the PoseStack after setupRotations). */
 	public static boolean root(Object state, org.joml.Matrix4f out) {
 		PoseBuffer buf = pose(state);
-		return buf != null && ClientMotion.enabled && SOLVER.rootTransform(buf, out);
+		return buf != null && ClientMotion.enabled && buf.rig.humanoid && SOLVER.rootTransform(buf, out);
 	}
 }

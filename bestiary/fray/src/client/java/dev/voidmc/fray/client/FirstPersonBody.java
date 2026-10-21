@@ -69,7 +69,19 @@ public final class FirstPersonBody {
 		PoseBuffer buf = PoseApply.pose(avatar);
 		Animator animator = ClientMotion.get(mc.player.getId());
 		Clip clip = animator == null ? null : animator.clip(Animator.ACTION);
-		if (buf == null || clip == null || clip.fp == null) {
+		if (buf == null || clip == null || clip.fp == null || !buf.rig.humanoid) {
+			return false;
+		}
+		Clip.FirstPerson fp = clip.fp;
+		if (fp.hideArms()) {
+			return true;
+		}
+		boolean anyBone = false;
+		for (int b = 0; b < HumanoidRig.BONES; b++) {
+			anyBone |= fp.rotation() != null && fp.rotation()[b] != null || fp.position() != null && fp.position()[b] != null;
+		}
+		if (!anyBone && "fray:default".equals(fp.framing())) {
+			// A clip that only moves the camera in first person (a dodge): vanilla's hands.
 			return false;
 		}
 		if (IrisCompat.skipHand(state.mainHandItem)) {
@@ -81,28 +93,33 @@ public final class FirstPersonBody {
 		PartPose[] rest = HumanoidRig.restPose();
 		PartPose[] parts = HumanoidRig.restPose();
 		// The clip's first-person curves replace its third-person ones for the bones they name.
-		Channel[] fpRot = clip.fp.rotation();
-		if (fpRot != null) {
-			FP_BUF.copyFrom(buf);
-			float t = clip.localTime((float) (animator.actionElapsed(ClientMotion.now(partialTicks)) / 20.0));
-			for (int b = 0; b < fpRot.length; b++) {
-				if (fpRot[b] != null) {
-					fpRot[b].sample(t, SCRATCH, 0);
-					int o = b * PoseBuffer.STRIDE;
-					FP_BUF.v[o] = (float) Math.toRadians(SCRATCH[0]);
-					FP_BUF.v[o + 1] = (float) Math.toRadians(SCRATCH[1]);
-					FP_BUF.v[o + 2] = (float) Math.toRadians(SCRATCH[2]);
-				}
+		FP_BUF.copyFrom(buf);
+		float t = clip.localTime((float) (animator.actionElapsed(ClientMotion.now(partialTicks)) / 20.0));
+		for (int b = 0; b < HumanoidRig.BONES; b++) {
+			int o = b * PoseBuffer.STRIDE;
+			Channel r = fp.rotation() == null ? null : fp.rotation()[b];
+			if (r != null) {
+				r.sample(t, SCRATCH, 0);
+				FP_BUF.v[o] = (float) Math.toRadians(SCRATCH[0]);
+				FP_BUF.v[o + 1] = (float) Math.toRadians(SCRATCH[1]);
+				FP_BUF.v[o + 2] = (float) Math.toRadians(SCRATCH[2]);
 			}
-			buf = FP_BUF;
+			Channel p = fp.position() == null ? null : fp.position()[b];
+			if (p != null) {
+				p.sample(t, SCRATCH, 0);
+				FP_BUF.v[o + 3] = SCRATCH[0];
+				FP_BUF.v[o + 4] = -SCRATCH[1];
+				FP_BUF.v[o + 5] = SCRATCH[2];
+				FP_BUF.v[o + PoseBuffer.W_POS] = Math.max(FP_BUF.v[o + PoseBuffer.W_POS], FP_BUF.v[o + PoseBuffer.W_ROT]);
+			}
 		}
 		// First person has no vanilla pose underneath: the clip over the rest pose.
-		SOLVER.solve(parts, rest, buf);
+		SOLVER.solve(parts, rest, FP_BUF);
 
 		poseStack.pushPose();
-		float[] off = clip.fp.offset();
+		float[] off = fp.offset();
 		poseStack.translate(off[0], off[1], off[2]);
-		poseStack.rotateDegrees(Axis.XP, clip.fp.pitch());
+		poseStack.rotateDegrees(Axis.XP, fp.pitch());
 		float s = HumanoidRig.PLAYER_SCALE;
 		poseStack.scale(-s, -s, s);
 		// Model space with the eye at the origin: the eye is EYE_HEIGHT / s above the feet, the model origin 1.501 above.
@@ -119,6 +136,38 @@ public final class FirstPersonBody {
 		submitItem(poseStack, collector, parts[HumanoidRig.LEFT_ARM], avatar.leftHandItemState, true, light);
 		poseStack.popPose();
 		return true;
+	}
+
+	/**
+	 * The first-person camera channels of the local player's action (ANIMATION.md §7.4: kicks of a few degrees, a dodge's
+	 * dip), applied to the level's view after vanilla's hurt bob. Position in blocks (Y up), rotation in degrees
+	 * (x pitch, y yaw, z roll).
+	 */
+	public static void cameraKick(PoseStack view, float partialTicks) {
+		Minecraft mc = Minecraft.getInstance();
+		if (!ClientMotion.enabled || mc.player == null || mc.getCameraEntity() != mc.player || !mc.options.getCameraType().isFirstPerson()) {
+			return;
+		}
+		Animator animator = ClientMotion.get(mc.player.getId());
+		Clip clip = animator == null ? null : animator.clip(Animator.ACTION);
+		if (clip == null || clip.fp == null || (clip.fp.camera() == null && clip.fp.cameraPos() == null)) {
+			return;
+		}
+		double e = animator.actionElapsed(ClientMotion.now(partialTicks));
+		if (Double.isNaN(e) || e < 0 || e > clip.length * 20) {
+			return;
+		}
+		float t = clip.localTime((float) (e / 20.0));
+		if (clip.fp.cameraPos() != null) {
+			clip.fp.cameraPos().sample(t, SCRATCH, 0);
+			view.translate(-SCRATCH[0], -SCRATCH[1], -SCRATCH[2]);
+		}
+		if (clip.fp.camera() != null) {
+			clip.fp.camera().sample(t, SCRATCH, 0);
+			view.rotateDegrees(Axis.ZP, SCRATCH[2]);
+			view.rotateDegrees(Axis.XP, SCRATCH[0]);
+			view.rotateDegrees(Axis.YP, SCRATCH[1]);
+		}
 	}
 
 	private static void submitArm(PoseStack poseStack, SubmitNodeCollector collector, ModelPart arm, PartPose pose, RenderType type, int light) {
