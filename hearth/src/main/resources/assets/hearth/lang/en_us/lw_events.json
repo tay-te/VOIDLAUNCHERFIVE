@@ -137,5 +137,6 @@
 	"hearth.events.raid.alarm": "The alarm bell in %s! Raiders!",
 	"hearth.events.execution.cut": "%s is led up the steps.",
 	"hearth.events.pig.caught": "You caught the pig!",
-	"hearth.events.wedding.danced": "You dance at the wedding feast."
+	"hearth.events.wedding.danced": "You dance at the wedding feast.",
+	"hearth.events.invited": "You are invited: %s are to be wed in %s, today at %s. Come to the chapel, and to the feast after."
 }

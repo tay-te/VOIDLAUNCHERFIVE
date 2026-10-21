@@ -167,7 +167,10 @@ final class RaidScene implements SceneDirector {
 		if (entry == null) {
 			return;
 		}
-		int shown = Math.min(MAX_SHOWN, Math.max(2, run.event.args().getIntOr("strength", 3)));
+		// fewer bodies on a slow server (the band's full strength is in the books either way)
+		int cap = dev.voidmc.hearth.sim.LoadCaps.cap(MAX_SHOWN, 2, dev.voidmc.hearth.sim.LoadCaps.mspt(level.getServer()),
+			dev.voidmc.hearth.sim.LoadCaps.highMspt());
+		int shown = Math.min(cap, Math.max(2, run.event.args().getIntOr("strength", 3)));
 		RandomSource r = RandomSource.create(run.event.seed());
 		List<Folk> raiders = new ArrayList<>();
 		List<Raider> controllers = new ArrayList<>();

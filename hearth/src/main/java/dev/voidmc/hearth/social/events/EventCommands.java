@@ -136,6 +136,7 @@ final class EventCommands {
 			}
 		}
 		adults.sort((x, y) -> x.id.compareTo(y.id));
+		int plot = -1;
 		switch (kind) {
 			case WEDDING -> {
 				if (adults.size() < 2) {
@@ -176,6 +177,22 @@ final class EventCommands {
 				a.putString("accused", accused.fullName());
 				a.put("witnesses", Outcomes.uuidList(new ArrayList<>(EventDirector.playersIn(w, s))));
 			}
+			case TOPPING_OUT -> {
+				// the largest building of the town gets its bough
+				dev.voidmc.hearth.api.PlotView best = null;
+				for (dev.voidmc.hearth.api.PlotView p : s.plots()) {
+					String path = p.spec().archetype().getPath();
+					if (p.state() == dev.voidmc.hearth.api.PlotState.BUILT && (path.startsWith("house/") || path.startsWith("civic/"))
+						&& (best == null || p.spec().sizeX() * p.spec().sizeZ() > best.spec().sizeX() * best.spec().sizeZ())) {
+						best = p;
+					}
+				}
+				if (best == null) {
+					return null;
+				}
+				plot = best.id();
+				a.putString("building", "@hearth.events.building.house");
+			}
 			case RAID -> {
 				a.putInt("strength", Math.max(4, f.defence() + 3));
 				a.putInt("defence", f.defence());
@@ -189,7 +206,7 @@ final class EventCommands {
 			}
 		}
 		int minute = SocialTime.minute(now);
-		EventScheduler.Offer offer = new EventScheduler.Offer(kind, minute, rule.duration(), principals, family, -1, a);
+		EventScheduler.Offer offer = new EventScheduler.Offer(kind, minute, rule.duration(), principals, family, plot, a);
 		Scheduled e = EventScheduler.single(s.id(), day, offer, rule, book.newId());
 		EventScheduler.Draft d = EventScheduler.draft(e);
 		if (!EventDirector.fill(w, s, book, f, kind, d)) {

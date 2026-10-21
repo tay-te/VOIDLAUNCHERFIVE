@@ -165,6 +165,85 @@ public final class TownEvents {
 		}
 	}
 
+	// ---- for tours and the dev tools
+
+	/** Holds an event of a kind in a town now ({@code /hearth events force}); returns its key, or null if it cannot be. */
+	public static @org.jspecify.annotations.Nullable String force(Settlement s, String kind) {
+		EventKind k = EventKind.byId(kind);
+		Scheduled e = k == null ? null : EventCommands.force(s, k);
+		return e == null ? null : e.key();
+	}
+
+	/** Where the scene of a kind running in a town is held, or null when none runs. */
+	public static net.minecraft.core.@org.jspecify.annotations.Nullable BlockPos venue(Settlement s, String kind, String venue) {
+		EventKind k = EventKind.byId(kind);
+		SceneRun run = k == null ? null : Scenes.running(s.id(), k);
+		return run == null ? null : venue.isEmpty() ? run.anchor() : run.venue(venue);
+	}
+
+	/** The cast of a running scene who are about as folk, by role (tours). */
+	public static java.util.Map<String, Integer> castAbout(Settlement s, String kind) {
+		java.util.Map<String, Integer> out = new java.util.LinkedHashMap<>();
+		EventKind k = EventKind.byId(kind);
+		SceneRun run = k == null ? null : Scenes.running(s.id(), k);
+		if (run == null) {
+			return out;
+		}
+		for (var e : run.cast.entrySet()) {
+			int n = 0;
+			for (java.util.UUID id : e.getValue()) {
+				if (EventDirector.folk(id) != null) {
+					n++;
+				}
+			}
+			out.put(e.getKey(), n);
+		}
+		return out;
+	}
+
+	/** A running scene's own state by name (the fair's {@code stalls}, {@code targets}; tours), or null. */
+	public static @org.jspecify.annotations.Nullable Object sceneState(Settlement s, String kind, String key) {
+		EventKind k = EventKind.byId(kind);
+		SceneRun run = k == null ? null : Scenes.running(s.id(), k);
+		return run == null ? null : run.state.get(key);
+	}
+
+	/** Whether a scene of a kind runs in a town now. */
+	public static boolean running(Settlement s, String kind) {
+		EventKind k = EventKind.byId(kind);
+		return k != null && Scenes.running(s.id(), k) != null;
+	}
+
+	/** The town's book in words: its events and the last outcomes (tours). */
+	public static java.util.List<String> book(Settlement s) {
+		java.util.List<String> out = new java.util.ArrayList<>();
+		EventBook b = s.data(EventBook.KEY);
+		for (Scheduled e : b.scheduled) {
+			out.add(e.key() + " day " + e.day() + " " + e.phase().getSerializedName());
+		}
+		for (Outcome o : b.recent) {
+			out.add("> " + o.kind().id() + ": " + o.result() + (o.sentence().isEmpty() ? "" : " (" + o.sentence() + ")") + (o.plot() >= 0 ? " plot " + o.plot()
+				: "") + (o.goodsLost() != 0 ? " goods " + o.goodsLost() : "") + (o.coin() != 0 ? " coin " + o.coin() : ""));
+		}
+		for (EventBook.Burnt br : b.burnt) {
+			out.add("burnt plot " + br.plot() + " until day " + br.until() + (br.applied() ? " (shell laid: " + br.blocks() + " blocks)" : ""));
+		}
+		return out;
+	}
+
+	/** What the events are doing and what they cost (command, tours). */
+	public static java.util.List<String> stats() {
+		java.util.List<String> lines = new java.util.ArrayList<>(EventDirector.stats());
+		lines.addAll(Scenes.stats());
+		lines.add(FireLeash.stats());
+		return lines;
+	}
+
+	/** Every scene in a town ends now and resolves (tours: to see the outcome without waiting out the hours). */
+	public static void endScenes(Settlement s) {
+		Scenes.fold(s);
+	}
+
 	/** Whether scripted fires burn for real here: "auto" is on in single player and off on servers (§13). */
 	public static boolean liveFires(MinecraftServer server) {
 		return switch (config.events().liveFires()) {
@@ -175,7 +254,7 @@ public final class TownEvents {
 	}
 
 	/** Lays the shells of a town's burnt plots that are not yet shown (and not rebuilt); returns the blocks changed. */
-	static int applyShells(HearthWorld w, Settlement s) {
+	public static int applyShells(HearthWorld w, Settlement s) {
 		EventBook book = s.data(EventBook.KEY);
 		long today = TownLife.today(w, s);
 		int n = 0;

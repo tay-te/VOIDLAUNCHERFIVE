@@ -97,6 +97,7 @@ public final class EventEffects {
 			post(w, s, "news", e.day(), "hearth.events.notice.acquitted", List.of(who, offence));
 			return;
 		}
+		happen(w, s, "trial", -1, null, 1);
 		post(w, s, "news", e.day(), "hearth.events.notice.guilty." + (o.sentence().isEmpty() ? "fine" : o.sentence()), List.of(who, offence));
 		switch (o.sentence()) {
 			case "fine" -> moveCoin(s, o.coin());
@@ -151,6 +152,9 @@ public final class EventEffects {
 		}
 		takeGoods(s, o.goods());
 		post(w, s, "news", e.day(), owed > 0 ? "hearth.events.notice.tax" : "hearth.events.notice.tax_excused", List.of(Long.toString(owed)));
+		if (owed > 0) {
+			happen(w, s, "taxed", -1, null, (int) Math.min(Integer.MAX_VALUE, owed));
+		}
 		if (o.sentence().equals("pig")) {
 			post(w, s, "news", e.day(), "hearth.events.notice.pig", List.of(e.args().getStringOr("poor_name", "")));
 		}

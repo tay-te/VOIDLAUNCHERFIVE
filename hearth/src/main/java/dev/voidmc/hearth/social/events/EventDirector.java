@@ -145,11 +145,19 @@ public final class EventDirector {
 				}
 			}
 			announce(w, s, e);
+			if (e.kind() == EventKind.WEDDING) {
+				invite(w, s, e);
+			}
 			try {
 				SettlementEvents.TOWN_EVENT.invoker().onTownEvent(w, s, e.kind().id(), SettlementEvents.TownEvent.Phase.SCHEDULED, "");
 			} catch (RuntimeException ex) {
 				Hearth.LOG.warn("events: a listener of {} failed", e.kind().id(), ex);
 			}
+		}
+		// the fair's eve: pedlars set out from the towns round about (the roads' journeys, lane A1)
+		if (TownCalendar.isFairDay(s.id(), day + 1, s.culture(), s.foundedDay(), s.tier(), cfg.festivals())
+			&& !TownCalendar.isFairDay(s.id(), day, s.culture(), s.foundedDay(), s.tier(), cfg.festivals()) && rule(EventKind.FAIR, facts)) {
+			fairGoers(w, s);
 		}
 		// the fair and the tournament are cried three days ahead
 		if (TownCalendar.isFairDay(s.id(), day + 3, s.culture(), s.foundedDay(), s.tier(), cfg.festivals())
@@ -444,6 +452,48 @@ public final class EventDirector {
 			case CHRISTENING -> EventEffects.post(w, s, "christening", e.day(), "hearth.events.notice.christening", List.of(e.args().getStringOr("child", "")));
 			case DECREE -> EventEffects.post(w, s, "decree", e.day(), "hearth.events.notice.decree", List.of());
 			default -> {
+			}
+		}
+	}
+
+	/** Pedlars from up to three towns round about set out for the fair (soft: only with the roads' travel). */
+	static void fairGoers(HearthWorld w, Settlement s) {
+		dev.voidmc.hearth.api.TravelService travel = HearthServices.travel();
+		if (travel == null) {
+			return;
+		}
+		List<Settlement> near = new ArrayList<>();
+		for (Settlement t : w.settlements()) {
+			if (t != s && t.population() >= 6 && t.center().distSqr(s.center()) <= 3000.0 * 3000.0) {
+				near.add(t);
+			}
+		}
+		near.sort(java.util.Comparator.comparingDouble(t -> t.center().distSqr(s.center())));
+		for (int i = 0; i < near.size() && i < 3; i++) {
+			CompoundTag d = new CompoundTag();
+			d.putLong("seed", TownCalendar.mix(s.id() * 131 + i));
+			d.putString("for", "fair");
+			try {
+				travel.dispatch(dev.voidmc.hearth.api.TravelService.TravelKind.PEDLAR, near.get(i), s, null, List.of(), w.clock() + 200L * i, d);
+			} catch (RuntimeException ex) {
+				Hearth.LOG.debug("events: a pedlar could not set out for the fair", ex);
+			}
+		}
+	}
+
+	/** Players the couple's families count as friends are told of the wedding (§3.1: "be invited if a Friend of either family"). */
+	static void invite(HearthWorld w, Settlement s, Scheduled e) {
+		dev.voidmc.hearth.api.StandingService st = HearthServices.standing();
+		if (st == null || e.principals().isEmpty()) {
+			return;
+		}
+		for (ServerPlayer p : w.level().getServer().getPlayerList().getPlayers()) {
+			for (UUID who : e.principals()) {
+				if (st.opinion(who, p.getUUID()) >= 50) {
+					p.sendSystemMessage(net.minecraft.network.chat.Component.translatable("hearth.events.invited", e.args().getStringOr("names", ""), s.name(),
+						EventDialogue.clock(e.start() + EventScheduler.ticks(30))).withStyle(net.minecraft.ChatFormatting.GOLD));
+					break;
+				}
 			}
 		}
 	}

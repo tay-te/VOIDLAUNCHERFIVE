@@ -52,6 +52,8 @@ public final class Scenes implements SceneService {
 	static final LivingWorldStats.Timer TIMER = LivingWorldStats.timer("events");
 	/** Most principals a scene embodies itself (the couple, the accused) when they are only records. */
 	static final int EMBODY_PRINCIPALS = 4;
+	/** Scenes not staged because the server was slow (their events resolved by the books). */
+	static long refusedForLoad;
 
 	private Scenes() {
 	}
@@ -105,6 +107,11 @@ public final class Scenes implements SceneService {
 			return null;
 		}
 		ServerLevel level = w.level();
+		// a slow server stages nothing new: the event is decided by the books at its end, as in an abstract town (§9.2)
+		if (!dev.voidmc.hearth.sim.LoadCaps.admitting(dev.voidmc.hearth.sim.LoadCaps.mspt(level.getServer()), dev.voidmc.hearth.sim.LoadCaps.highMspt())) {
+			refusedForLoad++;
+			return null;
+		}
 		BlockPos anchor = SceneVenues.at(s, e, rule.venue().isEmpty() ? "square" : rule.venue());
 		if (!level.isLoaded(anchor)) {
 			return null;
@@ -506,7 +513,8 @@ public final class Scenes implements SceneService {
 		for (List<SceneRun> l : RUNNING.values()) {
 			n += l.size();
 		}
-		out.add(String.format(Locale.ROOT, "scenes running: %d, cast with orders: %d, scene passes %.3f ms avg", n, ORDERS.size(), TIMER.averageMs()));
+		out.add(String.format(Locale.ROOT, "scenes running: %d, cast with orders: %d, scene passes %.3f ms avg, %d not staged for the server's load", n,
+			ORDERS.size(), TIMER.averageMs(), refusedForLoad));
 		for (List<SceneRun> l : RUNNING.values()) {
 			for (SceneRun r : l) {
 				Settlement s = r.settlement();
