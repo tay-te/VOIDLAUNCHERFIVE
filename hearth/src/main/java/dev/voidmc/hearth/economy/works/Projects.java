@@ -158,6 +158,37 @@ public final class Projects {
 			.withStyle(ChatFormatting.DARK_GREEN);
 	}
 
+	/**
+	 * The town council's choice (docs/LIVING_WORLD_2.md §8, the burghers' voice): the next public works the council may
+	 * pick among — the planner's next {@code n} public buildings nobody has funded yet, those already rising first, then
+	 * in the planner's order.
+	 */
+	public static List<PlotView> councilCandidates(Settlement settlement, int n) {
+		Works works = works(settlement);
+		List<PlotView> plots = new ArrayList<>();
+		for (PlotView p : settlement.plots()) {
+			if (fundable(p) && !works.projects.containsKey(p.id())) {
+				plots.add(p);
+			}
+		}
+		plots.sort(Comparator.comparing((PlotView p) -> p.state() != PlotState.BUILDING).thenComparingInt(PlotView::id));
+		return plots.size() > n ? List.copyOf(plots.subList(0, n)) : plots;
+	}
+
+	/**
+	 * The council chose a public building: it is put first as a funded one is (an entry with no coin yet, which players
+	 * may still add to). Returns false if the plot cannot be chosen (built, private, gone).
+	 */
+	public static boolean councilChoice(Settlement settlement, int plotId, long day) {
+		PlotView plot = settlement.plot(plotId);
+		if (plot == null || !fundable(plot)) {
+			return false;
+		}
+		works(settlement).projects.computeIfAbsent(plotId, id -> new Works.Project(id, day));
+		settlement.markDirty();
+		return true;
+	}
+
 	/** Construction of a plot stalled: if players have funded it, the fund buys what is missing now. */
 	public static void stalled(Settlement settlement, PlotView plot, Goods goods, int missing) {
 		Works.Project project = works(settlement).projects.get(plot.id());

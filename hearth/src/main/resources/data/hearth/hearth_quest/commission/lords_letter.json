@@ -1,0 +1,68 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_departed"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "courier",
+			"recipient": true,
+			"label": "Put his lordship's letter in the hand of {recipient} of {target}"
+		}
+	],
+	"text": {
+		"title": [
+			"A letter to {target}",
+			"His lordship's seal",
+			"Word for the lord of {target}"
+		],
+		"summary": [
+			"Carry a sealed letter from the lord of {settlement} to the lord of {target}, {distance} to the {direction}, and put it in their hand.",
+			"A letter under his lordship's seal, for the lord of {target}. Nobody else may open it.",
+			"Take his lordship's letter to {target}, {direction} of here, and give it to their lord yourself."
+		],
+		"offer": [
+			"This letter goes to the lord of {target}, {distance} {direction}. Into their hand, nobody else's. Can you be trusted with that?",
+			"His lordship writes to {target}. You will carry it, and you will not lose it.",
+			"A letter for the lord of {target}. Seal unbroken, delivered by your own hand."
+		],
+		"progress": [
+			"Has the letter reached {target}?",
+			"Is the letter in the right hands?",
+			"No word from {target} yet?"
+		],
+		"complete": [
+			"Delivered, seal whole. That is the beginning of trust.",
+			"The lord of {target} has it. His lordship thanks you.",
+			"It reached them. Good."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"reputation": 5,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 2,
+	"repeatable": true,
+	"commission": {
+		"binds": "letter",
+		"rank": "petitioner",
+		"feat": false
+	}
+}

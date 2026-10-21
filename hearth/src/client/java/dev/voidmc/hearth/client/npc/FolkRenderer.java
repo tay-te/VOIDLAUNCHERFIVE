@@ -23,8 +23,8 @@ import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Draws a folk: the player model with their composed skin (wide or slim arms), what they hold, their name and trade
- * when looked at, and the quest marker floating above them.
+ * Draws a folk: the player model with their composed skin (wide or slim arms), what they hold and wear, their name and
+ * trade when looked at, and the quest marker floating above them.
  */
 public class FolkRenderer extends MobRenderer<Folk, FolkRenderState, FolkModel> {
 	/** How close the crosshair must be for the name to show. */
@@ -38,6 +38,10 @@ public class FolkRenderer extends MobRenderer<Folk, FolkRenderState, FolkModel> 
 		this.wide = this.model;
 		this.slim = new FolkModel(context.bakeLayer(ModelLayers.PLAYER_SLIM), true);
 		this.addLayer(new ItemInHandLayer<>(this));
+		// the gear layer (docs/LIVING_WORLD_2.md §8.3): armour a companion was given, a bandit's helmet, a guard's kit
+		this.addLayer(new net.minecraft.client.renderer.entity.layers.HumanoidArmorLayer<>(this,
+			net.minecraft.client.renderer.entity.ArmorModelSet.bake(ModelLayers.PLAYER_ARMOR, context.getModelSet(), HumanoidModel<FolkRenderState>::new),
+			context.getEquipmentRenderer()));
 	}
 
 	@Override

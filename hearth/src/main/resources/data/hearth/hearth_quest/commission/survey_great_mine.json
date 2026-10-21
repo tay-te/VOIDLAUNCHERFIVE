@@ -1,0 +1,70 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"depleted"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "reach",
+			"place": "event",
+			"radius": 16,
+			"target_name": "the Great Mine's pithead",
+			"label": "Survey the Great Mine for his lordship"
+		}
+	],
+	"text": {
+		"title": [
+			"The Great Mine",
+			"Survey the deep workings",
+			"His lordship's mine"
+		],
+		"summary": [
+			"The Great Mine of the domain lies {distance} {direction} of {settlement}. Go to its pithead and see how it stands.",
+			"His lordship wants a sworn man's eye on the Great Mine: its pithead, its men, its works.",
+			"Survey the Great Mine and tell his lordship what you find."
+		],
+		"offer": [
+			"The Great Mine is the domain's purse, and his lordship hears nothing from it but complaint. Go and see, {distance} {direction}.",
+			"Look at the Great Mine for me. The pithead, the hoist, the men. I want the truth.",
+			"Ride to the Great Mine, {direction} of here, and see whether it earns what it costs."
+		],
+		"progress": [
+			"How stands the Great Mine?",
+			"Have you seen the pithead?",
+			"What of the mine?"
+		],
+		"complete": [
+			"So it stands. His lordship will be glad of a true account.",
+			"A clear report. That is worth more than a cart of ore.",
+			"Good. Now we know what the mine is worth."
+		]
+	},
+	"reward": {
+		"coin": [
+			140,
+			230
+		],
+		"reputation": 9,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 6,
+	"cooldown_days": 6,
+	"repeatable": true,
+	"commission": {
+		"binds": "great_mine",
+		"rank": "sworn",
+		"feat": false
+	}
+}

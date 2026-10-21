@@ -1,0 +1,90 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_departed"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "escort",
+			"entity": "minecraft:mule",
+			"caravan": 2,
+			"cargo": true,
+			"names": [
+				"the takings",
+				"the domain's silver"
+			],
+			"label": "See the takings safe to {target}"
+		},
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				2,
+				4
+			],
+			"radius": 40,
+			"target_name": "thieves after the takings",
+			"label": "Beat off the thieves on the way",
+			"place": "route",
+			"along": 0.55
+		}
+	],
+	"text": {
+		"title": [
+			"The domain's takings",
+			"Silver for {target}",
+			"His lordship's dues"
+		],
+		"summary": [
+			"The domain's takings go from {settlement} to {target}, {distance} to the {direction}. Every thief in the county knows the day.",
+			"Two mules of silver for {target}, and his lordship trusts his own people to see them there.",
+			"The dues of the domain travel to {target} under guard: yours."
+		],
+		"offer": [
+			"The takings leave for {target} today. Two mules, a strongbox, and every cutthroat between here and there counting on them. See them safe, {distance} {direction}.",
+			"His lordship's dues go to {target}. Walk with the mules and let nobody near them.",
+			"The silver must reach {target}. I can spare no guard but you. Will you see it there?"
+		],
+		"progress": [
+			"Are the takings safe?",
+			"Has the silver reached {target}?",
+			"The mules, the mules: where are they?"
+		],
+		"complete": [
+			"Every coin accounted for. His lordship is pleased.",
+			"Safe at {target}, and not a bit short. Well done.",
+			"The dues are paid. That is a service his lordship will not forget."
+		]
+	},
+	"reward": {
+		"coin": [
+			200,
+			320
+		],
+		"reputation": 10,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 4,
+	"repeatable": true,
+	"commission": {
+		"binds": "tax",
+		"rank": "retainer",
+		"feat": false
+	}
+}

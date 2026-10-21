@@ -1,0 +1,76 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_departed"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "reach",
+			"place": "event",
+			"radius": 8,
+			"target_name": "the toll gate",
+			"label": "Inspect the toll gate and collect its takings",
+			"grant": {
+				"item": "minecraft:bundle",
+				"name": "The toll takings",
+				"lore": "Counted and sealed for the lord of {settlement}",
+				"required": true
+			}
+		}
+	],
+	"text": {
+		"title": [
+			"The toll gate's takings",
+			"Count the tolls",
+			"The keeper's books"
+		],
+		"summary": [
+			"Inspect the toll gate of the domain, {distance} {direction} of {settlement}, and bring its takings back sealed.",
+			"His lordship wants the toll counted and the takings brought home. Go to the gate, {direction} of here.",
+			"Ride to the toll gate, look at the keeper's books, and carry back the takings."
+		],
+		"offer": [
+			"The tollkeeper swears trade is thin. Perhaps. Go and look, {distance} {direction}, and bring back what is there.",
+			"Count the gate's tolls for me and bring them back, sealed. Watch the keeper's face while you count.",
+			"His lordship's toll gate, {direction} of here. Its takings belong in the treasury, not the keeper's purse."
+		],
+		"progress": [
+			"Have you been to the toll gate?",
+			"Where are the takings?",
+			"What did the keeper's books say?"
+		],
+		"complete": [
+			"The takings, sealed. And the keeper's books? Good enough. Thank you.",
+			"Counted and home. His lordship will be pleased.",
+			"All there. The keeper is honest, or careful."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			120
+		],
+		"reputation": 5,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 3,
+	"repeatable": true,
+	"commission": {
+		"binds": "toll",
+		"rank": "petitioner",
+		"feat": false
+	}
+}

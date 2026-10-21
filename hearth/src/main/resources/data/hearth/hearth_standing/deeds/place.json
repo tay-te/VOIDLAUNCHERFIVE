@@ -1,0 +1,34 @@
+{
+  "_comment": "The player's place (docs/LIVING_WORLD_2.md §8): the burgher's oath, a companion lost, a lord's commissions and ranks; merged with deeds/default.json.",
+  "deeds": {
+    "social:burgher_oath": {
+      "settlement": 1.0,
+      "victim": 1.0,
+      "witness": 0.4,
+      "gossip": 0.5,
+      "fame": 0.4
+    },
+    "npc:companion_lost": {
+      "settlement": 1.0,
+      "victim": 0.0,
+      "witness": 0.0,
+      "family": 2.0,
+      "gossip": 0.6,
+      "fame": 0.2
+    },
+    "quest:commission": {
+      "settlement": 1.0,
+      "victim": 1.5,
+      "witness": 0.3,
+      "gossip": 0.8,
+      "fame": 0.8
+    },
+    "quest:retinue_rank": {
+      "settlement": 1.0,
+      "victim": 1.0,
+      "witness": 0.6,
+      "gossip": 1.0,
+      "fame": 1.2
+    }
+  }
+}

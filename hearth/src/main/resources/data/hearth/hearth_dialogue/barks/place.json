@@ -1,0 +1,449 @@
+{
+	"companion_hired": [
+		"Right then. Where you go, I go, so long as the coin comes at dawn.",
+		{
+			"text": "Coin first, then the road. That's how I like it.",
+			"traits": [
+				"greedy"
+			]
+		},
+		{
+			"text": "Good. I was getting soft sitting about {settlement}.",
+			"traits": [
+				"brave"
+			]
+		},
+		{
+			"text": "I'll come. Don't expect me to like the rain.",
+			"traits": [
+				"grumpy"
+			]
+		},
+		{
+			"text": "An adventure! Wait till I tell my mother.",
+			"traits": [
+				"cheerful"
+			]
+		},
+		{
+			"text": "By the old gods, a road at last.",
+			"cultures": [
+				"northern",
+				"tundra"
+			]
+		},
+		{
+			"text": "The mountain taught me patience. You'll teach me the rest.",
+			"cultures": [
+				"alpine"
+			]
+		}
+	],
+	"companion_follow": [
+		"At your back.",
+		{
+			"text": "Lead on, I'm right behind.",
+			"traits": [
+				"brave"
+			]
+		},
+		{
+			"text": "Yes, yes. Following.",
+			"traits": [
+				"grumpy"
+			]
+		},
+		{
+			"text": "Right behind you!",
+			"traits": [
+				"cheerful"
+			]
+		}
+	],
+	"companion_wait": [
+		"I'll be here.",
+		{
+			"text": "I'll wait. Not forever, mind.",
+			"traits": [
+				"grumpy",
+				"lazy"
+			]
+		},
+		{
+			"text": "I'll keep watch till you're back.",
+			"traits": [
+				"brave",
+				"cautious"
+			]
+		},
+		{
+			"text": "Here? Fine. I'll count the crows.",
+			"traits": [
+				"dreamy",
+				"curious"
+			]
+		}
+	],
+	"companion_dismissed": [
+		"Home it is. Remember me if you need a hand again.",
+		{
+			"text": "Fair enough. The coin was good while it lasted.",
+			"traits": [
+				"greedy"
+			]
+		},
+		{
+			"text": "Safe roads to you. I'll tell them at {settlement} what we saw.",
+			"traits": [
+				"sociable",
+				"gossip"
+			]
+		},
+		{
+			"text": "Home. My own bed. Thank the saints.",
+			"traits": [
+				"pious",
+				"lazy"
+			]
+		}
+	],
+	"companion_fight": [
+		"Behind you!",
+		"Here they come!",
+		{
+			"text": "Let them come.",
+			"traits": [
+				"brave"
+			]
+		},
+		{
+			"text": "Mind the left!",
+			"traits": [
+				"cautious"
+			]
+		},
+		{
+			"text": "Now we earn our bread!",
+			"traits": [
+				"greedy",
+				"industrious"
+			]
+		},
+		{
+			"text": "For {settlement}!",
+			"traits": [
+				"brave",
+				"pious"
+			]
+		},
+		{
+			"text": "Odin's eye on us!",
+			"cultures": [
+				"northern",
+				"tundra"
+			]
+		},
+		{
+			"text": "Steady. Steady... now!",
+			"roles": [
+				"guard"
+			],
+			"traits": [
+				"cautious"
+			]
+		},
+		{
+			"text": "I've broken worse at the gate.",
+			"roles": [
+				"guard"
+			]
+		}
+	],
+	"companion_hurt": [
+		"I'm bleeding. Not badly. Mostly.",
+		{
+			"text": "A scratch. Keep going.",
+			"traits": [
+				"brave"
+			]
+		},
+		{
+			"text": "This was not in the bargain.",
+			"traits": [
+				"greedy",
+				"grumpy"
+			]
+		},
+		{
+			"text": "Saints keep me, that hurt.",
+			"traits": [
+				"pious"
+			]
+		},
+		{
+			"text": "I need to sit a moment.",
+			"traits": [
+				"cautious",
+				"lazy"
+			]
+		}
+	],
+	"companion_road": [
+		"Long road.",
+		"Good weather for walking, at least.",
+		{
+			"text": "My feet are complaining. I'm ignoring them.",
+			"traits": [
+				"grumpy"
+			]
+		},
+		{
+			"text": "Smell that? Pine and rain. Best smell there is.",
+			"traits": [
+				"cheerful",
+				"dreamy"
+			]
+		},
+		{
+			"text": "Keep an eye on the treeline. Bands like the woods.",
+			"traits": [
+				"cautious"
+			]
+		},
+		{
+			"text": "Every mile's a mile's wage. I'm counting.",
+			"traits": [
+				"greedy"
+			]
+		},
+		{
+			"text": "I heard a story about this road once. Ends badly. Never mind.",
+			"traits": [
+				"gossip",
+				"curious"
+			]
+		},
+		{
+			"text": "You walk fast. Good.",
+			"traits": [
+				"industrious"
+			]
+		},
+		{
+			"text": "The fields here are poorer than ours.",
+			"cultures": [
+				"temperate",
+				"wisteria"
+			]
+		},
+		{
+			"text": "Flat country. I miss the peaks.",
+			"cultures": [
+				"alpine"
+			]
+		},
+		{
+			"text": "Wind's off the sea. It'll rain by noon.",
+			"cultures": [
+				"maritime"
+			]
+		},
+		{
+			"text": "Not a well in sight. Drink sparing.",
+			"cultures": [
+				"desert",
+				"mesa"
+			]
+		},
+		{
+			"text": "Moor's as wide as the sky out here.",
+			"cultures": [
+				"moorland",
+				"steppe"
+			]
+		}
+	],
+	"companion_night": [
+		"Dark's coming down. Stay close.",
+		{
+			"text": "I don't like the dark out here.",
+			"traits": [
+				"cautious",
+				"shy"
+			]
+		},
+		{
+			"text": "Night's when the honest folk sleep and the rest of us work.",
+			"traits": [
+				"brave"
+			]
+		},
+		{
+			"text": "Stars are out. My grandmother named every one.",
+			"traits": [
+				"dreamy"
+			]
+		},
+		{
+			"text": "We should find a fire. Or make one.",
+			"traits": [
+				"grumpy",
+				"lazy"
+			]
+		}
+	],
+	"companion_place": [
+		"Never been this far from {settlement}.",
+		"Strange town. Watch your purse.",
+		{
+			"text": "Look at that roof. We've nothing like it at home.",
+			"traits": [
+				"curious",
+				"dreamy"
+			]
+		},
+		{
+			"text": "Their ale had better be good.",
+			"traits": [
+				"sociable"
+			]
+		},
+		{
+			"text": "I wonder what they say about us here.",
+			"traits": [
+				"gossip"
+			]
+		},
+		{
+			"text": "Keep your hand off your sword. They don't know us.",
+			"traits": [
+				"cautious"
+			]
+		},
+		{
+			"text": "Better market than ours. Don't tell anyone in {settlement}.",
+			"traits": [
+				"greedy"
+			]
+		}
+	],
+	"companion_home": [
+		"Home. {settlement} never changes.",
+		{
+			"text": "Ah, the smell of my mother's kitchen from here.",
+			"traits": [
+				"cheerful",
+				"sociable"
+			]
+		},
+		{
+			"text": "Back in {settlement}. Everyone will want to hear the stories.",
+			"traits": [
+				"gossip"
+			]
+		},
+		{
+			"text": "Home. Don't let me get comfortable.",
+			"traits": [
+				"industrious",
+				"brave"
+			]
+		}
+	],
+	"companion_deed": [
+		"That was well done.",
+		"They'll talk about that in {settlement}.",
+		{
+			"text": "I'm proud to walk with you.",
+			"traits": [
+				"brave",
+				"generous"
+			]
+		},
+		{
+			"text": "Worth every bit you pay me. More, maybe.",
+			"traits": [
+				"greedy"
+			]
+		},
+		{
+			"text": "The saints saw that.",
+			"traits": [
+				"pious"
+			]
+		},
+		{
+			"text": "I'll tell it at the tavern. With a few more of them.",
+			"traits": [
+				"gossip",
+				"sociable"
+			]
+		}
+	],
+	"companion_crime": [
+		"I didn't see that. I don't want to have seen that.",
+		{
+			"text": "That's not how we do things.",
+			"traits": [
+				"pious",
+				"generous"
+			]
+		},
+		{
+			"text": "Careful. The watch has eyes.",
+			"traits": [
+				"cautious"
+			]
+		},
+		{
+			"text": "Not my business. Not my town.",
+			"traits": [
+				"greedy"
+			]
+		},
+		{
+			"text": "If that were my town, we'd be done, you and I.",
+			"traits": [
+				"brave",
+				"grumpy"
+			]
+		}
+	],
+	"servant_greet": [
+		"Welcome home, {player}.",
+		"You're back! The house kept well.",
+		{
+			"text": "Welcome home. The fire's lit and the larder's full.",
+			"traits": [
+				"industrious",
+				"generous"
+			]
+		},
+		{
+			"text": "Oh! You're home. Mind the floor, it's wet.",
+			"traits": [
+				"cheerful"
+			]
+		},
+		{
+			"text": "Home at last. I'll tell you everything.",
+			"traits": [
+				"gossip",
+				"sociable"
+			]
+		},
+		{
+			"text": "Welcome back, {player}. All's in order.",
+			"traits": [
+				"cautious",
+				"shy"
+			]
+		},
+		{
+			"text": "You took your time.",
+			"traits": [
+				"grumpy"
+			]
+		}
+	]
+}

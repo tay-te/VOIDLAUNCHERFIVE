@@ -1,0 +1,71 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_departed"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "scout",
+			"distance": [
+				600,
+				2500
+			],
+			"label": "Find ground for a village in his lordship's name"
+		}
+	],
+	"text": {
+		"title": [
+			"Ground for a village",
+			"A new village of the domain",
+			"Land in his lordship's name"
+		],
+		"summary": [
+			"His lordship would found a village. Find good ground {distance} from {settlement}: gentle land, water near, clear of other towns.",
+			"The domain must grow. Find ground for a new village, founded in his lordship's name.",
+			"Ride out and find land for a village of the domain, {distance} from here."
+		],
+		"offer": [
+			"His lordship has younger sons and landless men enough to found a village. Find them ground, {distance} from here: flat, watered, clear of others.",
+			"The domain grows or it withers. Find me land for a village, and it will bear his lordship's name.",
+			"Ride out, find good ground for a village, stand on it, and come back."
+		],
+		"progress": [
+			"Have you found ground?",
+			"Is there land for the village?",
+			"Any good ground out there?"
+		],
+		"complete": [
+			"Good land. The settlers go out in his lordship's name.",
+			"A fine site. The domain is the larger for it.",
+			"That will do well. The village will carry his lordship's name."
+		]
+	},
+	"reward": {
+		"coin": [
+			150,
+			250
+		],
+		"reputation": 10,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 8,
+	"cooldown_days": 10,
+	"repeatable": true,
+	"commission": {
+		"binds": "new_village",
+		"rank": "retainer",
+		"feat": false
+	}
+}

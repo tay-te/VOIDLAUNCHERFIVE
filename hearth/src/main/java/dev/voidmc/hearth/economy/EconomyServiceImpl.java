@@ -42,6 +42,30 @@ public final class EconomyServiceImpl implements EconomyService {
 		return PlayerPurse.charge(player, bits);
 	}
 
+	/** The running server, for the bank's deposits ({@link #chargeDeposit}); set when it starts, cleared when it stops. */
+	private static volatile net.minecraft.server.@Nullable MinecraftServer server;
+
+	static {
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(s -> server = s);
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(s -> server = null);
+	}
+
+	/**
+	 * Takes coin from a player's bank deposits (docs/LIVING_WORLD_2.md §8: a household's wages and larder): all or nothing.
+	 * {@code why} is for the log only.
+	 */
+	@Override
+	public boolean chargeDeposit(UUID player, long bits, String why) {
+		if (bits <= 0) {
+			return true;
+		}
+		net.minecraft.server.MinecraftServer srv = server;
+		if (srv == null || dev.voidmc.hearth.economy.bank.DepositStore.balance(srv, player) < bits) {
+			return false;
+		}
+		return dev.voidmc.hearth.economy.bank.DepositStore.add(srv, player, -bits);
+	}
+
 	@Override
 	public void pay(ServerPlayer player, long bits) {
 		PlayerPurse.pay(player, bits);

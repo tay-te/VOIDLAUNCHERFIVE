@@ -1,0 +1,77 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_robbed"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "apprehend",
+			"entity": "minecraft:wandering_trader",
+			"names": [
+				"the poacher",
+				"Rabbit-Jan",
+				"the snare-setter"
+			],
+			"night": true,
+			"place": "event",
+			"radius": 40,
+			"target_name": "the poacher in his lordship's woods",
+			"label": "Take {name} in his lordship's woods by night"
+		}
+	],
+	"text": {
+		"title": [
+			"The poacher",
+			"Snares in the lord's woods",
+			"A thief of game"
+		],
+		"summary": [
+			"Someone sets snares in his lordship's woods, {distance} {direction} of {settlement}. Take the poacher by night and bring them in.",
+			"The lord's deer go missing and the snares are fresh. Catch the poacher at it, after dark.",
+			"A poacher works his lordship's game, {direction} of here. Take them alive."
+		],
+		"offer": [
+			"His lordship's game is his lordship's. Somebody disagrees, and sets snares at night, {distance} {direction}. Catch them at it.",
+			"Snares in the woods, guts by the stream. A poacher. Take them by night, alive if you can.",
+			"The keeper found snares again. I want the one who sets them. Bring them to the court."
+		],
+		"progress": [
+			"Have you taken the poacher?",
+			"The snares: who sets them?",
+			"Still snares in the woods?"
+		],
+		"complete": [
+			"Taken. The court will see them, and the deer will thank you.",
+			"So that was the poacher. Well done.",
+			"The woods are his lordship's again."
+		]
+	},
+	"reward": {
+		"coin": [
+			80,
+			140
+		],
+		"reputation": 5,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 5,
+	"cooldown_days": 3,
+	"repeatable": true,
+	"commission": {
+		"binds": "poacher",
+		"rank": "petitioner",
+		"feat": false
+	}
+}

@@ -44,5 +44,6 @@ public final class NpcClient {
 
 		// the living world, part 2 (docs/LIVING_WORLD_2.md §11.2): each lane fills in its own entry point
 		dev.voidmc.hearth.client.npc.travel.TravelClient.init(); // A1 carts
+		dev.voidmc.hearth.client.npc.companion.HouseholdClient.init(); // B4 the household section
 	}
 }

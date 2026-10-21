@@ -1,0 +1,67 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"declining"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "talk",
+			"label": "Summon {recipient} of {target} before his lordship"
+		}
+	],
+	"text": {
+		"title": [
+			"A reeve in default",
+			"The reeve of {other}",
+			"Dues unpaid in {other}"
+		],
+		"summary": [
+			"The reeve of {other} has not paid the domain's dues. Summon them before his lordship's court.",
+			"The coffers of {other} are empty and its dues unpaid. Bring word to its reeve that the court expects them.",
+			"The reeve of {other} owes the domain. Go and say so, in his lordship's name."
+		],
+		"offer": [
+			"{other} pays nothing this season and its reeve sends excuses. Go there, {distance} {direction}, and tell the reeve to answer at court.",
+			"A reeve who does not pay is a reeve who forgets whose land it is. Remind the reeve of {other}.",
+			"I want the reeve of {other} before the court. You carry his lordship's word: go."
+		],
+		"progress": [
+			"Has the reeve of {other} heard the summons?",
+			"Did the reeve of {other} answer?",
+			"Will the reeve of {other} come?"
+		],
+		"complete": [
+			"The reeve will come to court. A word from the right mouth works wonders.",
+			"Summoned. Now we will hear their excuses in person. Well done.",
+			"They will answer at court. Good."
+		]
+	},
+	"reward": {
+		"coin": [
+			100,
+			180
+		],
+		"reputation": 6,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 4,
+	"repeatable": true,
+	"commission": {
+		"binds": "reeve",
+		"rank": "retainer",
+		"feat": false
+	}
+}
