@@ -59,7 +59,8 @@ public final class EventDressings {
 			int have = done == null ? 0 : done;
 			String bkey = key + "_" + b;
 			TownEvent market = new TownEvent(bkey, TownEvent.Kind.MARKET, run.event.start(), run.event.end(), null, List.of(), List.of(), List.of());
-			List<Dressings.Stall> stalls = Dressings.setUpMarket(level, s, ledger, market, at, Math.min(STALL_BATCH, count - have), b == 0);
+			// (without the houses' awnings: drawing their dressings was most of a 60 ms pass in the tour; the market day has them)
+			List<Dressings.Stall> stalls = Dressings.setUpMarket(level, s, ledger, market, at, Math.min(STALL_BATCH, count - have), false);
 			run.put("stalls", have + stalls.size());
 			run.put("stall_batch", b + 1);
 			if (!stalls.isEmpty() || b == 0) {

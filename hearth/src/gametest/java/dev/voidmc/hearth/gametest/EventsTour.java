@@ -111,7 +111,9 @@ public class EventsTour implements FabricClientGameTest {
 				log("book: " + l);
 			}
 			Double bench = world.getServer().computeOnServer(server -> Double.valueOf(TownEvents.bench(HearthWorld.of(server.overworld()), 28)));
-			log(String.format(Locale.ROOT, "bench: a town's day of events costs %.1f µs (every town, 28 days ahead)", bench));
+			log(String.format(Locale.ROOT, "bench: a town's day of events costs %.1f µs (every town, 28 days ahead); %s", bench, TownEvents.benchLine));
+			Double again = world.getServer().computeOnServer(server -> Double.valueOf(TownEvents.bench(HearthWorld.of(server.overworld()), 28)));
+			log(String.format(Locale.ROOT, "bench again (warm): %.1f µs; %s", again, TownEvents.benchLine));
 			for (String l : world.getServer().computeOnServer(server -> TownEvents.stats())) {
 				log(l);
 			}

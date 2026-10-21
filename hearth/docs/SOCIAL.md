@@ -420,5 +420,13 @@ words in `lang/en_us/lw_events.json`. Config `config/hearth/events.json` (`enabl
 **Commands**: `/hearth events status|book`, and for game masters `/hearth events force <kind>` (also `/hearth social
 force <kind>`; a forced execution never kills), `/hearth events stage <scene>`, `/hearth events shell`.
 
+**Cost** (2026-10-21; `/hearth events status|bench`, `/hearth sim stats` lines `events`, `events days`, `fire leash`): the pure
+planning and outcomes 0.7 µs a town-day (`EventsBenchTest`, 200 towns × 365 days); in game a town's whole day — facts,
+crime roll, plan — 27 µs warm (`bench`, 2 towns × 28 days; domains 1.8, bands 1.8), above the 20 µs aim: the facts'
+own reads (residents, calendar, places) are most of it. Scene passes 0.31 ms avg a tick-pass with a scene on; worst
+starts: a raid 21 ms (two raiders spawning), a wedding 9 ms; a fair's first batch of stalls 59 ms with the houses'
+awnings (dropped since). The leash 0.14 ms a pass while a fire burns. A day planned during a new town's catch-up costs
+0.5 ms (cold caches).
+
 **Tests**: `EventRulesTest`, `SceneTimelineTest`, `EventAgreementTest`, `FireLeashTest`, `EventsBenchTest`. Tour:
 `JAVA_TOOL_OPTIONS="-Dhearth.tour=events" ./gradlew runClientGameTest` (`gametest/EventsTour`).

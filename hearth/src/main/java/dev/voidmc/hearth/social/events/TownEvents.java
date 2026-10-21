@@ -255,10 +255,15 @@ public final class TownEvents {
 		}
 		long today = w.day();
 		long t0 = System.nanoTime();
+		long facts = 0;
+		long seat0 = FactsReader.SEAT_NANOS;
+		long threat0 = FactsReader.THREAT_NANOS;
 		int n = 0;
 		for (int d = 1; d <= days; d++) {
 			for (Settlement s : towns) {
+				long f0 = System.nanoTime();
 				TownFacts f = FactsReader.read(w, s, today + d);
+				facts += System.nanoTime() - f0;
 				dev.voidmc.hearth.law.justice.Trials.roll(s.id(), today + d, s.residents(), f.prosperity(), 0, 0, java.util.Set.of(), java.util.Set.of(),
 					java.util.List.of());
 				int[] ids = {1};
@@ -267,8 +272,15 @@ public final class TownEvents {
 				n++;
 			}
 		}
-		return (System.nanoTime() - t0) / 1e3 / n;
+		double us = (System.nanoTime() - t0) / 1e3 / n;
+		benchLine = String.format(java.util.Locale.ROOT, "%.1f µs a town-day over %d towns × %d days: facts %.1f (domains %.1f, bands %.1f), the rest %.1f",
+			us, towns.size(), days, facts / 1e3 / n, (FactsReader.SEAT_NANOS - seat0) / 1e3 / n, (FactsReader.THREAT_NANOS - threat0) / 1e3 / n,
+			us - facts / 1e3 / n);
+		return us;
 	}
+
+	/** The last bench's breakdown. */
+	public static String benchLine = "";
 
 	/** Every scene in a town ends now and resolves (tours: to see the outcome without waiting out the hours). */
 	public static void endScenes(Settlement s) {

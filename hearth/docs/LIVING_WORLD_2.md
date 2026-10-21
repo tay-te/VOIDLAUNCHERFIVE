@@ -449,7 +449,10 @@ bandit raids.
 > bar and chat until designed. `/hearth events status|book|force <kind>|stage <scene>|shell` (also `/hearth social
 > force <kind>`); tour `-Dhearth.tour=events` / `HEARTH_LW_TOUR=events` (`gametest/EventsTour`). Tests `EventRulesTest`,
 > `SceneTimelineTest`, `EventAgreementTest`, `FireLeashTest`, `EventsBenchTest`. Deviations and requests (quest kinds,
-> the build module's `burnt` flavour, a waylaid journey's player) in `docs/requests/lwB1.md`.
+> the build module's `burnt` flavour, a waylaid journey's player) in `docs/requests/lwB1.md`. Measured: pure planning
+> 0.7 µs a town-day; in game a town's day 27 µs warm (over the 20 µs aim); scene passes 0.31 ms avg; worst scene start
+> 21 ms (a raid's first raiders); the leash 0.14 ms a pass. The tour's casts are limited by the 48 folk a town embodied:
+> the pillory drew 1–3 folk within 10 in 12 s, not the 8 asked (see SOCIAL.md §12).
 
 ### 3.1 What the player sees and does
 

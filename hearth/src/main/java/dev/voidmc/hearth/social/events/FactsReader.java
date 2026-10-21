@@ -38,6 +38,10 @@ public final class FactsReader {
 	private static final Map<String, Object[]> SEATS = new HashMap<>();
 	private static final Map<Long, Long> SEAT_OF = new HashMap<>();
 
+	/** Time spent finding domains and bands (the bench's breakdown). */
+	static long SEAT_NANOS;
+	static long THREAT_NANOS;
+
 	private FactsReader() {
 	}
 
@@ -82,8 +86,12 @@ public final class FactsReader {
 		Set<String> places = places(s);
 		int[] def = DEFENCE.computeIfAbsent(s.id(), k -> defenceWorks(s));
 		int defence = RaidRules.defence(guards, def[0] > 0, def[1] > 0);
+		long t0 = System.nanoTime();
 		long seat = seatOf(w, s, day);
+		long t1 = System.nanoTime();
 		RaidRules.BandView band = threat(w, s, defence, day);
+		SEAT_NANOS += t1 - t0;
+		THREAT_NANOS += System.nanoTime() - t1;
 		int year = Math.max(8, cfg.festivals().yearDays());
 		int season = (int) Math.min(3, Math.floorMod(day, (long) year) * 4 / year);
 		return new TownFacts(s.id(), s.tier(), s.population(), adults, s.prosperity(), s.culture(), timber(s.culture()), lord, court, festival, market, rest,
@@ -181,9 +189,13 @@ public final class FactsReader {
 					seats.add(new Domains.Seat(t.id(), t.center()));
 				}
 			}
-			SEATS.put(world, new Object[]{week, seats});
-			for (Settlement t : w.settlements()) {
-				SEAT_OF.remove(t.id());
+			// the towns' seats are worked out again only when the lords' seats have changed, or once a season
+			boolean same = cached != null && seats.equals(cached[1]) && week - (long) cached[2] < 8;
+			SEATS.put(world, new Object[]{week, seats, same ? (long) cached[2] : week});
+			if (!same) {
+				for (Settlement t : w.settlements()) {
+					SEAT_OF.remove(t.id());
+				}
 			}
 			cached = SEATS.get(world);
 		}
@@ -202,7 +214,7 @@ public final class FactsReader {
 				near.add(seat);
 			}
 		}
-		long seat = Domains.seatOf(s.id(), s.center(), near, roads::roadDistance, roadsKnown);
+		long seat = Domains.seatOf(s.id(), s.center(), near, (a, b) -> road(w, roads, a, b, day), roadsKnown);
 		SEAT_OF.put(s.id(), seat);
 		return seat;
 	}
@@ -210,14 +222,15 @@ public final class FactsReader {
 	// ---------------------------------------------------------------- bands
 
 	private static final Map<String, Object[]> BANDS = new HashMap<>();
-	/** Road distances asked today, by the pair (the router's search is not free). */
+	/** Road distances asked this week, by the pair (the router's search is not free; roads change slowly). */
 	private static final Map<Long, Double> ROAD = new HashMap<>();
-	private static long roadDay = Long.MIN_VALUE;
+	private static long roadWeek = Long.MIN_VALUE;
 
 	static double road(HearthWorld w, RoadNetwork roads, long a, long b, long day) {
-		if (day != roadDay || ROAD.size() > 4096) {
+		long week = Math.floorDiv(day, 7);
+		if (week != roadWeek || ROAD.size() > 8192) {
 			ROAD.clear();
-			roadDay = day;
+			roadWeek = week;
 		}
 		long key = Math.min(a, b) * 0x9E3779B97F4A7C15L ^ Math.max(a, b);
 		Double d = ROAD.get(key);
