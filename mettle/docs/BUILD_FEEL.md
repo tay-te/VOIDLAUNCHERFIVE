@@ -1195,7 +1195,7 @@ plays the game's own `TalentRules` on the shipped talent data. Tour: `DeedJourne
    waking window, a free swap, or the low-level line (character level below 5, as rebuilds). "A full night" is waking
    in the first ten seconds of the morning after at least five seconds in bed.
 4. **Values roll as traits do** (every step in the band equally likely), not the prototype's rounded-down roll: the
-   talents' share of a whole character comes out 1.5–2.1 % instead of 1.6–1.9 % (report §7).
+   talents' share of a whole character comes out 1.4–2.1 % (nine skills) instead of 1.6–1.9 % (report §7).
 5. **Migration log**: a returned copy's card is archived to its id like every released card, so its "Returned" line
    lives in the ledger's `deed_returns` (card, deed, holder, day, settled) and the server log, and in the chat line its
    holder gets on the next join.

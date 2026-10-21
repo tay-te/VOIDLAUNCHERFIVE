@@ -87,7 +87,7 @@ final class TalentJourney {
 		check(context.computeOnClient(mc -> {
 			JsonObject talents = MettleState.build(mc).getAsJsonObject("talents");
 			JsonArray hand = talents.getAsJsonObject("draft").getAsJsonArray("hand");
-			if (hand.size() != 3 || !talents.get("unlocked").getAsBoolean() || talents.get("slots").getAsInt() != 2) {
+			if (hand.size() != 3 || !talents.get("unlocked").getAsBoolean() || talents.get("slots").getAsInt() != TalentRules.slots(talents.get("characterLevel").getAsInt())) {
 				return "the overlay's talents: " + talents;
 			}
 			JsonObject first = hand.get(0).getAsJsonObject();

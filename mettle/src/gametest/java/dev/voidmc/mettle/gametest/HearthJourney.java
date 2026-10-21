@@ -220,18 +220,33 @@ final class HearthJourney {
 	// ------------------------------------------------------------------ prices
 
 	private static @Nullable String prices(ServerPlayer player, EconomyService economy, Settlement town) {
-		ItemStack stack = new ItemStack(Items.IRON_INGOT, 64);
+		// Hearth never lets a player's factors pull a price through the town's spread (MarketPricer.Quote.adjusted: a town
+		// short of a good sells it no cheaper than it buys it): look for a good this town has room on, so the check sees
+		// Mettle's factor rather than the town's stock.
+		ItemStack stack = null;
+		long plainBuy = 0;
+		long plainSell = 0;
 		set(player, CharacterStore.get(player).withXp(SPEECH, 0), 0);
-		long plainBuy = economy.price(player, town, stack, true);
-		long plainSell = economy.price(player, town, stack, false);
+		for (var item : List.of(Items.IRON_INGOT, Items.BREAD, Items.WHEAT, Items.COAL, Items.OAK_LOG, Items.LEATHER, Items.COBBLESTONE,
+			Items.COPPER_INGOT, Items.GOLD_INGOT)) {
+			ItemStack s = new ItemStack(item, 64);
+			long b = economy.price(player, town, s, true);
+			long sl = economy.price(player, town, s, false);
+			if (b >= 20 && sl < b * 0.85) {
+				stack = s;
+				plainBuy = b;
+				plainSell = sl;
+				break;
+			}
+		}
+		if (stack == null) {
+			return "no good at " + town.name() + " has room in its spread to show a price modifier";
+		}
 		set(player, CharacterStore.get(player).withXp(SPEECH, Curves.skillXpFor(20)), CharacterAttribute.MAX);
 		long goodBuy = economy.price(player, town, stack, true);
 		long goodSell = economy.price(player, town, stack, false);
-		Mettle.LOGGER.info("Hearth journey: 64 iron ingots at {}: buy {} → {}, sell {} → {} (Presence {}, Speech 20)", town.name(),
+		Mettle.LOGGER.info("Hearth journey: 64 {} at {}: buy {} → {}, sell {} → {} (Presence {}, Speech 20)", stack.getItem(), town.name(),
 			plainBuy, goodBuy, plainSell, goodSell, presence(player));
-		if (plainBuy < 20) {
-			return "the market prices 64 iron ingots at " + plainBuy + " bits; too little to see a modifier";
-		}
 		if (goodBuy >= plainBuy || goodSell <= plainSell) {
 			return "Presence and Speech did not move prices: buy " + plainBuy + " → " + goodBuy + ", sell " + plainSell + " → " + goodSell;
 		}
