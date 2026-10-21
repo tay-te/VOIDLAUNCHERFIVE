@@ -72,6 +72,10 @@ public final class BanditParty implements Folk.Controller {
 	final Set<UUID> paid = new HashSet<>();
 	int killed;
 	private boolean flagged;
+	/** Men still to come (one a tick), where and with what dice. */
+	private int toCome;
+	private @Nullable BlockPos comeAt;
+	private @Nullable RandomSource comeRandom;
 
 	private BanditParty(Band band, Culture culture, BlockPos spot) {
 		this.bandId = band.id();
@@ -95,17 +99,12 @@ public final class BanditParty implements Folk.Controller {
 		Culture culture = near == null ? Culture.TEMPERATE : near.culture();
 		BanditParty p = new BanditParty(band, culture, spot);
 		RandomSource r = RandomSource.create(band.id() * 0x9E3779B97F4A7C15L);
-		for (int i = 0; i < band.strength(); i++) {
-			Folk f = Wayfarers.stranger(level, stand, culture, JobType.BANDIT, r, p);
-			if (f == null) {
-				continue;
-			}
-			Wayfarers.arm(f, JobType.BANDIT, r);
-			p.men.add(f);
-			if (p.leader == null) {
-				p.leader = f;
-				f.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
-			}
+		// one man a tick (a band of seven at once is a dear tick): the leader now, the rest as the band ticks
+		p.comeAt = stand;
+		p.comeRandom = r;
+		p.toCome = band.strength();
+		while (p.men.isEmpty() && p.toCome > 0) {
+			p.comeNext(level);
 		}
 		if (p.men.isEmpty()) {
 			return null;
@@ -128,7 +127,7 @@ public final class BanditParty implements Folk.Controller {
 		this.camp = new Camp(ground);
 		this.camp.fire(level);
 		this.camp.tent(level, Direction.from2DDataValue((int) Math.floorMod(this.bandId, 4)));
-		this.camp.bedrolls(level, Math.min(4, this.men.size()), this.bandId);
+		this.camp.bedrolls(level, Math.min(4, this.men.size() + this.toCome), this.bandId);
 		BlockPos c = Camp.ground(level, ground.offset(2, 0, -2));
 		if (c != null && this.camp.put(level, c, Blocks.CHEST.defaultBlockState().setValue(ChestBlock.FACING, Direction.SOUTH))) {
 			this.chest = c;
@@ -173,8 +172,29 @@ public final class BanditParty implements Folk.Controller {
 		return n;
 	}
 
+	/** The next man of the band comes on (near the leader once there is one). */
+	private void comeNext(ServerLevel level) {
+		if (this.toCome <= 0 || this.comeAt == null || this.comeRandom == null) {
+			return;
+		}
+		this.toCome--;
+		BlockPos at = this.leader != null && this.leader.isAlive() && !this.leader.isRemoved() ? this.leader.blockPosition() : this.comeAt;
+		Folk f = Wayfarers.stranger(level, at, this.culture, JobType.BANDIT, this.comeRandom, this);
+		if (f == null) {
+			return;
+		}
+		Wayfarers.arm(f, JobType.BANDIT, this.comeRandom);
+		this.men.add(f);
+		if (this.leader == null) {
+			this.leader = f;
+			f.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET));
+		} else if (this.leader.getTarget() != null) {
+			f.setTarget(this.leader.getTarget());
+		}
+	}
+
 	int size() {
-		return this.men.size();
+		return this.men.size() + this.toCome;
 	}
 
 	boolean alive() {
@@ -194,6 +214,7 @@ public final class BanditParty implements Folk.Controller {
 	// ---------------------------------------------------------------- the tick
 
 	void tick(ServerLevel level, Traffic traffic, long now) {
+		comeNext(level);
 		this.men.removeIf(f -> !f.isAlive() || f.isRemoved());
 		if (this.men.isEmpty()) {
 			return;
@@ -269,7 +290,7 @@ public final class BanditParty implements Folk.Controller {
 					}
 					any |= Wayfarers.fight(level, f, t);
 				}
-				if (this.men.size() * 3 < this.mustered) {
+				if ((this.men.size() + this.toCome) * 3 < this.mustered) {
 					flee(level, traffic, now);
 				} else if (!any && now - this.since > 100) {
 					this.state = State.WAIT;
@@ -453,6 +474,7 @@ public final class BanditParty implements Folk.Controller {
 			Wayfarers.fold(f);
 		}
 		this.men.clear();
+		this.toCome = 0;
 	}
 
 	List<Folk> folk() {
@@ -503,7 +525,7 @@ public final class BanditParty implements Folk.Controller {
 		Traffic t = Roads.state(dev.voidmc.hearth.sim.SimServer.world(level)) == null ? null
 			: Roads.state(dev.voidmc.hearth.sim.SimServer.world(level)).traffic();
 		long alive = this.men.stream().filter(f -> f != folk && f.isAlive() && !f.isRemoved()).count();
-		if (t != null && alive * 3 < this.mustered && this.state != State.FLEE) {
+		if (t != null && (alive + this.toCome) * 3 < this.mustered && this.state != State.FLEE) {
 			flee(level, t, level.getGameTime());
 		}
 	}

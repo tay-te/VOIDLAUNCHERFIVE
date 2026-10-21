@@ -48,6 +48,8 @@ public final class RoadCrew implements Folk.Controller {
 	@Nullable Mob mule;
 	@Nullable CartEntity cart;
 	private final List<BlockPos> spots = new ArrayList<>();
+	/** Bodies still to come, one a tick. */
+	private final java.util.ArrayDeque<java.util.function.Consumer<ServerLevel>> pending = new java.util.ArrayDeque<>();
 	private long nextWork;
 	private long nextBark;
 
@@ -86,29 +88,39 @@ public final class RoadCrew implements Folk.Controller {
 			}
 		}
 		int count = Math.min(builders.size(), 2 + rnd.nextInt(3));
+		// one body a tick: the first builder now, the rest, the mule and its cart as the crew ticks
 		for (int i = 0; i < count; i++) {
 			Resident res = builders.get(i);
-			Folk f = Wayfarers.resident(level, stand, s.culture(), res, rnd, crew);
-			if (f == null) {
-				continue;
-			}
-			f.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(i == 0 ? Items.IRON_SHOVEL : rnd.nextBoolean() ? Items.IRON_PICKAXE : Items.STONE_SHOVEL));
-			crew.men.add(f);
-			crew.residents.add(res.id);
-			s.setResidentAway(res.id, clock + 2400, "roads:crew");
+			boolean foreman = i == 0;
+			crew.pending.add(lv -> {
+				Folk f = Wayfarers.resident(lv, stand, s.culture(), res, rnd, crew);
+				if (f == null) {
+					return;
+				}
+				f.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(foreman ? Items.IRON_SHOVEL : rnd.nextBoolean() ? Items.IRON_PICKAXE : Items.STONE_SHOVEL));
+				crew.men.add(f);
+				crew.residents.add(res.id);
+				s.setResidentAway(res.id, clock + 2400, "roads:crew");
+			});
+		}
+		while (crew.men.isEmpty() && !crew.pending.isEmpty()) {
+			crew.pending.poll().accept(level);
 		}
 		if (crew.men.isEmpty()) {
+			crew.pending.clear();
 			return null;
 		}
-		crew.mule = Wayfarers.beast(level, stand, Wayfarers.draught(s.culture(), CartEntity.Kind.CART, rnd), rnd);
-		if (crew.mule != null) {
-			crew.cart = Wayfarers.cart(level, crew.mule, CartEntity.Kind.CART, CartEntity.Load.STONE);
-		}
+		crew.pending.add(lv -> crew.mule = Wayfarers.beast(lv, stand, Wayfarers.draught(s.culture(), CartEntity.Kind.CART, rnd), rnd));
+		crew.pending.add(lv -> {
+			if (crew.mule != null && crew.mule.isAlive()) {
+				crew.cart = Wayfarers.cart(lv, crew.mule, CartEntity.Kind.CART, CartEntity.Load.STONE);
+			}
+		});
 		return crew;
 	}
 
 	int size() {
-		return this.men.size() + (this.mule != null ? 1 : 0) + (this.cart != null ? 1 : 0);
+		return this.men.size() + (this.mule != null ? 1 : 0) + (this.cart != null ? 1 : 0) + this.pending.size();
 	}
 
 	@Nullable BlockPos centre() {
@@ -116,6 +128,10 @@ public final class RoadCrew implements Folk.Controller {
 	}
 
 	void tick(ServerLevel level, LiveRoads live, @Nullable SimSettlement s, long now, long clock) {
+		java.util.function.Consumer<ServerLevel> next = this.pending.poll();
+		if (next != null) {
+			next.accept(level);
+		}
 		this.men.removeIf(f -> !f.isAlive() || f.isRemoved());
 		if (this.men.isEmpty()) {
 			return;
@@ -164,6 +180,7 @@ public final class RoadCrew implements Folk.Controller {
 	}
 
 	void fold(ServerLevel level, @Nullable SimSettlement s) {
+		this.pending.clear();
 		for (Folk f : this.men) {
 			Wayfarers.fold(f);
 		}
