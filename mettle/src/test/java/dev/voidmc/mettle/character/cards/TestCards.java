@@ -46,6 +46,8 @@ final class TestCards {
 	static final Map<Identifier, Keyword> KEYWORDS = loadIds("keyword", Keyword.CODEC);
 	static final Map<Identifier, CardSkill> SKILLS = loadIds("card_skill", CardSkill.CODEC);
 	static final DraftRules.Deck DECK = new DraftRules.Deck(PERKS);
+	/** The talents (docs/BUILD_FEEL.md §13), by id ({@code mettle:fleet}). */
+	static final Map<Identifier, dev.voidmc.mettle.api.Talent> TALENTS = loadIds("talent", dev.voidmc.mettle.api.Talent.CODEC);
 	static final CardRules.Data DATA_SET = data();
 
 	private TestCards() {

@@ -131,9 +131,16 @@ public class MettleTour implements FabricClientGameTest {
 				CardEffectsJourney.run(context, world);
 				BuildFeelJourney.run(context, world);
 				LegendJourney.run(context, world);
+				DeedJourney.run(context, world);
+				TalentJourney.run(context, world);
 			}
 			// -Dmettle.tour.feel_only=true plays only build feel (docs/BUILD_FEEL.md); -Dmettle.tour.legend_only=true only
 			// its sixteen drawn Mythics.
+			// -Dmettle.tour.talents_only=true plays only the deed and talent journeys (BUILD_FEEL.md §12, §13).
+			if (Boolean.getBoolean("mettle.tour.talents_only")) {
+				DeedJourney.run(context, world);
+				TalentJourney.run(context, world);
+			}
 			if (Boolean.getBoolean("mettle.tour.feel_only")) {
 				BuildFeelJourney.run(context, world);
 			}
@@ -142,7 +149,7 @@ public class MettleTour implements FabricClientGameTest {
 			}
 			// -Dmettle.tour.hearth_only=true (with -Phearth) plays only the Hearth journey, for a quick check.
 			if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.cards_only") && !Boolean.getBoolean("mettle.tour.feel_only")
-				&& !Boolean.getBoolean("mettle.tour.legend_only")) {
+				&& !Boolean.getBoolean("mettle.tour.legend_only") && !Boolean.getBoolean("mettle.tour.talents_only")) {
 				// Progress moments first, while the character is fresh (it is put back as it was).
 				MomentJourney.run(context, world);
 				signaturePerks(world);
@@ -168,6 +175,8 @@ public class MettleTour implements FabricClientGameTest {
 				CardEffectsJourney.run(context, world);
 				BuildFeelJourney.run(context, world);
 				LegendJourney.run(context, world);
+				DeedJourney.run(context, world);
+				TalentJourney.run(context, world);
 			}
 			// With VOID Hearth loaded (-Phearth): its slots filled by Mettle. HearthJourney names Hearth types, so it is
 			// only touched then.
@@ -182,7 +191,8 @@ public class MettleTour implements FabricClientGameTest {
 			save = world.getWorldSave();
 		}
 		// Saved, quit and opened again (a restart and a relog): what must last did (CardEffectsJourney's cooldowns).
-		if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.feel_only") && !Boolean.getBoolean("mettle.tour.legend_only")) {
+		if (!Boolean.getBoolean("mettle.tour.hearth_only") && !Boolean.getBoolean("mettle.tour.feel_only") && !Boolean.getBoolean("mettle.tour.legend_only")
+			&& !Boolean.getBoolean("mettle.tour.talents_only")) {
 			try (TestSingleplayerContext again = save.open()) {
 				CardEffectsJourney.afterRestart(context, again);
 			}

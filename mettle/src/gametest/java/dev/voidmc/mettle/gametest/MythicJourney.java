@@ -190,6 +190,9 @@ final class MythicJourney {
 			Cards.ledger(s).unclaim("twin_edge");
 			Cards.ledger(s).unclaim("elders_eye");
 			HELD_FOR_TEST.forEach(m -> Cards.ledger(s).unclaim(m));
+			// The two deeds granted for the slot limit are one of a kind now (BUILD_FEEL.md §12): their claims go too.
+			Cards.ledger(s).unclaim("lone_banner");
+			Cards.ledger(s).unclaim("unclad");
 			HELD_FOR_TEST.clear();
 			CharacterStore.set(p, saved[0]);
 			EffectsApplier.apply(p);

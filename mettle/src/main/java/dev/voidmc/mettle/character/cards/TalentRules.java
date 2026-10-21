@@ -122,22 +122,18 @@ public final class TalentRules {
 		return new double[] {lo, hi};
 	}
 
-	/** A value in the band, on the talent's step, never outside the band. */
+	/** A value in the band, on the talent's step: every step inside the band equally likely, as a trait rolls (CardRules.rollValue). */
 	public static double value(Talent t, Rarity rarity, Random random) {
 		if (t.isFixed()) {
 			return 1;
 		}
-		double[] b = band(t, rarity);
-		double v = b[0] + random.nextDouble() * (b[1] - b[0]);
+		double[] band = band(t, rarity);
 		double step = t.step() <= 0 ? 1 : t.step();
-		double stepped = Math.round(v / step) * step;
-		// Round onto the step, then back inside the band (its ends may sit between steps).
-		double lo = Math.ceil(b[0] / step - 1e-9) * step;
-		double hi = Math.floor(b[1] / step + 1e-9) * step;
-		if (hi < lo) {
-			hi = lo;
-		}
-		return round(Math.clamp(stepped, lo, hi));
+		long lo = (long) Math.ceil(band[0] / step - 1e-9);
+		long hi = (long) Math.floor(band[1] / step + 1e-9);
+		double roll = random.nextDouble();
+		long pick = hi < lo ? Math.round((band[0] + band[1]) / 2 / step) : Math.min(hi, lo + (long) (roll * (hi - lo + 1)));
+		return round(pick * step);
 	}
 
 	static double round(double v) {
