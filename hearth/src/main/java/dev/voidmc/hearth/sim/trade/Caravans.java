@@ -94,6 +94,25 @@ public final class Caravans {
 
 	public static final HearthDataKey<State> KEY = HearthDataKey.register(Hearth.id("sim/caravans"), HearthDataKey.Scope.WORLD, State.CODEC, State::new);
 
+	/**
+	 * The roads' say in a caravan's journey (docs/LIVING_WORLD_2.md §1.2): with a road network, a caravan's time on the
+	 * road is its wagon's pace along the roads (night stops included), and its risk the bandit danger of the roads it
+	 * crosses — still rolled here at its departure, so the sim stays the authority.
+	 */
+	public interface Roads {
+		/** When a caravan leaving {@code from} now arrives at {@code to}, or 0 for the sim's own reckoning. */
+		long arrival(SimSettlement from, SimSettlement to, long now);
+
+		/** The chance it is lost on the way (its guards counted), or NaN for the sim's own reckoning. */
+		double risk(SimSettlement from, SimSettlement to, int guards);
+	}
+
+	private static volatile @Nullable Roads roads;
+
+	public static void setRoads(@Nullable Roads hook) {
+		roads = hook;
+	}
+
 	private final SimWorld world;
 	private long departed;
 
@@ -396,6 +415,18 @@ public final class Caravans {
 		if (s.jobSlots(JobType.GUARD) > 0) {
 			// the town's guards ride along part of the way
 			risk *= 0.6;
+		}
+		Roads hook = roads;
+		if (hook != null) {
+			// along the roads: the wagon's pace, and the bandits of the roads it crosses
+			long byRoad = hook.arrival(s, to, now);
+			if (byRoad > now) {
+				arrive = Math.max(now + 200, byRoad);
+			}
+			double r2 = hook.risk(s, to, 2 + (s.jobSlots(JobType.GUARD) > 0 ? 1 : 0));
+			if (!Double.isNaN(r2)) {
+				risk = r2;
+			}
 		}
 		boolean doomed = unit(id ^ this.world.level().getSeed()) < Math.min(0.9, risk);
 		Caravan c = new Caravan(id, s.id(), to.id(), cargo, bits, now, arrive, doomed, s.center(), to.center());

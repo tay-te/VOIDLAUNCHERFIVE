@@ -211,6 +211,28 @@ public final class Roadbed {
 		return false;
 	}
 
+	// ------------------------------------------------------------------------------------------------ country roads
+
+	/**
+	 * A king's road metalled in the country (docs/LIVING_WORLD_2.md §1.1): patches of gravel and packed coarse earth worked
+	 * into its carriageway by world noise, the verges left green. Only on level columns inside the verges, never in water.
+	 */
+	public void metal() {
+		try (var s = this.lay.draft().stage(StageKind.FLOORS)) {
+			for (int i = 0; i < this.cols.size(); i++) {
+				Course.Col col = this.cols.get(i);
+				if (!this.inside[i] || col.ring() == 0 || this.shape[i] != Shape.FULL || this.lay.wet(col.x(), col.z())) {
+					continue;
+				}
+				double n = Noise.value(this.seed ^ 0x6A7E1, col.x() / 2.3, 0, col.z() / 2.3) * 0.7 + Noise.unit(this.seed ^ 0x6A7E2, col.x(), 3, col.z()) * 0.3;
+				BlockState b = n < 0.16 ? Blocks.GRAVEL.defaultBlockState() : n > 0.84 ? Blocks.COARSE_DIRT.defaultBlockState() : null;
+				if (b != null) {
+					this.lay.set(col.x(), this.level[i] - 1, col.z(), b);
+				}
+			}
+		}
+	}
+
 	// ------------------------------------------------------------------------------------------------ surface
 
 	/** The material of a column's course. */

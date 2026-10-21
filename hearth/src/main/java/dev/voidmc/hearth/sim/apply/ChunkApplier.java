@@ -345,10 +345,17 @@ public final class ChunkApplier {
 		if (Extraction.is(s, p) || PlotColumns.underground(spec)) {
 			return 0;
 		}
+		return clearCanopy(chunk, spec, new World(chunk));
+	}
+
+	/**
+	 * {@link #clearCanopy(LevelChunk, SimSettlement, SimPlot)} for any plot's columns in a chunk, through a view of it (the
+	 * roads' writer shares it: a road cut through a wood takes the trees on its corridor down whole).
+	 */
+	public static int clearCanopy(LevelChunk chunk, PlotSpec spec, StepWriter.Blocks world) {
 		int minX = chunk.getPos().getMinBlockX();
 		int minZ = chunk.getPos().getMinBlockZ();
 		int floor = spec.floorY();
-		World world = new World(chunk);
 		// found first, then cleared: a log is told to be a tree's by the leaves round it, which must still be there
 		it.unimi.dsi.fastutil.longs.LongArrayList found = new it.unimi.dsi.fastutil.longs.LongArrayList();
 		long[] done = new long[4];

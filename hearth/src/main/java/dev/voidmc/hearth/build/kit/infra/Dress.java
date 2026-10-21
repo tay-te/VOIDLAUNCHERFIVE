@@ -68,6 +68,14 @@ public record Dress(LineMat main, @Nullable LineMat wear, double wearShare, Line
 		}
 	}
 
+	/**
+	 * The same dress for a country road (docs/LIVING_WORLD_2.md §1.1): never lit (the LIGHT rule: roads between towns are
+	 * dark at night on purpose).
+	 */
+	public Dress country() {
+		return new Dress(this.main, this.wear, this.wearShare, this.edge, this.edgeKind, this.step, this.sunken, this.ruts, false, this.spacing);
+	}
+
 	/** Whether a culture builds in timber where others pave (boardwalks over the mud, palm decks). */
 	public static boolean timberCulture(@Nullable Culture c) {
 		return c == Culture.BAYOU || c == Culture.TROPICAL;

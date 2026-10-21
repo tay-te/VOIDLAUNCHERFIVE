@@ -42,8 +42,21 @@ public final class Caravans {
 	private long nextId = 1;
 	private long ticks;
 
+	/**
+	 * Whether these parties stand down for the roads' travellers (docs/LIVING_WORLD_2.md §1.3): with the road network on,
+	 * a sim caravan is a journey on the roads, met as a wagon with its guards along the real road.
+	 */
+	private static java.util.function.BooleanSupplier standDown = () -> false;
+
+	public static void setStandDown(java.util.function.BooleanSupplier supplier) {
+		standDown = supplier;
+	}
+
 	/** The sim's caravan news. */
 	public void onCaravan(HearthWorld world, Settlement from, Settlement to, SettlementEvents.CaravanEvent.Kind kind, long caravanId, int[] cargo) {
+		if (kind == SettlementEvents.CaravanEvent.Kind.DEPARTED && standDown.getAsBoolean() && caravanId > 0) {
+			return;
+		}
 		if (kind == SettlementEvents.CaravanEvent.Kind.DEPARTED) {
 			NpcConfig.Caravans cfg = NpcModule.config().caravans();
 			if (cfg.maxActive() == 0 || from.dimension() != to.dimension()) {
