@@ -118,6 +118,8 @@ public final class Traffic {
 	private final Host world;
 	private final RoadWorld net;
 	private long nextDue = Long.MIN_VALUE;
+	/** Bumped whenever journeys come or go (or change), so the places worked out this tick are not reused. */
+	private int version;
 	private final Map<Long, Geometry> geometry = new HashMap<>();
 	private final Map<Long, Float> cover = new HashMap<>();
 	private final Map<Long, Boolean> holy = new HashMap<>();
@@ -346,6 +348,7 @@ public final class Traffic {
 	}
 
 	private void changed() {
+		this.version++;
 		this.nextDue = Long.MIN_VALUE;
 		this.world.markDirty();
 	}
@@ -724,6 +727,7 @@ public final class Traffic {
 		long id = book.nextId++;
 		book.journeys.add(new Journey(id, TravelKind.SETTLERS, parent.id(), hamlet.id(), ids, len, now, Journey.CART, end, List.copyOf(who), false, 0,
 			Long.MAX_VALUE, 0, "", new CompoundTag()));
+		this.version++;
 		for (UUID r : who) {
 			hamlet.setResidentAway(r, end, "travel:settlers");
 		}
@@ -779,6 +783,7 @@ public final class Traffic {
 		if (!book().journeys.remove(j)) {
 			return;
 		}
+		this.version++;
 		this.geometry.remove(j.id());
 		SimSettlement home = home(j);
 		if (home != null) {
@@ -1294,26 +1299,64 @@ public final class Traffic {
 
 	/** Journeys within {@code radius} of a point now, nearest first. */
 	public List<Journey> near(BlockPos at, int radius) {
-		long now = this.world.clock();
-		List<double[]> found = new ArrayList<>();
-		List<Journey> js = book().journeys;
+		Journey[] js = snapshot();
+		double[] xz = this.snapXz;
+		// squared distance (whole blocks) and index in one long, so the nearest-first order is a primitive sort
+		long[] found = null;
+		int n = 0;
 		double r2 = (double) radius * radius;
-		for (int i = 0; i < js.size(); i++) {
-			double[] p = place(js.get(i), now);
-			double dx = p[0] - at.getX();
-			double dz = p[2] - at.getZ();
+		for (int i = 0; i < js.length; i++) {
+			double dx = xz[2 * i] - at.getX();
+			double dz = xz[2 * i + 1] - at.getZ();
 			double d = dx * dx + dz * dz;
 			if (d <= r2) {
-				found.add(new double[]{d, i});
+				if (found == null) {
+					found = new long[Math.min(js.length, 16)];
+				} else if (n == found.length) {
+					found = java.util.Arrays.copyOf(found, Math.min(js.length, n * 2));
+				}
+				found[n++] = (long) d << 24 | i;
 			}
 		}
-		found.sort((a, b) -> Double.compare(a[0], b[0]));
-		List<Journey> out = new ArrayList<>(found.size());
-		for (double[] f : found) {
-			out.add(js.get((int) f[1]));
+		if (n == 0) {
+			return List.of();
+		}
+		java.util.Arrays.sort(found, 0, n);
+		List<Journey> out = new ArrayList<>(n);
+		for (int k = 0; k < n; k++) {
+			out.add(js[(int) (found[k] & 0xFFFFFF)]);
 		}
 		return out;
 	}
+
+	/**
+	 * Every journey's place now, worked out once a tick however many players ask (the parties' pass asks for each of them
+	 * in the same tick): the journeys, their {@code x, z} in {@link #snapXz}.
+	 */
+	private Journey[] snapshot() {
+		long now = this.world.clock();
+		List<Journey> js = book().journeys;
+		if (this.snapAt == now && this.snapVersion == this.version && this.snap.length == js.size()) {
+			return this.snap;
+		}
+		Journey[] arr = js.toArray(new Journey[0]);
+		double[] xz = this.snapXz.length >= arr.length * 2 ? this.snapXz : new double[arr.length * 2 + 64];
+		for (int i = 0; i < arr.length; i++) {
+			double[] p = place(arr[i], now);
+			xz[2 * i] = p[0];
+			xz[2 * i + 1] = p[2];
+		}
+		this.snap = arr;
+		this.snapXz = xz;
+		this.snapAt = now;
+		this.snapVersion = this.version;
+		return arr;
+	}
+
+	private Journey[] snap = new Journey[0];
+	private double[] snapXz = new double[0];
+	private long snapAt = Long.MIN_VALUE;
+	private int snapVersion = -1;
 
 	public String describe() {
 		Book b = book();
