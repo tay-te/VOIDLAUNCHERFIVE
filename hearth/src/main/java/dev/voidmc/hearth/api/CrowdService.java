@@ -13,4 +13,12 @@ public interface CrowdService {
 
 	/** Whether the town has shut its doors and shutters (a raid, a monster, an outlaw about). */
 	boolean shuttered(Settlement s);
+
+	/**
+	 * Whether a player's blow on a resident is brawling rather than assault: bare fists, in a brawl that resident is in
+	 * (docs/LIVING_WORLD_2.md §5.1). The law's assault watch asks before it files a crime.
+	 */
+	default boolean brawling(java.util.UUID player, java.util.UUID resident) {
+		return false;
+	}
 }

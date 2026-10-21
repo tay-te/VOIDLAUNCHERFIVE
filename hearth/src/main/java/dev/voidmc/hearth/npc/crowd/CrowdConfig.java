@@ -8,12 +8,14 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
  * when fields are added. Caps are the most at a comfortable tick time and shrink as the server slows
  * ({@link dev.voidmc.hearth.sim.LoadCaps}).
  */
-public record CrowdConfig(Crowds crowds, Barks barks) {
-	public static final CrowdConfig DEFAULTS = new CrowdConfig(Crowds.DEFAULTS, Barks.DEFAULTS);
+public record CrowdConfig(Crowds crowds, Barks barks, Shutters shutters, Brawls brawls) {
+	public static final CrowdConfig DEFAULTS = new CrowdConfig(Crowds.DEFAULTS, Barks.DEFAULTS, Shutters.DEFAULTS, Brawls.DEFAULTS);
 
 	public static final Codec<CrowdConfig> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Crowds.CODEC.optionalFieldOf("crowds", Crowds.DEFAULTS).forGetter(CrowdConfig::crowds),
-		Barks.CODEC.optionalFieldOf("barks", Barks.DEFAULTS).forGetter(CrowdConfig::barks)
+		Barks.CODEC.optionalFieldOf("barks", Barks.DEFAULTS).forGetter(CrowdConfig::barks),
+		Shutters.CODEC.optionalFieldOf("shutters", Shutters.DEFAULTS).forGetter(CrowdConfig::shutters),
+		Brawls.CODEC.optionalFieldOf("brawls", Brawls.DEFAULTS).forGetter(CrowdConfig::brawls)
 	).apply(i, CrowdConfig::new));
 
 	/**
@@ -44,5 +46,34 @@ public record CrowdConfig(Crowds crowds, Barks barks) {
 			Codec.intRange(0, 600).optionalFieldOf("per_player_town_seconds", DEFAULTS.perPlayerTownSeconds).forGetter(Barks::perPlayerTownSeconds),
 			Codec.intRange(0, 86400).optionalFieldOf("per_line_seconds", DEFAULTS.perLineSeconds).forGetter(Barks::perLineSeconds)
 		).apply(i, Barks::new));
+	}
+
+	/**
+	 * @param enabled shutters close at night, and while an outlaw, a raid or a storm is about
+	 * @param perTick shutters a town opens or closes in one tick at most (shrinks as the server slows)
+	 */
+	public record Shutters(boolean enabled, int perTick) {
+		public static final Shutters DEFAULTS = new Shutters(true, 32);
+		public static final Codec<Shutters> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Shutters::enabled),
+			Codec.intRange(1, 512).optionalFieldOf("per_tick", DEFAULTS.perTick).forGetter(Shutters::perTick)
+		).apply(i, Shutters::new));
+	}
+
+	/**
+	 * @param enabled folk may come to blows (feuds, tavern nights) when another module asks ({@code CrowdService.brawl})
+	 * @param fineBits what a player who joined a brawl with bare fists pays the guard who breaks it up (brawling, not
+	 *                 assault: docs/LIVING_WORLD_2.md §5.1)
+	 * @param maxSeconds a brawl nobody breaks up ends after this long
+	 * @param maxPerTown brawls in one town at once
+	 */
+	public record Brawls(boolean enabled, int fineBits, int maxSeconds, int maxPerTown) {
+		public static final Brawls DEFAULTS = new Brawls(true, 5, 60, 1);
+		public static final Codec<Brawls> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Brawls::enabled),
+			Codec.intRange(0, 10_000).optionalFieldOf("fine_bits", DEFAULTS.fineBits).forGetter(Brawls::fineBits),
+			Codec.intRange(5, 600).optionalFieldOf("max_seconds", DEFAULTS.maxSeconds).forGetter(Brawls::maxSeconds),
+			Codec.intRange(0, 8).optionalFieldOf("max_per_town", DEFAULTS.maxPerTown).forGetter(Brawls::maxPerTown)
+		).apply(i, Brawls::new));
 	}
 }

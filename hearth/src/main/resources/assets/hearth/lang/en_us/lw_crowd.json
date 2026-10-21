@@ -1,2 +1,4 @@
 {
+	"hearth.crowd.brawl.fined": "The guard takes %s bits off you for brawling.",
+	"hearth.crowd.brawl.warned": "The guard wants %s bits for brawling, and you have not got them. \"Next time it's the cell.\""
 }
