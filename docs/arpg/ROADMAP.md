@@ -199,3 +199,8 @@ fast (gauges, timing games). New frames go in exploration sections; built ones j
 | P13 | **Spellbook** | known spells by school; attuning to a focus (at the inscribing table) | 4 |
 | P14 | **Hearth additions** (Hearth's pages) | elite and lair bounties on the board; apothecary goods; runes and spells taught in conversation | 5 |
 | P15 | **Atlas additions** (Atlas section) | lair places and their felled look; the danger layer and legend | 5 |
+
+## Decisions taken (user, 2026-10-21)
+
+All of D1–D17 are accepted as proposed in the "Proposed" column above: Fray as a shared library inside all four jars; Left Alt dodge, C technique, middle mouse lock-on; no XP costs anywhere; enchanted books kept after reading; a VOID health bar; world-anchored danger; toxicity as the brew limit; damage numbers off by default; boss respawns (lair 3 days, realm 7, first kill is the deed); the bottling stand; bosses drop parts, not weapons; spells never burn or break blocks unless a server opts in; first person by default; the Gallows Knight as stage 1's boss; the plunging strike replaces the jump critical; a separate wild grey wolf.
+D8 (Mythic ceilings): settled by Mettle's MYTHIC_POWER.md (branch mettle-mythic), whose seven decisions were also accepted: staying power from health (40 at the top) rather than damage reduction; a Mythic or a top set unlocks the next tier, both unlock the top; 2–5 slots per skill with 2/3/5 sets; every keyword's top set around skill 12–13; Rebirth = a boss heart + 1,000 bits, once per 30 in-game days; 2 loadouts (3 later), free to switch on waking; Wits gives spell power.
