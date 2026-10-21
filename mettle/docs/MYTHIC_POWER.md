@@ -606,3 +606,7 @@ Figma first for every screen in §15.
 
 Known: `TradeRulesTest.roomForCardsAndItems` fails on `mettle` before this branch ("Components not bound yet"); not
 touched here.
+
+## Decisions taken (user, 2026-10-21)
+
+All seven decisions accepted as recommended: health-based staying power (40 at the top); a Mythic or a top set unlocks the next tier, both the top; 2-5 slots per skill (sets 2/3/5); every keyword's top set around skill 12-13; Rebirth = a boss heart + 1,000 bits, once per 30 in-game days; 2 loadouts (3 later), free switch on waking; Wits gives spell power.
