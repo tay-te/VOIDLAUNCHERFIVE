@@ -261,68 +261,68 @@ Memory added by Ultralight, the view, the page and its texture: +117.2 MB privat
 <!-- perf:vulkan:end -->
 
 <!-- perf:opengl-atlas:begin -->
-### OpenGL, with VOID Atlas — PASS (generated 2026-10-21 13:36)
+### OpenGL, with VOID Atlas — PASS (generated 2026-10-21 15:08)
 
-Device: NVIDIA GeForce RTX 4060/PCIe/SSE2, OpenGL (3.3.0 NVIDIA 616.64) · window 1920×1080 · GUI scale 4 · machine CPU load before/after the run 35% / 43% · vsync off, frame rate uncapped
+Device: NVIDIA GeForce RTX 4060/PCIe/SSE2, OpenGL (3.3.0 NVIDIA 616.64) · window 1920×1080 · GUI scale 4 · machine CPU load before/after the run 40% / 93% · vsync off, frame rate uncapped
 
 | scenario | frames | fps | frame avg | p50 | p95 | p99 | max | render CPU avg | GPU avg | hitches >33 ms |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| idle | 8564 | 858 | 1.165 | 1.013 | 1.771 | 2.931 | 6.45 | 1.118 | 0.569 | 0 |
-| vanilla_inventory | 7829 | 784 | 1.276 | 1.130 | 1.903 | 3.012 | 11.91 | 1.228 | 0.652 | 0 |
-| void_inventory | 8037 | 805 | 1.242 | 1.100 | 1.780 | 3.002 | 9.61 | 1.195 | 0.653 | 0 |
-| vanilla_inventory_hover | 7696 | 771 | 1.297 | 1.160 | 1.914 | 3.019 | 6.84 | 1.250 | 0.655 | 0 |
-| void_inventory_hover | 7121 | 713 | 1.403 | 1.138 | 2.668 | 4.001 | 8.53 | 1.346 | 0.660 | 0 |
-| vanilla_chest | 8189 | 820 | 1.219 | 1.070 | 1.815 | 2.851 | 20.19 | 1.174 | 0.613 | 0 |
-| void_chest | 8422 | 843 | 1.186 | 1.041 | 1.714 | 2.933 | 6.25 | 1.141 | 0.615 | 0 |
-| vanilla_chest_hover | 7782 | 779 | 1.283 | 1.132 | 1.926 | 2.900 | 7.96 | 1.235 | 0.614 | 0 |
-| void_chest_hover | 7471 | 748 | 1.337 | 1.056 | 2.742 | 3.848 | 8.97 | 1.283 | 0.615 | 0 |
-| void_inventory_hover_sync | 3139 | 628 | 1.592 | 1.130 | 3.380 | 5.982 | 25.84 | 1.537 | 0.655 | 0 |
-| void_inventory_hover_sync_fullreadback | 1080 | 216 | 4.626 | 1.647 | 13.394 | 23.860 | 40.83 | 4.441 | 1.516 | 6 |
-| void_inventory_hover_gs2 | 3621 | 725 | 1.379 | 1.129 | 2.430 | 3.819 | 9.13 | 1.327 | 0.651 | 0 |
-| void_chest_hover_gs2 | 3710 | 743 | 1.346 | 1.057 | 2.768 | 3.736 | 5.77 | 1.295 | 0.613 | 0 |
-| atlas_map | 4588 | 459 | 2.176 | 1.951 | 3.166 | 4.618 | 10.64 | 2.107 | 0.801 | 0 |
-| void_map | 4915 | 492 | 2.031 | 1.810 | 3.066 | 4.266 | 6.94 | 1.965 | 0.768 | 0 |
-| atlas_map_pan | 4815 | 482 | 2.073 | 1.876 | 3.000 | 4.041 | 7.63 | 2.007 | 0.791 | 0 |
-| void_map_pan | 4980 | 499 | 2.004 | 1.786 | 3.013 | 4.364 | 7.50 | 1.937 | 0.763 | 0 |
-| atlas_map_pan_frozen | 7428 | 744 | 1.345 | 1.205 | 1.883 | 2.752 | 6.95 | 1.298 | 0.321 | 0 |
-| void_map_pan_frozen | 8398 | 841 | 1.189 | 1.083 | 1.664 | 2.538 | 7.41 | 1.147 | 0.333 | 0 |
+| idle | 5767 | 578 | 1.730 | 1.529 | 2.937 | 4.760 | 15.82 | 1.651 | 0.949 | 0 |
+| vanilla_inventory | 4784 | 479 | 2.086 | 1.808 | 3.425 | 5.383 | 13.72 | 1.988 | 0.896 | 0 |
+| void_inventory | 5596 | 561 | 1.783 | 1.592 | 2.984 | 4.499 | 7.82 | 1.712 | 0.893 | 0 |
+| vanilla_inventory_hover | 5462 | 548 | 1.825 | 1.638 | 2.926 | 4.609 | 12.45 | 1.750 | 0.925 | 0 |
+| void_inventory_hover | 5275 | 528 | 1.894 | 1.652 | 3.492 | 4.942 | 12.56 | 1.811 | 0.892 | 0 |
+| vanilla_chest | 6375 | 639 | 1.566 | 1.447 | 2.343 | 3.113 | 16.62 | 1.509 | 0.967 | 0 |
+| void_chest | 5778 | 579 | 1.728 | 1.593 | 2.862 | 4.557 | 12.52 | 1.659 | 1.121 | 0 |
+| vanilla_chest_hover | 6118 | 613 | 1.632 | 1.511 | 2.583 | 3.368 | 7.88 | 1.573 | 1.029 | 0 |
+| void_chest_hover | 5243 | 525 | 1.904 | 1.711 | 3.363 | 4.694 | 11.45 | 1.824 | 1.004 | 0 |
+| void_inventory_hover_sync | 2388 | 478 | 2.092 | 1.681 | 3.842 | 9.064 | 26.59 | 2.022 | 1.157 | 0 |
+| void_inventory_hover_sync_fullreadback | 964 | 193 | 5.182 | 2.155 | 13.906 | 26.676 | 42.62 | 4.974 | 2.230 | 2 |
+| void_inventory_hover_gs2 | 2608 | 522 | 1.914 | 1.735 | 3.313 | 4.967 | 7.74 | 1.844 | 1.197 | 0 |
+| void_chest_hover_gs2 | 2822 | 565 | 1.769 | 1.641 | 3.085 | 4.137 | 7.66 | 1.706 | 1.159 | 0 |
+| atlas_map | 4262 | 427 | 2.342 | 2.094 | 3.521 | 4.887 | 28.74 | 2.254 | 1.286 | 0 |
+| void_map | 4710 | 472 | 2.120 | 1.925 | 3.242 | 3.863 | 7.66 | 2.054 | 1.301 | 0 |
+| atlas_map_pan | 4281 | 428 | 2.334 | 2.074 | 3.578 | 4.996 | 10.47 | 2.250 | 1.207 | 0 |
+| void_map_pan | 4474 | 448 | 2.231 | 2.020 | 3.435 | 4.384 | 10.51 | 2.151 | 1.283 | 0 |
+| atlas_map_pan_frozen | 7151 | 716 | 1.396 | 1.258 | 1.996 | 3.204 | 7.92 | 1.342 | 0.593 | 0 |
+| void_map_pan_frozen | 7671 | 768 | 1.302 | 1.159 | 1.859 | 3.013 | 11.38 | 1.250 | 0.651 | 0 |
 
-**VOID vs vanilla** (median of the per-round differences; rounds in brackets): inventory avg -0.017 ms [-0.132, -0.040, +0.016, +0.006], p99 +0.055 ms [-0.464, -0.130, +0.433, +0.239] · inventory while hovering avg +0.120 ms [+0.144, +0.096, +0.032, +0.161], p99 +1.053 ms [+0.981, +1.206, +0.782, +1.125] · chest avg -0.008 ms, p99 +0.120 ms
+**VOID vs vanilla** (median of the per-round differences; rounds in brackets): inventory avg -0.330 ms [-0.594, +0.160, -1.349, -0.066], p99 -0.171 ms [-1.138, +1.012, -1.807, +0.796] · inventory while hovering avg +0.106 ms [-0.097, +0.111, +0.101, +0.152], p99 +0.746 ms [-0.586, +0.720, +0.771, +0.934] · chest avg +0.009 ms, p99 +0.006 ms
 
-**Map page vs Atlas's own map screen** (median of the per-round differences), both drawing the live world: idle avg -0.151 ms [+0.076, -0.320, -0.131, -0.171], p99 -0.348 ms [+0.383, -0.605, -0.341, -0.356] · panning avg -0.035 ms [+0.034, +0.156, -0.103, -0.267], p99 +0.206 ms [+0.399, +0.778, +0.013, -0.521] · both over Atlas's still backdrop, panning avg -0.150 ms [-0.129, -0.190, -0.146, -0.153], p99 -0.290 ms [+0.114, -0.369, -0.212, -0.370]
+**Map page vs Atlas's own map screen** (median of the per-round differences), both drawing the live world: idle avg -0.226 ms [-0.137, -0.208, -0.244, -0.309], p99 -0.726 ms [-0.467, -0.986, -1.374, -0.364] · panning avg -0.155 ms [-0.243, +0.089, -0.145, -0.166], p99 -0.390 ms [-1.362, +0.445, -0.542, -0.237] · both over Atlas's still backdrop, panning avg -0.085 ms [-0.199, -0.127, +0.002, -0.043], p99 -0.122 ms [-0.382, -0.449, +0.188, +0.138]
 
 | VOID cost (ms / frame) | render thread: avg / p99 / max | post | wait | copy | upload | uploads | avg upload | Ultralight on its thread | per page change: avg / p99 | UI thread CPU per paint | Atlas widget draw avg / p99 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---|---:|---|
-| void_inventory | 0.002 / 0.004 / 0.05 | 0.000 | 0.000 | 0.002 | 0.000 | 0 | 0 KB | 0.003 | 0.00 / 0.00 | 0.00 ms | — |
-| void_inventory_hover | 0.007 / 0.044 / 0.42 | 0.001 | 0.000 | 0.004 | 0.002 | 807 | 73 KB | 0.301 | 2.49 / 22.67 | 3.08 ms | — |
-| void_chest | 0.002 / 0.004 / 0.05 | 0.000 | 0.000 | 0.002 | 0.000 | 0 | 0 KB | 0.004 | 0.00 / 0.00 | 0.00 ms | — |
-| void_chest_hover | 0.006 / 0.042 / 0.43 | 0.001 | 0.000 | 0.003 | 0.002 | 834 | 62 KB | 0.350 | 2.93 / 22.98 | 3.58 ms | — |
-| void_inventory_hover_sync | 0.344 / 3.924 / 24.07 | 0.001 | 0.337 | 0.004 | 0.003 | 414 | 71 KB | 0.331 | 2.44 / 21.29 | 3.02 ms | — |
-| void_inventory_hover_sync_fullreadback | 2.740 / 21.420 / 36.50 | 0.002 | 2.503 | 0.000 | 0.236 | 321 | 8100 KB | 0.930 | 3.10 / 25.19 | 8.66 ms | — |
-| void_inventory_hover_gs2 | 0.005 / 0.033 / 0.22 | 0.001 | 0.000 | 0.003 | 0.002 | 408 | 24 KB | 0.289 | 2.41 / 18.15 | 2.83 ms | — |
-| void_chest_hover_gs2 | 0.005 / 0.034 / 0.22 | 0.001 | 0.000 | 0.003 | 0.002 | 385 | 17 KB | 0.343 | 3.09 / 25.18 | 3.41 ms | — |
-| void_map | 0.003 / 0.006 / 0.05 | 0.000 | 0.000 | 0.003 | 0.000 | 0 | 0 KB | 0.007 | 0.00 / 0.00 | 0.00 ms | 0.568 / 0.933 |
-| void_map_pan | 0.003 / 0.006 / 0.05 | 0.000 | 0.000 | 0.003 | 0.000 | 0 | 0 KB | 0.007 | 0.00 / 0.00 | 0.00 ms | 0.530 / 0.859 |
-| void_map_pan_frozen | 0.002 / 0.004 / 0.04 | 0.000 | 0.000 | 0.002 | 0.000 | 0 | 0 KB | 0.004 | 0.00 / 0.00 | 0.00 ms | 0.477 / 0.774 |
+| void_inventory | 0.004 / 0.012 / 0.07 | 0.000 | 0.000 | 0.003 | 0.000 | 0 | 0 KB | 0.010 | 0.00 / 0.00 | 0.00 ms | — |
+| void_inventory_hover | 0.009 / 0.085 / 0.67 | 0.001 | 0.000 | 0.005 | 0.003 | 777 | 68 KB | 0.414 | 2.62 / 23.43 | 3.44 ms | — |
+| void_chest | 0.003 / 0.010 / 0.15 | 0.000 | 0.000 | 0.003 | 0.000 | 0 | 0 KB | 0.008 | 0.00 / 0.00 | 0.00 ms | — |
+| void_chest_hover | 0.009 / 0.086 / 0.44 | 0.001 | 0.000 | 0.005 | 0.003 | 757 | 69 KB | 0.502 | 3.26 / 25.87 | 3.51 ms | — |
+| void_inventory_hover_sync | 0.434 / 5.629 / 24.56 | 0.001 | 0.425 | 0.005 | 0.003 | 397 | 75 KB | 0.421 | 2.50 / 20.61 | 2.72 ms | — |
+| void_inventory_hover_sync_fullreadback | 2.974 / 24.390 / 38.40 | 0.003 | 2.731 | 0.000 | 0.240 | 319 | 8100 KB | 1.054 | 3.14 / 22.37 | 8.57 ms | — |
+| void_inventory_hover_gs2 | 0.007 / 0.051 / 0.23 | 0.001 | 0.000 | 0.004 | 0.002 | 399 | 26 KB | 0.422 | 2.63 / 21.87 | 2.82 ms | — |
+| void_chest_hover_gs2 | 0.007 / 0.054 / 0.16 | 0.001 | 0.000 | 0.003 | 0.002 | 409 | 19 KB | 0.434 | 2.84 / 24.86 | 3.09 ms | — |
+| void_map | 0.003 / 0.008 / 0.08 | 0.000 | 0.000 | 0.003 | 0.000 | 0 | 0 KB | 0.008 | 0.00 / 0.00 | 0.00 ms | 0.513 / 0.855 |
+| void_map_pan | 0.004 / 0.018 / 0.11 | 0.000 | 0.000 | 0.004 | 0.000 | 0 | 0 KB | 0.010 | 0.00 / 0.00 | 0.00 ms | 0.494 / 0.841 |
+| void_map_pan_frozen | 0.003 / 0.010 / 0.08 | 0.000 | 0.000 | 0.003 | 0.000 | 0 | 0 KB | 0.006 | 0.00 / 0.00 | 0.00 ms | 0.498 / 0.786 |
 
 `*_gs2` rows: 1920×1080 at GUI scale 2 (layout unit under 1: the page's own CSS zoom), there for the UI thread's cost (Ultralight's CPU update, script and paint per uploaded change, gated at 10 ms); their frame times are not compared with vanilla.
 
 | open latency (ms, key → first painted frame) | avg | p50 | max |
 |---|---:|---:|---:|
-| vanilla inventory (E) | 6.2 | 5.7 | 9.3 |
-| VOID inventory (E) | 12.5 | 12.1 | 14.7 |
-| VOID inventory (R-Shift) | 11.1 | 10.7 | 13.8 |
-| VOID screen init → first frame | 8.0 | 8.0 | 9.4 |
-| vanilla chest | 63.1 | 59.5 | 85.6 |
-| VOID chest | 75.5 | 61.3 | 130.6 |
-| Map page (R-Shift), re-open | 6.7 | 6.3 | 8.1 |
-| Atlas's own map screen | 4.5 | 4.0 | 8.0 |
+| vanilla inventory (E) | 6.1 | 5.6 | 10.2 |
+| VOID inventory (E) | 11.5 | 11.3 | 13.3 |
+| VOID inventory (R-Shift) | 11.0 | 10.5 | 13.7 |
+| VOID screen init → first frame | 7.4 | 7.3 | 8.2 |
+| vanilla chest | 64.2 | 54.8 | 98.5 |
+| VOID chest | 69.1 | 62.3 | 145.4 |
+| Map page (R-Shift), re-open | 5.9 | 5.5 | 7.4 |
+| Atlas's own map screen | 3.9 | 3.8 | 4.7 |
 
-First Map page open: 57.7 ms key → first painted frame (gated), of which making Atlas's widget 3.52 ms (lazily, on the first Map frame; kept for every later open).
+First Map page open: 69.2 ms key → first painted frame (gated), of which making Atlas's widget 13.54 ms (lazily, on the first Map frame; kept for every later open).
 
-First open after pre-warm: 112.2 ms (gated). Pre-warm, on Ultralight's own thread while the world loads: 263.5 ms (start-up 65.0 ms — natives 9.9, renderer 9.1, view 8.7, page 36.8 ms — then the first layout and full paint at the window size). Without pre-warm the first open would wait for all of it.
+First open after pre-warm: 134.9 ms (gated). Pre-warm, on Ultralight's own thread while the world loads: 320.8 ms (start-up 79.0 ms — natives 11.9, renderer 12.1, view 9.3, page 45.0 ms — then the first layout and full paint at the window size). Without pre-warm the first open would wait for all of it.
 
-Memory added by Ultralight, the view, the page and its texture: +133.8 MB private bytes, +126.3 MB working set, +8.7 MB Java heap (process after: 3199 MB private, 1721 MB working set).
+Memory added by Ultralight, the view, the page and its texture: +143.3 MB private bytes, +131.9 MB working set, +-16.4 MB Java heap (process after: 3177 MB private, 1691 MB working set).
 
 <!-- perf:opengl-atlas:end -->
 
