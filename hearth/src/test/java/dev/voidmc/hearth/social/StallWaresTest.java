@@ -83,4 +83,20 @@ class StallWaresTest {
 			}
 		}
 	}
+
+	@Test
+	void aMarketDayStallWithNoShopOfItsKeepersShowsTheTownsStores() {
+		dev.voidmc.hearth.api.testing.SimpleSettlement s = new dev.voidmc.hearth.api.testing.SimpleSettlement(5, "Ashbrook", Culture.TEMPERATE,
+			net.minecraft.core.BlockPos.ZERO, 0);
+		s.stockpile().add(Goods.FOOD, 40);
+		s.stockpile().add(Goods.FISH, 8);
+		s.stockpile().add(Goods.STONE, 500);
+		Map<Goods, Integer> stores = StallWares.stores(s);
+		assertFalse(stores.containsKey(Goods.STONE), "no quarry stone on a market board");
+		List<Goods> shown = StallWares.shown(stores, 6);
+		assertEquals(Goods.FOOD, shown.get(0));
+		for (Goods g : shown) {
+			assertTrue(s.stockpile().get(g) > 0, g + " is in the stores");
+		}
+	}
 }

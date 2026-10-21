@@ -89,6 +89,11 @@ public final class WashPlaces {
 
 	/** Goes on with a town's scan for up to {@code reads} block reads; returns the reads made. */
 	public static int step(ServerLevel level, Settlement s, int reach, int reads) {
+		return step(level, s, reach, reads, Long.MAX_VALUE);
+	}
+
+	/** As above, stopping too at {@code deadline} ({@link System#nanoTime}), so a pass of the scan stays small. */
+	public static int step(ServerLevel level, Settlement s, int reach, int reads, long deadline) {
 		Scan scan = SCANS.get(s.id());
 		if (scan == null) {
 			BoundingBox b = s.bounds();
@@ -100,7 +105,11 @@ public final class WashPlaces {
 		}
 		int used = 0;
 		BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+		int columns = 0;
 		while (used < reads && scan.next < scan.columns()) {
+			if ((++columns & 3) == 0 && System.nanoTime() > deadline) {
+				break;
+			}
 			int i = scan.next++;
 			int x = scan.minX + i % scan.width * STEP;
 			int z = scan.minZ + i / scan.width * STEP;

@@ -19,3 +19,8 @@ touch points, the `crowds` client tour. No new screens: everything the player se
 - `CrowdService.brawling(player, resident)` is a new default method (additive; not a type Mettle copies).
 - `DamageRules.onlyOpenDiffers` documents what was already true: repairs compare by block kind, so a closed shutter is
   never damage or "missing" (tested in `ShutterScanTest`).
+
+## Batch A polish (2026-10-21)
+
+The open items above were taken by the batch A polish pass: what was done, and what it asks of others, is in
+`lwApolish.md`.

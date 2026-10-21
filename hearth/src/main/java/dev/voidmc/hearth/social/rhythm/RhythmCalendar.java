@@ -119,6 +119,17 @@ public final class RhythmCalendar implements SettlementCalendar {
 	}
 
 	@Override
+	public int curfew(Settlement s) {
+		return RhythmData.of(s.culture()).curfew();
+	}
+
+	@Override
+	public int dawn(Settlement s) {
+		List<Integer> times = SocialModule.config().bells().times();
+		return times.isEmpty() ? 6 * 60 : times.getFirst();
+	}
+
+	@Override
 	public List<String> events(Settlement s, long day) {
 		List<String> out = new ArrayList<>();
 		for (TownEvent e : Agenda.of(s, s.data(SocialModule.LEDGER), day, SocialModule.config())) {

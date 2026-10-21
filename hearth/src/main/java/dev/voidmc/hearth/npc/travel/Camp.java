@@ -51,7 +51,7 @@ public final class Camp {
 			&& !this.placed.contains(below)) {
 			return false;
 		}
-		level.setBlock(at, state, Block.UPDATE_CLIENTS);
+		dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, at, state, Block.UPDATE_CLIENTS);
 		this.placed.add(at.immutable());
 		this.states.add(level.getBlockState(at));
 		this.before.add(current);
@@ -118,7 +118,7 @@ public final class Camp {
 			BlockPos p = this.placed.get(i);
 			if (level.isLoaded(p) && level.getBlockState(p) == this.states.get(i)) {
 				BlockState back = this.before.get(i);
-				level.setBlock(p, back.isAir() || back.canBeReplaced() ? Blocks.AIR.defaultBlockState() : back, Block.UPDATE_CLIENTS);
+				dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, p, back.isAir() || back.canBeReplaced() ? Blocks.AIR.defaultBlockState() : back, Block.UPDATE_CLIENTS);
 			}
 		}
 		this.placed.clear();

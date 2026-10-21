@@ -20,6 +20,16 @@ public interface SettlementCalendar {
 	/** Ids of the day's town events (§3). */
 	List<String> events(Settlement s, long day);
 
+	/** The minute of the day the curfew bell rings (shutters close, the night watch sets out; §2.1). */
+	default int curfew(Settlement s) {
+		return 21 * 60;
+	}
+
+	/** The minute of the day the dawn bell rings (shutters open, the night watch goes home; §2.1). */
+	default int dawn(Settlement s) {
+		return 6 * 60;
+	}
+
 	SettlementCalendar NONE = new SettlementCalendar() {
 		@Override
 		public boolean restDay(Settlement s, long day) {

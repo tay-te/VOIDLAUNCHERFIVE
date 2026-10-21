@@ -66,6 +66,7 @@ public final class Shops {
 			}
 		}
 		Set<String> live = new HashSet<>();
+		List<Shop> unkept = new ArrayList<>();
 		for (PlotView plot : settlement.plots()) {
 			String path = plot.spec().archetype().getPath();
 			if (plot.state() != PlotState.BUILT || !PriceTable.isShop(path)) {
@@ -84,7 +85,11 @@ public final class Shops {
 			Resident keeper = keeper(workers.getOrDefault(plot.id(), List.of()), mask);
 			shop.keeper = keeper == null ? null : keeper.id;
 			shop.fence = path.equals("commerce/thieves_den") || keeper != null && keeper.job == JobType.FENCE;
+			if (keeper == null) {
+				unkept.add(shop);
+			}
 		}
+		standIns(settlement, book, workers, unkept);
 		for (Resident r : settlement.residents()) {
 			long mask = traderMask(r.job);
 			if (mask == GoodsMask.NONE || r.age == AgeStage.CHILD || r.work != Resident.NO_PLOT && live.contains("p" + r.work)) {
@@ -111,6 +116,77 @@ public final class Shops {
 		}
 		book.lastSync = day;
 		settlement.markDirty();
+	}
+
+	/**
+	 * Shop buildings nobody works at (an adopted historic town's bakery, inn and stalls: lane A4's work tour) are kept by a
+	 * stand-in of the town who keeps no shop building: someone of the trade it sells (a baker for the bakery, an innkeeper
+	 * for the inn), else a merchant or trader, so the shop opens and restocks. A shop whose trade has nobody free stays
+	 * shut, as before. Deterministic: shops by plot, folk by id.
+	 */
+	static void standIns(Settlement settlement, ShopBook book, Map<Integer, List<Resident>> workers, List<Shop> unkept) {
+		if (unkept.isEmpty()) {
+			return;
+		}
+		Set<UUID> keeping = new HashSet<>();
+		for (Shop shop : book.shops.values()) {
+			if (shop.keeper != null && shop.key.startsWith("p")) {
+				keeping.add(shop.keeper);
+			}
+		}
+		List<Resident> free = new ArrayList<>();
+		for (Resident r : settlement.residents()) {
+			if (r.age == AgeStage.ADULT && !keeping.contains(r.id) && !(r.work != Resident.NO_PLOT && book.get("p" + r.work) != null)) {
+				free.add(r);
+			}
+		}
+		if (free.isEmpty()) {
+			return;
+		}
+		free.sort(java.util.Comparator.comparing(r -> r.id));
+		unkept.sort(java.util.Comparator.comparingInt(sh -> sh.plot));
+		for (Shop shop : unkept) {
+			// a general shop (a stall, a market hall) is a merchant's first; a trade's shop its own trade's
+			Resident pick = shop.general() ? merchant(free) : null;
+			if (pick == null) {
+				for (Resident r : free) {
+					if ((PriceTable.jobMask(r.job) & shop.deals) != 0 && r.job != JobType.MERCHANT && r.job != JobType.TRADER && r.job != JobType.FENCE) {
+						pick = r;
+						break;
+					}
+				}
+			}
+			if (pick == null) {
+				pick = merchant(free);
+			}
+			if (pick == null && shop.general()) {
+				// a stall or the market hall: any grown townsman free of a shop and of an office minds it (a farmer's wife
+				// at the stall); a trade's own shop waits for its trade
+				for (Resident r : free) {
+					if (!STANDS_APART.contains(r.job)) {
+						pick = r;
+						break;
+					}
+				}
+			}
+			if (pick != null) {
+				shop.keeper = pick.id;
+				free.remove(pick);
+			}
+		}
+	}
+
+	/** Trades who never mind a stall for the town: on watch, in office, at the altar. */
+	static final Set<JobType> STANDS_APART = java.util.EnumSet.of(JobType.GUARD, JobType.JAILER, JobType.LORD, JobType.STEWARD, JobType.REEVE, JobType.JUDGE,
+		JobType.PRIEST, JobType.MONK, JobType.HERMIT, JobType.FENCE);
+
+	private static @Nullable Resident merchant(List<Resident> free) {
+		for (Resident r : free) {
+			if (r.job == JobType.MERCHANT || r.job == JobType.TRADER) {
+				return r;
+			}
+		}
+		return null;
 	}
 
 	/** Goods a trader deals in by job alone: merchants, traders and fences (others keep a shop only in a shop building). */

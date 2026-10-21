@@ -107,6 +107,11 @@ Merchants with carts between towns, pilgrims, messengers, patrols, and bandits o
 > (`-Dhearth.dev.roads=N`); perf gate `TrafficBenchTest`. Measured: traffic books 0.003 ms a tick avg, parties 0.05 ms
 > avg (5.8 ms worst tick, a party spawning), road writing ≤ 1.8 ms a tick; bench with full roads and 50 players 0.006
 > ms a tick avg, players' pass 0.18 ms. Requests in `docs/requests/lwA1.md`, Atlas in `docs/requests/atlas-roads.md`.
+>
+> **Batch A polish (2026-10-21, `requests/lwApolish.md`)**: a ford is a causeway to the water's top and a road never
+> walks below water beside it (`Roadbed`; a perched lake is no longer let out down its road, `RoadBankTest`); parties,
+> bands and road crews come on the road one body a tick (`travel bodies` 0.12 ms avg, 0.54 ms worst in the tour, was
+> ~6 ms the tick a party of six appeared); a cart keeps to the ground under eaves (`CartEntity.groundY`).
 
 ### 1.1 What the player sees and does
 
@@ -396,6 +401,13 @@ wash-day morning (one yard a pass, max ~5 ms). Folk behaviours 3–9 µs a step.
 offering 0.5 µs a town a day; a rest day's schedule windows ~36 µs a resident a day (`ScheduleOverrides.overlay`, see
 requests/lwA2.md). After a town is let go: 0 watch lights, 0 rhythm dressings.
 
+**Polish (2026-10-21, `requests/lwApolish.md`)**: `ScheduleOverrides.overlay` merges instead of walking the minutes
+(0.4 µs a resident's day, was 26); the director works the day's facts out once a day, finds chimneys 24 plots a pass
+(a city's 400 at once cost 86 ms), holds the wash-place scan to ~60 µs a pass, and sets dressings without re-planning
+paths. Tour (an overloaded dev client, 1 embodied town): director 0.13–0.16 ms a pass in all with the one-offs (laundry
+0.38 ms a pass on a wash-day morning, was 0.7–1.1); its steady part is still over the 20 µs aim. A town with guards always
+keeps a night watch (`RhythmSchedule.appointedWatch`); tavern seats go round the tables and to the drinkers in the room.
+
 ### 2.5 Persistence and multiplayer
 
 Calendar is computed, not stored. Dressings (laundry, first-snow) in the existing dressings ledger; watch lights in
@@ -672,6 +684,12 @@ at night.
 > stop at half health; the nearest guard parts them and fines a bare-fisted player 5 bits. `/hearth crowds
 > stats|sense|shutters|brawl`; tour `-Dhearth.tour=crowds`. Requests in `docs/requests/lwA3.md` (the law's assault watch
 > must ask `Offences.brawling`; filth and dress remarks need a standing api method).
+>
+> **Polish (2026-10-21)**: shutters keep the town's curfew and dawn bells (`SettlementCalendar.curfew/dawn`, additive);
+> a scatter picks among up to four open ways out and moves on when one has no path; a quiet player (same stimuli,
+> same spot, nobody new reacting) is looked at every 40 ticks instead of 10. Measured on the dev client (selector alone
+> 1.9 µs, `CrowdSelectorBenchTest`): ~110–160 µs a player a pass in all, most of it reading the player (standing's title
+> and look every 100 ticks) — over the 20 µs budget; asked of standing in `requests/lwApolish.md`.
 
 ### 5.1 What the player sees and does
 
@@ -775,6 +793,12 @@ folk held by a behaviour does not count labour and the abstract and embodied flo
 sites are found per player by a town prefilter (towns whose territory comes within reach) rather than a cell index; a
 Great Mine's new galleries are short (from the old station rooms to the edge of the claimed square), one a level, up to
 six. Tour: `-Dhearth.tour=work` or `HEARTH_LW_TOUR=work` (`gametest/work/WorkTour`).
+
+**Polish (2026-10-21, `requests/lwApolish.md`)**: market-day stalls get their keepers' wares through A2's callback
+(`StallWares.MARKET_LISTENER`); a shop building nobody works at is kept by a stand-in of its trade (a stall by any free
+townsman) so it restocks (Ulfdal's stalls and market hall now show 6 wares each, 60 in the town); the clamps' and
+stacks' 16–25 ms was `sendBlockUpdated` re-planning every nearby walker's path on the first block of a pass: dressings
+go through `npc/work/field/QuietBlocks` (clamps worst 1.9 ms in the tour).
 
 ### 6.1 What the player sees and does
 

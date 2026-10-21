@@ -69,6 +69,19 @@ public final class Roadbed {
 			int lz = lay.lz(col.x(), col.z());
 			this.inside[i] = lx >= 0 && lz >= 0 && lx < d.frontage() && lz < d.depth();
 		}
+		// Water never leaves by the road: a column standing in water is laid as a causeway to the water's top, and a
+		// column beside water (outside this plot's corridor) never walks below it, so no opening is left at the
+		// level of water next to it (a ford through a perched lake would otherwise let it out down the road).
+		for (int i = 0; i < n; i++) {
+			if (this.inside[i]) {
+				Course.Col col = this.cols.get(i);
+				int w = lay.water(col.x(), col.z());
+				int floor = w != Site.NONE ? w : waterBeside(col.x(), col.z());
+				if (floor != Integer.MIN_VALUE && floor > this.level[i]) {
+					this.level[i] = floor;
+				}
+			}
+		}
 		for (int i = 0; i < n; i++) {
 			Course.Col col = this.cols.get(i);
 			int l = this.level[i];
@@ -188,13 +201,17 @@ public final class Roadbed {
 		}
 	}
 
-	/** The highest water top (first air above the water) among the 4-neighbours outside the corridor, or the lowest y if none. */
+	/**
+	 * The highest water top (first air above the water) among the 4-neighbours this plot does not lay (outside the
+	 * corridor, or the corridor's columns in the next plot), or the lowest y if none.
+	 */
 	private int waterBeside(int x, int z) {
 		int m = Integer.MIN_VALUE;
 		for (Direction dir : Direction.Plane.HORIZONTAL) {
 			int nx = x + dir.getStepX();
 			int nz = z + dir.getStepZ();
-			if (!this.c.contains(nx, nz)) {
+			int j = this.c.indexOf(nx, nz);
+			if (j < 0 || !this.inside[j]) {
 				int w = this.lay.water(nx, nz);
 				if (w != Site.NONE) {
 					m = Math.max(m, w);

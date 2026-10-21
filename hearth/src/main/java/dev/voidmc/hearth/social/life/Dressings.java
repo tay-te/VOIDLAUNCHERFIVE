@@ -47,6 +47,11 @@ public final class Dressings {
 		 * when its stall came down), so what was laid on a counter told in {@link #up} can go with it.
 		 */
 		void down(ServerLevel level, String eventKey, Set<Long> positions);
+
+		/** Whether this listener lays the stalls' real wares on their counters (then no stand-in ware block goes there). */
+		default boolean dressesCounters() {
+			return false;
+		}
 	}
 
 	private static volatile StallListener[] listeners = new StallListener[0];
@@ -235,7 +240,7 @@ public final class Dressings {
 			}
 			Direction f = facing(ground, anchor);
 			Direction r = f.getClockWise();
-			List<Part> parts = stall(ground, f, r, pal, stalls.size());
+			List<Part> parts = stall(ground, f, r, pal, stalls.size(), !countersDressed());
 			BlockPos keeper = ground.relative(f.getOpposite());
 			BlockPos customer = ground.relative(f);
 			if (!clear(level, parts, taken, doors, anchor, ground) || !open(level, keeper) || Venues.standable(level, customer) == null) {
@@ -423,7 +428,7 @@ public final class Dressings {
 			}
 			BlockState state = level.getBlockState(pos);
 			if (BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString().equals(d.block())) {
-				level.setBlock(pos, Blocks.AIR.defaultBlockState(), FLAGS);
+				dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, pos, Blocks.AIR.defaultBlockState(), FLAGS);
 			}
 			ledger.dressings.remove(i);
 			removed++;
@@ -461,7 +466,7 @@ public final class Dressings {
 			ledger.dressings.add(new SocialLedger.Dressing(p.pos.asLong(), BuiltInRegistries.BLOCK.getKey(p.state.getBlock()).toString(), key, until));
 		}
 		for (Part p : parts) {
-			level.setBlock(p.pos, p.state, FLAGS);
+			dev.voidmc.hearth.npc.work.field.QuietBlocks.set(level, p.pos, p.state, FLAGS);
 			if (p.tag != null) {
 				net.minecraft.world.level.block.entity.BlockEntity be = level.getBlockEntity(p.pos);
 				if (be != null) {
@@ -562,7 +567,22 @@ public final class Dressings {
 	 * A stall three wide and two deep: posts at the corners, a counter in the middle of the front with wares on it, a
 	 * striped canopy over all, the keeper's place behind the counter.
 	 */
+	/** Whether a listener lays real wares on the market stalls' counters ({@link StallListener#dressesCounters}). */
+	static boolean countersDressed() {
+		for (StallListener l : listeners) {
+			if (l.dressesCounters()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	static List<Part> stall(BlockPos c, Direction f, Direction r, Palette pal, int index) {
+		return stall(c, f, r, pal, index, true);
+	}
+
+	/** A market stall; {@code ware}: a stand-in ware block on the counter (none when the real wares are laid there). */
+	static List<Part> stall(BlockPos c, Direction f, Direction r, Palette pal, int index, boolean ware) {
 		List<Part> parts = new ArrayList<>();
 		BlockPos back = c.relative(f.getOpposite());
 		BlockState fence = pal.fence();
@@ -573,7 +593,9 @@ public final class Dressings {
 			parts.add(new Part(back.relative(r).above(dy), fence));
 		}
 		parts.add(new Part(c, pal.counter(r.getAxis())));
-		parts.add(new Part(c.above(), WARES[Math.floorMod(index, WARES.length)].get()));
+		if (ware) {
+			parts.add(new Part(c.above(), WARES[Math.floorMod(index, WARES.length)].get()));
+		}
 		for (int side = -1; side <= 1; side++) {
 			for (BlockPos row : new BlockPos[] {c, back}) {
 				parts.add(new Part(row.relative(r, side).above(2), (side & 1) == 0 ? pal.wool() : pal.accent()));

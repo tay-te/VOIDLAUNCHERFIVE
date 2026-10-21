@@ -63,6 +63,7 @@ public final class TravelParty implements Folk.Controller {
 	@Nullable Mob mount;
 	@Nullable Camp camp;
 	private final Set<UUID> reported = new HashSet<>();
+	private final java.util.ArrayDeque<java.util.function.Consumer<ServerLevel>> pending = new java.util.ArrayDeque<>();
 	@Nullable UUID hostile;
 	private long nextLead;
 	private @Nullable Vec3 lastLead;
@@ -101,63 +102,80 @@ public final class TravelParty implements Folk.Controller {
 				}
 			}
 		}
+		// one body a tick (docs/LIVING_WORLD_2.md §1.4: a party of six at once cost ~6 ms in its tick): the first comes now,
+		// the rest follow the party on, in their places in the line
 		switch (j.kind()) {
 			case CARAVAN -> {
-				p.add(level, stand, JobType.GUARD, null, r);
-				p.add(level, stand, JobType.TRADER, null, r);
-				p.draught(level, stand, CartEntity.Kind.WAGON, cargoLoad(j), 2, r);
-				p.add(level, stand, JobType.GUARD, null, r);
+				p.later(lv -> p.add(lv, stand, JobType.GUARD, null, r));
+				p.later(lv -> p.add(lv, stand, JobType.TRADER, null, r));
+				p.draught(stand, CartEntity.Kind.WAGON, cargoLoad(j), 2, r);
+				p.later(lv -> p.add(lv, stand, JobType.GUARD, null, r));
 			}
 			case CARTER, MARKET_GOERS, SETTLERS -> {
 				for (Resident res : people) {
-					p.add(level, stand, res.job, res, r);
+					p.later(lv -> p.add(lv, stand, res.job, res, r));
 				}
-				if (p.members.isEmpty()) {
-					p.add(level, stand, j.kind() == TravelKind.CARTER ? JobType.CARTER : JobType.NONE, null, r);
+				if (people.isEmpty()) {
+					p.later(lv -> p.add(lv, stand, j.kind() == TravelKind.CARTER ? JobType.CARTER : JobType.NONE, null, r));
 				}
-				p.draught(level, stand, CartEntity.Kind.CART, j.kind() == TravelKind.SETTLERS ? CartEntity.Load.BEDROLLS
+				p.draught(stand, CartEntity.Kind.CART, j.kind() == TravelKind.SETTLERS ? CartEntity.Load.BEDROLLS
 					: j.kind() == TravelKind.MARKET_GOERS ? CartEntity.Load.PRODUCE : CartEntity.Load.SACKS, 1, r);
 			}
 			case PEDLAR -> {
-				Folk f = p.add(level, stand, JobType.PEDLAR, null, r);
-				if (f != null) {
-					p.cart = Wayfarers.cart(level, f, CartEntity.Kind.HANDCART, CartEntity.Load.CRATES);
-				}
+				p.later(lv -> p.add(lv, stand, JobType.PEDLAR, null, r));
+				p.later(lv -> {
+					Folk f = p.lead();
+					if (f != null) {
+						p.cart = Wayfarers.cart(lv, f, CartEntity.Kind.HANDCART, CartEntity.Load.CRATES);
+					}
+				});
 			}
 			case MESSENGER, DIGNITARY -> {
-				Folk f = people.isEmpty() ? p.add(level, stand, JobType.MESSENGER, null, r) : p.add(level, stand, people.getFirst().job, people.getFirst(), r);
-				Mob horse = Wayfarers.beast(level, stand, net.minecraft.world.entity.EntityTypes.HORSE, r);
-				if (horse != null) {
-					p.mount = horse;
-					if (horse instanceof AbstractHorse h) {
-						h.setTamed(true);
-					}
-					if (f != null) {
-						f.startRiding(horse, true, false);
-					}
+				if (people.isEmpty()) {
+					p.later(lv -> p.add(lv, stand, JobType.MESSENGER, null, r));
+				} else {
+					Resident first = people.getFirst();
+					p.later(lv -> p.add(lv, stand, first.job, first, r));
 				}
+				p.later(lv -> {
+					Folk f = p.lead();
+					Mob horse = Wayfarers.beast(lv, f != null ? f.blockPosition() : stand, net.minecraft.world.entity.EntityTypes.HORSE, r);
+					if (horse != null) {
+						p.mount = horse;
+						if (horse instanceof AbstractHorse h) {
+							h.setTamed(true);
+						}
+						if (f != null) {
+							f.startRiding(horse, true, false);
+						}
+					}
+				});
 				if (j.kind() == TravelKind.DIGNITARY) {
-					p.add(level, stand, JobType.GUARD, null, r);
-					p.add(level, stand, JobType.GUARD, null, r);
+					p.later(lv -> p.add(lv, stand, JobType.GUARD, null, r));
+					p.later(lv -> p.add(lv, stand, JobType.GUARD, null, r));
 				}
 			}
 			case TAX_COLLECTOR -> {
-				p.add(level, stand, JobType.GUARD, null, r);
-				p.add(level, stand, JobType.BAILIFF, null, r);
-				p.add(level, stand, JobType.GUARD, null, r);
-				p.draught(level, stand, CartEntity.Kind.CART, CartEntity.Load.CRATES, 1, r);
+				p.later(lv -> p.add(lv, stand, JobType.GUARD, null, r));
+				p.later(lv -> p.add(lv, stand, JobType.BAILIFF, null, r));
+				p.later(lv -> p.add(lv, stand, JobType.GUARD, null, r));
+				p.draught(stand, CartEntity.Kind.CART, CartEntity.Load.CRATES, 1, r);
 			}
 			default -> {
 				// pilgrims, patrols, wedding guests, a troupe: the residents themselves, or strangers of the kind
 				for (Resident res : people) {
-					p.add(level, stand, j.kind() == TravelKind.PATROL ? JobType.GUARD : res.job, res, r);
+					p.later(lv -> p.add(lv, stand, j.kind() == TravelKind.PATROL ? JobType.GUARD : res.job, res, r));
 				}
-				if (p.members.isEmpty()) {
+				if (people.isEmpty()) {
 					JobType job = j.kind() == TravelKind.PILGRIMS ? JobType.PILGRIM : j.kind() == TravelKind.PATROL ? JobType.GUARD : JobType.NONE;
-					p.add(level, stand, job, null, r);
-					p.add(level, stand, job, null, r);
+					p.later(lv -> p.add(lv, stand, job, null, r));
+					p.later(lv -> p.add(lv, stand, job, null, r));
 				}
 			}
+		}
+		// the first who can be made comes now (a party with nobody in it is not put on the road)
+		while (p.members.isEmpty() && !p.pending.isEmpty()) {
+			p.pending.poll().accept(level);
 		}
 		if (p.members.isEmpty()) {
 			p.fold(level);
@@ -165,6 +183,31 @@ public final class TravelParty implements Folk.Controller {
 		}
 		return p;
 	}
+
+	/** A body of the party still to come (one a tick, {@link #tick}). */
+	private void later(java.util.function.Consumer<ServerLevel> step) {
+		this.pending.add(step);
+	}
+
+	/** Bodies still to come. */
+	int pending() {
+		return this.pending.size();
+	}
+
+	/** Makes the next body due, if any; true if one was made. */
+	boolean spawnNext(ServerLevel level) {
+		java.util.function.Consumer<ServerLevel> step = this.pending.poll();
+		if (step == null) {
+			return false;
+		}
+		long t0 = System.nanoTime();
+		step.accept(level);
+		BODIES.add(System.nanoTime() - t0);
+		return true;
+	}
+
+	/** Time making the bodies that follow a party on (one a tick), within the {@code travel} timer. */
+	static final dev.voidmc.hearth.sim.LivingWorldStats.Timer BODIES = dev.voidmc.hearth.sim.LivingWorldStats.timer("travel bodies");
 
 	private static CartEntity.Load cargoLoad(Journey j) {
 		int[] cargo = j.details().getIntArray("cargo").orElse(new int[0]);
@@ -197,29 +240,32 @@ public final class TravelParty implements Folk.Controller {
 		return f;
 	}
 
-	private void draught(ServerLevel level, BlockPos at, CartEntity.Kind kind, CartEntity.Load load, int count, RandomSource r) {
-		Mob first = null;
+	private void draught(BlockPos at, CartEntity.Kind kind, CartEntity.Load load, int count, RandomSource r) {
 		var type = Wayfarers.draught(this.culture, kind, r);
 		for (int i = 0; i < count; i++) {
-			Mob m = Wayfarers.beast(level, at, type, r);
-			if (m == null) {
-				continue;
-			}
-			if (m instanceof AbstractChestedHorse chested && kind != CartEntity.Kind.WAGON) {
-				chested.setChest(true);
-			}
-			this.beasts.add(m);
-			if (first == null) {
-				first = m;
-			}
+			later(lv -> {
+				Mob m = Wayfarers.beast(lv, at, type, r);
+				if (m == null) {
+					return;
+				}
+				if (m instanceof AbstractChestedHorse chested && kind != CartEntity.Kind.WAGON) {
+					chested.setChest(true);
+				}
+				this.beasts.add(m);
+			});
 		}
-		if (first != null) {
-			this.cart = Wayfarers.cart(level, first, kind, load);
-		}
+		later(lv -> {
+			// the cart behind the first of its beasts that came
+			for (Mob m : this.beasts) {
+				if (m.isAlive() && !m.isRemoved() && this.cart == null) {
+					this.cart = Wayfarers.cart(lv, m, kind, load);
+				}
+			}
+		});
 	}
 
 	int size() {
-		return this.members.size() + this.beasts.size() + (this.cart != null ? 1 : 0) + (this.mount != null ? 1 : 0);
+		return this.members.size() + this.beasts.size() + (this.cart != null ? 1 : 0) + (this.mount != null ? 1 : 0) + this.pending.size();
 	}
 
 	boolean alive() {
@@ -250,6 +296,7 @@ public final class TravelParty implements Folk.Controller {
 
 	/** One tick of the whole party. */
 	void tick(ServerLevel level, Traffic traffic, Journey j, long now) {
+		spawnNext(level);
 		this.members.removeIf(m -> !m.folk.isAlive() || m.folk.isRemoved());
 		this.beasts.removeIf(b -> !b.isAlive() || b.isRemoved());
 		if (this.members.isEmpty()) {
@@ -481,6 +528,7 @@ public final class TravelParty implements Folk.Controller {
 		if (this.cart != null && !this.cart.isRemoved()) {
 			this.cart.discard();
 		}
+		this.pending.clear();
 		this.members.clear();
 		this.beasts.clear();
 		this.cart = null;

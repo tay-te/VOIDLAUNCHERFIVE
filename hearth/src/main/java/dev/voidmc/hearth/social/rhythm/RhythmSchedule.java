@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 /**
  * How the week changes a resident's day (docs/LIVING_WORLD_2.md §2.3), as windows over their schedule
@@ -64,14 +65,87 @@ public final class RhythmSchedule implements ScheduleOverrides.Source {
 		boolean rest = cal.restDay(settlement, day);
 		boolean drinker = drinkers(settlement, day).contains(resident.id);
 		boolean winter = RhythmCalendar.winter(data, day, SocialModule.config().festivals().yearDays());
+		boolean watch = resident.id.equals(appointedWatch(settlement, day));
 		return windows(resident.job, resident.age, FolkFacts.traits(resident), data, rest, drinker, winter,
-			resident.id.getMostSignificantBits() ^ resident.id.getLeastSignificantBits(), day);
+			resident.id.getMostSignificantBits() ^ resident.id.getLeastSignificantBits(), day, watch);
+	}
+
+	/** The windows themselves, from facts alone (pure), with no night watch appointed. */
+	public static List<ScheduleOverrides.Window> windows(JobType job, AgeStage age, List<String> traits, RhythmData data, boolean restDay, boolean drinker,
+		boolean winter, long seed, long day) {
+		return windows(job, age, traits, data, restDay, drinker, winter, seed, day, false);
+	}
+
+	// ---------------------------------------------------------------- the night watch
+
+	/** Settlement → {day, population, the guard appointed to the night watch (msb, lsb), or 0 0 for none}. */
+	private static final Map<Long, long[]> WATCH = new LinkedHashMap<>();
+
+	/**
+	 * Whether a resident keeps the night by the schedule's own rule (a third of the guards, half the jailers, by their
+	 * seed; {@code Schedule.of}).
+	 */
+	public static boolean nightBySeed(Resident r) {
+		long seed = r.id.getMostSignificantBits() ^ r.id.getLeastSignificantBits();
+		return r.age == AgeStage.ADULT && (r.job == JobType.GUARD && Math.floorMod(seed >> 12, 3) == 0 || r.job == JobType.JAILER && Math.floorMod(seed >> 12, 2) == 0);
+	}
+
+	/**
+	 * The guard who keeps the night watch in a town where the schedule's rule gave the night to none of its guards and
+	 * jailers (a town of one or two guards often has none): a town with guards is never without a watch (§2.3). Null when
+	 * the rule already gives one, or the town has no guard. The same guard all day, every placement agreeing.
+	 */
+	public static synchronized @Nullable UUID appointedWatch(Settlement s, long day) {
+		long[] c = WATCH.get(s.id());
+		if (c != null && c[0] == day && c[1] == s.population()) {
+			return c[2] == 0 && c[3] == 0 ? null : new UUID(c[2], c[3]);
+		}
+		UUID pick = pickWatch(s.residents(), s.id());
+		WATCH.put(s.id(), new long[]{day, s.population(), pick == null ? 0 : pick.getMostSignificantBits(), pick == null ? 0 : pick.getLeastSignificantBits()});
+		if (WATCH.size() > 512) {
+			WATCH.remove(WATCH.keySet().iterator().next());
+		}
+		return pick;
+	}
+
+	/** Pure: the guard to appoint among these residents, or null (one already keeps the night, or there is no guard). */
+	public static @Nullable UUID pickWatch(Iterable<Resident> residents, long town) {
+		UUID best = null;
+		long bestKey = Long.MAX_VALUE;
+		for (Resident r : residents) {
+			if (nightBySeed(r)) {
+				return null;
+			}
+			if (r.age == AgeStage.ADULT && r.job == JobType.GUARD) {
+				long key = TownCalendar.mix(r.id.getLeastSignificantBits() ^ town * 0x9E3779B97F4A7C15L);
+				if (best == null || Long.compareUnsigned(key, bestKey) < 0) {
+					best = r.id;
+					bestKey = key;
+				}
+			}
+		}
+		return best;
+	}
+
+	/** A night watchman's day as windows (the schedule's own night-guard day): asleep by day, on duty 17:30 to 07:00. */
+	static void nightWatch(List<ScheduleOverrides.Window> out, List<String> traits, long daySeed) {
+		out.add(new ScheduleOverrides.Window(17 * 60 + 30, 7 * 60, Activity.WORK, null, null));
+		out.add(new ScheduleOverrides.Window(7 * 60, 7 * 60 + 45, Activity.EAT, null, Schedule.Where.HOME));
+		out.add(new ScheduleOverrides.Window(7 * 60 + 45, 15 * 60 + 15, Activity.SLEEP, null, Schedule.Where.HOME));
+		out.add(new ScheduleOverrides.Window(15 * 60 + 15, 15 * 60 + 45, Activity.WAKE, null, Schedule.Where.HOME));
+		out.add(new ScheduleOverrides.Window(15 * 60 + 45, 16 * 60 + 30, Activity.EAT, null, Schedule.Where.HOME));
+		out.add(new ScheduleOverrides.Window(16 * 60 + 30, 17 * 60 + 30, Activity.LEISURE, restLeisure(traits, daySeed, 0), null));
 	}
 
 	/** The windows themselves, from facts alone (pure; the tests call this). */
 	public static List<ScheduleOverrides.Window> windows(JobType job, AgeStage age, List<String> traits, RhythmData data, boolean restDay, boolean drinker,
-		boolean winter, long seed, long day) {
+		boolean winter, long seed, long day, boolean nightWatch) {
 		List<ScheduleOverrides.Window> out = new ArrayList<>(4);
+		if (nightWatch && age == AgeStage.ADULT) {
+			// appointed to the night watch: the whole day is a watchman's (the week does not change a guard's duty)
+			nightWatch(out, traits, TownCalendar.mix(seed ^ day * 0x9E3779B97F4A7C15L));
+			return out;
+		}
 		if (drinker) {
 			// to closing, and the walk home after it
 			int end = Math.floorMod(data.tavern().close() + TavernNight.HOMEWARD, Schedule.DAY);
@@ -193,5 +267,6 @@ public final class RhythmSchedule implements ScheduleOverrides.Source {
 
 	static synchronized void clear() {
 		NIGHTS.clear();
+		WATCH.clear();
 	}
 }

@@ -105,6 +105,7 @@ public class WorkTour implements FabricClientGameTest {
 			world.getServer().runOnServer(server -> forceChunks(server, town, false));
 			log("town: " + world.getServer().computeOnServer(server -> describe(town(server, town))));
 			leg("stall", () -> stall(context, world, town));
+			leg("market", () -> market(context, world, town));
 			leg("pen", () -> pen(context, world, town));
 			leg("meadow", () -> meadow(context, world, town));
 			leg("clamp", () -> clamp(context, world, town));
@@ -367,6 +368,45 @@ public class WorkTour implements FabricClientGameTest {
 		settle(context, 12_000);
 		context.takeScreenshot("hearth_work_stall");
 		log("stall: showing " + world.getServer().computeOnServer(server -> StallWares.showing(t.id)) + ", " + StallWares.count() + " wares out");
+	}
+
+	/** A market day: the stalls round the square with their keepers' real wares on the counters (A2's stall callback). */
+	private static void market(ClientGameTestContext context, TestSingleplayerContext world, Town t) {
+		// a town adopted from history keeps its own day ahead of the world's, so time added does not bring its market: the
+		// town's day is moved on to its next market day (a fixture, logged), and the day's agenda sets the stalls up
+		log("market: " + world.getServer().computeOnServer(server -> {
+			SimSettlement s = town(server, t);
+			long today = dev.voidmc.hearth.social.life.TownLife.today(s);
+			if (HearthServices.calendar().marketDay(s, today)) {
+				return "today (day " + today + ") is market day";
+			}
+			long next = dev.voidmc.hearth.social.calendar.TownCalendar.nextMarketDay(s.id(), today + 1, dev.voidmc.hearth.social.SocialModule.config().market());
+			s.data(dev.voidmc.hearth.social.SocialModule.LEDGER).lastDay = next;
+			return "the town's day moved from " + today + " to its market day " + next + " for the shot";
+		}));
+		int open = dev.voidmc.hearth.social.SocialModule.config().market().open();
+		timeTo(world, (int) dev.voidmc.hearth.npc.routine.Schedule.dayTimeOf(open + 90));
+		BlockPos sq = world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.life.Venues.square(town(server, t)));
+		teleport(world, sq.getX() + 0.5, surface(world, sq) + 14, sq.getZ() - 7.5, 0, 55);
+		settle(context, 16_000);
+		// nearer the first stall with wares, for the shot
+		double[] view = world.getServer().computeOnServer(server -> {
+			for (Map.Entry<BlockPos, List<Goods>> e : StallWares.marketShowing(t.id).entrySet()) {
+				return look(e.getKey(), Direction.SOUTH, 3.2, 2.2);
+			}
+			return null;
+		});
+		if (view != null) {
+			teleport(world, view[0], view[1], view[2], (float) view[3], (float) view[4]);
+			settle(context, 5_000);
+		}
+		log("market: " + world.getServer().computeOnServer(server -> {
+			SimSettlement s = town(server, t);
+			var e = dev.voidmc.hearth.social.life.TownLife.current(s, dev.voidmc.hearth.social.calendar.TownEvent.Kind.MARKET);
+			int stalls = e == null ? 0 : dev.voidmc.hearth.social.life.TownLife.stalls(s, e.key()).size();
+			return (e == null ? "no market on" : "market " + e.key()) + ", " + stalls + " stalls up, wares on " + StallWares.marketShowing(t.id);
+		}));
+		context.takeScreenshot("hearth_work_market");
 	}
 
 	/** The pen full at 20:00. */

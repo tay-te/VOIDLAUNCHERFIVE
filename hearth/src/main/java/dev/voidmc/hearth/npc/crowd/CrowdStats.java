@@ -21,6 +21,8 @@ public final class CrowdStats {
 	public static final LongAdder INDOORS = new LongAdder();
 	public static final LongAdder SHUTTERS_TOGGLED = new LongAdder();
 	public static final LongAdder PLAYER_PASSES = new LongAdder();
+	/** Player passes that waited: a quiet player among folk who have all reacted (CrowdDirector.QUIET_TICKS). */
+	public static final LongAdder QUIET_SKIPS = new LongAdder();
 	public static final LongAdder BRAWLS = new LongAdder();
 	private static final Map<Reaction, LongAdder> REACTIONS = new EnumMap<>(Reaction.class);
 
@@ -68,8 +70,8 @@ public final class CrowdStats {
 		sb.append(String.format(Locale.ROOT, ", barks %d, brawls %d, indoors %d, doors shut %d, shutters toggled %d, %.1f us a player a pass", BARKS.sum(), BRAWLS.sum(),
 			INDOORS.sum(), DOORS_SHUT.sum(), SHUTTERS_TOGGLED.sum(), perPlayerUs));
 		if (passes > 0) {
-			sb.append(String.format(Locale.ROOT, " (reading the player %.1f us, the folk near %.1f us; spectacles %.0f us in all)", FACTS_NANOS.sum() / 1000.0 / passes,
-				NEAR_NANOS.sum() / 1000.0 / passes, SPECTACLE_NANOS.sum() / 1000.0));
+			sb.append(String.format(Locale.ROOT, " (reading the player %.1f us, the folk near %.1f us; spectacles %.0f us in all; %d of %d quiet)", FACTS_NANOS.sum() / 1000.0 / passes,
+				NEAR_NANOS.sum() / 1000.0 / passes, SPECTACLE_NANOS.sum() / 1000.0, QUIET_SKIPS.sum(), passes));
 		}
 		return sb.toString();
 	}

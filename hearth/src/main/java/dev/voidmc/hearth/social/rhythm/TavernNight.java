@@ -57,8 +57,11 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 
 	static final class State {
 		final long tavern;
-		final @Nullable Poi seat;
-		final BlockPos stand;
+		@Nullable Poi seat;
+		BlockPos stand;
+		/** The tavern's seats in the order they are filled (a free one is looked for there when the own seat is taken). */
+		List<Poi> seats = List.of();
+		int retries;
 		final BlockPos table;
 		final @Nullable BlockPos home;
 		final boolean wrestler;
@@ -143,7 +146,14 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 			return;
 		}
 		List<Resident> order = order(s, day);
-		int i = Math.max(0, order.indexOf(folk.resident()));
+		// (by id: the brain's resident need not be the very object in the settlement's list)
+		int i = 0;
+		for (int k = 0; k < order.size(); k++) {
+			if (order.get(k).id.equals(folk.resident().id)) {
+				i = k;
+				break;
+			}
+		}
 		// each to the tavern nearest home; seats by the order of the night among those who go there
 		PlotView tavern = nearest(s, taverns, folk.resident());
 		int nth = 0;
@@ -152,27 +162,125 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 				nth++;
 			}
 		}
-		List<Poi> seats = new ArrayList<>(Venues.inPlot(s.pois(PoiType.SEAT), tavern));
 		List<Poi> tables = Venues.inPlot(s.pois(PoiType.TABLE), tavern);
-		seats.sort(Comparator.comparingDouble(p -> tables.isEmpty() ? 0 : p.pos().distSqr(Venues.nearest(Venues.positions(tables), p.pos()))));
+		List<Poi> seats = seatOrder(Venues.inPlot(s.pois(PoiType.SEAT), tavern), tables);
 		ServerLevel level = (ServerLevel) folk.entity().level();
-		Poi seat = nth < seats.size() ? seats.get(nth) : null;
+		// the first seat in the tavern's order that no drinker here now is bound for (those who drink tonight but are not
+		// about take none: the seats go to whoever is in the room)
+		Poi seat = null;
+		for (Poi p : seats) {
+			if (!claimed(p, folk.resident().id)) {
+				seat = p;
+				break;
+			}
+		}
 		BlockPos table = tables.isEmpty() ? Venues.middle(tavern.spec()) : Venues.nearest(Venues.positions(tables), seat != null ? seat.pos()
 			: Venues.middle(tavern.spec()));
 		BlockPos stand = seat != null ? seat.pos() : Venues.standFor(level, new Venues.Venue(table, table, List.of(table), 2), folk.resident().id, 45);
 		BlockPos home = WashBehaviour.door(s, folk.resident());
-		// the first two at the first table of a tavern arm-wrestle, one night in three
-		boolean wrestler = nth < 2 && Math.floorMod(TownCalendar.mix(day ^ tavern.id()), 3L) == 0;
+		// the first two at the first table of a tavern arm-wrestle, one night in three (seats go round the tables: the
+		// first table's second seat is the one after a seat at every table)
+		boolean wrestler = (nth == 0 || nth == Math.max(1, Math.min(tables.size(), seats.size() - 1))) && Math.floorMod(TownCalendar.mix(day ^ tavern.id()), 3L) == 0;
 		// no entertainer of the town's own: the first drinker in (the cheerful before the rest) takes up the instrument
 		boolean musician = Rhythm.musician(s, tavern) == null && claimTune(key(s, tavern), day, folk.resident(),
 			nth == 0 || FolkFacts.has(folk.resident(), "cheerful") || FolkFacts.has(folk.resident(), "sociable"));
 		State st = new State(key(s, tavern), musician ? null : seat, musician ? Venues.standFor(level, new Venues.Venue(table, table, List.of(table), 2),
 			folk.resident().id, 7) : stand, table, home, wrestler && !musician, musician);
+		st.seats = seats;
 		this.states.put(folk.resident().id, st);
 		folk.hold(new ItemStack(Items.HONEY_BOTTLE));
 		RhythmFolk.walk(folk, st.stand, 0.6);
 		st.nextMove = folk.gameTime() + 60;
 		st.nextAct = folk.gameTime() + 100 + Math.floorMod(folk.resident().id.hashCode(), 100);
+	}
+
+	/**
+	 * A tavern's seats in the order the night fills them: the first seat at each table, then the second at each, and so
+	 * on (nearest the table first), so two drinkers already sit at two tables (docs/LIVING_WORLD_2.md §2.8: two tables in
+	 * use). Seats with no table come last.
+	 */
+	static List<Poi> seatOrder(List<Poi> seats, List<Poi> tables) {
+		if (tables.isEmpty() || seats.isEmpty()) {
+			return seats;
+		}
+		List<List<Poi>> byTable = new ArrayList<>();
+		for (int k = 0; k < tables.size(); k++) {
+			byTable.add(new ArrayList<>());
+		}
+		for (Poi seat : seats) {
+			int best = 0;
+			double bd = Double.MAX_VALUE;
+			for (int k = 0; k < tables.size(); k++) {
+				double d = seat.pos().distSqr(tables.get(k).pos());
+				if (d < bd) {
+					bd = d;
+					best = k;
+				}
+			}
+			byTable.get(best).add(seat);
+		}
+		for (int k = 0; k < tables.size(); k++) {
+			BlockPos t = tables.get(k).pos();
+			byTable.get(k).sort(Comparator.comparingDouble(p -> p.pos().distSqr(t)));
+		}
+		List<Poi> out = new ArrayList<>(seats.size());
+		for (int round = 0; out.size() < seats.size(); round++) {
+			for (List<Poi> g : byTable) {
+				if (round < g.size()) {
+					out.add(g.get(round));
+				}
+			}
+		}
+		return out;
+	}
+
+	/** Whether another drinker of the night is bound for (or sits in) this seat. */
+	private boolean claimed(Poi p, UUID who) {
+		for (Map.Entry<UUID, State> e : this.states.entrySet()) {
+			if (!e.getKey().equals(who) && e.getValue().seat != null && e.getValue().seat.pos().equals(p.pos())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Drinkers tonight, for the tour: how many are seated, and how many have a seat to go to. */
+	public int[] seatedAndBound() {
+		int sat = 0;
+		int bound = 0;
+		for (State st : this.states.values()) {
+			if (st.sat) {
+				sat++;
+			}
+			if (st.seat != null) {
+				bound++;
+			}
+		}
+		return new int[]{sat, bound, this.states.size()};
+	}
+
+	/** The first seat of the tavern nobody sits in and no other drinker is bound for, or null. */
+	private @Nullable Poi freeSeat(ServerLevel level, UUID who, State st) {
+		for (Poi p : st.seats) {
+			if (p == st.seat) {
+				continue;
+			}
+			boolean claimed = false;
+			for (Map.Entry<UUID, State> e : this.states.entrySet()) {
+				if (!e.getKey().equals(who) && e.getValue().seat != null && e.getValue().seat.pos().equals(p.pos())) {
+					claimed = true;
+					break;
+				}
+			}
+			if (claimed || !level.isLoaded(p.pos())) {
+				continue;
+			}
+			if (level.getEntitiesOfClass(dev.voidmc.hearth.npc.entity.Folk.class, new net.minecraft.world.phys.AABB(p.pos()).inflate(0.2),
+				o -> o.folkPose() == dev.voidmc.hearth.npc.entity.FolkPose.SIT).isEmpty()) {
+				return p;
+			}
+		}
+		return null;
 	}
 
 	static PlotView nearest(Settlement s, List<PlotView> taverns, Resident r) {
@@ -235,9 +343,18 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 					st.lastPos = here;
 				}
 				if (stuck || RhythmFolk.near(folk, st.stand, st.seat != null ? 1.6 : 2.0)) {
+					Poi other;
 					if (st.seat != null && folk.sit(st.seat.pos(), st.seat.facing())) {
 						st.mode = Mode.SEATED;
 						st.sat = true;
+					} else if (!st.musician && st.retries < 3 && (other = freeSeat(level, folk.resident().id, st)) != null) {
+						// somebody is in the seat: the next free one in the tavern
+						st.retries++;
+						st.seat = other;
+						st.stand = other.pos();
+						st.lastPos = null;
+						RhythmFolk.walk(folk, st.stand, 0.6);
+						st.nextMove = t + 80;
 					} else {
 						folk.stop();
 						st.mode = Mode.SEATED;

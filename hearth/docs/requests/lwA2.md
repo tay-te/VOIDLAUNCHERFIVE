@@ -37,3 +37,8 @@ nothing for Figma.
    (`configureTests { eula = true }`): that is the project's existing client-tour setup, not something this lane added.
 6. **B1 / B2 — a town with no priest.** The service is led by a monk, else an elder, else a grown-up of the town
    (`Service.officiant`, `Rhythm.officiant(s)` for tours). If B2's notables ever name a lay reader, that is the hook.
+
+## Batch A polish (2026-10-21)
+
+The open items above were taken by the batch A polish pass: what was done, and what it asks of others, is in
+`lwApolish.md`.

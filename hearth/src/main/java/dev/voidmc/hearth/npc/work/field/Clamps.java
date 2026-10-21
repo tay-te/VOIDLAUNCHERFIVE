@@ -209,7 +209,7 @@ public final class Clamps {
 				default -> n % 2 == 0 ? Blocks.COAL_BLOCK.defaultBlockState() : Blocks.CARPET.pick(net.minecraft.world.item.DyeColor.BLACK).defaultBlockState();
 			};
 			ledger.placed.add(new Placed(g, state, plot));
-			level.setBlock(g, state, FLAGS);
+			QuietBlocks.set(level, g, state, FLAGS);
 			n++;
 		}
 	}
@@ -305,7 +305,7 @@ public final class Clamps {
 					continue;
 				}
 				ledger.placed.add(new Placed(c, state, -p.id() - 1));
-				level.setBlock(c, state, FLAGS);
+				QuietBlocks.set(level, c, state, FLAGS);
 			}
 		}
 		if (done) {
@@ -347,7 +347,7 @@ public final class Clamps {
 				return false;
 			}
 			if (level.getBlockState(pl.pos()).equals(pl.state())) {
-				level.setBlock(pl.pos(), Blocks.AIR.defaultBlockState(), FLAGS);
+				QuietBlocks.set(level, pl.pos(), Blocks.AIR.defaultBlockState(), FLAGS);
 			}
 			return true;
 		});
