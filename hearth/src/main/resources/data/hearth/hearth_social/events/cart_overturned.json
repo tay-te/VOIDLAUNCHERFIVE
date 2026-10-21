@@ -1,0 +1,91 @@
+{
+	"kind": "cart_overturned",
+	"chance": [
+		0,
+		0.01,
+		0.015,
+		0.02,
+		0.02
+	],
+	"min_tier": "hamlet",
+	"needs": [
+		"work_day"
+	],
+	"start": "09:00",
+	"latest": "16:00",
+	"duration": 60,
+	"venue": "gate",
+	"crowd": 6,
+	"barks": "event_cart",
+	"roles": [
+		{
+			"name": "carter",
+			"pick": "adults",
+			"count": 1
+		},
+		{
+			"name": "helpers",
+			"pick": "adults",
+			"count": 3
+		},
+		{
+			"name": "children",
+			"pick": "children",
+			"count": 2
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "scene",
+			"do": "dress",
+			"to": "gate",
+			"arg": "cart_spill"
+		},
+		{
+			"at": 0,
+			"role": "carter",
+			"do": "walk",
+			"to": "gate",
+			"ticks": 2
+		},
+		{
+			"at": 2,
+			"role": "carter",
+			"do": "bark"
+		},
+		{
+			"at": 4,
+			"role": "helpers",
+			"do": "walk",
+			"to": "gate",
+			"ticks": 3
+		},
+		{
+			"at": 10,
+			"role": "helpers",
+			"do": "pose",
+			"arg": "tend",
+			"ticks": 500
+		},
+		{
+			"at": 18,
+			"role": "children",
+			"do": "walk",
+			"to": "gate",
+			"ticks": 4
+		},
+		{
+			"at": 25,
+			"role": "helpers",
+			"do": "bark",
+			"arg": "event_cart_help"
+		},
+		{
+			"at": 55,
+			"role": "scene",
+			"do": "undress",
+			"arg": "cart_spill"
+		}
+	]
+}

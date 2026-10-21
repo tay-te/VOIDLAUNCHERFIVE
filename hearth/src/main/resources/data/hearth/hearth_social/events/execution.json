@@ -1,0 +1,205 @@
+{
+	"kind": "execution",
+	"chance": [
+		1,
+		1,
+		1,
+		1,
+		1
+	],
+	"min_tier": "hamlet",
+	"start": "06:00",
+	"duration": 40,
+	"venue": "gallows",
+	"crowd": 16,
+	"barks": "event_execution",
+	"roles": [
+		{
+			"name": "condemned",
+			"pick": "principals",
+			"count": 1
+		},
+		{
+			"name": "guards",
+			"pick": "guards",
+			"count": 2
+		},
+		{
+			"name": "priest",
+			"pick": "priest",
+			"count": 1
+		},
+		{
+			"name": "lord",
+			"pick": "lord",
+			"count": 1
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 8
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "condemned",
+			"do": "walk",
+			"to": "gallows",
+			"ticks": 2
+		},
+		{
+			"at": 0,
+			"role": "guards",
+			"do": "walk",
+			"to": "gallows",
+			"ticks": 2
+		},
+		{
+			"at": 0,
+			"role": "priest",
+			"do": "stand",
+			"to": "gallows",
+			"ticks": 3
+		},
+		{
+			"at": 0,
+			"role": "lord",
+			"do": "stand",
+			"to": "gallows",
+			"ticks": 5
+		},
+		{
+			"at": 0,
+			"role": "crowd",
+			"do": "walk",
+			"to": "gallows",
+			"ticks": 7
+		},
+		{
+			"at": 0,
+			"role": "scene",
+			"do": "toll",
+			"ticks": 4
+		},
+		{
+			"at": 1,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "gallows",
+			"arg": "execution",
+			"ticks": 34
+		},
+		{
+			"at": 3,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 6,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 9,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 12,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 15,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 18,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 21,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 24,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 27,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 30,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 33,
+			"role": "scene",
+			"do": "sound",
+			"to": "gallows",
+			"arg": "minecraft:block.note_block.basedrum",
+			"ticks": 20
+		},
+		{
+			"at": 36,
+			"role": "priest",
+			"do": "bark",
+			"arg": "event_execution_priest"
+		},
+		{
+			"at": 36,
+			"role": "crowd",
+			"do": "bark"
+		},
+		{
+			"at": 36,
+			"role": "condemned",
+			"do": "pose",
+			"arg": "pray",
+			"ticks": 200
+		},
+		{
+			"at": 38,
+			"role": "scene",
+			"do": "end"
+		}
+	]
+}

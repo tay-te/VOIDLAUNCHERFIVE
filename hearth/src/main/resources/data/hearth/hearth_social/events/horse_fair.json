@@ -1,0 +1,77 @@
+{
+	"kind": "horse_fair",
+	"chance": [
+		0,
+		0,
+		0.004,
+		0.008,
+		0.01
+	],
+	"min_tier": "village",
+	"needs": [
+		"market_day"
+	],
+	"start": "09:00",
+	"duration": 240,
+	"venue": "square",
+	"crowd": 8,
+	"barks": "event_horse_fair",
+	"params": {
+		"fees": 8
+	},
+	"roles": [
+		{
+			"name": "dealers",
+			"pick": "adults",
+			"count": 2
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 6
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "scene",
+			"do": "dress",
+			"to": "square",
+			"arg": "pen"
+		},
+		{
+			"at": 0,
+			"role": "dealers",
+			"do": "stand",
+			"to": "square",
+			"ticks": 3
+		},
+		{
+			"at": 0,
+			"role": "crowd",
+			"do": "walk",
+			"to": "square",
+			"ticks": 6
+		},
+		{
+			"at": 5,
+			"role": "dealers",
+			"do": "bark"
+		},
+		{
+			"at": 60,
+			"role": "dealers",
+			"do": "bark"
+		},
+		{
+			"at": 120,
+			"role": "dealers",
+			"do": "bark"
+		},
+		{
+			"at": 180,
+			"role": "crowd",
+			"do": "bark"
+		}
+	]
+}

@@ -137,6 +137,9 @@ public final class FamilyLife {
 		String deathKey = switch (cause) {
 			case "slain" -> "hearth.social.notice.slain";
 			case "killed" -> "hearth.social.notice.killed";
+			// the town events' deaths (docs/LIVING_WORLD_2.md §3.2)
+			case "raid" -> "hearth.events.notice.killed_in_raid";
+			case "hanged" -> "hearth.events.notice.hanged";
 			default -> "hearth.social.notice.died";
 		};
 		post.accept(new Posting("death", day, deathKey, List.of(r.fullName())));

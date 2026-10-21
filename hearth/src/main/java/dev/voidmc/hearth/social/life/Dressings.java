@@ -64,6 +64,81 @@ public final class Dressings {
 
 	/** Events of the daily rhythm (docs/LIVING_WORLD_2.md §2): taken down at their {@code until}, or with everything. */
 	public static final String RHYTHM = "rhythm:";
+	/**
+	 * The town events' dressings (docs/LIVING_WORLD_2.md §3: fair stalls, archery targets, the melee's ring, a fresh grave,
+	 * a bough on the ridge, the burnt house's smoke): kept to their own {@code until}, as the rhythm's are.
+	 */
+	public static final String EVENTS = "events:";
+
+	/**
+	 * Puts up one dressing for a town event, whole or not at all: each block goes only into air (or, at its foot, thin
+	 * snow and short grass) in a loaded chunk, clear of doors, of the square's heart and of anyone standing there, every
+	 * one recorded in the ledger under {@code key} (which starts with {@link #EVENTS}) until {@code until}. Returns whether
+	 * it went up.
+	 */
+	public static boolean setUp(ServerLevel level, Settlement s, SocialLedger ledger, String key, long until, List<BlockPos> positions,
+		List<BlockState> states, boolean keepHeartOpen) {
+		if (positions.isEmpty() || positions.size() != states.size()) {
+			return false;
+		}
+		List<Part> parts = new ArrayList<>(positions.size());
+		int ground = Integer.MAX_VALUE;
+		for (int i = 0; i < positions.size(); i++) {
+			parts.add(new Part(positions.get(i).immutable(), states.get(i)));
+			ground = Math.min(ground, positions.get(i).getY());
+		}
+		Set<Long> taken = new HashSet<>();
+		for (SocialLedger.Dressing d : ledger.dressings) {
+			taken.add(d.pos());
+		}
+		BlockPos anchor = keepHeartOpen ? Venues.square(s) : new BlockPos(Integer.MIN_VALUE / 2, 0, Integer.MIN_VALUE / 2);
+		List<BlockPos> doors = Venues.positions(s.pois(PoiType.DOOR));
+		if (!clearLoose(level, parts, taken, doors, anchor, ground)) {
+			return false;
+		}
+		place(level, ledger, key, until, parts);
+		return true;
+	}
+
+	/** Takes down one town event's dressing by key now (where loaded). */
+	public static int takeDownKey(ServerLevel level, SocialLedger ledger, String key) {
+		return takeDownEvent(level, ledger, key);
+	}
+
+	/** As {@link #clear}, with the ground under each part's column checked at its own foot (dressings on uneven ground). */
+	private static boolean clearLoose(ServerLevel level, List<Part> parts, Set<Long> taken, List<BlockPos> doors, BlockPos anchor, int ground) {
+		java.util.Map<Long, Integer> feet = new java.util.HashMap<>();
+		for (Part p : parts) {
+			long col = BlockPos.asLong(p.pos.getX(), 0, p.pos.getZ());
+			feet.merge(col, p.pos.getY(), Math::min);
+		}
+		for (Part p : parts) {
+			BlockPos pos = p.pos;
+			if (!level.isLoaded(pos) || taken.contains(pos.asLong())) {
+				return false;
+			}
+			BlockState here = level.getBlockState(pos);
+			boolean foot = feet.get(BlockPos.asLong(pos.getX(), 0, pos.getZ())) == pos.getY();
+			if (!here.isAir() && !(foot && (here.is(Blocks.SNOW) || here.is(Blocks.SHORT_GRASS) || here.is(Blocks.FERN)))) {
+				return false;
+			}
+			if (Math.abs(pos.getX() - anchor.getX()) <= 2 && Math.abs(pos.getZ() - anchor.getZ()) <= 2) {
+				return false;
+			}
+			for (BlockPos d : doors) {
+				if (Math.abs(d.getX() - pos.getX()) <= 1 && Math.abs(d.getZ() - pos.getZ()) <= 1 && Math.abs(d.getY() - pos.getY()) <= 2) {
+					return false;
+				}
+			}
+		}
+		AABB box = null;
+		for (Part p : parts) {
+			AABB b = new AABB(p.pos);
+			box = box == null ? b : box.minmax(b);
+		}
+		return box == null || level.getEntities((net.minecraft.world.entity.Entity) null, box.inflate(0.1),
+			e -> !(e instanceof net.minecraft.world.entity.item.ItemEntity)).isEmpty();
+	}
 
 	private Dressings() {
 	}
@@ -222,6 +297,14 @@ public final class Dressings {
 
 	/** Sets up market stalls round the square; returns the stalls (empty if there was no room or the chunks are not loaded). */
 	public static List<Stall> setUpMarket(ServerLevel level, Settlement s, SocialLedger ledger, TownEvent e, BlockPos anchor, int count) {
+		return setUpMarket(level, s, ledger, e, anchor, count, true);
+	}
+
+	/**
+	 * As above; {@code fronts}: whether the houses round the square put out their awnings too (the town events' fair sets its
+	 * stalls up in batches over a few passes, the fronts with the first).
+	 */
+	public static List<Stall> setUpMarket(ServerLevel level, Settlement s, SocialLedger ledger, TownEvent e, BlockPos anchor, int count, boolean fronts) {
 		List<Stall> stalls = new ArrayList<>();
 		if (count <= 0 || !level.isLoaded(anchor)) {
 			return stalls;
@@ -251,7 +334,9 @@ public final class Dressings {
 			stalls.add(new Stall(keeper, ground, customer, stalls.size()));
 		}
 		// the houses and shops round the square put out their awnings and wares too
-		all.addAll(fronts(level, s, taken, e, "market", near(s, anchor, 32, 14)));
+		if (fronts) {
+			all.addAll(fronts(level, s, taken, e, "market", near(s, anchor, 32, 14)));
+		}
 		place(level, ledger, e, all);
 		if (!stalls.isEmpty()) {
 			for (StallListener l : listeners) {
@@ -418,7 +503,8 @@ public final class Dressings {
 		for (int i = ledger.dressings.size() - 1; i >= 0; i--) {
 			SocialLedger.Dressing d = ledger.dressings.get(i);
 			// the rhythm's dressings (laundry lines, winter) are kept to their own hour, not to the day's agenda
-			boolean due = all || d.until() <= now || keep != null && !keep.contains(d.event()) && !d.event().startsWith(RHYTHM);
+			boolean due = all || d.until() <= now || keep != null && !keep.contains(d.event()) && !d.event().startsWith(RHYTHM)
+				&& !d.event().startsWith(EVENTS);
 			if (!due) {
 				continue;
 			}

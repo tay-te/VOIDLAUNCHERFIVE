@@ -1,0 +1,148 @@
+{
+	"kind": "funeral",
+	"chance": [
+		1,
+		1,
+		1,
+		1,
+		1
+	],
+	"min_tier": "camp",
+	"start": "09:40",
+	"duration": 80,
+	"venue": "cemetery",
+	"crowd": 10,
+	"barks": "event_funeral",
+	"roles": [
+		{
+			"name": "bearers",
+			"pick": "kin",
+			"count": 4
+		},
+		{
+			"name": "mourners",
+			"pick": "family",
+			"count": 6,
+			"hold": "minecraft:candle"
+		},
+		{
+			"name": "priest",
+			"pick": "priest",
+			"count": 1,
+			"place": "cemetery"
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "scene",
+			"do": "toll",
+			"ticks": 7
+		},
+		{
+			"at": 0,
+			"role": "bearers",
+			"do": "walk",
+			"to": "kin_home",
+			"ticks": 2
+		},
+		{
+			"at": 0,
+			"role": "mourners",
+			"do": "walk",
+			"to": "kin_home",
+			"ticks": 4
+		},
+		{
+			"at": 0,
+			"role": "priest",
+			"do": "stand",
+			"to": "cemetery"
+		},
+		{
+			"at": 3,
+			"role": "scene",
+			"do": "dress",
+			"to": "kin_home",
+			"arg": "mourning"
+		},
+		{
+			"at": 5,
+			"role": "bearers",
+			"do": "carry",
+			"to": "cemetery",
+			"ticks": 2
+		},
+		{
+			"at": 6,
+			"role": "mourners",
+			"do": "walk",
+			"to": "cemetery",
+			"ticks": 4
+		},
+		{
+			"at": 12,
+			"role": "mourners",
+			"do": "bark",
+			"arg": "event_funeral"
+		},
+		{
+			"at": 22,
+			"role": "scene",
+			"do": "toll",
+			"ticks": 3
+		},
+		{
+			"at": 26,
+			"role": "bearers",
+			"do": "stand",
+			"to": "cemetery",
+			"ticks": 2
+		},
+		{
+			"at": 28,
+			"role": "priest",
+			"do": "bark",
+			"arg": "event_funeral_words"
+		},
+		{
+			"at": 30,
+			"role": "scene",
+			"do": "dress",
+			"to": "cemetery",
+			"arg": "grave"
+		},
+		{
+			"at": 33,
+			"role": "mourners",
+			"do": "pose",
+			"arg": "pray",
+			"ticks": 900
+		},
+		{
+			"at": 33,
+			"role": "bearers",
+			"do": "pose",
+			"arg": "pray",
+			"ticks": 900
+		},
+		{
+			"at": 45,
+			"role": "mourners",
+			"do": "bark",
+			"arg": "event_funeral"
+		},
+		{
+			"at": 62,
+			"role": "mourners",
+			"do": "bark",
+			"arg": "event_funeral"
+		},
+		{
+			"at": 75,
+			"role": "scene",
+			"do": "toll",
+			"ticks": 1
+		}
+	]
+}

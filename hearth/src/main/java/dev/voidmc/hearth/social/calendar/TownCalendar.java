@@ -107,6 +107,65 @@ public final class TownCalendar {
 		return new int[] {cfg.start(), cfg.end()};
 	}
 
+	// ---- fairs and tournaments (docs/LIVING_WORLD_2.md §3.1): once a festival year each, on days of the town's own
+
+	/**
+	 * The day of the year (0-based) a town's two-day fair opens: fixed per town, clear of its feast days and of its
+	 * market day's eve, so a town keeps its fair in the same week every year.
+	 */
+	public static int fairYearDay(long settlementId, Culture culture, long foundedDay, SettlementTier tier, SocialConfig.Festivals cfg) {
+		return freeYearDay(settlementId * 0x2545F4914F6CDD1DL + 17, 2, culture, foundedDay, tier, cfg, -1);
+	}
+
+	/** The day of the year a lord's tournament is held: fixed per town, clear of its feasts and of its fair. */
+	public static int tourneyYearDay(long settlementId, Culture culture, long foundedDay, SettlementTier tier, SocialConfig.Festivals cfg) {
+		return freeYearDay(settlementId * 0x9E3779B97F4A7C15L + 29, 1, culture, foundedDay, tier, cfg, fairYearDay(settlementId, culture, foundedDay, tier,
+			cfg));
+	}
+
+	/** Whether a day is one of the town's two fair days. */
+	public static boolean isFairDay(long settlementId, long day, Culture culture, long foundedDay, SettlementTier tier, SocialConfig.Festivals cfg) {
+		int year = Math.max(8, cfg.yearDays());
+		int d = (int) Math.floorMod(day, (long) year);
+		int open = fairYearDay(settlementId, culture, foundedDay, tier, cfg);
+		return d == open || d == Math.floorMod(open + 1, year);
+	}
+
+	public static boolean isTourneyDay(long settlementId, long day, Culture culture, long foundedDay, SettlementTier tier, SocialConfig.Festivals cfg) {
+		int year = Math.max(8, cfg.yearDays());
+		return (int) Math.floorMod(day, (long) year) == tourneyYearDay(settlementId, culture, foundedDay, tier, cfg);
+	}
+
+	/** The next day at or after {@code from} that the predicate's kind falls on (searching a year), or -1. */
+	public static long nextFairDay(long settlementId, long from, Culture culture, long foundedDay, SettlementTier tier, SocialConfig.Festivals cfg) {
+		for (long d = from; d <= from + Math.max(8, cfg.yearDays()); d++) {
+			if (isFairDay(settlementId, d, culture, foundedDay, tier, cfg)) {
+				return d;
+			}
+		}
+		return -1;
+	}
+
+	private static int freeYearDay(long seed, int span, Culture culture, long foundedDay, SettlementTier tier, SocialConfig.Festivals cfg, int avoid) {
+		int year = Math.max(8, cfg.yearDays());
+		int start = (int) Math.floorMod(mix(seed), (long) year);
+		for (int k = 0; k < year; k++) {
+			int d = Math.floorMod(start + k * 3, year);
+			boolean clear = true;
+			for (int i = -1; i <= span; i++) {
+				int dd = Math.floorMod(d + i, year);
+				if (festivalOn(dd, culture, foundedDay, tier, cfg) != null || dd == avoid || avoid >= 0 && dd == Math.floorMod(avoid + 1, year)) {
+					clear = false;
+					break;
+				}
+			}
+			if (clear) {
+				return d;
+			}
+		}
+		return start;
+	}
+
 	/** A cheap, well-mixed hash (splitmix64's finaliser). */
 	public static long mix(long z) {
 		z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;

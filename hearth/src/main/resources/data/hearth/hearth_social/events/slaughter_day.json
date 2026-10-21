@@ -1,0 +1,86 @@
+{
+	"kind": "slaughter_day",
+	"chance": [
+		0,
+		0.03,
+		0.035,
+		0.035,
+		0.03
+	],
+	"min_tier": "hamlet",
+	"needs": [
+		"autumn"
+	],
+	"start": "08:00",
+	"latest": "10:00",
+	"duration": 60,
+	"venue": "square",
+	"crowd": 6,
+	"barks": "event_slaughter",
+	"params": {
+		"meat": 6,
+		"slaughter_at": 30
+	},
+	"roles": [
+		{
+			"name": "butcher",
+			"pick": "butcher",
+			"count": 1
+		},
+		{
+			"name": "helpers",
+			"pick": "adults",
+			"count": 2
+		},
+		{
+			"name": "children",
+			"pick": "children",
+			"count": 2
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "butcher",
+			"do": "walk",
+			"to": "square",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "helpers",
+			"do": "walk",
+			"to": "square",
+			"ticks": 2
+		},
+		{
+			"at": 0,
+			"role": "children",
+			"do": "walk",
+			"to": "square",
+			"ticks": 5
+		},
+		{
+			"at": 5,
+			"role": "butcher",
+			"do": "bark"
+		},
+		{
+			"at": 10,
+			"role": "butcher",
+			"do": "pose",
+			"arg": "hammer",
+			"ticks": 400
+		},
+		{
+			"at": 32,
+			"role": "helpers",
+			"do": "bark"
+		},
+		{
+			"at": 45,
+			"role": "children",
+			"do": "bark"
+		}
+	]
+}

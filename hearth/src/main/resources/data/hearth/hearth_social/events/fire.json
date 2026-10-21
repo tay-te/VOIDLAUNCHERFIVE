@@ -1,0 +1,92 @@
+{
+	"kind": "fire",
+	"chance": [
+		0,
+		0.005,
+		0.0055,
+		0.0065,
+		0.008
+	],
+	"min_tier": "hamlet",
+	"min_population": 4,
+	"start": "09:00",
+	"latest": "21:30",
+	"duration": 90,
+	"venue": "plot_front",
+	"crowd": 12,
+	"barks": "event_fire",
+	"params": {
+		"burn_min": 0.25,
+		"burn_max": 0.65
+	},
+	"roles": [
+		{
+			"name": "household",
+			"pick": "household",
+			"count": 4
+		},
+		{
+			"name": "neighbours",
+			"pick": "neighbours",
+			"count": 6
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "scene",
+			"do": "toll",
+			"ticks": 9
+		},
+		{
+			"at": 0,
+			"role": "household",
+			"do": "walk",
+			"to": "plot_front",
+			"ticks": 5
+		},
+		{
+			"at": 0,
+			"role": "neighbours",
+			"do": "walk",
+			"to": "plot_front",
+			"ticks": 7
+		},
+		{
+			"at": 1,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "plot_front",
+			"arg": "fire",
+			"ticks": 60
+		},
+		{
+			"at": 2,
+			"role": "household",
+			"do": "bark"
+		},
+		{
+			"at": 6,
+			"role": "neighbours",
+			"do": "bark"
+		},
+		{
+			"at": 12,
+			"role": "household",
+			"do": "pose",
+			"arg": "cower",
+			"ticks": 300
+		},
+		{
+			"at": 30,
+			"role": "neighbours",
+			"do": "bark"
+		},
+		{
+			"at": 80,
+			"role": "household",
+			"do": "bark",
+			"arg": "event_fire_after"
+		}
+	]
+}

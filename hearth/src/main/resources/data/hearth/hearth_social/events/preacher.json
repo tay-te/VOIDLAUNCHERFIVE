@@ -1,0 +1,79 @@
+{
+	"kind": "preacher",
+	"chance": [
+		0,
+		0.006,
+		0.01,
+		0.012,
+		0.012
+	],
+	"min_tier": "hamlet",
+	"start": "10:00",
+	"latest": "15:00",
+	"duration": 60,
+	"venue": "square",
+	"crowd": 10,
+	"barks": "event_preacher",
+	"roles": [
+		{
+			"name": "preacher",
+			"pick": "priest",
+			"count": 1,
+			"place": "square"
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 6
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "preacher",
+			"do": "stand",
+			"to": "square",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "crowd",
+			"do": "walk",
+			"to": "square",
+			"ticks": 5
+		},
+		{
+			"at": 2,
+			"role": "preacher",
+			"do": "pose",
+			"arg": "read",
+			"ticks": 900
+		},
+		{
+			"at": 4,
+			"role": "preacher",
+			"do": "bark"
+		},
+		{
+			"at": 16,
+			"role": "preacher",
+			"do": "bark"
+		},
+		{
+			"at": 22,
+			"role": "crowd",
+			"do": "bark",
+			"arg": "event_preacher_crowd"
+		},
+		{
+			"at": 30,
+			"role": "preacher",
+			"do": "bark"
+		},
+		{
+			"at": 46,
+			"role": "preacher",
+			"do": "bark"
+		}
+	]
+}

@@ -367,3 +367,75 @@ the night watch's hours; drinkers until closing), `RhythmDataTest` (every cultur
 reads, every bark category the code says has lines for every culture, placeholders known, no repeats inside the
 cooldown), `RhythmTest` (the congregation, the parts of the service, washers, drinkers, the offering once a rest day,
 held days, the abstract cost). Tour: `JAVA_TOOL_OPTIONS="-Dhearth.tour=rhythm" ./gradlew runClientGameTest` (`gametest/RhythmTour`).
+
+## 12. Town events (`events/`, docs/LIVING_WORLD_2.md §3, lane B1)
+
+Weddings, funerals, trials, the pillory and the gallows, fairs and tournaments, fires and rebuilding, the lord's tax
+collector, night raids, and the small events (a christening, a cart overturned at the gate, a runaway pig, travelling
+players, a preacher, a horse fair, slaughter day, the lord's decree, a quarrel at the well, a lost child).
+
+**The book** (`EventBook`, `hearth:social/events`): ≤ 16 events scheduled, ≤ 16 recent outcomes, the plots burnt and
+not yet rebuilt, residents awaiting trial (≤ 8), the last tax day, the band's quiet days, and (at a seat) the bailiff's
+takings on the road. Scene progress is never saved.
+
+**A day** (`EventDirector.planDay`, on `DAY_PASSED`, every town, once a day): `FactsReader` gathers the town's facts
+(places cached until a building is finished; domains once a week a world, bands once a day a world); `Trials.roll` may
+add a petty crime (none at prosperity ≥ 0.6, one or two a fortnight at 0.2–0.3; a rare killing where feuds run); the
+offers come from the ledger (weddings and funerals FamilyLife made), the court day (the longest-waiting defendant), and
+offers held for the day (an execution at dawn, a topping-out the evening after a large roof is on, a christening on the
+next rest day, the lord's wedding's tournament); `EventScheduler.plan` adds tax (every 14 days in a domain town, on its
+own day of the round), a raid (a band stronger than the defence within 1 200 road blocks; then six quiet days), the
+fair (two days a festival year in towns and cities), the tournament (a lord and a tilt yard) and the chance events, and
+keeps one major (the dead first, then the gallows, tax, a trial, a wedding, a raid, the fair, the tournament, a fire)
+and three minor. Pedlars from three towns round about set out on the fair's eve; friends of a couple are invited.
+
+**Resolving**: every second the towns with open events are looked at (`sweep`): an embodied town's event is staged
+when its time comes; an event whose end has passed unstaged is decided by its rule (`Outcomes`, pure, from the facts
+taken when it was scheduled and its seed) and applied (`EventEffects`): treasury and stores, a burnt plot, deaths only
+where the rule says (the gallows; 8 % of a sacked raid, `raid_deaths`), notices, happenings (`fire`, `raided`, `taxed`,
+`trial`), `TOWN_EVENT`. A trial's pillory sentence is held at once (two hours), a gallows sentence the next dawn
+(`executions: never` sends the condemned to the cell); mercy banishes.
+
+**Scenes** (`Scenes`, also the `SceneService`): one major scene a town at a time, nothing new staged above 60 % of
+`high_mspt`; casts from the residents (`SceneCast` picks: principals, kin, the priest, the judge, guards, children,
+neighbours...), up to four principals embodied by the scene itself; beats every 20 ticks from the rule's timeline (walk,
+stand, carry, face, pose, hold, music, bark, sound, toll, spectacle, dress, undress, particles, end). A town that folds
+resolves its scenes with what was done so far.
+
+**What a player can do** (conversation, order 82–99): ask what is on and who is being married; give the couple a gift
+(10 bits, `social:wedding_gift`); pay a pauper's burial (15, `social:paid_burial` +3); testify for or against the
+accused at a running trial (odds from standing, the judge's opinion, charisma, and +30 % if they were in town when it
+was done; Mettle speech XP); pay a poor accused's fine (no pillory); pay to have a convict let out, or free them (a
+`JAILBREAK`); plead for mercy at the gallows (a hard check with the lord); enter the archery contest (5 bits: ten marked
+arrows, a lent bow; scored by the target's own strength; a purse of 30 for beating the folk) or the melee (5 bits: three
+rounds with the champion, both yield at a quarter health; two won: 40 bits, a horse, the lord's favour); pay a poor
+family's tax (their pig stays; `social:paid_tax` +5, a strong memory); a coin for the topping-out crew; 20 bits toward
+a burnt house (a day sooner). In the world: fight a fire (live, or 20 s by the buckets), kill raiders (each weakens the
+band in the outcome; `defense:raid_repelled` +15–25), dance at the feast, catch the runaway pig.
+
+**Fire** (`repair/fire/FireLeash`, `events.live_fires` auto/on/off): a live fire is lit on the roof's flammable blocks
+and leashed: every 10 ticks, palette checks over the box + 8, flames beyond the plot's box + 2 snuffed; released (all
+flames out) when its scene ends. The repair module's fire watch and brigade fight it as any fire. Shown fires and the
+books' fires leave a `BurntShell` when the town is next embodied (from the blueprint: the top share of burnable blocks
+gone, a third below charred, every block reported as fire damage), which the builders mend; the book counts it rebuilt
+after 3–9 days.
+
+**Data**: `hearth_social/events/<kind>.json` (`EventRule`: chance by tier, least tier and people, needs, start window,
+minutes, venue, crowd, barks, roles, timeline, params) and staged scenes (`kind: scene`, `scene: oath|dubbing`); barks in
+`hearth_dialogue/barks/events.json` (the crowds' bark engine and cooldowns), deeds in `hearth_standing/deeds/events.json`,
+words in `lang/en_us/lw_events.json`. Config `config/hearth/events.json` (`enabled`, `live_fires`, `raid_deaths`,
+`executions`, `one_major_scene`).
+
+**Commands**: `/hearth events status|book`, and for game masters `/hearth events force <kind>` (also `/hearth social
+force <kind>`; a forced execution never kills), `/hearth events stage <scene>`, `/hearth events shell`.
+
+**Cost** (2026-10-21; `/hearth events status|bench`, `/hearth sim stats` lines `events`, `events days`, `fire leash`): the pure
+planning and outcomes 0.7 µs a town-day (`EventsBenchTest`, 200 towns × 365 days); in game a town's whole day — facts,
+crime roll, plan — 27 µs warm (`bench`, 2 towns × 28 days; domains 1.8, bands 1.8), above the 20 µs aim: the facts'
+own reads (residents, calendar, places) are most of it. Scene passes 0.31 ms avg a tick-pass with a scene on; worst
+starts: a raid 21 ms (two raiders spawning), a wedding 9 ms; a fair's first batch of stalls 59 ms with the houses'
+awnings (dropped since). The leash 0.14 ms a pass while a fire burns. A day planned during a new town's catch-up costs
+0.5 ms (cold caches).
+
+**Tests**: `EventRulesTest`, `SceneTimelineTest`, `EventAgreementTest`, `FireLeashTest`, `EventsBenchTest`. Tour:
+`JAVA_TOOL_OPTIONS="-Dhearth.tour=events" ./gradlew runClientGameTest` (`gametest/EventsTour`).

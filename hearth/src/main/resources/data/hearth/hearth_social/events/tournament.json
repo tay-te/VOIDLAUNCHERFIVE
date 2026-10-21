@@ -1,0 +1,141 @@
+{
+	"kind": "tournament",
+	"chance": [
+		0,
+		0,
+		0,
+		1,
+		1
+	],
+	"min_tier": "town",
+	"needs": [
+		"lord",
+		"tilt_yard"
+	],
+	"start": "10:00",
+	"duration": 360,
+	"venue": "tilt_yard",
+	"crowd": 16,
+	"barks": "event_tournament",
+	"params": {
+		"melee_from": 60,
+		"purse": 40
+	},
+	"roles": [
+		{
+			"name": "knights",
+			"pick": "knights",
+			"count": 2,
+			"place": "tilt_yard"
+		},
+		{
+			"name": "herald",
+			"pick": "herald",
+			"count": 1
+		},
+		{
+			"name": "lord",
+			"pick": "lord",
+			"count": 1,
+			"place": "tilt_yard"
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 10
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "herald",
+			"do": "walk",
+			"to": "tilt_yard",
+			"ticks": 3
+		},
+		{
+			"at": 0,
+			"role": "lord",
+			"do": "stand",
+			"to": "tilt_yard",
+			"ticks": 6
+		},
+		{
+			"at": 0,
+			"role": "crowd",
+			"do": "walk",
+			"to": "tilt_yard",
+			"ticks": 9
+		},
+		{
+			"at": 1,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "tilt_yard",
+			"arg": "joust",
+			"ticks": 90
+		},
+		{
+			"at": 2,
+			"role": "herald",
+			"do": "bark",
+			"arg": "event_tournament_herald"
+		},
+		{
+			"at": 30,
+			"role": "crowd",
+			"do": "bark"
+		},
+		{
+			"at": 50,
+			"role": "scene",
+			"do": "dress",
+			"to": "ring",
+			"arg": "ring"
+		},
+		{
+			"at": 55,
+			"role": "herald",
+			"do": "walk",
+			"to": "ring",
+			"ticks": 6
+		},
+		{
+			"at": 56,
+			"role": "herald",
+			"do": "bark",
+			"arg": "event_tournament_melee"
+		},
+		{
+			"at": 58,
+			"role": "crowd",
+			"do": "walk",
+			"to": "ring",
+			"ticks": 8
+		},
+		{
+			"at": 60,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "ring",
+			"arg": "melee",
+			"ticks": 200
+		},
+		{
+			"at": 120,
+			"role": "crowd",
+			"do": "bark"
+		},
+		{
+			"at": 200,
+			"role": "herald",
+			"do": "bark",
+			"arg": "event_tournament_melee"
+		},
+		{
+			"at": 300,
+			"role": "crowd",
+			"do": "bark"
+		}
+	]
+}

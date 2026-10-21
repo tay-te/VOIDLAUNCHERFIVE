@@ -1,0 +1,93 @@
+{
+	"kind": "topping_out",
+	"chance": [
+		0.8,
+		0.8,
+		0.8,
+		0.8,
+		0.8
+	],
+	"min_tier": "hamlet",
+	"start": "17:00",
+	"duration": 60,
+	"venue": "plot_front",
+	"crowd": 8,
+	"barks": "event_topping_out",
+	"roles": [
+		{
+			"name": "master",
+			"pick": "master_builder",
+			"count": 1
+		},
+		{
+			"name": "crew",
+			"pick": "builders",
+			"count": 4,
+			"hold": "minecraft:honey_bottle"
+		},
+		{
+			"name": "neighbours",
+			"pick": "neighbours",
+			"count": 4
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "master",
+			"do": "walk",
+			"to": "plot_front",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "crew",
+			"do": "walk",
+			"to": "plot_front",
+			"ticks": 3
+		},
+		{
+			"at": 0,
+			"role": "neighbours",
+			"do": "walk",
+			"to": "plot_front",
+			"ticks": 5
+		},
+		{
+			"at": 3,
+			"role": "scene",
+			"do": "dress",
+			"to": "plot",
+			"arg": "bough"
+		},
+		{
+			"at": 6,
+			"role": "master",
+			"do": "bark"
+		},
+		{
+			"at": 10,
+			"role": "crew",
+			"do": "pose",
+			"arg": "cheer",
+			"ticks": 60
+		},
+		{
+			"at": 12,
+			"role": "crew",
+			"do": "bark"
+		},
+		{
+			"at": 30,
+			"role": "neighbours",
+			"do": "bark"
+		},
+		{
+			"at": 45,
+			"role": "crew",
+			"do": "pose",
+			"arg": "cheer",
+			"ticks": 60
+		}
+	]
+}

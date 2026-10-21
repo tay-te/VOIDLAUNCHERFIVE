@@ -1,0 +1,74 @@
+{
+  "_comment": "The town events' deeds (docs/LIVING_WORLD_2.md §3.1); merged with deeds/default.json. A poor family's tax paid is remembered strongly by them (victim 2.0, family 1.5).",
+  "deeds": {
+    "social:paid_burial": {
+      "settlement": 1.0,
+      "victim": 1.5,
+      "witness": 0.4,
+      "family": 1.5,
+      "gossip": 0.4,
+      "fame": 0.2
+    },
+    "social:paid_fine": {
+      "settlement": 0.6,
+      "victim": 2.0,
+      "witness": 0.4,
+      "family": 1.0,
+      "gossip": 0.3,
+      "fame": 0.2
+    },
+    "social:paid_tax": {
+      "settlement": 1.0,
+      "victim": 2.0,
+      "witness": 0.6,
+      "family": 1.5,
+      "gossip": 0.6,
+      "fame": 0.4
+    },
+    "social:crew_coin": {
+      "settlement": 0.5,
+      "victim": 1.0,
+      "witness": 0.5,
+      "gossip": 0.1,
+      "fame": 0.1
+    },
+    "social:gave_to_rebuilding": {
+      "settlement": 1.0,
+      "victim": 0.5,
+      "witness": 0.3,
+      "gossip": 0.4,
+      "fame": 0.3
+    },
+    "social:danced": {
+      "settlement": 0.5,
+      "victim": 1.0,
+      "witness": 0.5,
+      "family": 0.5,
+      "gossip": 0.1,
+      "fame": 0.1,
+      "news": false
+    },
+    "social:contest_won": {
+      "settlement": 0.6,
+      "victim": 0.0,
+      "witness": 0.6,
+      "gossip": 0.8,
+      "fame": 1.0
+    },
+    "social:tourney_won": {
+      "settlement": 0.8,
+      "victim": 0.0,
+      "witness": 0.8,
+      "gossip": 1.2,
+      "fame": 1.5
+    },
+    "social:caught_the_pig": {
+      "settlement": 0.5,
+      "victim": 0.0,
+      "witness": 0.5,
+      "gossip": 0.1,
+      "fame": 0.1,
+      "news": false
+    }
+  }
+}

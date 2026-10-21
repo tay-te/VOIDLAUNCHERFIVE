@@ -1,0 +1,76 @@
+{
+	"kind": "well_quarrel",
+	"chance": [
+		0,
+		0.01,
+		0.012,
+		0.012,
+		0.01
+	],
+	"min_tier": "hamlet",
+	"needs": [
+		"well"
+	],
+	"start": "07:00",
+	"latest": "11:00",
+	"duration": 30,
+	"venue": "well",
+	"crowd": 6,
+	"barks": "event_well_quarrel",
+	"roles": [
+		{
+			"name": "quarrellers",
+			"pick": "adults",
+			"count": 2
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 4
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "quarrellers",
+			"do": "walk",
+			"to": "well",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "crowd",
+			"do": "walk",
+			"to": "well",
+			"ticks": 5
+		},
+		{
+			"at": 2,
+			"role": "quarrellers",
+			"do": "bark"
+		},
+		{
+			"at": 4,
+			"role": "quarrellers",
+			"do": "pose",
+			"arg": "talk",
+			"ticks": 300
+		},
+		{
+			"at": 8,
+			"role": "quarrellers",
+			"do": "bark"
+		},
+		{
+			"at": 14,
+			"role": "crowd",
+			"do": "bark",
+			"arg": "event_well_crowd"
+		},
+		{
+			"at": 20,
+			"role": "quarrellers",
+			"do": "bark"
+		}
+	]
+}

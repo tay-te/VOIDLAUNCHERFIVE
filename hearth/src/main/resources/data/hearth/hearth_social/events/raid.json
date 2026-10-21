@@ -1,0 +1,60 @@
+{
+	"kind": "raid",
+	"chance": [
+		0,
+		0.1,
+		0.08,
+		0.06,
+		0.05
+	],
+	"min_tier": "hamlet",
+	"min_population": 4,
+	"start": "02:00",
+	"latest": "02:30",
+	"duration": 120,
+	"venue": "storehouse",
+	"crowd": 0,
+	"barks": "event_raid",
+	"params": {
+		"store_share": 0.1,
+		"coin_share": 0.1,
+		"death_chance": 0.08
+	},
+	"roles": [
+		{
+			"name": "guards",
+			"pick": "guards",
+			"count": 6
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "scene",
+			"do": "toll",
+			"ticks": 12
+		},
+		{
+			"at": 0,
+			"role": "guards",
+			"do": "walk",
+			"to": "storehouse",
+			"ticks": 5
+		},
+		{
+			"at": 2,
+			"role": "guards",
+			"do": "bark"
+		},
+		{
+			"at": 30,
+			"role": "guards",
+			"do": "bark"
+		},
+		{
+			"at": 60,
+			"role": "guards",
+			"do": "bark"
+		}
+	]
+}
