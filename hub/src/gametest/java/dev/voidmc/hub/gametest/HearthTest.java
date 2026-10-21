@@ -61,6 +61,7 @@ public final class HearthTest {
 		this.boardJournal();
 		this.dice();
 		this.reputation();
+		this.livingWorld();
 		this.reload();
 
 		dev.voidmc.hub.VoidHub.LOGGER.info("HEARTH shots: {}", this.shots);
@@ -103,6 +104,7 @@ public final class HearthTest {
 			return;
 		}
 		this.settle(20);
+		this.collectFaces();
 		this.both("market");
 		this.shot("market", 1);
 		this.idleAndHover("market", ".h-row");
@@ -190,10 +192,12 @@ public final class HearthTest {
 			return;
 		}
 		this.settle(30);
+		this.collectFaces();
 		this.both("talk_A");
 		this.idleAndHover("talk", ".h-opt");
 		this.log("talk options: " + this.js("JSON.stringify((function(){var o=[];var t=document.querySelectorAll('.h-opt');for(var i=0;i<t.length;i++)o.push(t[i].textContent);return o;})())"));
 		this.trainingChip();
+		this.stranger();
 		// B, the cinematic bar: the per-player toggle on the card.
 		this.ui.clickPage("[data-arg=\"cinematic\"]");
 		this.settle(15);
@@ -409,6 +413,200 @@ public final class HearthTest {
 		this.restoreHearth();
 	}
 
+	// ---- the living-world screens (OVERLAY.md 2026-10-21; Figma "Hearth - Living world screens (explore)") ----------------
+
+	/** Faces the test world has shown (the merchant's, the innkeeper's), for the fixture's folk: Hearth's own portraits. */
+	private final List<String> faces = new ArrayList<>();
+
+	private void collectFaces() {
+		var st = this.context.computeOnClient(mc -> HearthSync.state());
+		if (st == null) {
+			return;
+		}
+		for (String[] at : new String[][] {{"talk", "resident"}, {"market", "merchant"}}) {
+			var sec = st.get(at[0]);
+			if (sec != null && sec.isJsonObject() && sec.getAsJsonObject().get(at[1]) instanceof com.google.gson.JsonObject o && o.get("portrait") != null
+				&& o.get("portrait").isJsonPrimitive() && !this.faces.contains(o.get("portrait").getAsString())) {
+				this.faces.add(o.get("portrait").getAsString());
+			}
+		}
+	}
+
+	/** The living-world fixture (src/gametest/resources/hearth-living-world.json), its folk given the faces seen. */
+	private com.google.gson.JsonObject fixture() {
+		try (var in = HearthTest.class.getResourceAsStream("/hearth-living-world.json")) {
+			com.google.gson.JsonObject f = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8))
+				.getAsJsonObject();
+			int[] n = {0};
+			java.util.function.Consumer<com.google.gson.JsonObject> face = o -> {
+				if (!this.faces.isEmpty()) {
+					o.addProperty("portrait", this.faces.get(n[0]++ % this.faces.size()));
+					o.addProperty("portraitKey", Integer.toHexString(n[0]));
+				}
+			};
+			var h = f.getAsJsonObject("household");
+			h.getAsJsonArray("companions").forEach(c -> face.accept(c.getAsJsonObject()));
+			h.getAsJsonArray("houses").forEach(x -> x.getAsJsonObject().getAsJsonArray("servants").forEach(sv -> face.accept(sv.getAsJsonObject())));
+			f.getAsJsonObject("people").getAsJsonArray("rows").forEach(r -> face.accept(r.getAsJsonObject()));
+			return f;
+		} catch (java.io.IOException | RuntimeException e) {
+			throw new AssertionError("VOID Hub + Hearth: the living-world fixture did not load", e);
+		}
+	}
+
+	/** F1: the conversation page with a stranger (talk.stranger): a hooded bandit's demand, in coin, and the answers. */
+	private void stranger() {
+		var f = this.fixture();
+		this.injectHearth(s -> {
+			var t = s.getAsJsonObject("talk");
+			if (t == null) {
+				return;
+			}
+			t.add("stranger", f.get("stranger"));
+			t.getAsJsonObject("resident").addProperty("name", f.get("strangerName").getAsString());
+			t.getAsJsonObject("resident").addProperty("job", "Bandit");
+			t.addProperty("line", f.get("strangerLine").getAsString());
+			t.add("options", f.get("strangerOptions"));
+		});
+		this.settle(4);
+		String demand = this.js("(function(){var e=document.querySelector('.h-dmd');return e?e.textContent:''})()");
+		this.log("stranger demand: " + demand);
+		this.expect(demand.contains("11") && demand.contains("CROWNS"), "a bandit's demand shows in crowns, marks and bits (talk.stranger.demandCoins): " + demand);
+		this.expect(this.has(".h-res svg[viewBox=\"0 0 12 12\"]"), "a hooded stranger has the hood drawn, no face");
+		this.both("talk_stranger");
+		this.context.getInput().pressKey(InputConstants.KEY_2);
+		this.settle(5);
+		this.expect("choose bandit:talk".equals(this.lastAct()), "2 answers the stranger with the second option (" + this.lastAct() + ")");
+		this.restoreHearth();
+	}
+
+	/**
+	 * F2 Household B, F4 People A, F5 retinue and burgher (the Quests page's segments) and F3 the gear screen, shown the
+	 * fixture's household, people and lords: each is photographed, its idle and hover cost measured, and its calls checked.
+	 */
+	private void livingWorld() {
+		var f = this.fixture();
+		this.context.getInput().pressKey(InputConstants.KEY_J);
+		boolean open = this.waitFor(() -> this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubInventoryScreen h && "quests".equals(h.page())), 60);
+		if (!open) {
+			this.gaps.add("living world: J opened no Quests page");
+			return;
+		}
+		this.settle(10);
+		java.util.function.Consumer<com.google.gson.JsonObject> lw = s -> {
+			s.add("household", f.get("household").deepCopy());
+			s.add("people", f.get("people").deepCopy());
+		};
+		// F4 People A
+		this.injectHearth(lw);
+		this.ui.clickPage("[data-ui=\"seg:people\"]");
+		this.settle(4);
+		this.expect(this.has(".h-prow") && this.has(".h-story"), "People shows the folk of note and the selected one's story");
+		this.both("people");
+		this.idleAndHover("people", ".h-prow");
+		this.ui.clickPage(".h-story [data-op=\"trackPerson\"]");
+		this.settle(4);
+		this.expect("trackPerson 33333333-3333-4333-8333-333333333333".equals(this.lastAct()), "Waypoint follows the character (trackPerson): " + this.lastAct());
+		this.injectHearth(s -> {
+			lw.accept(s);
+			com.google.gson.JsonObject t = new com.google.gson.JsonObject();
+			t.addProperty("id", "33333333-3333-4333-8333-333333333333");
+			t.addProperty("name", "Harald Smed");
+			s.add("personTrack", t);
+		});
+		this.settle(4);
+		this.expect(this.has(".h-story [data-op=\"untrackPerson\"]"), "a followed character offers to stop (untrackPerson)");
+		this.ui.clickPage("[data-person=\"33333333-4444-4333-8333-333333333333\"]");
+		this.settle(3);
+		this.shot("people_other", 3);
+		// F2 Household B
+		this.injectHearth(lw);
+		this.ui.clickPage("[data-ui=\"seg:household\"]");
+		this.settle(4);
+		this.expect(this.has(".h-mem.sel") && this.has(".h-hh"), "Household shows the roster and the selected companion's card");
+		int wells = this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubInventoryScreen h ? h.pageItems().size() : -1);
+		this.log("household gear wells drawn: " + wells);
+		this.expect(wells >= 2, "the companion's gear is drawn in the Household wells (" + wells + " stacks)");
+		this.both("household");
+		this.idleAndHover("household", ".h-mem");
+		this.ui.clickPage(".h-hh [data-arg=\"11111111-1111-4111-8111-111111111111#wait\"]");
+		this.settle(3);
+		this.expect("companionOrder 11111111-1111-4111-8111-111111111111#wait".equals(this.lastAct()), "an order row gives the order (companionOrder): " + this.lastAct());
+		this.ui.clickPage(".h-hh [data-op=\"companionLend\"]");
+		this.settle(3);
+		this.expect(this.lastAct().startsWith("companionLend 11111111-1111-4111-8111-111111111111#"), "Take this hands the first fitting thing over (companionLend): "
+			+ this.lastAct());
+		this.ui.clickPage("[data-member=\"22222222-2222-4222-8222-222222222222\"]");
+		this.settle(3);
+		this.both("household_servant");
+		// F5 retinue ranks and burgher status on the reputation page
+		this.injectHearth(s -> {
+			lw.accept(s);
+			var r = s.getAsJsonObject("reputation");
+			if (r == null) {
+				return;
+			}
+			r.add("retinue", f.get("retinue").deepCopy());
+			var towns = r.getAsJsonArray("towns");
+			if (towns.isEmpty()) {
+				// The test world's player is known in no town yet: the design's towns stand in.
+				towns.addAll(f.getAsJsonArray("towns").deepCopy());
+			}
+			for (int i = 0; i < towns.size(); i++) {
+				var t = towns.get(i).getAsJsonObject();
+				var b = f.getAsJsonObject("burgher").deepCopy();
+				b.addProperty("town", t.get("name").getAsString());
+				t.add("burgher", i == 0 ? b : com.google.gson.JsonNull.INSTANCE);
+			}
+		});
+		this.ui.clickPage("[data-ui=\"seg:reputation\"]");
+		this.settle(4);
+		if (this.has(".h-rcard")) {
+			this.expect(this.has(".h-rank.on") && this.has(".h-tcard"), "Reputation shows the burgher's card and the retinue ranks");
+			this.both("reputation_retinue");
+			this.idleAndHover("reputation retinue", ".h-town");
+			this.ui.clickPage("[data-lord=\"1\"]");
+			this.settle(3);
+			this.shot("reputation_retinue_lord2", 3);
+		} else {
+			this.gaps.add("reputation: no reputation page arrived to add the retinue to");
+		}
+		this.close();
+		// F3 the gear screen (host-only: Hearth calls the gear opener; here the hub's own opener is called the same way)
+		boolean took = this.context.computeOnClient(mc -> dev.voidmc.hub.hearth.HearthHost.open("gear"));
+		this.expect(took, "the hub takes the gear screen (its gear opener)");
+		if (!this.waitEvent("gear")) {
+			this.gaps.add("gear: the gear screen did not open");
+			return;
+		}
+		this.settle(5);
+		this.injectHearth(s -> {
+			var h = f.get("household").deepCopy().getAsJsonObject();
+			h.addProperty("gearFor", "11111111-1111-4111-8111-111111111111");
+			s.add("household", h);
+		});
+		this.settle(5);
+		this.expect(this.has(".h-worn") && this.has(".h-hslot"), "the gear screen shows what they wear and what you hold");
+		int stacks = this.context.computeOnClient(mc -> mc.gui.screen() instanceof HubEventScreen e ? e.stacks().size() : -1);
+		this.expect(stacks >= 8, "the gear screen's wells are drawn by Minecraft (" + stacks + " stacks)");
+		this.both("gear");
+		this.idleAndHover("gear", ".h-hslot");
+		this.ui.clickPage("[data-hand=\"1\"]");
+		this.settle(3);
+		this.context.getInput().pressKey(InputConstants.KEY_1);
+		this.settle(3);
+		this.expect("companionLend 11111111-1111-4111-8111-111111111111#1".equals(this.lastAct()), "1 hands over the picked thing (companionLend): " + this.lastAct());
+		this.shot("gear_helmet", 3);
+		this.ui.clickPage(".h-worn [data-op=\"companionTake\"]");
+		this.settle(3);
+		this.expect(this.lastAct().startsWith("companionTake 11111111-1111-4111-8111-111111111111#"), "a worn piece clicked comes back (companionTake): " + this.lastAct());
+		this.context.getInput().pressKey(InputConstants.KEY_ESCAPE);
+		this.settle(5);
+		this.expect(this.context.computeOnClient(mc -> !(mc.gui.screen() instanceof HubEventScreen)), "Esc closes the gear screen");
+		this.expect("close gear".equals(this.lastAct()), "closing tells Hearth (close(\"gear\")): " + this.lastAct());
+		this.restoreHearth();
+	}
+
 	/** A quarry the test world cannot have (one player, and the server never lets you track yourself). */
 	private static final String QUARRY = "5eedf00d-1234-4bcd-9ef0-123456789abc";
 
@@ -507,7 +705,7 @@ public final class HearthTest {
 			}
 			com.google.gson.JsonObject copy = s.deepCopy();
 			change.accept(copy);
-			HubView.get().send("{\"type\":\"hearth\",\"state\":" + copy + "}");
+			HubView.get().send("{\"type\":\"hearth\",\"state\":" + HearthSync.portraits(copy.toString()) + "}");
 		});
 	}
 

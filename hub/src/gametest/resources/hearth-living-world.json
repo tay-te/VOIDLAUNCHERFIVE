@@ -1,0 +1,187 @@
+{
+  "_note": "The living-world screens' state as Hearth builds it (hearth/docs/OVERLAY.md 2026-10-21), for HearthTest: a one-player test world has no companions, servants, named characters, bandits, lords or council, so the pages are shown this (Figma 'Hearth - Living world screens (explore)' content). Portraits are filled in from the test world's own folk.",
+  "household": {
+    "companions": [
+      {
+        "id": "11111111-1111-4111-8111-111111111111", "name": "Sigrun Halvar", "job": "Farmer", "home": "Ulfdal", "settlementId": 7,
+        "portrait": null, "portraitKey": "", "traits": ["brave", "plain_spoken"],
+        "traitNames": [{"id": "brave", "name": "Brave"}, {"id": "plain_spoken", "name": "Plain-spoken"}],
+        "wage": 24, "wageText": "2 marks, 4 bits", "wageCoins": {"total": 24, "crowns": 0, "marks": 2, "bits": 4, "text": "2 marks, 4 bits"},
+        "unpaidDays": 0, "unpaidLimit": 3, "since": 10, "today": 12, "paidDay": 12, "servedDays": 3, "paidDays": 3,
+        "orders": "follow", "ordersText": "following", "fight": true, "waitAt": null,
+        "loyalty": 64, "leaveBelow": -40, "loyaltyStep": 4, "loyaltyWord": "Glad of the work", "opinion": 22, "opinionWord": "likes",
+        "embodied": true, "pos": {"x": 0, "y": 64, "z": 0}, "where": "", "near": true,
+        "lastLine": "Your enemies are mine.", "lastWhere": "",
+        "gear": [{"slot": "chest", "item": "Iron Chestplate"}, {"slot": "mainhand", "item": "Iron Sword"}],
+        "slots": [
+          {"slot": "head", "item": "", "name": "", "count": 0, "empty": true},
+          {"slot": "chest", "item": "minecraft:iron_chestplate", "name": "Iron Chestplate", "count": 1, "empty": false},
+          {"slot": "legs", "item": "", "name": "", "count": 0, "empty": true},
+          {"slot": "feet", "item": "", "name": "", "count": 0, "empty": true},
+          {"slot": "mainhand", "item": "minecraft:iron_sword", "name": "Iron Sword", "count": 1, "empty": false},
+          {"slot": "offhand", "item": "", "name": "", "count": 0, "empty": true}
+        ],
+        "armor": 6, "weapon": "Iron Sword"
+      },
+      {
+        "id": "11111111-2222-4111-8111-111111111111", "name": "Ottokar Brann", "job": "Hunter", "home": "Kestrel Ford", "settlementId": 9,
+        "portrait": null, "portraitKey": "", "traits": ["patient"], "traitNames": [{"id": "patient", "name": "Patient"}],
+        "wage": 30, "wageText": "3 marks", "wageCoins": {"total": 30, "crowns": 0, "marks": 3, "bits": 0, "text": "3 marks"},
+        "unpaidDays": 1, "unpaidLimit": 3, "since": 4, "today": 12, "paidDay": 11, "servedDays": 9, "paidDays": 8,
+        "orders": "wait", "ordersText": "waiting", "fight": false, "waitAt": {"x": 40, "y": 64, "z": 40},
+        "loyalty": 10, "leaveBelow": -40, "loyaltyStep": 2, "loyaltyWord": "Keeps to the bargain", "opinion": 4, "opinionWord": "neutral",
+        "embodied": true, "pos": {"x": 40, "y": 64, "z": 40}, "where": "the ford", "near": false,
+        "lastLine": "I'll be here.", "lastWhere": "Kestrel Ford", "gear": [],
+        "slots": [
+          {"slot": "head", "item": "", "name": "", "count": 0, "empty": true},
+          {"slot": "chest", "item": "", "name": "", "count": 0, "empty": true},
+          {"slot": "legs", "item": "", "name": "", "count": 0, "empty": true},
+          {"slot": "feet", "item": "", "name": "", "count": 0, "empty": true},
+          {"slot": "mainhand", "item": "minecraft:bow", "name": "Bow", "count": 1, "empty": false},
+          {"slot": "offhand", "item": "", "name": "", "count": 0, "empty": true}
+        ],
+        "armor": 0, "weapon": "Bow"
+      }
+    ],
+    "companionsMax": 2,
+    "houses": [
+      {
+        "settlementId": 7, "plot": 3, "town": "Ulfdal", "building": "longhouse", "larder": 11, "larderSize": 16, "larderShort": false, "servantsMax": 3,
+        "servants": [
+          {"id": "22222222-2222-4222-8222-222222222222", "name": "Hild Aslaug", "job": "Labourer", "portrait": null, "portraitKey": "",
+           "wage": 12, "wageText": "1 mark, 2 bits", "wageCoins": {"total": 12, "crowns": 0, "marks": 1, "bits": 2, "text": "1 mark, 2 bits"},
+           "unpaidDays": 0, "unpaidLimit": 3, "duty": "larder", "dutyText": "keeps the larder", "since": 5, "today": 12, "paidDay": 12, "servedDays": 8, "paidDays": 8},
+          {"id": "22222222-3333-4222-8222-222222222222", "name": "Old Bera", "job": "Labourer", "portrait": null, "portraitKey": "",
+           "wage": 10, "wageText": "1 mark", "wageCoins": {"total": 10, "crowns": 0, "marks": 1, "bits": 0, "text": "1 mark"},
+           "unpaidDays": 0, "unpaidLimit": 3, "duty": "round", "dutyText": "garden and stable", "since": 2, "today": 12, "paidDay": 12, "servedDays": 11, "paidDays": 11}
+        ]
+      },
+      {
+        "settlementId": 9, "plot": 5, "town": "Kestrel Ford", "building": "cottage", "larder": 3, "larderSize": 16, "larderShort": true, "servantsMax": 1,
+        "servants": [
+          {"id": "22222222-4444-4222-8222-222222222222", "name": "Tamsin Reed", "job": "Labourer", "portrait": null, "portraitKey": "",
+           "wage": 8, "wageText": "8 bits", "wageCoins": {"total": 8, "crowns": 0, "marks": 0, "bits": 8, "text": "8 bits"},
+           "unpaidDays": 1, "unpaidLimit": 3, "duty": "house", "dutyText": "keeps house", "since": 9, "today": 12, "paidDay": 11, "servedDays": 4, "paidDays": 3}
+        ]
+      }
+    ],
+    "retinue": [],
+    "burgherOf": [],
+    "inService": 5,
+    "dailyWages": {"total": 84, "crowns": 0, "marks": 8, "bits": 4, "text": "8 marks, 4 bits"},
+    "hands": [
+      {"slot": 0, "item": "minecraft:iron_sword", "name": "Iron Sword", "count": 1, "empty": false, "gives": "mainhand"},
+      {"slot": 1, "item": "minecraft:iron_helmet", "name": "Iron Helmet", "count": 1, "empty": false, "gives": "head"},
+      {"slot": 2, "item": "minecraft:iron_pickaxe", "name": "Iron Pickaxe", "count": 1, "empty": false, "gives": "mainhand"},
+      {"slot": 3, "item": "minecraft:bread", "name": "Bread", "count": 12, "empty": false, "gives": ""},
+      {"slot": 4, "item": "minecraft:torch", "name": "Torch", "count": 16, "empty": false, "gives": ""},
+      {"slot": 5, "item": "minecraft:shield", "name": "Shield", "count": 1, "empty": false, "gives": "offhand"},
+      {"slot": 6, "item": "", "name": "", "count": 0, "empty": true, "gives": ""},
+      {"slot": 7, "item": "minecraft:map", "name": "Empty Map", "count": 1, "empty": false, "gives": ""},
+      {"slot": 8, "item": "minecraft:potion", "name": "Potion", "count": 1, "empty": false, "gives": ""},
+      {"slot": 40, "item": "", "name": "", "count": 0, "empty": true, "gives": ""}
+    ],
+    "gearFor": null
+  },
+  "people": {
+    "rows": [
+      {"name": "Harald Smed", "given": "Harald", "role": "the drunk smith", "roleId": "drunk_smith", "town": "Ulfdal", "thread": "drunk_smith", "beat": "sworn_off",
+       "story": "Has sworn off the drink, for now.", "ended": false, "opinion": 38, "opinionWord": "likes", "yours": true,
+       "id": "33333333-3333-4333-8333-333333333333", "settlementId": 7, "portrait": null, "portraitKey": "",
+       "job": "Smith", "place": "Forge", "home": "a cottage on Tanner's Row", "traits": [{"id": "stubborn", "name": "Stubborn"}, {"id": "generous", "name": "Generous"}],
+       "since": 3, "today": 12,
+       "beats": [
+         {"id": "drinking", "text": "Drinks every night, and the work at the forge suffers.", "now": false, "end": false},
+         {"id": "debt", "text": "The steward presses for a debt the forge cannot pay.", "now": false, "end": false},
+         {"id": "sworn_off", "text": "Has sworn off the drink, for now.", "now": true, "end": false}
+       ],
+       "chose": {"id": "pay", "label": "you paid his debt", "cost": 240, "costCoins": {"total": 240, "crowns": 2, "marks": 4, "bits": 0, "text": "2 crowns, 4 marks"}, "by": "Player0", "yours": true},
+       "choices": [{"id": "talk", "label": "Keep him to it", "cost": 0, "costCoins": null, "check": "persuade", "quest": false, "to": "sober"}],
+       "next": [
+         {"beat": "sober", "text": "Sober, the apprentice back at the bellows; makes you a blade at cost.", "end": true, "via": "choice", "choice": "talk", "afterDays": -1},
+         {"beat": "forge_lost", "text": "The forge goes to the apprentice; he sits by the gate with Old Tormod.", "end": true, "via": "time", "choice": "", "afterDays": 6}
+       ],
+       "relations": [
+         {"id": "44444444-4444-4444-8444-444444444444", "name": "Eirik", "bond": "apprentice", "partner": true, "opinion": 30},
+         {"id": "44444444-5555-4444-8444-444444444444", "name": "Steward Ragna", "bond": "creditor", "partner": false, "opinion": 12}
+       ],
+       "find": [
+         {"days": "work", "from": 720, "to": 780, "fromText": "12:00", "toText": "13:00", "what": "work", "text": "Noon at the forge"},
+         {"days": "", "from": 1080, "to": 1320, "fromText": "18:00", "toText": "22:00", "what": "rest", "text": "evenings at the mead hall, now with ale-water"}
+       ],
+       "following": false},
+      {"name": "Gunnhild", "given": "Gunnhild", "role": "the widow at the well", "roleId": "widow_at_well", "town": "Ulfdal", "thread": "widow", "beat": "mending",
+       "story": "Smiles again, now and then.", "ended": false, "opinion": 22, "opinionWord": "likes", "yours": false,
+       "id": "33333333-4444-4333-8333-333333333333", "settlementId": 7, "portrait": null, "portraitKey": "", "job": "Washer", "place": "", "home": "the well house",
+       "traits": [], "since": 1, "today": 12, "beats": [{"id": "grieving", "text": "Grieves at the well.", "now": false, "end": false}, {"id": "mending", "text": "Smiles again, now and then.", "now": true, "end": false}],
+       "chose": null, "choices": [], "next": [], "relations": [], "find": [], "following": false},
+      {"name": "Old Tormod", "given": "Tormod", "role": "the old soldier", "roleId": "old_soldier", "town": "Ulfdal", "thread": "soldier", "beat": "stories",
+       "story": "Tells the same war story at noon.", "ended": false, "opinion": 4, "opinionWord": "neutral", "yours": false,
+       "id": null, "portrait": null, "portraitKey": "", "following": false},
+      {"name": "Edda Miller", "given": "Edda", "role": "the miller in debt", "roleId": "miller_debt", "town": "Kestrel Ford", "thread": "debt", "beat": "harvest",
+       "story": "The lender wants the money by harvest.", "ended": false, "opinion": -6, "opinionWord": "neutral", "yours": false,
+       "id": null, "portrait": null, "portraitKey": "", "following": false},
+      {"name": "Wenna Cole", "given": "Wenna", "role": "one of the young lovers", "roleId": "young_lovers", "town": "Kestrel Ford", "thread": "lovers", "beat": "secret",
+       "story": "Meets a sweetheart in secret.", "ended": false, "opinion": 12, "opinionWord": "likes", "yours": true,
+       "id": null, "portrait": null, "portraitKey": "", "following": false},
+      {"name": "Bram Hale", "given": "Bram", "role": "the healer", "roleId": "healer", "town": "Ashford", "thread": "fever", "beat": "beaten",
+       "story": "The fever is beaten; folk bless whoever helped.", "ended": true, "opinion": 30, "opinionWord": "likes", "yours": false,
+       "id": null, "portrait": null, "portraitKey": "", "following": false}
+    ],
+    "met": 6, "towns": 3, "moved": 2
+  },
+  "stranger": {
+    "kind": "bandit", "kindName": "Bandit of the road", "hooded": true, "state": "demand", "demand": 1105,
+    "demandCoins": {"total": 1105, "crowns": 11, "marks": 0, "bits": 5, "text": "11 crowns, 5 bits"}, "share": 0.25,
+    "carried": 4421, "carriedCoins": {"total": 4421, "crowns": 44, "marks": 2, "bits": 1, "text": "44 crowns, 2 marks, 1 bit"},
+    "band": 5, "inSight": 2, "bows": 1, "armed": "an axe", "armour": 6, "bladeDrawn": false, "menace": 31,
+    "outcomes": {"paid": "Wise. On your way.", "talked": "...Fine. Go on, before I change my mind.", "talkFailed": "Nice try. Get him!", "scared": "Not worth it! Scatter!", "threatFailed": "Big words."}
+  },
+  "strangerName": "a hooded man",
+  "strangerLine": "Your purse, or your life.",
+  "strangerOptions": [
+    {"key": 1, "id": "bandit:pay", "label": "Pay them", "hint": "", "tooltip": "", "kind": "bribe", "odds": -1,
+     "cost": {"total": 1105, "crowns": 11, "marks": 0, "bits": 5, "text": "11 crowns, 5 bits"}, "skill": null, "locked": false, "lockedReason": null},
+    {"key": 2, "id": "bandit:talk", "label": "Talk your way past", "hint": "", "tooltip": "", "kind": "persuade", "odds": 48, "cost": null,
+     "skill": {"id": "mettle:speech", "name": "Speech", "level": 6}, "locked": false, "lockedReason": null},
+    {"key": 3, "id": "bandit:threaten", "label": "Threaten them", "hint": "", "tooltip": "", "kind": "intimidate", "odds": 31, "cost": null, "skill": null, "locked": false, "lockedReason": null},
+    {"key": 4, "id": "bandit:fight", "label": "Draw your blade", "hint": "", "tooltip": "", "kind": "fight", "odds": -1, "cost": null, "skill": null, "locked": false, "lockedReason": null},
+    {"key": 0, "id": "bandit:run", "label": "Run", "hint": "", "tooltip": "", "kind": "leave", "odds": -1, "cost": null, "skill": null, "locked": false, "lockedReason": null}
+  ],
+  "retinue": [
+    {"seat": "Ulfdal", "seatId": 7, "lord": "Jarl Einar", "rank": "sworn", "rankId": "sworn", "rankName": "Sworn man", "next": "Household knight",
+     "ranks": [
+       {"id": "petitioner", "name": "Petitioner", "commissions": 0, "reached": true, "current": false},
+       {"id": "retainer", "name": "Retainer", "commissions": 1, "reached": true, "current": false},
+       {"id": "sworn", "name": "Sworn man", "commissions": 3, "reached": true, "current": true},
+       {"id": "knight", "name": "Household knight", "commissions": 6, "reached": false, "current": false}
+     ],
+     "commissions": 4, "needed": 6, "standing": 72, "knightStanding": 70, "feat": false, "knighthood": true,
+     "why": "commissions", "whyText": "Two more commissions", "demoted": false, "since": 2,
+     "rights": [{"id": "lodging", "text": "Lodging at the keep"}, {"id": "toll_free", "text": "Toll-free on his roads"}, {"id": "horse", "text": "A horse from his stables"}, {"id": "colours", "text": "His colours"}]},
+    {"seat": "Kestrel Ford", "seatId": 9, "lord": "Lady Maren", "rank": "retainer", "rankId": "retainer", "rankName": "Retainer", "next": "Sworn man",
+     "ranks": [
+       {"id": "petitioner", "name": "Petitioner", "commissions": 0, "reached": true, "current": false},
+       {"id": "retainer", "name": "Retainer", "commissions": 1, "reached": true, "current": true},
+       {"id": "sworn", "name": "Sworn man", "commissions": 3, "reached": false, "current": false},
+       {"id": "knight", "name": "Household knight", "commissions": 6, "reached": false, "current": false}
+     ],
+     "commissions": 1, "needed": 3, "standing": 46, "knightStanding": 70, "feat": false, "knighthood": true,
+     "why": "commissions", "whyText": "Two more commissions", "demoted": false, "since": 6,
+     "rights": [{"id": "lodging", "text": "Lodging at the keep"}]}
+  ],
+  "towns": [
+    {"id": 7, "name": "Ulfdal", "culture": "northern", "tier": "city", "value": 72, "title": "burgher", "titleName": "Burgher", "owns": true, "distance": 120, "here": true},
+    {"id": 9, "name": "Kestrel Ford", "culture": "northern", "tier": "town", "value": 46, "title": "friend", "titleName": "Friend", "owns": false, "distance": 800, "here": false},
+    {"id": 11, "name": "Ashford", "culture": "temperate", "tier": "village", "value": 12, "title": "known", "titleName": "Known", "owns": false, "distance": 1400, "here": false},
+    {"id": 12, "name": "Coldbrook", "culture": "temperate", "tier": "hamlet", "value": -8, "title": "stranger", "titleName": "Stranger", "owns": false, "distance": -1, "here": false}
+  ],
+  "burgher": {
+    "town": "", "settlementId": 0, "since": 0, "today": 12, "swornDays": 12, "dues": 0.05,
+    "rights": [{"id": "dues", "text": "No market dues (5 %)"}, {"id": "arms", "text": "Arms in peace"}, {"id": "feast", "text": "The high table"},
+               {"id": "mass", "text": "A pew at mass"}, {"id": "council", "text": "A council voice"}],
+    "council": {"sitting": false, "lastSitting": -1, "dueFrom": 21,
+                "table": [{"plot": 4, "name": "The new well", "votes": 3, "yours": true}, {"plot": 6, "name": "Stone bridge at the mill", "votes": 2, "yours": false},
+                          {"plot": 8, "name": "A second granary", "votes": 1, "yours": false}], "lastChoice": ""}
+  }
+}
