@@ -28,7 +28,7 @@ import net.minecraft.world.level.block.state.BlockState;
 /**
  * Window shutters that close at night (docs/LIVING_WORLD_2.md §5.1, §5.3): in every embodied town, the shutters of its
  * built plots ({@link ShutterScan}, once per plot per embodiment, off the server thread, cached in memory) close at
- * 20:30 and open at 06:30, and close too while an outlaw or a raid is about, or in a thunderstorm. Only the {@code open}
+ * the town's curfew bell and open at its dawn bell ({@code SettlementCalendar.curfew/dawn}, the rhythm's hours by culture), and close too while an outlaw or a raid is about, or in a thunderstorm. Only the {@code open}
  * property of a trapdoor still standing where the blueprint hung it changes, at most {@code per_tick} a town a tick
  * (shrinking as the server slows); a player's own plot is never touched. Nothing is saved: a town that goes abstract
  * keeps what its chunks last had, and the next embodiment sets them for the hour.
@@ -84,12 +84,25 @@ public final class Shutters {
 		if (town != null && town.alarmed(now)) {
 			return true;
 		}
-		return night(NpcTime.minuteOfDay(level));
+		return night(s, NpcTime.minuteOfDay(level));
 	}
 
-	/** Shutter hours: from 20:30 to 06:30. */
+	/** Shutter hours by the clock alone (no calendar): from 20:30 to 06:30. */
 	public static boolean night(int minute) {
 		return minute >= CLOSE_AT || minute < OPEN_AT;
+	}
+
+	/** A town's shutter hours: from its curfew bell to its dawn bell (the rhythm's, by culture; §2.1). */
+	public static boolean night(Settlement s, int minute) {
+		dev.voidmc.hearth.api.SettlementCalendar cal = dev.voidmc.hearth.api.HearthServices.calendar();
+		return night(minute, cal.curfew(s), cal.dawn(s));
+	}
+
+	/** Pure: whether a minute is between the curfew and the dawn bell. */
+	public static boolean night(int minute, int curfew, int dawn) {
+		curfew = Math.floorMod(curfew, 24 * 60);
+		dawn = Math.floorMod(dawn, 24 * 60);
+		return curfew > dawn ? minute >= curfew || minute < dawn : minute >= curfew && minute < dawn;
 	}
 
 	public void tick(MinecraftServer server) {

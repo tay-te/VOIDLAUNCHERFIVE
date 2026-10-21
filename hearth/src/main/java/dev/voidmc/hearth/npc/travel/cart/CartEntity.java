@@ -171,18 +171,39 @@ public class CartEntity extends Entity {
 		}
 	}
 
-	/** The standing height near {@code nearY} at a point: the top of the first solid block within a few of it. */
+	/**
+	 * The standing height near {@code nearY} at a point: the top of the first solid block at most a step up and a few down
+	 * with room over it for the cart (two blocks clear), so a cart passing under eaves or beside a stair stays on the
+	 * ground and never climbs onto a roof (lane A4's work tour).
+	 */
 	double groundY(double x, double z, double nearY) {
+		return groundY(this.level(), x, z, nearY);
+	}
+
+	/** As {@link #groundY(double, double, double)}, on any block getter (the tests). */
+	public static double groundY(net.minecraft.world.level.BlockGetter level, double x, double z, double nearY) {
 		BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+		BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos();
 		int bx = Mth.floor(x);
 		int bz = Mth.floor(z);
-		int top = Mth.floor(nearY) + 2;
+		// a step up at most: the block the cart stands in now, or the one above it
+		int top = Mth.floor(nearY + 0.05);
 		for (int y = top; y > top - 6; y--) {
 			p.set(bx, y, bz);
-			BlockState s = this.level().getBlockState(p);
-			if (!s.getCollisionShape(this.level(), p).isEmpty()) {
-				double h = s.getCollisionShape(this.level(), p).max(net.minecraft.core.Direction.Axis.Y);
-				return y + Math.min(1.0, h);
+			BlockState s = level.getBlockState(p);
+			net.minecraft.world.phys.shapes.VoxelShape shape = s.getCollisionShape(level, p);
+			if (shape.isEmpty()) {
+				continue;
+			}
+			double h = Math.min(1.0, shape.max(net.minecraft.core.Direction.Axis.Y));
+			boolean room = true;
+			for (int k = 1; k <= 2 && room; k++) {
+				q.set(bx, y + k, bz);
+				room = level.getBlockState(q).getCollisionShape(level, q).isEmpty();
+			}
+			if (room || y + h <= nearY + 0.05) {
+				// (a solid block at or below the cart's feet is the ground, whatever hangs over it)
+				return y + h;
 			}
 		}
 		return nearY;

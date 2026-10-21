@@ -136,7 +136,16 @@ public class CrowdsTour implements FabricClientGameTest {
 
 	/** A sword drawn: who was within 6, and how much further they are 3 s and 5 s later. */
 	private static void blade(ClientGameTestContext context, TestSingleplayerContext world, long town, String name) {
-		Map<UUID, Double> before = world.getServer().computeOnServer(server -> distances(server, town, 6));
+		// (guards are not counted: they stand their ground and come over, §5.1)
+		Map<UUID, Double> before = world.getServer().computeOnServer(server -> {
+			Map<UUID, Double> d = distances(server, town, 6);
+			for (Folk f : NpcModule.embodiment().entities()) {
+				if (f.brain() != null && dev.voidmc.hearth.npc.crowd.Role.of(f.brain().resident, false) == dev.voidmc.hearth.npc.crowd.Role.GUARD) {
+					d.remove(f.brain().resident.id);
+				}
+			}
+			return d;
+		});
 		world.getServer().runCommand("item replace entity @a weapon.mainhand with iron_sword");
 		settle(context, 3_000);
 		Map<UUID, Double> at3 = world.getServer().computeOnServer(server -> distances(server, town, 40));
@@ -153,8 +162,22 @@ public class CrowdsTour implements FabricClientGameTest {
 				moved5++;
 			}
 		}
-		log(String.format(Locale.ROOT, name + ": %d folk within 6; %d are 4+ blocks further within 3 s, %d within 5 s; scatters %d, guard remarks %d", before.size(),
-			moved3, moved5, CrowdStats.reactions(Reaction.SCATTER), CrowdStats.reactions(Reaction.REMARK)));
+		log(String.format(Locale.ROOT, name + ": %d folk within 6 (guards aside); %d are 4+ blocks further within 3 s, %d within 5 s; scatters %d, guard remarks %d",
+			before.size(), moved3, moved5, CrowdStats.reactions(Reaction.SCATTER), CrowdStats.reactions(Reaction.REMARK)));
+		for (Map.Entry<UUID, Double> e : before.entrySet()) {
+			if (at3.getOrDefault(e.getKey(), 99.0) < e.getValue() + 4) {
+				log(world.getServer().computeOnServer(server -> {
+					for (Folk f : NpcModule.embodiment().entities()) {
+						if (f.brain() != null && f.brain().resident.id.equals(e.getKey())) {
+							var b = f.brain().behaviour();
+							return String.format(Locale.ROOT, "  not away: %s (%s, %s) from %.1f to %.1f, doing %s, routine priority %d", f.folkName(), f.brain().resident.job,
+								f.brain().resident.age, e.getValue(), at3.getOrDefault(e.getKey(), -1.0), b == null ? "-" : b.id(), f.brain().routinePriority());
+						}
+					}
+					return "  not away: gone";
+				}));
+			}
+		}
 		world.getServer().runCommand("item replace entity @a weapon.mainhand with air");
 	}
 
@@ -332,12 +355,17 @@ public class CrowdsTour implements FabricClientGameTest {
 		BlockPos c = world.getServer().computeOnServer(server -> settlement(server, town).center());
 		teleport(world, c.getX() + 0.5, surface(world, c) + 18, c.getZ() + 0.5, 0, 60, true);
 		settle(context, 3_000);
-		world.getServer().runCommand("time set 15500");
+		// half an hour after the town's curfew bell, an hour after its dawn bell (the rhythm's hours for its culture)
+		int[] hours = world.getServer().computeOnServer(server -> new int[]{dev.voidmc.hearth.api.HearthServices.calendar().curfew(settlement(server, town)),
+			dev.voidmc.hearth.api.HearthServices.calendar().dawn(settlement(server, town))});
+		world.getServer().runCommand("time set " + dev.voidmc.hearth.npc.routine.Schedule.dayTimeOf(hours[0] + 30));
 		settle(context, 8_000);
-		log("shutters at 21:30: " + count(world, town));
-		world.getServer().runCommand("time set 1000");
+		log(String.format(Locale.ROOT, "shutters at %02d:%02d (curfew %02d:%02d): %s", (hours[0] + 30) / 60 % 24, (hours[0] + 30) % 60, hours[0] / 60, hours[0] % 60,
+			count(world, town)));
+		world.getServer().runCommand("time set " + dev.voidmc.hearth.npc.routine.Schedule.dayTimeOf(hours[1] + 60));
 		settle(context, 8_000);
-		log("shutters at 07:00: " + count(world, town));
+		log(String.format(Locale.ROOT, "shutters at %02d:%02d (dawn bell %02d:%02d): %s", (hours[1] + 60) / 60, (hours[1] + 60) % 60, hours[1] / 60, hours[1] % 60,
+			count(world, town)));
 		// a storm by day closes them too: a photograph of a closed one
 		world.getServer().runCommand("time set 4000");
 		world.getServer().runCommand("weather thunder");

@@ -9,7 +9,9 @@ import dev.voidmc.hearth.npc.entity.FolkSpots;
 import dev.voidmc.hearth.npc.person.Trait;
 import dev.voidmc.hearth.npc.place.ResidentPlaces;
 import dev.voidmc.hearth.npc.routine.FolkBrain;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -42,6 +44,11 @@ public final class CrowdBehaviour implements FolkBehaviour {
 		boolean arrived;
 		@Nullable BlockPos goal;
 		@Nullable BlockPos watched;
+		/** A scatter's ways out, best first, and which is being tried; how far from the blade it stood at the start. */
+		List<BlockPos> ways = List.of();
+		int way;
+		double startGap;
+		@Nullable Vec3 lastPos;
 
 		Job(Order order) {
 			this.order = order;
@@ -148,7 +155,12 @@ public final class CrowdBehaviour implements FolkBehaviour {
 		ServerPlayer p = player(folk, job.order);
 		switch (this.reaction) {
 			case SCATTER -> {
-				job.goal = away(folk, from(job, p), 5 + Math.floorMod(seed(folk), 3), true);
+				BlockPos src = from(job, p);
+				job.ways = ways(folk, src, 5 + Math.floorMod(seed(folk), 3));
+				job.way = 0;
+				job.goal = job.ways.isEmpty() ? away(folk, src, 5, true) : job.ways.getFirst();
+				job.startGap = Math.sqrt(folk.entity().blockPosition().distSqr(src));
+				job.lastPos = null;
 				if (job.order.rank == 0 || job.order.role == Role.MOTHER) {
 					bark(folk, job, p);
 				}
@@ -198,12 +210,78 @@ public final class CrowdBehaviour implements FolkBehaviour {
 			return job.ticks < 240;
 		}
 		if (job.repath <= 0) {
+			// no headway since the last order (a wall, a fence, a way the path will not find): the next way out
+			Vec3 here = folk.entity().position();
+			if (job.lastPos != null && here.distanceToSqr(job.lastPos) < 0.25 && job.way + 1 < job.ways.size()) {
+				job.goal = job.ways.get(++job.way);
+			}
+			job.lastPos = here;
 			folk.moveTo(job.goal, folk.resident().age == dev.voidmc.hearth.api.AgeStage.CHILD ? 1.35 : 1.25);
 			job.repath = 10;
 		}
 		if (folk.arrived()) {
 			folk.stop();
 			job.goal = null;
+		}
+		return true;
+	}
+
+	/**
+	 * Ways out from a blade, best first: straight away, then fanning to either side (40°, 80°, 120°), each a standable
+	 * spot at least four blocks further from it than the folk stands, with open ground along the way (no wall between);
+	 * a child's first way is to its mother when she is further off than the child. Block reads only, a few dozen.
+	 */
+	static List<BlockPos> ways(FolkHandle folk, BlockPos from, int dist) {
+		List<BlockPos> out = new ArrayList<>(4);
+		Vec3 me = folk.entity().position();
+		net.minecraft.world.level.Level level = folk.entity().level();
+		double gap = Math.sqrt(me.distanceToSqr(Vec3.atBottomCenterOf(from)));
+		if (folk.resident().age == dev.voidmc.hearth.api.AgeStage.CHILD) {
+			BlockPos mother = mother(folk);
+			if (mother != null && Math.sqrt(mother.distSqr(from)) >= gap + 3) {
+				out.add(mother);
+			}
+		}
+		double dx = me.x - (from.getX() + 0.5);
+		double dz = me.z - (from.getZ() + 0.5);
+		double len = Math.sqrt(dx * dx + dz * dz);
+		double base = len < 0.5 ? Math.floorMod(seed(folk), 628) / 100.0 : Math.atan2(dz, dx);
+		double side = (seed(folk) & 1) == 0 ? 1 : -1;
+		for (int k = 0; k < 7 && out.size() < 4; k++) {
+			double turn = Math.toRadians(40 * ((k + 1) / 2)) * (k % 2 == 1 ? side : -side);
+			double a = base + turn;
+			BlockPos want = BlockPos.containing(me.x + Math.cos(a) * dist, me.y, me.z + Math.sin(a) * dist);
+			BlockPos spot = FolkSpots.standableNear(level, want, 2);
+			if (spot == null || Math.sqrt(spot.distSqr(from)) < gap + 4 || !open(level, folk.entity().blockPosition(), spot)) {
+				continue;
+			}
+			out.add(spot);
+		}
+		return out;
+	}
+
+	/** Open ground from one spot to another: every block on the line has room to stand a block up or down. */
+	private static boolean open(net.minecraft.world.level.Level level, BlockPos a, BlockPos b) {
+		int steps = (int) Math.ceil(Math.sqrt(a.distSqr(b)));
+		int y = a.getY();
+		for (int i = 1; i < steps; i++) {
+			double t = i / (double) steps;
+			int x = (int) Math.floor(a.getX() + 0.5 + (b.getX() - a.getX()) * t);
+			int z = (int) Math.floor(a.getZ() + 0.5 + (b.getZ() - a.getZ()) * t);
+			BlockPos p = new BlockPos(x, y, z);
+			if (!level.isLoaded(p)) {
+				return false;
+			}
+			if (FolkSpots.standable(level, p)) {
+				continue;
+			}
+			if (FolkSpots.standable(level, p.above())) {
+				y++;
+			} else if (FolkSpots.standable(level, p.below())) {
+				y--;
+			} else {
+				return false;
+			}
 		}
 		return true;
 	}

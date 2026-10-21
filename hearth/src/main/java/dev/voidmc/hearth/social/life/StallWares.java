@@ -11,6 +11,7 @@ import dev.voidmc.hearth.api.Poi;
 import dev.voidmc.hearth.api.PoiType;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.npc.embody.SettlementSources;
+import dev.voidmc.hearth.social.calendar.TownEvent;
 import dev.voidmc.hearth.npc.work.field.FieldWork;
 import dev.voidmc.hearth.npc.work.field.FieldWorkConfig;
 import dev.voidmc.hearth.sim.LivingWorldStats;
@@ -150,9 +151,11 @@ public final class StallWares {
 
 	/** From {@code FieldWork.init}. */
 	public static void init() {
+		Dressings.listen(MARKET_LISTENER);
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(StallWares::tick);
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(s -> {
 			TOWNS.clear();
+			MARKETS.clear();
 			count = 0;
 		});
 		dev.voidmc.hearth.api.SettlementEvents.EMBODIMENT_CHANGED.register((w, s, embodied) -> {
@@ -205,6 +208,17 @@ public final class StallWares {
 				it.remove();
 			}
 		}
+		for (Iterator<Map.Entry<Long, List<MarketStall>>> mt = MARKETS.entrySet().iterator(); mt.hasNext(); ) {
+			Map.Entry<Long, List<MarketStall>> e = mt.next();
+			if (!live.contains(e.getKey())) {
+				for (ServerLevel level : server.getAllLevels()) {
+					for (MarketStall ms : e.getValue()) {
+						discard(level, ms.dressed);
+					}
+				}
+				mt.remove();
+			}
+		}
 		if (count > serverCap) {
 			shed(server, count - serverCap);
 		}
@@ -218,6 +232,12 @@ public final class StallWares {
 		int inTown = 0;
 		for (Stall st : stalls.values()) {
 			inTown += st.entities.size();
+		}
+		List<MarketStall> market = MARKETS.get(s.id());
+		if (market != null) {
+			for (MarketStall ms : market) {
+				inTown += ms.dressed.entities.size();
+			}
 		}
 		long now = level.getGameTime();
 		List<ServerPlayer> players = level.players();
@@ -278,6 +298,9 @@ public final class StallWares {
 			st.laidAt = now;
 			inTown += st.entities.size();
 		}
+		if (market != null && !market.isEmpty()) {
+			inTown = dressMarket(level, s, market, cfg, townCap, inTown, serverCap, admitting, now, players);
+		}
 		// stalls whose shop is gone
 		stalls.keySet().removeIf(plot -> {
 			if (!counters.containsKey(plot)) {
@@ -305,8 +328,174 @@ public final class StallWares {
 		}
 	}
 
-	// TODO(lane A4, §6.3): market-day stalls get their wares when the social module's Dressings sets a stall up, through
-	// the stall callback lane A2 adds (not landed yet; docs/requests/lwA4.md). Built counters and stalls are dressed now.
+	// ---------------------------------------------------------------- market-day stalls (A2's stall callback)
+
+	/** A stall the market set up today: its counter (the wares lie on top of it) and what is laid there. */
+	static final class MarketStall {
+		final String event;
+		final BlockPos counter;
+		final int index;
+		final Stall dressed = new Stall();
+
+		MarketStall(String event, BlockPos counter, int index) {
+			this.event = event;
+			this.counter = counter;
+			this.index = index;
+		}
+	}
+
+	/** The market stalls standing in each town, by settlement. */
+	private static final Map<Long, List<MarketStall>> MARKETS = new HashMap<>();
+
+	/** Told by {@link Dressings#setUpMarket} when stalls go up and when their blocks come down (docs/LIVING_WORLD_2.md §6.3). */
+	static final Dressings.StallListener MARKET_LISTENER = new Dressings.StallListener() {
+		@Override
+		public void up(ServerLevel level, Settlement s, TownEvent market, List<Dressings.Stall> stalls) {
+			List<MarketStall> list = MARKETS.computeIfAbsent(s.id(), k -> new ArrayList<>());
+			for (Dressings.Stall st : stalls) {
+				list.removeIf(ms -> ms.counter.equals(st.counter()) && discardMarket(level, ms));
+				list.add(new MarketStall(market.key(), st.counter().immutable(), st.index()));
+			}
+		}
+
+		@Override
+		public void down(ServerLevel level, String eventKey, Set<Long> positions) {
+			for (List<MarketStall> list : MARKETS.values()) {
+				list.removeIf(ms -> ms.event.equals(eventKey) && positions.contains(ms.counter.asLong()) && discardMarket(level, ms));
+			}
+		}
+
+		@Override
+		public boolean dressesCounters() {
+			return true;
+		}
+	};
+
+	private static boolean discardMarket(ServerLevel level, MarketStall ms) {
+		discard(level, ms.dressed);
+		return true;
+	}
+
+	/**
+	 * What a market-day stall offers: its keeper's own shop (the resident the stall keeper behaviour sends to it), or, where
+	 * the keeper keeps none or it is bare, the town's stores (the market sells what the town has).
+	 */
+	static Map<Goods, Integer> marketStock(Settlement s, TownEvent market, int index, EconomyService economy) {
+		for (dev.voidmc.hearth.api.Resident r : s.residents()) {
+			if (dev.voidmc.hearth.social.folk.StallKeeperBehaviour.stallOf(s, market, r) == index) {
+				if (r.work != dev.voidmc.hearth.api.Resident.NO_PLOT) {
+					Map<Goods, Integer> own = economy.shopStock(s, r.work);
+					for (Integer v : own.values()) {
+						if (v != null && v > 0) {
+							return own;
+						}
+					}
+				}
+				break;
+			}
+		}
+		return stores(s);
+	}
+
+	/** The town's stores of the goods a market sells (what a keeper with no shop of their own brings to the stall). */
+	public static Map<Goods, Integer> stores(Settlement s) {
+		Map<Goods, Integer> stores = new java.util.EnumMap<>(Goods.class);
+		for (Goods g : MARKET_GOODS) {
+			int n = s.stockpile().get(g);
+			if (n > 0) {
+				stores.put(g, n);
+			}
+		}
+		return stores;
+	}
+
+	/** What the town's stores bring to a market stall when its keeper has no shop of their own. */
+	static final List<Goods> MARKET_GOODS = List.of(Goods.FOOD, Goods.PRODUCE, Goods.FISH, Goods.MEAT, Goods.GRAIN, Goods.FLOUR, Goods.CLOTH, Goods.WOOL,
+		Goods.SALT, Goods.WAX, Goods.TOOLS);
+
+	/** Lays (or refreshes) the wares on today's market stalls near a player; returns the town's display count after. */
+	private static int dressMarket(ServerLevel level, Settlement s, List<MarketStall> market, FieldWorkConfig.Displays cfg, int townCap, int inTown,
+		int serverCap, boolean admitting, long now, List<ServerPlayer> players) {
+		EconomyService economy = HearthServices.economy();
+		TownEvent e = TownLife.current(s, TownEvent.Kind.MARKET);
+		for (Iterator<MarketStall> it = market.iterator(); it.hasNext(); ) {
+			MarketStall ms = it.next();
+			if (e == null || !e.key().equals(ms.event)) {
+				// the market is over (its blocks come down with the day's dressings): its wares go now
+				inTown -= ms.dressed.entities.size();
+				discard(level, ms.dressed);
+				it.remove();
+				continue;
+			}
+			boolean near = false;
+			for (ServerPlayer p : players) {
+				if (p.blockPosition().distSqr(ms.counter) < PLAYER_RANGE * PLAYER_RANGE) {
+					near = true;
+					break;
+				}
+			}
+			if (!near || !level.isLoaded(ms.counter)) {
+				inTown -= ms.dressed.entities.size();
+				discard(level, ms.dressed);
+				continue;
+			}
+			Map<Goods, Integer> stock = marketStock(s, e, ms.index, economy);
+			int total = 0;
+			for (int v : stock.values()) {
+				total += v;
+			}
+			int max = cfg.maxPerStall();
+			List<Goods> wanted = shown(stock, max);
+			int q = quarter(total, max * UNITS_PER_WARE);
+			Stall st = ms.dressed;
+			if (!st.entities.isEmpty() && st.shown.equals(wanted) && st.quarter == q) {
+				if (now - st.laidAt >= REFRESH_TICKS) {
+					st.laidAt = now;
+				}
+				continue;
+			}
+			int had = st.entities.size();
+			int room = Math.min(townCap - (inTown - had), serverCap - (count - had));
+			if (!admitting && wanted.size() > had) {
+				room = Math.min(room, had);
+			}
+			inTown -= had;
+			discard(level, st);
+			BlockPos top = ms.counter.above();
+			if (level.getBlockState(top).isAir()) {
+				layOn(level, s, keeperPlot(s, e, ms.index), List.of(top), wanted.subList(0, Math.max(0, Math.min(wanted.size(), room))), st);
+			}
+			st.shown = wanted;
+			st.quarter = q;
+			st.laidAt = now;
+			inTown += st.entities.size();
+		}
+		return inTown;
+	}
+
+	/** The work plot of a market stall's keeper (for the trade's own items: a baker's loaves), or -1. */
+	private static int keeperPlot(Settlement s, TownEvent market, int index) {
+		for (dev.voidmc.hearth.api.Resident r : s.residents()) {
+			if (dev.voidmc.hearth.social.folk.StallKeeperBehaviour.stallOf(s, market, r) == index) {
+				return r.work;
+			}
+		}
+		return -1;
+	}
+
+	/** The market stalls with wares on them now, for the tour and commands: counter → goods. */
+	public static Map<BlockPos, List<Goods>> marketShowing(long settlementId) {
+		Map<BlockPos, List<Goods>> out = new HashMap<>();
+		List<MarketStall> list = MARKETS.get(settlementId);
+		if (list != null) {
+			for (MarketStall ms : list) {
+				if (!ms.dressed.entities.isEmpty()) {
+					out.put(ms.counter, ms.dressed.shown);
+				}
+			}
+		}
+		return out;
+	}
 
 	/** The counter and stall points of each built plot with any, by plot id. */
 	public static Map<Integer, List<Poi>> counters(Settlement s) {
@@ -368,8 +557,12 @@ public final class StallWares {
 		if (wares.isEmpty()) {
 			return;
 		}
-		List<BlockPos> tops = tops(level, pois);
-		if (tops.isEmpty()) {
+		layOn(level, s, plot, tops(level, pois), wares, st);
+	}
+
+	/** Lays wares as displays on these counter tops (round them, then a second row). */
+	private static void layOn(ServerLevel level, Settlement s, int plot, List<BlockPos> tops, List<Goods> wares, Stall st) {
+		if (wares.isEmpty() || tops.isEmpty()) {
 			return;
 		}
 		dev.voidmc.hearth.api.GoodsItems items = HearthServices.goodsItems();
@@ -450,6 +643,12 @@ public final class StallWares {
 
 	/** Takes down every ware of a town (it went abstract). */
 	public static void takeDown(ServerLevel level, long settlementId) {
+		List<MarketStall> market = MARKETS.remove(settlementId);
+		if (market != null) {
+			for (MarketStall ms : market) {
+				discard(level, ms.dressed);
+			}
+		}
 		Map<Integer, Stall> stalls = TOWNS.remove(settlementId);
 		if (stalls != null) {
 			for (Stall st : stalls.values()) {
@@ -463,6 +662,11 @@ public final class StallWares {
 		List<Stall> all = new ArrayList<>();
 		for (Map<Integer, Stall> m : TOWNS.values()) {
 			all.addAll(m.values());
+		}
+		for (List<MarketStall> m : MARKETS.values()) {
+			for (MarketStall ms : m) {
+				all.add(ms.dressed);
+			}
 		}
 		all.sort(Comparator.comparingLong(st -> st.laidAt));
 		for (Stall st : all) {
