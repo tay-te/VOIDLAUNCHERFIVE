@@ -22,9 +22,10 @@ public final class MettleHandshake {
 	 * Bumped whenever the server and client must match: payloads, synced attachments, synced registries. 1 was 0.1.0
 	 * (no handshake); 2 is 0.2.0 (the cards view attachment, the card config payload, the hidden draft seed); 3 is 0.3.0
 	 * (build feel: the byname registry, keyword momentum and Mythic epithets, the build action payload, words on moments,
-	 * the public renown attachment, boons in the draft record).
+	 * the public renown attachment, boons in the draft record); 4 is 0.4.0 (deed titles in the renown attachment, the talent
+	 * registry, the talent draft and talent cards in the synced records, the new build actions, Stealth released).
 	 */
-	public static final int PROTOCOL = 3;
+	public static final int PROTOCOL = 4;
 
 	private static final ConfigurationTask.Type KEY = new ConfigurationTask.Type(Mettle.id("hello").toString());
 

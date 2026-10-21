@@ -175,7 +175,7 @@ public final class MettleTalents {
 		o.add("ceiling", def.flatMap(Talent::ceiling).map(c -> (com.google.gson.JsonElement) new com.google.gson.JsonPrimitive(c)).orElse(JsonNull.INSTANCE));
 		o.addProperty("edge", EDGE);
 		o.add("keywords", new JsonArray());
-		o.addProperty("icon", "mettle:talent/" + id.getPath());
+		o.addProperty("icon", id.withPath("textures/gui/talent/" + id.getPath() + ".png").toString());
 	}
 
 	/** The next character level that opens a talent slot, if any. */

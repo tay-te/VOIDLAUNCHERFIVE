@@ -84,7 +84,15 @@ public final class TalentCommands {
 			c.getSource().sendFailure(Component.literal("No talent " + t));
 			return 0;
 		}
-		DraftState.Rarity r = rarity == null ? null : DraftState.Rarity.valueOf(rarity.toUpperCase(Locale.ROOT));
+		DraftState.Rarity r = null;
+		if (rarity != null) {
+			try {
+				r = DraftState.Rarity.valueOf(rarity.toUpperCase(Locale.ROOT));
+			} catch (IllegalArgumentException e) {
+				c.getSource().sendFailure(Component.literal("No rarity " + rarity + " (common, rare, epic)"));
+				return 0;
+			}
+		}
 		CardData card = Talents.give(p, id, r, value, true);
 		c.getSource().sendSuccess(() -> Component.literal("Gave " + Cards.printId(p.level().registryAccess(), card) + " " + id + " " + card.rarity().getSerializedName()
 			+ " " + TalentRules.value(card) + (card.slotted() ? " (in the row)" : "")), false);

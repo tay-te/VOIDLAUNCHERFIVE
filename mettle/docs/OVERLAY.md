@@ -320,6 +320,53 @@ Build feel actions (`MettleActions`; the server answers with a `mettleFeedback` 
 
 All existing calls and fields are unchanged.
 
+**Deed titles and Talents (BUILD_FEEL.md §12–§13, built 2026-10-21, Mettle 0.4.0).** Deeds are one of a kind: the
+Hall's `cards.mythics.all[]` deeds now carry the holder like a world first (`claimed`, `holder`, `day`), `doneBy` (how
+many have done the deed; `copies` stays as the same number for old pages) and `title` ("Long Walker"). Titles in
+`client.overlay.MettleBuild`, talents in `client.overlay.MettleTalents`, both read from the synced character and card
+cache:
+
+```ts
+cards.build.titles: { worn: string | null;            // the deed id worn ("mettle:long_walker")
+                      wornText: "Long Walker"; instead: boolean;   // worn instead of the byname, or beside it
+                      held: { id; text; wearing }[] };
+cards.players[] gains title: "Long Walker" | null and titleInstead   // from the public mettle:character/renown, for name cards
+talents: {
+  edge: "#A39E96";                                      // the talent card's neutral ash edge; no keywords on talents
+  characterLevel; unlocked: boolean;                    // slots open at character level 3
+  slots: 0 | 2 | 3 | 4 | 5; slotsMax: 5; nextSlotAt: 15 | 27 | 39 | null; nextDraftAt: 7;
+  slotsText: "1 of 2 talent slots"; nextDraftText: "Next talent draft at character level 7";
+  row: { slot; open: boolean; card: TalentCard | null }[];          // always slotsMax entries, greyed past `slots`
+  binder: TalentCard[];                                   // talent cards out of the row (bound: never traded or listed)
+  draft: { queued; rerolls;                              // drafts waiting (3, then every 4 levels); the shared reroll pool
+           hand: (TalentCard-like & { index; goes: "slot" | "upgrade" | "binder"; replacesValue? })[] };
+  rearrange: { way: "wake" | "low_level" | "free_swap" | null;    // how a card may leave the row now; null = locked
+               awake: boolean; secondsLeft; windowSeconds: 60; freeSwaps;
+               text: "Free to rearrange for 42 s" | "Taking one out uses a free swap (2 left)" | "Rearrange after a night's sleep, or with a free swap" };
+  earned: { id: "mettle:general/pack_horse"; held; name; description; hint?; icon }[];   // the five general feats, always on
+};
+type TalentCard = { id; printId: "TL-…"; talent: "mettle:fleet"; name; description: "+3 % movement speed.";
+                    rarity; rarityColour; value; valueText: "3 %"; range: "2 % – 4 %";
+                    family: "body" | "motion" | "hands" | "mind" | "fortune"; familyName; fixed: boolean;
+                    ceiling: "movement" | "taken" | "extra_drop" | null; edge; keywords: []; icon: "mettle:textures/gui/talent/fleet.png";
+                    slotted; slot; how; day };
+```
+
+`perks[]` entries gain `earnedTalent` (the general feats, shown in the talent row instead of a tree). The revision
+counter ticks once a second while the waking window counts down.
+
+| Call | Effect |
+|---|---|
+| `wearTitle(deed, instead)` · `wearTitle(deed)` | wear a held deed title (`""`: none), instead of the byname or beside it |
+| `keepTalent(index)` | keep card 0–2 of `talents.draft.hand`: into a free slot, over a worse copy of the same talent, or the binder |
+| `rerollTalents()` | deal the talent hand again (one reroll from the shared pool) |
+| `slotTalent(card, slot)` · `slotTalent(card)` | put a talent card in a slot (-1: the first free); free; one card per talent (a better copy takes the worse one's slot) |
+| `unslotTalent(card)` | take one out: free on waking from a night's sleep (60 s) or below character level 5, else a free swap; refused otherwise |
+
+Talent cards also release three for a reroll and fuse three of one talent and rarity into the next at a Card Shrine
+(`releaseCards`, `fuseCards`, as skill cards). Chat fallback: `/mettle talents` (`keep`, `reroll`, `slot`, `unslot`) and
+`/mettle build title <deed|none> [instead]`.
+
 Band changes also arrive as `mettleFeedback` chips with perk ids `mettle:burden/{light,burdened,overburdened,pinned}`
 (the text says what happened and names the heaviest stack), so the HUD can show the chip without polling.
 

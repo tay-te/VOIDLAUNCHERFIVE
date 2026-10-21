@@ -152,11 +152,25 @@ final class TalentJourney {
 			level.setBlockAndUpdate(head, footState.setValue(BedBlock.PART, BedPart.HEAD));
 			bed[0] = foot;
 			s.getCommands().performPrefixedCommand(s.createCommandSourceStack(), "time set 18000");
+			// The tour stops the clock; a night's sleep needs it to run (the wake-up moves it to the morning).
+			s.getCommands().performPrefixedCommand(s.createCommandSourceStack(), "gamerule advance_time true");
 			// No monster may keep the player awake.
 			s.getCommands().performPrefixedCommand(s.createCommandSourceStack(), "kill @e[type=!player,type=!item,distance=..40]");
 			savedRespawn[0] = p.getRespawnConfig();
-			p.gameMode.useItemOn(p, level, ItemStack.EMPTY, net.minecraft.world.InteractionHand.MAIN_HAND,
-				new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(head).add(0, 0.3, 0), Direction.UP, head, false));
+			return null;
+		}));
+		// The night has to reach the world's sky before a bed lets anyone sleep.
+		context.waitTicks(10);
+		check(server.computeOnServer(s -> {
+			ServerPlayer p = player(s);
+			var level = s.overworld();
+			BlockPos head = bed[0].relative(Direction.EAST);
+			BlockState headState = level.getBlockState(head);
+			var bedBlock = (net.minecraft.world.level.block.AbstractBedBlock) headState.getBlock();
+			var tried = p.startSleepInBed(bedBlock, headState, bedBlock.getBedRule(level, head), head);
+			if (tried.left().isPresent()) {
+				return "the player could not lie down in the bed: " + tried.left().get() + " (clock " + level.getDefaultClockTime() + ")";
+			}
 			return p.isSleeping() ? null : "the player could not lie down in the bed (clock " + level.getDefaultClockTime() + ")";
 		}));
 		context.waitTicks(140);
@@ -233,6 +247,7 @@ final class TalentJourney {
 				s.overworld().setBlockAndUpdate(bed[0], Blocks.AIR.defaultBlockState());
 				s.overworld().setBlockAndUpdate(bed[0].relative(Direction.EAST), Blocks.AIR.defaultBlockState());
 			}
+			s.getCommands().performPrefixedCommand(s.createCommandSourceStack(), "gamerule advance_time false");
 			s.getCommands().performPrefixedCommand(s.createCommandSourceStack(), "time set " + Math.floorMod(savedTime[0], 24000L));
 			return CardStore.get(p).talent().cards().isEmpty() ? null : "talent cards left after the journey";
 		}));

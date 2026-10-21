@@ -714,9 +714,10 @@ NPCs never sell cards of their own; the broker only lists players' cards.
 | **The Open Hand** | First to be Honoured in a Hearth city (without Hearth: first Hero of the Village) | Your Hearth market edge (BALANCE.md §9.2) also applies to allies within 8 blocks of you at a counter. |
 | **First of Masters** | First to bring any skill to 20 | **Mentor**: allies within 16 blocks gain skill XP 20 % faster in every skill where yours is higher than theirs. |
 
-**Legendary deeds** (anyone, once each; each copy is numbered: "the 3rd in this world"). *Approved 2026-10-21
-([BUILD_FEEL.md](BUILD_FEEL.md) §12): deed Mythics become one of a kind, the first to do the deed holds it; later
-achievers get 10 shards and the deed title; existing extra copies migrate to 30 shards and the title.*
+**Legendary deeds** (one of a kind since Mettle 0.4.0, [BUILD_FEEL.md](BUILD_FEEL.md) §12 and §16: the first to do the
+deed holds its card, claimed in the Hall like a world first; everyone after them gets 10 shards and the deed's title;
+the numbered copies the old rules made were migrated once: the earliest stays, the rest became 30 shards and the
+title). *Before 0.4.0 anyone could earn a numbered copy ("the 3rd in this world").*
 
 | Mythic | Earned by | Effect |
 |---|---|---|

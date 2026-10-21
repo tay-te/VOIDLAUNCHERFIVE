@@ -217,6 +217,10 @@ public final class MettleCards {
 			}
 			po.add("crest", renown == null || renown.crest().isEmpty() ? JsonNull.INSTANCE : new com.google.gson.JsonPrimitive(renown.crest().get().toString()));
 			po.add("legend", renown == null || renown.legend() == 0 ? JsonNull.INSTANCE : MettleBuild.legend(renown.legend(), renown.legendOf()));
+			// A worn deed title (BUILD_FEEL.md §12): "Ashford the Deep Ember Warden · Long Walker", or the title alone.
+			po.add("title", renown == null || renown.title().isEmpty() ? JsonNull.INSTANCE
+				: new com.google.gson.JsonPrimitive(dev.voidmc.mettle.character.cards.Deeds.title(renown.title().get()).getString()));
+			po.addProperty("titleInstead", renown != null && renown.titleInstead());
 			people.add(po);
 		}
 		root.add("players", people);
