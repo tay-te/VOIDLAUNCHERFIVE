@@ -67,6 +67,11 @@ public final class EconomyServiceImpl implements EconomyService {
 	}
 
 	@Override
+	public boolean canReceive(ServerPlayer player, long bits) {
+		return PlayerPurse.canReceive(player, bits);
+	}
+
+	@Override
 	public void pay(ServerPlayer player, long bits) {
 		PlayerPurse.pay(player, bits);
 	}

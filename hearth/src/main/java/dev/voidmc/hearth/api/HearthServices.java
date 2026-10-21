@@ -218,4 +218,32 @@ public final class HearthServices {
 	public static void setGoodsItems(@Nullable GoodsItems service) {
 		goodsItems = service == null ? GoodsItems.VANILLA : service;
 	}
+
+	private static final java.util.List<VirtualGoods> virtualGoods = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+	/** Adds goods that live outside inventories (a character mod's cards), for the broker's table. One per kind; a second of a kind replaces the first. */
+	public static void addVirtualGoods(VirtualGoods goods) {
+		virtualGoods.removeIf(g -> g.kind().equals(goods.kind()));
+		virtualGoods.add(goods);
+	}
+
+	/** Every registered kind of virtual goods (empty without a mod that adds some). */
+	public static java.util.List<VirtualGoods> virtualGoods() {
+		return java.util.Collections.unmodifiableList(virtualGoods);
+	}
+
+	/** The virtual goods of a kind, or null. */
+	public static @Nullable VirtualGoods virtualGoods(String kind) {
+		for (VirtualGoods g : virtualGoods) {
+			if (g.kind().equals(kind)) {
+				return g;
+			}
+		}
+		return null;
+	}
+
+	/** For tests: forgets every registered kind. */
+	public static void clearVirtualGoods() {
+		virtualGoods.clear();
+	}
 }

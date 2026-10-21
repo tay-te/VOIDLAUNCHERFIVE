@@ -57,6 +57,7 @@ public final class EconomyModule {
 		Works.CODEC, Works::new);
 
 	private static final EconomyDialogue DIALOGUE = new EconomyDialogue();
+	private static final dev.voidmc.hearth.economy.broker.BrokerDialogue BROKER = new dev.voidmc.hearth.economy.broker.BrokerDialogue();
 	/** Starting treasury per resident for a settlement the sim founds with an empty one. */
 	private static final long FOUNDING_COIN_PER_HEAD = 40;
 	private static volatile EconomyConfig config = EconomyConfig.DEFAULTS;
@@ -110,6 +111,11 @@ public final class EconomyModule {
 		SettlementEvents.RESIDENT_REMOVED.register((world, settlement, resident) -> Inheritance.settle(settlement, resident));
 
 		DialogueProvider.register(DIALOGUE);
+		// the card broker (docs/requests/mettle-cards.md §7): listings of goods that live outside inventories
+		dev.voidmc.hearth.economy.broker.Broker.init();
+		DialogueProvider.register(BROKER);
+		SettlementEvents.DAY_PASSED.register((world, settlement, day) -> dev.voidmc.hearth.economy.broker.Broker.expire(settlement, day));
+		net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> BROKER.forget(handler.player.getUUID()));
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> EconomyCommands.register(dispatcher));
 		HearthServices.setEconomy(new EconomyServiceImpl());
 

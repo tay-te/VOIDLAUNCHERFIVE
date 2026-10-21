@@ -21,6 +21,29 @@ public interface EconomyService {
 	/** Gives the player coin in the fewest coins (into a pouch or inventory, dropping what does not fit). */
 	void pay(ServerPlayer player, long bits);
 
+	/**
+	 * Whether {@link #pay} could give the player this much without dropping any at their feet (pouches, stacks and empty
+	 * slots). Added 2026-10-21 (docs/requests/mettle-cards.md §8).
+	 */
+	default boolean canReceive(ServerPlayer player, long bits) {
+		return true;
+	}
+
+	/**
+	 * Moves coin from one player to another in one step (making change): false and nothing moves if the payer cannot pay
+	 * or the receiver cannot hold it ({@link #canReceive}). A face-to-face trade's coin. Added 2026-10-21.
+	 */
+	default boolean transfer(ServerPlayer from, ServerPlayer to, long bits) {
+		if (bits <= 0) {
+			return bits == 0;
+		}
+		if (from == to || !canReceive(to, bits) || !charge(from, bits)) {
+			return from == to && balance(from) >= bits;
+		}
+		pay(to, bits);
+		return true;
+	}
+
 	/** "3 crowns, 4 marks, 2 bits" — however the economy module names its coins. */
 	Component format(long bits);
 

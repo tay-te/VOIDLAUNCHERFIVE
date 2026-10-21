@@ -54,6 +54,19 @@ public final class PlayerPurse {
 		clink(player, coins[Coin.CROWN.ordinal()] > 0 ? Coin.CROWN : coins[Coin.MARK.ordinal()] > 0 ? Coin.MARK : Coin.BIT);
 	}
 
+	/** Whether {@link #pay} would fit all of {@code bits} into the player's pouches and slots (none dropped). Reads only. */
+	public static boolean canReceive(Player player, long bits) {
+		if (bits <= 0) {
+			return true;
+		}
+		for (long n : read(player).add(bits)) {
+			if (n > 0) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	/** The pickup clink, pitched by metal. Heard by everyone nearby: coin is not quiet. */
 	public static void clink(Player player, Coin coin) {
 		player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.CHAIN_STEP, SoundSource.PLAYERS, 0.55F,
