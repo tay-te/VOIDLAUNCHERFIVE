@@ -33,6 +33,8 @@ public final class ClientMotion {
 
 	/** Off: nothing is sampled or applied (vanilla visuals); the perf test's baseline. */
 	public static boolean enabled = true;
+	/** Off: the local player's clips don't move it (tests that need a dodge to stay put to test its timing). */
+	public static boolean rootMotion = true;
 
 	private static final Int2ObjectMap<Animator> ANIMATORS = new Int2ObjectOpenHashMap<>();
 	/** Per entity type: idle variants (BASE) and walk variants (LOCO), picked per entity. */
@@ -216,7 +218,7 @@ public final class ClientMotion {
 		if (player != null) {
 			Animator a = ANIMATORS.get(player.getId());
 			Clip c = a == null ? null : a.clip(Animator.ACTION);
-			if (c != null && c.motion != null && Double.isNaN(a.frozenElapsed)) {
+			if (rootMotion && c != null && c.motion != null && Double.isNaN(a.frozenElapsed)) {
 				double e = (now(0) - a.start(Animator.ACTION)) / 20.0;
 				float from = c.motion[0], to = c.motion[1];
 				if (e >= from && e < to && player.onGround()) {

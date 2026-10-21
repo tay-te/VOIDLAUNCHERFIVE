@@ -123,6 +123,9 @@ public class MotionShowcase implements FabricClientGameTest {
 			if (want("gif")) {
 				gifs(stage);
 			}
+			if (want("latency")) {
+				latency(stage);
+			}
 			if (want("perf")) {
 				perf(stage, 24);
 				int more = Integer.getInteger("fray.perf.mobs", 24);
@@ -399,6 +402,88 @@ public class MotionShowcase implements FabricClientGameTest {
 		st.freeze(me, Double.NaN);
 		st.c.waitTicks(30);
 		st.shot("fp_after_swing_vanilla_again");
+	}
+
+	// ------------------------------------------------------------------ defender-favoured timing under real latency
+
+	static final Identifier DODGE = Bestiary.id("player/dodge_left");
+	private static volatile int triggerAt = -1;
+	private static volatile int triggerOn = -1;
+	private static volatile double pressedAt = Double.NaN;
+	private static boolean hooked;
+
+	/**
+	 * ANIM_EVENTS.md §4 in a real game: a zombie claws the local player while the client's connection carries 0, 150 and
+	 * 250 ms of round-trip latency (both ways, Latency). The client presses dodge when its own screen shows the claw at a
+	 * chosen tick (the i-frames start the next tick): two ticks before ACTIVE ("in time") or two ticks into it ("late").
+	 * The dodge's root motion is off, so only the timing can save the player. Then the same in-time press with the grace
+	 * turned off (cap 0), the control.
+	 */
+	private static void latency(Stage st) {
+		st.clearCreatures();
+		st.s.runCommand("tp @p 0.5 " + Y + " 1.7 180 0");
+		int z = st.zombie(0.5, 0.5, 0, false);
+		st.c.waitTicks(10);
+		st.c.runOnClient(mc -> ClientMotion.rootMotion = false);
+		if (!hooked) {
+			hooked = true;
+			net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+				if (triggerAt < 0) {
+					return;
+				}
+				Animator a = ClientMotion.get(triggerOn);
+				if (a == null || a.clip(Animator.ACTION) == null || !a.clip(Animator.ACTION).id.equals(CLAW)) {
+					return;
+				}
+				double e = a.actionElapsed(ClientMotion.now(0));
+				if (e >= triggerAt) {
+					pressedAt = e;
+					triggerAt = -1;
+					ClientMotion.startLocal(DODGE);
+				}
+			});
+		}
+		int me = st.c.computeOnClient(Stage::localPlayer);
+		java.util.UUID uuid = st.c.computeOnClient(mc -> mc.player.getUUID());
+		record Case(String name, int pressAt, int cap, Boolean saved) {
+		}
+		List<String> table = new ArrayList<>();
+		for (int rtt : new int[] {0, 150, 250}) {
+			Latency.set(st.c, rtt);
+			st.c.waitTicks(140);
+			int measured = st.s.computeOnServer(server -> dev.voidmc.fray.motion.DefenderTiming.clock(uuid).rttMs());
+			List<Case> cases = new ArrayList<>(List.of(new Case("in time (pressed at claw tick 9 on screen)", 9, 5, true),
+				new Case("late (pressed at claw tick 13 on screen)", 13, 5, false)));
+			if (rtt > 0) {
+				cases.add(new Case("control: in time, no grace (cap 0)", 9, 0, null));
+			}
+			for (Case k : cases) {
+				st.s.runOnServer(server -> dev.voidmc.fray.motion.DefenderTiming.capTicks = k.cap());
+				MotionServer.HITS.clear();
+				pressedAt = Double.NaN;
+				triggerOn = z;
+				triggerAt = k.pressAt();
+				st.play(z, CLAW);
+				st.c.waitTicks(45);
+				triggerAt = -1;
+				List<MotionServer.HitRecord> hits = MotionServer.HITS.stream().filter(h -> h.target() == me).toList();
+				String window = hits.isEmpty() ? "no contact" : hits.getFirst().window();
+				boolean saved = !hits.isEmpty() && !window.startsWith("none");
+				String row = String.format(Locale.ROOT, "latency %3d ms (measured %3d): %-44s pressed at %.1f -> %s%s", rtt, measured, k.name(), pressedAt,
+					hits.isEmpty() ? "no contact" : "claw tick " + hits.getFirst().tick() + ", " + window, saved ? " = DODGED" : " = HIT");
+				Stage.log(row);
+				table.add(row);
+				if (k.saved() != null) {
+					Stage.expect(!hits.isEmpty() && saved == k.saved(), "latency " + rtt + " ms, " + k.name() + ": " + (k.saved() ? "dodged" : "hit"));
+				}
+				st.c.waitTicks(10);
+			}
+		}
+		st.s.runOnServer(server -> dev.voidmc.fray.motion.DefenderTiming.capTicks = 5);
+		Stage.log("defender timing stats: " + st.s.computeOnServer(server -> dev.voidmc.fray.motion.DefenderTiming.stats()));
+		Latency.set(st.c, 0);
+		st.c.runOnClient(mc -> ClientMotion.rootMotion = true);
+		st.c.waitTicks(20);
 	}
 
 	// ------------------------------------------------------------------ shadows
