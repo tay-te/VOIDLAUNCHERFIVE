@@ -206,8 +206,10 @@ Mettle's Back, Belt and Quiver wells beside the figure plus a LOAD row:
   `rerollTalents`), "Reconsider your talents" (opens by itself once per night's sleep, with a once-a-second timer; click
   a binder talent then a slot, or a slotted one then Take out: `slotTalent`, `unslotTalent`), the Hall of Firsts on the
   deeds with the name card and the title picker (`wearTitle`, beside or instead of the byname; "All Mythics" keeps the
-  shelf), and a nine-skill gallery (five tiles to a row) and rail for Stealth. Code: `ui/cards-talents.js`. Speech and
-  the effective-level chips wait for a Mettle that reports them.
+  shelf), and a nine- or ten-skill gallery (five tiles to a row) and rail for Stealth and Speech. Code:
+  `ui/cards-talents.js`. Speech (Mettle 0.5.0): its tree, with what Hearth reads of it under it (effective Speech and
+  Presence, the market edge, Second Word, Appraiser, coin weight, Hearth keys or fallbacks); a card listed at a Hearth
+  broker shows "Listed · day N" on its tile, row and detail. The effective-level chips wait for a Mettle that reports them.
 
 The hub reaches Mettle only through `dev.voidmc.hub.mettle.MettleLink` (method handles on Mettle's client overlay API,
 mettle/docs/OVERLAY.md), so it builds and runs without Mettle. The page side is `ui/mettle.js` + `ui/mettle.css`,
