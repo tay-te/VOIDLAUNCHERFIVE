@@ -142,14 +142,26 @@ final class Crafts {
 			crafters.add(r.id);
 		}
 		if (!unplaced.isEmpty() && !masters.isEmpty()) {
+			// the masters with room, kept as places fill (not looked for again for every child)
+			List<Resident> room = new ArrayList<>(masters.size());
+			for (Resident m : masters) {
+				if (taken.getOrDefault(m.id, 0) < c.apprenticesPerMaster()) {
+					room.add(m);
+				}
+			}
 			for (Resident child : unplaced) {
-				Resident master = masterFor(s, child, masters, taken, c.apprenticesPerMaster(), random);
+				if (room.isEmpty()) {
+					break;
+				}
+				Resident master = masterFor(s, child, room, taken, c.apprenticesPerMaster(), random);
 				if (master == null) {
 					continue;
 				}
 				JobType trade = Life.masterOf(master);
 				Life.apprentice(child, master.id, trade, day);
-				taken.merge(master.id, 1, Integer::sum);
+				if (taken.merge(master.id, 1, Integer::sum) >= c.apprenticesPerMaster()) {
+					room.remove(master);
+				}
 				crafters.add(child.id);
 				town.stats.add("apprenticed");
 				event.accept(child, "apprenticed");
@@ -235,19 +247,13 @@ final class Crafts {
 		}
 	}
 
-	/** The parent who masters a trade with room; else a master with room, seeded. */
-	private static Resident masterFor(Settlement s, Resident child, List<Resident> masters, Map<UUID, Integer> taken, int perMaster,
+	/** The parent who masters a trade with room; else a master with room ({@code room}: the masters with room), seeded. */
+	private static Resident masterFor(Settlement s, Resident child, List<Resident> room, Map<UUID, Integer> taken, int perMaster,
 		SplittableRandom random) {
 		for (UUID p : Kin.parents(child)) {
 			Resident parent = s.resident(p);
 			if (parent != null && parent.age == AgeStage.ADULT && Life.masterOf(parent) != null && taken.getOrDefault(parent.id, 0) < perMaster) {
 				return parent;
-			}
-		}
-		List<Resident> room = new ArrayList<>();
-		for (Resident m : masters) {
-			if (taken.getOrDefault(m.id, 0) < perMaster) {
-				room.add(m);
 			}
 		}
 		return room.isEmpty() ? null : room.get(random.nextInt(room.size()));

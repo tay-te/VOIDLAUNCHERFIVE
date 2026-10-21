@@ -128,17 +128,34 @@ public interface Workplaces {
 				x[i] = spec.origin().getX() + spec.sizeX() / 2;
 				z[i] = spec.origin().getZ() + spec.sizeZ() / 2;
 			}
+			// homes bucketed by 32-block cell: the nearest within 32 is in the 3x3 cells round a home's own
+			it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<it.unimi.dsi.fastutil.ints.IntArrayList> cells = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(n);
+			for (int i = 0; i < n; i++) {
+				cells.computeIfAbsent(cell(x[i] >> 5, z[i] >> 5), k -> new it.unimi.dsi.fastutil.ints.IntArrayList(4)).add(i);
+			}
 			for (int i = 0; i < n; i++) {
 				int best = -1;
 				long bd = 32L * 32L;
-				for (int j = 0; j < n; j++) {
-					if (i != j) {
-						long dx = x[i] - x[j];
-						long dz = z[i] - z[j];
-						long d = dx * dx + dz * dz;
-						if (d < bd) {
-							bd = d;
-							best = j;
+				int cx = x[i] >> 5;
+				int cz = z[i] >> 5;
+				for (int ox = -1; ox <= 1; ox++) {
+					for (int oz = -1; oz <= 1; oz++) {
+						it.unimi.dsi.fastutil.ints.IntArrayList in = cells.get(cell(cx + ox, cz + oz));
+						if (in == null) {
+							continue;
+						}
+						for (int q = 0; q < in.size(); q++) {
+							int j = in.getInt(q);
+							if (i != j) {
+								long dx = x[i] - x[j];
+								long dz = z[i] - z[j];
+								long d = dx * dx + dz * dz;
+								// the nearest; on a tie the first in the plots' order (as a plain scan would pick)
+								if (d < bd || d == bd && best >= 0 && j < best) {
+									bd = d;
+									best = j;
+								}
+							}
 						}
 					}
 				}
@@ -147,6 +164,10 @@ public interface Workplaces {
 				}
 			}
 			return out;
+		}
+
+		private static long cell(int cx, int cz) {
+			return (long) cx << 32 | cz & 0xFFFFFFFFL;
 		}
 	}
 }
