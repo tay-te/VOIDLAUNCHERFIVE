@@ -18,7 +18,9 @@ import dev.voidmc.hearth.npc.routine.FolkBrain;
 import dev.voidmc.hearth.npc.routine.Task;
 import dev.voidmc.hearth.npc.routine.Tasks;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
@@ -275,25 +277,55 @@ public final class Clamps {
 		if (base == null) {
 			return;
 		}
-		takeDown(level, ledger, -p.id() - 1);
+		if (!now.equals(BUILDING.get(key(s, p.id())))) {
+			// a new height: the old stack comes down, the new one goes up a few logs a pass
+			takeDown(level, ledger, -p.id() - 1);
+			BUILDING.put(key(s, p.id()), now);
+		}
 		net.minecraft.world.item.ItemStack log = dev.voidmc.hearth.api.HearthServices.goodsItems().sample(dev.voidmc.hearth.api.Goods.LOGS, s.culture(),
 			s.id() + p.id());
+
 		Block logBlock = log.getItem() instanceof net.minecraft.world.item.BlockItem bi && bi.getBlock() instanceof RotatedPillarBlock ? bi.getBlock()
 			: Blocks.OAK_LOG;
 		BlockState state = logBlock.defaultBlockState().setValue(RotatedPillarBlock.AXIS, run.getAxis());
+		// the first block set in a pass has cost the server 7-15 ms in the work tour (the rest a few µs each:
+		// requests/lwA4.md), so the stack goes up in one pass, not spread over several
+		int budget = PLACE_PER_PASS;
+		boolean done = true;
 		for (int y = 0; y < Math.min(3, courses); y++) {
 			// each course a block shorter at each end above the first, as a woodpile is stacked
 			int width = y == 0 ? 4 : courses >= 4 ? 4 : 3 - (y - 1);
 			for (int i = 0; i < width; i++) {
 				BlockPos c = base.relative(run, i + (4 - width) / 2).above(y);
-				if (level.getBlockState(c).isAir()) {
-					ledger.placed.add(new Placed(c, state, -p.id() - 1));
-					level.setBlock(c, state, FLAGS);
+				if (!level.getBlockState(c).isAir()) {
+					continue;
 				}
+				if (budget-- <= 0) {
+					done = false;
+					continue;
+				}
+				ledger.placed.add(new Placed(c, state, -p.id() - 1));
+				level.setBlock(c, state, FLAGS);
 			}
 		}
-		ledger.stages.put(key, now);
+		if (done) {
+			ledger.stages.put(key, now);
+			BUILDING.remove(key(s, p.id()));
+		}
 		s.markDirty();
+	}
+
+	/** Logs laid on a timber stack in one pass, at most (a whole stack is 12). */
+	static final int PLACE_PER_PASS = 16;
+	/** Stacks being laid (town and plot to the height being built), so a stack is not torn down between its passes. */
+	private static final Map<Long, String> BUILDING = new HashMap<>();
+
+	static void clear() {
+		BUILDING.clear();
+	}
+
+	private static long key(Settlement s, int plot) {
+		return s.id() * 4096L + plot;
 	}
 
 	private static boolean placedHere(Ledger ledger, BlockPos pos, int plot) {

@@ -284,16 +284,18 @@ final class HaulerWork implements WorkBehaviour {
 			return this.cart;
 		}
 
-		/** Hitched while walking, left standing within {@link #PARK} of the stop it walks to. */
+		/** Hitched while walking, left standing within {@link #PARK} of the stop it walks to or while the hauler is under a roof. */
 		private void drawTowards(FolkBrain brain, BlockPos stop) {
 			CartEntity c = cart();
 			if (c == null) {
 				return;
 			}
-			boolean near = brain.folk.blockPosition().distSqr(stop) < PARK * PARK;
-			if (near && c.puller() != null) {
+			// parked by the door, and whenever the hauler is under a roof (indoors, up a stair, under eaves): a cart keeps to
+			// the open street and never follows them in or onto a roof
+			boolean park = brain.folk.blockPosition().distSqr(stop) < PARK * PARK || !brain.folk.level().canSeeSky(brain.folk.blockPosition().above());
+			if (park && c.puller() != null) {
 				c.hitchTo(null);
-			} else if (!near && c.puller() == null) {
+			} else if (!park && c.puller() == null && c.distanceToSqr(brain.folk) < 6 * 6) {
 				c.hitchTo(brain.folk);
 			}
 		}

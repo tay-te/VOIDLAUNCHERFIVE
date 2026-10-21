@@ -289,6 +289,42 @@ public class WorkTour implements FabricClientGameTest {
 			world.getServer().runCommand("time add 24000");
 			settle(context, 4_000);
 		}
+		// still nothing on a counter (its shop has no keeper, so it never restocks): the bakery's shelves are filled from the
+		// town's stores for the shot, a fixture logged as one, so the wares can be checked against the books
+		log("stall: " + world.getServer().computeOnServer(server -> {
+			SimSettlement s = town(server, t);
+			Map<Integer, List<Poi>> counters = StallWares.counters(s);
+			dev.voidmc.hearth.economy.shop.Shop pick = null;
+			for (dev.voidmc.hearth.economy.shop.Shop shop : s.data(dev.voidmc.hearth.economy.EconomyModule.SHOPS).shops.values()) {
+				if (!counters.containsKey(shop.plot)) {
+					continue;
+				}
+				if (!HearthServices.economy().shopStock(s, shop.plot).isEmpty()) {
+					return "a counter shop holds goods already";
+				}
+				if (pick == null || shop.kind.contains("bakery")) {
+					pick = shop;
+				}
+			}
+			if (pick == null) {
+				return "no counter shop to fill";
+			}
+			StringBuilder b = new StringBuilder();
+			int kinds = 0;
+			for (Goods g : Goods.VALUES) {
+				if (!pick.deals(g) || kinds >= 3) {
+					continue;
+				}
+				int n = s.stockpile().take(g, 6 + 6 * kinds);
+				if (n > 0) {
+					pick.stock[g.ordinal()] += n;
+					b.append(g.getSerializedName()).append(' ').append(n).append(' ');
+					kinds++;
+				}
+			}
+			return "filled " + pick.key + " (" + pick.kind + ") from the stores for the shot: " + b;
+		}));
+		settle(context, 6_000);
 		timeTo(world, 4000);
 		double[] view = world.getServer().computeOnServer(server -> {
 			SimSettlement s = town(server, t);
@@ -301,12 +337,17 @@ public class WorkTour implements FabricClientGameTest {
 				SimPlot p = s.plot(e.getKey());
 				log("stall: plot #" + e.getKey() + " " + p.spec().archetype().getPath() + " holds " + stock);
 				Poi poi = e.getValue().get(0);
-				return look(poi.pos(), poi.facing(), 4, 2.2);
+				return look(poi.pos(), poi.facing(), 2.2, 1.3);
 			}
 			for (dev.voidmc.hearth.economy.shop.Shop shop : s.data(dev.voidmc.hearth.economy.EconomyModule.SHOPS).shops.values()) {
 				int units = 0;
 				for (Goods g : Goods.VALUES) {
 					units += shop.stock(g);
+				}
+				if (counters.containsKey(shop.plot)) {
+					SimPlot sp = s.plot(shop.plot);
+					log("stall: counter shop " + shop.key + " (" + shop.kind + ") on plot #" + shop.plot + " " + (sp == null ? "?" : sp.spec().archetype().getPath())
+						+ ": keeper " + (shop.keeper != null) + ", general " + shop.general() + ", till " + shop.till + ", holds " + units);
 				}
 				if (units > 0) {
 					SimPlot sp = s.plot(shop.plot);
@@ -369,7 +410,26 @@ public class WorkTour implements FabricClientGameTest {
 			return;
 		}
 		teleport(world, site.getX() - 14.5, surface(world, site) + 10, site.getZ() - 14.5, -45, 28);
-		settle(context, 15_000);
+		settle(context, 12_000);
+		// framed on the flock itself, wherever on the meadow it grazes
+		double[] flock = world.getServer().computeOnServer(server -> {
+			double x = 0;
+			double y = 0;
+			double z = 0;
+			int n = 0;
+			for (net.minecraft.world.entity.Entity e : server.overworld().getEntities((net.minecraft.world.entity.Entity) null,
+				new net.minecraft.world.phys.AABB(site).inflate(80), e -> e.entityTags().contains(Herds.TAG))) {
+				x += e.getX();
+				y += e.getY();
+				z += e.getZ();
+				n++;
+			}
+			return n == 0 ? null : look(BlockPos.containing(x / n, y / n, z / n), Direction.NORTH, 11, 7);
+		});
+		if (flock != null) {
+			teleport(world, flock[0], flock[1], flock[2], (float) flock[3], (float) flock[4]);
+			settle(context, 3_000);
+		}
 		context.takeScreenshot("hearth_work_meadow");
 		log("meadow: " + world.getServer().computeOnServer(server -> {
 			int herders = 0;
@@ -481,12 +541,15 @@ public class WorkTour implements FabricClientGameTest {
 
 	/** A hauler drawing a handcart on the town's streets (lane A1's cart). */
 	private static void handcart(ClientGameTestContext context, TestSingleplayerContext world, Town t) {
-		timeTo(world, 3000);
+		timeTo(world, 5000);
 		teleport(world, t.center.getX() + 0.5, surface(world, t.center) + 24, t.center.getZ() + 0.5, 0, 70);
 		double[] view = null;
-		for (int i = 0; i < 90 && view == null; i++) {
+		java.util.Map<java.util.UUID, BlockPos> firstSeen = new java.util.HashMap<>();
+		java.util.Map<java.util.UUID, Integer> seenAt = new java.util.HashMap<>();
+		for (int i = 0; i < 120 && view == null; i++) {
+			final int second = i;
 			settle(context, 1_000);
-			if (i == 15) {
+			if (i % 15 == 14) {
 				// a town with no hauler embodied: one worker is given the trade for the shot (a fixture, logged)
 				log("handcart: " + world.getServer().computeOnServer(server -> {
 					Folk pick = null;
@@ -511,23 +574,26 @@ public class WorkTour implements FabricClientGameTest {
 			}
 			view = world.getServer().computeOnServer(server -> {
 				for (CartEntity c : server.overworld().getEntities(Carts.CART, e -> e.entityTags().contains(Handcarts.TAG))) {
-					if (c.puller() == null) {
+					// out on the street: moved a dozen blocks from where it was first seen, or loaded, or out twenty seconds
+					if (c.puller() == null || !server.overworld().canSeeSky(c.blockPosition().above(2))) {
+						continue;
+					}
+					BlockPos first = firstSeen.computeIfAbsent(c.getUUID(), k -> c.blockPosition());
+					seenAt.putIfAbsent(c.getUUID(), second);
+					if (c.blockPosition().distSqr(first) < 12 * 12 && c.load() == CartEntity.Load.NONE && second - seenAt.get(c.getUUID()) < 20) {
 						continue;
 					}
 					log("handcart: " + c.kind() + " with " + c.load() + " at " + c.blockPosition().toShortString() + ", drawn by "
 						+ (c.puller() instanceof Folk f && f.brain() != null ? f.brain().resident.fullName() + " " + f.brain().describe() : "?"));
-					float yaw = c.getYRot();
-					double x = c.getX() + Math.sin(yaw * Mth.DEG_TO_RAD) * 7 + 3;
-					double z = c.getZ() - Math.cos(yaw * Mth.DEG_TO_RAD) * 7 + 3;
-					double dx = c.getX() - x;
-					double dz = c.getZ() - z;
-					return new double[]{x, c.getY() + 4, z, (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90F, 25};
+					// side-on and from above: the hauler and the cart behind them both in frame
+					Direction side = Direction.fromYRot(c.getYRot()).getClockWise();
+					return look(c.blockPosition(), side, 1.5, 8);
 				}
 				return null;
 			});
 		}
 		if (view == null) {
-			log("handcart: none out in 90 s (" + world.getServer().computeOnServer(server -> {
+			log("handcart: none out in 120 s (" + world.getServer().computeOnServer(server -> {
 				int haulers = 0;
 				for (Folk f : NpcModule.embodiment().entities()) {
 					if (f.brain() != null && f.brain().resident.job == JobType.HAULER) {

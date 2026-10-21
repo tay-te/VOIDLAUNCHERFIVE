@@ -333,6 +333,37 @@ public final class StallWares {
 	}
 
 	/** Lays the wares out on the counter tops round the stall's points. */
+	/**
+	 * What a trade's own shop shows of a goods, where the trade says more than the goods do: loaves on a bakery's counter,
+	 * meat at the butcher's, fish at the fishery. Empty where the culture's table ({@code GoodsItems}) answers.
+	 */
+	static ItemStack trade(Settlement s, int plot, Goods goods) {
+		if (goods != Goods.FOOD) {
+			return ItemStack.EMPTY;
+		}
+		dev.voidmc.hearth.api.PlotView p = null;
+		for (dev.voidmc.hearth.api.PlotView q : s.plots()) {
+			if (q.id() == plot) {
+				p = q;
+				break;
+			}
+		}
+		if (p == null) {
+			return ItemStack.EMPTY;
+		}
+		String path = p.spec().archetype().getPath();
+		if (path.endsWith("bakery")) {
+			return new ItemStack(net.minecraft.world.item.Items.BREAD);
+		}
+		if (path.endsWith("butcher")) {
+			return new ItemStack(net.minecraft.world.item.Items.COOKED_MUTTON);
+		}
+		if (path.endsWith("fishery") || path.endsWith("fishmonger")) {
+			return new ItemStack(net.minecraft.world.item.Items.COD);
+		}
+		return ItemStack.EMPTY;
+	}
+
 	private static void lay(ServerLevel level, Settlement s, int plot, List<Poi> pois, List<Goods> wares, Stall st) {
 		if (wares.isEmpty()) {
 			return;
@@ -345,7 +376,10 @@ public final class StallWares {
 		for (int i = 0; i < wares.size(); i++) {
 			BlockPos top = tops.get(i % tops.size());
 			int layer = i / tops.size();
-			ItemStack stack = items.sample(wares.get(i), s.culture(), s.id() * 31 + plot * 7L + i);
+			ItemStack stack = trade(s, plot, wares.get(i));
+			if (stack.isEmpty()) {
+				stack = items.sample(wares.get(i), s.culture(), s.id() * 31 + plot * 7L + i);
+			}
 			if (stack.isEmpty()) {
 				continue;
 			}

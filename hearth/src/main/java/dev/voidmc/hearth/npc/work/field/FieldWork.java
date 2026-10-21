@@ -34,6 +34,8 @@ public final class FieldWork {
 	private static final LivingWorldStats.Timer FLOCKS = LivingWorldStats.timer("field work: flocks");
 	private static final LivingWorldStats.Timer CLAMPS = LivingWorldStats.timer("field work: clamps");
 	private static final LivingWorldStats.Timer BOATS = LivingWorldStats.timer("field work: boats");
+	private static final LivingWorldStats.Timer CARTS = LivingWorldStats.timer("field work: handcarts");
+	private static final LivingWorldStats.Timer DAILY = LivingWorldStats.timer("field work: daily");
 	/** Entity tags of the views this lane puts into the world (flocks, boats, stall wares): never saved with a chunk. */
 	public static final Set<String> NO_SAVE = Set.of(Herds.TAG, Boats.TAG, StallWares.TAG, Handcarts.TAG);
 	private static long ticks;
@@ -81,6 +83,7 @@ public final class FieldWork {
 			Herds.clear();
 			Boats.clear();
 			Handcarts.clear();
+			Clamps.clear();
 			FieldSites.clear();
 			WorkBarks.clear();
 			GreatMines.clearClaims();
@@ -112,9 +115,9 @@ public final class FieldWork {
 			FLOCKS.time(() -> Herds.tick(server));
 			CLAMPS.time(() -> Clamps.tick(server));
 			BOATS.time(() -> Boats.tick(server));
-			Handcarts.tick(server);
+			CARTS.time(() -> Handcarts.tick(server));
 			if (ticks % 1200 == 0) {
-				daily(server);
+				DAILY.time(() -> daily(server));
 			}
 		});
 	}
