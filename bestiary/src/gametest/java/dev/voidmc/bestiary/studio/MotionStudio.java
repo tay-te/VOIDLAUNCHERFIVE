@@ -160,6 +160,11 @@ public class MotionStudio implements FabricClientGameTest {
 		String cam = "3q";
 		boolean overlay;
 		boolean travel = true;
+		/** Walk driver: the subject's walk cycle is driven at this speed (vanilla's walk animation units per tick), 0 = off. */
+		float walkSpeed;
+		/** The walk position to show (frames) or NaN to advance live. */
+		double walkPos = Double.NaN;
+		double walkLive;
 		String lastReport = "";
 		final Vec3 home = new Vec3(0.5, Y, 0.5);
 
@@ -203,6 +208,11 @@ public class MotionStudio implements FabricClientGameTest {
 					this.overlay = a.length < 2 || a[1].equals("on");
 					yield "overlay " + (this.overlay ? "on" : "off");
 				}
+				case "walk" -> {
+					this.walkSpeed = a.length > 1 ? Float.parseFloat(a[1]) : 0.7F;
+					this.walkPos = Double.NaN;
+					yield this.walkSpeed > 0 ? "walking at " + this.walkSpeed + " (the walk loop plays, synced to the walk cycle)" : "walk off";
+				}
 				case "travel" -> {
 					this.travel = a.length < 2 || a[1].equals("on");
 					yield "travel " + (this.travel ? "on" : "off");
@@ -240,6 +250,9 @@ public class MotionStudio implements FabricClientGameTest {
 		// ------------------------------------------------------------------ subjects
 
 		private String subject(String k) {
+			this.walkSpeed = 0;
+			this.walkPos = Double.NaN;
+			this.clip = null;
 			this.clearGhosts();
 			this.st.clearCreatures();
 			this.twin = -1;
@@ -339,7 +352,7 @@ public class MotionStudio implements FabricClientGameTest {
 			Identifier id = this.clip;
 			boolean has = this.c.computeOnClient(mc -> {
 				Animator a = ClientMotion.get(entity);
-				return a != null && a.clip(Animator.ACTION) != null && a.clip(Animator.ACTION).id.equals(id);
+				return a != null && a.playing(id);
 			});
 			if (!has) {
 				this.startOn(entity, local);
@@ -615,7 +628,7 @@ public class MotionStudio implements FabricClientGameTest {
 
 		/** gif [cam=<preset>] [from=<t>] [to=<t>] [step=<ticks>] [width=<px>] [name=<file>]: one frame per step, frozen. */
 		private String gif(String[] a) throws Exception {
-			Timeline tl = MotionServer.timeline(this.clip);
+			Timeline tl = this.clip == null ? null : MotionServer.timeline(this.clip);
 			double from = 0, to = tl == null ? 20 : tl.ticks, step = 1;
 			int width = 720;
 			String name = null;
@@ -628,6 +641,7 @@ public class MotionStudio implements FabricClientGameTest {
 					case "step" -> step = Double.parseDouble(kv[1]);
 					case "width" -> width = Integer.parseInt(kv[1]);
 					case "name" -> name = kv[1];
+					case "ticks" -> to = Double.parseDouble(kv[1]);
 					default -> {
 					}
 				}
@@ -635,14 +649,26 @@ public class MotionStudio implements FabricClientGameTest {
 			List<BufferedImage> frames = new ArrayList<>();
 			String base = name != null ? name : this.clipName() + "_" + this.cam;
 			for (double t = from; t <= to + 1e-6; t += step) {
-				this.freeze(t);
+				if (this.walkSpeed > 0) {
+					// A walk cycle: the frame is a walk position (and the clip, if one plays, the same moment).
+					this.walkPos = t * this.walkSpeed;
+				}
+				if (this.clip != null) {
+					this.freeze(t);
+				} else {
+					this.c.waitTicks(1);
+				}
 				Path p = this.shot("gif_" + base + String.format(Locale.ROOT, "_%05.1f", t));
 				BufferedImage img = Images.scale(Images.read(p), width);
-				frames.add(Images.label(img, String.format(Locale.ROOT, "%s  t%.0f  %s", this.clip.getPath(), t, this.phaseAt(t))));
+				frames.add(Images.label(img, this.walkSpeed > 0 && this.clip == null ? String.format(Locale.ROOT, "%s  walking  t%.0f", this.kind, t)
+					: String.format(Locale.ROOT, "%s  t%.0f  %s", this.clip.getPath(), t, this.phaseAt(t))));
 			}
 			Path out = OUT.resolve("gif/" + base + ".gif");
-			Images.gif(frames, out, (int) Math.round(50 * step), 700);
-			this.live();
+			Images.gif(frames, out, (int) Math.round(50 * step), this.walkSpeed > 0 ? (int) Math.round(50 * step) : 700);
+			this.walkPos = Double.NaN;
+			if (this.clip != null) {
+				this.live();
+			}
 			return out + " (" + frames.size() + " frames)";
 		}
 
@@ -774,6 +800,7 @@ public class MotionStudio implements FabricClientGameTest {
 
 		/** Hit volumes (red), hurt volumes (yellow) and the clip's tick, phase and tell above the subject (Gizmos). */
 		void overlayTick() {
+			this.walkTick();
 			if (!this.overlay || this.clip == null || this.subject < 0) {
 				return;
 			}
@@ -814,6 +841,28 @@ public class MotionStudio implements FabricClientGameTest {
 				String text = String.format(Locale.ROOT, "%s  t%d/%d  %s", this.clip.getPath(), k, tl.ticks, this.phaseAt(el));
 				Gizmos.billboardText(text, e.position().add(0, this.height() + 0.5, 0), TextGizmo.Style.forColorAndCentered(0xFFFFFFFF).withScale(0.5F))
 					.setAlwaysOnTop();
+			}
+		}
+
+		/** After the entity's own tick (which would ease its walk back to a stop): the walk state the studio wants. */
+		void walkTick() {
+			if (this.walkSpeed <= 0 || this.subject < 0) {
+				return;
+			}
+			net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+			Entity e = mc.level == null ? null : mc.level.getEntity(this.subject);
+			if (!(e instanceof LivingEntity le)) {
+				return;
+			}
+			double target = Double.isNaN(this.walkPos) ? (this.walkLive += this.walkSpeed) : this.walkPos;
+			le.walkAnimation.stop();
+			le.walkAnimation.update(this.walkSpeed, 1, 1);
+			// stop() zeroed the position; one update added walkSpeed: shift to the wanted spot with a second update's maths.
+			le.walkAnimation.update(this.walkSpeed, 1, 1);
+			float now = le.walkAnimation.position();
+			int steps = (int) Math.round((target - now) / this.walkSpeed);
+			for (int i = 0; i < steps && i < 100000; i++) {
+				le.walkAnimation.update(this.walkSpeed, 1, 1);
 			}
 		}
 
@@ -869,6 +918,7 @@ public class MotionStudio implements FabricClientGameTest {
 		split <tick> [cam]              first person beside third person (subject player; a mannequin twin)
 		overlay on|off                  hit (red) and hurt (yellow) volumes, tick, phase and tell above the subject
 		travel on|off                   show root motion by moving the subject along the clip's travel
+		walk <speed> | walk 0           drive the subject's walk cycle (the walk loop plays, vanilla legs swing); gif then films a cycle
 		hud on|off                      hotbar and crosshair in first-person shots
 		pack <name|off>                 switch the Iris shader pack (needs -Piris)
 		reload | report                 re-bake from the sources now (also on every file change) / the last bake report

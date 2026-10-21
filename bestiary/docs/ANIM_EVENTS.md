@@ -32,9 +32,9 @@ All clips are `bestiary:<path>`. Rig `fray:humanoid` unless noted. `W/A/R` = win
 | `player/sword/heavy` | 27 | 12/3/12 | `hyper_armour` 0-14, `chain` 15-26, `dodge_cancel` 18-26, `feint` 0-9 | heavy on release after a 6+ tick hold |
 | `player/sword/charge_hold` | 20, loop `hold` | – | – | held attack past 16 ticks; played until release (server stops it) |
 | `player/sword/charge_release` | 24 | 6/3/15 | `hyper_armour` 0-8 | the charged strike (damage from the hold time, combat side) |
-| `player/sword/plunge` | 16 | 4/3/9 | – | light while falling 1.5+ blocks (D16); ACTIVE lands on the ground contact tick |
+| `player/sword/plunge` | 16 | 4/3/9 | `landing` 4-6 | light while falling 1.5+ blocks (D16); start it so tick 4 is the ground contact |
 | `player/parry` | 14 | – | `parry` 0-4, `whiff` 5-13 | weapon parry (shield parry: `player/shield/parry`, `parry` 0-5, later) |
-| `player/block_raise` | 4 | – | `block` 3- | raises the guard; then `block_hold` |
+| `player/block_raise` | 4, loop `hold` | – | `block` 3 | raises the guard; then `block_hold` |
 | `player/block_hold` | 20, loop | – | `block` all | held guard (upper body only while walking) |
 | `player/block_hit` | 8, additive | – | – | a hit taken on the guard (combat side plays it) |
 | `player/hit_light`, `player/hit_heavy` | 8 / 14, additive | – | – | hit reactions, from the front (directional variants later) |
@@ -53,7 +53,7 @@ Prototype ids that stay as aliases until stage 1 ships: `player/heavy_swing` = `
 | `zombie/claw_left` | 26 | 10/3/13 | white from 3 | – | left claw (mirror) |
 | `zombie/double_claw` | 34 | 9/2, 7/2, 14 | white from 3 | – | W W string (D3): two ACTIVE windows, `hit_start`/`hit_end` per strike |
 | `zombie/lunge_grab` | 36 | 14/4/18 | purple from 2 | `grab` 14-17 | the grab (D4); a caught player is held by the combat side |
-| `zombie/stagger` | 20 | – | – | – | poise broken |
+| `zombie/stagger` | 20 | – | – | `punish` 2-16 | poise broken |
 | `zombie/hit_light` | 8, additive | – | – | – | flinch without interrupting |
 
 ### 1.3 The Gallows Knight (rig `bestiary:gallows_knight`)
@@ -63,7 +63,7 @@ Prototype ids that stay as aliases until stage 1 ships: `player/heavy_swing` = `
 | `gallows_knight/idle` | loop | – | – | BASE layer |
 | `gallows_knight/walk` | loop | – | – | LOCOMOTION layer, synced to the walk cycle |
 | `gallows_knight/chain_sweep` | 44 | 18/4/22 | orange from 4 | the gibbet-chain sweep (120°, BESTIARY.md §8.3); hit volumes `hook` and `chain`; hurt volume `chest` (weak point) while the chain is drawn back |
-| `gallows_knight/stagger` | 30 | – | – | Break/stagger reaction |
+| `gallows_knight/stagger` | 30 | – | – | Break/stagger reaction; `punish` 4-26 |
 
 Phase 2 moves (chain lash, the Hanging, cage tear-off) come after the user signs off the rig.
 
@@ -82,9 +82,12 @@ Phase 2 moves (chain lash, the Hanging, cage tear-off) come after the user signs
 | `volumes`, `hurtVolumes` | capsules per tick (entity-local blocks, +Z forward) |
 
 `MotionServer.running(entity)` gives the running action (`tick(now)` = ticks since its start, the timeline, and for
-players `defenderStart`, below). `MotionServer.play(entity, clip, speed)` / `stop(entity, blendTicks)` start and stop
-clips; `MotionServer.EVENTS` is a test log. Events fire through `MotionEvents.EVENT` (server, per running action and
-tick) so the combat side can react to `tell`, `hit_start`, `window_open` without polling.
+players `defenderStart`, below). `MotionServer.hurtVolumesNow(entity)` gives the weak points exposed right now (world
+capsules), for the weak-point test. `MotionServer.play(entity, clip, speed)` / `stop(entity, blendTicks)` start and stop
+clips; `MotionServer.EVENTS` is a test log. Events fire through `MotionServer.TIMELINE_EVENT` (server, per running
+action and tick) so the combat side can react to `tell`, `hit_start`, `window_open` without polling.
+`MotionServer.setActionGate((player, clip, running) -> boolean)` lets the combat side refuse a player's request
+(stamina, Winded, the item in hand); a refusal acks "refused" and the client's predicted clip blends out in 3 ticks.
 
 ## 3. Hits from timelines
 
@@ -125,7 +128,7 @@ Anti-abuse limits (all server-side, `DefenderTiming`):
 | Future stamps | clamped to the receipt tick |
 | Monotonic | a stamp earlier than the player's previous action's stamp is clamped to it |
 | One window, one hit set | a dodge or parry covers only hits whose tick falls in its own window |
-| RTT measure | Fray's own probe (`fray:clock`, every second while tracked by a creature in combat): the median of the last 5 round trips, so one slow echo can't widen the window |
+| RTT measure | Fray's own probe (`fray:motion/clock`, once a second to every player): the median of the last 5 round trips, so one slow echo can't widen the window. The echo is answered on the client's main thread, so it reads about one tick (50 ms) above the network's round trip |
 | Logged | each rewound outcome is counted per player (`DefenderTiming.stats`) for server owners |
 
 Tests: `DefenderTimingTest` (JUnit, the clock maths at 0/150/250 ms RTT, cheats clamped) and the game test

@@ -102,7 +102,7 @@ public class GallowsKnight extends Monster {
 			}
 			this.knight.getLookControl().setLookAt(t, 30, 30);
 			double d = this.knight.distanceToSqr(t);
-			if (d < 3.4 * 3.4 && this.cooldown <= 0 && this.knight.hasLineOfSight(t)) {
+			if (d < 2.9 * 2.9 && this.cooldown <= 0 && this.knight.hasLineOfSight(t)) {
 				this.knight.getNavigation().stop();
 				// Face the target before the tell starts: the sweep keeps this facing to the end.
 				this.knight.setYRot((float) Math.toDegrees(Math.atan2(t.getZ() - this.knight.getZ(), t.getX() - this.knight.getX())) - 90);
@@ -110,7 +110,7 @@ public class GallowsKnight extends Monster {
 				this.knight.yHeadRot = this.knight.getYRot();
 				MotionServer.play(this.knight, CHAIN_SWEEP, 1);
 				this.cooldown = 60;
-			} else if (d >= 2.6 * 2.6) {
+			} else if (d >= 2.2 * 2.2) {
 				this.knight.getNavigation().moveTo(t, 1.0);
 			} else {
 				this.knight.getNavigation().stop();

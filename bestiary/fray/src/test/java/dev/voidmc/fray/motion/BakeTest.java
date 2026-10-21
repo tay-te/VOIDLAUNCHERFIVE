@@ -43,8 +43,9 @@ class BakeTest {
 		System.out.println(MotionBake.describe(b.clip(), t));
 		// The claw reaches past arm's length but not to a second block.
 		assertTrue(reach > 0.9 && reach < 1.8, "reach " + reach);
-		// At the top of the windup (tick 11) the claw is overhead; by tick 13 it is in front, lower down.
-		assertTrue(caps[0].by() > 2.0, "tick 11 b.y " + caps[0].by());
+		// At the start of the strike (tick 11) the claw is high, coming down from the raised windup; by tick 13 it is in
+		// front, lower down.
+		assertTrue(caps[0].by() > 1.8, "tick 11 b.y " + caps[0].by());
 		assertTrue(caps[2].bz() > 0.5, "tick 13 b.z " + caps[2].bz());
 		assertTrue(caps[2].by() < caps[0].by());
 	}

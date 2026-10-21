@@ -1,0 +1,28 @@
+subject player
+cam fp
+play bestiary:player/sword/light_1
+gif cam=fp name=player_sword_light_1_fp
+play bestiary:player/sword/light_2
+gif cam=fp name=player_sword_light_2_fp
+play bestiary:player/sword/light_3
+gif cam=fp name=player_sword_light_3_fp
+play bestiary:player/sword/heavy
+gif cam=fp name=player_sword_heavy_fp
+play bestiary:player/sword/charge_hold
+gif cam=fp to=20 name=player_sword_charge_hold_fp
+play bestiary:player/sword/charge_release
+gif cam=fp name=player_sword_charge_release_fp
+play bestiary:player/sword/plunge
+gif cam=fp name=player_sword_plunge_fp
+play bestiary:player/parry
+gif cam=fp name=player_parry_fp
+play bestiary:player/block_raise
+gif cam=fp to=6 name=player_block_raise_fp
+play bestiary:player/block_hold
+gif cam=fp to=20 name=player_block_hold_fp
+play bestiary:player/dodge_left
+gif cam=fp name=player_dodge_left_fp
+play bestiary:player/dodge_forward
+gif cam=fp name=player_dodge_forward_fp
+play bestiary:player/backstep
+gif cam=fp name=player_backstep_fp

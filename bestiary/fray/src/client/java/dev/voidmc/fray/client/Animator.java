@@ -129,6 +129,21 @@ public final class Animator {
 		return this.layers[layer].cur.clip;
 	}
 
+	/** Whether any layer (or additive slot) is playing this clip. */
+	public boolean playing(net.minecraft.resources.Identifier id) {
+		for (Layer l : this.layers) {
+			if (l.cur.clip != null && l.cur.clip.id.equals(id)) {
+				return true;
+			}
+		}
+		for (Slot s : this.additive) {
+			if (s.clip != null && s.clip.id.equals(id)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public double start(int layer) {
 		return this.layers[layer].cur.start;
 	}

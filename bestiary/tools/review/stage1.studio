@@ -1,0 +1,73 @@
+subject mannequin
+play bestiary:player/dodge_left
+gif cam=front name=player_dodge_left_PACK
+play bestiary:player/dodge_right
+gif cam=front name=player_dodge_right_PACK
+play bestiary:player/dodge_forward
+gif cam=left name=player_dodge_forward_PACK
+play bestiary:player/backstep
+gif cam=left name=player_backstep_PACK
+play bestiary:player/sword/light_1
+gif cam=3q name=player_sword_light_1_PACK
+play bestiary:player/sword/light_2
+gif cam=3q name=player_sword_light_2_PACK
+play bestiary:player/sword/light_3
+gif cam=3q name=player_sword_light_3_PACK
+play bestiary:player/sword/heavy
+gif cam=front name=player_sword_heavy_PACK
+play bestiary:player/sword/charge_hold
+gif cam=front to=20 name=player_sword_charge_hold_PACK
+play bestiary:player/sword/charge_release
+gif cam=front name=player_sword_charge_release_PACK
+play bestiary:player/sword/plunge
+gif cam=left name=player_sword_plunge_PACK
+play bestiary:player/parry
+gif cam=3q name=player_parry_PACK
+play bestiary:player/block_raise
+gif cam=3q to=6 name=player_block_raise_PACK
+play bestiary:player/block_hold
+gif cam=3q to=20 name=player_block_hold_PACK
+play bestiary:player/block_hit
+gif cam=3q name=player_block_hit_PACK
+play bestiary:player/hit_light
+gif cam=front name=player_hit_light_PACK
+play bestiary:player/hit_heavy
+gif cam=front name=player_hit_heavy_PACK
+play bestiary:player/flinch
+gif cam=front name=player_flinch_PACK
+subject zombie
+play bestiary:zombie/idle
+gif cam=3q step=2 name=zombie_idle_PACK
+play bestiary:zombie/idle_b
+gif cam=3q step=2 name=zombie_idle_b_PACK
+walk 0.4712
+play bestiary:zombie/walk
+gif cam=3q to=20 name=zombie_walk_PACK
+play bestiary:zombie/walk_b
+gif cam=3q to=20 name=zombie_walk_b_PACK
+walk 0
+subject zombie
+play bestiary:zombie/claw
+gif cam=front name=zombie_claw_PACK
+play bestiary:zombie/claw_left
+gif cam=front name=zombie_claw_left_PACK
+play bestiary:zombie/double_claw
+gif cam=front name=zombie_double_claw_PACK
+play bestiary:zombie/lunge_grab
+gif cam=left name=zombie_lunge_grab_PACK
+play bestiary:zombie/stagger
+gif cam=3q name=zombie_stagger_PACK
+play bestiary:zombie/hit_light
+gif cam=front name=zombie_hit_light_PACK
+subject knight
+play bestiary:gallows_knight/idle
+gif cam=3q step=2 name=gallows_knight_idle_PACK
+walk 0.3542
+play bestiary:gallows_knight/walk
+gif cam=3q to=24 name=gallows_knight_walk_PACK
+walk 0
+subject knight
+play bestiary:gallows_knight/chain_sweep
+gif cam=front name=gallows_knight_chain_sweep_PACK
+play bestiary:gallows_knight/stagger
+gif cam=3q name=gallows_knight_stagger_PACK
