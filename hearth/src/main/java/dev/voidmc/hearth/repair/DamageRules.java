@@ -22,6 +22,7 @@ import net.minecraft.world.level.block.VegetationBlock;
 import net.minecraft.world.level.block.VineBlock;
 import net.minecraft.world.level.block.WeatheringCopper;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 
 /**
  * What counts as damage, what a repair may overwrite, and what is litter: pure rules over block states, so they are unit
@@ -52,6 +53,18 @@ public final class DamageRules {
 			|| b instanceof SaplingBlock || b instanceof VineBlock || b instanceof LeavesBlock || b instanceof FarmlandBlock || b instanceof SnowLayerBlock
 			|| b instanceof BaseFireBlock || b instanceof CakeBlock || b instanceof ScaffoldingBlock || expected.is(Blocks.SNOW_BLOCK)
 			|| expected.is(Blocks.ICE) || expected.is(BlockTags.CROPS) || expected.is(Blocks.DIRT_PATH);
+	}
+
+	/**
+	 * Two states of one block that differ only in being open or shut: a door, a trapdoor (a window shutter closed at night,
+	 * docs/LIVING_WORLD_2.md §5.3) or a fence gate. Never damage, never something a repair puts back: {@link #sameBlock}
+	 * compares by kind, so a shutter the crowds closed is the blueprint's block still.
+	 */
+	public static boolean onlyOpenDiffers(BlockState a, BlockState b) {
+		if (a.getBlock() != b.getBlock() || !a.hasProperty(BlockStateProperties.OPEN)) {
+			return false;
+		}
+		return a.setValue(BlockStateProperties.OPEN, b.getValue(BlockStateProperties.OPEN)) == b;
 	}
 
 	/** The same kind of block: states differ by use (an open door, a lit candle), copper by weathering and wax. */
