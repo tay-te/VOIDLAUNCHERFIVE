@@ -38,3 +38,22 @@ existing pages.
   shop buildings as workplaces when it is adopted.
 - **B lanes**: `SettlementCalendar.curfew/dawn` are there for events that keep the town's hours (a trial before curfew,
   the watch at a fire).
+- **standing (`StandingEngine.title/look`)**: the crowd reads a player's title and look every 100 ticks; `title` walks
+  every plot of the town (`owns`) and `look` the inventory. In the tours that is most of the crowds' ~110–160 µs a player
+  a pass (budget 20). A title and look cached per player per town for a few seconds on your side would bring the crowds
+  under budget.
+- **build (tavern archetypes)**: in the rhythm tour's tavern the drinkers found two seats near no table (one sat, the
+  rest stood by the walls); the seat order now goes round the tables, but a tavern needs `SEAT`s by its `TABLE`s.
+
+## Not shown in game
+
+- Market-day wares: the work tour's town (an adopted city) keeps its own day ahead of the world's; with its day moved
+  to a market day the agenda had not set the stalls up within the leg's wait. The callback, the stock choice and the
+  caps are in code and `StallWaresTest`; a market-day shot is still to take.
+- The ford causeway: the roads tour's road has no ford on this seed; `RoadBankTest` covers it.
+
+## Measured (dev client, overloaded; `/hearth sim stats` in the tours)
+
+travel 0.09–0.12 ms a tick avg, `travel bodies` 0.54 ms worst (one body a tick); clamps 0.002 ms avg, 1.9 ms worst;
+rhythm director 0.13–0.16 ms a pass in all (one-offs included); crowds 0.06 ms a tick avg; stall wares 0.36 ms a pass
+(every 100 ticks); schedule overlay 0.4 µs a resident's day (`ScheduleOverlayTest`).

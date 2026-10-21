@@ -70,7 +70,7 @@ public final class CrowdDirector {
 	/** At most this long between full looks at a quiet player (a refreshed reaction holds 60 ticks). */
 	static final int QUIET_TICKS = 40;
 	/** How long a player's title, outlawry and menace are kept between reads (the law's guards act on an outlaw at once). */
-	static final int SEEN_TICKS = 200;
+	static final int SEEN_TICKS = 100;
 
 	/** A thing worth watching. {@code settlement} 0 for any. */
 	record Spectacle(long settlement, ResourceKey<Level> dimension, BlockPos at, String kind, long until, int max) {
@@ -399,7 +399,6 @@ public final class CrowdDirector {
 			Title title = standing == null ? Title.STRANGER : standing.title(s.id(), p.getUUID());
 			boolean outlaw = law != null && law.outlaw(p.getUUID(), s.id());
 			float menace = standing == null ? 0 : standing.menace(p);
-			// (standing reads the whole town for a title and the inventory for a look: every 10 s, not every 5)
 			seen = new Seen(s.id(), title, outlaw, menace, now + SEEN_TICKS);
 			this.seen.put(p.getUUID(), seen);
 		}
@@ -414,10 +413,7 @@ public final class CrowdDirector {
 		}
 		boolean night = minute >= 22 * 60 || minute < 5 * 60;
 		float health = p.getMaxHealth() <= 0 ? 1 : p.getHealth() / p.getMaxHealth();
-		// outlawry is the law's word now (a warrant lookup): the crowd runs the moment it is out
-		LawService lawNow = HearthServices.law();
-		boolean outlawNow = lawNow != null ? lawNow.outlaw(p.getUUID(), s.id()) : seen.outlaw;
-		return new PlayerFacts(drawn, drawnTicks, p.getArmorValue(), Math.max(0, combat), seen.title, outlawNow, seen.menace, p.isShiftKeyDown(), night,
+		return new PlayerFacts(drawn, drawnTicks, p.getArmorValue(), Math.max(0, combat), seen.title, seen.outlaw, seen.menace, p.isShiftKeyDown(), night,
 			health, nearestBody(level, p.blockPosition()) != null);
 	}
 

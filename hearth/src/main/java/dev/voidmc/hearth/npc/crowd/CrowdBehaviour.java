@@ -220,7 +220,12 @@ public final class CrowdBehaviour implements FolkBehaviour {
 				job.stalls = 0;
 			}
 			job.lastPos = here;
-			folk.moveTo(job.goal, folk.resident().age == dev.voidmc.hearth.api.AgeStage.CHILD ? 1.35 : 1.25);
+			double speed = folk.resident().age == dev.voidmc.hearth.api.AgeStage.CHILD ? 1.35 : 1.25;
+			// no path to this way out at all: straight on to the next (a path search is a few at most)
+			while (!folk.moveTo(job.goal, speed) && job.way + 1 < job.ways.size()) {
+				job.goal = job.ways.get(++job.way);
+				job.stalls = 0;
+			}
 			job.repath = 10;
 		}
 		if (folk.arrived()) {
