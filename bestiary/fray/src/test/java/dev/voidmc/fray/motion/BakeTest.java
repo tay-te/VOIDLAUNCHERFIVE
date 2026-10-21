@@ -51,22 +51,20 @@ class BakeTest {
 
 	@Test
 	void everyClipBakesAndHashesAreStable() throws Exception {
-		List<Path> files;
-		try (var walk = Files.walk(MOTION)) {
-			files = walk.filter(p -> p.toString().endsWith(".motion.json")).toList();
-		}
-		assertTrue(files.size() >= 4);
-		for (Path f : files) {
-			String rel = MOTION.resolve("bestiary").relativize(f).toString().replace('\\', '/');
-			String path = rel.substring(0, rel.length() - ".motion.json".length());
-			MotionBake.Baked one = bake(path);
-			MotionBake.Baked two = bake(path);
-			assertEquals(one.clipHash(), two.clipHash(), path);
-			assertEquals(one.timeline().write(), two.timeline().write(), path);
+		Path rigs = Path.of("../src/main/blockbench/rig");
+		MotionBake.Result one = MotionBake.bakeAll(MOTION, rigs, null);
+		MotionBake.Result two = MotionBake.bakeAll(MOTION, rigs, null);
+		assertTrue(one.clips().size() >= 20, "clips: " + one.clips().keySet());
+		assertTrue(one.failures().isEmpty(), "checks the clips ask for: " + one.failures());
+		for (Map.Entry<Identifier, MotionBake.Baked> e : one.clips().entrySet()) {
+			String path = e.getKey().toString();
+			MotionBake.Baked a = e.getValue(), b = two.clips().get(e.getKey());
+			assertEquals(a.clipHash(), b.clipHash(), path);
+			assertEquals(a.timeline().write(), b.timeline().write(), path);
 			// The client clip and the timeline agree on length.
-			assertEquals(one.clip().lengthTicks(), one.timeline().ticks, path);
+			assertEquals(a.clip().lengthTicks(), a.timeline().ticks, path);
 			// The timeline written and read back is the same timeline.
-			assertEquals(one.timeline().write(), Timeline.parse(one.timeline().write()).write(), path);
+			assertEquals(a.timeline().write(), Timeline.parse(a.timeline().write()).write(), path);
 		}
 	}
 
