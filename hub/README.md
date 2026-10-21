@@ -212,13 +212,20 @@ hooked into `hub.js` in four places. Mettle's icons reach the page as data URLs,
 With VOID Hearth installed (hearth/docs/HUB_UI.md, hearth/docs/OVERLAY.md on branch `hearth-ui`) the hub hosts
 Hearth's screens, in Figma section 651:37945's design:
 
-* **Quests** (the pages island): Journal, Notice board, Reputation and Finished as segments; J, a notice board and
-  `/hearth standing` open it on theirs.
+* **Quests** (the pages island): Journal, Notice board, Reputation, Finished, People and Household as segments; J, a
+  notice board and `/hearth standing` open it on theirs. The living-world screens (OVERLAY.md 2026-10-21, Figma
+  "Hearth - Living world screens (explore)" on 295:2): People is the list with story (F4 A: folk of note by town, the
+  selected one's beats, your choice, where it may go, relations, and a waypoint on them), Household is the roster (F2 B:
+  companions and servants, one card with orders, lent gear, wage and their last word), and Reputation adds a burgher's
+  rights and council and each lord's retinue ranks (F5).
 * **Event screens** (`HubEventScreen`, the lighter hub screen: no slots, the VOID mark and an Esc island): a
   conversation (A, the portrait card, or B, the cinematic bar, a per-player toggle), a guard stopping you, a market with
   haggling, a bank or town hall, a dice table, lockpicking and pickpocketing. The minigames' moving parts (dice, lock and
   pick, strain, awareness, the hand ring) are drawn natively by `hearth/HearthFx` over rects the page reports; input is
-  read in the screen's own handlers. Hearth's lockpick screen keeps the game itself, the hub only draws it.
+  read in the screen's own handlers. Hearth's lockpick screen keeps the game itself, the hub only draws it. A stranger on
+  the road gets the conversation's stranger card (F1: a hooded figure, a bandit band's demand in coin; Esc waits while
+  they do), and a companion's gear (F3, the `gear` opener, "Open gear" on Household or "Let me see your gear") is an
+  event screen of its own with no Java fallback. The contest and arrival lines (F6, F7) are Hearth's own HUDs.
 
 `hearth/HearthLink` reaches Hearth's overlay API through method handles (every one optional), `hearth/HearthSync` sends
 its state only when `HearthState.revision()` moved and the text differs (portraits pre-scaled nearest-neighbour), and

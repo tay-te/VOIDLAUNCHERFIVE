@@ -63,7 +63,7 @@ public final class HearthSync {
 	 * Pixel art pre-scaled nearest-neighbour (docs/HUB_UI.md): Ultralight smooths images it enlarges and has no
 	 * {@code image-rendering: pixelated}, so each portrait reaches the page as a big crisp copy it only ever shrinks.
 	 */
-	static String portraits(String json) {
+	public static String portraits(String json) {
 		java.util.regex.Matcher m = PORTRAIT.matcher(json);
 		if (!m.find()) {
 			return json;

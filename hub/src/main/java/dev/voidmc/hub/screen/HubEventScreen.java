@@ -382,10 +382,10 @@ public class HubEventScreen extends Screen {
 		if (event.isEscape()) {
 			if (this.pageModal) {
 				this.sendKey("Escape");  // the popover closes, not the screen
-			} else if (!"confront".equals(this.name)) {
+			} else if (!"confront".equals(this.name) && !this.strangerWaits()) {
 				this.onClose();
 			}
-			return true;  // a guard waits for an answer: Esc does nothing
+			return true;  // a guard, or a band on the road, waits for an answer: Esc does nothing
 		}
 		if (key != null) {
 			this.sendKey(key);
@@ -421,13 +421,39 @@ public class HubEventScreen extends Screen {
 		}
 		// The server ended the event (the folk left earshot, the guard is done, the menu closed): close with it.
 		if (HearthSync.state() != null) {
-			boolean there = HearthSync.section(this.name) != null;
+			boolean there = present(this.name);
 			if (there) {
 				this.seen = true;
 			} else if (this.seen && this.minecraft.gui.screen() == this) {
 				this.onClose();
 			}
 		}
+	}
+
+	/**
+	 * The event's state is there: its section ({@code "talk"}, {@code "dice"}...), or for the gear screen (host-only,
+	 * OVERLAY.md 2026-10-21) the companion it is open for ({@code household.gearFor}).
+	 */
+	static boolean present(String name) {
+		if ("gear".equals(name)) {
+			com.google.gson.JsonObject h = HearthSync.section("household");
+			return h != null && h.has("gearFor") && h.get("gearFor").isJsonPrimitive();
+		}
+		return HearthSync.section(name) != null;
+	}
+
+	/** A bandit on the road (OVERLAY.md {@code talk.stranger}, F1) waits for an answer: Esc does nothing, as with a guard. */
+	private boolean strangerWaits() {
+		if (!"talk".equals(this.name)) {
+			return false;
+		}
+		com.google.gson.JsonObject t = HearthSync.section("talk");
+		if (t == null || !(t.get("stranger") instanceof com.google.gson.JsonObject s)) {
+			return false;
+		}
+		String kind = s.has("kind") && s.get("kind").isJsonPrimitive() ? s.get("kind").getAsString() : "";
+		String state = s.has("state") && s.get("state").isJsonPrimitive() ? s.get("state").getAsString() : "";
+		return "bandit".equals(kind) && ("demand".equals(state) || "wait".equals(state));
 	}
 
 	@Override

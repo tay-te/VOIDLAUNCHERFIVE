@@ -52,7 +52,7 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 	/** VOID Hearth's Quests page: journal, notice board, reputation and finished quests (with Hearth installed). */
 	public static final String QUESTS = "quests";
 
-	/** The Quests page's segment: "journal", "board", "reputation" or "finished" (the page keeps it; Java sets it on open). */
+	/** The Quests page's segment: "journal", "board", "reputation", "finished", "people" or "household" (the page keeps it; Java sets it on open). */
 	private String questSeg = "journal";
 	/** The Quests page was told its screen and segment for this open (or this page switch). */
 	private boolean questsSent;
@@ -292,6 +292,12 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 				if (QUESTS.equals(this.page)) {
 					this.pageModal = ui.modal();
 					this.pageText = ui.text();
+				}
+			}
+			// The Household segment's gear wells (OVERLAY.md 2026-10-21): Minecraft draws the stacks the page names.
+			case Bridge.HearthFx f -> {
+				if (QUESTS.equals(this.page)) {
+					this.pageItems = f.stacks();
 				}
 			}
 			default -> {
@@ -611,6 +617,38 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		}
 	}
 
+	/**
+	 * The Quests page's item wells (a companion's gear on the Household segment): each stack at the whole multiple of 16 px
+	 * that fits its well, centred; the page writes any count (as on Hearth's event screens).
+	 */
+	private void extractQuestItems(GuiGraphicsExtractor graphics) {
+		if (this.pageItems.isEmpty()) {
+			return;
+		}
+		int gs = this.minecraft.getWindow().getGuiScale();
+		double u = this.layout.u;
+		for (Bridge.ItemIcon it : this.pageItems) {
+			net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.tryParse(it.item());
+			if (id == null || it.count() <= 0) {
+				continue;
+			}
+			var item = net.minecraft.core.registries.BuiltInRegistries.ITEM.getOptional(id);
+			if (item.isEmpty()) {
+				continue;
+			}
+			net.minecraft.world.item.ItemStack stack = new net.minecraft.world.item.ItemStack(item.get(), it.count());
+			int icon = HubLayout.fitIcon(Math.min(it.w(), it.h()) * u * 0.61, Math.min(it.w(), it.h()) * u);
+			int px = (int) Math.round((it.x() + it.w() / 2.0) * u - icon / 2.0);
+			int py = (int) Math.round((it.y() + it.h() / 2.0) * u - icon / 2.0);
+			float sc = icon / (16.0F * gs);
+			graphics.pose().pushMatrix();
+			graphics.pose().translate(px / (float) gs, py / (float) gs);
+			graphics.pose().scale(sc, sc);
+			graphics.item(stack, 0, 0);
+			graphics.pose().popMatrix();
+		}
+	}
+
 	/** Tests: the stacks the page last asked to be drawn. */
 	public List<Bridge.ItemIcon> pageItems() {
 		return this.pageItems;
@@ -621,6 +659,8 @@ public class HubInventoryScreen extends HubScreen<InventoryMenu> {
 		this.extractEffects(graphics);
 		if (this.onClasses()) {
 			this.extractPageItems(graphics);
+		} else if (QUESTS.equals(this.page)) {
+			this.extractQuestItems(graphics);
 		}
 		if (this.onClasses() && this.fx.active() && this.hub.texture() != null) {
 			this.fx.extract(graphics, this.layout.u, this.minecraft.getWindow().getGuiScale(), this.hub.texture().width(), this.hub.texture().height());
