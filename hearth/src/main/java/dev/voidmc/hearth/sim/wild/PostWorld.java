@@ -68,8 +68,11 @@ public final class PostWorld {
 	private final it.unimi.dsi.fastutil.longs.LongSet inFlight = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 	private final it.unimi.dsi.fastutil.longs.LongSet regionsDone = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
 	int founded;
-	long foundNanos;
-	long historyNanos;
+	/** Server-thread time: setting a founding off, adopting the worked-out record (and the worst adoption). */
+	long syncNanos;
+	long adoptNanos;
+	long maxAdoptNanos;
+	volatile long historyNanos;
 
 	public PostWorld(Lands lands, Supplier<WildConfig.Wild> config, @Nullable SimWorld world) {
 		this.lands = lands;
@@ -264,55 +267,82 @@ public final class PostWorld {
 		}
 		long t0 = System.nanoTime();
 		long id = w.allocateId();
-		TerrainProbe probe = w.probe();
-		Culture culture = dev.voidmc.hearth.sim.terrain.CultureVote.at(site.x(), site.z(), w.probe()::biomeHolder, HearthServices::culture);
-		String name = PostNames.name(site.type(), culture, PostHistory.random(site));
+		var probe = w.probe();
 		var dimension = w.level().dimension();
 		var rules = w.rules();
 		var blueprints = w.blueprints();
 		this.inFlight.add(site.key());
-		this.foundNanos += System.nanoTime() - t0;
+		this.syncNanos += System.nanoTime() - t0;
+		// the culture's vote (a ring of biome reads), the name and the history are all worked out on the wild worker; the
+		// server thread only adopts the finished record, one post a tick (adopted() from the server tick)
 		CompletableFuture.supplyAsync(() -> {
 			long h0 = System.nanoTime();
+			Culture culture = dev.voidmc.hearth.sim.terrain.CultureVote.at(site.x(), site.z(), probe::biomeHolder, HearthServices::culture);
+			String name = PostNames.name(site.type(), culture, PostHistory.random(site));
 			SimSettlement s = PostHistory.run(site, id, name, culture, dimension, rules, probe, blueprints);
 			this.historyNanos += System.nanoTime() - h0;
 			return s;
-		}, WORKER).whenComplete((s, t) -> w.level().getServer().execute(() -> {
-			this.inFlight.remove(site.key());
-			if (dev.voidmc.hearth.sim.SimServer.world(w.level()) != w) {
-				return;   // the world unloaded meanwhile: found it again next session
-			}
-			if (t != null) {
-				Hearth.LOG.error("hearth wild: the {} at {} could not be worked out", site.type().getSerializedName(), site.center().toShortString(), t);
-				book.skip(site.key());
-				w.markDirty();
-				return;
-			}
-			long a0 = System.nanoTime();
-			try {
-				w.adoptRecord(s);
-				book.found(site.key(), s.id());
-				this.founded++;
-				Hearth.LOG.info("hearth wild: {} ({} {}, {} souls, {} plots, {} days old) at {}", s.name(), s.culture().getSerializedName(),
-					site.type().getSerializedName(), s.population(), s.plots().size(), site.age(), site.center().toShortString());
-			} catch (RuntimeException e) {
-				Hearth.LOG.error("hearth wild: adopting {} failed", s.name(), e);
-				book.skip(site.key());
-			}
-			this.foundNanos += System.nanoTime() - a0;
+		}, WORKER).whenComplete((s, t) -> this.done.add(new Done(site, s, t)));
+		return true;
+	}
+
+	/** A post worked out on the wild worker, waiting to be adopted on the server thread. */
+	private record Done(PostSite site, @Nullable SimSettlement record, @Nullable Throwable error) {
+	}
+
+	private final java.util.concurrent.ConcurrentLinkedQueue<Done> done = new java.util.concurrent.ConcurrentLinkedQueue<>();
+
+	/**
+	 * On the server thread, every tick: adopts at most one worked-out post (a region's two or three founded at once are
+	 * spread over as many ticks rather than run back to back).
+	 */
+	boolean adoptOne() {
+		Done d = this.done.poll();
+		SimWorld w = this.world;
+		if (d == null || w == null) {
+			return false;
+		}
+		PostSite site = d.site();
+		this.inFlight.remove(site.key());
+		if (dev.voidmc.hearth.sim.SimServer.world(w.level()) != w) {
+			this.done.clear();
+			return false;   // the world unloaded meanwhile: found it again next session
+		}
+		PostBook book = w.data(PostBook.KEY);
+		if (d.error() != null || d.record() == null) {
+			Hearth.LOG.error("hearth wild: the {} at {} could not be worked out", site.type().getSerializedName(), site.center().toShortString(), d.error());
+			book.skip(site.key());
 			w.markDirty();
-		}));
+			return true;
+		}
+		SimSettlement s = d.record();
+		long a0 = System.nanoTime();
+		try {
+			w.adoptRecord(s);
+			book.found(site.key(), s.id());
+			this.founded++;
+			Hearth.LOG.info("hearth wild: {} ({} {}, {} souls, {} plots, {} days old) at {}", s.name(), s.culture().getSerializedName(),
+				site.type().getSerializedName(), s.population(), s.plots().size(), site.age(), site.center().toShortString());
+		} catch (RuntimeException e) {
+			Hearth.LOG.error("hearth wild: adopting {} failed", s.name(), e);
+			book.skip(site.key());
+		}
+		long dt = System.nanoTime() - a0;
+		this.adoptNanos += dt;
+		this.maxAdoptNanos = Math.max(this.maxAdoptNanos, dt);
+		w.markDirty();
 		return true;
 	}
 
 	/** For {@code /hearth wild stats}. */
 	public String describe() {
 		long n = this.regionsComputed.sum();
+		int f = this.founded;
 		return String.format(java.util.Locale.ROOT, "%d regions sited (%.1f ms avg, %.1f ms worst), %d cached; %d posts founded this session "
-				+ "(%.2f ms avg on the server thread, %.1f ms history off it), %d being worked out",
-			n, n == 0 ? 0 : this.regionNanos.sum() / 1e6 / n, this.maxRegionNanos / 1e6, this.regions.size(), this.founded,
-			this.founded == 0 ? 0 : this.foundNanos / 1e6 / this.founded, this.founded == 0 ? 0 : this.historyNanos / 1e6 / this.founded,
-			this.inFlight.size());
+				+ "(on the server thread %.2f ms avg: setting off %.2f, adopting %.2f, worst adoption %.2f; %.1f ms history off it), %d being worked out",
+			n, n == 0 ? 0 : this.regionNanos.sum() / 1e6 / n, this.maxRegionNanos / 1e6, this.regions.size(), f,
+			f == 0 ? 0 : (this.syncNanos + this.adoptNanos) / 1e6 / f, f == 0 ? 0 : this.syncNanos / 1e6 / f, f == 0 ? 0 : this.adoptNanos / 1e6 / f,
+			this.maxAdoptNanos / 1e6, f == 0 ? 0 : this.historyNanos / 1e6 / f, this.inFlight.size());
 	}
 
 	// ---------------------------------------------------------------- the live world's land
