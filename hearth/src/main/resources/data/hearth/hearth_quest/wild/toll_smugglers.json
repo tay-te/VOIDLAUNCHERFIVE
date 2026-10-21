@@ -1,0 +1,62 @@
+{
+	"type": "bounty",
+	"weight": 8,
+	"when": {
+		"trigger": "none",
+		"min_tier": "camp",
+		"requires": [
+			"job:tollkeeper"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"tollkeeper",
+			"guard"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "slay",
+			"entities": [
+				"minecraft:pillager"
+			],
+			"names": [
+				"Ferryman Jost",
+				"the Ford Cutter",
+				"Wet-Boots Ondřej"
+			],
+			"distance": [
+				80,
+				200
+			],
+			"health": 2.0
+		}
+	],
+	"text": {
+		"title": [
+			"The ford cutter: {name}",
+			"Cheating the lord's toll"
+		],
+		"summary": [
+			"A smuggler runs carts across a ford {direction} of the toll at {settlement}, {distance} off, and robs those who will not pay him instead: {name}. Put an end to it."
+		],
+		"offer": [
+			"Every cart that goes round by the ford is the lord's coin in a thief's purse, and now he robs the ones who won't pay him. {name}, they call him. {distance} {direction} of here. Deal with him and I'll see the lord hears your name."
+		],
+		"progress": [
+			"Three carts went by the ford this morning. Three!"
+		],
+		"complete": [
+			"Good riddance. The carts will come back to the bridge now, and pay like honest folk."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			110
+		],
+		"reputation": 8
+	},
+	"deadline_days": 5,
+	"cooldown_days": 6
+}

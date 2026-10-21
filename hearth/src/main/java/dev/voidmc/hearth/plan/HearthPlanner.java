@@ -57,6 +57,10 @@ public final class HearthPlanner implements SettlementPlanner {
 
 	@Override
 	public List<PlotSpec> found(FoundingContext fc) {
+		if (fc.settlement().kind() == dev.voidmc.hearth.api.SettlementKind.POST) {
+			// a post in the wild: its type's fixed programme (docs/LIVING_WORLD_2.md §7.2)
+			return dev.voidmc.hearth.plan.wild.PostPlanner.found(fc);
+		}
 		Settlement s = fc.settlement();
 		PlanState state = s.data(this.key);
 		resetForFounding(state);
@@ -92,6 +96,10 @@ public final class HearthPlanner implements SettlementPlanner {
 
 	@Override
 	public @Nullable GrowthProject next(Settlement settlement, TerrainProbe terrain, RandomSource random) {
+		if (settlement.kind() == dev.voidmc.hearth.api.SettlementKind.POST) {
+			// a post never grows past its programme: it only rebuilds (docs/LIVING_WORLD_2.md §7.2)
+			return dev.voidmc.hearth.plan.wild.PostPlanner.next(settlement, terrain, random);
+		}
 		PlanStats.start();
 		PlanState state = settlement.data(this.key);
 		state.calls++;
@@ -164,12 +172,18 @@ public final class HearthPlanner implements SettlementPlanner {
 	/** Where roads out of the settlement end: the open ends of its roads, its highway arms first (docs/LIVING_WORLD_2.md §1.2). */
 	@Override
 	public List<net.minecraft.core.BlockPos> exits(Settlement settlement) {
+		if (settlement.kind() == dev.voidmc.hearth.api.SettlementKind.POST) {
+			return dev.voidmc.hearth.plan.wild.PostPlanner.exits(settlement);
+		}
 		return dev.voidmc.hearth.plan.road.Exits.of(settlement);
 	}
 
 	/** Whether the last call answered nothing only because it ran out of time: the clock asks again at its next step. */
 	@Override
 	public boolean ranOutOfTime(Settlement settlement) {
+		if (settlement.kind() == dev.voidmc.hearth.api.SettlementKind.POST) {
+			return false;
+		}
 		return settlement.data(this.key).outOfTime;
 	}
 

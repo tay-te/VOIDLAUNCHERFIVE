@@ -584,6 +584,40 @@ public final class SimWorld implements HearthWorld, SimContext {
 		return s;
 	}
 
+	/** A live settlement id, unique on the server (lane B3: a post's id is fixed before its history is worked out). */
+	public long allocateId() {
+		return this.ids.allocateId();
+	}
+
+	/**
+	 * Makes a settlement whose history was worked out off the server thread live (a post in the wild, docs/LIVING_WORLD_2.md
+	 * §7.2): as {@link #adopt} does for a region's town, without the region (its town is adopted on its own), so its plain
+	 * people are replaced by the resident factory's, it is registered and {@code FOUNDED}, its days since day 0 are caught
+	 * up as ordinary simulation and its plots are written as their chunks load. The record must be bound to nothing live.
+	 */
+	public SimSettlement adoptRecord(SimSettlement s) {
+		SimSettlement existing = this.settlements.get(s.id());
+		if (existing != null) {
+			return existing;
+		}
+		this.ids.reserveId(s.id());
+		s.bind(this);
+		this.quiet = true;
+		try {
+			repopulate(s);
+		} finally {
+			this.quiet = false;
+		}
+		s.markDirty();
+		register(s, true);
+		this.server.stats().adoptions.increment();
+		fireFounded(s);
+		for (SimPlot p : s.plots()) {
+			this.applier.enqueuePlot(p);
+		}
+		return s;
+	}
+
 	/** Replaces the history's plain people with the resident factory's, keeping who they are to each other. */
 	private void repopulate(SimSettlement s) {
 		List<Resident> old = s.residentList();
@@ -914,7 +948,8 @@ public final class SimWorld implements HearthWorld, SimContext {
 
 	@Override
 	public void trade(SimSettlement s, long day) {
-		if (this.settlements.get(s.id()) == s) {
+		// a post hosts caravans but sends none (docs/LIVING_WORLD_2.md §7.2)
+		if (this.settlements.get(s.id()) == s && s.kind() != dev.voidmc.hearth.api.SettlementKind.POST) {
 			this.caravans.consider(s, day);
 		}
 	}

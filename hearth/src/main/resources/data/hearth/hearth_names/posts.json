@@ -1,0 +1,17 @@
+{
+  "_comment": "Names of posts in the wild (docs/LIVING_WORLD_2.md §7.7). {town} is a place name in the post's culture, {saint} a saint, {beast}, {tree} and {colour} words from the lists below. Read from the mod's own resources (sim/wild/PostNames).",
+  "saint": ["Prokop", "Wenceslas", "Ludmila", "Vitus", "Giles", "Bernard", "Gall", "Florian", "Leonard", "Martin", "Agnes", "Hedwig", "Christopher", "Roch", "Adalbert", "Benedict"],
+  "beast": ["Stag", "Boar", "Bear", "Wolf", "Hare", "Raven", "Heron", "Ox", "Goose", "Lynx", "Fox", "Ram"],
+  "tree": ["Pine", "Oak", "Linden", "Ash", "Alder", "Yew", "Elm", "Birch", "Thorn", "Willow"],
+  "colour": ["Red", "Black", "White", "Green", "Golden", "Grey"],
+  "hospice": ["The Saddle Hospice", "St. {saint}'s on the Pass", "The Hospice of St. {saint}", "The Refuge under {town}", "The Brothers' House on the Saddle", "St. {saint}'s Refuge", "The Pass House"],
+  "inn": ["The Crooked {tree}", "The {colour} {beast}", "The {beast} and {tree}", "The Halfway House", "The Wayside {beast}", "The Old {tree}", "The {colour} Lantern", "The Drover's Rest", "The Waggoner"],
+  "toll_gate": ["Tollbridge", "{town} Toll", "The {colour} Gate", "The Bridge Toll", "The King's Toll at {town}", "Barrier House"],
+  "hermitage": ["The Hermit's Cell", "St. {saint}'s Cell", "The Hermitage under the {tree}", "The Anchorite's Rock", "The Cell at {town}"],
+  "hunters_camp": ["The {beast} Camp", "Hunters' Lodge at {town}", "The {colour} {beast} Lodge", "The Huntsmen's Camp", "The Trappers' Clearing"],
+  "caravan_stop": ["The Caravan Yard at {town}", "The Crossroads Yard", "The Drovers' Stop", "The Long Road Yard", "The {colour} Yard"],
+  "monastery": ["St. {saint}'s on the Crag", "The Abbey of St. {saint}", "St. {saint}'s on the Height", "The Brothers of {town}", "The Monastery of the Heights"],
+  "nomad_camp": ["The Camp of the {beast}", "The {colour} Tents", "{town} Camp", "The Herders' Camp", "The Riders of the {beast}"],
+  "harbour": ["{town} Harbour", "The Fishers' Haven", "{town} Staithe", "The {colour} Haven", "The Net Shore"],
+  "farmstead": ["{town} Farm", "The Shepherd's Steading", "The {beast} Fold", "High {town}", "The Hill Farm at {town}", "The Upland Steading"]
+}

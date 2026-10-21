@@ -1,0 +1,67 @@
+{
+	"type": "gathering",
+	"weight": 10,
+	"when": {
+		"trigger": "none",
+		"min_tier": "camp",
+		"requires": [
+			"job:hermit"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"hermit"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:cornflower",
+				"minecraft:lily_of_the_valley",
+				"minecraft:sweet_berries",
+				"minecraft:brown_mushroom"
+			],
+			"count": [
+				6,
+				12
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Herbs for the hermit",
+			"What the woods give"
+		],
+		"summary": [
+			"The hermit of {settlement} makes salves for whoever comes to him hurt. He is old and the woods are wide: bring him {count} × {item}."
+		],
+		"offer": [
+			"My knees will not carry me into the deep wood any more, and the salves will not make themselves. {count} × {item}, if you would. I will pay in what I have."
+		],
+		"progress": [
+			"The pot is empty, and someone always comes."
+		],
+		"complete": [
+			"Good. These will heal a good many hurts. Take this, it will heal yours."
+		]
+	},
+	"reward": {
+		"coin": [
+			10,
+			25
+		],
+		"items": [
+			{
+				"item": "minecraft:golden_carrot",
+				"count": [
+					2,
+					4
+				]
+			}
+		],
+		"reputation": 6
+	},
+	"deadline_days": 6,
+	"cooldown_days": 5
+}
