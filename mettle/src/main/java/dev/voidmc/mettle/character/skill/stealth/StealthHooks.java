@@ -237,14 +237,25 @@ public final class StealthHooks {
 		}
 	}
 
-	/** A mob died: a sneak attack's kill bonus, and Never Seen's tally for a kill it never noticed (without Hearth). */
+	/**
+	 * A mob died (AFTER_DAMAGE doesn't fire for a killing blow): a sneak kill's XP (the health it had left) and kill bonus,
+	 * Swift Exit, and Never Seen's tally for a kill it never noticed (without Hearth).
+	 */
 	public static void died(LivingEntity killed, DamageSource source) {
 		Pending p = PENDING.remove(killed);
+		if (source.getEntity() instanceof ServerPlayer hitter && hitter != killed) {
+			Sneaking.attacked(hitter);
+		}
 		if (p == null || !p.sneak() || p.tick() != killed.level().getGameTime() || !(source.getEntity() instanceof ServerPlayer killer)
 			|| !p.attacker().equals(killer.getUUID())) {
 			return;
 		}
-		StealthSkill.award(killer, "attack", StealthRules.killBonus(killed.getMaxHealth()) * Combat.targetFactor(killed));
+		double xp = StealthRules.sneakAttackXp(p.healthBefore(), p.healthBefore()) + StealthRules.killBonus(killed.getMaxHealth());
+		StealthSkill.award(killer, "attack", xp * Combat.targetFactor(killed));
+		double exit = pct(killer, "stealth/swift_exit");
+		if (exit > 0) {
+			swiftExit(killer, exit, killed.level().getGameTime());
+		}
 		if (!HearthLink.hearth() && killed instanceof Enemy && !killer.isCreative()) {
 			FeatCounters.add(killer, StealthSkill.NEVER_SEEN_COUNTER, StealthRules.NEVER_SEEN_KILL);
 		}

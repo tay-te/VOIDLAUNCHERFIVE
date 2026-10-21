@@ -69,6 +69,20 @@ final class StealthJourney {
 			CardStore.get(p).cards().forEach(c -> ids.add(c.id()));
 			return ids;
 		});
+		// The decks earlier journeys left slotted go to the binder for this journey (their sets would colour its numbers) and back after.
+		Map<Long, CardData.Place> slotted = on(server, p -> {
+			Map<Long, CardData.Place> places = new HashMap<>();
+			CardStore.get(p).slotted().forEach(card -> places.put(card.id(), card.place()));
+			Cards.unslotAll(p);
+			return places;
+		});
+		// Perks earlier journeys left (Whirlwind spins on a sneaking swing) likewise, back after.
+		Map<ResourceKey<Perk>, Integer> perksBefore = on(server, p -> {
+			Map<ResourceKey<Perk>, Integer> perks = new HashMap<>(CharacterStore.get(p).perks());
+			CharacterStore.set(p, CharacterStore.get(p).withPerks(Map.of()));
+			EffectsApplier.apply(p);
+			return perks;
+		});
 		server.runCommand("mettle background set mettle:ranger @a");
 		server.runCommand("effect clear @a");
 		server.runCommand("gamerule spawn_mobs false");
@@ -104,6 +118,9 @@ final class StealthJourney {
 						Cards.ledger(p.level().getServer()).update(c.id(), x -> x.withPlace(CardData.Place.RELEASED));
 					}
 				}
+				CharacterStore.set(p, CharacterStore.get(p).withPerks(perksBefore));
+				EffectsApplier.apply(p);
+				slotted.forEach((id, place) -> Cards.ledger(p.level().getServer()).update(id, x -> x.withPlace(place)));
 				Cards.sync(p);
 				for (int i = 0; i < inventory.size(); i++) {
 					p.getInventory().setItem(i, inventory.get(i));
@@ -189,6 +206,11 @@ final class StealthJourney {
 
 	private static void sneakAttack(ClientGameTestContext context, TestServerContext server, double[] c) {
 		grant(server, StealthSkill.AMBUSHER);
+		// A first swing with the sword spends what a weapon switch may hold (Weapon Master, a synergy earlier skills earned).
+		summon(server, "zombified_piglin", c[0] + 1.5, c[2], "warm");
+		context.waitTicks(25);
+		hit(server, "warm");
+		server.runCommand("kill @e[tag=" + TAG + "]");
 		// One fresh piglin at a time: a hurt one would rouse the other, and a roused mob is no one's sneak attack.
 		summon(server, "zombified_piglin", c[0] + 1.5, c[2], "sneak");
 		context.getInput().holdKey(o -> o.keyShift);
@@ -207,9 +229,37 @@ final class StealthJourney {
 		summon(server, "zombified_piglin", c[0] + 1.5, c[2], "plain");
 		context.waitTicks(25);
 		float plain = hit(server, "plain");
+		String state = on(server, p -> "active " + CardStore.get(p).active() + ", tiers " + CardStore.get(p).tiers() + ", traits " + CardStore.get(p).traits()
+			+ ", perks " + CharacterStore.get(p).perks() + ", background " + CharacterStore.get(p).background() + ", attack "
+			+ p.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) + ", effects " + p.getActiveEffects());
 		check(plain > 0 && Math.abs(sneak - plain * (1 + StealthRules.AMBUSHER)) < 0.05 ? null
-			: "a sneak attack with Ambusher took " + sneak + " health, a plain hit " + plain + " (expected 30 % more)");
+			: "a sneak attack with Ambusher took " + sneak + " health, a plain hit " + plain + " (expected 30 % more); " + state);
 		server.runCommand("kill @e[tag=" + TAG + "]");
+
+		// A sneak kill: the health it had left, and a quarter of its max health.
+		summon(server, "zombified_piglin", c[0] + 1.5, c[2], "kill");
+		check(on(server, p -> {
+			mob(p, "kill").setHealth(2);
+			return null;
+		}));
+		context.getInput().holdKey(o -> o.keyShift);
+		context.waitTicks(25);
+		double beforeKill = xp(server);
+		check(on(server, p -> {
+			Mob m = mob(p, "kill");
+			float max = m.getMaxHealth();
+			p.attack(m);
+			if (m.isAlive()) {
+				return "the sneak kill didn't kill";
+			}
+			double gained = CharacterStore.get(p).xp(StealthSkill.STEALTH) - beforeKill;
+			double want = (2 + StealthRules.killBonus(max)) * multiplier(p);
+			return Math.abs(gained - want) < 0.05 ? null : "a sneak kill gave " + gained + " Stealth XP, expected " + want;
+		}));
+		context.getInput().releaseKey(o -> o.keyShift);
+		context.waitTicks(3);
+		server.runCommand("kill @e[tag=" + TAG + "]");
+		server.runCommand("kill @e[type=item]");
 	}
 
 	/** Hits a tagged mob as the player (a full swing) and returns the health it lost. */
@@ -271,7 +321,9 @@ final class StealthJourney {
 				return "Ghost: hearth:stealth/unseen_beyond reads " + StealthSkill.bonus(p, HearthKeys.STEALTH_UNSEEN_BEYOND) + ", expected 4";
 			}
 			int level0 = CharacterStore.get(p).level(StealthSkill.STEALTH);
-			int want = HearthLink.bonus() ? level0 : Math.min(20, level0 + StealthRules.FALLBACK_GHOST);
+			// The card kept from the draft may be Shadow (Stealth counts its rank higher too).
+			int shadow = Perks.rank(p, StealthSkill.SHADOW);
+			int want = Math.min(20, level0 + shadow + (HearthLink.bonus() ? 0 : StealthRules.FALLBACK_GHOST));
 			return StealthSkill.effectiveLevel(p) == want ? null
 				: "Ghost: the effective Stealth is " + StealthSkill.effectiveLevel(p) + ", expected " + want + " (bonus keys read: " + HearthLink.bonus() + ")";
 		}));
