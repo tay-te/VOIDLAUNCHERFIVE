@@ -212,6 +212,23 @@ public class RhythmTour implements FabricClientGameTest {
 					}
 				}
 				log("night guards on duty: " + watch.size() + " of " + guards + " guards and jailers");
+				if (watch.isEmpty()) {
+					// none tonight (the sim's job pass may have taken back the guard named at the start): one of the town's men
+					// takes the night duty, embodied afresh so his day is a watchman's
+					for (dev.voidmc.hearth.api.Resident r : s.residents()) {
+						long seed = r.id.getMostSignificantBits() ^ r.id.getLeastSignificantBits();
+						if (r.age == AgeStage.ADULT && Math.floorMod(seed >> 12, 3) == 0 && (r.job == JobType.FARMER || r.job == JobType.NONE)) {
+							r.job = JobType.GUARD;
+							Folk old = NpcModule.embodiment().entityOf(r.id);
+							if (old != null) {
+								NpcModule.embodiment().fold(server.overworld(), old, true);
+							}
+							watch.add(r.id);
+							log("appointed " + r.fullName() + " to the night watch");
+							break;
+						}
+					}
+				}
 				gather(server, town, watch, 3);
 			});
 			settle(context, 25_000);

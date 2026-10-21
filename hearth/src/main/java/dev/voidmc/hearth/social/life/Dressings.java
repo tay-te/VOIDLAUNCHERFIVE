@@ -86,7 +86,7 @@ public final class Dressings {
 			// the plots round this one (a part may not stand in them): a short list, not the whole town
 			List<PlotView> round = near(s, centre(home), Math.max(spec.sizeX(), spec.sizeZ()) + 12, 16);
 			int tries = 0;
-			for (int k = 0; k < 24 && tries < 24; k++, tries++) {
+			for (int k = 0; k < 32 && tries < 32; k++, tries++) {
 				long h = TownCalendar.mix(seed + k);
 				Direction along = (h & 1) == 0 ? Direction.EAST : Direction.SOUTH;
 				int span = 3;
@@ -115,7 +115,7 @@ public final class Dressings {
 					LAUNDRY_MISSES.merge("in another plot", 1, Integer::sum);
 					continue;
 				}
-				if (!clear(level, parts, taken, doors, Venues.square(s), ground)) {
+				if (!clear(level, parts, taken, doors, Venues.square(s), ground, true)) {
 					LAUNDRY_MISSES.merge("not clear", 1, Integer::sum);
 					continue;
 				}
@@ -124,7 +124,9 @@ public final class Dressings {
 				for (int i = 0; i <= span; i++) {
 					BlockPos under = ground.relative(along, i);
 					BlockState soil = level.getBlockState(under.below());
-					if (i > 0 && i < span && !level.getBlockState(under).isAir() || !soil.is(net.minecraft.tags.BlockTags.DIRT) && !soil.is(Blocks.SAND)) {
+					BlockState cell = level.getBlockState(under);
+					boolean open = cell.isAir() || cell.is(Blocks.SNOW) || cell.is(Blocks.SHORT_GRASS) || cell.is(Blocks.FERN);
+					if (!open || !soil.is(net.minecraft.tags.BlockTags.DIRT) && !soil.is(Blocks.SAND)) {
 						level0 = false;
 						break;
 					}
@@ -465,10 +467,22 @@ public final class Dressings {
 
 	/** Every cell of the parts is air with nothing standing in it, the ground under each column is sturdy and level. */
 	private static boolean clear(ServerLevel level, List<Part> parts, Set<Long> taken, List<BlockPos> doors, BlockPos anchor, BlockPos ground) {
+		return clear(level, parts, taken, doors, anchor, ground, false);
+	}
+
+	/**
+	 * As above; {@code soft}: a yard's thin snow and short grass at the foot of a post may give way to it (laundry; gone
+	 * with the post when it comes down, as trodden snow and grass would be).
+	 */
+	private static boolean clear(ServerLevel level, List<Part> parts, Set<Long> taken, List<BlockPos> doors, BlockPos anchor, BlockPos ground, boolean soft) {
 		int y = ground.getY();
 		for (Part p : parts) {
 			BlockPos pos = p.pos;
-			if (!level.isLoaded(pos) || taken.contains(pos.asLong()) || !level.getBlockState(pos).isAir()) {
+			if (!level.isLoaded(pos) || taken.contains(pos.asLong())) {
+				return false;
+			}
+			BlockState here = level.getBlockState(pos);
+			if (!here.isAir() && !(soft && pos.getY() == y && (here.is(Blocks.SNOW) || here.is(Blocks.SHORT_GRASS) || here.is(Blocks.FERN)))) {
 				return false;
 			}
 			if (Math.abs(pos.getX() - anchor.getX()) <= 2 && Math.abs(pos.getZ() - anchor.getZ()) <= 2) {
