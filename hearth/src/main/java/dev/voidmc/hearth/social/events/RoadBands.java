@@ -45,7 +45,8 @@ final class RoadBands {
 				if (way == null) {
 					continue;
 				}
-				out.add(new RaidRules.BandView(b.id(), b.strength(), b.morale(), way.a(), way.b(), b.along(), way.length()));
+				out.add(new RaidRules.BandView(b.id(), b.strength(), b.morale(), way.a(), way.b(), b.along(), way.length(), b.camp().getX(),
+					b.camp().getZ()));
 			}
 		} catch (RuntimeException | LinkageError e) {
 			Hearth.LOG.debug("events: the roads' bands could not be read", e);

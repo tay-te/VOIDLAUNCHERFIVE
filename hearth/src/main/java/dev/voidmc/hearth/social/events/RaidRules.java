@@ -18,7 +18,10 @@ public final class RaidRules {
 	/**
 	 * A band on its road: the road's two ends (settlement ids), its length, and how far along from {@code a} it lies.
 	 */
-	public record BandView(long id, int strength, double morale, long a, long b, double along, double length) {
+	public record BandView(long id, int strength, double morale, long a, long b, double along, double length, int x, int z) {
+		public BandView(long id, int strength, double morale, long a, long b, double along, double length) {
+			this(id, strength, morale, a, b, along, length, 0, 0);
+		}
 	}
 
 	/** The guards count twice, a wall four more, a keep six (§3.2). */

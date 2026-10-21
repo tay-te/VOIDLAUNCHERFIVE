@@ -155,16 +155,14 @@ public final class EventDirector {
 			}
 		}
 		// the fair's eve: pedlars set out from the towns round about (the roads' journeys, lane A1)
-		if (TownCalendar.isFairDay(s.id(), day + 1, s.culture(), s.foundedDay(), s.tier(), cfg.festivals())
-			&& !TownCalendar.isFairDay(s.id(), day, s.culture(), s.foundedDay(), s.tier(), cfg.festivals()) && rule(EventKind.FAIR, facts)) {
+		if (FactsReader.fairDay(s, day + 1) && !facts.fairDay() && rule(EventKind.FAIR, facts)) {
 			fairGoers(w, s);
 		}
 		// the fair and the tournament are cried three days ahead
-		if (TownCalendar.isFairDay(s.id(), day + 3, s.culture(), s.foundedDay(), s.tier(), cfg.festivals())
-			&& !TownCalendar.isFairDay(s.id(), day + 2, s.culture(), s.foundedDay(), s.tier(), cfg.festivals()) && rule(EventKind.FAIR, facts)) {
+		if (FactsReader.fairDay(s, day + 3) && !FactsReader.fairDay(s, day + 2) && rule(EventKind.FAIR, facts)) {
 			EventEffects.post(w, s, "fair", day + 3, "hearth.events.notice.fair_coming", List.of());
 		}
-		if (TownCalendar.isTourneyDay(s.id(), day + 3, s.culture(), s.foundedDay(), s.tier(), cfg.festivals()) && facts.lord() && facts.has("tilt_yard")) {
+		if (FactsReader.tourneyDay(s, day + 3) && facts.lord() && facts.has("tilt_yard")) {
 			EventEffects.post(w, s, "tournament", day + 3, "hearth.events.notice.tournament_coming", List.of());
 		}
 		s.markDirty();

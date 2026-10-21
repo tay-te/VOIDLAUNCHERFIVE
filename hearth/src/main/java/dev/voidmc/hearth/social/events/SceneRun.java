@@ -35,6 +35,11 @@ public final class SceneRun {
 	/** Free for the director (scores, the order of bouts). */
 	final Map<String, Object> state = new HashMap<>();
 	int minute = -1;
+	/** Dressings the timeline asked for, put up one a pass (a fair's stalls are a heavy pass of their own). */
+	final java.util.ArrayDeque<Object[]> dressQueue = new java.util.ArrayDeque<>();
+	/** Members of the scene's own parts (the couple, the dead's kin) still to be brought out, one a pass. */
+	final java.util.ArrayDeque<UUID> toEmbody = new java.util.ArrayDeque<>();
+	int embodied;
 	final long startedAt;
 	boolean ended;
 

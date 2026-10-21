@@ -42,6 +42,8 @@ public final class FactsReader {
 	}
 
 	static void clear() {
+		ROAD.clear();
+		YEAR_DAYS.clear();
 		PLACES.clear();
 		DEFENCE.clear();
 		SEATS.clear();
@@ -75,8 +77,8 @@ public final class FactsReader {
 		boolean rest = cal.restDay(s, day);
 		// the lord holds court on any day without a market or a feast (as the agenda has it); a judge or reeve once a week
 		boolean court = lord ? !market && !festival : judge && TownCalendar.weekday(s.id(), day, cfg.market().weekDays()) == 2 && !festival;
-		boolean fair = TownCalendar.isFairDay(s.id(), day, s.culture(), s.foundedDay(), s.tier(), cfg.festivals());
-		boolean tourney = TownCalendar.isTourneyDay(s.id(), day, s.culture(), s.foundedDay(), s.tier(), cfg.festivals());
+		boolean fair = fairDay(s, day);
+		boolean tourney = tourneyDay(s, day);
 		Set<String> places = places(s);
 		int[] def = DEFENCE.computeIfAbsent(s.id(), k -> defenceWorks(s));
 		int defence = RaidRules.defence(guards, def[0] > 0, def[1] > 0);
@@ -208,6 +210,47 @@ public final class FactsReader {
 	// ---------------------------------------------------------------- bands
 
 	private static final Map<String, Object[]> BANDS = new HashMap<>();
+	/** Road distances asked today, by the pair (the router's search is not free). */
+	private static final Map<Long, Double> ROAD = new HashMap<>();
+	private static long roadDay = Long.MIN_VALUE;
+
+	static double road(HearthWorld w, RoadNetwork roads, long a, long b, long day) {
+		if (day != roadDay || ROAD.size() > 4096) {
+			ROAD.clear();
+			roadDay = day;
+		}
+		long key = Math.min(a, b) * 0x9E3779B97F4A7C15L ^ Math.max(a, b);
+		Double d = ROAD.get(key);
+		if (d == null) {
+			d = roads.roadDistance(a, b);
+			ROAD.put(key, d);
+		}
+		return d;
+	}
+
+	/** A town's fair and tournament days of the year, worked out once (they never move). */
+	private static final Map<Long, int[]> YEAR_DAYS = new HashMap<>();
+
+	static boolean fairDay(Settlement s, long day) {
+		int[] d = yearDays(s);
+		int year = Math.max(8, SocialModule.config().festivals().yearDays());
+		int at = (int) Math.floorMod(day, (long) year);
+		return at == d[0] || at == Math.floorMod(d[0] + 1, year);
+	}
+
+	static boolean tourneyDay(Settlement s, long day) {
+		int year = Math.max(8, SocialModule.config().festivals().yearDays());
+		return (int) Math.floorMod(day, (long) year) == yearDays(s)[1];
+	}
+
+	private static int[] yearDays(Settlement s) {
+		long key = s.id() * 8 + s.tier().ordinal();
+		return YEAR_DAYS.computeIfAbsent(key, k -> {
+			var cfg = SocialModule.config().festivals();
+			return new int[]{TownCalendar.fairYearDay(s.id(), s.culture(), s.foundedDay(), s.tier(), cfg),
+				TownCalendar.tourneyYearDay(s.id(), s.culture(), s.foundedDay(), s.tier(), cfg)};
+		});
+	}
 
 	/** The boldest band within reach of the town, stronger than its defence, or null. */
 	static RaidRules.@Nullable BandView threat(HearthWorld w, Settlement s, int defence, long day) {
@@ -217,15 +260,20 @@ public final class FactsReader {
 		}
 		RoadNetwork roads = w.roads();
 		List<RaidRules.BandView> near = new ArrayList<>();
+		double edge = Math.max(32, s.territoryRadius() / 2.0);
+		// a road is never shorter than the crow's flight (the camp is off the road by a little): far bands are not asked about
+		double reach = RaidRules.REACH + edge + 200;
 		for (RaidRules.BandView b : bands) {
-			if (b.strength() > defence) {
+			double dx = b.x() - s.center().getX();
+			double dz = b.z() - s.center().getZ();
+			if (b.strength() > defence && dx * dx + dz * dz <= reach * reach) {
 				near.add(b);
 			}
 		}
 		if (near.isEmpty()) {
 			return null;
 		}
-		return RaidRules.threat(s.id(), Math.max(32, s.territoryRadius() / 2.0), defence, near, roads::roadDistance);
+		return RaidRules.threat(s.id(), edge, defence, near, (a, c) -> road(w, roads, a, c, day));
 	}
 
 	static List<RaidRules.BandView> bands(HearthWorld w, long day) {

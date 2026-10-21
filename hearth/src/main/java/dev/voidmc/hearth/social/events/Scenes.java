@@ -50,8 +50,8 @@ public final class Scenes implements SceneService {
 	private static final Map<UUID, Order> ORDERS = new HashMap<>();
 	private static final ArrayDeque<Bells.Stroke> STROKES = new ArrayDeque<>();
 	static final LivingWorldStats.Timer TIMER = LivingWorldStats.timer("events");
-	/** Most principals a scene embodies itself (the couple, the accused) when they are only records. */
-	static final int EMBODY_PRINCIPALS = 4;
+	/** Most of its own people (the couple, the accused, the dead's kin) a scene embodies itself when they are only records. */
+	static final int EMBODY_OWN = 6;
 	/** Scenes not staged because the server was slow (their events resolved by the books). */
 	static long refusedForLoad;
 
@@ -132,15 +132,20 @@ public final class Scenes implements SceneService {
 		Map<String, List<UUID>> cast = SceneCast.cast(s, e, rule, anchor, id -> npc != null && npc.folk(id) != null);
 		SceneRun run = new SceneRun(w, s, e, rule, cast, anchor, SceneDirector.of(e.kind()), level.getGameTime());
 		RUNNING.computeIfAbsent(s.id(), k -> new ArrayList<>()).add(run);
-		int embodied = 0;
 		for (Map.Entry<String, List<UUID>> role : cast.entrySet()) {
 			for (UUID id : role.getValue()) {
 				ORDERS.put(id, new Order(run, role.getKey()));
-				// the couple, the accused, the dead's kin: brought out if they are only records (within the npc module's caps)
-				if (npc != null && embodied < EMBODY_PRINCIPALS && e.principals().contains(id) && npc.folk(id) == null) {
-					Resident r = s.resident(id);
-					if (r != null && !s.isResidentAway(id) && npc.embodyNear(level, s, r, anchor) != null) {
-						embodied++;
+			}
+		}
+		// the couple, the accused, the dead's kin: brought out if they are only records (one a pass, within the npc module's caps)
+		for (UUID id : e.principals()) {
+			run.toEmbody.add(id);
+		}
+		for (EventRule.RoleSpec spec : rule.roles()) {
+			if (SceneCast.OWN.contains(spec.pick())) {
+				for (UUID id : run.role(spec.name())) {
+					if (!run.toEmbody.contains(id)) {
+						run.toEmbody.add(id);
 					}
 				}
 			}
@@ -197,7 +202,9 @@ public final class Scenes implements SceneService {
 					continue;
 				}
 				long now = TownLife.now(run.world, s);
+				bringOut(run, s);
 				advance(run, s, now, false);
+				dressOne(run, s);
 				run.director.tick(run, s, gt);
 				if (now >= run.event.end() || run.director.done(run, s) || Boolean.TRUE.equals(run.get("end_now"))) {
 					end(run, true);
@@ -323,7 +330,7 @@ public final class Scenes implements SceneService {
 						Math.max(10, b.ticks()), Math.min(24, Math.max(1, run.rule.crowd())));
 				}
 			}
-			case "dress" -> EventDressings.dress(run, s, b.arg(), b.to().isEmpty() ? run.anchor : run.venue(b.to()));
+			case "dress" -> run.dressQueue.add(new Object[]{b.arg(), b.to().isEmpty() ? run.anchor : run.venue(b.to())});
 			case "undress" -> EventDressings.undress(run, s, b.arg());
 			case "particles" -> {
 				if (!stale) {
@@ -333,6 +340,37 @@ public final class Scenes implements SceneService {
 			case "end" -> run.put("end_now", Boolean.TRUE);
 			default -> run.director.beat(run, s, b);
 		}
+	}
+
+	/** One of the scene's own people who is only a record is brought out near the scene (one a pass, a few a scene). */
+	private static void bringOut(SceneRun run, Settlement s) {
+		NpcService npc = HearthServices.npc();
+		while (npc != null && !run.toEmbody.isEmpty() && run.embodied < EMBODY_OWN) {
+			UUID id = run.toEmbody.poll();
+			if (npc.folk(id) != null) {
+				continue;
+			}
+			Resident r = s.resident(id);
+			if (r != null && !s.isResidentAway(id) && npc.embodyNear(run.level(), s, r, run.anchor) != null) {
+				run.embodied++;
+			}
+			return;
+		}
+	}
+
+	/** Puts up the next dressing the timeline asked for (one a pass, so a scene's start is never one long tick). */
+	private static void dressOne(SceneRun run, Settlement s) {
+		Object[] d = run.dressQueue.poll();
+		if (d == null) {
+			return;
+		}
+		long t0 = System.nanoTime();
+		String kind = (String) d[0];
+		boolean more = EventDressings.dress(run, s, kind, (BlockPos) d[1]);
+		if (more) {
+			run.dressQueue.addFirst(d); // a fair's stalls go up a batch a pass
+		}
+		COSTS.merge("dress " + kind, System.nanoTime() - t0, Math::max);
 	}
 
 	/** Sends a cast member to a venue: their own spot round it (spread on a ring, onto standable ground). */

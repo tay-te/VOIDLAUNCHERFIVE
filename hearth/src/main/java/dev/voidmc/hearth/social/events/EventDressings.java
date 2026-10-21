@@ -39,22 +39,40 @@ public final class EventDressings {
 	private EventDressings() {
 	}
 
-	static void dress(SceneRun run, Settlement s, String kind, BlockPos at) {
+	/** Stalls a fair puts up in one pass (the first batch with the houses' awnings). */
+	static final int STALL_BATCH = 4;
+
+	/** Puts up a dressing; returns whether more of it remains for the next pass. */
+	static boolean dress(SceneRun run, Settlement s, String kind, BlockPos at) {
 		ServerLevel level = run.level();
 		SocialLedger ledger = s.data(SocialModule.LEDGER);
 		String key = run.key() + ":" + kind;
-		if (Dressings.isUp(ledger, key) || !level.isLoaded(at)) {
-			return;
+		if (!level.isLoaded(at)) {
+			return false;
+		}
+		if (kind.equals("fair_stalls")) {
+			// a batch a pass, each under its own key: three or four short passes rather than one long one
+			int count = Math.min(16, Math.max(4, run.event.args().getIntOr("stalls", 6)));
+			Integer done = run.get("stalls");
+			Integer batch = run.get("stall_batch");
+			int b = batch == null ? 0 : batch;
+			int have = done == null ? 0 : done;
+			String bkey = key + "_" + b;
+			TownEvent market = new TownEvent(bkey, TownEvent.Kind.MARKET, run.event.start(), run.event.end(), null, List.of(), List.of(), List.of());
+			List<Dressings.Stall> stalls = Dressings.setUpMarket(level, s, ledger, market, at, Math.min(STALL_BATCH, count - have), b == 0);
+			run.put("stalls", have + stalls.size());
+			run.put("stall_batch", b + 1);
+			if (!stalls.isEmpty() || b == 0) {
+				run.dressings.add(bkey);
+				s.markDirty();
+			}
+			return have + stalls.size() < count && b < 5 && !(stalls.isEmpty() && b > 0);
+		}
+		if (Dressings.isUp(ledger, key)) {
+			return false;
 		}
 		long end = run.event.end();
 		boolean up = switch (kind) {
-			case "fair_stalls" -> {
-				int count = Math.max(4, run.event.args().getIntOr("stalls", 6));
-				TownEvent market = new TownEvent(key, TownEvent.Kind.MARKET, run.event.start(), end, null, List.of(), List.of(), List.of());
-				List<Dressings.Stall> stalls = Dressings.setUpMarket(level, s, ledger, market, at, Math.min(16, count));
-				run.put("stalls", stalls.size());
-				yield !stalls.isEmpty();
-			}
 			case "targets" -> targets(run, s, ledger, key, at, end);
 			case "ring" -> ring(level, s, ledger, key, at, end, 5) > 0;
 			case "grave" -> grave(level, s, ledger, key, at, end + 7L * SocialTime.DAY_TICKS, run.event.seed());
@@ -71,6 +89,7 @@ public final class EventDressings {
 			run.dressings.add(key);
 			s.markDirty();
 		}
+		return false;
 	}
 
 	static void undress(SceneRun run, Settlement s, String kind) {

@@ -292,6 +292,14 @@ public final class Dressings {
 
 	/** Sets up market stalls round the square; returns the stalls (empty if there was no room or the chunks are not loaded). */
 	public static List<Stall> setUpMarket(ServerLevel level, Settlement s, SocialLedger ledger, TownEvent e, BlockPos anchor, int count) {
+		return setUpMarket(level, s, ledger, e, anchor, count, true);
+	}
+
+	/**
+	 * As above; {@code fronts}: whether the houses round the square put out their awnings too (the town events' fair sets its
+	 * stalls up in batches over a few passes, the fronts with the first).
+	 */
+	public static List<Stall> setUpMarket(ServerLevel level, Settlement s, SocialLedger ledger, TownEvent e, BlockPos anchor, int count, boolean fronts) {
 		List<Stall> stalls = new ArrayList<>();
 		if (count <= 0 || !level.isLoaded(anchor)) {
 			return stalls;
@@ -321,7 +329,9 @@ public final class Dressings {
 			stalls.add(new Stall(keeper, ground, customer, stalls.size()));
 		}
 		// the houses and shops round the square put out their awnings and wares too
-		all.addAll(fronts(level, s, taken, e, "market", near(s, anchor, 32, 14)));
+		if (fronts) {
+			all.addAll(fronts(level, s, taken, e, "market", near(s, anchor, 32, 14)));
+		}
 		place(level, ledger, e, all);
 		if (!stalls.isEmpty()) {
 			for (StallListener l : listeners) {

@@ -161,8 +161,6 @@ final class RaidScene implements SceneDirector {
 	@Override
 	public void begin(SceneRun run, Settlement s) {
 		ServerLevel level = run.level();
-		BlockPos store = run.venue("storehouse");
-		BlockPos barn = run.venue("barn");
 		BlockPos entry = entry(run.world, s, run.event.args().getLongOr("band", 0));
 		if (entry == null) {
 			return;
@@ -170,14 +168,30 @@ final class RaidScene implements SceneDirector {
 		// fewer bodies on a slow server (the band's full strength is in the books either way)
 		int cap = dev.voidmc.hearth.sim.LoadCaps.cap(MAX_SHOWN, 2, dev.voidmc.hearth.sim.LoadCaps.mspt(level.getServer()),
 			dev.voidmc.hearth.sim.LoadCaps.highMspt());
-		int shown = Math.min(cap, Math.max(2, run.event.args().getIntOr("strength", 3)));
-		RandomSource r = RandomSource.create(run.event.seed());
-		List<Folk> raiders = new ArrayList<>();
-		List<Raider> controllers = new ArrayList<>();
-		for (int i = 0; i < shown; i++) {
+		run.put("entry", entry);
+		run.put("to_come", Math.min(cap, Math.max(2, run.event.args().getIntOr("strength", 3))));
+		run.put("raiders", new ArrayList<Folk>());
+		run.put("controllers", new ArrayList<Raider>());
+		run.put("rng", RandomSource.create(run.event.seed()));
+		comeIn(run, s, 2);
+		alarm(level, s, run.venue("storehouse"));
+	}
+
+	/** Up to {@code most} more raiders come in from the road (two a pass: a party spawning at once is a long tick). */
+	private static void comeIn(SceneRun run, Settlement s, int most) {
+		Integer left = run.get("to_come");
+		BlockPos entry = run.get("entry");
+		if (left == null || entry == null || left <= 0) {
+			return;
+		}
+		List<Folk> raiders = run.get("raiders");
+		List<Raider> controllers = run.get("controllers");
+		RandomSource r = run.get("rng");
+		for (int k = 0; k < most && left > 0; k++, left--) {
+			int i = controllers.size();
 			boolean torch = i == 1 && run.event.plot() >= 0;
-			Raider c = new Raider(run, entry, torch ? barn : store, torch);
-			Folk f = Strangers.spawn(level, entry, s.culture(), JobType.BANDIT, r, c, "");
+			Raider c = new Raider(run, entry, torch ? run.venue("barn") : run.venue("storehouse"), torch);
+			Folk f = Strangers.spawn(run.level(), entry, s.culture(), JobType.BANDIT, r, c, "");
 			if (f == null) {
 				continue;
 			}
@@ -189,9 +203,7 @@ final class RaidScene implements SceneDirector {
 			controllers.add(c);
 			run.spawned(f);
 		}
-		run.put("raiders", raiders);
-		run.put("controllers", controllers);
-		alarm(level, s, store);
+		run.put("to_come", left);
 	}
 
 	/** Where the band comes in: the town's edge on the side of its road, on open ground. */
@@ -245,6 +257,7 @@ final class RaidScene implements SceneDirector {
 
 	@Override
 	public void tick(SceneRun run, Settlement s, long gameTime) {
+		comeIn(run, s, 2);
 		BoundingBox barn = run.get("barn_fire");
 		if (barn != null && run.get("barn_leash") == null) {
 			BlockPos roof = run.level().getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
@@ -264,7 +277,8 @@ final class RaidScene implements SceneDirector {
 	@Override
 	public boolean done(SceneRun run, Settlement s) {
 		List<Raider> cs = run.get("controllers");
-		if (cs == null || cs.isEmpty() || run.level().getGameTime() - run.startedAt < 1200) {
+		Integer left = run.get("to_come");
+		if (cs == null || cs.isEmpty() || left != null && left > 0 || run.level().getGameTime() - run.startedAt < 1200) {
 			return false;
 		}
 		for (Raider c : cs) {
