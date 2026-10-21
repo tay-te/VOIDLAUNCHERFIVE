@@ -56,9 +56,11 @@ No new Hearth screen. Everything a player does at a post goes through the existi
   whole, two days of the books) is worked out on the `hearth-wild` worker and the world adopts it. Its square is planned
   ground from the start (Claims), so trees and Expanse's sights never stand where it will be. No crew walks out from the
   nearest town: the post stood before the world began.
-- **Inns and caravan stops at the middle of long roads.** The network joins places within 2 400 blocks, so "a day's
-  travel from the nearest inn or town" is the middle of a road 1 500 blocks long or more: a caravan stop on a king's
-  road of 1 800 and more, an inn otherwise (the same spot: one of them).
+- **Road posts at the middle of roads.** The network joins places within 2 400 blocks, so "a day's travel from the
+  nearest inn or town" is never reached; on the dev seed roads of 1 500 and more were too rare to give more than one inn
+  in 49 regions. So: an inn at the middle of any road of 1 200 and more, a caravan stop (first choice) at the middle of a
+  king's road of 1 300 and more, and a toll gate at the land end of a bridge of 6 columns and more or, standing in for
+  §3's domain borders, at the middle of a king's road of 950–1 200 (where one town's land meets the next's).
 - **The kennel and the hospice's dog** are not built (no kennel in the `Precinct` kit yet); the hospice's stable is its
   garden. The hunters' drying racks are not dressed (their huts and lodge are).
 - **The nomads' move** happens in the books at once (the old ground's plots demolished, the new one's pitched whole);
@@ -68,6 +70,13 @@ No new Hearth screen. Everything a player does at a post goes through the existi
 
 ## Measured (2026-10-21)
 
-- A post's abstract step (6 000 ticks, `PostGrowthTest.aPostsStepIsCheap`, an inn of four): p50 40 µs, avg 74 µs —
+- A post's abstract step (6 000 ticks, `PostGrowthTest.aPostsStepIsCheap`, an inn of five): p50 40 µs, avg 74 µs —
   over the design's 10 µs (the sim day's business once in four steps is most of it); 600 posts ≈ 0.007 ms a tick.
-- Siting a region on synthetic land: under a millisecond to a few ms (the tests); on the dev seed see the tour's line.
+- In game (wild tour, dev seed 20261003, 225 regions sited round spawn, ten posts founded): the `wild` timer (chunk-load
+  founding checks, the gate watch, the fog bell, the day's rules) 0.002 ms a pass avg, 1.3 ms worst; founding a post
+  1.6–8 ms on the server thread (adopting the record) and 136–173 ms of history on the `hearth-wild` worker; server tick
+  3.9 ms avg.
+- Siting a region: 1.4 ms avg, 11 ms worst on synthetic hills with the roads already worked out (`PostHarnessTest`); in
+  game 230 ms avg, 3.8 s worst, nearly all of it the region's roads (the same work world generation does for the roads'
+  own claims, cached and shared), off the server thread.
+- Posts on the dev seed: 95 in 225 regions (0.42 a region; cap 3).

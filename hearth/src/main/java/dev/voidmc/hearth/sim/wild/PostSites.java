@@ -16,16 +16,17 @@ import net.minecraft.util.RandomSource;
  * answer.
  *
  * <ul>
- *   <li>Road posts from the network (§1): a <b>toll gate</b> at the land end of a long bridge; a <b>caravan stop</b>
- *   at the middle of a long king's road; a <b>wayside inn</b> at the middle of any long road (half a day's travel from
- *   either end; the middle of a road of 2 400 blocks is a day's walk from both towns).</li>
+ *   <li>Road posts from the network (§1): a <b>toll gate</b> at the land end of a big river's bridge, or at the middle
+ *   of a king's road of 950–1 200 blocks (where one town's land meets the other's); a <b>caravan stop</b> at the middle
+ *   of a king's road of 1 300 and more; a <b>wayside inn</b> at the middle of any road of 1 200 and more (the network
+ *   joins places within 2 400 blocks, so that is as far from a roof as a road goes).</li>
  *   <li>Land posts by Expanse's own site rules: a <b>hospice</b> on a pass (a saddle rising 12+ along one axis at ±48
  *   and falling 8+ across it, y 110 and up; a road over it preferred), a <b>monastery</b> on a summit or knoll (standing
  *   12+ over its ring at 56, y 150 and up), a <b>hunters' camp</b> on a wood's edge 300–900 from a town, a
  *   <b>hermitage</b> 600 and more from roads and towns in deep wood or on broken ground, a <b>harbour</b> on a coast or a
  *   big lake 600 from towns, a <b>farmstead</b> on upland pasture or moor, a <b>nomad camp</b> on steppe or dunes.</li>
  * </ul>
- * At most {@code per_region} posts, each 300 + the town's reach from every town, 200 from each other (100 from the region's
+ * At most {@code per_region} posts, each 300 + the town's reach from every town (a toll gate 150), 200 from each other (100 from the region's
  * edges, so posts in neighbouring regions never crowd), on dry land clear of structures.
  */
 public final class PostSites {
@@ -34,7 +35,16 @@ public final class PostSites {
 	public static final int SPACING = 200;
 	/** From a town's reach ({@link Land#towns}). */
 	public static final int TOWN_CLEARANCE = 300;
+	/** A toll gate's, from a town's reach. */
+	public static final int TOLL_CLEARANCE = 150;
 	private static final int GRID = 48;
+	/** Bridge columns in a row that make a big river's bridge (a toll at its land end). */
+	static final int BRIDGE_RUN = 6;
+	/** A road this long (blocks along it) has an inn at its middle; a king's road a caravan stop from {@link #CARAVAN_ROAD}. */
+	static final int INN_ROAD = 1200;
+	static final int CARAVAN_ROAD = 1300;
+	/** A king's road this long, but shorter than an inn's, has a toll at its middle (where one town's land meets the other's). */
+	static final int BORDER_ROAD = 950;
 	private static final long SALT = 0x5057_5317_A11DL;
 
 	private PostSites() {
@@ -159,7 +169,8 @@ public final class PostSites {
 				return false;
 			}
 		}
-		double far = c.type == PostType.HERMITAGE || c.type == PostType.HARBOUR ? 600 : TOWN_CLEARANCE;
+		// a toll gate keeps the lord's road where one town's land meets the next's: nearer than the rest may stand
+		double far = c.type == PostType.HERMITAGE || c.type == PostType.HARBOUR ? 600 : c.type == PostType.TOLL_GATE ? TOLL_CLEARANCE : TOWN_CLEARANCE;
 		for (int[] tn : towns) {
 			double d = dist(tn[0], tn[1], c.x, c.z) - tn[2];
 			if (d < far + c.type.radius) {
@@ -224,16 +235,26 @@ public final class PostSites {
 					run++;
 					continue;
 				}
-				if (run >= 8) {
-					for (int end : new int[]{i + 3, i - run - 4}) {
-						if (end < 2 || end >= n - 2 || r.types[end] == 2) {
-							continue;
+				if (run >= BRIDGE_RUN) {
+					// on the graded road a little way off the bridge's land end, either end, where the road runs level
+					// between level banks (the gate's piers stand on the ground, its passage on the road)
+					boolean placed = false;
+					for (int dir : new int[]{1, -1}) {
+						int start = dir > 0 ? i : i - run - 1;
+						for (int k = 6; k <= 30 && !placed; k += 2) {
+							int end = start + dir * k;
+							if (end < 6 || end >= n - 6 || along[end] < 200 || total - along[end] < 200) {
+								continue;
+							}
+							int x = r.xs[end];
+							int z = r.zs[end];
+							if (!inside(rx, rz, x, z, PostType.TOLL_GATE.radius) || !dry(t, x, z) || !levelGate(t, r, end)) {
+								continue;
+							}
+							out.add(new Candidate(PostType.TOLL_GATE, x, z, 50 + run - k / 4.0, axisFacing(r, end), slice(r, end), 0, 0));
+							placed = true;
 						}
-						int x = r.xs[end];
-						int z = r.zs[end];
-						if (inside(rx, rz, x, z, PostType.TOLL_GATE.radius) && dry(t, x, z) && along[end] > 200 && total - along[end] > 200) {
-							Direction f = axisFacing(r, end);
-							out.add(new Candidate(PostType.TOLL_GATE, x, z, 50 + run, f, slice(r, end), 0, 0));
+						if (placed) {
 							break;
 						}
 					}
@@ -241,8 +262,8 @@ public final class PostSites {
 				run = 0;
 			}
 			// the middle of a long road: a caravan stop on a king's road, an inn on any
-			if (total >= 1500) {
-				for (PostType type : r.kings && total >= 1800 ? new PostType[]{PostType.CARAVAN_STOP, PostType.INN} : new PostType[]{PostType.INN}) {
+			if (total >= INN_ROAD) {
+				for (PostType type : r.kings && total >= CARAVAN_ROAD ? new PostType[]{PostType.CARAVAN_STOP, PostType.INN} : new PostType[]{PostType.INN}) {
 					Candidate best = null;
 					for (int k = -200; k <= 200; k += 8) {
 						int i = indexAt(along, total / 2 + k);
@@ -260,8 +281,68 @@ public final class PostSites {
 						out.add(best);
 					}
 				}
+			} else if (r.kings && total >= BORDER_ROAD) {
+				// a shorter king's road between two lords' towns: the toll where one's land gives way to the other's, about
+				// its middle (on graded road, not a bridge or ford)
+				Candidate best = null;
+				for (int k = -120; k <= 120; k += 6) {
+					int i = indexAt(along, total / 2 + k);
+					if (i < 4 || i >= n - 4 || r.types[i] != 0) {
+						continue;
+					}
+					int x = r.xs[i];
+					int z = r.zs[i];
+					if (!inside(rx, rz, x, z, PostType.TOLL_GATE.radius) || !dry(t, x, z)) {
+						continue;
+					}
+					// level along the road through the gate
+					int a = Math.max(0, i - 6);
+					int b = Math.min(n - 1, i + 6);
+					int rise = Math.abs(r.ys[b] - r.ys[a]);
+					double score = 30 - rise * 3 - Math.abs(k) / 30.0;
+					if (rise <= 3 && levelGate(t, r, i) && (best == null || score > best.score)) {
+						best = new Candidate(PostType.TOLL_GATE, x, z, score, axisFacing(r, i), slice(r, i), 0, 0);
+					}
+				}
+				if (best != null) {
+					out.add(best);
+				}
 			}
 		}
+	}
+
+	/**
+	 * Whether a toll gate fits astride the road at column {@code i}: graded road for 6 columns either way rising at most 2,
+	 * and the ground under its piers (5 to 6 across either side) within 3 of the road's level, so the gate stands on the
+	 * land rather than half sunk in a bank or up on stilts.
+	 */
+	static boolean levelGate(TerrainProbe t, RoadLine r, int i) {
+		int a = Math.max(0, i - 6);
+		int b = Math.min(r.size() - 1, i + 6);
+		for (int j = a; j <= b; j++) {
+			if (r.types[j] != 0) {
+				return false;
+			}
+		}
+		if (Math.abs(r.ys[b] - r.ys[a]) > 2) {
+			return false;
+		}
+		double dx = r.xs[b] - r.xs[a];
+		double dz = r.zs[b] - r.zs[a];
+		double len = Math.max(1, Math.hypot(dx, dz));
+		int y = r.ys[i];
+		for (int side : new int[]{-1, 1}) {
+			for (int off : new int[]{4, 6}) {
+				for (int along : new int[]{-3, 0, 3}) {
+					int x = (int) Math.round(r.xs[i] + side * -dz / len * off + dx / len * along);
+					int z = (int) Math.round(r.zs[i] + side * dx / len * off + dz / len * along);
+					if (t.isWater(x, z) || Math.abs(t.groundY(x, z) - y) > 3) {
+						return false;
+					}
+				}
+			}
+		}
+		return true;
 	}
 
 	/** The index of the column {@code d} blocks along a road. */

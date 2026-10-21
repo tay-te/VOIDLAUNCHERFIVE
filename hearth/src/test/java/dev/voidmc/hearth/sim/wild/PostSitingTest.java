@@ -89,7 +89,7 @@ class PostSitingTest {
 						assertEquals(rz, Atlas.region(p.minZ() - PostSites.EDGE + 1));
 						assertEquals(rz, Atlas.region(p.maxZ() + PostSites.EDGE - 1));
 						for (int[] t : land.towns) {
-							assertTrue(Math.hypot(t[0] - p.x(), t[1] - p.z()) - t[2] >= PostSites.TOWN_CLEARANCE, p + " too near the town");
+							assertTrue(Math.hypot(t[0] - p.x(), t[1] - p.z()) - t[2] >= (p.type() == PostType.TOLL_GATE ? PostSites.TOLL_CLEARANCE : PostSites.TOWN_CLEARANCE), p + " too near the town");
 						}
 						for (int j = 0; j < i; j++) {
 							PostSite o = sites.get(j);
@@ -134,7 +134,8 @@ class PostSitingTest {
 		assertNotNull(toll, "a toll gate at the bridge's land end");
 		// on the road itself, at a bridge end, facing along it
 		assertTrue(near(r, toll.x(), toll.z(), 1), toll + " is not on the road");
-		assertTrue(Math.abs(toll.x() - r.xs()[719]) <= 2 || Math.abs(toll.x() - r.xs()[696]) <= 2, toll + " not at the bridge's end");
+		int tx = toll.x();
+		assertTrue(tx >= r.xs()[716] + 4 && tx <= r.xs()[716] + 32 || tx <= r.xs()[699] - 4 && tx >= r.xs()[699] - 32, toll + " not off the bridge's end");
 		assertTrue(toll.facing().getAxis() == net.minecraft.core.Direction.Axis.X, "facing along the road: " + toll.facing());
 		assertTrue(toll.road().length >= 30, "the road's line kept for the layout");
 		// the middle of the long king's road: a caravan stop or an inn, beside it and facing it
@@ -142,6 +143,26 @@ class PostSitingTest {
 		assertFalse(near(r, mid.x(), mid.z(), 8), mid + " stands on the road");
 		assertTrue(near(r, mid.x(), mid.z(), mid.type().radius), mid + " is not by the road");
 		assertTrue(mid.facing().getAxis() == net.minecraft.core.Direction.Axis.Z, "facing the road: " + mid.facing());
+	}
+
+	@Test
+	void aShorterKingsRoadHasItsTollAtItsMiddle() {
+		PostSite toll = null;
+		PostSites.RoadLine r = null;
+		for (long seed = 0; seed < 16 && toll == null; seed++) {
+			WildLand land = new WildLand((x, z) -> 80, seed);
+			// 1 000 blocks between two towns 1 400 apart (their reach 100), no bridge
+			land.towns.add(new int[]{-200, 500, 100});
+			land.towns.add(new int[]{1200, 500, 100});
+			r = land.road(9, true, 0, 500, 1000, 500, i -> false);
+			for (PostSite p : PostSites.region(land, CONFIG, 0, 0)) {
+				if (p.type() == PostType.TOLL_GATE) {
+					toll = p;
+				}
+			}
+		}
+		assertNotNull(toll, "a toll at the border on the king's road");
+		assertTrue(near(r, toll.x(), toll.z(), 1) && Math.abs(toll.x() - 500) <= 130, toll + " not on the road's middle");
 	}
 
 	private static boolean near(PostSites.RoadLine r, int x, int z, int d) {
@@ -158,7 +179,7 @@ class PostSitingTest {
 		WildLand land = new WildLand(PostSitingTest::saddle, 7);
 		land.towns.add(new int[]{560, 560, 150});
 		for (PostSite p : PostSites.region(land, CONFIG, 0, 0)) {
-			assertTrue(Math.hypot(560 - p.x(), 560 - p.z()) >= 150 + PostSites.TOWN_CLEARANCE, p + " in the town's land");
+			assertTrue(Math.hypot(560 - p.x(), 560 - p.z()) >= 150 + (p.type() == PostType.TOLL_GATE ? PostSites.TOLL_CLEARANCE : PostSites.TOWN_CLEARANCE), p + " in the town's land");
 		}
 	}
 

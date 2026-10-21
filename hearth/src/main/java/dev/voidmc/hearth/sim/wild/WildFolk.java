@@ -66,6 +66,13 @@ public final class WildFolk {
 	private static final Map<UUID, Long> STOPPED = new HashMap<>();
 	private static final Map<Long, BlockPos> BELLS = new HashMap<>();
 	private static int bellStroke;
+	/** Whether the toll stop wants this folk now (for the tour's diagnosis). */
+	public static boolean wantsToll(NpcService.FolkHandle folk) {
+		return TOLL_STOP.wants(folk);
+	}
+
+	/** Toll stops begun this session (the tour and the stats). */
+	public static int tollStops;
 
 	private WildFolk() {
 	}
@@ -226,6 +233,7 @@ public final class WildFolk {
 				return;
 			}
 			this.target.put(folk.resident().id, p.getUUID());
+			tollStops++;
 			STOPPED.put(p.getUUID(), folk.gameTime());
 			folk.moveTo(g.at, 1.0);
 			EconomyService eco = HearthServices.economy();
@@ -245,7 +253,9 @@ public final class WildFolk {
 				return false;
 			}
 			folk.lookAt(p);
-			if (p.distanceToSqr(folk.entity()) < 6 * 6 && folk.gameTime() % 20 == 0) {
+			// face to face, or the keeper at his post in the passage with the traveller on the road before it
+			double d2 = p.distanceToSqr(folk.entity());
+			if (folk.gameTime() % 10 == 0 && (d2 < 8 * 8 || folk.arrived() && d2 < STOP_RANGE * STOP_RANGE)) {
 				var talking = dev.voidmc.hearth.npc.NpcModule.conversations().talkingTo(p);
 				if (talking == null && folk.entity() instanceof dev.voidmc.hearth.npc.entity.Folk f) {
 					dev.voidmc.hearth.npc.NpcModule.conversations().open(p, f);

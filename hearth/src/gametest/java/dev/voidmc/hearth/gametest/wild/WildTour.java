@@ -92,6 +92,11 @@ public class WildTour implements FabricClientGameTest {
 			settle(6_000);
 			Map<PostType, PostSite> nearest = search();
 			log("found " + nearest.size() + " of " + PostType.values().length + " types within " + RINGS + " rings: " + nearest.keySet());
+			// -Dhearth.wild.only=toll_gate,hospice: those types alone
+			String only = System.getProperty("hearth.wild.only", "");
+			if (!only.isBlank()) {
+				nearest.keySet().removeIf(t -> !java.util.Arrays.asList(only.split(",")).contains(t.getSerializedName()));
+			}
 			for (PostType t : PostType.values()) {
 				PostSite s = nearest.get(t);
 				if (s == null) {
@@ -174,17 +179,27 @@ public class WildTour implements FabricClientGameTest {
 			waitWritten(s, 60_000);
 			log(name + ": " + describe(s));
 			Direction f = site.facing();
-			int out = Math.max(22, site.type().radius + 8);
+			// a nomad camp is shot on the ground it stands on
+			int[] ground = this.world.getServer().computeOnServer(server -> {
+				var d = dev.voidmc.hearth.sim.wild.PostData.of(s);
+				int g = d == null ? 0 : d.ground;
+				return new int[]{site.groundX(g), site.groundZ(g)};
+			});
+			int gx = site.type() == PostType.NOMAD_CAMP ? ground[0] : site.x();
+			int gz = site.type() == PostType.NOMAD_CAMP ? ground[1] : site.z();
+			int out = site.type() == PostType.NOMAD_CAMP ? 30 : Math.max(22, site.type().radius + 8);
 			Direction side = f.getClockWise();
-			double x = site.x() + f.getStepX() * out + side.getStepX() * 8 + 0.5;
-			double z = site.z() + f.getStepZ() * out + side.getStepZ() * 8 + 0.5;
+			double x = gx + f.getStepX() * out + side.getStepX() * 8 + 0.5;
+			double z = gz + f.getStepZ() * out + side.getStepZ() * 8 + 0.5;
 			if (site.type() == PostType.TOLL_GATE) {
 				// down the road, looking along it at the gate
 				x = site.x() + f.getStepX() * 22 + side.getStepX() * 6 + 0.5;
 				z = site.z() + f.getStepZ() * 22 + side.getStepZ() * 6 + 0.5;
 			}
-			double y = surface(BlockPos.containing(x, 0, z)) + (site.type() == PostType.TOLL_GATE ? 5 : 10);
-			look(name, x, y, z, site.x() + 0.5, site.y() + 3, site.z() + 0.5);
+			// above the land in front, and never below the post's own floor (a pass falls away from its saddle)
+			double y = site.type() == PostType.TOLL_GATE ? surface(BlockPos.containing(x, 0, z)) + 5
+				: Math.max(surface(BlockPos.containing(x, 0, z)) + 10, site.y() + 16);
+			look(name, x, y, z, gx + 0.5, site.y() + 3, gz + 0.5);
 		}
 
 		@Nullable SimSettlement waitFounded(PostSite site, long ms) {
@@ -259,11 +274,11 @@ public class WildTour implements FabricClientGameTest {
 		/** The hospice in a snowstorm, its bell ringing. */
 		void storm(PostSite site) {
 			cmd("weather thunder");
-			cmd("time set 13000");
+			cmd("time set 9000");
 			Direction f = site.facing();
-			double x = site.x() + f.getStepX() * (site.type().radius + 10) + 0.5;
-			double z = site.z() + f.getStepZ() * (site.type().radius + 10) + 0.5;
-			double y = surface(BlockPos.containing(x, 0, z)) + 4;
+			double x = site.x() + f.getStepX() * (site.type().radius + 8) + 0.5;
+			double z = site.z() + f.getStepZ() * (site.type().radius + 8) + 0.5;
+			double y = Math.max(surface(BlockPos.containing(x, 0, z)) + 4, site.y() + 12);
 			teleport(x, y, z, 0, 0);
 			settle(12_000);
 			look("hospice_storm", x, y, z, site.x() + 0.5, site.y() + 6, site.z() + 0.5);
@@ -297,10 +312,30 @@ public class WildTour implements FabricClientGameTest {
 					break;
 				}
 			}
-			settle(4_000);
+			// the keeper walks out from wherever he is to the passage
+			for (int k = 0; k < 20 && !talking(); k++) {
+				settle(1_000);
+			}
+			settle(1_500);
 			boolean open = talking();
 			this.context.takeScreenshot("hearth_wild_toll_stop");
-			log("toll stop: conversation " + (open ? "open" : "not open") + " near " + BlockPos.containing(x, 0, z).toShortString());
+			log("toll stop: conversation " + (open ? "open" : "not open") + " near " + BlockPos.containing(x, 0, z).toShortString() + "; "
+				+ this.world.getServer().computeOnServer(server -> {
+					SimWorld w = SimServer.world(server.overworld());
+					SimSettlement s = w.settlement(w.data(PostBook.KEY).settlement(site.key()));
+					if (s == null) {
+						return "no post";
+					}
+					StringBuilder b = new StringBuilder("stops begun " + dev.voidmc.hearth.sim.wild.WildFolk.tollStops + ", embodied " + s.embodied());
+					ServerPlayer p = server.getPlayerList().getPlayers().getFirst();
+					for (var r : s.residents()) {
+						var fh = dev.voidmc.hearth.api.HearthServices.npc().folk(r.id);
+						b.append("; ").append(r.job.getSerializedName()).append(fh == null ? " not embodied" : " at " + fh.entity().blockPosition().toShortString()
+							+ (fh.awake() ? " awake" : " asleep") + (r.job == dev.voidmc.hearth.api.JobType.TOLLKEEPER ? " wants " + dev.voidmc.hearth.sim.wild.WildFolk.wantsToll(fh) : "") + String.format(Locale.ROOT, " %.1f from the player", Math.sqrt(fh.entity().distanceToSqr(p))));
+					}
+					b.append("; player at ").append(p.blockPosition().toShortString()).append(p.isCreative() ? " creative" : " survival");
+					return b.toString();
+				}));
 			this.context.setScreen(() -> null);
 			cmd("gamemode creative @a");
 		}
