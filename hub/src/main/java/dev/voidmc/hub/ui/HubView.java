@@ -71,6 +71,10 @@ public final class HubView {
 	private final AtomicLong uiRenderNs = new AtomicLong();
 	private final AtomicLong uiScriptNs = new AtomicLong();
 	private final AtomicLong uiPasses = new AtomicLong();
+	/** Cycles the UI thread itself ran in its passes since the last frame (ThreadCpu; -1 summed in means unknown). */
+	private final AtomicLong uiCycles = new AtomicLong();
+	/** Cycles of diagnostic evals in the UI pass running now (UI thread only): taken off that pass's count. */
+	private long passEvalCycles;
 	private volatile boolean sync = Boolean.getBoolean("voidhub.sync");
 	private volatile UploadMode mode = UploadMode.valueOf(System.getProperty("voidhub.upload", "dirty").toUpperCase(java.util.Locale.ROOT));
 	private final Object fullLock = new Object();
@@ -291,6 +295,7 @@ public final class HubView {
 	}
 
 	private void uiPass() {
+		long k0 = ThreadCpu.cycles();
 		long upTo = this.posted.get();
 		boolean worked = false;
 		Runnable task;
@@ -310,6 +315,11 @@ public final class HubView {
 		this.uiUpdateNs.addAndGet(t1 - t0);
 		this.uiRenderNs.addAndGet(t2 - t1);
 		this.uiPasses.incrementAndGet();
+		long k1 = ThreadCpu.cycles();
+		if (k0 >= 0 && k1 >= k0) {
+			this.uiCycles.addAndGet(Math.max(0, k1 - k0 - this.passEvalCycles));
+		}
+		this.passEvalCycles = 0;
 		this.processed = upTo;
 		synchronized (this.signal) {
 			this.signal.notifyAll();
@@ -525,7 +535,16 @@ public final class HubView {
 	/** Runs script on the UI thread and waits for its string result (tests and diagnostics). */
 	public String eval(String js) {
 		CompletableFuture<String> result = new CompletableFuture<>();
-		this.post(() -> result.complete(this.view.evaluateScript(js)));
+		this.post(() -> {
+			long c0 = ThreadCpu.cycles();
+			String out = this.view.evaluateScript(js);
+			long c1 = ThreadCpu.cycles();
+			// A diagnostic, not the page's work: kept out of the UI thread's CPU the perf gates read.
+			if (c0 >= 0 && c1 >= c0) {
+				this.passEvalCycles += c1 - c0;
+			}
+			result.complete(out);
+		});
 		try {
 			return result.get(5, TimeUnit.SECONDS);
 		} catch (Exception e) {
@@ -616,6 +635,7 @@ public final class HubView {
 		f.renderNs = this.uiRenderNs.getAndSet(0);
 		f.scriptNs = this.uiScriptNs.getAndSet(0);
 		f.uiPasses = (int) this.uiPasses.getAndSet(0);
+		f.uiCycles = ThreadCpu.available() ? this.uiCycles.getAndSet(0) : -1;
 		this.stats.end();
 		return uploaded;
 	}

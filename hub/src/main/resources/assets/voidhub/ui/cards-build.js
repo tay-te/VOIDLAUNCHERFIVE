@@ -152,14 +152,28 @@
     if (sm.empty || !(sm.lines || []).length) {
       h += '<div class="yb-empty"><i class="cardback"></i><div>' + esc(sm.emptyText || "Slot cards to give your build a shape") + "</div></div>";
     }
+    // Each line in full, its source after it in grey (no narrow value column, nothing cut mid-sentence); lines that do
+    // not fit above "Next" are left out whole (fitBuild).
     var ls = sm.lines || [];
+    h += '<div class="yb-list">';
     for (var i = 0; i < ls.length && i < 5; i++) {
       var L = ls[i], icon = L.kind === "set" ? MC.glyph(L.id, 16) : L.kind === "mythic" ? dia(IVORY, 9) : L.kind === "mastery" ? dia(CHAMP, 9) : '<i class="yb-dot"></i>';
-      h += '<div class="yb-line" style="top:' + (90 + i * 38) + 'px"><span class="ic">' + icon + '</span><span class="tx">' + esc(L.text) + '</span><span class="src">' + esc(L.source || "") + "</span></div>";
+      h += '<div class="yb-line"><span class="ic">' + icon + '</span><span class="tx">' + esc(L.text) + (L.source ? '<span class="src"> · ' + esc(L.source) + "</span>" : "") + "</span></div>";
     }
+    h += "</div>";
     if (sm.next) h += '<div class="yb-next"><span class="k">NEXT</span><span class="tx">' + esc(String(sm.next.text || "").replace(/^Next:\s*/, "")) + "</span></div>";
     return h;
   }
+  /** Drops whole lines from the end of "Your build" until the rest fit above "Next" (with a "+n more" note). */
+  function fitBuild() {
+    var list = document.querySelector("#ch-build .yb-list");
+    if (!list) return;
+    var room = 192, cut = 0;
+    while (list.children.length > 1 && list.scrollHeight > room) { list.removeChild(list.lastChild); cut++; }
+    if (cut) list.insertAdjacentHTML("beforeend", '<div class="yb-more">+' + cut + (cut === 1 ? " more line" : " more lines") + " · Trait totals on the Deck</div>");
+    while (cut && list.children.length > 2 && list.scrollHeight > room) { list.removeChild(list.children[list.children.length - 2]); }
+  }
+
   function sheetSets() {
     var sets = M().cards.sets.slice(), act = 0, h = "", y = 40;
     for (var i = 0; i < sets.length; i++) if (sets[i].active) act++;
@@ -249,7 +263,7 @@
     var offer = b.byname && b.byname.offer && !keptMine[b.byname.offerText];
     patch(part(cv, "ch-grew", "bf-panel ch-grew" + (offer ? " offer" : ""), "left:29px;top:" + Y(306) + "px;width:300px;height:182px"),
       JSON.stringify([offer, b.byname]), offer ? offerBox : grew);
-    patch(part(cv, "ch-build", "bf-panel ch-build", "left:341px;top:" + Y(68) + "px;width:330px;height:330px"), JSON.stringify([b.summary, ik]), buildCard);
+    if (patch(part(cv, "ch-build", "bf-panel ch-build", "left:341px;top:" + Y(68) + "px;width:330px;height:330px"), JSON.stringify([b.summary, ik]), buildCard)) fitBuild();
     patch(part(cv, "ch-attr", "bf-panel ch-attr", "left:341px;top:" + Y(410) + "px;width:330px;height:78px"), JSON.stringify([c.attributes, c.points]), attrs);
     patch(part(cv, "ch-sets", "bf-panel ch-sets", "left:683px;top:" + Y(68) + "px;width:275px;height:318px"),
       JSON.stringify([M().cards.sets, b.focus, ik, menuId === "focus"]), sheetSets);
@@ -741,11 +755,18 @@
     var accent = /temper|inscrib/i.test(title) ? TEMPER : m.kind === "boon" || m.kind === "card" ? AMBER : m.kind === "forge_ready" ? IVORY : m.kind === "signature" ? CHAMP : "#EDEEEF";
     var sub = m.subtitle || (m.text && m.text !== title ? m.text : "");
     toastUp = m;
+    shown(m);
     el.style.opacity = "1";
     el.style.borderColor = MC.rgba(accent, m.kind === "set" && m.tier >= 4 || m.kind === "forge_ready" ? 0.55 : 0.32);
     el.innerHTML = '<div class="w" style="background:' + MC.rgba(accent, 0.12) + '">' + toastIcon(m) + '</div><div class="t"><span style="color:' + accent + '">' + esc(lead) + "</span>" + (rest ? " · " + esc(rest) : "") + "</div>" + (sub ? '<div class="s">' + esc(sub) + "</div>" : "");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { el.style.opacity = "0"; toastUp = null; showToast(); }, toastQ.length ? 2000 : 3200);
+  }
+  /** The page showed this milestone: Mettle's HUD toast (held while the hub is open) does not show it again. */
+  function shown(m) {
+    var id = /^[a-z0-9_.-]+(:[a-z0-9_./-]+)?$/;
+    var perk = m.perk && id.test(m.perk) ? m.perk : "", skill = m.skill && id.test(m.skill) ? m.skill : "";
+    if (/^[a-z_]{1,24}$/.test(m.kind || "")) MC.act("momentShown", m.kind + "#" + perk + "#" + skill + "#" + Math.max(0, Math.min(99, m.tier | 0)));
   }
   bf.toasts = function () { return {up: toastUp ? toastUp.title : null, queued: toastQ.length, banners: bannerQ.length}; };  // tests
   /** A big milestone waits for nothing else on the page, then shows its banner. True when one opened. */
@@ -772,6 +793,7 @@
     var fx = [{i: "bnb", k: "bloom", x: w.x + 493, y: w.y + (byname ? 200 : 210), w: 760, h: 360, c: byname ? CHAMP : "#FFFFFF", a: byname ? 0.2 : 0.16, q: 250}];
     if (six) fx.push({i: "bnm", k: "bloom", x: w.x + 493, y: w.y + 150, w: 300, h: 300, c: IVORY, a: 0.35, q: 250, p: 800});
     MC.sound("set_complete", "");
+    shown(m);
     return MC.ov.banner(h, fx, 2500);
   };
 

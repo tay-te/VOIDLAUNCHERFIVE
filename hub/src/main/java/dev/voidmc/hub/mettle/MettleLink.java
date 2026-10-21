@@ -254,6 +254,7 @@ public final class MettleLink {
 				case "temperCard", "inscribeCard" -> invoke(action(op, String.class, String.class), p[0], p[1]);
 				case "takeByname", "forgeLegend", "guideSkip" -> invoke(action(op));
 				case "wearByname" -> invoke(action(op, int.class), Integer.parseInt(arg));
+				case "momentShown" -> momentShown(p[0], p[1], p[2], Integer.parseInt(p[3]));
 				default -> {
 				}
 			}
@@ -309,6 +310,94 @@ public final class MettleLink {
 		} catch (Throwable t) {
 			VoidHub.LOGGER.warn("VOID Hub: Mettle {}({}) failed: {}", op, arg, t.toString());
 			return null;
+		}
+	}
+
+	// ---- milestones shown once (BUILD_FEEL.md §2.4) -------------------------------------------------------------------
+
+	private static boolean queueLooked;
+	private static Object hudQueue;
+	private static java.lang.reflect.Field queuePending;
+	private static java.lang.reflect.Field queueCurrent;
+
+	/** Mettle's HUD toast queue (MomentClient.QUEUE) and its fields, looked up once; false on a Mettle without it. */
+	private static boolean lookQueue() {
+		if (!queueLooked) {
+			queueLooked = true;
+			try {
+				java.lang.reflect.Field q = Class.forName("dev.voidmc.mettle.client.moment.MomentClient").getDeclaredField("QUEUE");
+				q.setAccessible(true);
+				hudQueue = q.get(null);
+				queuePending = hudQueue.getClass().getDeclaredField("pending");
+				queuePending.setAccessible(true);
+				queueCurrent = hudQueue.getClass().getDeclaredField("current");
+				queueCurrent.setAccessible(true);
+			} catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+				VoidHub.LOGGER.warn("VOID Hub: VOID Mettle's HUD toast queue could not be reached ({}); a milestone the page showed may toast again", e.toString());
+				hudQueue = null;
+			}
+		}
+		return hudQueue != null;
+	}
+
+	private static boolean matches(Object entry, String kind, String perk, String skill, int tier) throws ReflectiveOperationException {
+		Object k = entry.getClass().getMethod("kind").invoke(entry);
+		String name = (String) k.getClass().getMethod("serializedName").invoke(k);
+		Object ep = entry.getClass().getMethod("perk").invoke(entry);
+		Object es = entry.getClass().getMethod("skill").invoke(entry);
+		int et = (int) entry.getClass().getMethod("tier").invoke(entry);
+		return name.equals(kind) && et == tier && (perk.isEmpty() ? ep == null || ep.toString().isEmpty() : perk.equals(String.valueOf(ep)))
+			&& (skill.isEmpty() || es == null || skill.equals(String.valueOf(es)));
+	}
+
+	/**
+	 * The Classes page showed this milestone (its toast or banner): Mettle's HUD toast, which holds milestones while a
+	 * screen is open and would show it after the hub closes, drops it, so each milestone shows once. Render thread (the
+	 * client thread Mettle's queue lives on).
+	 */
+	static void momentShown(String kind, String perk, String skill, int tier) {
+		if (!lookQueue()) {
+			return;
+		}
+		try {
+			java.util.Deque<?> pending = (java.util.Deque<?>) queuePending.get(hudQueue);
+			pending.removeIf(e -> {
+				try {
+					return matches(e, kind, perk, skill, tier);
+				} catch (ReflectiveOperationException ex) {
+					return false;
+				}
+			});
+			Object cur = queueCurrent.get(hudQueue);
+			if (cur != null && matches(cur, kind, perk, skill, tier)) {
+				queueCurrent.set(hudQueue, null);
+			}
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			VoidHub.LOGGER.warn("VOID Hub: could not drop a shown milestone from Mettle's HUD toasts: {}", e.toString());
+		}
+	}
+
+	/** Tests: the milestones of a kind waiting in (or showing from) Mettle's HUD toast queue; -1 when unreadable. */
+	public static int hudMilestones(String kind) {
+		if (!present() || !lookQueue()) {
+			return -1;
+		}
+		try {
+			int n = 0;
+			java.util.List<Object> all = new java.util.ArrayList<>((java.util.Deque<?>) queuePending.get(hudQueue));
+			Object cur = queueCurrent.get(hudQueue);
+			if (cur != null) {
+				all.add(cur);
+			}
+			for (Object e : all) {
+				Object k = e.getClass().getMethod("kind").invoke(e);
+				if (kind.equals(k.getClass().getMethod("serializedName").invoke(k))) {
+					n++;
+				}
+			}
+			return n;
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			return -1;
 		}
 	}
 

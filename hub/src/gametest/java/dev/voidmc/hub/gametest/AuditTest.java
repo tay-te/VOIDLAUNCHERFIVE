@@ -265,7 +265,8 @@ public final class AuditTest {
 	}
 
 	/** A PERF line's numbers (ms): frames, painted frames, UI-thread p95 and max, render-thread p95 and max. */
-	record Perf(int frames, int painted, double uiP95, double uiMax, double renderP95, double renderMax, double fps, double cpuPerPaint) {
+	record Perf(int frames, int painted, double uiP95, double uiMax, double renderP95, double renderMax, double fps, double cpuPerPaint, double cpuP95,
+		double cpuMax, double cpuMean) {
 		/**
 		 * Whether the machine was busy (another game on it: the UI thread runs below the game's priority, so its wall-clock
 		 * paint times measure the other game too). Then the CPU the UI thread spent per paint is what is gated.
@@ -274,9 +275,26 @@ public final class AuditTest {
 			return this.fps < 200;
 		}
 
-		/** UI-thread budget: p95 and worst paint (wall clock) on a quiet machine, the mean CPU per paint on a busy one. */
+		/**
+		 * UI-thread budget: p95 and worst paint, as the UI thread's own CPU (ThreadCpu: other programs' load does not count;
+		 * wall-clock times are reported only). Without a precise thread clock: wall clock on a quiet machine, the mean CPU per
+		 * paint on a busy one.
+		 */
 		boolean within(double p95, double max) {
+			if (this.cpuP95 >= 0) {
+				return this.cpuP95 < p95 && this.cpuMax < max;
+			}
 			return this.contended() ? this.cpuPerPaint < p95 : this.uiP95 < p95 && this.uiMax < max;
+		}
+
+		/** The worst paint: the UI thread's own CPU, or wall clock without a precise thread clock. */
+		double maxPaint() {
+			return this.cpuMax >= 0 ? this.cpuMax : this.uiMax;
+		}
+
+		/** p95 of the paints: the UI thread's own CPU, or wall clock without a precise thread clock. */
+		double p95Paint() {
+			return this.cpuP95 >= 0 ? this.cpuP95 : this.uiP95;
 		}
 	}
 
@@ -295,7 +313,9 @@ public final class AuditTest {
 		long cpu0 = uiCpuNs();
 		long wall0 = System.nanoTime();
 		long from = this.context.computeOnClient(mc -> HubStats.INSTANCE.frameCount());
+		double slow0 = dev.voidmc.hub.ui.ThreadCpu.slowdown();
 		actions.run();
+		double slow = (slow0 + dev.voidmc.hub.ui.ThreadCpu.slowdown()) / 2;
 		HubStats.Frame[] frames = this.context.computeOnClient(mc -> HubStats.INSTANCE.since(from));
 		long[] ui = new long[frames.length];
 		long[] rt = new long[frames.length];
@@ -316,11 +336,48 @@ public final class AuditTest {
 			what, frames.length, painted, pct(ui, 50), pct(ui, 95), pct(ui, 100), pct(rt, 50), pct(rt, 95), pct(rt, 100), bytes / 1024.0 / Math.max(1, frames.length)));
 		double seconds = (System.nanoTime() - wall0) / 1e9;
 		long cpu = uiCpuNs() - cpu0;
+		double[] own = ownCpu(frames, slow);
+		// The three costliest frames (own CPU, then wall clock: script, layout, paint; passes; KB uploaded), to tell a
+		// real paint from a stray one.
+		HubStats.Frame[] byCpu = frames.clone();
+		java.util.Arrays.sort(byCpu, (x, y) -> Long.compare(y.uiCpuNs(), x.uiCpuNs()));
+		StringBuilder top = new StringBuilder();
+		for (int i = 0; i < Math.min(3, byCpu.length); i++) {
+			HubStats.Frame f = byCpu[i];
+			top.append(String.format(java.util.Locale.ROOT, " [cpu %.1f script %.1f update %.1f paint %.1f passes %d %d KB]", f.uiCpuNs() / 1e6, f.scriptNs / 1e6,
+				f.updateNs / 1e6, f.renderNs / 1e6, f.uiPasses, f.bytes / 1024));
+		}
+		log("PERF " + what + " costliest frames:" + top);
 		Perf perf = new Perf(frames.length, painted, pct(ui, 95), pct(ui, 100), pct(rt, 95), pct(rt, 100), frames.length / Math.max(1e-3, seconds),
-			painted == 0 ? 0 : cpu / 1e6 / painted);
-		log(String.format(java.util.Locale.ROOT, "PERF %-26s %.0f fps%s, UI thread CPU %.2f ms per paint", what, perf.fps(), perf.contended() ? " (machine busy: CPU per paint gated)" : "",
-			perf.cpuPerPaint()));
+			painted == 0 ? 0 : cpu / 1e6 / painted, own[0], own[1], own[2]);
+		log(String.format(java.util.Locale.ROOT, "PERF %-26s %.0f fps, UI thread CPU %.2f ms per paint (coarse), own CPU p95 %.2f max %.2f ms (gated), per working frame mean %.2f p95 %.2f ms; quiet-machine speed (machine %.2fx slower now)", what,
+			perf.fps(), perf.cpuPerPaint(), perf.cpuP95(), perf.cpuMax(), perf.cpuMean(), own[3], slow));
 		return perf;
+	}
+
+	/**
+	 * The UI thread's own CPU per frame (ThreadCpu, precise; -1 when unknown), at the quiet machine's speed: {p95 over the
+	 * measurement's frames (the statistic the budgets always used, now CPU instead of wall clock), the worst frame, the
+	 * mean over frames that did work, the p95 over frames that did work (reported)}, ms.
+	 */
+	static double[] ownCpu(HubStats.Frame[] frames, double slowdown) {
+		long[] all = new long[frames.length];
+		java.util.List<Long> busy = new java.util.ArrayList<>();
+		for (int i = 0; i < frames.length; i++) {
+			long c = frames[i].uiCpuNs();
+			if (c < 0) {
+				return new double[] {-1, -1, -1, -1};
+			}
+			all[i] = c;
+			if (c > 300_000) {
+				busy.add(c);
+			}
+		}
+		java.util.Arrays.sort(all);
+		long[] b = busy.stream().mapToLong(Long::longValue).sorted().toArray();
+		double k = Math.max(1, slowdown);
+		double mean = b.length == 0 ? 0 : java.util.Arrays.stream(b).average().orElse(0) / 1e6 / k;
+		return new double[] {pct(all, 95) / k, pct(all, 100) / k, mean, pct(b, 95) / k};
 	}
 
 	private static double pct(long[] sorted, int p) {
@@ -687,7 +744,7 @@ public final class AuditTest {
 		});
 		// The UI thread's CPU per paint (Ultralight's update, script and paint: what a hover costs it), not the render
 		// thread's p95 over every frame (most frames paint nothing): 13.9 ms before the keycaps stopped rebuilding.
-		this.check(hover.painted() > 0 && hover.cpuPerPaint() < 10 && hover.uiMax() < 30, "PERF gs2 draft hover sweep: UI thread under 10 ms CPU per paint, no paint over 30 ms: " + hover);
+		this.check(hover.painted() > 0 && (hover.cpuMean() >= 0 ? hover.cpuMean() : hover.cpuPerPaint()) < 10 && hover.maxPaint() < 30, "PERF gs2 draft hover sweep: UI thread under 10 ms CPU per paint, no paint over 30 ms: " + hover);
 		this.hoverPage(".dr-hand .hc[data-hand=\"1\"] .hc-art");
 		this.context.waitTicks(8);
 		this.shot("audit_05g_gs2_draft_hover");
@@ -696,7 +753,7 @@ public final class AuditTest {
 			this.context.getInput().pressKey(InputConstants.KEY_2);
 			this.context.waitTicks(40);
 		});
-		this.check(pick.uiP95() < 50, "PERF gs2 draft pick: UI p95 under 50 ms: " + pick);
+		this.check(pick.p95Paint() < 50, "PERF gs2 draft pick: UI p95 under 50 ms: " + pick);
 		this.check(this.waiting() == w0 - 1, "the pick at GUI scale 2 used one draft: " + w0 + " -> " + this.waiting());
 		this.ui.parkMouse();
 		this.setWindow(1920, 1080, 0);
@@ -940,6 +997,9 @@ public final class AuditTest {
 	// ---- 4. extreme state ---------------------------------------------------------------------------------------
 
 	private void bigBinder() {
+		if (this.hub() == null) {
+			this.openClasses();  // -Ponly=400-card: the section on its own
+		}
 		this.dismiss();
 		int before = this.binder().size();
 		String[] perks = {"mining/prospector", "mining/quarryman", "mining/hard_hat", "mining/rock_hauler", "mining/tunneler"};
@@ -1001,6 +1061,9 @@ public final class AuditTest {
 			+ "var t2=performance.now();MC.nav.tab='skills';MC.render();MC.nav.tab='cards';var t3=performance.now();MC.render();var t4=performance.now();"
 			+ "return 'parse '+(t1-t0).toFixed(1)+' ms, apply '+(t2-t1).toFixed(1)+' ms, binder build '+(t4-t3).toFixed(1)+' ms, '+document.getElementsByTagName('*').length+' elements, '+(s.length>>10)+' KB'})()");
 		log("PERF 400 cards, page (UI thread): " + apply);
+		// What one wheel step costs the page's script (no paint): the render a scroll makes, timed in the page.
+		log("PERF 400 cards, one scroll's render (script only): " + this.js("(function(){var b=MC.st.binder,t0=performance.now();for(var i=0;i<20;i++){b.scroll=i%6;MC.render();}"
+			+ "var t1=performance.now();b.scroll=0;MC.render();return ((t1-t0)/20).toFixed(2)+' ms'})()"));
 		this.ui.parkMouse();
 		this.context.waitTicks(5);
 		this.overflow("binder 400");

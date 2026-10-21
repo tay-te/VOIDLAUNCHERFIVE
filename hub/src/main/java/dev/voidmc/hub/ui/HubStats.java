@@ -36,6 +36,16 @@ public final class HubStats {
 		public long mapNs;
 		/** A screen's own per-frame page sync beyond layout and state (Mettle's state on the Classes page), render thread. */
 		public long extraNs;
+		/** Cycles the UI thread itself ran for this frame (ThreadCpu), -1 when unknown: {@link #uiCpuNs}. */
+		public long uiCycles = -1;
+
+		/**
+		 * The CPU Ultralight's UI thread itself spent for this frame (its update, script and paint), ns, -1 when unknown.
+		 * Unlike {@link #uiNs} (wall clock) it does not grow when other programs keep the thread waiting for a core.
+		 */
+		public long uiCpuNs() {
+			return ThreadCpu.ns(this.uiCycles);
+		}
 
 		/** Time this frame spent on the game's render thread because of the VOID screen. */
 		public long totalNs() {
@@ -61,6 +71,7 @@ public final class HubStats {
 			this.rects = 0;
 			this.mapNs = 0;
 			this.extraNs = 0;
+			this.uiCycles = -1;
 		}
 
 		Frame copy() {
@@ -79,6 +90,7 @@ public final class HubStats {
 			f.endNs = this.endNs;
 			f.mapNs = this.mapNs;
 			f.extraNs = this.extraNs;
+			f.uiCycles = this.uiCycles;
 			return f;
 		}
 	}

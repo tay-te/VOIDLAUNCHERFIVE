@@ -103,7 +103,13 @@
       if (MC.textFocus) MC.textFocus = false;
     }
     var f = SCREENS[id] || SCREENS["home-skills"];
-    f();
+    var outer = !MC.fitQ;
+    if (outer) MC.fitQ = [];
+    try {
+      f();
+    } finally {
+      if (outer) MC.fitFlush();
+    }
     menu();
     if (id !== "trade") MC.itemsSet([]);
     toast();
@@ -352,7 +358,17 @@
   // ---- the binder (home Cards, and a skill's Cards tab) --------------------------------------------------------
   var BIN = {x: 204, y: 105, cols: 4, rows: 3};
 
+  // The filtered, sorted list is kept until the state or a filter changes: a wheel step (it only moves the window over
+  // the list) costs no filtering or sorting of the whole binder.
+  var stateGen = 0, listCache = {key: null, list: null};
   function binderList(fixed) {
+    var b = st.binder;
+    var ck = stateGen + "|" + JSON.stringify([fixed, b.skill, b.rarity, b.kw, b.trait, b.slot, b.att, b.sets, b.sort, b.q]);
+    if (listCache.key === ck) return listCache.list;
+    listCache.key = ck;
+    return (listCache.list = filterBinder(fixed));
+  }
+  function filterBinder(fixed) {
     var b = st.binder, out = [], all = cards(), q = b.q.toLowerCase();
     var sk = fixed || b.skill;
     for (var i = 0; i < all.length; i++) {
@@ -1192,13 +1208,8 @@
     // The guide's chip sits over everything, a draft included: its ×, Skip and buttons answer first.
     if (MC.bf && MC.bf.guideClick(t)) { ev.stopPropagation(); ev.preventDefault(); MC.render(); return; }
     if (MC.ov.active()) {
-      var through = MC.ov.click(t);
-      if (through !== "through") {
-        if (through) { ev.stopPropagation(); ev.preventDefault(); }
-        return;
-      }
-      // The banner went: the click lands on what is under the pointer now.
-      t = document.elementFromPoint(ev.clientX, ev.clientY) || t;
+      if (MC.ov.click(t)) { ev.stopPropagation(); ev.preventDefault(); }
+      return;
     }
     if (dragJustEnded) { dragJustEnded = false; ev.stopPropagation(); return; }
     if (!kbdClick && focus.key) focus.key = null;  // the mouse took over: the focus ring goes
@@ -1618,6 +1629,7 @@
   /** A new Mettle state. */
   MC.state = function (state) {
     MC.M = state;
+    stateGen++;
     if (!state || !state.cards) return;
     normalise(state);
     byId = {};

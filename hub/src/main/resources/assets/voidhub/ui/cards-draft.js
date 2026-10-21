@@ -119,7 +119,9 @@
   var TOP = 192, gen = 0, OLD_BOTTOM = 175 + 328;
   // Build feel (Mettle 0.3.0, Figma 2i-2): with preview lines under the cards the hand sits 48 higher, the lines below it,
   // the Keep row and the redeal under them.
-  var TOP_PV = 144, PV_TOP = 485;
+  // The title sits 16 higher in that layout, so a lifted, hovered card's flames (16 px lift, 5 % grow, 28 px of fire)
+  // stay clear of it: the title ends at 120, the hottest flame tips reach 176 - 52 = 124.
+  var TOP_PV = 176, PV_TOP = 508, PV_H = 60;
   function T() { return cur && cur.pv ? TOP_PV : TOP; }
   /** What burns when one of n cards is kept. */
   function burnText(n) { return n >= 3 ? "THE OTHER TWO BURN" : n === 2 ? "THE OTHER ONE BURNS" : "NOTHING ELSE BURNS"; }
@@ -430,13 +432,29 @@
     return {text: "Keep · can't slot", off: true};
   }
 
-  /** One preview line, its lead in white and the rest grey; "… opens" in Temper blue, losses and waits in amber. */
+  /**
+   * One preview line as Figma 2i-2 colours it (679:41290): the lead in white, the rest grey; a set tier that opens and a
+   * trait's new total in Temper blue (what you gain), a set you would lose and a slot that waits in amber, the new byname
+   * in champagne, and the Focus line with its ring.
+   */
   MC.previewLine = function (line, k, pv) {
-    var t = String(line || ""), cls = "";
-    if (k === 0 && pv && pv.placement && (pv.placement.kind === "waits" || pv.placement.kind === "blocked")) cls = " amber";
+    var t = String(line || ""), m;
+    var fc = MC.M && MC.M.cards && MC.M.cards.build && MC.M.cards.build.focus ? MC.M.cards.build.focus : null;
+    if (pv && pv.focus && /focus/i.test(t)) return '<div class="pl fc"><i class="fring"></i><b>+1 to your Focus' + (fc && fc.name ? " · " + esc(fc.name) : "") + "</b></div>";
+    if (k === 0 && pv && pv.placement && (pv.placement.kind === "waits" || pv.placement.kind === "blocked")) {
+      var c0 = t.search(/: | · /);
+      return '<div class="pl amber"><b>' + esc(c0 > 0 ? t.slice(0, c0) : t) + "</b>" + (c0 > 0 ? " · " + esc(t.slice(c0 + 2)) : "") + "</div>";
+    }
+    if ((m = /^Byname → (.+)$/.exec(t))) return '<div class="pl"><b>Byname</b> → <b class="ch">' + esc(m[1]) + "</b></div>";
+    if (t.indexOf(" · ") < 0 && (m = /^(.+?) (-?[\d.]+(?: ?%)?) → (.+?) of (.+)$/.exec(t))) {
+      return '<div class="pl"><b>' + esc(m[1]) + "</b> " + esc(m[2]) + ' → <b class="op">' + esc(m[3]) + "</b> of " + esc(m[4]) + "</div>";
+    }
     var cut = t.search(/ · |: /), lead = cut > 0 ? t.slice(0, cut) : t, rest = cut > 0 ? t.slice(cut) : "";
-    var h = esc(rest).replace(/([A-Z][a-z]+ \d opens)/, '<b class="op">$1</b>').replace(/(loses [^·]+)/, '<b class="ls">$1</b>').replace(/(rebuild [^·]+)/, '<b class="ls">$1</b>');
-    return '<div class="pl' + cls + '"><b>' + esc(lead) + "</b>" + h + "</div>";
+    if (k === 0 && pv && pv.placement && pv.placement.kind === "fill" && !rest) rest = " · free";
+    var h;
+    if ((m = /^: loses (.+)$/.exec(rest))) h = ' · <b class="ls">− loses ' + esc(m[1]) + "</b>";
+    else h = esc(rest).replace(/([A-Z][\w’'-]* \d opens)/, '<b class="op">$1</b>');
+    return '<div class="pl"><b>' + esc(lead) + "</b>" + h + "</div>";
   };
 
   /** The preview lines under each card (Figma 2i-2, B5): where it goes, what it does to your sets, to you. */
@@ -454,6 +472,8 @@
       h += '<div class="dr-pvb" data-pv="' + k + '" style="left:' + cur.pos[k] + "px;top:" + PV_TOP + 'px">' + b + "</div>";
     }
     el.innerHTML = h;
+    // Lines wrap as the design's do; a box that would pass its four lines' room keeps each line to one (cut at its end).
+    for (var b2 = el.firstChild; b2; b2 = b2.nextSibling) if (b2.scrollHeight > PV_H + 1) MC.toggle(b2, "one", true);
   }
 
   // ---- a milestone banner (Figma 2i-7): a byname tier or a keyword's first 6-set, 2.5 s, any key or click skips ------
@@ -732,9 +752,7 @@
   /** A click inside the overlay; true when it was ours. */
   ov.click = function (t) {
     if (!cur) return false;
-    if (cur.kind === "set") { ov.close(true); return true; }
-    // A banner skips with any click, and the click still does what it was for (the banner is no screen of its own).
-    if (cur.kind === "banner") { ov.close(true); return "through"; }
+    if (cur.kind === "set" || cur.kind === "banner") { ov.close(true); return true; }
     while (t && t !== document.body) {
       if (t.getAttribute) {
         var v;

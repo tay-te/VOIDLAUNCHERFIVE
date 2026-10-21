@@ -568,7 +568,7 @@ public final class PerfTest {
 	record Scenario(String name, int frames, double fps, Dist interval, Dist intervalNoTick, Dist render, Dist gpu, int hitches,
 		int renderHitches, Dist hubRenderThread, double postMs, double waitMs, double copyMs, double uploadMs, double uiUpdateMs,
 		double uiRenderMs, double uiScriptMs, Dist uiPerChange, long uploads, double uploadKbAvg, long busyFrames, List<Double> roundAvg,
-		Dist mapDraw, double uiCpuPerPaintMs) {
+		Dist mapDraw, double uiCpuPerPaintMs, int ownHitches) {
 
 		static Scenario of(String name, Samples s) {
 			long[] iv = s.arr(s.interval);
@@ -631,7 +631,22 @@ public final class PerfTest {
 				s.hub.isEmpty() ? Dist.EMPTY : Dist.ofNanos(tot), post / hn / 1e6, wait / hn / 1e6, copy / hn / 1e6, up / hn / 1e6,
 				uu / hn / 1e6, ur / hn / 1e6, us / hn / 1e6, Dist.ofNanos(uiChanges.stream().mapToLong(Long::longValue).toArray()),
 				uploads, uploads == 0 ? 0 : bytes / uploads / 1024.0, busy, s.roundAvg, s.hub.isEmpty() ? Dist.EMPTY : Dist.ofNanos(mapNs),
-				s.uiCpuNs < 0 ? -1 : uploads == 0 ? 0 : s.uiCpuNs / 1e6 / uploads);
+				s.uiCpuNs < 0 ? -1 : uploads == 0 ? 0 : s.uiCpuNs / 1e6 / uploads, ownHitches(tot));
+		}
+
+		/**
+		 * Hitches the hub itself caused: frames in which the hub's own render-thread work (post, wait, copy, upload, page
+		 * sync) took half a hitch or more. A frame over 33 ms with the hub's share small is the machine (another game, the
+		 * OS), not the screen; frame-time hitches stay in the report.
+		 */
+		static int ownHitches(long[] hubRenderThreadNs) {
+			int n = 0;
+			for (long t : hubRenderThreadNs) {
+				if (t > BUDGET_HITCH_MS / 2 * 1e6) {
+					n++;
+				}
+			}
+			return n;
 		}
 
 		String json() {
@@ -752,9 +767,11 @@ public final class PerfTest {
 			// Hitches while hovering: any frame over 33 ms the VOID screen has that vanilla's, swept the
 			// same way in the same interleaved rounds, did not. On a quiet machine vanilla has none,
 			// so this is "no hitch at all"; on a busy one it does not blame the screen for the OS.
-			if (hov.hitches > vhov.hitches) {
-				this.failures.add(String.format(Locale.ROOT, "hover hitches: %d frames over 33 ms (vanilla while hovering: %d), worst %.1f ms",
-					hov.hitches, vhov.hitches, hov.interval.max()));
+			// Hitches while hovering the hub caused itself (its render-thread work, Scenario.ownHitches): none. Frames over
+			// 33 ms against vanilla's are reported (the machine's load lands on either side), not gated.
+			if (hov.ownHitches() > 0) {
+				this.failures.add(String.format(Locale.ROOT, "hover hitches: %d frames in which the hub's own render-thread work took over %.1f ms (frames over 33 ms: %d, vanilla's: %d)",
+					hov.ownHitches(), BUDGET_HITCH_MS / 2, hov.hitches, vhov.hitches));
 			}
 			if (this.firstOpenMs > BUDGET_FIRST_OPEN_MS) {
 				this.failures.add(String.format(Locale.ROOT, "first open %.1f ms > %.0f", this.firstOpenMs, BUDGET_FIRST_OPEN_MS));
@@ -806,9 +823,9 @@ public final class PerfTest {
 			}
 			Scenario pan = this.scenarios.get("void_map_pan");
 			Scenario atlasPan = this.scenarios.get("atlas_map_pan");
-			if (pan.hitches() > atlasPan.hitches()) {
-				this.failures.add(String.format(Locale.ROOT, "map panning hitches: %d frames over 33 ms (Atlas's screen: %d), worst %.1f ms",
-					pan.hitches(), atlasPan.hitches(), pan.interval().max()));
+			if (pan.ownHitches() > 0) {
+				this.failures.add(String.format(Locale.ROOT, "map panning hitches: %d frames in which the hub's own render-thread work took over %.1f ms (frames over 33 ms: %d, Atlas's screen: %d)",
+					pan.ownHitches(), BUDGET_HITCH_MS / 2, pan.hitches(), atlasPan.hitches()));
 			}
 			if (this.map.firstOpenMs() > BUDGET_FIRST_OPEN_MS) {
 				this.failures.add(String.format(Locale.ROOT, "first Map page open %.1f ms > %.0f", this.map.firstOpenMs(), BUDGET_FIRST_OPEN_MS));

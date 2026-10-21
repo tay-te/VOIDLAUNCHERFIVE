@@ -37,8 +37,20 @@
     if (!el || el.__k === key) return false;
     el.__k = key;
     el.innerHTML = typeof html === "function" ? html() : html;
-    if (MC.attached && el.firstChild) MC.fitIn(el);  // one-line texts (row names, subtitles) fit their boxes
+    // One-line texts (row names, subtitles) fit their boxes. Inside a render the fitting waits for its end (MC.fitFlush):
+    // measuring after each write made the engine lay the page out once per part (twelve times for a binder scroll).
+    if (MC.attached && el.firstChild) {
+      if (MC.fitQ) MC.fitQ.push(el);
+      else MC.fitIn(el);
+    }
     return true;
+  };
+  MC.fitQ = null;
+  /** Fits every part a render patched, after all its writes (one layout for the lot). */
+  MC.fitFlush = function () {
+    var q = MC.fitQ;
+    MC.fitQ = null;
+    for (var i = 0; q && i < q.length; i++) if (document.documentElement.contains(q[i])) MC.fitIn(q[i]);
   };
   /** A child div made once (by id), so later updates patch it instead of rebuilding its parent. */
   MC.part = function (host, id, cls, style) {
@@ -429,9 +441,11 @@
       ' data-fxtint="' + (c.cursed ? MC.CURSED : hue) + '"' + (opt.attrs || "") + ' style="--c:' + (c.cursed ? MC.CURSED : hue) + (opt.style ? ";" + opt.style : "") + '">';
     if (opt.sel) h += '<div class="cc-sel"></div>';
     if (mythic) h += '<div class="cc-glow"></div>';  // the steady white-gold glow (a still texture: no idle paints)
-    h += '<div class="cc-b' + (mythic ? " my" : "") + '" style="border-color:' + (mythic ? "#F3D28B" : MC.rgba(rc, 0.7)) + '"></div>';
+    // An opaque border (the rarity colour mixed onto the card's own #141416, as 70 % over it looked): Ultralight's CPU
+    // raster strokes a translucent rounded border several times slower, and a binder scroll repaints twelve of them.
+    h += '<div class="cc-b' + (mythic ? " my" : "") + '" style="border-color:' + (mythic ? "#F3D28B" : MC.mix("#141416", rc, 0.7)) + '"></div>';
     h += '<div class="cc-p" style="background:' + (mythic ? "#2a2236" : MC.shade(hue)) + '">' + MC.img(c.icon, 48) + "</div>";
-    h += '<div class="cc-gem" style="background:' + rc + '"></div>';
+    h += '<div class="cc-gem" style="--g:' + rc + '"></div>';
     if (c.signature) h += '<div class="cc-sig"></div>';
     if (MC.temperedTrait(c)) h += '<div class="cc-tm' + (c.signature ? " sig" : "") + '"><i></i></div>';
     h += '<div class="cc-n">' + esc(c.baseName || c.name) + "</div>";

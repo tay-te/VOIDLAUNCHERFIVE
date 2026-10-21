@@ -369,7 +369,9 @@ public final class Bridge {
 		op("forgeMythic", ID),
 		op("forgeLegend", ""),
 		op("guideSkip", ""),
-		op("guideAdvance", "dismiss|deck|keyword|unhover|not_now|focus"));
+		op("guideAdvance", "dismiss|deck|keyword|unhover|not_now|focus"),
+		// The page showed a milestone (toast or banner): Mettle's own HUD toast is not shown again (MettleLink.momentShown).
+		op("momentShown", "[a-z_]{1,24}#(?:" + ID + ")?#(?:" + ID + ")?#\\d{1,2}"));
 
 	/** Build feel's questions (answered on the client, nothing sent): the card id, and for the two previews the trait or keyword. */
 	static final Map<String, java.util.regex.Pattern> METTLE_ASKS = Map.ofEntries(

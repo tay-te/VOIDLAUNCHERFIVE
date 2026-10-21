@@ -50,7 +50,7 @@
 .cc > * { position: absolute; }
 .cc:hover, .cc.lifted { -webkit-transform: translateY(-4px); transform: translateY(-4px); }
 .cc.lifted { opacity: .35; }
-.cc-b { left: 0; top: 0; width: 96px; height: 128px; border-radius: 10px; background: #141416; border: 1.5px solid rgba(185, 190, 198, 0.7); }
+.cc-b { left: 0; top: 0; width: 96px; height: 128px; border-radius: 10px; background: #141416; border: 1.5px solid #868A90; }
 /* A Mythic in the binder: a steady white-gold glow round a gold frame, an inner light line and a lit face. Still. */
 .cc-glow { left: -8px; top: -8px; width: 112px; height: 144px; pointer-events: none; background: url(cards/fx/mythic_glow.png) 0 0 / 112px 144px no-repeat; }
 .cc-b.my { background: linear-gradient(180deg, #2A2136 0%, #17131D 70%); border-width: 1.5px; box-shadow: inset 0 0 0 2px rgba(23, 19, 29, 1), inset 0 0 0 3px rgba(255, 241, 201, 0.35); }
@@ -60,7 +60,10 @@
 .cc-check::after { content: ""; position: absolute; left: 6px; top: 4px; width: 5px; height: 9px; border: solid #0B0B0C; border-width: 0 2px 2px 0; -webkit-transform: rotate(45deg); transform: rotate(45deg); }
 .cc-p { left: 10px; top: 10px; width: 76px; height: 52px; border-radius: 6px; }
 .cc-p .mc-img { position: absolute; left: 14px; top: 2px; }
-.cc-gem { left: 74.5px; top: 10.5px; width: 7px; height: 7px; -webkit-transform: rotate(45deg); transform: rotate(45deg); }
+/* The rarity diamond as two border triangles, not a rotated square: no transform to raster on every repaint (a binder
+   scroll repaints twelve). */
+.cc-gem { left: 73px; top: 9px; width: 0; height: 0; border: 5px solid transparent; border-top-width: 0; border-bottom-color: var(--g); }
+.cc-gem::after { content: ""; position: absolute; left: -5px; top: 5px; width: 0; height: 0; border: 5px solid transparent; border-bottom-width: 0; border-top-color: var(--g); }
 .cc-n { left: 6px; top: 67px; width: 84px; text-align: center; font-size: 11px; color: #EDEEEF; white-space: nowrap; overflow: hidden; }
 /* Names past 13 letters take two lines at 9.5 px (never cut mid-word); the keyword row and dots keep their places. */
 .cc.long .cc-n { top: 63px; height: 23px; font-size: 9.5px; line-height: 11.5px; white-space: normal; word-break: normal; }

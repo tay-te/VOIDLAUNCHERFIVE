@@ -188,13 +188,20 @@ public final class MettleTest {
 				}
 			}
 		});
-		this.expect(hover.uiP95() < 10, "PERF draft hover sweep: UI p95 under 10 ms: " + hover);
+		this.expect(hover.paintP95() < 10, "PERF draft hover sweep: UI paint p95 (own CPU) under 10 ms: " + hover);
 		this.hoverPage(".dr-hand .hc[data-hand=\"1\"] .hc-art");
 		this.context.waitTicks(8);
 		this.expect("1".equals(this.js("String(MC.ov.hovered())")), "hovering the middle card made it the hovered one");
 		this.expect("true".equals(this.js("String(MC.fxDebug().indexOf('\"k\":\"lift\"') >= 0 && MC.fxDebug().indexOf('\"k\":\"edge-hot\"') >= 0)")),
 			"the hovered card lifts onto its hot frame natively: " + this.js("String(MC.fxDebug()).slice(0, 300)"));
 		this.shot("voidhub_mettle_05_draft_hover");
+		// The lifted card's flames (16 px lift, 5 % grow, 28 px of fire) stay clear of the title above the hand.
+		String head = this.js("(function(){var t=document.querySelector('#dr-title .ov-title svg'),c=document.querySelector('.dr-hand .hc[data-hand=\"1\"]');"
+			+ "if(!t||!c)return '';var z=window.HUBZ||1;return (c.getBoundingClientRect().top/z-16-328*0.025-28)+'|'+(t.getBoundingClientRect().bottom/z)})()");
+		if (!head.isEmpty()) {
+			String[] hv = head.split(java.util.regex.Pattern.quote("|"));
+			this.expect(Double.parseDouble(hv[0]) > Double.parseDouble(hv[1]), "a lifted card's flames stay under the draft title (flame tips at " + hv[0] + ", title ends at " + hv[1] + ")");
+		}
 
 		// 6. Pick with the 2 key: the kept card flares, the other two burn away, the next draft deals (D4).
 		String skillId = this.js("String(MC.ov && document.querySelector('#dr-chip .nm') ? document.querySelector('#dr-chip .nm').textContent : '')");
@@ -210,7 +217,7 @@ public final class MettleTest {
 			this.shot("voidhub_mettle_06c_draft_pick_ash");
 			this.context.waitTicks(26);
 		});
-		this.expect(pick.uiP95() < 50, "PERF draft pick: UI p95 under 50 ms: " + pick);
+		this.expect(pick.paintP95() < 50, "PERF draft pick: UI paint p95 (own CPU) under 50 ms: " + pick);
 		this.expect(this.binderCount() == binderBefore + 1, "the pick kept one card (" + skillId + "): binder " + binderBefore + " -> " + this.binderCount());
 		this.expect(this.waiting() == waitingBefore - 1, "the pick used one draft: " + waitingBefore + " -> " + this.waiting());
 		this.waitPage("MC.ov.kind()==='draft' && !document.querySelector('.dr-hand .hc.kept') && !!document.querySelector('.dr-hand .hc')", 80, "the next draft dealt after the pick");
@@ -470,6 +477,9 @@ public final class MettleTest {
 		this.shot("voidhub_mettle_18_set_complete");
 		this.ui.clickPage("#c-ov");
 		this.context.waitTicks(3);
+		for (int i = 0; i < 4 && !"null".equals(this.closeMoment()); i++) {
+			this.context.waitTicks(10);  // the first 2-set's byname banner follows the set moment
+		}
 		this.ui.clickPage("[data-scard=\"" + deep[0] + "\"]");
 		this.context.waitTicks(3);
 		this.ui.parkMouse();
@@ -715,6 +725,7 @@ public final class MettleTest {
 			this.expect(Integer.parseInt(n) >= 1 && Integer.parseInt(n) <= 3, "a preview shows one to three lines: " + r);
 		}
 		this.expect(Integer.parseInt(v[2]) == Integer.parseInt(v[0]), "each card has its second Keep button: " + r);
+		this.expect("true".equals(this.js("String(document.querySelectorAll('.dr-pvb .pl b').length>0)")), "the preview lines carry the design's emphasis (lead in white)");
 		this.ui.parkMouse();
 		this.context.waitTicks(2);
 		this.shot("voidhub_mettle_bf_03_preview_lines");
@@ -749,7 +760,7 @@ public final class MettleTest {
 			this.ui.clickPage("[data-tab=\"character\"]");
 			this.context.waitTicks(10);
 		});
-		this.expect(open.uiP95() < 50, "PERF character sheet open: UI p95 under 50 ms: " + open);
+		this.expect(open.paintP95() < 50, "PERF character sheet open: UI paint p95 (own CPU) under 50 ms: " + open);
 		this.waitPage("!!document.getElementById('ch-build')&&!!document.getElementById('ch-name')", 20, "the Character tab shows the sheet");
 		this.ui.parkMouse();
 		this.context.waitTicks(4);
@@ -765,7 +776,7 @@ public final class MettleTest {
 				}
 			}
 		});
-		this.expect(hov.uiP95() < 10, "PERF character sheet hover: UI p95 under 10 ms: " + hov);
+		this.expect(hov.paintP95() < 10, "PERF character sheet hover: UI paint p95 (own CPU) under 10 ms: " + hov);
 		this.expect("false".equals(this.js("String(document.getElementById('ch-talents').style.display!=='none')")), "the talent row stays hidden (Mettle reports no talents)");
 
 		// Focus (§1.3): the picker from the sets panel; once a day.
@@ -867,7 +878,7 @@ public final class MettleTest {
 			this.ui.clickPage("[data-bchoice=\"temper\"]");
 			this.context.waitTicks(8);
 		});
-		this.expect(choice.uiP95() < 50, "PERF boon choice open: UI p95 under 50 ms: " + choice);
+		this.expect(choice.paintP95() < 50, "PERF boon choice open: UI paint p95 (own CPU) under 50 ms: " + choice);
 		this.waitPage("!!document.querySelector('[data-bcardpick=\"" + deep[0] + "\"]')", 60, "the picker lights the Tunneler for a Temper");
 		this.quiet();
 		Perf bIdle = this.perf("boon choice idle", () -> this.context.waitTicks(40));
@@ -882,12 +893,12 @@ public final class MettleTest {
 				}
 			}
 		});
-		this.expect(bHover.uiP95() < 10, "PERF boon choice hover: UI p95 under 10 ms: " + bHover);
+		this.expect(bHover.paintP95() < 10, "PERF boon choice hover: UI paint p95 (own CPU) under 10 ms: " + bHover);
 		Perf bPick = this.perf("boon choice pick", () -> {
 			this.ui.clickPage("[data-bcardpick=\"" + deep[0] + "\"]");
 			this.context.waitTicks(6);
 		});
-		this.expect(bPick.uiP95() < 50, "PERF boon choice pick: UI p95 under 50 ms: " + bPick);
+		this.expect(bPick.paintP95() < 50, "PERF boon choice pick: UI paint p95 (own CPU) under 50 ms: " + bPick);
 		this.ui.parkMouse();
 		this.context.waitTicks(4);
 		this.shot("voidhub_mettle_36_boon_choice");
@@ -904,6 +915,9 @@ public final class MettleTest {
 		this.ui.parkMouse();
 		this.waitPage("!!document.getElementById('bf-toast')&&document.getElementById('bf-toast').style.opacity==='1'", 80, "the Temper milestone toast shows (2i-6)");
 		this.shot("voidhub_mettle_38_milestone_toast");
+		this.context.waitTicks(4);
+		this.expect(this.context.computeOnClient(mc -> MettleLink.hudMilestones("boon")) == 0,
+			"the milestone the page showed is gone from Mettle's HUD toasts (it shows once): " + this.context.computeOnClient(mc -> MettleLink.hudMilestones("boon")));
 		this.waitPage("!!document.querySelector('.hd-boon')", 40, "one boon still waits");
 		this.ui.clickPage(".hd-boon");
 		this.context.waitTicks(3);
@@ -1206,7 +1220,11 @@ public final class MettleTest {
 
 	/** Runs {@code actions} and logs the frames' UI-thread paint and render-thread cost (p50 / p95 / max, ms). */
 	/** A PERF line's numbers: frames, painted frames, UI-thread p95 and max, render-thread p95 (ms). */
-	record Perf(int frames, int painted, double uiP95, double uiMax, double renderP95) {
+	record Perf(int frames, int painted, double uiP95, double uiMax, double renderP95, double cpuP95, double cpuMax) {
+		/** p95 of the paints as the UI thread's own CPU (ThreadCpu: the machine's other load does not count), else wall clock. */
+		double paintP95() {
+			return this.cpuP95 >= 0 ? this.cpuP95 : this.uiP95;
+		}
 	}
 
 	private Perf perf(String what, Runnable actions) {
@@ -1237,7 +1255,9 @@ public final class MettleTest {
 		dev.voidmc.hub.VoidHub.LOGGER.info(String.format(java.util.Locale.ROOT,
 			"PERF %-20s frames %4d painted %4d  ui p50 %6.2f p95 %6.2f max %6.2f ms  render p50 %5.2f p95 %5.2f max %5.2f ms  upload %6.1f KB/frame",
 			what, frames.length, painted, pct(ui, 50), pct(ui, 95), pct(ui, 100), pct(rt, 50), pct(rt, 95), pct(rt, 100), bytes / 1024.0 / Math.max(1, frames.length)));
-		return new Perf(frames.length, painted, pct(ui, 95), pct(ui, 100), pct(rt, 95));
+		double[] own = AuditTest.ownCpu(frames, dev.voidmc.hub.ui.ThreadCpu.slowdown());
+		dev.voidmc.hub.VoidHub.LOGGER.info(String.format(java.util.Locale.ROOT, "PERF %-20s own UI thread CPU p95 %.2f max %.2f ms (gated), per working frame mean %.2f p95 %.2f ms", what, own[0], own[1], own[2], own[3]));
+		return new Perf(frames.length, painted, pct(ui, 95), pct(ui, 100), pct(rt, 95), own[0], own[1]);
 	}
 
 	private static double pct(long[] sorted, int p) {

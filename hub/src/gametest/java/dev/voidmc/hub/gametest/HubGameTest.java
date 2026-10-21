@@ -59,6 +59,28 @@ public class HubGameTest implements FabricClientGameTest {
 			world.getConnection().waitForChunksRender();
 			context.waitTicks(20);
 			quiet(context);
+			// The perf gates measure the UI thread's own CPU (ThreadCpu): calibrate its cycle rate before any load.
+			dev.voidmc.hub.ui.ThreadCpu.cyclesPerNs();
+			dev.voidmc.hub.ui.ThreadCpu.calibrateReference();
+			// -Pburn=<n>: n threads that keep cores busy (another game test on the machine, simulated), to show the
+			// gates measure the hub's own work, not the machine's load.
+			int burn = Integer.getInteger("voidhub.test.burn", 0);
+			for (int b = 0; b < burn; b++) {
+				Thread t = new Thread(() -> {
+					long x = 0;
+					while (true) {
+						x += System.nanoTime() % 7;
+						if (x == Long.MIN_VALUE) {
+							break;
+						}
+					}
+				}, "voidhub-test-burn-" + b);
+				t.setDaemon(true);
+				t.start();
+			}
+			if (burn > 0) {
+				System.out.println("[voidhub] " + burn + " CPU-burning threads running");
+			}
 
 			try {
 				if (mode.equals("mettle")) {
