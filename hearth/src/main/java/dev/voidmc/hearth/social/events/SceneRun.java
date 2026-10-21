@@ -40,6 +40,9 @@ public final class SceneRun {
 	/** Members of the scene's own parts (the couple, the dead's kin) still to be brought out, one a pass. */
 	final java.util.ArrayDeque<UUID> toEmbody = new java.util.ArrayDeque<>();
 	int embodied;
+	/** Open parts (the crowd, the guards, the children) who are only records, brought out near the venue (borrowed folk). */
+	final java.util.ArrayDeque<UUID> toBorrow = new java.util.ArrayDeque<>();
+	int borrowed;
 	final long startedAt;
 	boolean ended;
 

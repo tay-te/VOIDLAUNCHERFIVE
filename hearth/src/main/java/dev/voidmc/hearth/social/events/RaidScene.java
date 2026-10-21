@@ -99,7 +99,7 @@ final class RaidScene implements SceneDirector {
 						this.since = t;
 						folk.getNavigation().stop();
 					} else if (t % 30 == 0) {
-						folk.getNavigation().moveTo(this.goal.getX() + 0.5, this.goal.getY(), this.goal.getZ() + 0.5, 0.95);
+						go(level, folk, this.goal, 0.95);
 					}
 				}
 				case LOOT -> {
@@ -120,7 +120,7 @@ final class RaidScene implements SceneDirector {
 						this.escaped = true;
 						folk.discard();
 					} else if (t % 30 == 0) {
-						folk.getNavigation().moveTo(this.entry.getX() + 0.5, this.entry.getY(), this.entry.getZ() + 0.5, 1.0);
+						go(level, folk, this.entry, 1.0);
 					}
 				}
 			}
@@ -158,10 +158,34 @@ final class RaidScene implements SceneDirector {
 		}
 	}
 
+	/**
+	 * A raider makes for a place across the town: the path's search reaches as far as the place is (the folk's own follow
+	 * range is a street's length), and where no whole path is found they make for a point a dozen blocks on toward it.
+	 */
+	static void go(ServerLevel level, Folk folk, BlockPos to, double speed) {
+		var nav = folk.getNavigation();
+		double d = Math.sqrt(folk.blockPosition().distSqr(to));
+		nav.setRequiredPathLength((float) Math.min(96.0, d * 1.5 + 16.0));
+		// a whole path, or part of the way (the next try goes on from nearer)
+		if (nav.moveTo(to.getX() + 0.5, to.getY(), to.getZ() + 0.5, speed) && nav.getPath() != null && nav.getPath().getNodeCount() > 1) {
+			return;
+		}
+		if (d > 14) {
+			BlockPos at = folk.blockPosition();
+			BlockPos step = at.offset((int) Math.round((to.getX() - at.getX()) / d * 12), 0, (int) Math.round((to.getZ() - at.getZ()) / d * 12));
+			BlockPos g = EventDressings.ground(level, step);
+			if (g != null && Math.abs(g.getY() - at.getY()) <= 4) {
+				nav.moveTo(g.getX() + 0.5, g.getY(), g.getZ() + 0.5, speed);
+			}
+		}
+	}
+
 	@Override
 	public void begin(SceneRun run, Settlement s) {
 		ServerLevel level = run.level();
+		long t0 = System.nanoTime();
 		BlockPos entry = entry(run.world, s, run.event.args().getLongOr("band", 0));
+		Scenes.COSTS.merge("raid entry", System.nanoTime() - t0, Math::max);
 		if (entry == null) {
 			return;
 		}
@@ -173,11 +197,13 @@ final class RaidScene implements SceneDirector {
 		run.put("raiders", new ArrayList<Folk>());
 		run.put("controllers", new ArrayList<Raider>());
 		run.put("rng", RandomSource.create(run.event.seed()));
-		comeIn(run, s, 2);
-		alarm(level, s, run.venue("storehouse"));
+		long t1 = System.nanoTime();
+		comeIn(run, s, 1);
+		Scenes.COSTS.merge("raid first raider", System.nanoTime() - t1, Math::max);
+		// the alarm (the town's folk run for cover) is raised on the next pass: a scene's start is one short tick
 	}
 
-	/** Up to {@code most} more raiders come in from the road (two a pass: a party spawning at once is a long tick). */
+	/** Up to {@code most} more raiders come in from the road (one a pass: a party spawning at once is a long tick). */
 	private static void comeIn(SceneRun run, Settlement s, int most) {
 		Integer left = run.get("to_come");
 		BlockPos entry = run.get("entry");
@@ -214,15 +240,34 @@ final class RaidScene implements SceneDirector {
 		double dx = from == null ? 1 : from.getX() - c.getX();
 		double dz = from == null ? 0 : from.getZ() - c.getZ();
 		double len = Math.max(1, Math.hypot(dx, dz));
-		BlockPos gate = SceneVenues.gate(s);
+		// the gate only if known already: working out the town's exits is a long tick of its own, and the side the band's
+		// road comes in on is as good a way in
+		BlockPos gate = SceneVenues.gateIfKnown(s);
+		BlockPos any = null;
 		for (int r = 44; r >= 16; r -= 4) {
 			BlockPos p = gate != null && r == 44 ? gate : c.offset((int) Math.round(dx / len * r), 0, (int) Math.round(dz / len * r));
 			BlockPos g = EventDressings.ground(level, p);
-			if (g != null) {
+			if (g == null) {
+				continue;
+			}
+			// open ground, not a roof (the top block of a column in a town is often one): near the land's own height
+			if (gate != null && r == 44 || street(w, g)) {
 				return g;
 			}
+			if (any == null) {
+				any = g;
+			}
 		}
-		return null;
+		return any;
+	}
+
+	/** Whether a column's top is about the land's own height (a street or a yard, not a roof). */
+	static boolean street(HearthWorld w, BlockPos g) {
+		try {
+			return Math.abs(g.getY() - w.terrain().groundY(g.getX(), g.getZ())) <= 3;
+		} catch (RuntimeException e) {
+			return true;
+		}
 	}
 
 	private static void alarm(ServerLevel level, Settlement s, BlockPos at) {
@@ -257,7 +302,12 @@ final class RaidScene implements SceneDirector {
 
 	@Override
 	public void tick(SceneRun run, Settlement s, long gameTime) {
-		comeIn(run, s, 2);
+		if (run.get("entry") != null && run.get("alarmed") == null) {
+			run.put("alarmed", Boolean.TRUE);
+			alarm(run.level(), s, run.venue("storehouse"));
+			return;
+		}
+		comeIn(run, s, 1);
 		BoundingBox barn = run.get("barn_fire");
 		if (barn != null && run.get("barn_leash") == null) {
 			BlockPos roof = run.level().getHeightmapPos(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,

@@ -243,9 +243,10 @@ public class PlaceTour implements FabricClientGameTest {
 		}));
 		settle(context, 4_000);
 		world.getServer().runOnServer(server -> server.overworld().getEntities(EntityTypes.HUSK, h -> true).forEach(h -> h.discard()));
-		// following, measured on its own: the player walks off in steps and the companion keeps up
-		CompanionBehaviour.NANOS.reset();
-		CompanionBehaviour.TICKS.reset();
+		// following, measured on its own: the player walks off in steps and the companion keeps up (a first round cold, as
+		// before, then a second warm one)
+		for (int round = 0; round < 2; round++) {
+		CompanionBehaviour.resetCounts();
 		for (int i = 1; i <= 5; i++) {
 			int step = i;
 			world.getServer().runOnServer(server -> {
@@ -255,13 +256,45 @@ public class PlaceTour implements FabricClientGameTest {
 			});
 			settle(context, 2_000);
 		}
-		log(String.format(Locale.ROOT, "companion: following %.2f µs a tick over %d ticks", CompanionBehaviour.averageMicros(), CompanionBehaviour.TICKS.sum()));
-		// and at the player's side, the player standing (most of a companion's day)
+		log(String.format(Locale.ROOT, "companion: following %.2f µs a tick over %d ticks (%s)", CompanionBehaviour.averageMicros(), CompanionBehaviour.TICKS.sum(),
+			round == 0 ? "cold" : "warm"));
+		log("companion: " + CompanionBehaviour.parts());
+		}
+		// and at the player's side, the player standing (most of a companion's day): 10 s cold, then 20 s warm
 		settle(context, 3_000);
-		CompanionBehaviour.NANOS.reset();
-		CompanionBehaviour.TICKS.reset();
-		settle(context, 10_000);
-		log(String.format(Locale.ROOT, "companion: at the side %.2f µs a tick over %d ticks", CompanionBehaviour.averageMicros(), CompanionBehaviour.TICKS.sum()));
+		for (int round = 0; round < 2; round++) {
+			CompanionBehaviour.resetCounts();
+			settle(context, round == 0 ? 10_000 : 20_000);
+			log(String.format(Locale.ROOT, "companion: at the side %.2f µs a tick over %d ticks (%s)", CompanionBehaviour.averageMicros(),
+				CompanionBehaviour.TICKS.sum(), round == 0 ? "cold" : "warm"));
+			log("companion: " + CompanionBehaviour.parts());
+		}
+		// one companion is too few for the JIT to compile its tick in a tour's minute (64 on a server are compiled in
+		// seconds): the same tick at the side, its own clock stepped, 40 000 times on the server thread, timed after 20 000
+		log("companion: " + world.getServer().computeOnServer(server -> {
+			for (Folk f : NpcModule.embodiment().entities()) {
+				if (f.brain() != null && Companions.hired(f.brain().resident)) {
+					var h = f.brain().handle();
+					CompanionBehaviour b = new CompanionBehaviour();
+					int keep = f.tickCount;
+					for (int i = 0; i < 20_000; i++) {
+						f.tickCount++;
+						b.tick(h);
+					}
+					CompanionBehaviour.resetCounts();
+					long t0 = System.nanoTime();
+					for (int i = 0; i < 20_000; i++) {
+						f.tickCount++;
+						b.tick(h);
+					}
+					double us = (System.nanoTime() - t0) / 1e3 / 20_000;
+					f.tickCount = keep;
+					return String.format(Locale.ROOT, "at the side, warm: %.2f µs a tick (%.2f inside the behaviour); %s", us, CompanionBehaviour.averageMicros(),
+						CompanionBehaviour.parts());
+				}
+			}
+			return "no companion folk";
+		}));
 		world.getServer().runOnServer(server -> {
 			player(server).setGameMode(GameType.CREATIVE);
 			server.overworld().getEntities(EntityTypes.HUSK, h -> true).forEach(h -> h.discard());

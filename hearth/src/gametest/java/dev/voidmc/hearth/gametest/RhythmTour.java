@@ -171,10 +171,27 @@ public class RhythmTour implements FabricClientGameTest {
 			log("children: " + world.getServer().computeOnServer(server -> behaviours(server, town, PlayBehaviour.ID)));
 			shotAt(context, world, town, "hearth_rhythm_play", server -> folkCamera(server, town, PlayBehaviour.ID, 7));
 
+			// a market day: the stalls go up on the square with their keepers' wares on the counters
+			world.getServer().runOnServer(server -> dev.voidmc.hearth.social.life.TownLife.force(settlement(server, town),
+				dev.voidmc.hearth.social.calendar.TownEvent.Kind.MARKET, null, 3));
+			settle(context, 20_000);
+			log("market day: " + world.getServer().computeOnServer(server -> market(server, town)));
+			if (world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.life.StallWares.marketShowing(town).isEmpty())) {
+				// no room round the square this time (folk in the way, a cart): the market of the next hour tries again
+				world.getServer().runOnServer(server -> dev.voidmc.hearth.social.life.TownLife.force(settlement(server, town),
+					dev.voidmc.hearth.social.calendar.TownEvent.Kind.MARKET, null, 1, 2, List.of(), List.of(), List.of()));
+				settle(context, 70_000);
+				log("market day, the next hour: " + world.getServer().computeOnServer(server -> market(server, town)));
+			}
+			shotAt(context, world, town, "hearth_rhythm_market", server -> marketCamera(server, town));
+
 			// supper smoke at dusk
 			timeTo(world, Schedule.dayTimeOf(18 * 60 + 35));
 			settle(context, 6_000);
 			shotAt(context, world, town, "hearth_rhythm_smoke", server -> overview(server, town));
+			log("at supper: " + world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector.bench(server, 1000)));
+			// from here on the JIT is warm: the director's own time a town a pass, supper to the night watch
+			world.getServer().runOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector.resetTimes());
 
 			// a tavern night
 			timeTo(world, Schedule.dayTimeOf(19 * 60 + 10));
@@ -182,7 +199,19 @@ public class RhythmTour implements FabricClientGameTest {
 				SimSettlement s = settlement(server, town);
 				// the drinkers of the fullest tavern, so one room fills
 				List<java.util.Set<java.util.UUID>> by = Rhythm.drinkersByTavern(s, dev.voidmc.hearth.social.life.TownLife.today(s));
-				gather(server, town, by.isEmpty() ? java.util.Set.of() : by.get(0), 10);
+				// room for them: the town holds 48 bodies, so a dozen of the others go home (folded) first
+				java.util.Set<java.util.UUID> drinkersHere = by.isEmpty() ? java.util.Set.of() : by.get(0);
+				int folded = 0;
+				for (Folk f : new java.util.ArrayList<>(NpcModule.embodiment().entities())) {
+					if (folded >= 12 || f.brain() == null || f.brain().settlement.id() != town || drinkersHere.contains(f.brain().resident.id)
+						|| f.brain().resident.job == JobType.INNKEEPER || f.brain().resident.job == JobType.ENTERTAINER || doing(f, TavernNight.ID)) {
+						continue;
+					}
+					NpcModule.embodiment().fold(server.overworld(), f, true);
+					folded++;
+				}
+				log("folded " + folded + " folk to make room for the drinkers");
+				gather(server, town, drinkersHere, 10);
 				java.util.Set<java.util.UUID> hands = new java.util.HashSet<>();
 				for (dev.voidmc.hearth.api.Resident r : s.residents()) {
 					if (r.job == JobType.INNKEEPER || r.job == JobType.ENTERTAINER) {
@@ -193,6 +222,7 @@ public class RhythmTour implements FabricClientGameTest {
 			});
 			settle(context, 60_000);
 			log("tavern night: " + world.getServer().computeOnServer(server -> tavern(server, town)));
+			log("tavern rooms: " + world.getServer().computeOnServer(server -> tavernRooms(server, town)));
 			shotAt(context, world, town, "hearth_rhythm_tavern", server -> tavernCamera(server, town));
 
 			// the night watch with torches
@@ -236,6 +266,9 @@ public class RhythmTour implements FabricClientGameTest {
 			shotAt(context, world, town, "hearth_rhythm_watch", server -> folkCamera(server, town, WatchRounds.ID, 5));
 			log("rhythm: " + world.getServer().computeOnServer(server -> String.join(" | ", Rhythm.stats())));
 			log("living world: " + String.join(" | ", LivingWorldStats.lines()));
+			log("warm stretch (supper smoke, tavern night, watch): " + world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector
+				.timesLine()));
+			log(world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector.bench(server, 1000)));
 
 			// let the town go: nothing of the rhythm stays in the world
 			teleport(world, c.getX() + 900.5, 200, c.getZ() + 0.5, 0, 30);
@@ -405,6 +438,88 @@ public class RhythmTour implements FabricClientGameTest {
 		return String.format(Locale.ROOT, "%d drinkers (%d seated), %d tables in use (the busiest tavern %d), %d innkeeper/entertainer at work, %d taverns with a drinker playing; "
 			+ "behaviour: %d sat, %d bound for a seat, of %d", drinkers, seated, tablesInUse, busiest, hands, Rhythm.musicians(s, dev.voidmc.hearth.social.life.TownLife.today(s)),
 			sb[0], sb[1], sb[2]);
+	}
+
+	/** The taverns' tables and seats: how many seats stand by a table (2.5 blocks), and where tonight's drinkers are bound. */
+	private static String tavernRooms(MinecraftServer server, long town) {
+		SimSettlement s = settlement(server, town);
+		StringBuilder out = new StringBuilder();
+		for (PlotView p : Venues.built(s, "commerce/inn", "commerce/tavern")) {
+			List<Poi> tables = Venues.inPlot(s.pois(PoiType.TABLE), p);
+			List<Poi> seats = Venues.inPlot(s.pois(PoiType.SEAT), p);
+			int byTable = 0;
+			for (Poi seat : seats) {
+				for (Poi t : tables) {
+					if (seat.pos().distSqr(t.pos()) <= 2.5 * 2.5) {
+						byTable++;
+						break;
+					}
+				}
+			}
+			int drinkers = 0;
+			int atTable = 0;
+			for (Folk f : NpcModule.embodiment().entities()) {
+				if (!doing(f, TavernNight.ID) || !Venues.inside(p.spec(), f.blockPosition())) {
+					continue;
+				}
+				drinkers++;
+				for (Poi t : tables) {
+					if (f.position().distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(t.pos())) < 2.5 * 2.5) {
+						atTable++;
+						break;
+					}
+				}
+			}
+			out.append(String.format(Locale.ROOT, " [%s #%d: %d tables, %d seats (%d by a table), %d drinkers inside, %d at a table]", p.spec().archetype().getPath(),
+				p.id(), tables.size(), seats.size(), byTable, drinkers, atTable));
+		}
+		return out.toString();
+	}
+
+	/** The market's stalls: how many stand, how many show wares, and what. */
+	private static String market(MinecraftServer server, long town) {
+		SimSettlement s = settlement(server, town);
+		java.util.Map<BlockPos, List<Goods>> showing = dev.voidmc.hearth.social.life.StallWares.marketShowing(s.id());
+		long stallBlocks = s.data(SocialModule.LEDGER).dressings.stream().filter(d -> d.event().startsWith("market")).count();
+		StringBuilder what = new StringBuilder();
+		for (var e : showing.entrySet()) {
+			if (what.length() < 400) {
+				what.append(e.getKey().toShortString()).append(' ').append(e.getValue()).append("; ");
+			}
+		}
+		var e = dev.voidmc.hearth.social.life.TownLife.current(s, dev.voidmc.hearth.social.calendar.TownEvent.Kind.MARKET);
+		String where = "no market on";
+		if (e != null) {
+			BlockPos anchor = dev.voidmc.hearth.social.life.TownLife.venue(s, e).anchor();
+			int folk = 0;
+			for (Folk f : NpcModule.embodiment().entities()) {
+				if (f.blockPosition().closerThan(anchor, 12)) {
+					folk++;
+				}
+			}
+			where = String.format(Locale.ROOT, "%s at %s (loaded %s, %d folk within 12), %d stalls set up", e.key(), anchor.toShortString(),
+				server.overworld().isLoaded(anchor), folk, dev.voidmc.hearth.social.life.TownLife.stalls(s, e.key()).size());
+		}
+		return String.format(Locale.ROOT, "%s, %d market dressing blocks, %d stalls showing wares, %d ware displays in all: %s", where, stallBlocks,
+			showing.size(), dev.voidmc.hearth.social.life.StallWares.count(), what);
+	}
+
+	/** A camera on the first market stall showing wares, from the open side. */
+	private static double @Nullable [] marketCamera(MinecraftServer server, long town) {
+		ServerLevel level = server.overworld();
+		for (BlockPos c : dev.voidmc.hearth.social.life.StallWares.marketShowing(town).keySet()) {
+			net.minecraft.world.phys.Vec3 at = net.minecraft.world.phys.Vec3.atCenterOf(c.above());
+			for (double lift : new double[] {1.5, 2.5, 4.0}) {
+				for (int turn = 0; turn < 8; turn++) {
+					double a = turn * Math.PI / 4;
+					BlockPos q = BlockPos.containing(c.getX() + 0.5 + Math.cos(a) * 4, c.getY() + lift, c.getZ() + 0.5 + Math.sin(a) * 4);
+					if (level.getBlockState(q).isAir() && level.getBlockState(q.above()).isAir() && sees(level, q, at)) {
+						return new double[] {q.getX() + 0.5, q.getY(), q.getZ() + 0.5, at.x, at.y, at.z};
+					}
+				}
+			}
+		}
+		return null;
 	}
 
 	private static String watch(MinecraftServer server, long town) {

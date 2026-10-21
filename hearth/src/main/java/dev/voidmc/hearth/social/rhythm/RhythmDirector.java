@@ -70,8 +70,8 @@ public final class RhythmDirector {
 	static final int LAUNDRY_YARDS_A_PASS = 1;
 	/** What a town's day is, worked out once a day (the pass reads it every 20 ticks). */
 	private static final Map<Long, TownDay> DAYS = new HashMap<>();
-	/** The wash-place scan's time a pass, at most (it is spread over passes; it used to take 0.15 ms a pass). */
-	static final long SCAN_NANOS = 60_000;
+	/** The wash-place scan's time a pass, at most (spread over passes: it used to take 0.15 ms a pass, then 0.06 ms). */
+	static final long SCAN_NANOS = 15_000;
 
 	/** A town's day: the calendar's answers and the dressings' keys, and whether winter's dressing is seen to. */
 	static final class TownDay {
@@ -203,13 +203,103 @@ public final class RhythmDirector {
 				it.remove();
 				continue;
 			}
+			long p0 = System.nanoTime();
 			try {
 				pass(e.getValue(), s, cfg, gt);
 			} catch (RuntimeException ex) {
 				Hearth.LOG.warn("rhythm: the day of {} failed", s.name(), ex);
 			}
+			long took = System.nanoTime() - p0;
+			TOWN_PASSES.increment();
+			TOWN_NANOS.add(took);
+			TOWN_MAX.accumulateAndGet(took, Math::max);
+			sample(took);
 		}
 		TIMER.add(System.nanoTime() - t0);
+	}
+
+	/** The last {@code SAMPLES} passes' times (ns, a player's share), for the median: a mean on a busy machine is a few stalls. */
+	private static final int SAMPLES = 4096;
+	private static final long[] RING = new long[SAMPLES];
+	private static int ringNext;
+	private static int ringSize;
+
+	static synchronized void sample(long nanos) {
+		RING[ringNext] = nanos;
+		ringNext = (ringNext + 1) % SAMPLES;
+		ringSize = Math.min(SAMPLES, ringSize + 1);
+	}
+
+	/** The median and the 90th percentile of the sampled passes, in microseconds ({0, 0} with none). */
+	public static synchronized double[] percentiles() {
+		if (ringSize == 0) {
+			return new double[2];
+		}
+		long[] a = java.util.Arrays.copyOf(RING, ringSize);
+		java.util.Arrays.sort(a);
+		return new double[]{a[a.length / 2] / 1e3, a[Math.min(a.length - 1, a.length * 9 / 10)] / 1e3};
+	}
+
+	private static synchronized void resetSamples() {
+		ringNext = 0;
+		ringSize = 0;
+	}
+
+	/** A town's pass (one embodied town, every {@code pass_ticks}): how many, their time, the dearest (ns). */
+	public static final java.util.concurrent.atomic.LongAdder TOWN_PASSES = new java.util.concurrent.atomic.LongAdder();
+	public static final java.util.concurrent.atomic.LongAdder TOWN_NANOS = new java.util.concurrent.atomic.LongAdder();
+	public static final java.util.concurrent.atomic.AtomicLong TOWN_MAX = new java.util.concurrent.atomic.AtomicLong();
+
+	/** Starts the town-pass figures afresh (the tours' bench measures a warm stretch on its own). */
+	public static void resetTimes() {
+		TOWN_PASSES.reset();
+		TOWN_NANOS.reset();
+		TOWN_MAX.set(0);
+		resetSamples();
+	}
+
+	/** One line: a town's pass on average and at worst since the last reset. */
+	public static String timesLine() {
+		long n = TOWN_PASSES.sum();
+		double[] p = percentiles();
+		return String.format(java.util.Locale.ROOT, "rhythm director: %d town passes, %.1f us avg, median %.1f us, p90 %.1f us, %.0f us the dearest", n,
+			n == 0 ? 0.0 : TOWN_NANOS.sum() / 1e3 / n, p[0], p[1], TOWN_MAX.get() / 1e3);
+	}
+
+	/**
+	 * For the tours' bench (a warm JIT): every embodied town's pass {@code n} times at a smoke tick and {@code n} times
+	 * between, as in play (the smoke's particles go out; the bells do not ring again: the clock does not move). Microseconds.
+	 */
+	public static String bench(MinecraftServer srv, int n) {
+		RhythmConfig cfg = Rhythm.config();
+		long gt = srv.overworld().getGameTime();
+		int every = Math.max(1, cfg.smoke().everyTicks());
+		long smokeTick = gt - Math.floorMod(gt, every);
+		long plainTick = smokeTick + cfg.rhythm().passTicks();
+		long smoke = 0;
+		long plain = 0;
+		int towns = 0;
+		for (var e : EMBODIED.entrySet()) {
+			Settlement s = e.getValue().settlement(e.getKey());
+			if (s == null || !s.embodied()) {
+				continue;
+			}
+			towns++;
+			for (int i = 0; i < n; i++) {
+				long t0 = System.nanoTime();
+				pass(e.getValue(), s, cfg, smokeTick);
+				long t1 = System.nanoTime();
+				pass(e.getValue(), s, cfg, plainTick);
+				plain += System.nanoTime() - t1;
+				smoke += t1 - t0;
+			}
+		}
+		double per = Math.max(1, (double) towns * n);
+		return String.format(java.util.Locale.ROOT, "rhythm bench (%d towns x %d): a pass %.2f us with the smoke, %.2f us without; wash places %s", towns, n,
+			smoke / 1e3 / per, plain / 1e3 / per, EMBODIED.isEmpty() ? "-" : "scanned " + EMBODIED.keySet().stream().allMatch(id -> {
+				Settlement s = EMBODIED.get(id).settlement(id);
+				return s == null || WashPlaces.scanned(s);
+			}));
 	}
 
 	private static void reconcile(MinecraftServer srv) {
@@ -430,25 +520,57 @@ public final class RhythmDirector {
 		if (chimneys.isEmpty()) {
 			return;
 		}
-		Set<Integer> homesIn = new HashSet<>();
-		if (meal) {
-			for (Resident r : s.residents()) {
-				if (r.home != Resident.NO_PLOT && s.isResidentEmbodied(r.id)) {
-					homesIn.add(r.home);
-				}
+		// smoke is seen within 32 blocks (the particle packet goes no further): only chimneys a player is near
+		List<ServerPlayer> watchers = new ArrayList<>(2);
+		for (ServerPlayer p : level.players()) {
+			if (s.bounds().inflatedBy(SMOKE_SEEN).isInside(p.blockPosition())) {
+				watchers.add(p);
 			}
 		}
+		if (watchers.isEmpty()) {
+			return;
+		}
+		Set<Integer> homesIn = null;
 		int puffs = 0;
 		for (Chimney c : chimneys) {
 			if (puffs >= most) {
 				break;
 			}
-			if (!(meal && homesIn.contains(c.plot()) || ovens && c.bakery()) || !level.isLoaded(c.top())) {
+			if (!seen(watchers, c.top()) || !level.isLoaded(c.top())) {
+				continue;
+			}
+			if (meal && homesIn == null) {
+				homesIn = homesIn(s);
+			}
+			if (!(meal && homesIn.contains(c.plot()) || ovens && c.bakery())) {
 				continue;
 			}
 			level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, c.top().getX() + 0.5, c.top().getY() + 0.3, c.top().getZ() + 0.5, 0, 0, 0.07, 0, 1);
 			puffs++;
 		}
+	}
+
+	/** How far off a chimney's smoke is seen (blocks): the particle packet's own reach. */
+	static final int SMOKE_SEEN = 32;
+
+	private static boolean seen(List<ServerPlayer> watchers, BlockPos top) {
+		for (ServerPlayer p : watchers) {
+			if (p.distanceToSqr(top.getX() + 0.5, top.getY() + 0.3, top.getZ() + 0.5) <= SMOKE_SEEN * SMOKE_SEEN) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** The home plots with someone of the family about (the embodied are at home or near it at meal times). */
+	private static Set<Integer> homesIn(Settlement s) {
+		Set<Integer> homesIn = new HashSet<>();
+		for (Resident r : s.residents()) {
+			if (r.home != Resident.NO_PLOT && s.isResidentEmbodied(r.id)) {
+				homesIn.add(r.home);
+			}
+		}
+		return homesIn;
 	}
 
 	/** A built plot's chimney: the top of the column over its hearth, and whether it is a bakery's (smoking before dawn). */

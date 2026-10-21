@@ -203,6 +203,13 @@ class PlayerSkillsTest {
 		assertEquals(35, cheap.lotSell());
 		MarketPricer.Quote crossed = q.adjusted(0.5, 1.5);
 		assertTrue(crossed.sellUnit() <= crossed.buyUnit() * 0.95 + 1e-9, "the town never pays what it charges");
+		assertTrue(crossed.sellUnit() >= q.sellUnit() - 1e-9, "a favouring factor never lowers what the player is paid");
+		// a good the town is short of: it pays close to what it charges, so the spread is narrow
+		MarketPricer.Quote narrow = new MarketPricer.Quote(Goods.values()[0], 1, 10, 10, 9.4, 4, 40, 37);
+		MarketPricer.Quote favoured = narrow.adjusted(0.9, 1.1);
+		assertTrue(favoured.sellUnit() >= narrow.sellUnit() - 1e-9, "presence never pulls a sell price down through the cap");
+		assertTrue(favoured.buyUnit() <= narrow.buyUnit() + 1e-9, "nor raises what the player pays");
+		assertTrue(favoured.sellUnit() <= favoured.buyUnit() * 0.95 + 1e-9, "and the town still never pays what it charges");
 	}
 
 	@Test

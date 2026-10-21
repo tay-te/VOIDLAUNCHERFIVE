@@ -49,6 +49,10 @@ public final class CrowdBehaviour implements FolkBehaviour {
 		int way;
 		double startGap;
 		int stalls;
+		/** Path searches made for a scatter so far. */
+		int searches;
+		/** What a scatter runs from. */
+		@Nullable BlockPos src;
 		@Nullable Vec3 lastPos;
 
 		Job(Order order) {
@@ -157,11 +161,16 @@ public final class CrowdBehaviour implements FolkBehaviour {
 		switch (this.reaction) {
 			case SCATTER -> {
 				BlockPos src = from(job, p);
-				job.ways = ways(folk, src, 5 + Math.floorMod(seed(folk), 3));
+				job.ways = ways(folk, src, SCATTER_DIST + Math.floorMod(seed(folk), 3));
 				job.way = 0;
-				job.goal = job.ways.isEmpty() ? away(folk, src, 5, true) : job.ways.getFirst();
-				job.startGap = Math.sqrt(folk.entity().blockPosition().distSqr(src));
+				job.goal = null;
+				job.src = src;
+				job.startGap = Math.sqrt(folk.entity().position().distanceToSqr(Vec3.atBottomCenterOf(src)));
 				job.lastPos = null;
+				job.stalls = 0;
+				job.searches = 0;
+				// the first steps at once (the order has waited for the director and the poll already)
+				headOff(folk, job);
 				if (job.order.rank == 0 || job.order.role == Role.MOTHER) {
 					bark(folk, job, p);
 				}
@@ -200,7 +209,17 @@ public final class CrowdBehaviour implements FolkBehaviour {
 		job.repath = 0;
 	}
 
-	/** Steps back 4–8 blocks from the weapon; a child runs to its mother if she is near. */
+	/** How far a scatter's ways out reach from the folk (7–9 blocks), and how much further from the blade a way must end. */
+	static final int SCATTER_DIST = 7;
+	static final double SCATTER_GAIN = 5;
+	/** Path searches a scatter may make in all (ways out, then a vanilla "anywhere away"). */
+	static final int SCATTER_SEARCHES = 5;
+
+	/**
+	 * Steps back from the weapon, well clear (the way out ends 5+ blocks further from it than the folk stood); a child runs
+	 * to its mother if she is near. A way the path will not take far enough, or on which the folk makes no headway, gives
+	 * way to the next at once; when none will do, anywhere away the vanilla way.
+	 */
 	private boolean scatter(FolkHandle folk, Job job) {
 		ServerPlayer p = player(folk, job.order);
 		if (job.goal == null || job.ticks > 140) {
@@ -211,28 +230,85 @@ public final class CrowdBehaviour implements FolkBehaviour {
 			return job.ticks < 240;
 		}
 		if (job.repath <= 0) {
-			// no headway over two orders (a wall, a fence, a way the path will not find): the next way out
+			// no headway over two looks (a wall, a fence, a crowd in the lane): the next way out
 			Vec3 here = folk.entity().position();
 			boolean stuck = job.lastPos != null && here.distanceToSqr(job.lastPos) < 0.36;
 			job.stalls = stuck ? job.stalls + 1 : 0;
-			if (job.stalls >= 2 && job.way + 1 < job.ways.size()) {
-				job.goal = job.ways.get(++job.way);
-				job.stalls = 0;
-			}
 			job.lastPos = here;
-			double speed = folk.resident().age == dev.voidmc.hearth.api.AgeStage.CHILD ? 1.35 : 1.25;
-			// no path to this way out at all: straight on to the next (a path search is a few at most)
-			while (!folk.moveTo(job.goal, speed) && job.way + 1 < job.ways.size()) {
-				job.goal = job.ways.get(++job.way);
+			if (job.stalls >= 2 || folk.entity().getNavigation().isDone() && !clear(folk, job)) {
 				job.stalls = 0;
+				job.way++;
+				headOff(folk, job);
+			} else {
+				folk.moveTo(job.goal, speed(folk));
 			}
-			job.repath = 10;
+			job.repath = 8;
 		}
-		if (folk.arrived()) {
+		if (job.goal != null && folk.arrived() && clear(folk, job)) {
 			folk.stop();
 			job.goal = null;
 		}
 		return true;
+	}
+
+	private static double speed(FolkHandle folk) {
+		return folk.resident().age == dev.voidmc.hearth.api.AgeStage.CHILD ? 1.4 : 1.3;
+	}
+
+	/** Whether the folk stands well clear of the blade now (4.5+ blocks further than at the start). */
+	private static boolean clear(FolkHandle folk, Job job) {
+		return job.src == null || Math.sqrt(folk.entity().position().distanceToSqr(Vec3.atBottomCenterOf(job.src))) >= job.startGap + 4.5;
+	}
+
+	/**
+	 * Sets the folk off on the first way out from {@code job.way} on whose path it ends well away from the blade (a path
+	 * that stops short of a fence still does if it gets far enough); with the ways spent, a vanilla spot away from the
+	 * blade. Each try is one path search, {@link #SCATTER_SEARCHES} in all.
+	 */
+	private static void headOff(FolkHandle folk, Job job) {
+		BlockPos src = job.src;
+		if (src == null) {
+			return;
+		}
+		double need = job.startGap + SCATTER_GAIN - 1;
+		while (job.searches < SCATTER_SEARCHES) {
+			BlockPos goal;
+			if (job.way < job.ways.size()) {
+				goal = job.ways.get(job.way);
+			} else {
+				Vec3 v = folk.entity() instanceof net.minecraft.world.entity.PathfinderMob mob
+					? net.minecraft.world.entity.ai.util.LandRandomPos.getPosAway(mob, SCATTER_DIST + 2, 4, Vec3.atBottomCenterOf(src)) : null;
+				if (v == null) {
+					job.searches++;
+					continue;
+				}
+				goal = BlockPos.containing(v);
+			}
+			job.searches++;
+			if (folk.moveTo(goal, speed(folk)) && reaches(folk, src, need)) {
+				job.goal = goal;
+				return;
+			}
+			job.way++;
+		}
+		// nothing better: straight away from the blade, and the path does what it can
+		job.goal = away(folk, src, SCATTER_DIST, true);
+		folk.moveTo(job.goal, speed(folk));
+	}
+
+	/** Whether the folk's current path ends at least {@code need} blocks from {@code src}. */
+	private static boolean reaches(FolkHandle folk, BlockPos src, double need) {
+		net.minecraft.world.level.pathfinder.Path path = folk.entity().getNavigation().getPath();
+		if (path == null || path.getNodeCount() == 0) {
+			return false;
+		}
+		net.minecraft.world.level.pathfinder.Node end = path.getEndNode();
+		if (end == null) {
+			return false;
+		}
+		double dx = end.x + 0.5 - (src.getX() + 0.5);
+		double dz = end.z + 0.5 - (src.getZ() + 0.5);
+		return Math.sqrt(dx * dx + dz * dz) >= need;
 	}
 
 	/**
@@ -262,7 +338,7 @@ public final class CrowdBehaviour implements FolkBehaviour {
 			double a = base + turn;
 			BlockPos want = BlockPos.containing(me.x + Math.cos(a) * dist, me.y, me.z + Math.sin(a) * dist);
 			BlockPos spot = FolkSpots.standableNear(level, want, 2);
-			if (spot == null || Math.sqrt(spot.distSqr(from)) < gap + 4) {
+			if (spot == null || Math.sqrt(spot.distSqr(from)) < gap + SCATTER_GAIN) {
 				continue;
 			}
 			if (open(level, folk.entity().blockPosition(), spot)) {

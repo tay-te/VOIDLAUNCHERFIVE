@@ -35,7 +35,7 @@ public final class FactsReader {
 	private static final Map<Long, Set<String>> PLACES = new HashMap<>();
 	private static final Map<Long, int[]> DEFENCE = new HashMap<>();
 	/** Domain seats by world (dimension key) and the day they were worked out. */
-	private static final Map<String, Object[]> SEATS = new HashMap<>();
+	private static final Map<Object, Object[]> SEATS = new HashMap<>();
 	private static final Map<Long, Long> SEAT_OF = new HashMap<>();
 
 	/** Time spent finding domains and bands (the bench's breakdown). */
@@ -175,11 +175,17 @@ public final class FactsReader {
 		return new int[]{walls, keep};
 	}
 
+	/** The world's key in the per-world caches: its dimension (no string made each day); a world without a level (tests) itself. */
+	private static Object worldKey(HearthWorld w) {
+		net.minecraft.server.level.ServerLevel level = w.level();
+		return level == null ? w : level.dimension();
+	}
+
 	// ---------------------------------------------------------------- domains
 
 	/** The seat whose domain a town is in, worked out for every town of the world once a week. */
 	static long seatOf(HearthWorld w, Settlement s, long day) {
-		String world = w.level().dimension().identifier().toString();
+		Object world = worldKey(w);
 		Object[] cached = SEATS.get(world);
 		long week = Math.floorDiv(day, 7);
 		if (cached == null || (long) cached[0] != week) {
@@ -221,7 +227,7 @@ public final class FactsReader {
 
 	// ---------------------------------------------------------------- bands
 
-	private static final Map<String, Object[]> BANDS = new HashMap<>();
+	private static final Map<Object, Object[]> BANDS = new HashMap<>();
 	/** Road distances asked this week, by the pair (the router's search is not free; roads change slowly). */
 	private static final Map<Long, Double> ROAD = new HashMap<>();
 	private static long roadWeek = Long.MIN_VALUE;
@@ -290,7 +296,7 @@ public final class FactsReader {
 	}
 
 	static List<RaidRules.BandView> bands(HearthWorld w, long day) {
-		String world = w.level().dimension().identifier().toString();
+		Object world = worldKey(w);
 		Object[] cached = BANDS.get(world);
 		if (cached != null && (long) cached[0] == day) {
 			@SuppressWarnings("unchecked")

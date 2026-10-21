@@ -70,8 +70,9 @@ public final class CrowdStats {
 		sb.append(String.format(Locale.ROOT, ", barks %d, brawls %d, indoors %d, doors shut %d, shutters toggled %d, %.1f us a player a pass", BARKS.sum(), BRAWLS.sum(),
 			INDOORS.sum(), DOORS_SHUT.sum(), SHUTTERS_TOGGLED.sum(), perPlayerUs));
 		if (passes > 0) {
-			sb.append(String.format(Locale.ROOT, " (reading the player %.1f us, the folk near %.1f us; spectacles %.0f us in all; %d of %d quiet)", FACTS_NANOS.sum() / 1000.0 / passes,
-				NEAR_NANOS.sum() / 1000.0 / passes, SPECTACLE_NANOS.sum() / 1000.0, QUIET_SKIPS.sum(), passes));
+			sb.append(String.format(Locale.ROOT, " (reading the player %.1f us, the folk near %.1f us, choosing %.1f us; spectacles %.0f us in all; %d of %d quiet; median %.1f us, p90 %.1f us a player; dearest pass %.0f us)",
+				FACTS_NANOS.sum() / 1000.0 / passes, NEAR_NANOS.sum() / 1000.0 / passes, CHOOSE_NANOS.sum() / 1000.0 / passes, SPECTACLE_NANOS.sum() / 1000.0, QUIET_SKIPS.sum(), passes,
+				percentiles()[0], percentiles()[1], DIRECTOR_MAX.get() / 1000.0));
 		}
 		return sb.toString();
 	}
@@ -80,6 +81,51 @@ public final class CrowdStats {
 	public static final LongAdder FACTS_NANOS = new LongAdder();
 	public static final LongAdder NEAR_NANOS = new LongAdder();
 	public static final LongAdder SPECTACLE_NANOS = new LongAdder();
+	/** The choosing: who is in the middle of what, the selector, the orders issued (passes with anyone to choose among). */
+	public static final LongAdder CHOOSE_NANOS = new LongAdder();
+
+	/** Starts the per-player figures afresh (the tours' bench measures a warm stretch on its own). */
+	public static void resetTimes() {
+		PLAYER_PASSES.reset();
+		QUIET_SKIPS.reset();
+		FACTS_NANOS.reset();
+		NEAR_NANOS.reset();
+		SPECTACLE_NANOS.reset();
+		CHOOSE_NANOS.reset();
+		DIRECTOR_NANOS.reset();
+		DIRECTOR_MAX.set(0);
+		resetSamples();
+	}
+
+	/** The last {@code SAMPLES} passes' times (ns, a player's share), for the median: a mean on a busy machine is a few stalls. */
+	private static final int SAMPLES = 4096;
+	private static final long[] RING = new long[SAMPLES];
+	private static int ringNext;
+	private static int ringSize;
+
+	static synchronized void sample(long nanos) {
+		RING[ringNext] = nanos;
+		ringNext = (ringNext + 1) % SAMPLES;
+		ringSize = Math.min(SAMPLES, ringSize + 1);
+	}
+
+	/** The median and the 90th percentile of the sampled passes, in microseconds ({0, 0} with none). */
+	public static synchronized double[] percentiles() {
+		if (ringSize == 0) {
+			return new double[2];
+		}
+		long[] a = java.util.Arrays.copyOf(RING, ringSize);
+		java.util.Arrays.sort(a);
+		return new double[]{a[a.length / 2] / 1e3, a[Math.min(a.length - 1, a.length * 9 / 10)] / 1e3};
+	}
+
+	private static synchronized void resetSamples() {
+		ringNext = 0;
+		ringSize = 0;
+	}
+
+	/** The dearest director pass since the last reset (ns). */
+	public static final java.util.concurrent.atomic.AtomicLong DIRECTOR_MAX = new java.util.concurrent.atomic.AtomicLong();
 
 	/** Server time the director's passes took, in all. */
 	public static final LongAdder DIRECTOR_NANOS = new LongAdder();

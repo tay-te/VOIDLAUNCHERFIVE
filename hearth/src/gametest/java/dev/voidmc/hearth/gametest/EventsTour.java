@@ -154,6 +154,37 @@ public class EventsTour implements FabricClientGameTest {
 	}
 
 	private static String extra(TestSingleplayerContext world, long town, String kind) {
+		if (kind.equals("raid")) {
+			// raiders are nobody's residents: they are not among the embodiment's folk, so counted here
+			return world.getServer().computeOnServer(server -> {
+				Object raiders = TownEvents.sceneState(settlement(server, town), "raid", "raiders");
+				BlockPos at = TownEvents.venue(settlement(server, town), "raid", "storehouse");
+				int shown = 0;
+				int alive = 0;
+				int near = 0;
+				double closest = Double.MAX_VALUE;
+				if (raiders instanceof List<?> l) {
+					for (Object o : l) {
+						if (o instanceof Folk f) {
+							shown++;
+							if (f.isAlive() && !f.isRemoved()) {
+								alive++;
+								if (at != null) {
+									closest = Math.min(closest, Math.sqrt(f.blockPosition().distSqr(at)));
+								}
+								if (at != null && f.blockPosition().distSqr(at) <= 24 * 24) {
+									near++;
+								}
+							}
+						}
+					}
+				}
+				return ", raiders shown " + shown + ", in the world " + alive + ", within 24 of the storehouse " + near
+					+ (closest < Double.MAX_VALUE ? String.format(Locale.ROOT, ", the nearest %.0f off", closest) : "")
+					+ (TownEvents.sceneState(settlement(server, town), "raid", "entry") instanceof BlockPos e && at != null
+						? String.format(Locale.ROOT, " (they came in %.0f from it)", Math.sqrt(e.distSqr(at))) : "");
+			});
+		}
 		if (!kind.equals("fair")) {
 			return "";
 		}

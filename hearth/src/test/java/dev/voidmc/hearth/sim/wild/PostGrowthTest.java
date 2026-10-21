@@ -154,6 +154,15 @@ class PostGrowthTest {
 		SimSettlement s = post(PostType.INN, t, 500);
 		run(s, 10);
 		int interval = WildConfig.Wild.DEFAULTS.stepInterval();
+		// warmed first (a server steps its posts for hours): a cold step measures the JIT
+		for (int i = 0; i < 3000; i++) {
+			long target = s.simTick() + interval;
+			while (s.simTick() < target) {
+				if (SettlementClock.advance(s, target) <= 0) {
+					break;
+				}
+			}
+		}
 		long total = 0;
 		int steps = 400;
 		long[] each = new long[steps];
