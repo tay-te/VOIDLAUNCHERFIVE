@@ -172,13 +172,19 @@ public final class MarketPricer {
 	public record Quote(@Nullable Goods goods, int units, double mid, double buyUnit, double sellUnit, int lot, long lotBuy, long lotSell) {
 		/**
 		 * This quote with a player's price factors applied: {@code buyFactor} on what they pay, {@code sellFactor} on what
-		 * they are paid, which still stays below 95 % of what they would pay.
+		 * they are paid, which still stays below 95 % of what they would pay. A cheaper price for the player never goes
+		 * below what the town would pay them for the same thing ({@code sellUnit / 0.95}), so a factor that favours the
+		 * player can lower what they pay and raise what they are paid, but never pulls their selling price down through
+		 * the cap (a town short of a good does not sell it cheap).
 		 */
 		public Quote adjusted(double buyFactor, double sellFactor) {
 			if (buyFactor == 1.0 && sellFactor == 1.0) {
 				return this;
 			}
 			double buy = this.buyUnit * buyFactor;
+			if (buyFactor < 1.0) {
+				buy = Math.max(buy, Math.min(this.buyUnit, this.sellUnit / 0.95));
+			}
 			double sell = Math.min(this.sellUnit * sellFactor, buy * 0.95);
 			return new Quote(this.goods, this.units, this.mid, buy, sell, this.lot, PriceModel.lotPrice(buy, this.lot, true),
 				PriceModel.lotPrice(sell, this.lot, false));
