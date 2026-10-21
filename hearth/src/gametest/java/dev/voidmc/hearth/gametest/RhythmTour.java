@@ -178,12 +178,20 @@ public class RhythmTour implements FabricClientGameTest {
 				dev.voidmc.hearth.social.calendar.TownEvent.Kind.MARKET, null, 3));
 			settle(context, 20_000);
 			log("market day: " + world.getServer().computeOnServer(server -> market(server, town)));
+			if (world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.life.StallWares.marketShowing(town).isEmpty())) {
+				// no room round the square this time (folk in the way, a cart): the market of the next hour tries again
+				world.getServer().runOnServer(server -> dev.voidmc.hearth.social.life.TownLife.force(settlement(server, town),
+					dev.voidmc.hearth.social.calendar.TownEvent.Kind.MARKET, null, 1, 2, List.of(), List.of(), List.of()));
+				settle(context, 70_000);
+				log("market day, the next hour: " + world.getServer().computeOnServer(server -> market(server, town)));
+			}
 			shotAt(context, world, town, "hearth_rhythm_market", server -> marketCamera(server, town));
 
 			// supper smoke at dusk
 			timeTo(world, Schedule.dayTimeOf(18 * 60 + 35));
 			settle(context, 6_000);
 			shotAt(context, world, town, "hearth_rhythm_smoke", server -> overview(server, town));
+			log("at supper: " + world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.rhythm.RhythmDirector.bench(server, 1000)));
 
 			// a tavern night
 			timeTo(world, Schedule.dayTimeOf(19 * 60 + 10));
