@@ -1812,7 +1812,7 @@
             '<div style="left:57px;top:' + (ly + 17) + 'px;font-size:11px;color:#9A9DA1;white-space:nowrap">' + esc("seat: " + c.seat) + "</div>" +
             '<div class="h-pill ink" style="right:15px;top:' + (ly + 4) + 'px;height:25px">' + esc(c.rankName) + "</div>";
         }
-        h += '<div style="left:15px;top:456px;width:285px;font-size:10.5px;color:#626569;line-height:13px">Ranks are per lord; an heir keeps your service one rank lower until you pledge again.</div>';
+        h += '<div style="left:15px;top:448px;width:285px;font-size:10.5px;color:#626569;white-space:nowrap;overflow:hidden">Ranks are per lord; an heir keeps you a rank lower.</div>';
       }
       h += "</div>";
       var s = towns[ui.town];
