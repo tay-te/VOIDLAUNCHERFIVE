@@ -141,7 +141,30 @@ public final class SceneVenues {
 	}
 
 	/** Where the town's roads leave it (the planner's exits), the one nearest the heart; else the heart. */
+	/** Each town's gate as last worked out, with the plot count it was worked out at (the planner's exits are not free). */
+	private static final java.util.Map<Long, Object[]> GATES = new java.util.concurrent.ConcurrentHashMap<>();
+
 	static @Nullable BlockPos gate(Settlement s) {
+		int plots = s.plots().size();
+		Object[] known = GATES.get(s.id());
+		if (known != null && (int) known[0] == plots) {
+			return (BlockPos) known[1];
+		}
+		BlockPos g = gate0(s);
+		if (GATES.size() > 512) {
+			GATES.clear();
+		}
+		GATES.put(s.id(), new Object[]{plots, g});
+		return g;
+	}
+
+	/** The town's gate if it has been worked out at its present plots, else null (nothing is worked out). */
+	static @Nullable BlockPos gateIfKnown(Settlement s) {
+		Object[] known = GATES.get(s.id());
+		return known != null && (int) known[0] == s.plots().size() ? (BlockPos) known[1] : null;
+	}
+
+	private static @Nullable BlockPos gate0(Settlement s) {
 		List<BlockPos> exits = List.of();
 		try {
 			if (HearthServices.hasPlanner()) {

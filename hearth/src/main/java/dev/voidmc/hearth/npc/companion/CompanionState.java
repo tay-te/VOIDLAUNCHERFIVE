@@ -23,12 +23,11 @@ public final class CompanionState {
 		}
 
 		static Follow byId(String id) {
-			for (Follow f : values()) {
-				if (f.id().equals(id)) {
-					return f;
-				}
-			}
-			return FOLLOW;
+			return switch (id) {
+				case "distance" -> DISTANCE;
+				case "wait" -> WAIT;
+				default -> FOLLOW;
+			};
 		}
 	}
 
@@ -40,13 +39,12 @@ public final class CompanionState {
 
 	/** The resident's companion state, or null when they serve nobody. */
 	public static @Nullable CompanionState of(Resident r) {
-		CompoundTag t = r.extra.getCompoundOrEmpty(KEY);
-		return t.getString("player").isPresent() ? new CompanionState(t) : null;
+		return r.extra.get(KEY) instanceof CompoundTag t && t.get("player") instanceof net.minecraft.nbt.StringTag ? new CompanionState(t) : null;
 	}
 
 	/** Whether the resident is anyone's companion. */
 	public static boolean hired(Resident r) {
-		return r.extra.getCompoundOrEmpty(KEY).getString("player").isPresent();
+		return r.extra.get(KEY) instanceof CompoundTag t && t.get("player") instanceof net.minecraft.nbt.StringTag;
 	}
 
 	/** Makes the resident a companion of {@code player} from {@code day}, at {@code wage} bits a day (paid for the first day). */
@@ -70,8 +68,24 @@ public final class CompanionState {
 	}
 
 	public UUID player() {
-		return UUID.fromString(this.tag.getStringOr("player", new UUID(0, 0).toString()));
+		String id = this.tag.getStringOr("player", "");
+		UUID u = PLAYERS.get(id);
+		if (u == null) {
+			try {
+				u = UUID.fromString(id);
+			} catch (IllegalArgumentException e) {
+				u = new UUID(0, 0);
+			}
+			if (PLAYERS.size() > 1024) {
+				PLAYERS.clear();
+			}
+			PLAYERS.put(id, u);
+		}
+		return u;
 	}
+
+	/** Players' ids as read (a companion's tick asks for its player every tick; parsing the id each time is not free). */
+	private static final java.util.Map<String, UUID> PLAYERS = new java.util.concurrent.ConcurrentHashMap<>();
 
 	public long since() {
 		return this.tag.getLongOr("since", 0);

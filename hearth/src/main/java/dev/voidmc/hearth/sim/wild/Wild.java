@@ -32,6 +32,8 @@ public final class Wild {
 	private static WildConfig config = WildConfig.DEFAULTS;
 	private static final Map<SimWorld, PostWorld> WORLDS = new ConcurrentHashMap<>();
 	public static final LivingWorldStats.Timer TIMER = LivingWorldStats.timer("wild");
+	/** The server tick's adoption of worked-out posts (one a tick at most). */
+	static final LivingWorldStats.Timer ADOPT_TIMER = LivingWorldStats.timer("wild adoption");
 
 	private Wild() {
 	}
@@ -91,6 +93,22 @@ public final class Wild {
 				long t0 = System.nanoTime();
 				PostRules.daily(s, day);
 				TIMER.add(System.nanoTime() - t0);
+			}
+		});
+		// posts worked out on the wild worker are adopted on the server thread, one a tick
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+			if (WORLDS.isEmpty()) {
+				return;
+			}
+			for (PostWorld p : WORLDS.values()) {
+				long t0 = System.nanoTime();
+				try {
+					if (p.adoptOne()) {
+						ADOPT_TIMER.add(System.nanoTime() - t0);
+					}
+				} catch (RuntimeException e) {
+					Hearth.LOG.error("hearth wild: adopting a post failed", e);
+				}
 			}
 		});
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> WORLDS.clear());

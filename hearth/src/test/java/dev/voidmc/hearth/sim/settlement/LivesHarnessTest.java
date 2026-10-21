@@ -89,16 +89,20 @@ class LivesHarnessTest {
 		assertTrue(delta(st, before, "sweetheart_weddings") >= 1, "a sweethearts' wedding in the 200 days\n" + report);
 		assertTrue(!lives.notables.isEmpty() && delta(st, before, "beats") >= lives.notables.size(), "threads that have moved on\n" + report);
 
-		// what a day of lives costs in this town, warm (as on a server stepping many towns)
-		int warm = 3000;
-		long t0 = 0;
-		for (int d = GROW + WINDOW + 1; d <= GROW + WINDOW + warm; d++) {
-			if (d == GROW + WINDOW + warm / 3) {
-				t0 = System.nanoTime();
-			}
-			Lives.step(town, d);
+		// what a day of lives costs in this town, warm (as on a server stepping many towns): warmed 4 000 days, then the best of
+		// five batches of 1 000 (a shared test machine's other work lands in some of them)
+		int d = GROW + WINDOW + 1;
+		for (int i = 0; i < 4000; i++) {
+			Lives.step(town, d++);
 		}
-		double us = (System.nanoTime() - t0) / 1e3 / (warm - warm / 3 + 1);
+		double us = Double.MAX_VALUE;
+		for (int b = 0; b < 5; b++) {
+			long t0 = System.nanoTime();
+			for (int i = 0; i < 1000; i++) {
+				Lives.step(town, d++);
+			}
+			us = Math.min(us, (System.nanoTime() - t0) / 1e3 / 1000);
+		}
 		System.out.printf(Locale.ROOT, "[lives harness] %d people: %.1f us a sim day warm, %.1f us per 150 people (budget 30)%n", town.population(), us,
 			us * 150.0 / Math.max(1, town.population()));
 	}
