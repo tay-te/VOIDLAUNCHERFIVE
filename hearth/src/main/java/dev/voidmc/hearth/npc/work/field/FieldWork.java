@@ -20,7 +20,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 
 /**
- * Work you can see: remote work sites, droves, clamps, boats, stall wares (docs/LIVING_WORLD_2.md §6).
+ * Work you can see: remote work sites, droves, clamps, boats, stall wares, haulers' handcarts (docs/LIVING_WORLD_2.md §6).
  * Lane A4 of docs/LIVING_WORLD_2.md (§11.3) owns this package.
  *
  * <p>Nothing here produces anything: the sim's chains already make the logs, charcoal, wool, fish and ore; this shows the
@@ -31,7 +31,7 @@ public final class FieldWork {
 	private static FieldWorkConfig config = FieldWorkConfig.DEFAULTS;
 	private static final LivingWorldStats.Timer TIMER = LivingWorldStats.timer("field work");
 	/** Entity tags of the views this lane puts into the world (flocks, boats, stall wares): never saved with a chunk. */
-	public static final Set<String> NO_SAVE = Set.of(Herds.TAG, Boats.TAG, StallWares.TAG);
+	public static final Set<String> NO_SAVE = Set.of(Herds.TAG, Boats.TAG, StallWares.TAG, Handcarts.TAG);
 	private static long ticks;
 	private static long healedDay = Long.MIN_VALUE;
 
@@ -76,6 +76,7 @@ public final class FieldWork {
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			Herds.clear();
 			Boats.clear();
+			Handcarts.clear();
 			FieldSites.clear();
 			WorkBarks.clear();
 			GreatMines.clearClaims();
@@ -107,6 +108,7 @@ public final class FieldWork {
 			Herds.tick(server);
 			Clamps.tick(server);
 			Boats.tick(server);
+			Handcarts.tick(server);
 			if (ticks % 1200 == 0) {
 				daily(server);
 			}

@@ -8,9 +8,9 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
  * when fields are added. Caps are the most at a comfortable tick time and shrink as the server slows
  * ({@link dev.voidmc.hearth.sim.LoadCaps}).
  */
-public record FieldWorkConfig(Sites sites, Flocks flocks, Boats boats, Displays displays, Clamps clamps, Mines mines) {
+public record FieldWorkConfig(Sites sites, Flocks flocks, Boats boats, Displays displays, Clamps clamps, Mines mines, Carts carts) {
 	public static final FieldWorkConfig DEFAULTS = new FieldWorkConfig(Sites.DEFAULTS, Flocks.DEFAULTS, Boats.DEFAULTS, Displays.DEFAULTS,
-		Clamps.DEFAULTS, Mines.DEFAULTS);
+		Clamps.DEFAULTS, Mines.DEFAULTS, Carts.DEFAULTS);
 
 	public static final Codec<FieldWorkConfig> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Sites.CODEC.optionalFieldOf("sites", Sites.DEFAULTS).forGetter(FieldWorkConfig::sites),
@@ -18,15 +18,20 @@ public record FieldWorkConfig(Sites sites, Flocks flocks, Boats boats, Displays 
 		Boats.CODEC.optionalFieldOf("boats", Boats.DEFAULTS).forGetter(FieldWorkConfig::boats),
 		Displays.CODEC.optionalFieldOf("displays", Displays.DEFAULTS).forGetter(FieldWorkConfig::displays),
 		Clamps.CODEC.optionalFieldOf("clamps", Clamps.DEFAULTS).forGetter(FieldWorkConfig::clamps),
-		Mines.CODEC.optionalFieldOf("mines", Mines.DEFAULTS).forGetter(FieldWorkConfig::mines)
+		Mines.CODEC.optionalFieldOf("mines", Mines.DEFAULTS).forGetter(FieldWorkConfig::mines),
+		Carts.CODEC.optionalFieldOf("carts", Carts.DEFAULTS).forGetter(FieldWorkConfig::carts)
 	).apply(i, FieldWorkConfig::new));
 
 	public FieldWorkConfig withSites(Sites s) {
-		return new FieldWorkConfig(s, this.flocks, this.boats, this.displays, this.clamps, this.mines);
+		return new FieldWorkConfig(s, this.flocks, this.boats, this.displays, this.clamps, this.mines, this.carts);
 	}
 
 	public FieldWorkConfig withFlocks(Flocks f) {
-		return new FieldWorkConfig(this.sites, f, this.boats, this.displays, this.clamps, this.mines);
+		return new FieldWorkConfig(this.sites, f, this.boats, this.displays, this.clamps, this.mines, this.carts);
+	}
+
+	public FieldWorkConfig withCarts(Carts c) {
+		return new FieldWorkConfig(this.sites, this.flocks, this.boats, this.displays, this.clamps, this.mines, c);
 	}
 
 	/**
@@ -125,5 +130,23 @@ public record FieldWorkConfig(Sites sites, Flocks flocks, Boats boats, Displays 
 			Codec.BOOL.optionalFieldOf("great_mines", DEFAULTS.greatMines).forGetter(Mines::greatMines),
 			Codec.intRange(8, 32).optionalFieldOf("claim", DEFAULTS.claim).forGetter(Mines::claim)
 		).apply(i, Mines::new));
+	}
+
+	/**
+	 * Haulers' handcarts (lane A1's {@code hearth:cart}).
+	 *
+	 * @param enabled      haulers draw handcarts on longer hauls
+	 * @param minHaul      a haul at least this long (blocks, source to sink) gets a cart; shorter ones are carried
+	 * @param maxPerTown   handcarts out for one town
+	 * @param maxPerServer handcarts out server-wide
+	 */
+	public record Carts(boolean enabled, int minHaul, int maxPerTown, int maxPerServer) {
+		public static final Carts DEFAULTS = new Carts(true, 16, 4, 32);
+		public static final Codec<Carts> CODEC = RecordCodecBuilder.create(i -> i.group(
+			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Carts::enabled),
+			Codec.intRange(0, 512).optionalFieldOf("min_haul", DEFAULTS.minHaul).forGetter(Carts::minHaul),
+			Codec.intRange(0, 64).optionalFieldOf("max_per_town", DEFAULTS.maxPerTown).forGetter(Carts::maxPerTown),
+			Codec.intRange(0, 512).optionalFieldOf("max_per_server", DEFAULTS.maxPerServer).forGetter(Carts::maxPerServer)
+		).apply(i, Carts::new));
 	}
 }

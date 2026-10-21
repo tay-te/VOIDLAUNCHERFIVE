@@ -39,7 +39,7 @@ import net.minecraft.world.level.block.state.properties.AttachFace;
  * it every thirty or so — left abandoned; where a town's land reaches one, this stands on the shaft instead of the ruin
  * Expanse would have left. On a levelled pithead yard: the deck of planks round the shaft's mouth, a stone collar and a
  * railing round the mouth open to the old ladder on its north wall, and over it the headframe — four great posts braced
- * twice, the sheave beam under a little roof at the top, the winding chain hanging down the shaft. At one side of the deck
+ * twice, the sheave beam under the roofed head, the winding chain hanging down the shaft. At one side of the deck
  * the winch house, the windlass inside where the winchman stands; the miners' huts at the front corners of the yard (they
  * sleep there through the week), barrels of ore by the track, the spoil heap at the back.
  *
@@ -281,9 +281,10 @@ public final class GreatPithead implements Archetype {
 			}
 		}
 		try (var st = d.stage(StageKind.ROOF)) {
+			// the head roofed over its whole width, so the frame below reads as an open frame, not a roof with holes
 			Mat roof = d.mat(Role.ROOF);
-			for (int x = cx - 1; x <= cx + 1; x++) {
-				for (int z = cz - 1; z <= cz + 1; z++) {
+			for (int x = cx - r; x <= cx + r; x++) {
+				for (int z = cz - r; z <= cz + r; z++) {
 					d.set(x, top + 2, z, roof.slab(net.minecraft.world.level.block.state.properties.SlabType.BOTTOM));
 				}
 			}
