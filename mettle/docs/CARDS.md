@@ -4,12 +4,14 @@
 `CardService` api and card events, built 2026-10-12 (§25); the Hearth card broker and Arsenal's tie-ins belong to those
 branches (INTEGRATION.md §1.4, §5).**
 
-> **Build feel (design 2026-10-20, not built: [BUILD_FEEL.md](BUILD_FEEL.md)).** The next pass proposes build
-> momentum (deals lean toward the keywords you have slotted and a chosen **Focus**: §3.1's perk weight within its depth
-> band and §3.4's second keyword), **bynames** from your build, odd-level **boons** (Temper a trait, Inscribe a keyword;
-> new slot rules: three tempered and one inscribed card a deck, §5.2), a hand preview of what a card does to your
-> build, a guided first draft, and **Mythic shards** that forge drawn Mythics (§9). Simulated: every keyword reaches a
-> 6-set when chased (Tide 7 → 65 % by skill 20), power 1.11× → 1.12×.
+> **Build feel (design approved 2026-10-20, not built: [BUILD_FEEL.md](BUILD_FEEL.md)).** The next pass adds build
+> momentum (deals lean toward the keywords you have slotted and a chosen **Focus**, scaled by how scarce the keyword
+> is: §3.1's perk weight within its depth band and §3.4's second keyword), a **6 tier that wakes when two of its decks
+> reach skill 12** (§6.1), **bynames** from your build, odd-level **boons** (Temper a trait, Inscribe a keyword; new slot
+> rules: three tempered and one inscribed card a deck, §5.2), a hand preview of what a card does to your build, a
+> guided first draft, sixteen new drawn Mythics and **Mythic shards** that forge an unclaimed one (every Mythic stays
+> one of a kind, §9). Simulated: every committed 6-set lands at skill 12–17 (Tide 7 → 79 % by skill 20), power
+> 1.11× → 1.12×.
 
 Builds on the perk draft
 ([DRAFT.md](DRAFT.md)): the draft stays the source of cards. Where this doc and DRAFT.md disagree, this doc wins once
@@ -736,8 +738,8 @@ NPCs never sell cards of their own; the broker only lists players' cards.
 
 How rare: a character who takes all eight skills from 15 to 20 sees 24 drafts at 0.5 %, about an 11 % chance of one
 drawn Mythic, and only if that skill's Mythic is still unclaimed. A busy server sees a handful in its life.
-(Proposed in [BUILD_FEEL.md](BUILD_FEEL.md) §5: deed progress shown, and Mythic shards that forge a drawn Mythic, the
-original if unclaimed, else a numbered copy; world firsts stay one of a kind.)
+(Approved in [BUILD_FEEL.md](BUILD_FEEL.md) §5: sixteen more drawn Mythics, three a skill; deed progress shown; Mythic
+shards that forge an unclaimed drawn Mythic of your choice, never a copy; an empty pool gives a cosmetic legend title.)
 
 ---
 

@@ -85,17 +85,17 @@ class BuildFeelReportTest {
 	 * may hold. {@code temperStep}: Temper raises a trait by this share of its range, to its rarity band's top.
 	 */
 	record Rules(String name, double perkLean, double keywordLean, int commitCap, int focus, boolean boons, int inscribeCap, double temperStep,
-		double[] second) {
+		double[] second, int sixGate) {
 	}
 
 	static final double[] SECOND_NOW = {0, 0.3, 0.7, 1.0};
-	static final Rules NOW = new Rules("today", 0, 0, 4, 0, false, 0, 0, SECOND_NOW);
+	static final Rules NOW = new Rules("today", 0, 0, 4, 0, false, 0, 0, SECOND_NOW, 0);
 	static final Rules PROPOSED = new Rules("proposed", Double.parseDouble(lever("bf.perkLean", "1.0")),
 		Double.parseDouble(lever("bf.keywordLean", "0.5")), 4, intLever("bf.focus", 2), true,
 		intLever("bf.inscribeCap", 1), Double.parseDouble(lever("bf.temperStep", "0.25")),
-		new double[] {0, Double.parseDouble(lever("bf.rareSecond", "0.3")), 0.7, 1.0});
+		new double[] {0, Double.parseDouble(lever("bf.rareSecond", "0.3")), 0.7, 1.0}, intLever("bf.sixGate", 12));
 	/** Momentum alone (no boons), to show what each part does. */
-	static final Rules MOMENTUM_ONLY = new Rules("momentum only", PROPOSED.perkLean, PROPOSED.keywordLean, 4, PROPOSED.focus, false, 0, 0, PROPOSED.second);
+	static final Rules MOMENTUM_ONLY = new Rules("momentum only", PROPOSED.perkLean, PROPOSED.keywordLean, 4, PROPOSED.focus, false, 0, 0, PROPOSED.second, PROPOSED.sixGate);
 
 	/** How a simulated player keeps cards and spends boons. */
 	enum Policy {
@@ -161,6 +161,11 @@ class BuildFeelReportTest {
 		double shards;
 		int shardForgeLevel;
 		int synergies;
+		int step;
+		/** Drafts from skill 15: {main step, skill index}; the server simulation rolls the drawn Mythic on them. */
+		final List<int[]> draws15 = new ArrayList<>();
+		final double[] shardsAt = new double[21];
+		final int[][] levelsAt = new int[21][8];
 
 		Char(Rules rules, Policy policy, Identifier focus, List<ResourceKey<Skill>> order, double[] rate, long seed, int wits) {
 			this.rules = rules;
@@ -346,7 +351,7 @@ class BuildFeelReportTest {
 				Rarity depth = DraftRules.rarity(p);
 				base[i] = odds.get(depth) / count.get(depth) * DraftRules.attributeWeight(p, 20) * CardRules.duplicateWeight(this.sheet.owned(pool.get(i)));
 				Identifier nat = p.kind() == Perk.Kind.CURSED ? CardRules.HEX : TestCards.DATA_SET.nativeKeyword(pool.get(i)).orElse(CardRules.HEX);
-				lean[i] = 1 + this.rules.perkLean * Math.min(this.rules.commitCap, commit.getOrDefault(nat, 0)) / (double) this.rules.commitCap;
+				lean[i] = 1 + this.rules.perkLean * momentum(nat) * Math.min(this.rules.commitCap, commit.getOrDefault(nat, 0)) / (double) this.rules.commitCap;
 				double[] b = band.computeIfAbsent(depth, d -> new double[2]);
 				b[0] += base[i];
 				b[1] += base[i] * lean[i];
@@ -384,7 +389,7 @@ class BuildFeelReportTest {
 					double[] w = new double[pool.size()];
 					double sum = 0;
 					for (int i = 0; i < pool.size(); i++) {
-						w[i] = 1 + this.rules.keywordLean * Math.min(this.rules.commitCap, commit.getOrDefault(pool.get(i), 0));
+						w[i] = 1 + this.rules.keywordLean * momentum(pool.get(i)) * Math.min(this.rules.commitCap, commit.getOrDefault(pool.get(i), 0));
 						sum += w[i];
 					}
 					double r = new Random(keywordSeed).nextDouble() * sum;
@@ -438,6 +443,7 @@ class BuildFeelReportTest {
 			redeck(to);
 			if (this.level(skill) >= 15) {
 				this.shards += 1; // a draft from skill 15
+				this.draws15.add(new int[] {this.step, SKILLS.indexOf(skill)});
 			}
 		}
 
@@ -536,6 +542,7 @@ class BuildFeelReportTest {
 
 		void play() {
 			for (int main = 1; main <= Curves.SKILL_CAP; main++) {
+				this.step = main;
 				double mainXp = Curves.skillXpFor(main);
 				double totalXp = 0;
 				for (int i = 0; i < this.order.size(); i++) {
@@ -570,7 +577,21 @@ class BuildFeelReportTest {
 				}
 				this.charLevelAt[main] = cl;
 				measure(main, cl);
+				this.shardsAt[main] = this.shards;
+				for (int i = 0; i < SKILLS.size(); i++) {
+					this.levelsAt[main][i] = level(SKILLS.get(i));
+				}
 			}
+		}
+
+		/** A keyword's tier; with the proposed gate the 6 needs two of its decks' skills at {@code sixGate} or more. */
+		int tier(Identifier k, Map<Identifier, Integer> counts, Map<Identifier, Set<ResourceKey<Skill>>> from) {
+			Set<ResourceKey<Skill>> decks = from.getOrDefault(k, Set.of());
+			int t = CardRules.tier(counts.getOrDefault(k, 0), decks.size());
+			if (t == 6 && this.rules.sixGate > 0 && decks.stream().filter(s -> level(s) >= this.rules.sixGate).count() < 2) {
+				return 4;
+			}
+			return t;
 		}
 
 		void measure(int main, int cl) {
@@ -586,7 +607,7 @@ class BuildFeelReportTest {
 			}
 			int top = 0;
 			for (Identifier k : counts.keySet()) {
-				int t = CardRules.tier(counts.get(k), from.get(k).size());
+				int t = tier(k, counts, from);
 				top = Math.max(top, t);
 				if (t >= 6 && this.sixesReached.add(k)) {
 					this.shards += 2; // a keyword's first 6-set
@@ -609,7 +630,7 @@ class BuildFeelReportTest {
 				this.firstSix = cl;
 			}
 			if (this.focus != null) {
-				this.focusTier[main] = CardRules.tier(counts.getOrDefault(this.focus, 0), from.getOrDefault(this.focus, Set.of()).size());
+				this.focusTier[main] = tier(this.focus, counts, from);
 			}
 			// Synergies: the nine wave-1 pairs, once both reach 10 (one shard each).
 			int syn = 0;
@@ -634,6 +655,20 @@ class BuildFeelReportTest {
 	/** Tempered cards a deck may hold (the boon is refused past it). */
 	static final int TEMPER_DECK_CAP = intLever("bf.temperDeckCap", 3);
 	static final boolean TEMPER_NEAREST = !"floor".equals(lever("bf.temperRound", "nearest"));
+	/** How much momentum each keyword gets (data field {@code momentum}): common keywords none, the scarce ones most. */
+	static final Map<String, Double> MOMENTUM = new HashMap<>();
+
+	static {
+		for (String kv : lever("bf.momentum", "tide=1.0,deep=1.0,kin=0.5,warden=0.5,gale=0.25,echo=0.25,wild=0,swift=0,keen=0,brutal=0,ember=0,hoard=0,iron=0,hex=0").split(",")) {
+			String[] p = kv.split("=");
+			MOMENTUM.put(p[0].trim(), Double.parseDouble(p[1]));
+		}
+	}
+
+	static double momentum(Identifier k) {
+		return MOMENTUM.getOrDefault(k.getPath(), 1.0);
+	}
+
 	static final String[][] SYNERGIES = {{"mining", "smithing"}, {"mining", "heavy_weapons"}, {"blades", "defense"}, {"blades", "heavy_weapons"},
 		{"marksmanship", "survival"}, {"marksmanship", "athletics"}, {"defense", "athletics"}, {"survival", "athletics"}, {"smithing", "defense"}};
 	static final int SHARD_COST = intLever("bf.shardCost", 30);
@@ -681,7 +716,7 @@ class BuildFeelReportTest {
 		out.append("A **focused** character plays three main skills, two side skills at 30 % of their XP and three at 8 %: when the mains reach 20 the sides "
 			+ "are at about 12 and the dabbled ones at about 7, character level about 39. **Mid-game** is character level 20 (mains near 11).\n\n");
 
-		String sections = lever("bf.sections", "12345");
+		String sections = lever("bf.sections", "123456");
 		// 1. Sets for focused and all-eight characters.
 		out.append("## 1. Sets: when they come (character level; share of careers that get there by the mains' skill 20)\n\n");
 		out.append("| Character · rules · player | first 2-set | first 4-set | first 6-set | a 4-set by mid-game (char 20) | a 6-set by 20 | own Focus: 4-set by mid-game · 6-set by 20 | boons: temper / inscribe / reroll |\n"
@@ -919,6 +954,11 @@ class BuildFeelReportTest {
 		double drawnPerChar = 1 - Math.pow(1 - CardConfig.get().mythic_draw_chance, 3 * 3);
 		out.append(String.format(Locale.ROOT, "Today a focused player (three skills from 15 to 20, 9 drafts at 0.5 %%) draws a Mythic with %.1f %%.%n", 100 * drawnPerChar));
 
+		if (sections.contains("6")) {
+			out.append(servers(intLever("bf.servers", 200), 1));
+			out.append(servers(intLever("bf.servers", 200) / 2, 3));
+		}
+
 		String text = out.toString();
 		System.out.println(text);
 		Path file = Path.of("build", "reports", "mettle-build-feel.md");
@@ -929,6 +969,132 @@ class BuildFeelReportTest {
 		assertTrue(worstJac < 0.25 && worstChase < 0.25, "decks overlap: " + worstJac + " / " + worstChase);
 		assertTrue(identicalAll == 0, "identical decks: " + identicalAll);
 		assertTrue(worstAt20 > 0, "a keyword can't reach 6 when chased");
+	}
+
+	// ---------------------------------------------------------------- a server's Mythics (one of a kind)
+
+	static final int[] FORGE_COSTS = {30, 45, 60};
+
+	/** Who plays on a 20-player server, by where their mains end: 4 dedicated (20), 1 maxing all eight (-20), 7 regulars (16), 8 casuals (10). */
+	static final int[] ENDS = {20, 20, 20, 20, -20, 16, 16, 16, 16, 16, 16, 16, 10, 10, 10, 10, 10, 10, 10, 10};
+
+	/**
+	 * 20-player servers where every drawn Mythic exists once. Today: one per skill, drawn at 0.5 % a draft from 15.
+	 * Proposed: {@code perSkill} per skill (the eight and the new ones), the same roll (an unclaimed one of that skill; with
+	 * none left, 3 shards), and shards forge an unclaimed one of a skill at 18 or more (30, 45, 60); with none left anywhere,
+	 * shards give the cosmetic legend title. Players start over the server's first half and play their career in half to
+	 * all of its life.
+	 */
+	static String servers(int n, int roster) {
+		StringBuilder out = new StringBuilder(String.format(Locale.ROOT, "%n## 6. A server's Mythics, one of a kind (%d servers, %d careers each)%n%n", n, 20 * roster));
+		out.append("Players: 4 dedicated (mains to 20), 1 maxing all eight, 7 regulars (mains to 16), 8 casuals (mains to 10). World firsts and deeds not counted.\n\n");
+		out.append("| Rules | drawn pool | claimed by draws · by forges | left unclaimed | a dedicated player holds one | the maxed player: one · mean held | a regular | legend titles |\n"
+			+ "|---|---|---|---|---|---|---|---|\n");
+		for (int perSkill : new int[] {1, 2, 3}) {
+			boolean proposed = perSkill > 1;
+			for (int variant = 0; variant < (perSkill == 1 ? 2 : 1); variant++) {
+				boolean forging = proposed || variant == 1;
+				double byDraw = 0;
+				double byForge = 0;
+				double left = 0;
+				int dedicated = 0;
+				int dedicatedN = 0;
+				int maxed = 0;
+				double maxedHeld = 0;
+				int regular = 0;
+				int regularN = 0;
+				double legends = 0;
+				for (int srv = 0; srv < n; srv++) {
+					Random rng = new Random(srv * 7_777_777L + perSkill * 31L + variant);
+					int[] remaining = new int[8];
+					java.util.Arrays.fill(remaining, perSkill);
+					List<double[]> events = new ArrayList<>(); // {time, player, kind 0 draw / 1 step, step, skill}
+					Char[] players = new Char[ENDS.length * roster];
+					for (int p = 0; p < players.length; p++) {
+						int run = srv * 20 * roster + p;
+						int end = Math.abs(ENDS[p % 20]);
+						players[p] = ENDS[p % 20] < 0 ? new Char(PROPOSED, Policy.GUIDED, null, new ArrayList<>(SKILLS), ALL_EIGHT, new Random(run * 1_000_003L + 5).nextLong(), 3)
+							: focused(PROPOSED, Policy.GUIDED, run);
+						players[p].play();
+						double start = (p / 20 + rng.nextDouble() * 0.5) / roster;
+						double length = (0.5 + rng.nextDouble() * 0.5) / roster;
+						double xpEnd = Curves.skillXpFor(end);
+						for (int m = 1; m <= end; m++) {
+							events.add(new double[] {start + length * Curves.skillXpFor(m) / xpEnd, p, 1, m, -1});
+						}
+						for (int[] d : players[p].draws15) {
+							if (d[0] <= end) {
+								events.add(new double[] {start + length * Curves.skillXpFor(d[0]) / xpEnd - 1e-9, p, 0, d[0], d[1]});
+							}
+						}
+					}
+					events.sort(Comparator.comparingDouble(e -> e[0]));
+					int[] held = new int[players.length];
+					double[] bonus = new double[players.length];
+					double[] spent = new double[players.length];
+					int[] forges = new int[players.length];
+					for (double[] e : events) {
+						int p = (int) e[1];
+						int step = (int) e[3];
+						if (e[2] == 0) {
+							if (rng.nextDouble() < CardConfig.get().mythic_draw_chance) {
+								int skill = (int) e[4];
+								if (remaining[skill] > 0) {
+									remaining[skill]--;
+									held[p]++;
+									byDraw++;
+								} else if (forging) {
+									bonus[p] += 3;
+								}
+							}
+							continue;
+						}
+						if (!forging) {
+							continue;
+						}
+						Char c = players[p];
+						while (c.shardsAt[step] + bonus[p] - spent[p] >= FORGE_COSTS[Math.min(forges[p], FORGE_COSTS.length - 1)]) {
+							int pick = -1;
+							for (int i = 0; i < 8; i++) {
+								if (remaining[i] > 0 && c.levelsAt[step][i] >= 18 && (pick < 0 || c.levelsAt[step][i] > c.levelsAt[step][pick])) {
+									pick = i;
+								}
+							}
+							int total = java.util.Arrays.stream(remaining).sum();
+							if (pick < 0 && total > 0) {
+								break; // something is left, but not in a skill this player has at 18: the shards wait
+							}
+							spent[p] += FORGE_COSTS[Math.min(forges[p], FORGE_COSTS.length - 1)];
+							forges[p]++;
+							if (pick >= 0) {
+								remaining[pick]--;
+								held[p]++;
+								byForge++;
+							} else {
+								legends++;
+							}
+						}
+					}
+					left += java.util.Arrays.stream(remaining).sum();
+					for (int p = 0; p < players.length; p++) {
+						if (ENDS[p % 20] == 20) {
+							dedicatedN++;
+							dedicated += held[p] > 0 ? 1 : 0;
+						} else if (ENDS[p % 20] < 0) {
+							maxed += held[p] > 0 ? 1 : 0;
+							maxedHeld += held[p];
+						} else if (ENDS[p % 20] == 16) {
+							regularN++;
+							regular += held[p] > 0 ? 1 : 0;
+						}
+					}
+				}
+				String name = !forging ? "today (draws only)" : perSkill == 1 ? "forging, today's 8" : String.format(Locale.ROOT, "forging, %d a skill", perSkill);
+				out.append(String.format(Locale.ROOT, "| %s | %d | %.1f · %.1f | %.1f | %d %% | %d %% · %.1f | %d %% | %.2f |%n", name, 8 * perSkill,
+					byDraw / n, byForge / n, left / n, 100 * dedicated / dedicatedN, 100 * maxed / (n * roster), maxedHeld / (n * roster), 100 * regular / regularN, legends / n));
+			}
+		}
+		return out.toString();
 	}
 
 	static double witsDeck(Char c, ResourceKey<Skill> skill) {
