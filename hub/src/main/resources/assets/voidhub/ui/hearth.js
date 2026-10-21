@@ -259,16 +259,38 @@
       '<div class="k">' + (o.key >= 0 ? o.key : "") + "</div>" + glyph(g, 16) + '<div class="l">' + esc(optionLabel(o)) + "</div>" + optionChip(o) + "</div>";
   }
 
-  /** At most ten rows: the first nine, and goodbye always last (key 0). */
+  /** Every option, goodbye always last (key 0). Past the ninth an option has no number key (key -1): it is clicked or picked
+   *  with the arrows, and the list scrolls when there are more than the view's rows (talkWindow). */
   function talkOptions(t) {
     var out = [], leave = null;
     for (var i = 0; i < t.options.length; i++) {
       var o = t.options[i];
       if (o.kind === "leave" || o.key === 0) { if (!leave) leave = o; continue; }
-      if (out.length < 9) out.push(o);
+      out.push(o);
     }
     if (leave) out.push(leave);
     return out;
+  }
+
+  /** The first option row the talk view shows: ui.scroll clamped to the list, moved so the focused option is in view.
+   *  Remembers the view's rows and wheel step for wheel(). */
+  function talkWindow(len, rows, step) {
+    var top = Math.max(0, Math.min(ui.scroll, len - rows));
+    if (ui.focus >= 0 && ui.focus < len) {
+      if (ui.focus < top) top = ui.focus;
+      else if (ui.focus >= top + rows) top = ui.focus - rows + 1;
+    }
+    ui.scroll = top;
+    ui.talkRows = rows;
+    ui.talkStep = step || 1;
+    return top;
+  }
+
+  /** A still scrollbar beside an option list that does not fit (no thumb when it does). */
+  function talkBar(len, rows, top, left, y, height) {
+    if (len <= rows) return "";
+    var th = Math.max(16, Math.round(height * rows / len)), ty = Math.round((height - th) * top / Math.max(1, len - rows));
+    return '<div class="h-optbar" style="left:' + left + "px;top:" + y + "px;height:" + height + 'px"><i style="top:' + ty + "px;height:" + th + 'px"></i></div>';
   }
 
   /** The option's words without the provider's own "[Persuade 62%]" prefix when the chip already says it. */
@@ -324,11 +346,11 @@
         '<div class="line">“' + esc(t.line) + "”</div>" + (t.lastCheck ? '<div class="check">' + esc(t.lastCheck) + "</div>" : "") + "</div>" +
         '<div class="h-hair" style="left:368px;top:179px;width:590px"></div>';
     });
-    var opts = talkOptions(t);
-    part(w, "ht-opts", JSON.stringify([opts, ui.focus]), function () {
+    var opts = talkOptions(t), top = talkWindow(opts.length, 10);
+    part(w, "ht-opts", JSON.stringify([opts, ui.focus, top]), function () {
       var h = '<div class="h-opts flow">';
-      for (var i = 0; i < opts.length; i++) h += optionRow(opts[i], i, 598);
-      return h + "</div>";
+      for (var i = top; i < opts.length && i < top + 10; i++) h += optionRow(opts[i], i, 598);
+      return h + "</div>" + talkBar(opts.length, 10, top, 964, 189, 378);
     });
     part(w, "ht-foot", "f", function () {
       return foot("1–9 CHOOSE  ·  0 OR ESC LEAVES  ·  ODDS ARE HEARTH’S, SKILL LEVELS ARE METTLE’S", "talk");
@@ -348,15 +370,15 @@
       return '<div class="h-sub flow" style="left:' + Math.round((vw - 868) / 2) + "px;bottom:" + (vh - by + 24) + 'px"><div class="who">' + esc(r.name) +
         '</div><div class="line">“' + esc(t.line) + "”</div></div>";
     });
-    var opts = talkOptions(t);
-    part(root, "hb-bar", JSON.stringify([r, t.standing, opts, ui.focus, bw, bx, by]), function () {
+    var opts = talkOptions(t), top = talkWindow(opts.length, 10, 5);
+    part(root, "hb-bar", JSON.stringify([r, t.standing, opts, ui.focus, top, bw, bx, by]), function () {
       var cw = Math.floor((bw - 335 - 19 - 6) / 2);
       var st = t.standing || {};
       var traits = [];
       for (var i = 0; i < r.traits.length && i < 2; i++) traits.push(r.traits[i].name);
       var c1 = "", c2 = "";
-      for (var k = 0; k < opts.length; k++) {
-        if (k < 5) c1 += optionRow(opts[k], k, cw); else c2 += optionRow(opts[k], k, cw);
+      for (var k = top; k < opts.length && k < top + 10; k++) {
+        if (k < top + 5) c1 += optionRow(opts[k], k, cw); else c2 += optionRow(opts[k], k, cw);
       }
       return '<div class="h-bar" style="left:' + bx + "px;top:" + by + "px;width:" + bw + 'px">' +
         '<div class="h-well pw">' + face(r, 112, "left:-1px;top:-1px") + "</div>" +
@@ -372,7 +394,7 @@
         standingCells(st.value || 0, 23, 209, 14, 4) +
         '<div style="left:23px;top:227px;width:279px;font-size:10.5px;color:#626569;white-space:nowrap;overflow:hidden">' + (r.memory ? "Remembers: " + esc(r.memory.text) : "") + "</div>" +
         '<div style="left:323px;top:23px;width:var(--hair,1px);height:220px;background:rgba(255,255,255,0.07)"></div>' +
-        '<div class="cols"><div class="col">' + c1 + '</div><div class="col">' + c2 + "</div></div>" +
+        '<div class="cols"><div class="col">' + c1 + '</div><div class="col">' + c2 + "</div></div>" + talkBar(opts.length, 10, top, bw - 15, 19, 196) +
         '<div class="h-eb" style="left:347px;top:239px">1–9 CHOOSE  ·  0 OR ESC LEAVES  ·  MOUSE LOOK STAYS LOCKED</div>' +
         '<div class="h-eb" style="right:23px;top:239px">HEARTH:TALK  ·  LIVE</div>' +
         "</div>";
@@ -1677,16 +1699,16 @@
       }
       return out;
     });
-    var opts = talkOptions(t);
-    part(w, "ht-opts", JSON.stringify(["s", opts, ui.focus, demand, s.band, s.bows, s.bladeDrawn]), function () {
+    var opts = talkOptions(t), rows = demand ? 5 : 8, top = talkWindow(opts.length, rows);
+    part(w, "ht-opts", JSON.stringify(["s", opts, ui.focus, top, demand, s.band, s.bows, s.bladeDrawn]), function () {
       var out = '<div class="h-opts flow" style="top:' + (demand ? 208 : 189) + 'px">';
-      for (var i = 0; i < opts.length && i < (demand ? 5 : 8); i++) {
+      for (var i = top; i < opts.length && i < top + rows; i++) {
         var o = opts[i];
         var g = o.locked ? "lock" : KIND_GLYPH[o.kind] || "talk";
         out += '<div class="h-opt flow' + (o.locked ? " locked" : "") + (i === ui.focus ? " focus" : "") + '" data-opt="' + i + '" data-kind="' + esc(o.kind) + '" style="width:598px">' +
           '<div class="k">' + (o.key >= 0 ? o.key : "") + "</div>" + glyph(g, 16) + '<div class="l">' + esc(optionLabel(o)) + "</div>" + strangerChip(o, s) + "</div>";
       }
-      out += "</div>";
+      out += "</div>" + talkBar(opts.length, rows, top, 964, demand ? 208 : 189, rows * 38 - 2);
       if (bandit) {
         out += '<div style="left:377px;top:404px;width:560px;font-size:11px;color:#626569;line-height:15px">Odds from Speech and Menace (Mettle) on Hearth’s factors: your armour and blade, the band’s size, how lean the winter has been. Paying is a sure thing; they keep the share, not the purse.</div>';
         var oc = s.outcomes;
@@ -2023,7 +2045,7 @@
         return;
       }
       if (k === "Up" || k === "Down") {
-        var n = Math.min(list.length, 10);
+        var n = list.length;
         ui.focus = ui.focus < 0 ? (k === "Down" ? 0 : n - 1) : (ui.focus + (k === "Down" ? 1 : n - 1)) % n;
         render();
         return;
@@ -2038,7 +2060,8 @@
 
   function wheel(m) {
     var dy = m.dy > 0 ? -1 : 1;
-    if (screen === "market" && H && H.market) ui.scroll = Math.max(0, Math.min(Math.max(0, marketRows(H.market).length - 8), ui.scroll + dy));
+    if (screen === "talk" && H && H.talk) ui.focus = -1, ui.scroll = Math.max(0, Math.min(Math.max(0, talkOptions(H.talk).length - (ui.talkRows || 10)), ui.scroll + dy * (ui.talkStep || 1)));
+    else if (screen === "market" && H && H.market) ui.scroll = Math.max(0, Math.min(Math.max(0, marketRows(H.market).length - 8), ui.scroll + dy));
     else if (kind === "quests" && seg === "people" && H && H.people) ui.scroll = Math.max(0, Math.min(Math.max(0, H.people.rows.length - 7), ui.scroll + dy));
     else if (kind === "quests" && seg === "board" && H && H.board) ui.scroll = Math.max(0, Math.min(Math.ceil((H.board.posts.length + H.board.wanted.length) / 3) - 2, ui.scroll + dy));
     else return;

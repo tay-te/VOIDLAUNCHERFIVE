@@ -210,12 +210,41 @@ public final class HearthTest {
 		this.settle(20);
 		this.log("talk choose: " + this.lastAct() + " sent " + HearthLink.lastSent + "; page " + this.js("window.hubHearth.debug()") + "; screen saw " + HubEventScreen.lastKey);
 		this.shot("talk_A_after_choice", 3);
-		// "Fancy a game of dice?": the folk's own dice option opens the table (the real way in).
-		if (this.has("[data-kind=\"dice\"]")) {
+		// "Fancy a game of dice?": the folk's own dice option opens the table (the real way in). It can be past the ninth
+		// option (no number key, below the rows on show): the wheel scrolls the list to it.
+		boolean offered = this.context.computeOnClient(mc -> {
+			var talk = HearthSync.section("talk");
+			if (talk == null || !talk.has("options")) {
+				return false;
+			}
+			for (var o : talk.getAsJsonArray("options")) {
+				if (o.getAsJsonObject().has("kind") && "dice".equals(o.getAsJsonObject().get("kind").getAsString())) {
+					return true;
+				}
+			}
+			return false;
+		});
+		this.log("talk options after the choice: " + this.js("String(document.querySelectorAll('.h-opt').length)") + " shown of "
+			+ this.context.computeOnClient(mc -> { var t = HearthSync.section("talk"); return t == null || !t.has("options") ? -1 : t.getAsJsonArray("options").size(); }));
+		if (offered) {
+			String box = this.js("(function(){var e=document.querySelector('.h-opts');if(!e)return '';var r=e.getBoundingClientRect();return (r.left+r.width/2)+','+(r.top+r.height/2);})()");
+			if (!box.isEmpty()) {
+				double u = this.ui.layout().u;
+				String[] xy = box.split(",");
+				this.ui.moveTo(Double.parseDouble(xy[0]) * u, Double.parseDouble(xy[1]) * u);
+			}
+			for (int i = 0; i < 30 && !this.has("[data-kind=\"dice\"]"); i++) {
+				this.context.getInput().scroll(-1);
+				this.settle(2);
+			}
+			this.shot("talk_A_scrolled", 3);
+			this.expect(this.has("[data-kind=\"dice\"]"), "the dice option is on the page (scrolled into view)");
 			this.ui.clickPage("[data-kind=\"dice\"]");
+			this.expect(this.waitEvent("dice"), "the dice option opened the dice table");
 			this.diceTable();
 			return;
 		}
+		this.gaps.add("talk: the innkeeper offered no dice option");
 		this.close();
 		this.settle(5);
 	}
