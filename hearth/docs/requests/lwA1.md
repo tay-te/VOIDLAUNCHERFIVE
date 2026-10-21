@@ -18,10 +18,11 @@ No other new screen. Paying toward a road is a conversation option at the reeve 
   (`npc/travel/TravelParty`, a body of their own with their name and face); until the selector skips the away, a party
   leaves out anyone already embodied at home, so nobody is seen twice, but a resident can still be embodied at home
   while their party is folded.
-- **A3 (barks, §0.2)**: the roads' barks are lang keys `hearth.roads.bark.<kind>.0`–`5` (kinds `pedlar`, `pilgrim`,
+- **A3 (barks, §0.2)**: the roads' barks are lang keys `hearth.roads.bark.<kind>.0`–`11` (kinds `pedlar`, `pilgrim`,
   `messenger`, `carter`, `patrol`, `caravan`, `traveller`, `crew`) in `lw_roads.json`, said by `Parties.bark` with its own
-  cooldowns (20 s a player). When the shared bark service lands, `barks/road.json` can list them in its format and
-  `Parties.bark` call the service instead. No `barks/road.json` is shipped, so the service's loader meets no foreign format.
+  cooldowns (20 s a player). A3's `npc/crowd/Barks` (now merged) takes a `FolkHandle` and English lines from data; road
+  folk are controller folk without a handle, and the road lines are translated. Wanted from A3: a `Barks.say` overload
+  for a plain `Folk` with a translatable line, sharing the per-player-per-town limiter; then `Parties.bark` calls it.
 - **A2 (calendar)**: traffic reads `HearthServices.calendar()` for market days and feasts; while it is `NONE`, a fallback
   (each town's market on its own day of the week, a feast every 28 days) keeps market goers, pedlars and pilgrims going.
 - **B3 (posts)**: travellers camp by the road at night; once posts exist, a journey's night stop should be the inn or post
@@ -48,7 +49,23 @@ No other new screen. Paying toward a road is a conversation option at the reeve 
   the road's end to the nearest open end of the town's own roads (`SettlementPlanner.exits`, now in `HearthPlanner`).
 - Signposts stand on the third road plot from each end (out past the town's own streets), naming the far town and its
   distance in leagues (a league is a thousand blocks).
-- A refused plot (a player's work across it) is recorded and left as a gap; it is not yet rerouted round the obstacle.
+- A refused plot (a player's work across it) is recorded and a **detour** is laid round the obstacle (the columns of
+  somebody's work in every loaded chunk the plot crosses, kept 6 blocks beyond the road's edge), from the road a little
+  before to a little after, built whole at once (the refused plot was due). No detour of a detour (that plot is a gap),
+  none at a road's very end. A detour and its road count as one road where they overlap.
+- The road bed (`build/kit/infra/Roadbed.earthwork`) keeps a bank up to the water's top where a cut runs beside standing
+  water (town roads too), so a perched pond is not let out down a road.
 - Travellers who are residents are shown with their own name, face and trade by the party (controller folk); talking to
   them uses the stranger conversation with their name.
 - The cart texture is 128 x 128 (three kinds share the layout scheme), not 64 x 64.
+
+## Measured (2026-10-21)
+
+- Routes: synthetic hills p50 12 ms, p90 19 ms; Expanse Earth (seed 20261003, 25 regions round spawn) p50 35 ms, p90
+  103–122 ms — over the 60 ms p90 target, but historic routes run on world-generation workers and live ones on the
+  `hearth-roads` thread, two a second at most; never on the server thread.
+- In game (roads tour): traffic books 0.003 ms a tick avg (1.1 ms worst), parties 0.05 ms avg (5.8 ms worst, the tick a
+  party of six spawns), road writing 1.7 ms worst a tick (budget 1 ms a slice, one chunk pass may run over), roads'
+  scheduling 0.006 ms avg.
+- `TrafficBenchTest` (journey cap full, 50 players on one road): 0.006 ms a tick avg, the players' lookups 0.18 ms p50.
+- Three routes on the dev seed find no way (sea between the places): those places stay unjoined.

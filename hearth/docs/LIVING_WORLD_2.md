@@ -91,6 +91,23 @@ companions**; 200–299 quests, with **260–279 the lord's commissions**; 300�
 
 Merchants with carts between towns, pilgrims, messengers, patrols, and bandits on the lonely stretches.
 
+> **Built (lane A1, 2026-10-21)** in `sim/roads/` (books) and `npc/travel/` (bodies). `RoadWorld` lays the network per
+> 1024-block region from the atlas's sites alone (a relative neighbourhood graph, ≤ 4 roads a place), `RoadRouter` finds
+> each way (two-pass A*, carts' grade, bridges, fords, switchbacks; an end shut in on the coarse lattice is searched from
+> the other end, then finer), `RoadSegments` cuts it into `infra/road` / `infra/bridge` plots. Historic roads are written
+> by world generation and, into land generated before them, by `RoadApplier` under the applier's budget with edit
+> safety: a plot across somebody's work is refused and `LiveRoads.detour` lays a detour round the whole obstacle (built
+> at once, saved in the road book); a cut beside standing water keeps its bank. `LiveRoads` begins and builds live roads
+> with the towns' builders (`labour_share`), stone and players' coin ("pay toward the road" at the reeve or steward).
+> `Traffic` keeps journeys (place a pure function of the record; caravans keep the sim's times; residents away),
+> `Bandits`/`Band` the bands (danger from loneliness and cover, patrols lower it; robbery odds against guards; deaths
+> rare, `bandits.kill_chance` 0.05). `Parties` embodies parties, carts (`hearth:cart`, registered by `Carts`), camps,
+> bands with the stranger demand and road crews within 96 of a player, folding beyond 112, caps by `LoadCaps`.
+> `/hearth roads stats|near|journeys|send|band|build`; tour `-Dhearth.tour=roads`; harness `RoadHarnessTest`
+> (`-Dhearth.dev.roads=N`); perf gate `TrafficBenchTest`. Measured: traffic books 0.003 ms a tick avg, parties 0.05 ms
+> avg (5.8 ms worst tick, a party spawning), road writing ≤ 1.8 ms a tick; bench with full roads and 50 players 0.006
+> ms a tick avg, players' pass 0.18 ms. Requests in `docs/requests/lwA1.md`, Atlas in `docs/requests/atlas-roads.md`.
+
 ### 1.1 What the player sees and does
 
 - **A road network.** Every settlement (and post, §7) is joined to its neighbours by a road Hearth lays and builds: a
