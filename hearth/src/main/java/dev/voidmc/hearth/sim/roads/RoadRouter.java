@@ -58,7 +58,32 @@ public final class RoadRouter {
 	}
 
 	public static @Nullable Route route(TerrainProbe exact, TerrainProbe rough, int ax, int az, int bx, int bz, Avoid avoid, Params p) {
+		Route r = routeOnce(exact, rough, ax, az, bx, bz, avoid, p);
+		if (r != null || !TRAPPED.get()) {
+			return r;
+		}
+		// the road's first end is shut in on the coarse lattice (a port on its spit, a town on a ledge): the search runs from
+		// the other end (an end is always reached), then on a finer lattice
+		String why = WHY.get();
+		r = routeOnce(exact, rough, bx, bz, ax, az, avoid, p);
+		if (r != null) {
+			return r.reversed();
+		}
+		if (TRAPPED.get() && p.coarseStep() > p.fineStep()) {
+			Params finer = new Params(p.ellipse(), p.maxStates(), p.grade(), p.bridgeMax(), p.fordDepth(), p.fordMax(), Math.max(p.fineStep(), p.coarseStep() / 2),
+				p.fineStep(), p.corridor());
+			return route(exact, rough, ax, az, bx, bz, avoid, finer);
+		}
+		WHY.set(why + "; from the other end: " + WHY.get());
+		return null;
+	}
+
+	/** Whether the last failed search on this thread never left its start (every step from it refused). */
+	private static final ThreadLocal<Boolean> TRAPPED = ThreadLocal.withInitial(() -> false);
+
+	private static @Nullable Route routeOnce(TerrainProbe exact, TerrainProbe rough, int ax, int az, int bx, int bz, Avoid avoid, Params p) {
 		WHY.set("");
+		TRAPPED.set(false);
 		LongOpenHashSet refused = new LongOpenHashSet();
 		// a way the dense walk finds runs through water too wide to bridge: that water is refused and the search runs again
 		boolean cliffs = false;
@@ -202,6 +227,7 @@ public final class RoadRouter {
 			}
 		}
 		if (!found) {
+			TRAPPED.set(expanded <= 1);
 			WHY.set("no way within the ellipse: " + expanded + " points reached, " + refusals + " steps refused, lattice " + step);
 			return null;
 		}

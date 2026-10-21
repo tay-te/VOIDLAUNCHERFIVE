@@ -310,7 +310,7 @@ public final class RoadApplier {
 			this.refusals.increment();
 			LOG.info("hearth roads: the road from {} to {} stops at someone's work near {},{} (plot {} refused)", j.way().nameA(), j.way().nameB(),
 				pos.getMiddleBlockX(), pos.getMiddleBlockZ(), j.index());
-			if (this.live.detour(j.way(), j.index(), o.blocked.get(k), this.world.day())) {
+			if (this.live.detour(j.way(), j.index(), obstacle(j, pos, o.blocked.get(k)), this.world.day())) {
 				this.detours.increment();
 			}
 		}
@@ -320,6 +320,43 @@ public final class RoadApplier {
 		}
 		this.blocks.add(o.placed);
 		return o.unfinished ? -Math.max(1, o.placed) : o.placed;
+	}
+
+	/**
+	 * The whole obstacle across a refused plot: the columns the refusing chunk saw, and those of every other loaded chunk
+	 * the plot crosses (a house astride a chunk border is gone round whole). Rare: once a refusal.
+	 */
+	private int[] obstacle(RoadWriter.Job j, ChunkPos refusing, int[] seen) {
+		it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet cols = new it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet();
+		for (int k = 0; k + 1 < seen.length; k += 2) {
+			cols.add((long) seen[k] << 32 | (seen[k + 1] & 0xFFFFFFFFL));
+		}
+		RoadSegments.Segment s = j.segment();
+		BlueprintService bps = HearthServices.blueprints();
+		for (int cx = s.minX() >> 4; cx <= s.maxX() >> 4; cx++) {
+			for (int cz = s.minZ() >> 4; cz <= s.maxZ() >> 4; cz++) {
+				if (cx == refusing.x() && cz == refusing.z() || cols.size() >= RoadWriter.MAX_BLOCKED * 4) {
+					continue;
+				}
+				LevelChunk c = this.level.getChunkSource().getChunkNow(cx, cz);
+				if (c == null) {
+					continue;
+				}
+				it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet more = new it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet();
+				RoadWriter.blocked(cx, cz, ChunkLedgers.of(c), jobs(c), j, new Blocks(c), bps, this.world.terrain(), more);
+				// a handful of stray blocks is not a building (the writer goes on past those)
+				if (more.size() > 3) {
+					cols.addAll(more);
+				}
+			}
+		}
+		int[] out = new int[cols.size() * 2];
+		int k = 0;
+		for (long c : cols) {
+			out[k++] = (int) (c >> 32);
+			out[k++] = (int) c;
+		}
+		return out;
 	}
 
 	/** Whether a road plot's corridor runs over a live settlement's planned plots (sampled every other column). */

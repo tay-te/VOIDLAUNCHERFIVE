@@ -45,6 +45,8 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Parties {
 	private static final int PASS = 40;
+	/** Lines a kind of traveller has ({@code hearth.roads.bark.<kind>.0} on, in {@code lw_roads.json}). */
+	static final int BARKS = 12;
 	private static final LivingWorldStats.Timer TIMER = LivingWorldStats.timer("travel");
 	/** The two-second passes alone (spawning, folding, staging), within {@link #TIMER}. */
 	private static final LivingWorldStats.Timer PASSES = LivingWorldStats.timer("travel passes");
@@ -430,7 +432,7 @@ public final class Parties {
 					case CARAVAN -> "caravan";
 					default -> "traveller";
 				};
-				BanditParty.say(level, f, Component.translatable("hearth.roads.bark." + kind + "." + (int) Math.floorMod(now / 20 + f.getId(), 6)));
+				BanditParty.say(level, f, Component.translatable("hearth.roads.bark." + kind + "." + (int) Math.floorMod(now / 20 + f.getId(), BARKS)));
 			}
 			return;
 		}

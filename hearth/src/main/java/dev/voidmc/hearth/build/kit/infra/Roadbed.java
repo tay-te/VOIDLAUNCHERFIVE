@@ -177,13 +177,31 @@ public final class Roadbed {
 					}
 				}
 			} else if (g > l) {
+				// a cut beside standing water keeps a bank up to the water's top, so a lake is never let out down the road
+				int keep = Math.min(g, waterBeside(x, z));
 				try (var s = this.lay.draft().stage(StageKind.EARTHWORK)) {
-					for (int y = l; y < g; y++) {
+					for (int y = Math.max(l, keep); y < g; y++) {
 						this.lay.air(x, y, z);
 					}
 				}
 			}
 		}
+	}
+
+	/** The highest water top (first air above the water) among the 4-neighbours outside the corridor, or the lowest y if none. */
+	private int waterBeside(int x, int z) {
+		int m = Integer.MIN_VALUE;
+		for (Direction dir : Direction.Plane.HORIZONTAL) {
+			int nx = x + dir.getStepX();
+			int nz = z + dir.getStepZ();
+			if (!this.c.contains(nx, nz)) {
+				int w = this.lay.water(nx, nz);
+				if (w != Site.NONE) {
+					m = Math.max(m, w);
+				}
+			}
+		}
+		return m;
 	}
 
 	/** The lowest natural standing level among the 4-neighbours outside the corridor (or the column's own). */

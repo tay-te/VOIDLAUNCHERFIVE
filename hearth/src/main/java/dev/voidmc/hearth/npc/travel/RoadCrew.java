@@ -156,7 +156,7 @@ public final class RoadCrew implements Folk.Controller {
 			Folk foreman = this.men.getFirst();
 			for (ServerPlayer p : level.players()) {
 				if (p.distanceToSqr(foreman) < 16 * 16) {
-					BanditParty.say(level, foreman, Component.translatable("hearth.roads.bark.crew." + (int) Math.floorMod(now / 1000, 6)));
+					BanditParty.say(level, foreman, Component.translatable("hearth.roads.bark.crew." + (int) Math.floorMod(now / 1000, Parties.BARKS)));
 					break;
 				}
 			}
@@ -188,7 +188,7 @@ public final class RoadCrew implements Folk.Controller {
 	@Override
 	public void interact(ServerPlayer player, Folk folk) {
 		folk.getLookControl().setLookAt(player, 30F, 30F);
-		BanditParty.say((ServerLevel) player.level(), folk, Component.translatable("hearth.roads.bark.crew." + (int) Math.floorMod(folk.getId(), 6)));
+		BanditParty.say((ServerLevel) player.level(), folk, Component.translatable("hearth.roads.bark.crew." + (int) Math.floorMod(folk.getId(), Parties.BARKS)));
 	}
 
 	@Override

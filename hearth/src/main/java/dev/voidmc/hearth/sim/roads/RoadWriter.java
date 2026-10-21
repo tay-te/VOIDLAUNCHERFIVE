@@ -127,12 +127,29 @@ public final class RoadWriter {
 		return out;
 	}
 
+	/**
+	 * The columns of one chunk where somebody's work stands in a plot's way (packed {@code x << 32 | z}, added to
+	 * {@code out} up to {@link #MAX_BLOCKED}): the obstacle a refused plot's detour keeps clear of, gathered from every
+	 * loaded chunk the plot crosses, not only the one that refused it.
+	 */
+	public static void blocked(int cx, int cz, AppliedLedger ledger, List<Job> jobs, Job job, StepWriter.Blocks world, BlueprintService blueprints,
+		TerrainProbe terrain, it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet out) {
+		Blueprint bp;
+		try {
+			bp = blueprints.blueprint(job.segment().spec(), terrain);
+		} catch (RuntimeException e) {
+			return;
+		}
+		long target = Cursor.pack(bp.stageCount(), 0);
+		look(bp, cx, cz, target, world, owned(cx, cz, ledger, jobs, job, bp, Cursor.ZERO, blueprints, terrain), out);
+	}
+
 	/** What the road's other plots here (and this one, so far) already put in this chunk counts as the road's own. */
 	private static StepWriter.Owned owned(int cx, int cz, AppliedLedger ledger, List<Job> jobs, Job job, Blueprint bp, long cur, BlueprintService blueprints,
 		TerrainProbe terrain) {
 		return StepWriter.lazyOwned(sink -> {
 			for (Job other : jobs) {
-				if (other == job || other.way().id() != job.way().id()) {
+				if (other == job || !kin(other.way(), job.way())) {
 					continue;
 				}
 				long c = ledger.get(RoadWorld.ledgerId(other.way().id()), other.index());
@@ -147,6 +164,24 @@ public final class RoadWriter {
 			}
 			StepWriter.forApplied(bp, cx, cz, cur, sink);
 		});
+	}
+
+	/**
+	 * Whether two ways' blocks count as one road's: the same way, or a detour and the road it goes round (or two detours of
+	 * one road), which overlap where the detour leaves and rejoins it.
+	 */
+	static boolean kin(Way a, Way b) {
+		if (a.id() == b.id()) {
+			return true;
+		}
+		long pa = detourOf(a);
+		long pb = detourOf(b);
+		return pa == b.id() || pb == a.id() || pa != 0 && pa == pb;
+	}
+
+	/** The road a detour goes round (a detour's two ends are that road), or 0. */
+	static long detourOf(Way w) {
+		return w.spur() && w.live() && w.a() == w.b() ? w.a() : 0;
 	}
 
 	/** Counts what writing {@code [0, target)} would do, without writing. */

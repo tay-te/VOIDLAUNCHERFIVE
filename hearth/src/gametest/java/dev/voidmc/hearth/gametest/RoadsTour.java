@@ -307,8 +307,19 @@ public class RoadsTour implements FabricClientGameTest {
 					return null;
 				}
 				// a hamlet 400 blocks off, away from the road
-				double ang = Math.atan2(road.bz() - road.az(), road.bx() - road.ax()) + Math.PI * 0.6;
-				BlockPos at = BlockPos.containing(a.center().getX() + Math.cos(ang) * 420, 0, a.center().getZ() + Math.sin(ang) * 420);
+				// on dry land: round from the side away from the road until the ground is out of the water
+				var probe = st.world().probe();
+				BlockPos at = null;
+				for (int k = 0; k < 16 && at == null; k++) {
+					double ang = Math.atan2(road.bz() - road.az(), road.bx() - road.ax()) + Math.PI * (0.6 + k * 0.125);
+					BlockPos c = BlockPos.containing(a.center().getX() + Math.cos(ang) * 420, 0, a.center().getZ() + Math.sin(ang) * 420);
+					if (!probe.isWater(c.getX(), c.getZ()) && probe.groundY(c.getX(), c.getZ()) >= 63) {
+						at = c;
+					}
+				}
+				if (at == null) {
+					return null;
+				}
 				SimSettlement h = st.world().found(at.atY(st.world().probe().groundY(at.getX(), at.getZ())), null, "Roadsend");
 				st.live().dayPassed(h, st.world().day());
 				return new Object[]{h.id()};
@@ -339,6 +350,63 @@ public class RoadsTour implements FabricClientGameTest {
 			settle(12_000);
 			aim("crew", at, 10, 5);
 			log("crew: " + this.world.getServer().computeOnServer(server -> Roads.state(SimServer.world(server.overworld())).live().describe()));
+			detour((long) head[0]);
+		}
+
+		/**
+		 * Risk 1: a player's house across the hamlet's road ahead of its crew. When the road is built that far, the plot
+		 * under the house is refused and a detour goes round it.
+		 */
+		void detour(long hamlet) {
+			BlockPos house = this.world.getServer().computeOnServer(server -> {
+				Roads.State st = Roads.state(SimServer.world(server.overworld()));
+				ServerLevel level = server.overworld();
+				for (RoadBook.LiveRoad r : st.live().book().live()) {
+					if ((r.a() != hamlet && r.b() != hamlet) || r.way() == null || r.spur()) {
+						continue;
+					}
+					int head = r.head(true);
+					int k = head + 2;
+					if (head < 0 || k >= r.way().segments().size() - 1) {
+						return null;
+					}
+					var seg = r.way().segments().get(k);
+					Route route = r.way().route();
+					int mid = (seg.from() + seg.to()) / 2;
+					int x = route.xs()[mid];
+					int z = route.zs()[mid];
+					level.getChunk(x >> 4, z >> 4);
+					int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+					// a player's planked store, seven by seven, right across the way (solid, so every column of the road meets it)
+					for (int dx = -3; dx <= 3; dx++) {
+						for (int dz = -3; dz <= 3; dz++) {
+							for (int dy = 0; dy <= 4; dy++) {
+								level.setBlockAndUpdate(new BlockPos(x + dx, y + dy, z + dz), net.minecraft.world.level.block.Blocks.SPRUCE_PLANKS.defaultBlockState());
+							}
+						}
+					}
+					// the road is built on past it
+					st.live().advance(r, true, 6_000, st.world().settlement(r.a()));
+					return new BlockPos(x, y, z);
+				}
+				return null;
+			});
+			if (house == null) {
+				log("detour: no plot ahead of the crew");
+				return;
+			}
+			teleport(house.getX() + 16, house.getY() + 24, house.getZ() + 16, 135, 45);
+			settle(15_000);
+			log("detour: " + this.world.getServer().computeOnServer(server -> {
+				Roads.State st = Roads.state(SimServer.world(server.overworld()));
+				int detours = 0;
+				for (RoadBook.LiveRoad r : st.live().book().live()) {
+					detours += r.detour() ? 1 : 0;
+				}
+				return detours + " detours in the book; " + st.applier().describe();
+			}));
+			// from above the house, looking down on the road going round it
+			shoot("detour", house.getX() + 0.5, house.getY() + 36, house.getZ() + 22, 180, 58);
 		}
 
 		void stats() {

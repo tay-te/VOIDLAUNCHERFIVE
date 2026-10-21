@@ -286,18 +286,53 @@ public final class LiveRoads {
 		if (self != null && self.detour() || w.route() == null || blocked.length < 2 || plot < 0 || plot >= w.segments().size()) {
 			return false;
 		}
-		long id = RoadGraph.edgeId(w.id() ^ DETOUR_SALT, plot);
-		if (book.road(id) != null) {
-			return false;
-		}
 		Route route = w.route();
 		int[] span = detourSpan(route, w.segments().get(plot), blocked, w.kind());
 		if (span == null) {
 			LOG.info("hearth roads: the road from {} to {} cannot go round the work across plot {}; it has a gap there", w.nameA(), w.nameB(), plot);
 			return false;
 		}
-		int s0 = span[0];
-		int e0 = span[1];
+		// the same work seen from the next plot: what the detours already laid round it cover is not laid again, the rest of
+		// this plot (from where a detour rejoins the road) is
+		List<int[]> pieces = new ArrayList<>();
+		pieces.add(span);
+		for (RoadBook.LiveRoad o : book.live.values()) {
+			if (!o.detour() || o.b != w.id() || o.span.length != 2) {
+				continue;
+			}
+			List<int[]> next = new ArrayList<>();
+			for (int[] p : pieces) {
+				if (o.span[1] <= p[0] || o.span[0] >= p[1]) {
+					next.add(p);
+					continue;
+				}
+				if (o.span[0] > p[0]) {
+					next.add(new int[]{p[0], o.span[0]});
+				}
+				if (o.span[1] < p[1]) {
+					next.add(new int[]{o.span[1], p[1]});
+				}
+			}
+			pieces = next;
+		}
+		boolean begun = false;
+		for (int k = 0; k < pieces.size(); k++) {
+			int[] p = pieces.get(k);
+			if (p[1] - p[0] < 2) {
+				continue;
+			}
+			begun |= layDetour(w, plot, k, p[0], p[1], blocked, day);
+		}
+		return begun;
+	}
+
+	private boolean layDetour(Way w, int plot, int piece, int s0, int e0, int[] blocked, long day) {
+		RoadBook book = book();
+		Route route = w.route();
+		long id = RoadGraph.edgeId(w.id() ^ DETOUR_SALT ^ (long) piece << 40, plot);
+		if (book.road(id) != null) {
+			return false;
+		}
 		String ca = cultureOf(w.a());
 		String cb = cultureOf(w.b());
 		RoadBook.LiveRoad r = new RoadBook.LiveRoad(id, w.id(), w.id(), w.kind(), true,
@@ -305,6 +340,7 @@ public final class LiveRoads {
 			day);
 		r.detourOf = plot;
 		r.avoid = blocked;
+		r.span = new int[]{s0, e0};
 		book.live.put(id, r);
 		this.routeQueue.add(id);
 		this.world.markDirty();

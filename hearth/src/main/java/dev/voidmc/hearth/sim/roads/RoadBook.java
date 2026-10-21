@@ -53,6 +53,8 @@ public final class RoadBook {
 		int detourOf = -1;
 		/** A detour's obstacle: the columns ({@code x, z} pairs) its way keeps clear of. */
 		int[] avoid = new int[0];
+		/** The columns of road {@code b}'s way a detour replaces (first and last). */
+		int[] span = new int[0];
 
 		LiveRoad(long id, long a, long b, RoadClass kind, boolean spur, int[] ends, List<String> names, List<String> cultures, int[] route, int fromA,
 			int fromB, double progressA, double progressB, long funds, long begun) {
@@ -90,21 +92,23 @@ public final class RoadBook {
 			Codec.DOUBLE.optionalFieldOf("progress_b", 0.0).forGetter(r -> r.progressB),
 			Codec.LONG.optionalFieldOf("funds", 0L).forGetter(r -> r.funds),
 			Codec.LONG.optionalFieldOf("begun", 0L).forGetter(r -> r.begun),
-			Detour.CODEC.optionalFieldOf("detour").forGetter(r -> r.detourOf < 0 ? java.util.Optional.empty() : java.util.Optional.of(new Detour(r.detourOf, r.avoid)))
+			Detour.CODEC.optionalFieldOf("detour").forGetter(r -> r.detourOf < 0 ? java.util.Optional.empty() : java.util.Optional.of(new Detour(r.detourOf, r.avoid, r.span)))
 		).apply(i, (id, a, b, kind, spur, ends, names, cultures, route, fromA, fromB, progressA, progressB, funds, begun, detour) -> {
 			LiveRoad r = new LiveRoad(id, a, b, kind, spur, ends, names, cultures, route, fromA, fromB, progressA, progressB, funds, begun);
 			detour.ifPresent(d -> {
 				r.detourOf = d.plot();
 				r.avoid = d.avoid();
+				r.span = d.span();
 			});
 			return r;
 		}));
 
 		/** What a detour keeps: the plot it replaces and its obstacle's columns. */
-		record Detour(int plot, int[] avoid) {
+		record Detour(int plot, int[] avoid, int[] span) {
 			static final Codec<Detour> CODEC = RecordCodecBuilder.create(i -> i.group(
 				Codec.INT.fieldOf("plot").forGetter(Detour::plot),
-				Codec.INT_STREAM.xmap(IntStream::toArray, IntStream::of).optionalFieldOf("avoid", new int[0]).forGetter(Detour::avoid)
+				Codec.INT_STREAM.xmap(IntStream::toArray, IntStream::of).optionalFieldOf("avoid", new int[0]).forGetter(Detour::avoid),
+				Codec.INT_STREAM.xmap(IntStream::toArray, IntStream::of).optionalFieldOf("span", new int[0]).forGetter(Detour::span)
 			).apply(i, Detour::new));
 		}
 
