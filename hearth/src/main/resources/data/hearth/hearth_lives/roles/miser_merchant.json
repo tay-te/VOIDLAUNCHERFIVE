@@ -1,0 +1,32 @@
+{
+	"thread": "miser_merchant",
+	"weight": 2,
+	"min_tier": "hamlet",
+	"who": {
+		"jobs": [
+			"merchant",
+			"trader"
+		],
+		"ages": [
+			"adult",
+			"elder"
+		],
+		"traits": [
+			"greedy"
+		]
+	},
+	"partner": "none",
+	"schedule": [
+		{
+			"days": "work",
+			"from": "18:00",
+			"to": "20:00",
+			"activity": "home",
+			"where": "home",
+			"beats": [
+				"hoarding",
+				"refuses"
+			]
+		}
+	]
+}

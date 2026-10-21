@@ -1,0 +1,26 @@
+{
+	"thread": "exile_come_home",
+	"weight": 2,
+	"min_tier": "hamlet",
+	"who": {
+		"ages": [
+			"adult"
+		],
+		"needs": "newcomer"
+	},
+	"partner": "household",
+	"schedule": [
+		{
+			"days": "all",
+			"from": "18:00",
+			"to": "20:00",
+			"activity": "leisure",
+			"leisure": "inn",
+			"where": "inn",
+			"beats": [
+				"returned",
+				"old_wrong"
+			]
+		}
+	]
+}

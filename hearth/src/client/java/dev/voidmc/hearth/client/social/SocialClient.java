@@ -22,6 +22,7 @@ public final class SocialClient {
 				}
 			}
 		});
+		dev.voidmc.hearth.client.social.lives.PeopleSection.init(); // B2 the People list (LIVING_WORLD_2.md §4, F4)
 		SocialDevPilot.initIfRequested();
 	}
 }

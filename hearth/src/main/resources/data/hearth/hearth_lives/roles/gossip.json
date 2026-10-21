@@ -1,0 +1,25 @@
+{
+	"thread": "gossip",
+	"weight": 3,
+	"min_tier": "hamlet",
+	"who": {
+		"ages": [
+			"adult",
+			"elder"
+		],
+		"traits": [
+			"gossip",
+			"sociable"
+		]
+	},
+	"partner": "household",
+	"schedule": [
+		{
+			"days": "all",
+			"from": "10:00",
+			"to": "12:00",
+			"activity": "leisure",
+			"leisure": "plaza"
+		}
+	]
+}

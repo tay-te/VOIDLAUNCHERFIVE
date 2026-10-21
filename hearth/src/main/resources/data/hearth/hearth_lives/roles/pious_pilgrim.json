@@ -1,0 +1,29 @@
+{
+	"thread": "pious_pilgrim",
+	"weight": 2,
+	"min_tier": "hamlet",
+	"who": {
+		"ages": [
+			"adult",
+			"elder"
+		],
+		"traits": [
+			"pious"
+		]
+	},
+	"partner": "none",
+	"schedule": [
+		{
+			"days": "all",
+			"from": "06:00",
+			"to": "07:00",
+			"activity": "leisure",
+			"leisure": "pray",
+			"beats": [
+				"vow",
+				"blessed_road",
+				"returns"
+			]
+		}
+	]
+}

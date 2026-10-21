@@ -1,0 +1,133 @@
+{
+	"start": "drinking",
+	"beats": {
+		"drinking": {
+			"next": [
+				{
+					"to": "complaints",
+					"after": 4
+				}
+			]
+		},
+		"complaints": {
+			"next": [
+				{
+					"to": "debt",
+					"after": 4
+				}
+			],
+			"effects": [
+				{
+					"type": "news",
+					"kind": "smith_drink"
+				}
+			]
+		},
+		"debt": {
+			"next": [
+				{
+					"to": "forge_lost",
+					"after": 10
+				}
+			],
+			"choices": [
+				{
+					"id": "pay",
+					"to": "sworn_off",
+					"cost": 120,
+					"effects": [
+						{
+							"type": "deed",
+							"kind": "lives:paid_debt",
+							"weight": 6
+						},
+						{
+							"type": "memory",
+							"weight": 15
+						}
+					]
+				},
+				{
+					"id": "priest",
+					"to": "vowing",
+					"quest": "hearth:lives/vow_candles",
+					"fallback": {
+						"cost": 30,
+						"to": "vowed"
+					}
+				},
+				{
+					"id": "talk",
+					"to": "sworn_off",
+					"speech": "persuade",
+					"difficulty": 0.4,
+					"fail": "debt"
+				}
+			]
+		},
+		"vowing": {
+			"next": [
+				{
+					"to": "vowed",
+					"flag": "quest:hearth:lives/vow_candles"
+				},
+				{
+					"to": "forge_lost",
+					"after": 20
+				}
+			]
+		},
+		"vowed": {
+			"next": [
+				{
+					"to": "sober",
+					"after": 5
+				}
+			],
+			"effects": [
+				{
+					"type": "memory",
+					"weight": 10
+				}
+			]
+		},
+		"sworn_off": {
+			"next": [
+				{
+					"to": "sober",
+					"after": 6
+				}
+			]
+		},
+		"sober": {
+			"effects": [
+				{
+					"type": "relation",
+					"delta": 20
+				},
+				{
+					"type": "gift",
+					"item": "minecraft:iron_sword",
+					"count": 1
+				},
+				{
+					"type": "news",
+					"kind": "smith_sober"
+				}
+			],
+			"end": true
+		},
+		"forge_lost": {
+			"effects": [
+				{
+					"type": "master_to"
+				},
+				{
+					"type": "news",
+					"kind": "forge_lost"
+				}
+			],
+			"end": true
+		}
+	}
+}

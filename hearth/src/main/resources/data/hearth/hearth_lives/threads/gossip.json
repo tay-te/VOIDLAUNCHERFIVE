@@ -1,0 +1,80 @@
+{
+	"start": "whispers",
+	"beats": {
+		"whispers": {
+			"next": [
+				{
+					"to": "spreading",
+					"after": 3
+				}
+			]
+		},
+		"spreading": {
+			"next": [
+				{
+					"to": "feud_brews",
+					"after": 6
+				}
+			],
+			"choices": [
+				{
+					"id": "correct",
+					"to": "quashed",
+					"speech": "persuade",
+					"difficulty": 0.3,
+					"fail": "spreading"
+				},
+				{
+					"id": "feed",
+					"to": "feud_brews",
+					"effects": [
+						{
+							"type": "deed",
+							"kind": "lives:spread_gossip",
+							"weight": -3
+						}
+					]
+				}
+			]
+		},
+		"quashed": {
+			"effects": [
+				{
+					"type": "memory",
+					"weight": -5
+				},
+				{
+					"type": "deed",
+					"kind": "lives:quashed_gossip",
+					"weight": 4
+				}
+			],
+			"end": true
+		},
+		"feud_brews": {
+			"next": [
+				{
+					"to": "shunned",
+					"after": 10,
+					"chance": 0.5
+				},
+				{
+					"to": "forgotten",
+					"after": 20
+				}
+			],
+			"effects": [
+				{
+					"type": "feud",
+					"cause": "gossip"
+				}
+			]
+		},
+		"shunned": {
+			"end": true
+		},
+		"forgotten": {
+			"end": true
+		}
+	}
+}

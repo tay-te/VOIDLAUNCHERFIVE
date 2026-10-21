@@ -1,0 +1,36 @@
+{
+	"type": "personal",
+	"weight": 0,
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "minecraft:candle",
+			"count": 4
+		}
+	],
+	"text": {
+		"title": [
+			"Candles for {giver}'s vow"
+		],
+		"summary": [
+			"{giver} of {settlement} means to swear off the drink before the altar, and the priest wants {count} × {item} for the vow."
+		],
+		"offer": [
+			"The priest won't take the vow without candles. Good ones. Will you bring them? I'd only drink the coin."
+		],
+		"progress": [
+			"The candles? My hands are shaking already."
+		],
+		"complete": [
+			"Candles. Good. Walk with me to the altar before I change my mind."
+		]
+	},
+	"reward": {
+		"coin": [
+			5,
+			15
+		],
+		"reputation": 3
+	},
+	"cooldown_days": 0
+}

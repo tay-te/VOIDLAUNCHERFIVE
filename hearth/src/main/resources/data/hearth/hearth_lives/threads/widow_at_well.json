@@ -1,0 +1,74 @@
+{
+	"start": "mourning",
+	"beats": {
+		"mourning": {
+			"next": [
+				{
+					"to": "alone",
+					"after": 6
+				}
+			]
+		},
+		"alone": {
+			"next": [
+				{
+					"to": "withdrawn",
+					"after": 12
+				}
+			],
+			"choices": [
+				{
+					"id": "sit",
+					"to": "comforted",
+					"effects": [
+						{
+							"type": "memory",
+							"weight": 8
+						}
+					]
+				},
+				{
+					"id": "roof",
+					"to": "comforted",
+					"cost": 40,
+					"effects": [
+						{
+							"type": "deed",
+							"kind": "lives:helped_widow",
+							"weight": 5
+						},
+						{
+							"type": "memory",
+							"weight": 12
+						}
+					]
+				}
+			]
+		},
+		"comforted": {
+			"next": [
+				{
+					"to": "new_purpose",
+					"after": 6
+				}
+			]
+		},
+		"new_purpose": {
+			"effects": [
+				{
+					"type": "news",
+					"kind": "widow_purpose"
+				}
+			],
+			"end": true
+		},
+		"withdrawn": {
+			"effects": [
+				{
+					"type": "leave"
+				}
+			],
+			"end": true
+		}
+	}
+}

@@ -1,0 +1,36 @@
+{
+	"type": "personal",
+	"weight": 0,
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "minecraft:iron_ingot",
+			"count": 6
+		}
+	],
+	"text": {
+		"title": [
+			"Iron for {giver}'s masterpiece"
+		],
+		"summary": [
+			"{giver} of {settlement} wants {count} × {item} to make a masterpiece before the time is served."
+		],
+		"offer": [
+			"Six good ingots. That's all I need. Don't tell my master."
+		],
+		"progress": [
+			"Have you got the iron? I've the drawing done already."
+		],
+		"complete": [
+			"This is good iron. The guild won't know what hit them."
+		]
+	},
+	"reward": {
+		"coin": [
+			5,
+			15
+		],
+		"reputation": 3
+	},
+	"cooldown_days": 0
+}

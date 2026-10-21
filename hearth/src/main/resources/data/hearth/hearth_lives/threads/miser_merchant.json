@@ -1,0 +1,84 @@
+{
+	"start": "hoarding",
+	"beats": {
+		"hoarding": {
+			"next": [
+				{
+					"to": "refuses",
+					"after": 5
+				}
+			]
+		},
+		"refuses": {
+			"next": [
+				{
+					"to": "robbed",
+					"after": 10,
+					"chance": 0.4
+				},
+				{
+					"to": "alone",
+					"after": 16
+				}
+			],
+			"choices": [
+				{
+					"id": "shame",
+					"to": "gives",
+					"speech": "intimidate",
+					"difficulty": 0.35,
+					"fail": "refuses"
+				},
+				{
+					"id": "persuade",
+					"to": "gives",
+					"speech": "persuade",
+					"difficulty": 0.45,
+					"fail": "refuses"
+				}
+			]
+		},
+		"gives": {
+			"effects": [
+				{
+					"type": "treasury",
+					"bits": 150
+				},
+				{
+					"type": "deed",
+					"kind": "lives:miser_gave",
+					"weight": 6
+				},
+				{
+					"type": "memory",
+					"weight": -3
+				},
+				{
+					"type": "news",
+					"kind": "miser_gave"
+				}
+			],
+			"end": true
+		},
+		"robbed": {
+			"next": [
+				{
+					"to": "humbled",
+					"after": 4
+				}
+			],
+			"effects": [
+				{
+					"type": "news",
+					"kind": "miser_robbed"
+				}
+			]
+		},
+		"humbled": {
+			"end": true
+		},
+		"alone": {
+			"end": true
+		}
+	}
+}

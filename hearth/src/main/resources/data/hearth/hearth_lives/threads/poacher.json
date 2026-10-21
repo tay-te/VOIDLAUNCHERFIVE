@@ -1,0 +1,117 @@
+{
+	"start": "snares",
+	"beats": {
+		"snares": {
+			"next": [
+				{
+					"to": "suspected",
+					"after": 6
+				}
+			]
+		},
+		"suspected": {
+			"next": [
+				{
+					"to": "fled",
+					"after": 4,
+					"chance": 0.15
+				},
+				{
+					"to": "caught",
+					"after": 8,
+					"chance": 0.5
+				},
+				{
+					"to": "reformed",
+					"after": 14
+				}
+			],
+			"choices": [
+				{
+					"id": "cover",
+					"to": "covered",
+					"effects": [
+						{
+							"type": "deed",
+							"kind": "lives:covered_poacher",
+							"weight": -3
+						},
+						{
+							"type": "memory",
+							"weight": 10
+						}
+					]
+				},
+				{
+					"id": "report",
+					"to": "caught",
+					"effects": [
+						{
+							"type": "deed",
+							"kind": "lives:reported_poacher",
+							"weight": 3
+						},
+						{
+							"type": "memory",
+							"weight": -15
+						}
+					]
+				},
+				{
+					"id": "share",
+					"to": "covered",
+					"effects": [
+						{
+							"type": "gift",
+							"item": "minecraft:rabbit",
+							"count": 2
+						}
+					]
+				}
+			]
+		},
+		"covered": {
+			"next": [
+				{
+					"to": "reformed",
+					"after": 8,
+					"chance": 0.4
+				},
+				{
+					"to": "caught",
+					"after": 12
+				}
+			]
+		},
+		"caught": {
+			"effects": [
+				{
+					"type": "idle",
+					"days": 20
+				},
+				{
+					"type": "news",
+					"kind": "poacher_caught"
+				}
+			],
+			"end": true
+		},
+		"reformed": {
+			"effects": [
+				{
+					"type": "news",
+					"kind": "poacher_huntsman"
+				}
+			],
+			"end": true
+		},
+		"fled": {
+			"effects": [
+				{
+					"type": "leave"
+				}
+			],
+			"end": true
+		}
+	}
+}

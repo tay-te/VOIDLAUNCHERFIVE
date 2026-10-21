@@ -1,0 +1,75 @@
+{
+	"start": "returned",
+	"beats": {
+		"returned": {
+			"next": [
+				{
+					"to": "old_wrong",
+					"after": 4
+				}
+			]
+		},
+		"old_wrong": {
+			"next": [
+				{
+					"to": "leaves",
+					"after": 12
+				}
+			],
+			"choices": [
+				{
+					"id": "vouch",
+					"to": "welcomed",
+					"speech": "persuade",
+					"difficulty": 0.4,
+					"fail": "old_wrong"
+				},
+				{
+					"id": "tools",
+					"to": "settles",
+					"cost": 30,
+					"effects": [
+						{
+							"type": "memory",
+							"weight": 12
+						}
+					]
+				}
+			],
+			"effects": [
+				{
+					"type": "feud",
+					"cause": "old_wrong"
+				}
+			]
+		},
+		"welcomed": {
+			"effects": [
+				{
+					"type": "peace"
+				},
+				{
+					"type": "relation",
+					"delta": 30
+				},
+				{
+					"type": "deed",
+					"kind": "lives:vouched",
+					"weight": 5
+				}
+			],
+			"end": true
+		},
+		"settles": {
+			"end": true
+		},
+		"leaves": {
+			"effects": [
+				{
+					"type": "leave"
+				}
+			],
+			"end": true
+		}
+	}
+}
