@@ -21,7 +21,12 @@ public final class MeterSet {
 	}
 
 	public static float threshold(float statusResist) {
-		return BASE * (1 + Math.max(-0.9F, statusResist));
+		return threshold(BASE, statusResist);
+	}
+
+	/** {@code base × (1 + resistance)}, the resistance floored at -0.9 (a meter never shrinks below a tenth). */
+	public static float threshold(float base, float statusResist) {
+		return base * (1 + Math.max(-0.9F, statusResist));
 	}
 
 	/**
@@ -70,10 +75,15 @@ public final class MeterSet {
 
 	/** One tick of draining. Returns true if any meter changed. */
 	public boolean tick(long now) {
+		return this.tick(now, DRAIN_DELAY, DRAIN_PER_TICK);
+	}
+
+	/** One tick of draining with the tuning's delay and rate (a fraction of the meter's size a tick). */
+	public boolean tick(long now, int drainDelay, float drainPerTick) {
 		boolean changed = false;
 		for (int i = 0; i < this.value.length; i++) {
-			if (this.value[i] > 0 && now - this.lastBuild[i] >= DRAIN_DELAY) {
-				this.value[i] = Math.max(0, this.value[i] - this.size[i] * DRAIN_PER_TICK);
+			if (this.value[i] > 0 && now - this.lastBuild[i] >= drainDelay) {
+				this.value[i] = Math.max(0, this.value[i] - this.size[i] * drainPerTick);
 				changed = true;
 			}
 		}

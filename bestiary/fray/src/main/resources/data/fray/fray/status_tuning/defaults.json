@@ -1,0 +1,9 @@
+{
+  "_comment": "Fray's status build-up defaults (COMBAT.md §1, status tuning). Other files in data/<ns>/fray/status_tuning/ are read after this one, sorted by id, and override key by key. Creatures: Bestiary's file. Players: Mettle's attributes and BalanceProvider.",
+  "base_threshold": 100,
+  "rank_threshold": { "common": 1, "elite": 1, "boss": 4 },
+  "drain_delay_ticks": 40,
+  "drain_per_second": 0.10,
+  "build_factor": { "slash": 1.5, "pierce": 0.75, "blunt": 0, "radiant": 0, "*": 3.0 },
+  "creatures": {}
+}

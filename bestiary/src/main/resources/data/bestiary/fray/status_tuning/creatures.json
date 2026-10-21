@@ -1,0 +1,24 @@
+{
+  "_comment": "Bestiary's status resistances per creature (added to fray:status_resist/<status>; 1.0 = a meter twice as big, -0.5 = half). Bestiary owns this table; players' numbers come from Mettle.",
+  "creatures": {
+    "minecraft:skeleton": { "bleed": 1.0, "poison": 1.0 },
+    "minecraft:stray": { "bleed": 1.0, "chill": 2.0 },
+    "minecraft:wither_skeleton": { "bleed": 1.0, "burn": 2.0, "blight": 1.0 },
+    "minecraft:bogged": { "bleed": 1.0, "poison": 2.0 },
+    "minecraft:blaze": { "burn": 9.0, "chill": -0.5 },
+    "minecraft:magma_cube": { "burn": 9.0, "chill": -0.3 },
+    "minecraft:ghast": { "burn": 9.0 },
+    "minecraft:strider": { "burn": 9.0 },
+    "minecraft:iron_golem": { "bleed": 2.0, "poison": 9.0, "shock": -0.3 },
+    "minecraft:snow_golem": { "chill": 9.0, "burn": -0.5 },
+    "minecraft:drowned": { "burn": 1.0, "shock": -0.25 },
+    "minecraft:spider": { "poison": 1.0 },
+    "minecraft:cave_spider": { "poison": 3.0 },
+    "minecraft:witch": { "hex": 1.5, "poison": 1.0 },
+    "minecraft:evoker": { "hex": 1.0 },
+    "minecraft:enderman": { "hex": 0.5, "shock": -0.25 },
+    "minecraft:creeper": { "shock": -0.3 },
+    "minecraft:slime": { "bleed": 2.0 },
+    "minecraft:warden": { "bleed": 1.0, "poison": 2.0, "hex": 2.0, "blight": 2.0 }
+  }
+}

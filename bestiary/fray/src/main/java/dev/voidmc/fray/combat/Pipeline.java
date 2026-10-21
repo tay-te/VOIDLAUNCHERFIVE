@@ -4,6 +4,7 @@ import dev.voidmc.fray.Fray;
 import dev.voidmc.fray.api.BalanceKey;
 import dev.voidmc.fray.api.CombatEvents;
 import dev.voidmc.fray.api.DamageBreakdown;
+import dev.voidmc.fray.api.Rank;
 import dev.voidmc.fray.api.DamageKind;
 import dev.voidmc.fray.api.DamageService;
 import dev.voidmc.fray.api.DamageSpec;
@@ -307,6 +308,7 @@ public final class Pipeline implements DamageService {
 
 		// Stage 6: statuses and poise.
 		List<StatusType> procsBefore = new ArrayList<>();
+		boolean wasBroken = ts.rank == Rank.BOSS && Encounters.INSTANCE.broken(target);
 		if (!status) {
 			EnumMap<StatusType, Float> build = new EnumMap<>(StatusType.class);
 			for (Map.Entry<DamageKind, Float> e : preDefence.entrySet()) {
@@ -395,7 +397,9 @@ public final class Pipeline implements DamageService {
 			if (attacker instanceof ServerPlayer ap && target instanceof Mob m) {
 				Encounters.INSTANCE.damage(m, ap, result.total());
 			}
-			CombatSync.hit(atk, target, guard, flags | (killed ? dev.voidmc.fray.combat.net.CombatPayloads.HIT_KILL : 0), result.total(), mainKind(preDefence), killed);
+			boolean broke = ts.rank == Rank.BOSS && !wasBroken && Encounters.INSTANCE.broken(target);
+			CombatSync.hit(atk, target, guard, flags | (killed ? dev.voidmc.fray.combat.net.CombatPayloads.HIT_KILL : 0)
+				| (broke ? dev.voidmc.fray.combat.net.CombatPayloads.HIT_BREAK : 0), result.total(), mainKind(preDefence), killed);
 		}
 		return result;
 	}

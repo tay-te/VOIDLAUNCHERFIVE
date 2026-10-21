@@ -142,7 +142,15 @@ public final class CombatSync {
 	}
 
 	/** A hit's outcome to the attacker and the target (players only). */
+	/**
+	 * A hit's feedback: to the attacker and the target (HUD), and to every other player tracking the target, who only
+	 * plays the hit-stop and a boss slam's shake (COMBAT.md §5).
+	 */
 	public static void hit(@Nullable Entity attacker, LivingEntity target, GuardOutcome outcome, int flags, float amount, DamageKind kind, boolean killed) {
+		CombatState as = attacker instanceof LivingEntity la ? CombatState.peek(la) : null;
+		if (as != null && as.rank == dev.voidmc.fray.api.Rank.BOSS) {
+			flags |= CombatPayloads.HIT_BOSS;
+		}
 		CombatPayloads.Hit h = new CombatPayloads.Hit(attacker == null ? -1 : attacker.getId(), target.getId(), (byte) outcome.ordinal(),
 			flags | (killed ? CombatPayloads.HIT_KILL : 0), amount, (byte) kind.ordinal(), (float) target.getX(), (float) (target.getY() + target.getBbHeight() * 0.8),
 			(float) target.getZ());
@@ -151,6 +159,11 @@ public final class CombatSync {
 		}
 		if (target instanceof ServerPlayer tp && tp != attacker) {
 			send(tp, h, 26);
+		}
+		for (ServerPlayer o : PlayerLookup.tracking(target)) {
+			if (o != attacker && o != target) {
+				send(o, h, 26);
+			}
 		}
 	}
 }

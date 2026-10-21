@@ -6,7 +6,10 @@
 		"MinecraftCombatMixin",
 		"MouseHandlerCombatMixin",
 		"NameTagMixin",
-		"AttackStrengthMixin"
+		"AttackStrengthMixin",
+		"KeyboardHandlerCombatMixin",
+		"LevelExtractorHitStopMixin",
+		"CameraShakeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

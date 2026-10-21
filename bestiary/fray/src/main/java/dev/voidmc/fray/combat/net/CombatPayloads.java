@@ -177,6 +177,10 @@ public final class CombatPayloads {
 
 	/** Hit flags for the HUD in {@link Hit#flags}: the api's HitFlags plus a kill bit. */
 	public static final int HIT_KILL = 1 << 30;
+	/** The hit filled a boss's Break meter (it is Broken now). */
+	public static final int HIT_BREAK = 1 << 29;
+	/** The attacker is a boss (its heavies are slams for the camera shake). */
+	public static final int HIT_BOSS = 1 << 28;
 
 	/**
 	 * A hit the server decided (attacker and target only): the guard outcome, the hit flags, the amount and its main kind

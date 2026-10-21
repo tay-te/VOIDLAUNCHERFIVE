@@ -14,7 +14,9 @@ import dev.voidmc.fray.api.Rank;
 import dev.voidmc.fray.api.StatusType;
 import dev.voidmc.fray.api.TellColour;
 import dev.voidmc.fray.client.combat.ClientCombat;
+import dev.voidmc.fray.client.combat.CombatInput;
 import dev.voidmc.fray.client.combat.CombatKeys;
+import dev.voidmc.fray.client.combat.feel.HitStop;
 import dev.voidmc.fray.client.combat.FrayClientOptions;
 import dev.voidmc.fray.client.combat.LockOn;
 import dev.voidmc.fray.client.combat.hud.FrayHud;
@@ -68,7 +70,7 @@ import net.minecraft.world.item.Items;
  * the HUD states with screenshots (Figma 3a H-1 … H-4, H1-H10), performance (HUD draw cost per frame, server tick cost
  * with 50 creatures in combat) and a dedicated server with the combat handshake. Report:
  * {@code build/run/clientGameTest/fray-report-combat.txt}; screenshots {@code fray_combat_*}.
- * <pre>bash tools/gametest.sh -Dfray.show.only=none -Dfray.combat=all</pre>
+ * <pre>bash tools/gametest.sh -Dfray.show.only=none -Dfray.combat=all</pre> (or pipeline,actions,keys,feel,hud,perf,dedicated)
  */
 public class CombatShowcase implements FabricClientGameTest {
 	private static final Set<String> PARTS = new HashSet<>(Arrays.asList(System.getProperty("fray.combat", "").split(",")));
@@ -106,7 +108,7 @@ public class CombatShowcase implements FabricClientGameTest {
 			mc.options.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
 			FrayClientOptions.get().damageNumbers = false;
 		});
-		if (want("pipeline") || want("actions") || want("hud") || want("perf")) {
+		if (want("pipeline") || want("actions") || want("keys") || want("feel") || want("hud") || want("perf")) {
 			try (TestSingleplayerContext world = c.worldBuilder().setUseConsistentSettings(false).adjustSettings(s -> {
 				s.setSeed("20261021");
 				s.setGameMode(WorldCreationUiState.SelectedGameMode.SURVIVAL);
@@ -128,11 +130,18 @@ public class CombatShowcase implements FabricClientGameTest {
 				if (want("actions")) {
 					actions(st);
 				}
+				if (want("keys")) {
+					keys(st);
+				}
+				if (want("feel")) {
+					feel(st);
+				}
 				if (want("hud")) {
 					hud(st);
 				}
 				if (want("perf")) {
 					perf(st);
+					feelPerf(st);
 				}
 			}
 		}
@@ -466,6 +475,334 @@ public class CombatShowcase implements FabricClientGameTest {
 		st.c.getInput().pressKey(CombatKeys.technique);
 		st.c.waitTicks(4);
 		Stage.log("technique without sneak (stage 3): " + lastAction(st));
+		st.clearCreatures();
+	}
+
+	// ------------------------------------------------------------------ 2b. keys (the user's calls on open questions 1 and 2)
+
+	private static int dodges(Stage st) {
+		return st.c.computeOnClient(mc -> CombatInput.dodgesFired);
+	}
+
+	private static int techniques(Stage st) {
+		return st.c.computeOnClient(mc -> CombatInput.techniquesSent);
+	}
+
+	private static int picks(Stage st) {
+		return st.c.computeOnClient(mc -> CombatInput.picksAllowed);
+	}
+
+	private static void keys(Stage st) {
+		Stage.log("--- keys");
+		st.clearCreatures();
+		ready(st, false);
+		int z = zombie(st, 0.5, -1.6, 200);
+		st.c.waitTicks(10);
+
+		// Rebindable: the three keys are in Controls (vanilla's list) under Fray's category.
+		boolean listed = st.c.computeOnClient(mc -> {
+			List<net.minecraft.client.KeyMapping> all = Arrays.asList(mc.options.keyMappings);
+			return all.contains(CombatKeys.dodge) && all.contains(CombatKeys.technique) && all.contains(CombatKeys.lockOn)
+				&& CombatKeys.dodge.getCategory() == CombatKeys.CATEGORY;
+		});
+		Stage.expect(listed, "dodge, technique and lock-on are listed in Controls (rebindable)");
+
+		// Alt alone: a dodge on release.
+		int d0 = dodges(st);
+		PlayerCombat.ACTIONS.clear();
+		st.c.getInput().pressKey(CombatKeys.dodge);
+		st.c.waitTicks(3);
+		Stage.expect(dodges(st) == d0 + 1 && lastAction(st).contains("BACKSTEP"), "Left Alt pressed and released alone dodges (" + lastAction(st) + ")");
+		st.c.waitTicks(20);
+
+		// Alt + middle mouse: pick block, no dodge, no lock-on.
+		ready(st, false);
+		int d1 = dodges(st), p1 = picks(st);
+		PlayerCombat.ACTIONS.clear();
+		st.c.getInput().holdKey(CombatKeys.dodge);
+		st.c.waitTicks(1);
+		st.c.getInput().pressMouse(InputConstants.MOUSE_BUTTON_MIDDLE);
+		st.c.waitTicks(1);
+		st.c.getInput().releaseKey(CombatKeys.dodge);
+		st.c.waitTicks(4);
+		int lockedAlt = st.c.computeOnClient(mc -> LockOn.target);
+		Stage.log("alt + middle: dodges " + d1 + " -> " + dodges(st) + ", picks " + p1 + " -> " + picks(st) + ", lock " + lockedAlt + ", actions " + PlayerCombat.ACTIONS);
+		Stage.expect(dodges(st) == d1 && PlayerCombat.ACTIONS.isEmpty(), "Alt + middle mouse doesn't dodge");
+		Stage.expect(picks(st) == p1 + 1 && lockedAlt < 0, "Alt + middle mouse is vanilla's pick block (not lock-on)");
+
+		// Alt held too long (a window switch): nothing.
+		int d2 = dodges(st);
+		st.c.getInput().holdKeyFor(CombatKeys.dodge, 14);
+		st.c.waitTicks(3);
+		Stage.expect(dodges(st) == d2, "Alt held 0.7 s and released doesn't dodge");
+
+		// Rebound to V (not a modifier): fires on press.
+		st.c.runOnClient(mc -> {
+			CombatKeys.dodge.setKey(InputConstants.Type.KEYBOARD.getOrCreate(InputConstants.KEY_V));
+			net.minecraft.client.KeyMapping.resetMapping();
+		});
+		int d3 = dodges(st);
+		st.c.getInput().holdKey(InputConstants.Type.KEYBOARD.getOrCreate(InputConstants.KEY_V));
+		st.c.waitTicks(2);
+		int onPress = dodges(st);
+		st.c.getInput().releaseKey(InputConstants.Type.KEYBOARD.getOrCreate(InputConstants.KEY_V));
+		st.c.runOnClient(mc -> {
+			CombatKeys.dodge.setKey(CombatKeys.dodge.getDefaultKey());
+			net.minecraft.client.KeyMapping.resetMapping();
+		});
+		Stage.expect(onPress == d3 + 1, "rebound to V, the dodge follows the new key and fires on press");
+		st.c.waitTicks(20);
+
+		// C with a hotbar number held: vanilla's chord, not the technique.
+		ready(st, false);
+		int t0 = techniques(st);
+		st.c.getInput().holdKey(o -> o.keyHotbarSlots[0]);
+		st.c.waitTicks(1);
+		st.c.getInput().pressKey(CombatKeys.technique);
+		st.c.waitTicks(1);
+		st.c.getInput().releaseKey(o -> o.keyHotbarSlots[0]);
+		st.c.waitTicks(3);
+		Stage.expect(techniques(st) == t0, "1 held, then C: no technique sent");
+		st.c.getInput().pressKey(CombatKeys.technique);
+		st.c.waitTicks(3);
+		Stage.expect(techniques(st) == t0 + 1, "C alone sends the technique (survival: on press)");
+
+		// Creative: C + 1 is the save toolbar; C alone (released) the technique.
+		st.s.runCommand("gamemode creative @a");
+		st.c.waitTicks(5);
+		int t1 = techniques(st);
+		st.c.getInput().holdKey(CombatKeys.technique);
+		st.c.waitTicks(1);
+		st.c.getInput().pressKey(o -> o.keyHotbarSlots[1]);
+		st.c.waitTicks(1);
+		st.c.getInput().releaseKey(CombatKeys.technique);
+		st.c.waitTicks(3);
+		Stage.expect(techniques(st) == t1, "creative: C held, then 2 (save toolbar 2): no technique sent");
+		st.c.getInput().pressKey(CombatKeys.technique);
+		st.c.waitTicks(3);
+		Stage.expect(techniques(st) == t1 + 1, "creative: C pressed and released alone sends the technique");
+		st.s.runCommand("gamemode survival @a");
+		st.c.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+		st.c.waitTicks(5);
+
+		// Out of a fight, middle mouse on a block is vanilla's pick block.
+		st.s.runOnServer(server -> pc(server).inCombatUntil = Long.MIN_VALUE / 2);
+		st.s.runCommand("tp @p 0.5 " + Y + " 0.5 0 70");
+		st.c.waitTicks(10);
+		int p2 = picks(st);
+		st.c.getInput().pressMouse(InputConstants.MOUSE_BUTTON_MIDDLE);
+		st.c.waitTicks(3);
+		boolean blockLook = st.c.computeOnClient(mc -> mc.hitResult != null && mc.hitResult.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK);
+		Stage.expect(blockLook && picks(st) == p2 + 1 && st.c.computeOnClient(mc -> LockOn.target) < 0, "out of a fight, middle mouse on a block picks it (no lock-on)");
+		ready(st, false);
+		st.clearCreatures();
+		Stage.log("keys: zombie " + z + " cleared");
+	}
+
+	// ------------------------------------------------------------------ 2c. hit-stop and camera shake
+
+	/** Server game time of each Fray hit dealt (DAMAGE_DEALT). */
+	private static final List<long[]> DEALT = new CopyOnWriteArrayList<>();
+
+	private static int hitTarget;
+
+	/** Holds the attack for {@code hold} ticks; returns the server ticks from the release to the hit landing (-1: none). */
+	private static long timedHit(Stage st, int z, int hold) {
+		DEALT.clear();
+		hitTarget = z;
+		st.c.getInput().holdKey(o -> o.keyAttack);
+		st.c.waitTicks(hold);
+		long release = st.serverTime();
+		st.c.getInput().releaseKey(o -> o.keyAttack);
+		for (int i = 0; i < 40 && DEALT.isEmpty(); i++) {
+			st.c.waitTick();
+		}
+		return DEALT.isEmpty() ? -1 : DEALT.getFirst()[0] - release;
+	}
+
+	private static void feel(Stage st) {
+		Stage.log("--- feel");
+		CombatEvents.DAMAGE_DEALT.register((a, t, h, r) -> {
+			if (t.getId() == hitTarget) {
+				DEALT.add(new long[] {t.level().getGameTime(), (long) (r.total() * 100)});
+			}
+		});
+		st.clearCreatures();
+		ready(st, false);
+		int z = zombie(st, 0.5, -1.6, 2000);
+		st.c.waitTicks(10);
+		FrayClientOptions opt = st.c.computeOnClient(mc -> FrayClientOptions.get());
+
+		// Hit-stop never changes server timing: the same heavy, with and without it.
+		st.c.runOnClient(mc -> opt.hitStop = false);
+		long off = timedHit(st, z, 10);
+		st.c.waitTicks(30);
+		ready(st, false);
+		st.c.runOnClient(mc -> opt.hitStop = true);
+		int started0 = st.c.computeOnClient(mc -> HitStop.started);
+		long frozen0 = st.c.computeOnClient(mc -> HitStop.frozenFrames);
+		long on = timedHit(st, z, 10);
+		long t0 = st.serverTime();
+		boolean frozenNow = st.c.computeOnClient(mc -> HitStop.isFrozen(z));
+		st.c.waitTicks(10);
+		long t1 = st.serverTime();
+		double[] rate = st.s.computeOnServer(server -> new double[] {server.tickRateManager().tickrate(), server.tickRateManager().isFrozen() ? 1 : 0,
+			server.tickRateManager().isSprinting() ? 1 : 0});
+		int started1 = st.c.computeOnClient(mc -> HitStop.started);
+		long frozen1 = st.c.computeOnClient(mc -> HitStop.frozenFrames);
+		Stage.log("hit-stop timing: release -> hit " + off + " ticks without, " + on + " with; server ticks over 10 client ticks after the hit " + (t1 - t0)
+			+ ", tick rate " + rate[0] + " frozen " + rate[1] + "; freezes started " + (started1 - started0) + ", frozen frames " + (frozen1 - frozen0) + ", zombie frozen right after " + frozenNow);
+		Stage.expect(off > 0 && on == off, "hit-stop on or off, the heavy lands on the same server tick after release (" + off + " / " + on + ")");
+		Stage.expect(t1 - t0 >= 9 && t1 - t0 <= 11 && rate[0] == 20 && rate[1] == 0 && rate[2] == 0, "the server keeps its 20 ticks a second through the freeze");
+		Stage.expect(started1 - started0 >= 2 && frozen1 > frozen0, "the heavy froze the attacker and the zombie on the client (" + (started1 - started0) + " freezes, "
+			+ (frozen1 - frozen0) + " frozen frames)");
+
+		// Camera shake: intensity 0 leaves the camera exactly on the player's look; 100 % moves it.
+		float[] shake0 = incomingShake(st, z, opt, 0F);
+		float[] shake1 = incomingShake(st, z, opt, 1F);
+		Stage.log(String.format(Locale.ROOT, "shake: at 0 %% impulses %.0f, largest offset %.3f deg, camera vs look %.4f deg; at 100 %% impulses %.0f, largest offset %.3f deg, camera vs look %.4f deg",
+			shake0[0], shake0[1], shake0[2], shake1[0], shake1[1], shake1[2]));
+		Stage.expect(shake0[0] == 0 && shake0[1] == 0 && shake0[2] < 1e-4, "shake intensity 0: no impulse and no camera offset");
+		Stage.expect(shake1[0] >= 1 && shake1[1] > 0.1 && shake1[2] > 0.1, "shake intensity 100 %: the camera moves off the look (and settles)");
+		boolean settled = st.c.computeOnClient(mc -> !dev.voidmc.fray.client.combat.feel.CameraShake.active() || Math.abs(dev.voidmc.fray.client.combat.feel.CameraShake.lastYaw) < 1e-3);
+		Stage.expect(settled, "the shake has decayed half a second later");
+		st.c.runOnClient(mc -> {
+			opt.shakeIntensity = 0.6F;
+			opt.cameraShake = true;
+		});
+
+		// A Break by the player (first person): the boss Breaks and freezes on the client.
+		ready(st, false);
+		st.clearCreatures();
+		int boss = zombie(st, 0.5, -1.6, 300);
+		st.c.waitTicks(4);
+		st.s.runOnServer(server -> {
+			FrayApi.encounters().start((net.minecraft.world.entity.Mob) entity(server, boss), Component.literal("The Gallows Knight"), null, new float[] {0.5F});
+			FrayApi.encounters().addBreak((net.minecraft.world.entity.Mob) entity(server, boss), 0.97F);
+			pc(server).tagCombat(400);
+		});
+		DEALT.clear();
+		hitTarget = boss;
+		attack(st, 40);
+		for (int i = 0; i < 40 && DEALT.isEmpty(); i++) {
+			st.c.waitTick();
+		}
+		boolean bossFrozen = st.c.computeOnClient(mc -> HitStop.isFrozen(boss));
+		boolean broken = st.s.computeOnServer(server -> dev.voidmc.fray.combat.Encounters.INSTANCE.broken(entity(server, boss)));
+		Stage.log("break: hit " + !DEALT.isEmpty() + ", broken " + broken + ", boss frozen " + bossFrozen + ", action " + lastAction(st));
+		Stage.expect(broken && bossFrozen, "the charged hit Breaks the boss and freezes it on the client");
+		st.s.runOnServer(server -> FrayApi.encounters().end((net.minecraft.world.entity.Mob) entity(server, boss), dev.voidmc.fray.api.Encounter.Outcome.RESET));
+		st.c.waitTicks(20);
+
+		// Pictures from the side, as another player sees them: a mannequin (the player model) Breaks a boss; the hit packet
+		// reaches this client as a bystander and both freeze. Windup, the first frozen frame, three ticks on.
+		st.clearCreatures();
+		st.s.runCommand("tp @p 12 " + Y + " 12");
+		int man = st.mannequin(0.5, 0.6, 180);
+		int boss2 = zombie(st, 0.5, -0.9, 300);
+		st.c.waitTicks(6);
+		st.s.runOnServer(server -> {
+			FrayApi.encounters().start((net.minecraft.world.entity.Mob) entity(server, boss2), Component.literal("The Gallows Knight"), null, new float[] {0.5F});
+			FrayApi.encounters().addBreak((net.minecraft.world.entity.Mob) entity(server, boss2), 0.97F);
+		});
+		st.cam(3.3, Y + 1.5, 0.2, 0.5, Y + 1.0, -0.15);
+		int f0 = st.c.computeOnClient(mc -> HitStop.started);
+		st.play(man, MotionShowcase.SWING);
+		st.c.waitTicks(6);
+		st.c.takeScreenshot("fray_combat_feel_1_windup");
+		st.c.waitTicks(5);
+		st.s.runOnServer(server -> {
+			java.util.Map<DamageKind, Float> m = new java.util.EnumMap<>(DamageKind.class);
+			m.put(DamageKind.SLASH, 12F);
+			FrayApi.damage().deal(entity(server, boss2), new HitContext(entity(server, man), new ItemStack(Items.IRON_SWORD), Identifier.fromNamespaceAndPath("fray", "test_break"),
+				new DamageSpec(m, 0, java.util.Map.of()), HitFlags.CHARGED, 1, null, 1, 4));
+		});
+		st.c.waitTick();
+		st.c.takeScreenshot("fray_combat_feel_2_break_hitstop");
+		boolean both = st.c.computeOnClient(mc -> HitStop.isFrozen(man) && HitStop.isFrozen(boss2));
+		st.c.waitTicks(3);
+		st.c.takeScreenshot("fray_combat_feel_3_break_hitstop_later");
+		boolean broken2 = st.s.computeOnServer(server -> dev.voidmc.fray.combat.Encounters.INSTANCE.broken(entity(server, boss2)));
+		int f1 = st.c.computeOnClient(mc -> HitStop.started);
+		Stage.log("bystander: freezes started " + (f1 - f0) + ", attacker and boss frozen " + both + ", broken " + broken2);
+		Stage.expect(both && broken2, "a bystander's client freezes both the attacker and the boss of someone else's Break");
+		st.s.runOnServer(server -> FrayApi.encounters().end((net.minecraft.world.entity.Mob) entity(server, boss2), dev.voidmc.fray.api.Encounter.Outcome.RESET));
+		st.playerCam(CameraType.FIRST_PERSON);
+		st.clearCreatures();
+	}
+
+	/**
+	 * A creature's heavy on the player at {@code intensity}; returns {impulses added, the largest offset the camera took
+	 * (deg), the largest gap between the camera and the player's look (deg)} over the next 12 ticks.
+	 */
+	private static float[] incomingShake(Stage st, int z, FrayClientOptions opt, float intensity) {
+		ready(st, false);
+		st.c.runOnClient(mc -> {
+			opt.cameraShake = true;
+			opt.shakeIntensity = intensity;
+		});
+		int a0 = st.c.computeOnClient(mc -> dev.voidmc.fray.client.combat.feel.CameraShake.added);
+		st.s.runOnServer(server -> {
+			java.util.Map<DamageKind, Float> m = new java.util.EnumMap<>(DamageKind.class);
+			m.put(DamageKind.BLUNT, 4F);
+			FrayApi.damage().deal(sp(server), new HitContext(entity(server, z), ItemStack.EMPTY, Identifier.fromNamespaceAndPath("fray", "test_slam"), new DamageSpec(m, 0, java.util.Map.of()),
+				HitFlags.HEAVY | HitFlags.MELEE, 0, null));
+		});
+		float big = 0, gap = 0;
+		for (int i = 0; i < 12; i++) {
+			st.c.waitTick();
+			float[] f = st.c.computeOnClient(mc -> {
+				net.minecraft.client.Camera cam = mc.gameRenderer.mainCamera();
+				float y = Math.abs(net.minecraft.util.Mth.wrapDegrees(cam.yRot() - mc.player.getYRot()));
+				float x = Math.abs(cam.xRot() - mc.player.getXRot());
+				return new float[] {(float) Math.hypot(dev.voidmc.fray.client.combat.feel.CameraShake.lastYaw, dev.voidmc.fray.client.combat.feel.CameraShake.lastPitch), Math.max(x, y)};
+			});
+			big = Math.max(big, f[0]);
+			gap = Math.max(gap, f[1]);
+		}
+		int a1 = st.c.computeOnClient(mc -> dev.voidmc.fray.client.combat.feel.CameraShake.added);
+		st.c.waitTicks(4);
+		return new float[] {a1 - a0, big, gap};
+	}
+
+	/** Perf of hit-stop and shake: a crowd taking a heavy every other tick (several frozen at once), per frame. */
+	private static void feelPerf(Stage st) {
+		st.clearCreatures();
+		ready(st, false);
+		List<Integer> crowd = new ArrayList<>();
+		for (int i = 0; i < 20; i++) {
+			crowd.add(zombie(st, -6 + (i % 5) * 3, -4 - (i / 5) * 2.5, 4000));
+		}
+		st.c.waitTicks(20);
+		st.c.runOnClient(mc -> {
+			HitStop.nanos = 0;
+			HitStop.frozenFrames = 0;
+			dev.voidmc.fray.client.combat.feel.CameraShake.nanos = 0;
+			dev.voidmc.fray.client.combat.feel.CameraShake.frames = 0;
+			FrayClientOptions.get().shakeIntensity = 1F;
+		});
+		int maxActive = 0;
+		for (int t = 0; t < 200; t++) {
+			int tick = t;
+			if (t % 2 == 0) {
+				st.s.runOnServer(server -> {
+					java.util.Map<DamageKind, Float> m = new java.util.EnumMap<>(DamageKind.class);
+					m.put(DamageKind.SLASH, 3F);
+					FrayApi.damage().deal(entity(server, crowd.get(tick / 2 % 20)), new HitContext(sp(server), ItemStack.EMPTY, Identifier.fromNamespaceAndPath("fray", "perf_heavy"),
+						new DamageSpec(m, 0, java.util.Map.of()), HitFlags.HEAVY | HitFlags.MULTI_HIT, 0, null));
+				});
+			}
+			st.c.waitTick();
+			maxActive = Math.max(maxActive, st.c.computeOnClient(mc -> HitStop.active()));
+		}
+		double[] r = st.c.computeOnClient(mc -> {
+			double frames = Math.max(1, dev.voidmc.fray.client.combat.feel.CameraShake.frames);
+			return new double[] {HitStop.nanos / 1000.0 / frames, dev.voidmc.fray.client.combat.feel.CameraShake.nanos / 1000.0 / frames, HitStop.frozenFrames / frames, frames};
+		});
+		Stage.log(String.format(Locale.ROOT, "perf feel: hit-stop %.2f us a frame, camera shake %.2f us a frame over %.0f frames (20 creatures in view, a heavy every other tick, up to %d frozen, %.1f frozen draws a frame)",
+			r[0], r[1], r[3], maxActive, r[2]));
+		Stage.expect(r[0] + r[1] < 20, "hit-stop and shake cost under 0.02 ms a frame");
+		st.c.runOnClient(mc -> FrayClientOptions.get().shakeIntensity = 0.6F);
 		st.clearCreatures();
 	}
 

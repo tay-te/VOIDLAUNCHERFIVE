@@ -72,14 +72,9 @@ public final class Statuses implements StatusService {
 		return TICKING.size();
 	}
 
-	/** Build-up a hit of {@code amount} of {@code kind} adds to the kind's paired status (neutral defaults). */
+	/** Build-up a hit of {@code amount} of {@code kind} adds to the kind's paired status (status tuning's build factor). */
 	public static float buildFactor(DamageKind kind) {
-		return switch (kind) {
-			case SLASH -> 1.5F;
-			case PIERCE -> 0.75F;
-			case BLUNT, RADIANT -> 0;
-			default -> 3.0F;
-		};
+		return StatusTuning.get().buildFactor(kind);
 	}
 
 	public static boolean wet(LivingEntity e) {
@@ -129,13 +124,25 @@ public final class Statuses implements StatusService {
 		return s == null ? 0 : s.meters.fraction(status);
 	}
 
+	/**
+	 * A meter's size: the tuning's base × (1 + resistance) × the rank's factor. Resistance is the
+	 * {@code fray:status_resist/<s>} attribute; a creature adds its row of the tuning's creature table (Bestiary's file), a
+	 * player adds Mettle's {@code mettle:status_resist.<s>} (percent). Mettle's {@code BalanceProvider} then has the last
+	 * word through {@code fray:status_threshold} (context: the status's id).
+	 */
 	@Override
 	public float threshold(LivingEntity target, StatusType status) {
+		StatusTuning.Values t = StatusTuning.get();
 		Holder<Attribute> h = FrayAttributes.STATUS_RESIST.get(status);
 		double r = h != null && target.getAttributes().hasAttribute(h) ? target.getAttributeValue(h) : 0;
+		if (target instanceof net.minecraft.world.entity.player.Player) {
+			r += MettleStats.add(target, "status_resist." + status.id()) / 100.0;
+		} else {
+			r += t.creatureResist(net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()), status);
+		}
 		CombatState s = CombatState.peek(target);
-		float boss = s != null && s.rank == Rank.BOSS ? 4 : 1;
-		return MeterSet.threshold((float) r) * boss;
+		float threshold = MeterSet.threshold(t.baseThreshold(), (float) r) * t.rank(s == null ? Rank.COMMON : s.rank);
+		return (float) Math.max(1, MettleStats.balance(target, BalanceKey.STATUS_THRESHOLD, threshold, Fray.id(status.id())));
 	}
 
 	@Override
@@ -370,7 +377,8 @@ public final class Statuses implements StatusService {
 	}
 
 	private void tickOne(ServerLevel level, CombatState s, LivingEntity e, long now) {
-		if (s.meters.tick(now)) {
+		StatusTuning.Values tuning = StatusTuning.get();
+		if (s.meters.tick(now, tuning.drainDelayTicks(), tuning.drainPerTick())) {
 			s.metersDirty = true;
 			if (s.meters.value[StatusType.CHILL.meterIndex()] >= 0) {
 				this.updateChill(s);

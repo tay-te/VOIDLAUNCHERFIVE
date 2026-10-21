@@ -68,6 +68,8 @@ public final class ClientCombat {
 		FX.clear();
 		predictedSpend = 0;
 		LockOn.clear();
+		dev.voidmc.fray.client.combat.feel.HitStop.clear();
+		dev.voidmc.fray.client.combat.feel.CameraShake.clear();
 	}
 
 	public static void onSelf(CombatPayloads.Self s) {
@@ -117,6 +119,11 @@ public final class ClientCombat {
 		boolean mine = h.attacker() == mc.player.getId();
 		boolean onMe = h.target() == mc.player.getId();
 		GuardOutcome o = GuardOutcome.values()[Math.max(0, Math.min(GuardOutcome.values().length - 1, h.outcome()))];
+		dev.voidmc.fray.client.combat.feel.HitFeel.onHit(h, o, mine, onMe);
+		if (!mine && !onMe) {
+			// Someone else's hit: only its hit-stop (and a boss slam's shake) plays here.
+			return;
+		}
 		FX.add(new Fx(o, h.flags(), h.amount(), h.kind(), mine, onMe, h.x(), h.y(), h.z(), ms()));
 		if (onMe && (o == GuardOutcome.PARRIED || o == GuardOutcome.SLIP)) {
 			// The parry's +15 (the Slip's +12) flashes on the stamina bar.
@@ -157,6 +164,7 @@ public final class ClientCombat {
 	public static void prune() {
 		long now = ms();
 		FX.removeIf(f -> now - f.at() > 1500);
+		dev.voidmc.fray.client.combat.feel.HitStop.prune();
 		TELLS.removeIf(t -> now - t.at() > t.windup() * 50L + 900);
 		if (banner != null && now - bannerAt > 4000) {
 			banner = null;

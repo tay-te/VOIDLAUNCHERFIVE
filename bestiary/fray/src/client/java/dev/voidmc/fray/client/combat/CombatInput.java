@@ -8,7 +8,9 @@ import dev.voidmc.fray.combat.action.ActionKind;
 import dev.voidmc.fray.combat.action.Movesets;
 import dev.voidmc.fray.combat.action.Moveset;
 import dev.voidmc.fray.combat.action.WeaponFamily;
+import com.mojang.blaze3d.platform.InputConstants;
 import dev.voidmc.fray.combat.math.HoldMath;
+import dev.voidmc.fray.combat.math.LoneKey;
 import dev.voidmc.fray.combat.net.CombatPayloads;
 import dev.voidmc.fray.motion.Clip;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -48,8 +50,24 @@ public final class CombatInput {
 
 	/** Off: the local player's actions aren't predicted with clips (HUD screenshots). */
 	public static boolean predictClips = true;
-	/** Inputs sent (tests). */
-	public static int sent;
+	/** Inputs sent (tests), and the technique / Art inputs among them. */
+	public static int sent, techniquesSent;
+	/** Dodges fired by the key (tests). */
+	public static int dodgesFired;
+	/** Pick-block calls let through to vanilla (tests). */
+	public static int picksAllowed;
+
+	/**
+	 * The dodge on a modifier key (Left Alt) fires when the key is released by itself: any other key or mouse button
+	 * in between (Alt + middle mouse is pick block) spoils it, as does holding it past half a second (the user's call,
+	 * 2026-10-21). On any other key it fires on press.
+	 */
+	public static final LoneKey DODGE_GATE = new LoneKey(500);
+	/** C in creative, where C + a number is the save/load toolbar: the technique fires on C's release, unless a number went down. */
+	public static final LoneKey TECHNIQUE_GATE = new LoneKey(1000);
+	private static boolean dodgeQueued, techniqueQueued;
+	/** Left or right Alt, tracked from key events (vanilla's pick block keeps Alt + middle mouse). */
+	private static boolean altHeld;
 
 	private CombatInput() {
 	}
@@ -162,15 +180,27 @@ public final class CombatInput {
 		}
 		useClick = false;
 
+		// The dodge and technique keys are read from key events (onKey); their click counts are only drained here.
 		while (CombatKeys.dodge.consumeClick()) {
-			if (!screen && !mc.options.keyPickItem.isDown()) {
-				dodge(mc, p, now);
-			}
+			// onKey decides.
 		}
 		while (CombatKeys.technique.consumeClick()) {
-			if (!screen) {
-				send(p.isShiftKeyDown() ? CombatPayloads.ART : CombatPayloads.TECHNIQUE, crosshairEntity(mc), 0);
-			}
+			// onKey decides.
+		}
+		if (screen || !mc.isWindowActive()) {
+			DODGE_GATE.cancel();
+			TECHNIQUE_GATE.cancel();
+			dodgeQueued = techniqueQueued = false;
+		}
+		if (dodgeQueued) {
+			dodgeQueued = false;
+			dodgesFired++;
+			dodge(mc, p, now);
+		}
+		if (techniqueQueued) {
+			techniqueQueued = false;
+			techniquesSent++;
+			send(p.isShiftKeyDown() ? CombatPayloads.ART : CombatPayloads.TECHNIQUE, crosshairEntity(mc), 0);
 		}
 		while (CombatKeys.lockOn.consumeClick()) {
 			if (!screen && !altDown(mc)) {
@@ -182,9 +212,109 @@ public final class CombatInput {
 		ClientCombat.prune();
 	}
 
-	static boolean altDown(Minecraft mc) {
-		return com.mojang.blaze3d.platform.InputConstants.isKeyDown(com.mojang.blaze3d.platform.InputConstants.KEY_LALT)
-			|| com.mojang.blaze3d.platform.InputConstants.isKeyDown(com.mojang.blaze3d.platform.InputConstants.KEY_RALT);
+	/** Alt is held (key events, or the window's key state). */
+	public static boolean altDown(Minecraft mc) {
+		return altHeld || InputConstants.isKeyDown(InputConstants.KEY_LALT) || InputConstants.isKeyDown(InputConstants.KEY_RALT);
+	}
+
+	private static boolean modifier(InputConstants.Key k) {
+		if (k.getType() != InputConstants.Type.KEYBOARD) {
+			return false;
+		}
+		int v = k.getValue();
+		return v == InputConstants.KEY_LALT || v == InputConstants.KEY_RALT || v == InputConstants.KEY_LCONTROL || v == InputConstants.KEY_RCONTROL
+			|| v == InputConstants.KEY_LSHIFT || v == InputConstants.KEY_RSHIFT || v == InputConstants.KEY_LGUI || v == InputConstants.KEY_RGUI;
+	}
+
+	/** A hotbar number (or F3, for F3 + C) is held: C is part of vanilla's chord, not the technique. */
+	private static boolean chordHeld(Minecraft mc) {
+		for (net.minecraft.client.KeyMapping k : mc.options.keyHotbarSlots) {
+			if (k.isDown()) {
+				return true;
+			}
+		}
+		return mc.options.keyDebugModifier.isDown();
+	}
+
+	private static boolean hotbarKey(Minecraft mc, InputConstants.Key key) {
+		for (net.minecraft.client.KeyMapping k : mc.options.keyHotbarSlots) {
+			if (k.matches(key)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** In creative, a technique key shared with the save/load toolbar activators waits for its release. */
+	private static boolean deferTechnique(Minecraft mc) {
+		return mc.player != null && mc.player.isCreative()
+			&& (CombatKeys.technique.same(mc.options.keySaveHotbarActivator) || CombatKeys.technique.same(mc.options.keyLoadHotbarActivator));
+	}
+
+	/**
+	 * Every key and mouse button press or release in the world, before vanilla handles it (from
+	 * {@code KeyboardHandler.keyPress} and {@code MouseHandler.onButton}). Repeats are not passed in.
+	 */
+	public static void onKey(InputConstants.Key key, boolean press) {
+		Minecraft mc = Minecraft.getInstance();
+		if (key.getType() == InputConstants.Type.KEYBOARD && (key.getValue() == InputConstants.KEY_LALT || key.getValue() == InputConstants.KEY_RALT)) {
+			altHeld = press;
+		}
+		if (mc.player == null || mc.gui.screen() != null || CombatKeys.dodge == null) {
+			DODGE_GATE.cancel();
+			TECHNIQUE_GATE.cancel();
+			return;
+		}
+		long now = ClientCombat.ms();
+		boolean isDodge = !CombatKeys.dodge.isUnbound() && CombatKeys.dodge.matches(key);
+		boolean isTechnique = !CombatKeys.technique.isUnbound() && CombatKeys.technique.matches(key);
+		if (press) {
+			if (isDodge) {
+				if (modifier(key)) {
+					DODGE_GATE.press(now, false);
+				} else {
+					dodgeQueued = true;
+				}
+			} else {
+				DODGE_GATE.other();
+			}
+			if (isTechnique) {
+				boolean chord = chordHeld(mc);
+				if (deferTechnique(mc)) {
+					TECHNIQUE_GATE.press(now, chord);
+				} else if (!chord) {
+					techniqueQueued = true;
+				}
+			} else if (hotbarKey(mc, key) || mc.options.keyDebugModifier.matches(key)) {
+				TECHNIQUE_GATE.other();
+			}
+		} else {
+			if (isDodge && DODGE_GATE.held() && DODGE_GATE.release(now)) {
+				dodgeQueued = true;
+			}
+			if (isTechnique && TECHNIQUE_GATE.held() && TECHNIQUE_GATE.release(now)) {
+				techniqueQueued = true;
+			}
+		}
+	}
+
+	/**
+	 * Middle mouse is vanilla's pick block (not lock-on) when Alt is held, or out of a fight with nothing locked and the
+	 * crosshair on a block or on a creature that isn't hostile.
+	 */
+	public static boolean middleIsPick(Minecraft mc) {
+		if (altDown(mc)) {
+			return true;
+		}
+		boolean fight = ClientCombat.self != null && (ClientCombat.self.flags() & CombatPayloads.SELF_IN_COMBAT) != 0;
+		if (fight || LockOn.target >= 0) {
+			return false;
+		}
+		HitResult hr = mc.hitResult;
+		if (hr == null || hr.getType() == HitResult.Type.MISS) {
+			return false;
+		}
+		return hr.getType() == HitResult.Type.BLOCK || hr instanceof EntityHitResult e && !(e.getEntity() instanceof Enemy);
 	}
 
 	private static void dodge(Minecraft mc, LocalPlayer p, long now) {

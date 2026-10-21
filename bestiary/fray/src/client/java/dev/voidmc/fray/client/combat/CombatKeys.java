@@ -9,9 +9,11 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 
 /**
- * Fray's combat keys (ROADMAP D2): Left Alt dodge, C technique (sneak + C: the Art), middle mouse lock-on. Attack and
- * Guard are vanilla's attack and use keys. Conflicts with any other key mapping are found at start, logged and kept
- * for the Hub's Combat settings page (P1-a).
+ * Fray's combat keys (ROADMAP D2): Left Alt dodge (fires on Alt pressed and released alone), C technique (sneak + C:
+ * the Art; ignored with a hotbar number or F3 held), middle mouse lock-on. Ordinary key mappings, rebindable in
+ * Controls; the lone-key and chord rules live in {@link CombatInput#onKey}. Attack and Guard are vanilla's attack and
+ * use keys. Conflicts with any other key mapping are found at start, logged and kept for the Hub's Combat settings
+ * page (P1-a).
  */
 public final class CombatKeys {
 	public static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(Fray.id("combat"));

@@ -34,6 +34,11 @@ public final class FrayClientOptions {
 	public float hudScale = 1.0F;
 	public boolean lockOnEase = true;
 	public boolean autoLockOn = false;
+	/** Hit-stop: a landed hit freezes the attacker's and the victim's pose for a few ticks (pictures only). */
+	public boolean hitStop = true;
+	/** Camera shake on hits (off switch), and its intensity 0..1 (shown as 0-100 %); vanilla's Damage Tilt scales it too. */
+	public boolean cameraShake = true;
+	public float shakeIntensity = 0.6F;
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static FrayClientOptions instance;

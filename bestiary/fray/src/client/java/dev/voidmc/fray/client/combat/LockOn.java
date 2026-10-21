@@ -56,9 +56,8 @@ public final class LockOn {
 			lost();
 			return;
 		}
-		boolean fight = ClientCombat.self != null && (ClientCombat.self.flags() & CombatPayloads.SELF_IN_COMBAT) != 0;
-		if (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.BLOCK && !fight) {
-			// Out of a fight, middle mouse on a block stays vanilla's pick block.
+		if (CombatInput.middleIsPick(mc)) {
+			// Out of a fight, middle mouse on a block or a peaceful creature stays vanilla's pick block.
 			return;
 		}
 		LivingEntity e = pick(mc, p, -1, 0);

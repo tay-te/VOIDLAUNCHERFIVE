@@ -21,6 +21,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import org.jspecify.annotations.Nullable;
 
@@ -141,6 +142,12 @@ public final class Encounters implements EncounterService {
 	@Override
 	public @Nullable Encounter of(Mob boss) {
 		return this.byBoss.get(boss);
+	}
+
+	/** True while this boss is Broken. */
+	public boolean broken(LivingEntity boss) {
+		Impl e = boss instanceof Mob m ? this.byBoss.get(m) : null;
+		return e != null && e.broken();
 	}
 
 	@Override
