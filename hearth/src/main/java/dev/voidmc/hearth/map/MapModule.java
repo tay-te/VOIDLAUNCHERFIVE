@@ -134,7 +134,9 @@ public final class MapModule {
 		for (Settlement s : list) {
 			int st = standing == null ? s.reputation(me) : standing.standing(s.id(), me);
 			String title = standing == null ? "" : standing.title(s.id(), me).getSerializedName();
-			entries.add(new MapPayload.Entry(s.id(), s.name(), s.tier().getSerializedName(), s.culture().getSerializedName(), s.population(),
+			// a post in the wild goes to Atlas as a place of its own kind, hearth:post/<type> (docs/LIVING_WORLD_2.md §7.6)
+			String tier = s.kind() == dev.voidmc.hearth.api.SettlementKind.POST ? "post/" + s.postType() : s.tier().getSerializedName();
+			entries.add(new MapPayload.Entry(s.id(), s.name(), tier, s.culture().getSerializedName(), s.population(),
 				s.center().getX(), s.center().getY(), s.center().getZ(), dim, radius(s.bounds()), st, title, owns(s, me)));
 		}
 		return new MapPayload(entries);

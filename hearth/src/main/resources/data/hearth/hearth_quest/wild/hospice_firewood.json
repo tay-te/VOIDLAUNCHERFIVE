@@ -1,0 +1,69 @@
+{
+	"type": "gathering",
+	"weight": 12,
+	"when": {
+		"trigger": "none",
+		"min_tier": "camp",
+		"requires": [
+			"plot:civic/hospice"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"monk",
+			"healer",
+			"priest"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "deliver",
+			"items": [
+				"minecraft:spruce_log",
+				"minecraft:oak_log",
+				"minecraft:birch_log",
+				"minecraft:charcoal"
+			],
+			"count": [
+				16,
+				32
+			]
+		}
+	],
+	"text": {
+		"title": [
+			"Wood for the long winter",
+			"The fire on the pass"
+		],
+		"summary": [
+			"The brothers of {settlement} burn their fire day and night for whoever comes over the pass. Bring {count} × {item} before the snow shuts the road."
+		],
+		"offer": [
+			"Nothing grows up here but stone and wind, and the fire must never go out: a man frozen on the saddle walks toward its smoke. Could you bring us {count} × {item}?"
+		],
+		"progress": [
+			"The woodshed is half empty, and the clouds are low."
+		],
+		"complete": [
+			"God bless you. That will keep the fire through the worst of it."
+		]
+	},
+	"reward": {
+		"coin": [
+			30,
+			60
+		],
+		"items": [
+			{
+				"item": "minecraft:bread",
+				"count": [
+					4,
+					8
+				]
+			}
+		],
+		"reputation": 8
+	},
+	"deadline_days": 6,
+	"cooldown_days": 4
+}

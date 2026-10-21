@@ -242,7 +242,10 @@ public final class SimServer {
 			this.stats.maxStepNanos.accumulateAndGet(dt, Math::max);
 			this.stats.simulatedTicks.add(simulated);
 			boolean behind = d.settlement.simTick() < target;
-			long next = this.ticks + (behind ? 1 : d.settlement.embodied() ? c.embodiedStepInterval() : c.stepInterval());
+			// a post in the wild is stepped seldom (docs/LIVING_WORLD_2.md §7.2: wild.step_interval, 6 000 ticks) unless embodied
+			long next = this.ticks + (behind ? 1 : d.settlement.embodied() ? c.embodiedStepInterval()
+				: d.settlement.kind() == dev.voidmc.hearth.api.SettlementKind.POST ? dev.voidmc.hearth.sim.wild.Wild.config().wild().stepInterval()
+				: c.stepInterval());
 			this.nextDue.put(d.settlement, next);
 			this.queue.add(new Due(next, this.seq++, d.world, d.settlement));
 		}

@@ -44,7 +44,7 @@ public record MapPayload(List<Entry> settlements) implements CustomPacketPayload
 	/**
 	 * One settlement, with the player's own standing there.
 	 *
-	 * @param tier      the tier's serialized name (camp, hamlet, village, town, city)
+	 * @param tier      the tier's serialized name (camp, hamlet, village, town, city), or {@code post/<type>} for a post in the wild
 	 * @param culture   the culture's serialized name
 	 * @param dimension the dimension's id, like {@code minecraft:overworld}
 	 * @param radius    roughly how far it reaches from its centre, in blocks

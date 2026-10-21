@@ -1,0 +1,62 @@
+{
+	"type": "bounty",
+	"weight": 10,
+	"when": {
+		"trigger": "none",
+		"min_tier": "camp",
+		"requires": [
+			"plot:civic/hospice"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"monk",
+			"healer"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "slay",
+			"entities": [
+				"minecraft:stray"
+			],
+			"names": [
+				"the Pale Walker",
+				"the Thing on the Saddle",
+				"the Frozen Pilgrim"
+			],
+			"distance": [
+				80,
+				200
+			],
+			"health": 2.5
+		}
+	],
+	"text": {
+		"title": [
+			"Lost in the snow: {name}",
+			"The pass is not safe"
+		],
+		"summary": [
+			"Travellers go missing on the pass {direction} of {settlement}, and the ones found again are found frozen. Something walks out there, {distance} off: {name}. Lay it to rest."
+		],
+		"offer": [
+			"We rang the bell all night and nobody came in. In the morning we found the tracks, and they were not a man's. Something walks the snow {direction} of here, {distance} out. Will you go where we cannot?"
+		],
+		"progress": [
+			"The bell rang again last night. Nobody came."
+		],
+		"complete": [
+			"Then the pass is ours again, and the dead can rest. We will pray for them, and for you."
+		]
+	},
+	"reward": {
+		"coin": [
+			70,
+			130
+		],
+		"reputation": 10
+	},
+	"deadline_days": 5,
+	"cooldown_days": 6
+}

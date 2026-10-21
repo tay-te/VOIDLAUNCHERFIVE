@@ -1,0 +1,72 @@
+{
+	"type": "bounty",
+	"weight": 8,
+	"when": {
+		"trigger": "none",
+		"min_tier": "camp",
+		"requires": [
+			"plot:work/hunters_lodge",
+			"job:hunter",
+			"!walled"
+		]
+	},
+	"giver": {
+		"jobs": [
+			"hunter"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "slay",
+			"entities": [
+				"minecraft:wolf"
+			],
+			"names": [
+				"Torn Ear",
+				"the Grey Widow",
+				"Old Greymuzzle"
+			],
+			"distance": [
+				90,
+				220
+			],
+			"health": 2.0
+		}
+	],
+	"text": {
+		"title": [
+			"The wolf with the torn ear: {name}",
+			"Coin on a wolf's head"
+		],
+		"summary": [
+			"A great wolf is taking the shepherds' lambs {direction} of {settlement}, {distance} out: {name}. The hunters have put coin on her head."
+		],
+		"offer": [
+			"She's bigger than any dog and cleverer than most men. Three times we've had her in sight and three times she's gone. {name}, the shepherds call her. {distance} {direction} of here, by the last tracks. Bring her down."
+		],
+		"progress": [
+			"Another lamb gone last night. She's laughing at us."
+		],
+		"complete": [
+			"That pelt will hang in the lodge for years. Here, your share, and well earned."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			110
+		],
+		"items": [
+			{
+				"item": "minecraft:leather",
+				"count": [
+					3,
+					6
+				]
+			}
+		],
+		"reputation": 7
+	},
+	"deadline_days": 5,
+	"cooldown_days": 5
+}

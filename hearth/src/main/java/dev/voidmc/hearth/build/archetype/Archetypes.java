@@ -38,5 +38,7 @@ public final class Archetypes {
 		CraftArchetypes.register(registry);
 		ExtractionArchetypes.register(registry);
 		DeepArchetypes.register(registry);
+		// the small places in the wild (docs/LIVING_WORLD_2.md §7, lane B3)
+		dev.voidmc.hearth.build.archetype.wild.WildArchetypes.register(registry);
 	}
 }

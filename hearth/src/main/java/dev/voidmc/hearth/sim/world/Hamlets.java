@@ -89,6 +89,10 @@ final class Hamlets {
 
 	/** Starts a search for a hamlet of {@code s}; true if one is now under way. */
 	boolean request(SimSettlement s) {
+		if (s.kind() == dev.voidmc.hearth.api.SettlementKind.POST) {
+			// a post in the wild keeps to its programme and its beds: it founds no daughters (docs/LIVING_WORLD_2.md §7.2)
+			return false;
+		}
 		if (this.searches.containsKey(s.id())) {
 			return true;
 		}

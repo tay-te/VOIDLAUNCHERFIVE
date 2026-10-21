@@ -484,6 +484,29 @@ public final class SimSettlement implements Settlement {
 		return this.data.has(AwayBook.KEY) && this.data.get(AwayBook.KEY).away(id, worldClock());
 	}
 
+	/** The post's type once known ("" for a town); posts carry {@code hearth:plan/wild} from their founding (lane B3). */
+	private @Nullable String postType;
+
+	/** A town, or a post in the wild (docs/LIVING_WORLD_2.md §7): a post carries its site under {@code hearth:plan/wild}. */
+	@Override
+	public dev.voidmc.hearth.api.SettlementKind kind() {
+		return postType().isEmpty() ? dev.voidmc.hearth.api.SettlementKind.TOWN : dev.voidmc.hearth.api.SettlementKind.POST;
+	}
+
+	@Override
+	public String postType() {
+		String t = this.postType;
+		if (t == null) {
+			var d = this.data.has(dev.voidmc.hearth.sim.wild.PostData.KEY) ? this.data.get(dev.voidmc.hearth.sim.wild.PostData.KEY) : null;
+			t = d == null || d.site == null ? "" : d.site.type().getSerializedName();
+			if (d != null && d.site != null) {
+				// (a town's answer is not kept: the post's data may be written after the first question)
+				this.postType = t;
+			}
+		}
+		return t;
+	}
+
 	/** Whether the resident is out of the town's abstract labour: embodied, or away (docs/LIVING_WORLD_2.md §0.2). */
 	public boolean isResidentOut(UUID id) {
 		return this.embodiedResidents.contains(id) || isResidentAway(id);
@@ -596,6 +619,48 @@ public final class SimSettlement implements Settlement {
 			if (this.ctx != null) {
 				this.ctx.plotsChanged(this);
 			}
+		}
+	}
+
+	/**
+	 * Builds a plot whole at once in the books (a post that stood before the world began, a nomad camp pitched: felt and
+	 * poles, docs/LIVING_WORLD_2.md §7.3): every stage finished as the clock finishes them, the world told as it goes so the
+	 * applier writes it into loaded chunks. Founding plots take no goods; any other takes its stages' goods if they are in
+	 * store, else waits as usual. Returns whether it stands now.
+	 */
+	public boolean completePlot(int id) {
+		SimPlot p = this.plots.get(id);
+		if (p == null || !p.isActive()) {
+			return p != null && p.isStanding();
+		}
+		PlotFacts f = facts(p);
+		while (p.stage < f.stageCount()) {
+			if (!p.funded && !startStage(p, f, false)) {
+				return false;
+			}
+			finishStage(p, f, true);
+		}
+		return p.isStanding();
+	}
+
+	/**
+	 * Takes a standing plot down (a nomad camp packing up, §7.3): it stops counting at once and the applier clears what it
+	 * wrote from loaded chunks. It stays in the record, so a plot built on the same ground later (replacing it) takes
+	 * over what is left of it where its chunks were not loaded; that plot's finishing removes it.
+	 */
+	public void demolishPlot(int id) {
+		SimPlot p = this.plots.get(id);
+		if (p == null || p.state == PlotState.DEMOLISHING) {
+			return;
+		}
+		p.state = PlotState.DEMOLISHING;
+		p.funded = false;
+		p.stalledOn = null;
+		this.derivedDirty = true;
+		markDirty();
+		if (this.ctx != null) {
+			this.ctx.progressed(this, p);
+			this.ctx.plotsChanged(this);
 		}
 	}
 
