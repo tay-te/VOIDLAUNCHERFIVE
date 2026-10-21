@@ -51,8 +51,10 @@ when only the number moved) and is mirrored into the sim's own `Settlement.reput
 read it (§9).
 
 **Titles** (`logic/Titles`, thresholds in config): Outlaw ≤ −60 (or whenever `LawService.outlaw` says so), Distrusted ≤
-−20, Stranger, Known ≥ 10, Friend ≥ 40, **Burgher** for anyone owning a plot in the town (read from
-`Settlement.plots()` owners) at standing ≥ 0, Hero ≥ 80. A title that changes without a deed (a house bought, the law's
+−20, Stranger, Known ≥ 10, Friend ≥ 40, **Householder** for anyone owning a plot in the town (read from
+`Settlement.plots()` owners) at standing ≥ 0, **Burgher** for a householder who swore the burgher's oath before the reeve
+(LIVING_WORLD_2.md §8; the burgher module answers `Titles.setSworn`, and without it every owner is a Burgher as before),
+Hero ≥ 80. A title that changes without a deed (a house bought, the law's
 verdict) is noticed by the tracker while the player is in town and announced then.
 
 **Regional fame** is a handful of *places of fame* per player (`fame.sources` 32; nearby deeds merge). Fame at a point

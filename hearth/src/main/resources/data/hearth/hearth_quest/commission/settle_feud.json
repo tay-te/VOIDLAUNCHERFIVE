@@ -1,0 +1,71 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"declining"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "talk",
+			"label": "Hear out {recipient}"
+		},
+		{
+			"kind": "talk",
+			"label": "Hear out {recipient} as well"
+		}
+	],
+	"text": {
+		"title": [
+			"A feud between two houses",
+			"Bad blood",
+			"Peace between the houses"
+		],
+		"summary": [
+			"Two houses of the domain are at each other's throats. Hear out the head of each, in his lordship's name, and bring them to peace.",
+			"A feud festers between two families. Speak with both heads and settle it before blood is spilt.",
+			"His lordship wants an end to a quarrel between two houses: hear both, and let them know the court is listening."
+		],
+		"offer": [
+			"There is bad blood between two houses, and his lordship will not have a feud in his domain. Hear both heads of family, and make them understand.",
+			"Two families, one quarrel, and every week it grows. Speak with both. They will listen to the lord's sworn man.",
+			"Settle this feud for me. Go to both houses; hear them out; tell them the court will judge if they cannot keep the peace."
+		],
+		"progress": [
+			"Have you heard both houses?",
+			"Is there peace between them yet?",
+			"Do they still quarrel?"
+		],
+		"complete": [
+			"Both heard, and both quieter for it. His lordship thanks you.",
+			"Peace, for now. That is more than anyone else managed.",
+			"Settled. A feud ended is worth a battle won."
+		]
+	},
+	"reward": {
+		"coin": [
+			140,
+			240
+		],
+		"reputation": 10,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 6,
+	"cooldown_days": 6,
+	"repeatable": true,
+	"commission": {
+		"binds": "feud",
+		"rank": "sworn",
+		"feat": false
+	}
+}

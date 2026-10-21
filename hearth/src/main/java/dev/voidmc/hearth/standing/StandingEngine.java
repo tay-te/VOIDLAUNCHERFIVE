@@ -96,7 +96,7 @@ public final class StandingEngine implements StandingService {
 	}
 
 	public Title title(Settlement s, UUID player) {
-		return Titles.of(standing(s, player), owns(s, player), this.host.outlawByLaw(player, s.id()), config().titles());
+		return Titles.of(standing(s, player), owns(s, player), Titles.sworn(s.id(), player), this.host.outlawByLaw(player, s.id()), config().titles());
 	}
 
 	@Override
@@ -242,7 +242,7 @@ public final class StandingEngine implements StandingService {
 		int seed = seedValue(s, player);
 		e = ledger.entry(player);
 		e.value = seed;
-		e.title = Titles.of(seed, owns(s, player), this.host.outlawByLaw(player, s.id()), config().titles());
+		e.title = Titles.of(seed, owns(s, player), Titles.sworn(s.id(), player), this.host.outlawByLaw(player, s.id()), config().titles());
 		e.touched = this.host.day();
 		return e;
 	}
@@ -260,7 +260,7 @@ public final class StandingEngine implements StandingService {
 			if (s != null && !ledger(s).has(d.player())) {
 				TownLedger.Entry e = ledger(s).entry(d.player());
 				e.value = Curves.clamp(d.weight(), -100, 100);
-				e.title = Titles.of(Curves.round(e.value), owns(s, d.player()), this.host.outlawByLaw(d.player(), s.id()), config().titles());
+				e.title = Titles.of(Curves.round(e.value), owns(s, d.player()), Titles.sworn(s.id(), d.player()), this.host.outlawByLaw(d.player(), s.id()), config().titles());
 				e.touched = this.host.day();
 				s.markDirty();
 			}
@@ -352,7 +352,7 @@ public final class StandingEngine implements StandingService {
 
 	/** Recomputes the title and fires STANDING_CHANGED if the standing moved or the title is not the one last announced. */
 	private void announce(Settlement s, TownLedger.Entry e, boolean moved) {
-		Title now = Titles.of(Curves.round(e.value), owns(s, e.player), this.host.outlawByLaw(e.player, s.id()), config().titles());
+		Title now = Titles.of(Curves.round(e.value), owns(s, e.player), Titles.sworn(s.id(), e.player), this.host.outlawByLaw(e.player, s.id()), config().titles());
 		if (moved || now != e.title) {
 			Title from = e.title;
 			e.title = now;

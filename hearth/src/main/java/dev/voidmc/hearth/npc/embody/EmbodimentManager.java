@@ -172,6 +172,10 @@ public final class EmbodimentManager {
 				// a household rose or fell, or an office changed hands: dress them for it
 				f.setStanding(r.station, town.office(settlement, r));
 			}
+			if (f == null && settlement.isResidentAway(r.id)) {
+				// away (on the road, a companion; LIVING_WORLD_2.md §0.2): only whoever sent them away makes them flesh
+				continue;
+			}
 			BlockPos pos = f != null ? f.blockPosition() : placement(level, settlement, r, town).pos();
 			double d = Double.POSITIVE_INFINITY;
 			for (ServerPlayer p : players) {

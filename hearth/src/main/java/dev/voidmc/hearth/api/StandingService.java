@@ -102,9 +102,14 @@ public interface StandingService {
 		STRANGER("stranger"),
 		KNOWN("known"),
 		FRIEND("friend"),
-		/** Owns property in the town. */
+		/**
+		 * A sworn burgher of the town (docs/LIVING_WORLD_2.md §8: owns property and has sworn the burgher's oath before the
+		 * reeve). Without the burgher module, every owner of property is one, as before.
+		 */
 		BURGHER("burgher"),
-		HERO("hero");
+		HERO("hero"),
+		/** Owns property in the town but has not sworn the burgher's oath (living world part 2, added 2026-10-21). */
+		HOUSEHOLDER("householder");
 
 		public static final StringRepresentable.EnumCodec<Title> CODEC = StringRepresentable.fromEnum(Title::values);
 

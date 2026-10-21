@@ -1,0 +1,78 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_robbed"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				4,
+				6
+			],
+			"place": "event",
+			"radius": 40,
+			"target_name": "the band on his lordship's road",
+			"label": "Break the band on the road to {other}, {direction} of {settlement}"
+		}
+	],
+	"text": {
+		"title": [
+			"The band on the {other} road",
+			"His lordship's road",
+			"Cutthroats on the road to {other}"
+		],
+		"summary": [
+			"The road from {settlement} to {other} is the most dangerous in the domain. A band holds it, {distance} to the {direction}. His lordship wants it broken.",
+			"A band has made the {other} road its own. Break it, {distance} {direction} of {settlement}, and his lordship's road is safe again.",
+			"Carters will not take the road to {other}. A band waits along it, {distance} to the {direction}. Clear it in his lordship's name."
+		],
+		"offer": [
+			"Every carter on the {other} road pays the band before he pays the toll. That is an insult to his lordship. Take the band apart, {distance} to the {direction}.",
+			"You serve this house, so serve it now: a band sits on the road to {other}, {direction} of here. Break it and come back.",
+			"My lord's road, my lord's peace. A band thinks otherwise, {distance} {direction} along the way to {other}. Teach them."
+		],
+		"progress": [
+			"Is the road clear?",
+			"Is the band broken?",
+			"Has the {other} road its peace again?"
+		],
+		"complete": [
+			"The road is his lordship's again. You are worth your bread.",
+			"Broken, then. The carters will sing of it, and his lordship will remember.",
+			"Good. The road to {other} breathes again."
+		]
+	},
+	"reward": {
+		"coin": [
+			160,
+			260
+		],
+		"reputation": 8,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 3,
+	"repeatable": true,
+	"commission": {
+		"binds": "band",
+		"rank": "retainer",
+		"feat": false
+	}
+}

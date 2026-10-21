@@ -71,6 +71,8 @@ public final class Escorts {
 	}
 
 	private static final Map<UUID, Escort> ESCORTS = new HashMap<>();
+	/** Residents pinned to a holder (companions to the player who hired them; docs/LIVING_WORLD_2.md §8): never folded. */
+	private static final Map<UUID, UUID> PINS = new HashMap<>();
 
 	private Escorts() {
 	}
@@ -95,10 +97,38 @@ public final class Escorts {
 		return e == null ? null : e.status;
 	}
 
-	/** Whether the embodiment manager must leave this resident's entity alone. */
+	/** Whether the embodiment manager must leave this resident's entity alone (an active escort, or a pin). */
 	public static boolean pinned(UUID resident) {
+		if (!PINS.isEmpty() && PINS.containsKey(resident)) {
+			return true;
+		}
 		Escort e = ESCORTS.get(resident);
 		return e != null && e.status == Status.ACTIVE;
+	}
+
+	/** Pins a resident to a holder ({@link NpcService#pin}): the embodiment manager never folds their folk while it lasts. */
+	public static void pin(UUID resident, UUID holder) {
+		PINS.put(resident, holder);
+	}
+
+	public static void unpin(UUID resident) {
+		PINS.remove(resident);
+	}
+
+	/** The holder a resident is pinned to, or null. */
+	public static @Nullable UUID pinHolder(UUID resident) {
+		return PINS.get(resident);
+	}
+
+	/** The residents pinned to a holder. */
+	public static java.util.List<UUID> pinnedTo(UUID holder) {
+		java.util.List<UUID> out = new java.util.ArrayList<>(2);
+		for (Map.Entry<UUID, UUID> e : PINS.entrySet()) {
+			if (e.getValue().equals(holder)) {
+				out.add(e.getKey());
+			}
+		}
+		return out;
 	}
 
 	/** The resident died or was folded away mid-escort. */
@@ -116,6 +146,7 @@ public final class Escorts {
 
 	public static void clear() {
 		ESCORTS.clear();
+		PINS.clear();
 	}
 
 	public static int active() {
@@ -148,7 +179,8 @@ public final class Escorts {
 
 		@Override
 		public boolean wants(NpcService.FolkHandle folk) {
-			return pinned(folk.resident().id);
+			Escort e = ESCORTS.get(folk.resident().id);
+			return e != null && e.status == Status.ACTIVE;
 		}
 
 		@Override

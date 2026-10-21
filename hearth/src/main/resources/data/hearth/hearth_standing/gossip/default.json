@@ -122,6 +122,10 @@
 			"You're one of us now, a burgher of {town}, with your own roof here.",
 			"Folk here count you a neighbour. You own property in {town}, after all."
 		],
+		"title_householder": [
+			"You keep a house in {town} now. Swear the burgher's oath and you'll be one of us.",
+			"A householder of {town}. The reeve will take your oath when you've earned it."
+		],
 		"title_hero": [
 			"You're the hero of {town}. Folk will be telling stories of you for years.",
 			"Children here play at being you. The hero of {town}!"

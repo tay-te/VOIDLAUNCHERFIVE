@@ -1,0 +1,78 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_robbed"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:pillager",
+				"minecraft:vindicator"
+			],
+			"count": [
+				5,
+				7
+			],
+			"place": "event",
+			"radius": 48,
+			"target_name": "the raiders",
+			"label": "Hold {other} against the raiders"
+		}
+	],
+	"text": {
+		"title": [
+			"Raiders at {other}",
+			"Hold {other}",
+			"The domain under attack"
+		],
+		"summary": [
+			"Raiders gather to fall on {other}, {distance} to the {direction}. Hold the village in his lordship's name.",
+			"{other} has few guards and the raiders know it. Stand with the village and beat them off.",
+			"Ride to {other} and break the raiders before they burn it."
+		],
+		"offer": [
+			"Word from {other}: raiders, more than the village can hold. Go now, {distance} {direction}, and hold it.",
+			"His lordship's people at {other} look to this house. Be there when the raiders come.",
+			"Raiders will hit {other}. I want them broken on its fences, and I want you there to do it."
+		],
+		"progress": [
+			"Does {other} stand?",
+			"The raiders: broken?",
+			"Any word from {other}?"
+		],
+		"complete": [
+			"{other} stands, and the raiders lie in its fields. That is a deed the court will hear of.",
+			"You held {other}. His lordship will remember this when he names his knights.",
+			"The raiders are broken and {other} is whole. A knight's deed."
+		]
+	},
+	"reward": {
+		"coin": [
+			260,
+			400
+		],
+		"reputation": 14,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 4,
+	"cooldown_days": 6,
+	"repeatable": true,
+	"commission": {
+		"binds": "raid",
+		"rank": "sworn",
+		"feat": true
+	}
+}

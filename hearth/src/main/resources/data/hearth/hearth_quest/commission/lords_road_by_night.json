@@ -1,0 +1,79 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_departed"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "ambush",
+			"entities": [
+				"minecraft:zombie",
+				"minecraft:skeleton"
+			],
+			"count": [
+				3,
+				5
+			],
+			"night": true,
+			"place": "event",
+			"radius": 40,
+			"target_name": "what walks the lord's road by night",
+			"label": "Ride the road to {other} by night and clear it"
+		}
+	],
+	"text": {
+		"title": [
+			"The road by night",
+			"His lordship's road after dark",
+			"Night on the {other} road"
+		],
+		"summary": [
+			"Things walk the road to {other} after dark, {distance} {direction} of {settlement}. Ride it by night and clear it.",
+			"His lordship's road is his by day; make it his by night. Clear the {other} road after dark.",
+			"Ride the road to {other} at night and put down what walks there."
+		],
+		"offer": [
+			"The carters say the {other} road is cursed after dark. It is not cursed; it is unpatrolled. Patrol it, {distance} {direction}.",
+			"Ride out tonight, along the road to {other}. Whatever walks there should not be walking.",
+			"A night on the road, in his lordship's name. Clear it of the dead."
+		],
+		"progress": [
+			"Is the road quiet at night?",
+			"Did you ride the road?",
+			"Anything on the road last night?"
+		],
+		"complete": [
+			"Quiet as a chapel. Well done.",
+			"The road is ours by night too. Thank you.",
+			"Good. The carters will travel late again."
+		]
+	},
+	"reward": {
+		"coin": [
+			60,
+			110
+		],
+		"reputation": 5,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 3,
+	"cooldown_days": 2,
+	"repeatable": true,
+	"commission": {
+		"binds": "patrol",
+		"rank": "petitioner",
+		"feat": false
+	}
+}

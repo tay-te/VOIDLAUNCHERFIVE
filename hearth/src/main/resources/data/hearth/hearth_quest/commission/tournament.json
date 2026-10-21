@@ -1,0 +1,70 @@
+{
+	"_comment": "A lord's commission (docs/LIVING_WORLD_2.md §8): weight 0, so no board posts it; offered by rank in the lord's or steward's conversation and bound to the domain's real state by the 'commission' block (quest/commission/Binder).",
+	"type": "official",
+	"weight": 0,
+	"when": {
+		"trigger": "event",
+		"events": [
+			"caravan_departed"
+		],
+		"min_title": "known"
+	},
+	"giver": {
+		"jobs": [
+			"lord",
+			"steward"
+		]
+	},
+	"objectives": [
+		{
+			"kind": "reach",
+			"place": "event",
+			"radius": 14,
+			"target_name": "the lists",
+			"label": "Ride in his lordship's colours at the tournament at {other}"
+		}
+	],
+	"text": {
+		"title": [
+			"The tournament at {other}",
+			"His lordship's colours",
+			"The lists"
+		],
+		"summary": [
+			"A tournament is held at {other}. Ride in his lordship's colours, and do the house credit.",
+			"The lists are open at {other}. His lordship sends you, in his colours.",
+			"Bear his lordship's colours at the tournament at {other}."
+		],
+		"offer": [
+			"There are lists at {other}, and every house sends its best. This house sends you. Wear the colours, and win.",
+			"His lordship's colours, at {other}. Do not shame them.",
+			"Go to the tournament at {other}. The whole county will be watching our colours."
+		],
+		"progress": [
+			"How went the tournament?",
+			"Did our colours fly?",
+			"What news from the lists?"
+		],
+		"complete": [
+			"Our colours flew at {other}. The court talks of nothing else.",
+			"Well ridden. His lordship is proud of his house.",
+			"A fine showing. The colours are honoured."
+		]
+	},
+	"reward": {
+		"coin": [
+			200,
+			320
+		],
+		"reputation": 12,
+		"deed": "hearth:quest/commission"
+	},
+	"deadline_days": 3,
+	"cooldown_days": 8,
+	"repeatable": true,
+	"commission": {
+		"binds": "tournament",
+		"rank": "sworn",
+		"feat": true
+	}
+}

@@ -109,6 +109,22 @@ public final class NpcServiceImpl implements NpcService {
 		return out;
 	}
 
+	@Override
+	public boolean pin(UUID resident, UUID holder) {
+		Escorts.pin(resident, holder);
+		return true;
+	}
+
+	@Override
+	public void unpin(UUID resident) {
+		Escorts.unpin(resident);
+	}
+
+	@Override
+	public List<UUID> pinned(UUID holder) {
+		return Escorts.pinnedTo(holder);
+	}
+
 	/** How an escort stands (active, arrived, lost), for modules that started one; null if there is none. */
 	public static Escorts.@Nullable Status escortStatus(UUID resident) {
 		return Escorts.status(resident);

@@ -75,7 +75,7 @@ public final class Standings {
 			case DISTRUSTED -> 1;
 			case STRANGER -> 2;
 			case KNOWN -> 3;
-			case FRIEND, BURGHER -> 4;
+			case FRIEND, BURGHER, HOUSEHOLDER -> 4;
 			case HERO -> 5;
 		};
 	}

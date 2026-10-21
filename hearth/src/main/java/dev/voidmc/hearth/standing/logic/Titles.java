@@ -3,9 +3,41 @@ package dev.voidmc.hearth.standing.logic;
 import dev.voidmc.hearth.api.StandingService.Title;
 import dev.voidmc.hearth.standing.StandingConfig;
 
-/** Which title a standing earns (docs/LIVING_WORLD.md §3): Outlaw … Hero, with Burgher for owners of property. */
+/**
+ * Which title a standing earns (docs/LIVING_WORLD.md §3): Outlaw … Hero, with Householder for owners of property and
+ * Burgher for those of them who swore the burgher's oath (docs/LIVING_WORLD_2.md §8; the burgher module answers
+ * {@link #sworn}). Without the burgher module every owner is a burgher, as before.
+ */
 public final class Titles {
+	/** Who has sworn the burgher's oath in a town; registered by the burgher module. */
+	@FunctionalInterface
+	public interface Sworn {
+		boolean sworn(long settlementId, java.util.UUID player);
+	}
+
+	private static volatile @org.jspecify.annotations.Nullable Sworn sworn;
+
 	private Titles() {
+	}
+
+	/** The burgher module tells the titles who has sworn the oath (null: owners are burghers, as before). */
+	public static void setSworn(@org.jspecify.annotations.Nullable Sworn source) {
+		sworn = source;
+	}
+
+	/** Whether the player has sworn the burgher's oath in the town (true for every owner without the burgher module). */
+	public static boolean sworn(long settlementId, java.util.UUID player) {
+		Sworn s = sworn;
+		return s == null || s.sworn(settlementId, player);
+	}
+
+	/**
+	 * {@link #of(int, boolean, boolean, StandingConfig.Titles)} with the oath: an owner who has sworn it is a Burgher, one
+	 * who has not a Householder.
+	 */
+	public static Title of(int standing, boolean owner, boolean sworn, boolean outlawByLaw, StandingConfig.Titles t) {
+		Title title = of(standing, owner, outlawByLaw, t);
+		return title == Title.BURGHER && !sworn ? Title.HOUSEHOLDER : title;
 	}
 
 	/**
@@ -73,6 +105,7 @@ public final class Titles {
 			case KNOWN -> 0xFFE8E0C8;
 			case FRIEND -> 0xFF8EE08E;
 			case BURGHER -> 0xFF8EC8F0;
+			case HOUSEHOLDER -> 0xFFB8D0DC;
 			case HERO -> 0xFFFFD86B;
 		};
 	}
