@@ -10,6 +10,7 @@ sessions' game tests) on 2026-10-21.
 | Code | `bestiary/` (mod `bestiary`) with `bestiary/fray/` (mod `fray`, the shared library, jar-in-jar inside Bestiary's jar: ROADMAP D1) |
 | Run it | `bash tools/gametest.sh [-Psodium \| -Piris] -Dfray.show.tag=<tag> [-Dfray.show.only=zombie,blend,bb,authority,player,fp,gif,perf,dedicated,shadow] [-Dfray.perf.mobs=150]` (takes a game slot); `bash tools/duo.sh <tag> <lag ms>` (two clients, takes both slots) |
 | Unit tests | `./gradlew :fray:test` (sampling, blending, torso, bake, Blockbench import) |
+| Shader runs | `-Piris` needs a pack in `build/run/clientGameTest/shaderpacks` and `config/iris.properties` there (used: Complementary Reimagined r5.9.3 from the LOD runs; Welkin as `git archive welkin welkin/shaders`) |
 | Bake | `./gradlew motionBake` (runs before `processResources`); report in `build/motion-report.txt` |
 | Pictures | `docs/prototype/` (contact sheets and GIFs, built with `tools/sheet.py` and `tools/gif.py`) |
 
@@ -18,11 +19,11 @@ sessions' game tests) on 2026-10-21.
 | # | Proof asked for | Result |
 |---|---|---|
 | 1 | Clip format and loader; Blockbench converter | **Proven.** `.motion.json` → client clip + server timeline by one bake; a `.bbmodel` converter (`./gradlew bbImport`) whose output bakes and plays in game |
-| 2 | Posing vanilla parts after setupAnim: zombie attack in 3 parts, idle, blending, 20+ mobs | **Proven.** 1.1-1.6 µs per animated zombie per frame (sampling + both applies), 0.17-0.20 ms per frame for 150 zombies; no frame-time difference measurable above noise at 24 |
+| 2 | Posing vanilla parts after setupAnim: zombie attack in 3 parts, idle, blending, 20+ mobs | **Proven.** 1.1-1.6 µs per animated zombie per frame (sampling + both applies), 0.17-0.20 ms per frame for 150 zombies; frame-time A/B at 24 zombies: +0.03 ms (Sodium), +0.014 ms (Welkin, GPU-bound, shadow pass included) |
 | 3 | Player: dodge roll and heavy swing with the virtual torso; first-person arms through the hand renderer; armour posed | **Proven, with caveats on looks** (§4.3, §6): torso composition, root bone, armour, held items and first-person arms all work; first-person framing and the roll need art time |
 | 4 | Server-side timeline drives the hit; clip hash at login | **Proven.** The hit lands once, in ticks 11-13 only, only inside the baked capsule, on an integrated and a dedicated server; a client whose claw differs by one keyframe is refused with a plain message |
-| 5 | Iris + shader pack (incl. shadow pass) and Sodium alone | **Proven** with Complementary Reimagined r5.9.3 and Sodium 0.9.2: the shadow pass re-poses every model (counted), first-person arms are drawn once, in Iris's hand pass |
-| 6 | Two clients in sync; 150 ms latency | see §5.6 |
+| 5 | Iris + shader pack (incl. shadow pass) and Sodium alone | **Proven** with Iris 1.11.6 + Complementary Reimagined r5.9.3, Iris + **VOID Welkin** (branch `welkin` @ dd5dd5f9) and Sodium 0.9.2 alone: the shadow pass re-poses every model (counted) and shadows follow the pose; first-person arms are drawn once, in Iris's hand pass |
+| 6 | Two clients in sync; 150 ms latency | **Proven** on a dedicated server with two client JVMs: same clip time within 0.6 ticks; with 150 ms injected on one client it trails by exactly the lag and still plays the whole tell; late join works (§5) |
 
 ## 2. How it works (as built)
 
@@ -61,7 +62,8 @@ sessions' game tests) on 2026-10-21.
   local player only when it is the camera entity; Iris 1.11.6 re-extracts entities for its shadow pass
   (`ShadowRenderer.extractVisibleEntities` → `extractEntity`) and draws hands through vanilla's `submitHandsWithItems`
   twice (solid, then translucent, skipping the other pass's hands in `iris$skipTranslucentHands`); Sodium 0.9.2 has no
-  mixin on `ModelFeatureRenderer` or the living-entity renderer.
+  mixin on `ModelFeatureRenderer` or the living-entity renderer
+  (its `ModelPartMixin` / `CubeMixin` redraw the cubes from the pose fields we set).
 
 ## 3. The clips
 
@@ -121,20 +123,23 @@ Direct probes (nanoTime around sampling at extract and each apply after setupAni
 | vanilla renderer | 1.16-1.59 µs (sample 0.33-0.49 + 2 applies × 0.41-0.55) | 28-38 µs | 171-198 µs |
 | Sodium | 1.21-1.36 µs | 29-33 µs | |
 | Iris + Complementary | 2.6-5.7 µs (sampled twice, applied 4×: main and shadow pass) | 63-137 µs | (≈0.4-0.8 ms est.) |
+| Iris + Welkin | 2.3 µs (same doubling) | 55 µs | |
 
 Budget (ANIMATION.md §10): ≤ 5 µs per entity, ≤ 1.0 ms for 150 in view: met without shaders; with a shader pack the
-shadow pass doubles the work. Frame-time A/B (Fray on/off, 2 rounds of 8 s each): +0.03 ms at 24 zombies (Sodium,
+shadow pass doubles the work. The cleanest A/B is the GPU-bound Welkin run (170 fps, 5.86 ms frames, steady): **+0.014 ms
+per frame for 24 animated zombies including the shadow pass**. Other frame-time A/B (Fray on/off, 2 rounds of 8 s each): +0.03 ms at 24 zombies (Sodium,
 0.58 → 0.62 ms median frame); at 150 the A/B swung ±0.6 ms between rounds because another session's game test was
 running in the other slot, so only the probe numbers are reliable. No allocation in sampling; a few small objects per
 frame for first person.
 
-### 4.5 Shaders (`6_iris_complementary.jpg`)
+### 4.5 Shaders (`6_iris_complementary.jpg`, `8_iris_welkin.jpg`)
 
 Iris 1.11.6 + Sodium 0.9.2 + Complementary Reimagined r5.9.3: posed zombies, the armoured player and the mannequin are lit
 by the pack; every model is re-posed in the shadow pass (counted: e.g. 83,760 shadow-pass applies in an 8 s round with 24
 zombies), and the shadows on the ground follow the pose (from above: a zombie frozen with both arms up beside one at
 rest, then the slam vs the claw). First-person arms drawn once per frame inside Iris's hand pass (Fray follows Iris's
-solid/translucent hand rule).
+solid/translucent hand rule). The same with the user's own pack, VOID Welkin (the committed `welkin` branch, without
+Gloam's bridge): posed zombie, armoured player, mannequin roll and first person all draw, lit and shadowed.
 
 ### 4.6 Login hash (`7_perf_hash_dedicated.jpg`)
 
@@ -145,7 +150,23 @@ joins.
 
 ## 5. Two clients
 
-(Filled in by the duo runs: see the next commit.)
+`bash tools/duo.sh sync 150` (both game slots): client A hosts Fabric's in-process dedicated server on port 25612 and
+joins it; client B ("Bob") is a second client JVM. Marker files step them through the script; both trace, every client
+tick, the wall clock and how far into the clip they are, and both take a screenshot at the same wall-clock moment
+(within 30 ms; `docs/prototype/9_two_clients.jpg`). Round 2 holds every packet B receives for 150 ms (a handler before
+`packet_handler` in B's netty pipeline: one-way, downlink only).
+
+| Check | Result |
+|---|---|
+| B joins with a claw that differs by one keyframe | refused at login with the clip-set message (screenshot), then joins with the shipped clips |
+| Late join | B arrived while the zombie was mid-claw: `START_TRACKING` sent the running claw with its real start tick (B got start 525 at its tick 530, five ticks in) |
+| Server-started claw, no lag | both clients start at clip tick 0; at the same moments their clip times differ by 0.57 ticks (28 ms, spread ±0.6) |
+| Same, B at +150 ms | B shows it 141 ms after A; at the same moments A is 2.85 ticks (143 ms) ahead: exactly the lag. B still starts at clip tick 0, so the tell is never cut: the clip's clock is B's late server clock, which keeps it in step with the zombie's movement as B sees it |
+| B's predicted heavy swing, as A sees it | A and B within 1.1 ticks of each other, with and without lag (B's clock is late by the lag and the server starts the swing when B's request arrives: the two cancel) |
+| Prediction vs server | B's ack: the server's start is 1 tick (no lag) and 4 ticks (150 ms) after B's predicted start, so at 150 ms the server's ACTIVE window trails B's screen by ~200 ms: the case COMBAT.md §10.3's declared-target rule exists for |
+| Hits | the dedicated server's claw hit the dummy at tick 13 in both rounds |
+
+Both clients ran on one machine and the uplink wasn't delayed; G-MP's 100/150/250 ms tables are stage 1 work.
 
 ## 6. What failed, what is risky
 
@@ -176,7 +197,7 @@ joins.
 
 1. **Keep the architecture.** Pose from the render state, applied after both `setupAnim` call sites, root after
    `setupRotations`, first person inside `submitHandsWithItems`: all verified with vanilla, Sodium and Iris, all in one
-   package (`fray.client.mixin`, 4 small injections) as ANIMATION.md §13 risk 8 wants.
+   package (`fray.client.mixin`: five small injections plus a frame-time probe) as ANIMATION.md §13 risk 8 wants.
 2. **Build M1 on this code**: split `fray-api`; add the additive layer, masks while moving, item bones, cues; cache the
    sample per entity per frame (Iris's shadow pass); move the per-model rig binding from a `WeakHashMap` to a per-class
    cache; LOD tiers.

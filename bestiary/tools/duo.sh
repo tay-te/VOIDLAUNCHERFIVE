@@ -47,7 +47,7 @@ cd "$P" || exit 1
 rm -rf "$OUT"; mkdir -p "$OUT"
 rm -rf build/run/clientGameTest/screenshots build/run/guest/screenshots
 
-./gradlew runClientGameTest --offline --console=plain -Dfray.duo.role=A -Dfray.duo.dir="$WOUT" "$@" > "$OUT/host.log" 2>&1 &
+./gradlew runClientGameTest --offline --console=plain -Dfray.duo.role=A -Dfray.duo.dir="$WOUT" -Dfray.duo.lag=$LAG "$@" > "$OUT/host.log" 2>&1 &
 HOST=$!
 PIDS+=($HOST)
 echo "host started"

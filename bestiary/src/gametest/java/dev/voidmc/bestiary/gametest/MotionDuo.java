@@ -105,6 +105,8 @@ public class MotionDuo implements FabricClientGameTest {
 		Properties props = new Properties();
 		props.setProperty("server-port", String.valueOf(PORT));
 		props.setProperty("online-mode", "false");
+		props.setProperty("white-list", "false");
+		props.setProperty("enforce-whitelist", "false");
 		props.setProperty("max-players", "8");
 		props.setProperty("view-distance", "6");
 		props.setProperty("simulation-distance", "4");
@@ -121,11 +123,28 @@ public class MotionDuo implements FabricClientGameTest {
 				c.waitTicks(20);
 				st.build();
 				connection.waitForChunksRender();
+				server.runCommand("setworldspawn 12 " + Y + " 12");
+				server.runCommand("gamerule spawn_radius 0");
+				int zombie = st.zombie(0.5, 0.5, 0, false);
 				mark("server");
-				await("B", "joined", 300, c);
+				// Late join: the zombie claws without a break until B is in, so B arrives mid-action and must be told the
+				// running clip with its real start tick (EntityTrackingEvents.START_TRACKING).
+				long end = System.currentTimeMillis() + 300_000;
+				int replays = 0;
+				while (!Files.exists(DIR.resolve("B.joined"))) {
+					if (System.currentTimeMillis() > end || Files.exists(DIR.resolve("B.failed"))) {
+						throw new AssertionError("B never joined");
+					}
+					if (server.computeOnServer(sv -> MotionServer.running(sv.overworld().getEntity(zombie)) == null)) {
+						st.play(zombie, MotionShowcase.CLAW);
+						replays++;
+					}
+					c.waitTick();
+				}
+				Stage.log("the claw was replayed " + replays + " times while B joined");
 				Stage.log("B's first try was refused by the server with: " + FrayHandshake.lastRefusal);
 				Stage.expect(FrayHandshake.lastRefusal.contains("clip set"), "the server refused B's mismatched clip set");
-				int zombie = st.zombie(0.5, 0.5, 0, false);
+				c.waitTicks(30);
 				int pig = st.dummy(0.5, 1.7);
 				String me = c.computeOnClient(mc -> mc.getUser().getName());
 				server.runCommand("tp " + me + " -3.0 " + Y + " 4.0 -143 18");
@@ -140,26 +159,6 @@ public class MotionDuo implements FabricClientGameTest {
 				mark("ready");
 				await("B", "ready", 120, c);
 
-				// The claw, started by the server; both clients trace it and shoot at one wall-clock moment.
-				mark("trace_start");
-				c.waitTicks(10);
-				MotionServer.HITS.clear();
-				long wall0 = System.currentTimeMillis();
-				long start = st.serverTime();
-				st.play(zombie, MotionShowcase.CLAW);
-				long shootAt = wall0 + 640;
-				write("shoot_claw", String.valueOf(shootAt));
-				List<String> trace = trace(c, zombie, 70, shootAt, "duo_A_claw");
-				Files.write(DIR.resolve("trace-A-claw.txt"), trace, StandardCharsets.UTF_8);
-				Stage.log("claw started at server tick " + start + " (wall " + wall0 + "); server hits: "
-					+ MotionServer.HITS.stream().map(h -> "tick " + h.tick() + " " + h.phase()).toList());
-				Stage.expect(MotionServer.HITS.stream().anyMatch(h -> h.target() == pig && h.tick() >= 11 && h.tick() <= 13),
-					"the dedicated server's claw hit the dummy in its strike window");
-				await("B", "trace_claw", 120, c);
-				// B sees the server's claw late by its injected lag: its clock and the packet are both that late.
-				compare("claw", trace, Files.readAllLines(DIR.resolve("trace-B-claw.txt")), LAG / 50.0);
-
-				// B swings; A sees it through the server's broadcast.
 				int bob = c.computeOnClient(mc -> {
 					for (Player p : mc.level.players()) {
 						if (p.getName().getString().equals("Bob")) {
@@ -169,14 +168,45 @@ public class MotionDuo implements FabricClientGameTest {
 					return -1;
 				});
 				Stage.expect(bob >= 0, "A sees B");
-				long swingAt = System.currentTimeMillis() + 300;
-				write("swing_at", String.valueOf(swingAt));
-				List<String> swing = trace(c, bob, 50, swingAt + 600, "duo_A_sees_B_swing");
-				Files.write(DIR.resolve("trace-A-swing.txt"), swing, StandardCharsets.UTF_8);
-				await("B", "trace_swing", 120, c);
-				// B predicted its own swing on a clock that is late by the lag; the server started it when the request arrived: the
-				// two cancel, so A and B should agree with no offset.
-				compare("swing", swing, Files.readAllLines(DIR.resolve("trace-B-swing.txt")), 0);
+				// Round 0 without latency, round 1 with B's injected lag (-Dfray.duo.lag on B).
+				for (int round = 0; round < (LAG > 0 ? 2 : 1); round++) {
+					int lag = round == 0 ? 0 : LAG;
+					String sfx = round == 0 ? "" : "_lag" + LAG;
+					// The claw, started by the server; both clients trace it and shoot at one wall-clock moment.
+					mark("trace_start" + sfx);
+					c.waitTicks(10);
+					MotionServer.HITS.clear();
+					long wall0 = System.currentTimeMillis();
+					long start = st.serverTime();
+					st.play(zombie, MotionShowcase.CLAW);
+					write("shoot_claw" + sfx, String.valueOf(wall0 + 640));
+					List<String> trace = trace(c, zombie, 70, DIR.resolve("A.shoot_claw" + sfx), "duo_A_claw" + sfx);
+					Files.write(DIR.resolve("trace-A-claw" + sfx + ".txt"), trace, StandardCharsets.UTF_8);
+					Stage.log("claw" + sfx + " started at server tick " + start + " (wall " + wall0 + "); server hits: "
+						+ MotionServer.HITS.stream().map(h -> "tick " + h.tick() + " " + h.phase()).toList());
+					Stage.expect(MotionServer.HITS.stream().anyMatch(h -> h.target() == pig && h.tick() >= 11 && h.tick() <= 13),
+						"claw" + sfx + ": the dedicated server's claw hit the dummy in its strike window");
+					await("B", "trace_claw" + sfx, 120, c);
+					// B sees the server's claw late by its lag: its clock and the packet are both that late.
+					compare("claw" + sfx, trace, Files.readAllLines(DIR.resolve("trace-B-claw" + sfx + ".txt")), lag / 50.0, lag);
+
+					// B swings; A sees it through the server's broadcast.
+					long swingAt = System.currentTimeMillis() + 300;
+					write("swing_at" + sfx, String.valueOf(swingAt));
+					write("shoot_swing" + sfx, String.valueOf(swingAt + 600));
+					List<String> swing = trace(c, bob, 50, DIR.resolve("A.shoot_swing" + sfx), "duo_A_sees_B_swing" + sfx);
+					Files.write(DIR.resolve("trace-A-swing" + sfx + ".txt"), swing, StandardCharsets.UTF_8);
+					await("B", "trace_swing" + sfx, 120, c);
+					// B predicted its own swing on a clock late by the lag; the server started it when the request arrived: the two
+					// cancel, so A and B should agree with no offset.
+					compare("swing" + sfx, swing, Files.readAllLines(DIR.resolve("trace-B-swing" + sfx + ".txt")), 0, lag);
+					if (round == 0 && LAG > 0) {
+						mark("lag_now");
+						await("B", "lagged", 60, c);
+						// Let B's clock settle on the late time packets (sent every second).
+						c.waitTicks(60);
+					}
+				}
 				Stage.log("A's motion log: " + ClientMotion.LOG);
 				mark("finish");
 				await("B", "done", 120, c);
@@ -206,9 +236,14 @@ public class MotionDuo implements FabricClientGameTest {
 		connect(c);
 		c.waitFor(mc -> mc.player != null && mc.level != null && mc.gui.screen() == null, 1200);
 		c.waitTicks(40);
-		if (LAG > 0) {
-			lag(c, LAG);
-		}
+		// Late join: the zombie was mid-claw when B arrived; B must have been sent it with its real start tick.
+		List<String> plays = ClientMotion.LOG.stream().filter(l -> l.startsWith("play")).toList();
+		Stage.log("B's first motion packets after joining: " + plays.stream().limit(3).toList());
+		boolean late = plays.stream().anyMatch(l -> {
+			String[] p = l.split(" ");
+			return Double.parseDouble(p[p.length - 1]) > Double.parseDouble(p[p.length - 3]);
+		});
+		Stage.expect(late, "late join: B received the running claw with a start tick in its past");
 		mark("joined");
 		await("A", "ready", 300, c);
 		c.waitTicks(20);
@@ -218,29 +253,40 @@ public class MotionDuo implements FabricClientGameTest {
 			}
 		});
 		mark("ready");
-		await("A", "trace_start", 120, c);
-		int zombie = c.computeOnClient(mc -> {
-			for (Entity e : mc.level.entitiesForRendering()) {
-				if (e instanceof net.minecraft.world.entity.monster.zombie.Zombie) {
-					return e.getId();
-				}
+		int zombie = -1;
+		for (int round = 0; round < (LAG > 0 ? 2 : 1); round++) {
+			String sfx = round == 0 ? "" : "_lag" + LAG;
+			await("A", "trace_start" + sfx, 120, c);
+			if (zombie < 0) {
+				zombie = c.computeOnClient(mc -> {
+					for (Entity e : mc.level.entitiesForRendering()) {
+						if (e instanceof net.minecraft.world.entity.monster.zombie.Zombie) {
+							return e.getId();
+						}
+					}
+					return -1;
+				});
 			}
-			return -1;
-		});
-		waitFile(DIR.resolve("A.shoot_claw"), 200, c);
-		long shootAt = Long.parseLong(Files.readString(DIR.resolve("A.shoot_claw")).trim());
-		List<String> trace = trace(c, zombie, 70, shootAt, "duo_B_claw");
-		Files.write(DIR.resolve("trace-B-claw.txt"), trace, StandardCharsets.UTF_8);
-		mark("trace_claw");
-		waitFile(DIR.resolve("A.swing_at"), 200, c);
-		long swingAt = Long.parseLong(Files.readString(DIR.resolve("A.swing_at")).trim());
-		while (System.currentTimeMillis() < swingAt) {
-			c.waitTick();
+			// Trace from now: the claw starts within half a second; the shot time arrives in A.shoot_claw meanwhile.
+			List<String> trace = trace(c, zombie, 80, DIR.resolve("A.shoot_claw" + sfx), "duo_B_claw" + sfx);
+			Files.write(DIR.resolve("trace-B-claw" + sfx + ".txt"), trace, StandardCharsets.UTF_8);
+			mark("trace_claw" + sfx);
+			waitFile(DIR.resolve("A.swing_at" + sfx), 200, c);
+			long swingAt = Long.parseLong(Files.readString(DIR.resolve("A.swing_at" + sfx)).trim());
+			while (System.currentTimeMillis() < swingAt) {
+				c.waitTick();
+			}
+			c.runOnClient(mc -> ClientMotion.startLocal(MotionShowcase.SWING));
+			int me = c.computeOnClient(mc -> mc.player.getId());
+			List<String> swing = trace(c, me, 48, null, null);
+			Files.write(DIR.resolve("trace-B-swing" + sfx + ".txt"), swing, StandardCharsets.UTF_8);
+			mark("trace_swing" + sfx);
+			if (round == 0 && LAG > 0) {
+				await("A", "lag_now", 120, c);
+				lag(c, LAG);
+				mark("lagged");
+			}
 		}
-		c.runOnClient(mc -> ClientMotion.startLocal(MotionShowcase.SWING));
-		int me = c.computeOnClient(mc -> mc.player.getId());
-		List<String> swing = trace(c, me, 48, -1, null);
-		Files.write(DIR.resolve("trace-B-swing.txt"), swing, StandardCharsets.UTF_8);
 		Stage.log("B's motion log: " + ClientMotion.LOG);
 		mark("trace_swing");
 		await("A", "finish", 200, c);
@@ -279,11 +325,12 @@ public class MotionDuo implements FabricClientGameTest {
 
 	/**
 	 * Every client tick for {@code ticks} ticks: "wallMs clientGameTime elapsedTicks" for the entity's ACTION layer (NaN
-	 * when no action). Takes a screenshot at wall time {@code shootAt} (if > 0).
+	 * when no action). Takes a screenshot at the wall time written in {@code shootFile} once it appears (if not null).
 	 */
-	private static List<String> trace(ClientGameTestContext c, int entity, int ticks, long shootAt, String shot) {
+	private static List<String> trace(ClientGameTestContext c, int entity, int ticks, Path shootFile, String shot) {
 		List<String> out = new ArrayList<>();
-		boolean shotTaken = shootAt <= 0;
+		long shootAt = -1;
+		boolean shotTaken = shootFile == null;
 		for (int i = 0; i < ticks; i++) {
 			c.waitTick();
 			String row = c.computeOnClient(mc -> {
@@ -293,9 +340,16 @@ public class MotionDuo implements FabricClientGameTest {
 				return String.format(Locale.ROOT, "%d %.0f %.2f", System.currentTimeMillis(), now, e);
 			});
 			out.add(row);
-			if (!shotTaken && System.currentTimeMillis() >= shootAt) {
+			if (!shotTaken && shootAt < 0 && Files.exists(shootFile)) {
+				try {
+					shootAt = Long.parseLong(Files.readString(shootFile).trim());
+				} catch (IOException | NumberFormatException e) {
+					shootAt = -1;
+				}
+			}
+			if (!shotTaken && shootAt > 0 && System.currentTimeMillis() >= shootAt) {
 				c.takeScreenshot("fray_" + shot);
-				out.add("# screenshot at " + System.currentTimeMillis());
+				out.add("# screenshot at " + System.currentTimeMillis() + " (asked for " + shootAt + ")");
 				shotTaken = true;
 			}
 		}
@@ -303,7 +357,7 @@ public class MotionDuo implements FabricClientGameTest {
 	}
 
 	/** The clip time each client showed at the same wall-clock moments: A minus B, in ticks. */
-	private static void compare(String what, List<String> a, List<String> b, double expected) {
+	private static void compare(String what, List<String> a, List<String> b, double expected, int lag) {
 		List<double[]> pa = parse(a), pb = parse(b);
 		List<Double> diffs = new ArrayList<>();
 		for (double[] r : pa) {
@@ -320,7 +374,7 @@ public class MotionDuo implements FabricClientGameTest {
 		double max = diffs.stream().mapToDouble(d -> Math.abs(d - mean)).max().orElse(Double.NaN);
 		Stage.log(String.format(Locale.ROOT, "%s sync: A first showed it at wall %d (clip tick %.2f), B at %d (clip tick %.2f): B %d ms later; at the same moments A was %.2f ticks"
 			+ " (%.0f ms) ahead of B (spread +-%.2f, %d samples; B's injected lag %d ms)", what, seenA, firstA, seenB, firstB, seenB - seenA, mean, mean * 50, max,
-			diffs.size(), LAG));
+			diffs.size(), lag));
 		Stage.expect(!diffs.isEmpty(), what + ": both clients played it");
 		Stage.expect(Math.abs(mean - expected) <= 2.0, what + String.format(Locale.ROOT, ": the clients agree to within 2 ticks of the expected %.1f", expected));
 		Stage.expect(firstB < 3 && firstA < 3, what + ": both clients started from the clip's first ticks (no tell skipped)");

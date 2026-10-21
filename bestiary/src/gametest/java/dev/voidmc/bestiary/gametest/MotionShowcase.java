@@ -564,6 +564,8 @@ public class MotionShowcase implements FabricClientGameTest {
 		int port = 25611;
 		props.setProperty("server-port", String.valueOf(port));
 		props.setProperty("online-mode", "false");
+		props.setProperty("white-list", "false");
+		props.setProperty("enforce-whitelist", "false");
 		props.setProperty("view-distance", "6");
 		props.setProperty("simulation-distance", "4");
 		props.setProperty("pause-when-empty-seconds", "0");

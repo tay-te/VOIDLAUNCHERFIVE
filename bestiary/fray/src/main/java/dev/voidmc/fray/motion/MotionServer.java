@@ -84,6 +84,8 @@ public final class MotionServer {
 	public static void init() {
 		load();
 		ServerTickEvents.END_LEVEL_TICK.register(MotionServer::tick);
+		// Running actions belong to one server: never carry them into the next (single player worlds, test servers).
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(server -> RUNNING.clear());
 		EntityTrackingEvents.START_TRACKING.register((entity, player) -> {
 			Running r = RUNNING.get(entity);
 			if (r != null && r.entity != player) {
