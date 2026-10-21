@@ -1,0 +1,70 @@
+{
+	"kind": "runaway_pig",
+	"chance": [
+		0,
+		0.015,
+		0.015,
+		0.012,
+		0.01
+	],
+	"min_tier": "hamlet",
+	"needs": [
+		"children"
+	],
+	"start": "08:00",
+	"latest": "17:00",
+	"duration": 45,
+	"venue": "square",
+	"crowd": 6,
+	"barks": "event_pig_children",
+	"roles": [
+		{
+			"name": "children",
+			"pick": "children",
+			"count": 4
+		},
+		{
+			"name": "owner",
+			"pick": "adults",
+			"count": 1
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "children",
+			"do": "walk",
+			"to": "square",
+			"ticks": 4
+		},
+		{
+			"at": 0,
+			"role": "owner",
+			"do": "walk",
+			"to": "square",
+			"ticks": 2
+		},
+		{
+			"at": 2,
+			"role": "owner",
+			"do": "bark",
+			"arg": "event_pig_owner"
+		},
+		{
+			"at": 5,
+			"role": "children",
+			"do": "bark"
+		},
+		{
+			"at": 20,
+			"role": "owner",
+			"do": "bark",
+			"arg": "event_pig_owner"
+		},
+		{
+			"at": 30,
+			"role": "children",
+			"do": "bark"
+		}
+	]
+}

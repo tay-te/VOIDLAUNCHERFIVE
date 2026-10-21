@@ -1,0 +1,102 @@
+{
+	"kind": "tax",
+	"chance": [
+		1,
+		1,
+		1,
+		1,
+		1
+	],
+	"min_tier": "hamlet",
+	"needs": [
+		"domain"
+	],
+	"start": "10:00",
+	"duration": 90,
+	"venue": "town_hall",
+	"crowd": 10,
+	"barks": "event_tax",
+	"params": {
+		"share": 0.1,
+		"floor": 60,
+		"pig": 4,
+		"pig_at": 20,
+		"pig_out": 60
+	},
+	"roles": [
+		{
+			"name": "reeve",
+			"pick": "reeve",
+			"count": 1,
+			"place": "town_hall"
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 6
+		},
+		{
+			"name": "guards",
+			"pick": "guards",
+			"count": 1
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "reeve",
+			"do": "walk",
+			"to": "town_hall",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "crowd",
+			"do": "walk",
+			"to": "town_hall",
+			"ticks": 6
+		},
+		{
+			"at": 0,
+			"role": "guards",
+			"do": "walk",
+			"to": "town_hall",
+			"ticks": 3
+		},
+		{
+			"at": 2,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "town_hall",
+			"arg": "tax",
+			"ticks": 60
+		},
+		{
+			"at": 5,
+			"role": "crowd",
+			"do": "bark"
+		},
+		{
+			"at": 20,
+			"role": "crowd",
+			"do": "bark"
+		},
+		{
+			"at": 30,
+			"role": "reeve",
+			"do": "pose",
+			"arg": "talk",
+			"ticks": 300
+		},
+		{
+			"at": 45,
+			"role": "crowd",
+			"do": "bark"
+		},
+		{
+			"at": 70,
+			"role": "crowd",
+			"do": "bark"
+		}
+	]
+}

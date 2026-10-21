@@ -330,6 +330,11 @@ public final class TownLife {
 		} else {
 			cause = "left";
 		}
+		// a death the town events decided (a raid, the gallows) says how it came (docs/LIVING_WORLD_2.md §3.2)
+		String told = r.extra.getCompoundOrEmpty("social").getStringOr("death", "");
+		if (!told.isEmpty() && leftFor.isEmpty()) {
+			cause = told;
+		}
 		if (!cause.equals("settlers")) {
 			FamilyLife.gone(s, ledger, r, cause, today(w, s), cfg.family(), p -> post(w, s, p));
 		}

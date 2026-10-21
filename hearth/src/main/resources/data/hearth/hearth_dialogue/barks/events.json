@@ -1,0 +1,368 @@
+{
+	"event_wedding_procession": [
+		"Make way! Make way for the bride!",
+		"Flowers on every door, look at that.",
+		"Slow down, piper, the bride's in new shoes.",
+		"There they go, the pair of them.",
+		{"text": "Is she a princess now, Mama?", "roles": ["child"]},
+		{"text": "I wed in that very chapel. Fifty years, near enough.", "roles": ["elder"]},
+		{"text": "Keep the road clear, folks. Let them pass.", "roles": ["guard"]}
+	],
+	"event_wedding_vows": [
+		"Before God and this town, you are joined.",
+		"What is bound here, let no one loose.",
+		"Take each other's hands. There. Now you are one house.",
+		"May your hearth never go cold, and your table never bare."
+	],
+	"event_wedding": [
+		"May your hearth never go cold!",
+		"To the bride! To the groom!",
+		"Another cup, another cup!",
+		"Dance, you old goat, it's a wedding!",
+		"Give the piper a drink, he's earned it.",
+		"Long life and many children!",
+		{"text": "There's honey cake! I saw it!", "roles": ["child"]},
+		{"text": "In my day the feast went on three days.", "roles": ["elder"]},
+		{"text": "Mind the bench, it's had more ale than you have.", "roles": ["merchant"]},
+		{"text": "Dance with me, {player}! Come on!", "traits": ["cheerful", "sociable"]}
+	],
+	"event_funeral": [
+		"He mended my roof for nothing, the year my man died.",
+		"She always had bread for the children.",
+		"God keep them. God keep us all.",
+		"It comes to all of us. Still.",
+		"Hush now. Hush.",
+		{"text": "Why is everyone so quiet, Mama?", "roles": ["child"]},
+		{"text": "I'll be next, I shouldn't wonder.", "roles": ["elder"]},
+		{"text": "Hats off. Show some respect.", "roles": ["guard"]}
+	],
+	"event_funeral_words": [
+		"Dust to dust. We give them back to the earth that fed them.",
+		"They laboured among us, and now they rest.",
+		"Remember them at your table, and in your prayers.",
+		"Lord, take this soul, and give the living patience."
+	],
+	"event_trial_open": [
+		"The court is sitting. Bring the accused forward.",
+		"Silence! The court will hear the charge.",
+		"Who speaks against this man? Who speaks for him?"
+	],
+	"event_trial_witness": [
+		"I saw it with my own eyes, I swear it.",
+		"I'll say what I saw, and no more.",
+		"It wasn't like that, Your Honour. Not like that at all.",
+		"I didn't see it. I only heard."
+	],
+	"event_trial_crowd": [
+		"Thief!",
+		"Let him go, he's got six mouths to feed!",
+		"Hang him! No, wait, it's only a goose.",
+		"He did it. Look at his face.",
+		"It could've been any of us, hungry enough.",
+		{"text": "Is he going to the pillory? Can we watch?", "roles": ["child"]},
+		{"text": "In my day it was a hand for a thief.", "roles": ["elder"]},
+		{"text": "Quiet in the court, or you'll be next.", "roles": ["guard"]}
+	],
+	"event_trial_judge": [
+		"The law is the law, whatever is in your belly.",
+		"I have heard enough. I will weigh it.",
+		"Has anyone else something to say? Speak now.",
+		"Answer me plainly: did you do it?"
+	],
+	"event_trial_verdict": [
+		"The court has decided.",
+		"Hear the judgement of this court.",
+		"Let it be written: this is the court's word."
+	],
+	"event_pillory": [
+		"Two hours, and not a minute less.",
+		"Throw what you like, just not stones.",
+		"Let this teach the rest of you.",
+		"Back from the boards, the lot of you."
+	],
+	"event_pillory_children": [
+		"Turnip for the thief!",
+		"Got him on the ear!",
+		"Rotten cabbage, rotten cabbage!",
+		"He's crying! Look, he's crying!"
+	],
+	"crowd_spectacle_pillory": [
+		"Look at him squirm.",
+		"Serves him right.",
+		"Poor devil. It was only bread.",
+		"Shame on you! Shame!",
+		{"text": "Children, that's what stealing gets you.", "roles": ["mother"]},
+		{"text": "Move along, it's not a fair.", "roles": ["guard"]}
+	],
+	"event_execution": [
+		"God have mercy on him.",
+		"I can't look.",
+		"He killed a man. This is what comes of it.",
+		"Quiet, the priest is speaking.",
+		{"text": "Come away, love. Come away.", "roles": ["mother"]},
+		{"text": "Stand back. Back, I said.", "roles": ["guard"]}
+	],
+	"event_execution_priest": [
+		"Confess, my son, and go to God clean.",
+		"There is mercy yet, for the one who asks it.",
+		"Lord, forgive this man, as we must."
+	],
+	"crowd_spectacle_execution": [
+		"Dawn, and a drum. I hate the sound of it.",
+		"They say he never said a word.",
+		"Pray for him. Pray for his mother."
+	],
+	"event_fair_crier": [
+		"Come see the fire-eater from the southern sands!",
+		"Cloth from the coast! Knives from the north! Come and look!",
+		"The archery's at noon! Ten arrows, a purse for the best eye!",
+		"Fair day! Fair day in {settlement}!",
+		"Sweet cakes, sweet wine, a juggler and a bear! Well, no bear.",
+		"Pedlars from three counties! See it all before the bell!"
+	],
+	"event_fair_stage": [
+		"Watch now, watch the flame go down!",
+		"Three apples, four, five! Who'll throw me a sixth?",
+		"A coin for the players, good people, a coin!",
+		"Ladies and gentlefolk, the great swallowing of fire!"
+	],
+	"event_fair": [
+		"I've spent a week's wages and it's not noon.",
+		"Did you see the cloth? Blue as a jay.",
+		"Best fair in years.",
+		"Mind your purse in a crowd like this.",
+		{"text": "Can I have a honey cake? Please?", "roles": ["child"]},
+		{"text": "Fair prices, fair weights! Come buy!", "roles": ["merchant"]},
+		{"text": "Watch for cutpurses. They love a fair.", "roles": ["guard"]}
+	],
+	"crowd_spectacle_archery": [
+		"Bullseye! Did you see that?",
+		"Wide! Wide by a yard!",
+		"Hold your breath, then loose. That's the trick.",
+		"My money's on the hunter.",
+		{"text": "When I'm big I'll shoot the far one.", "roles": ["child"]}
+	],
+	"crowd_spectacle_fair": [
+		"Look at him, he's eating the fire!",
+		"Again! Again!",
+		"How does he not burn his tongue?"
+	],
+	"event_tournament_herald": [
+		"Knights, to your lists! Lances up!",
+		"For the honour of the house, and the favour of the lord!",
+		"A lance broken! A clean strike!",
+		"Third pass! Make ready!",
+		"Hear me, good people: the lists are open!"
+	],
+	"event_tournament_melee": [
+		"The melee for all comers! Who will face the champion?",
+		"Into the ring, if you have the stomach for it!",
+		"To yield is no shame, to die is no glory. Fight well!",
+		"A purse and a horse to whoever bests him!"
+	],
+	"event_tournament": [
+		"Did you see that lance shatter?",
+		"My cousin's in the lists. Second from the left.",
+		"The lord's box is full of silk today.",
+		"Go on! Unhorse him!",
+		{"text": "I want to be a knight!", "roles": ["child"]},
+		{"text": "Keep behind the rail, you'll get trampled.", "roles": ["guard"]}
+	],
+	"crowd_spectacle_joust": [
+		"Here they come!",
+		"Hold, hold... now!",
+		"He kept his seat! Barely!",
+		"That one's going to feel it tomorrow."
+	],
+	"crowd_spectacle_melee": [
+		"Hit him! Hit him!",
+		"He's down! No, he's up!",
+		"The champion's never been beaten. Not once.",
+		"Yield, you fool!"
+	],
+	"event_fire": [
+		"Fire! Fire at the {settlement} houses!",
+		"Water! Bring water!",
+		"Get the buckets, quick!",
+		"The thatch has caught! It's going up!",
+		"Is everyone out? Is everyone out?",
+		{"text": "Mama, the roof's on fire!", "roles": ["child"]},
+		{"text": "Children, stay back. Stay here with me.", "roles": ["mother"]},
+		{"text": "Form a line! Buckets, hand to hand!", "roles": ["guard"]}
+	],
+	"event_fire_after": [
+		"There's nothing left of the roof.",
+		"We'll rebuild. We always do.",
+		"They'll stay with her sister till it's done.",
+		"A spark from the chimney, they say."
+	],
+	"crowd_spectacle_fire": [
+		"God help them.",
+		"It'll take the next house too!",
+		"Look at the smoke. Black as pitch."
+	],
+	"event_tax": [
+		"Ten in a hundred, and the roof still leaks.",
+		"There goes the lord's share. And ours with it.",
+		"He takes our coin and gives us a fine speech.",
+		"Every fortnight, like a toothache.",
+		"Not the pig. They wouldn't take the pig.",
+		{"text": "Why does the man take our money, Mama?", "roles": ["child"]},
+		{"text": "Mind your tongues. He has ears, that one.", "roles": ["elder"]},
+		{"text": "Keep it civil. The lord's men are here.", "roles": ["guard"]}
+	],
+	"crowd_spectacle_tax": [
+		"Count it twice, reeve, he'll cheat you.",
+		"The chest's lighter every time.",
+		"Poor souls. That pig was all they had."
+	],
+	"event_raid": [
+		"They're at the granary!",
+		"To arms! Raiders in the street!",
+		"Bar the doors! Bar the doors!",
+		"They've fired the barn!",
+		"After them, they've got the sacks!",
+		{"text": "Stand fast! Hold the street!", "roles": ["guard"]},
+		{"text": "Not one sack leaves this town!", "roles": ["guard"]}
+	],
+	"event_topping_out": [
+		"A bough on the ridge, she'll stand a hundred years!",
+		"Drink to the roof! Drink to the beams!",
+		"Not a nail bent. Well, hardly.",
+		"To the master, and the crew!",
+		{"text": "Honest work, honest ale.", "roles": ["elder"]}
+	],
+	"event_christening": [
+		"Welcome to the world, little one.",
+		"What a pair of lungs on that child!",
+		"May you grow strong and kind.",
+		"Another soul for {settlement}."
+	],
+	"event_cart": [
+		"Mind the wheel! Mind it!",
+		"My load! My whole load!",
+		"The axle's gone. Clean through.",
+		"Don't just stand there, help me!"
+	],
+	"event_cart_help": [
+		"Heave! Heave!",
+		"Get the hay off the road before the next cart comes.",
+		"Lift on three. One, two..."
+	],
+	"event_pig_owner": [
+		"My pig! Somebody stop my pig!",
+		"Catch it! There's a penny in it!",
+		"That's the third time this month."
+	],
+	"event_pig_children": [
+		"There it goes!",
+		"Get it! Get it!",
+		"It went round the well!",
+		"Piggy, piggy, piggy!"
+	],
+	"event_troupe": [
+		"A tale of a king and a fool, good people!",
+		"Gather round, gather round!",
+		"Laugh, and throw a coin!",
+		"And the fool says to the king..."
+	],
+	"crowd_spectacle_troupe": [
+		"Ha! Did you hear that?",
+		"That's the miller to the life!",
+		"Again, the bit with the goat!"
+	],
+	"event_preacher": [
+		"Repent! The hour is later than you think!",
+		"Charity is the hand of God on earth!",
+		"The rich man feasts, the poor man prays. Which will be saved?",
+		"Look to your souls, good people, look to your souls!"
+	],
+	"event_preacher_crowd": [
+		"He's not wrong, mind.",
+		"Every week the same fire and brimstone.",
+		"Hush, I'm listening."
+	],
+	"event_horse_fair": [
+		"Sound in wind and limb! Look at those legs!",
+		"Ride her round the square, see for yourself.",
+		"A mare like that won't stand here long.",
+		"Fair price for a fair beast."
+	],
+	"event_slaughter": [
+		"Hold it still. Still, I said.",
+		"Sausage by Sunday, God willing.",
+		"A good fat one. We'll eat well this winter.",
+		"Children, go and fetch the salt."
+	],
+	"event_decree": [
+		"Hear ye, hear ye! By order of the lord!",
+		"Let it be known in {settlement} and all the land about!",
+		"The lord decrees, and so it shall be.",
+		"Hear ye! No fires in the open after curfew!"
+	],
+	"event_decree_crowd": [
+		"Another new law. Wonderful.",
+		"What did he say? I didn't catch it.",
+		"As long as it's not another tax."
+	],
+	"crowd_spectacle_decree": [
+		"Quiet, the crier's reading.",
+		"Who's it from? The lord himself?"
+	],
+	"event_well_quarrel": [
+		"You've been in my turn at the well three days running!",
+		"Your goat ate my cabbages!",
+		"Say that again, I dare you.",
+		"My mother warned me about your family.",
+		"You owe me a bucket. A whole bucket!"
+	],
+	"event_well_crowd": [
+		"Here they go again.",
+		"Somebody fetch the reeve before it's fists.",
+		"My coin's on the widow."
+	],
+	"event_lost_child": [
+		"Has anyone seen my boy? He went for water and never came back!",
+		"Please, help us look. It'll be dark soon.",
+		"Little one! Where are you?"
+	],
+	"event_lost_child_search": [
+		"Bring a torch, check the barns.",
+		"Over by the mill! I heard something!",
+		"Call his name, he knows our voices."
+	],
+	"event_lost_child_found": [
+		"We found him! Asleep in the hay, the little wretch!",
+		"Thank God. Thank God.",
+		"Come home, love, come home."
+	],
+	"event_oath": [
+		"Swear it before these witnesses.",
+		"Your word, given here, binds you to this house.",
+		"Rise, and keep faith with us."
+	],
+	"event_oath_crowd": [
+		"Well spoken.",
+		"May they keep it longer than the last one.",
+		"There. It's done."
+	],
+	"event_dubbing": [
+		"Kneel. By this blade I name you a knight of this house.",
+		"Rise, and be worthy of it.",
+		"Protect the weak, honour your lord, fear nothing."
+	],
+	"crowd_spectacle_dubbing": [
+		"A knight! A new knight!",
+		"I knew it'd come to that one day."
+	],
+	"crowd_spectacle_wedding": [
+		"Doesn't she look lovely.",
+		"He's sweating like a horse, look at him.",
+		"About time, those two."
+	],
+	"crowd_spectacle_trial": [
+		"What's he done?",
+		"Stole a goose, I heard.",
+		"The judge looks sour today. Bad luck for him."
+	]
+}

@@ -1,0 +1,129 @@
+{
+	"kind": "trial",
+	"chance": [
+		1,
+		1,
+		1,
+		1,
+		1
+	],
+	"min_tier": "hamlet",
+	"start": "10:30",
+	"duration": 60,
+	"venue": "courthouse",
+	"crowd": 12,
+	"barks": "event_trial_crowd",
+	"roles": [
+		{
+			"name": "judge",
+			"pick": "judge",
+			"count": 1,
+			"place": "throne"
+		},
+		{
+			"name": "accused",
+			"pick": "defendant",
+			"count": 1
+		},
+		{
+			"name": "guards",
+			"pick": "guards",
+			"count": 2
+		},
+		{
+			"name": "witnesses",
+			"pick": "witnesses",
+			"count": 2
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 6
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "judge",
+			"do": "stand",
+			"to": "throne"
+		},
+		{
+			"at": 0,
+			"role": "accused",
+			"do": "walk",
+			"to": "throne",
+			"ticks": 3
+		},
+		{
+			"at": 0,
+			"role": "guards",
+			"do": "walk",
+			"to": "throne",
+			"ticks": 3
+		},
+		{
+			"at": 0,
+			"role": "witnesses",
+			"do": "walk",
+			"to": "courthouse",
+			"ticks": 4
+		},
+		{
+			"at": 0,
+			"role": "crowd",
+			"do": "walk",
+			"to": "courthouse",
+			"ticks": 6
+		},
+		{
+			"at": 2,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "courthouse",
+			"arg": "trial",
+			"ticks": 50
+		},
+		{
+			"at": 5,
+			"role": "judge",
+			"do": "bark",
+			"arg": "event_trial_open"
+		},
+		{
+			"at": 8,
+			"role": "accused",
+			"do": "pose",
+			"arg": "cower",
+			"ticks": 400
+		},
+		{
+			"at": 12,
+			"role": "witnesses",
+			"do": "bark",
+			"arg": "event_trial_witness"
+		},
+		{
+			"at": 20,
+			"role": "crowd",
+			"do": "bark"
+		},
+		{
+			"at": 32,
+			"role": "judge",
+			"do": "bark",
+			"arg": "event_trial_judge"
+		},
+		{
+			"at": 42,
+			"role": "crowd",
+			"do": "bark"
+		},
+		{
+			"at": 55,
+			"role": "judge",
+			"do": "bark",
+			"arg": "event_trial_verdict"
+		}
+	]
+}

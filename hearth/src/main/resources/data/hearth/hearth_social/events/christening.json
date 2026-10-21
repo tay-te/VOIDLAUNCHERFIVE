@@ -1,0 +1,90 @@
+{
+	"kind": "christening",
+	"chance": [
+		0.9,
+		0.9,
+		0.9,
+		0.9,
+		0.9
+	],
+	"min_tier": "hamlet",
+	"needs": [
+		"chapel"
+	],
+	"start": "11:30",
+	"duration": 45,
+	"venue": "chapel",
+	"crowd": 8,
+	"barks": "event_christening",
+	"roles": [
+		{
+			"name": "parents",
+			"pick": "parents",
+			"count": 2
+		},
+		{
+			"name": "priest",
+			"pick": "priest",
+			"count": 1,
+			"place": "altar"
+		},
+		{
+			"name": "kin",
+			"pick": "kin",
+			"count": 4
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "parents",
+			"do": "walk",
+			"to": "chapel_door",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "priest",
+			"do": "stand",
+			"to": "altar"
+		},
+		{
+			"at": 0,
+			"role": "kin",
+			"do": "walk",
+			"to": "chapel",
+			"ticks": 3
+		},
+		{
+			"at": 8,
+			"role": "parents",
+			"do": "walk",
+			"to": "altar",
+			"ticks": 1
+		},
+		{
+			"at": 14,
+			"role": "priest",
+			"do": "bark"
+		},
+		{
+			"at": 20,
+			"role": "parents",
+			"do": "pose",
+			"arg": "pray",
+			"ticks": 300
+		},
+		{
+			"at": 30,
+			"role": "kin",
+			"do": "bark"
+		},
+		{
+			"at": 40,
+			"role": "kin",
+			"do": "pose",
+			"arg": "cheer",
+			"ticks": 60
+		}
+	]
+}

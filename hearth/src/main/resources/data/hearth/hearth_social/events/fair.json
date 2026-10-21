@@ -1,0 +1,151 @@
+{
+	"kind": "fair",
+	"chance": [
+		0,
+		0,
+		0,
+		1,
+		1
+	],
+	"min_tier": "town",
+	"start": "09:00",
+	"duration": 600,
+	"venue": "square",
+	"crowd": 16,
+	"barks": "event_fair",
+	"params": {
+		"contest_from": 30,
+		"contest_to": 300,
+		"purse": 30
+	},
+	"roles": [
+		{
+			"name": "entertainer",
+			"pick": "entertainer",
+			"count": 2,
+			"place": "stage"
+		},
+		{
+			"name": "crier",
+			"pick": "crier",
+			"count": 1
+		},
+		{
+			"name": "competitors",
+			"pick": "competitors",
+			"count": 3
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 8
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "scene",
+			"do": "dress",
+			"to": "square",
+			"arg": "fair_stalls"
+		},
+		{
+			"at": 0,
+			"role": "scene",
+			"do": "dress",
+			"to": "range",
+			"arg": "targets"
+		},
+		{
+			"at": 0,
+			"role": "entertainer",
+			"do": "stand",
+			"to": "stage",
+			"ticks": 2
+		},
+		{
+			"at": 0,
+			"role": "crier",
+			"do": "walk",
+			"to": "square"
+		},
+		{
+			"at": 4,
+			"role": "crier",
+			"do": "bark",
+			"arg": "event_fair_crier"
+		},
+		{
+			"at": 28,
+			"role": "competitors",
+			"do": "walk",
+			"to": "range",
+			"ticks": 2
+		},
+		{
+			"at": 30,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "range",
+			"arg": "archery",
+			"ticks": 120
+		},
+		{
+			"at": 30,
+			"role": "crowd",
+			"do": "walk",
+			"to": "range",
+			"ticks": 7
+		},
+		{
+			"at": 60,
+			"role": "crier",
+			"do": "bark",
+			"arg": "event_fair_crier"
+		},
+		{
+			"at": 120,
+			"role": "entertainer",
+			"do": "bark",
+			"arg": "event_fair_stage"
+		},
+		{
+			"at": 180,
+			"role": "crier",
+			"do": "bark",
+			"arg": "event_fair_crier"
+		},
+		{
+			"at": 300,
+			"role": "crowd",
+			"do": "walk",
+			"to": "stage",
+			"ticks": 7
+		},
+		{
+			"at": 302,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "stage",
+			"arg": "fair",
+			"ticks": 120
+		},
+		{
+			"at": 360,
+			"role": "entertainer",
+			"do": "bark",
+			"arg": "event_fair_stage"
+		},
+		{
+			"at": 480,
+			"role": "crier",
+			"do": "bark",
+			"arg": "event_fair_crier"
+		},
+		{
+			"at": 590,
+			"role": "crowd",
+			"do": "bark"
+		}
+	]
+}

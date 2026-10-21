@@ -1,0 +1,99 @@
+{
+	"kind": "troupe",
+	"chance": [
+		0,
+		0,
+		0.008,
+		0.012,
+		0.015
+	],
+	"min_tier": "village",
+	"start": "14:00",
+	"latest": "17:00",
+	"duration": 120,
+	"venue": "stage",
+	"crowd": 14,
+	"barks": "event_troupe",
+	"params": {
+		"purse": 6
+	},
+	"roles": [
+		{
+			"name": "players",
+			"pick": "entertainer",
+			"count": 2,
+			"place": "stage"
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 10
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "players",
+			"do": "stand",
+			"to": "stage",
+			"ticks": 2
+		},
+		{
+			"at": 0,
+			"role": "crowd",
+			"do": "walk",
+			"to": "stage",
+			"ticks": 7
+		},
+		{
+			"at": 1,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "stage",
+			"arg": "troupe",
+			"ticks": 90
+		},
+		{
+			"at": 2,
+			"role": "players",
+			"do": "music"
+		},
+		{
+			"at": 5,
+			"role": "players",
+			"do": "bark"
+		},
+		{
+			"at": 40,
+			"role": "players",
+			"do": "pose",
+			"arg": "wave",
+			"ticks": 100
+		},
+		{
+			"at": 60,
+			"role": "crowd",
+			"do": "pose",
+			"arg": "cheer",
+			"ticks": 60
+		},
+		{
+			"at": 80,
+			"role": "players",
+			"do": "bark"
+		},
+		{
+			"at": 110,
+			"role": "players",
+			"do": "music",
+			"arg": "off"
+		},
+		{
+			"at": 112,
+			"role": "crowd",
+			"do": "pose",
+			"arg": "cheer",
+			"ticks": 60
+		}
+	]
+}

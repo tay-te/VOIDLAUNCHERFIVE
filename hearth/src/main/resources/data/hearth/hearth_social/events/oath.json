@@ -1,0 +1,67 @@
+{
+	"kind": "scene",
+	"scene": "oath",
+	"start": "12:00",
+	"duration": 20,
+	"venue": "throne",
+	"crowd": 8,
+	"barks": "event_oath",
+	"roles": [
+		{
+			"name": "principal",
+			"pick": "principals",
+			"count": 1
+		},
+		{
+			"name": "lord",
+			"pick": "lord",
+			"count": 1,
+			"place": "throne"
+		},
+		{
+			"name": "witnesses",
+			"pick": "adults",
+			"count": 4
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "lord",
+			"do": "stand",
+			"to": "throne"
+		},
+		{
+			"at": 0,
+			"role": "principal",
+			"do": "walk",
+			"to": "throne",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "witnesses",
+			"do": "walk",
+			"to": "throne",
+			"ticks": 4
+		},
+		{
+			"at": 3,
+			"role": "principal",
+			"do": "pose",
+			"arg": "pray",
+			"ticks": 300
+		},
+		{
+			"at": 5,
+			"role": "lord",
+			"do": "bark"
+		},
+		{
+			"at": 17,
+			"role": "witnesses",
+			"do": "bark",
+			"arg": "event_oath_crowd"
+		}
+	]
+}

@@ -1,0 +1,101 @@
+{
+	"kind": "pillory",
+	"chance": [
+		1,
+		1,
+		1,
+		1,
+		1
+	],
+	"min_tier": "hamlet",
+	"start": "12:00",
+	"duration": 120,
+	"venue": "pillory",
+	"crowd": 16,
+	"barks": "event_pillory",
+	"roles": [
+		{
+			"name": "convict",
+			"pick": "principals",
+			"count": 1,
+			"place": "pillory"
+		},
+		{
+			"name": "jailer",
+			"pick": "jailer",
+			"count": 1
+		},
+		{
+			"name": "children",
+			"pick": "children",
+			"count": 4
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "convict",
+			"do": "walk",
+			"to": "pillory",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "jailer",
+			"do": "walk",
+			"to": "pillory",
+			"ticks": 2
+		},
+		{
+			"at": 3,
+			"role": "convict",
+			"do": "pose",
+			"arg": "cower"
+		},
+		{
+			"at": 3,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "pillory",
+			"arg": "pillory",
+			"ticks": 100
+		},
+		{
+			"at": 6,
+			"role": "children",
+			"do": "walk",
+			"to": "pillory",
+			"ticks": 4
+		},
+		{
+			"at": 10,
+			"role": "children",
+			"do": "bark",
+			"arg": "event_pillory_children"
+		},
+		{
+			"at": 18,
+			"role": "jailer",
+			"do": "bark",
+			"arg": "event_pillory"
+		},
+		{
+			"at": 40,
+			"role": "children",
+			"do": "bark",
+			"arg": "event_pillory_children"
+		},
+		{
+			"at": 60,
+			"role": "jailer",
+			"do": "bark",
+			"arg": "event_pillory"
+		},
+		{
+			"at": 116,
+			"role": "convict",
+			"do": "pose",
+			"arg": "none"
+		}
+	]
+}

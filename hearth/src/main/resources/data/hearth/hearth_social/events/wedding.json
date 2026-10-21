@@ -1,0 +1,220 @@
+{
+	"kind": "wedding",
+	"chance": [
+		1,
+		1,
+		1,
+		1,
+		1
+	],
+	"min_tier": "camp",
+	"start": "10:30",
+	"duration": 270,
+	"venue": "chapel_door",
+	"crowd": 12,
+	"barks": "event_wedding",
+	"params": {
+		"feast_from": 90
+	},
+	"roles": [
+		{
+			"name": "couple",
+			"pick": "principals",
+			"count": 2,
+			"hold": "minecraft:oxeye_daisy"
+		},
+		{
+			"name": "musician",
+			"pick": "entertainer",
+			"count": 1
+		},
+		{
+			"name": "kin",
+			"pick": "kin",
+			"count": 6,
+			"hold": "minecraft:poppy"
+		},
+		{
+			"name": "priest",
+			"pick": "priest",
+			"count": 1,
+			"place": "altar"
+		},
+		{
+			"name": "dancers",
+			"pick": "adults",
+			"count": 6
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "couple",
+			"do": "stand",
+			"to": "home_door"
+		},
+		{
+			"at": 0,
+			"role": "musician",
+			"do": "walk",
+			"to": "home_door"
+		},
+		{
+			"at": 0,
+			"role": "kin",
+			"do": "walk",
+			"to": "home_door",
+			"ticks": 4
+		},
+		{
+			"at": 3,
+			"role": "kin",
+			"do": "bark",
+			"arg": "event_wedding_procession"
+		},
+		{
+			"at": 5,
+			"role": "musician",
+			"do": "music"
+		},
+		{
+			"at": 5,
+			"role": "musician",
+			"do": "walk",
+			"to": "chapel_door"
+		},
+		{
+			"at": 6,
+			"role": "couple",
+			"do": "walk",
+			"to": "chapel_door"
+		},
+		{
+			"at": 6,
+			"role": "kin",
+			"do": "walk",
+			"to": "chapel_door",
+			"ticks": 4
+		},
+		{
+			"at": 12,
+			"role": "kin",
+			"do": "bark",
+			"arg": "event_wedding_procession"
+		},
+		{
+			"at": 25,
+			"role": "couple",
+			"do": "walk",
+			"to": "altar"
+		},
+		{
+			"at": 25,
+			"role": "kin",
+			"do": "walk",
+			"to": "chapel"
+		},
+		{
+			"at": 26,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "chapel_door",
+			"arg": "wedding",
+			"ticks": 60
+		},
+		{
+			"at": 30,
+			"role": "musician",
+			"do": "music",
+			"arg": "off"
+		},
+		{
+			"at": 30,
+			"role": "priest",
+			"do": "face",
+			"to": "altar"
+		},
+		{
+			"at": 31,
+			"role": "couple",
+			"do": "pose",
+			"arg": "pray",
+			"ticks": 500
+		},
+		{
+			"at": 55,
+			"role": "priest",
+			"do": "bark",
+			"arg": "event_wedding_vows"
+		},
+		{
+			"at": 62,
+			"role": "scene",
+			"do": "toll",
+			"ticks": 5
+		},
+		{
+			"at": 62,
+			"role": "kin",
+			"do": "pose",
+			"arg": "cheer",
+			"ticks": 60
+		},
+		{
+			"at": 90,
+			"role": "couple",
+			"do": "walk",
+			"to": "feast"
+		},
+		{
+			"at": 90,
+			"role": "musician",
+			"do": "walk",
+			"to": "feast"
+		},
+		{
+			"at": 91,
+			"role": "musician",
+			"do": "music"
+		},
+		{
+			"at": 92,
+			"role": "dancers",
+			"do": "walk",
+			"to": "feast",
+			"arg": "dance",
+			"ticks": 3
+		},
+		{
+			"at": 92,
+			"role": "kin",
+			"do": "walk",
+			"to": "feast",
+			"ticks": 5
+		},
+		{
+			"at": 100,
+			"role": "dancers",
+			"do": "bark",
+			"arg": "event_wedding"
+		},
+		{
+			"at": 150,
+			"role": "kin",
+			"do": "bark",
+			"arg": "event_wedding"
+		},
+		{
+			"at": 200,
+			"role": "dancers",
+			"do": "bark",
+			"arg": "event_wedding"
+		},
+		{
+			"at": 262,
+			"role": "musician",
+			"do": "music",
+			"arg": "off"
+		}
+	]
+}

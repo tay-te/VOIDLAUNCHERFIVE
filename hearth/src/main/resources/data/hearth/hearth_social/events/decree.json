@@ -1,0 +1,76 @@
+{
+	"kind": "decree",
+	"chance": [
+		0,
+		0,
+		0.008,
+		0.012,
+		0.015
+	],
+	"min_tier": "village",
+	"start": "12:00",
+	"duration": 30,
+	"venue": "square",
+	"crowd": 10,
+	"barks": "event_decree",
+	"roles": [
+		{
+			"name": "crier",
+			"pick": "crier",
+			"count": 1,
+			"place": "square"
+		},
+		{
+			"name": "crowd",
+			"pick": "adults",
+			"count": 8
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "crier",
+			"do": "stand",
+			"to": "square",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "crowd",
+			"do": "walk",
+			"to": "square",
+			"ticks": 5
+		},
+		{
+			"at": 1,
+			"role": "crier",
+			"do": "pose",
+			"arg": "read",
+			"ticks": 500
+		},
+		{
+			"at": 2,
+			"role": "crier",
+			"do": "bark"
+		},
+		{
+			"at": 3,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "square",
+			"arg": "decree",
+			"ticks": 25
+		},
+		{
+			"at": 10,
+			"role": "crier",
+			"do": "bark"
+		},
+		{
+			"at": 16,
+			"role": "crowd",
+			"do": "bark",
+			"arg": "event_decree_crowd"
+		}
+	]
+}

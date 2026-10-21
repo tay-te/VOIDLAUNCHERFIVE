@@ -1,0 +1,88 @@
+{
+	"kind": "scene",
+	"scene": "dubbing",
+	"start": "12:00",
+	"duration": 20,
+	"venue": "throne",
+	"crowd": 10,
+	"barks": "event_dubbing",
+	"roles": [
+		{
+			"name": "principal",
+			"pick": "principals",
+			"count": 1
+		},
+		{
+			"name": "lord",
+			"pick": "lord",
+			"count": 1,
+			"place": "throne"
+		},
+		{
+			"name": "witnesses",
+			"pick": "adults",
+			"count": 6
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "lord",
+			"do": "stand",
+			"to": "throne"
+		},
+		{
+			"at": 0,
+			"role": "principal",
+			"do": "walk",
+			"to": "throne",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "witnesses",
+			"do": "walk",
+			"to": "throne",
+			"ticks": 5
+		},
+		{
+			"at": 3,
+			"role": "principal",
+			"do": "pose",
+			"arg": "pray",
+			"ticks": 300
+		},
+		{
+			"at": 4,
+			"role": "scene",
+			"do": "spectacle",
+			"to": "throne",
+			"arg": "dubbing",
+			"ticks": 20
+		},
+		{
+			"at": 6,
+			"role": "lord",
+			"do": "bark"
+		},
+		{
+			"at": 12,
+			"role": "scene",
+			"do": "toll",
+			"ticks": 3
+		},
+		{
+			"at": 16,
+			"role": "witnesses",
+			"do": "pose",
+			"arg": "cheer",
+			"ticks": 60
+		},
+		{
+			"at": 17,
+			"role": "witnesses",
+			"do": "bark",
+			"arg": "event_oath_crowd"
+		}
+	]
+}

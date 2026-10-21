@@ -1,0 +1,86 @@
+{
+	"kind": "lost_child",
+	"chance": [
+		0,
+		0.004,
+		0.005,
+		0.005,
+		0.004
+	],
+	"min_tier": "hamlet",
+	"needs": [
+		"children"
+	],
+	"start": "19:00",
+	"latest": "20:00",
+	"duration": 90,
+	"venue": "square",
+	"crowd": 0,
+	"barks": "event_lost_child",
+	"roles": [
+		{
+			"name": "parents",
+			"pick": "adults",
+			"count": 2
+		},
+		{
+			"name": "searchers",
+			"pick": "adults",
+			"count": 4,
+			"hold": "minecraft:torch"
+		}
+	],
+	"timeline": [
+		{
+			"at": 0,
+			"role": "parents",
+			"do": "walk",
+			"to": "square",
+			"ticks": 1
+		},
+		{
+			"at": 0,
+			"role": "searchers",
+			"do": "walk",
+			"to": "square",
+			"ticks": 6
+		},
+		{
+			"at": 2,
+			"role": "parents",
+			"do": "bark"
+		},
+		{
+			"at": 10,
+			"role": "searchers",
+			"do": "walk",
+			"to": "gate",
+			"ticks": 8
+		},
+		{
+			"at": 20,
+			"role": "searchers",
+			"do": "bark",
+			"arg": "event_lost_child_search"
+		},
+		{
+			"at": 40,
+			"role": "searchers",
+			"do": "walk",
+			"to": "festival_ground",
+			"ticks": 10
+		},
+		{
+			"at": 55,
+			"role": "searchers",
+			"do": "bark",
+			"arg": "event_lost_child_search"
+		},
+		{
+			"at": 80,
+			"role": "parents",
+			"do": "bark",
+			"arg": "event_lost_child_found"
+		}
+	]
+}
