@@ -278,14 +278,27 @@ public final class Barks {
 		values.put("given", folk.resident().givenName);
 		String text = DialogueTemplates.fill(line.text(), values);
 		folk.say(Component.literal(text), null);
+		SAID.put(me, text);
+		if (SAID.size() > 4096) {
+			SAID.clear();
+		}
 		LIMITER.said(me, about, town, line.key(), now);
 		CrowdStats.barked(folk.resident().fullName(), role, category, text);
 		return true;
 	}
 
+	/** The last bark each resident said (their own words, filled in), for the Household page's "last said". */
+	private static final Map<UUID, String> SAID = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** The last bark the resident said since the server started, or null. */
+	public static @Nullable String lastSaid(UUID resident) {
+		return SAID.get(resident);
+	}
+
 	/** Forgets every cooldown (server stop, tests). */
 	public static void clear() {
 		LIMITER.clear();
+		SAID.clear();
 	}
 
 	/** The traits of the folk's resident, through the npc module's personality. */

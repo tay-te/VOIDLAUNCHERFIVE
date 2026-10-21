@@ -30,6 +30,24 @@ public final class TalkPayloads {
 		PayloadTypeRegistry.clientboundPlay().register(Markers.TYPE, Markers.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(Close.TYPE, Close.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(Detail.TYPE, Detail.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(StrangerCard.TYPE, StrangerCard.CODEC);
+	}
+
+	/**
+	 * The stranger card that goes with a stranger's {@link Show} (docs/OVERLAY.md {@code talk.stranger}, F1, 2026-10-21):
+	 * {@code StrangerTalk.card} as JSON, sent right after it for the same entity. Residents get none.
+	 */
+	public record StrangerCard(int entity, String json) implements CustomPacketPayload {
+		public static final Type<StrangerCard> TYPE = new Type<>(Hearth.id("npc/stranger_card"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, StrangerCard> CODEC = StreamCodec.of((buf, p) -> {
+			buf.writeVarInt(p.entity);
+			buf.writeUtf(p.json, 1 << 14);
+		}, buf -> new StrangerCard(buf.readVarInt(), buf.readUtf(1 << 14)));
+
+		@Override
+		public Type<? extends CustomPacketPayload> type() {
+			return TYPE;
+		}
 	}
 
 	/**

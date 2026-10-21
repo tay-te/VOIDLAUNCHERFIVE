@@ -137,7 +137,14 @@ public final class HearthState {
 		root.add("player", me);
 
 		var talk = HearthViews.talk();
-		root.add("talk", talk == null ? JsonNull.INSTANCE : HearthStateJson.talk(talk, HearthViews.talkDetail(), HearthViews.talkStanding(), look));
+		if (talk == null) {
+			root.add("talk", JsonNull.INSTANCE);
+		} else {
+			JsonObject t = HearthStateJson.talk(talk, HearthViews.talkDetail(), HearthViews.talkStanding(), look);
+			var card = HearthViews.strangerCard();
+			t.add("stranger", LivingWorldJson.stranger(card == null ? null : card.json())); // F1, 2026-10-21
+			root.add("talk", t);
+		}
 
 		PlayerQuests pq = QuestStore.get(player);
 		root.add("journal", HearthStateJson.journal(pq, gameTime, from, look));
@@ -159,7 +166,14 @@ public final class HearthState {
 		var pocket = HearthViews.pocket();
 		root.add("pickpocket", pocket == null ? JsonNull.INSTANCE : HearthStateJson.pickpocket(pocket, look));
 		var page = HearthViews.reputation();
-		root.add("reputation", page == null ? JsonNull.INSTANCE : HearthStateJson.reputation(page));
+		if (page == null) {
+			root.add("reputation", JsonNull.INSTANCE);
+		} else {
+			JsonObject rep = HearthStateJson.reputation(page);
+			// F5: retinue ranks per lord and burgher status per town, from the household summary (2026-10-21)
+			LivingWorldJson.placeOnReputation(rep, dev.voidmc.hearth.client.npc.companion.HouseholdClient.raw());
+			root.add("reputation", rep);
+		}
 		root.add("law", HearthStateJson.law(HearthViews.hint(), HearthViews.status(), Util.getMillis() - HearthViews.statusAt(), HearthViews.stealth()));
 		HearthStateSections.addTo(root, mc, true); // the living world's sections (LIVING_WORLD_2.md §10)
 		return root;

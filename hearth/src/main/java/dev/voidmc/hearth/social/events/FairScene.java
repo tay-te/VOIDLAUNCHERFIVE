@@ -28,8 +28,8 @@ import net.minecraft.world.phys.Vec3;
  * juggler and a fire-eater on the stage, and the <b>archery contest</b> — vanilla target blocks at 20, 30 and 40 blocks
  * from the mark; ten arrows each; a hit scores the target's own strength (1–15, by how near the middle). Three folk
  * shoot (their scores the books'); a player enters for a fee at any of the town's folk ("Enter the archery contest")
- * and gets ten marked arrows (and a bow, lent). The table goes to the action bar of those at the range (until the
- * contest line's screen, F6, is designed).
+ * and gets ten marked arrows (and a bow, lent). The table goes to the action bar of those at the range, and to the
+ * contest line under the quest HUD (F6, {@link ContestLines}).
  */
 final class FairScene implements SceneDirector {
 	static final FairScene INSTANCE = new FairScene();
@@ -44,6 +44,8 @@ final class FairScene implements SceneDirector {
 		final String name;
 		int shots;
 		int score;
+		/** What each arrow scored as it landed (0 a miss), for the contest line (F6). */
+		final List<Integer> arrows = new ArrayList<>(10);
 
 		Entrant(String name) {
 			this.name = name;
@@ -134,6 +136,7 @@ final class FairScene implements SceneDirector {
 				Entrant en = entrants(run).get(p.getUUID());
 				if (en != null) {
 					en.score += score;
+					en.arrows.add(score);
 					p.sendSystemMessage(Component.translatable(score > 0 ? "hearth.events.archery.hit" : "hearth.events.archery.miss", score, en.score,
 						en.shots), true);
 					run.iv.best(p.getUUID(), en.name, "archery", en.score);
@@ -219,6 +222,7 @@ final class FairScene implements SceneDirector {
 				}
 			}
 			boolean won = e.getValue().score > bestFolk && e.getValue().score >= run.iv.get("archery");
+			ContestLines.result(p, ContestLines.archery(run, e.getKey(), won ? "won" : "lost"));
 			if (won) {
 				long purse = (long) run.rule.param("purse", 30);
 				Hooks.pay(p, purse);

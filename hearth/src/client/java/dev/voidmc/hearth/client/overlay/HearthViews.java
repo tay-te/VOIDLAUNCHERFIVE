@@ -21,6 +21,7 @@ public final class HearthViews {
 
 	private static TalkPayloads.@Nullable Show talk;
 	private static TalkPayloads.@Nullable Detail talkDetail;
+	private static TalkPayloads.@Nullable StrangerCard strangerCard;
 	private static StandingPayloads.@Nullable Talk talkStanding;
 	private static QuestPayloads.@Nullable Board board;
 	private static LawPayloads.@Nullable Confront confront;
@@ -57,6 +58,7 @@ public final class HearthViews {
 	public static void talk(TalkPayloads.Show show) {
 		if (talk == null || talk.entity() != show.entity()) {
 			talkDetail = null;
+			strangerCard = null;
 		}
 		talk = show;
 		bump();
@@ -69,6 +71,19 @@ public final class HearthViews {
 		}
 	}
 
+	/** A stranger's card for the open conversation (F1, 2026-10-21). */
+	public static void strangerCard(TalkPayloads.StrangerCard card) {
+		if (talk != null && talk.entity() == card.entity()) {
+			strangerCard = card;
+			bump();
+		}
+	}
+
+	/** The open conversation's stranger card, or null (a resident, or none sent). */
+	public static TalkPayloads.@Nullable StrangerCard strangerCard() {
+		return talk != null && strangerCard != null && strangerCard.entity() == talk.entity() ? strangerCard : null;
+	}
+
 	public static void talkStanding(StandingPayloads.Talk payload) {
 		talkStanding = payload;
 		bump();
@@ -79,6 +94,7 @@ public final class HearthViews {
 		if (talk != null && (entity < 0 || talk.entity() == entity)) {
 			talk = null;
 			talkDetail = null;
+			strangerCard = null;
 			bump();
 		}
 	}
@@ -259,6 +275,7 @@ public final class HearthViews {
 	public static void reset() {
 		talk = null;
 		talkDetail = null;
+		strangerCard = null;
 		talkStanding = null;
 		board = null;
 		confront = null;

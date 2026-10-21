@@ -31,6 +31,8 @@ public final class HearthScreens {
 	public static final String PICKPOCKET = "pickpocket";
 	public static final String DICE = "dice";
 	public static final String REPUTATION = "reputation";
+	/** The Companion gear screen (F3, 2026-10-21): {@code state.household.gearFor}. Host-only: Hearth has no Java screen for it. */
+	public static final String GEAR = "gear";
 
 	private static final Map<String, BooleanSupplier> OPENERS = new ConcurrentHashMap<>();
 	private static @Nullable String hosted;
@@ -89,6 +91,15 @@ public final class HearthScreens {
 		set(REPUTATION, opener);
 	}
 
+	/**
+	 * The Companion gear screen (F3): "Let me see your gear" said to a companion (or {@code HearthActions.companionGear}).
+	 * {@code state.household.gearFor} names the companion; {@code close("gear")} on close. Without an opener the
+	 * conversation's answer lists their gear, as before.
+	 */
+	public static void setGearOpener(@Nullable BooleanSupplier opener) {
+		set(GEAR, opener);
+	}
+
 	/** Any of the above by name ({@link #TALK}...); null removes it. Unknown names are ignored. */
 	public static void setOpener(String screen, @Nullable BooleanSupplier opener) {
 		set(screen, opener);
@@ -107,7 +118,7 @@ public final class HearthScreens {
 
 	public static boolean known(String screen) {
 		return switch (screen) {
-			case TALK, MARKET, BANK, BOARD, JOURNAL, CONFRONT, LOCKPICK, PICKPOCKET, DICE, REPUTATION -> true;
+			case TALK, MARKET, BANK, BOARD, JOURNAL, CONFRONT, LOCKPICK, PICKPOCKET, DICE, REPUTATION, GEAR -> true;
 			default -> false;
 		};
 	}
@@ -160,6 +171,34 @@ public final class HearthScreens {
 			took = opener.getAsBoolean();
 		} catch (RuntimeException e) {
 			Hearth.LOG.warn("the {} opener failed; showing Hearth's own screen", screen, e);
+			took = false;
+		}
+		if (!took) {
+			hosted = wasHosted;
+			nativeScreen = wasNative;
+		}
+		HearthViews.bump();
+		return took;
+	}
+
+	/**
+	 * Offers a host-only screen (one Hearth draws no Java screen for, such as {@link #GEAR}) to its opener. Returns whether
+	 * a host took it; {@link #nativeScreen} stays null for it.
+	 */
+	public static boolean offerHosted(String screen) {
+		BooleanSupplier opener = OPENERS.get(screen);
+		if (opener == null) {
+			return false;
+		}
+		String wasHosted = hosted;
+		Screen wasNative = nativeScreen;
+		hosted = screen;
+		nativeScreen = null;
+		boolean took;
+		try {
+			took = opener.getAsBoolean();
+		} catch (RuntimeException e) {
+			Hearth.LOG.warn("the {} opener failed", screen, e);
 			took = false;
 		}
 		if (!took) {

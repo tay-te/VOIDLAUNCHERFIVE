@@ -45,6 +45,15 @@ public final class ServantWork implements NpcService.FolkBehaviour {
 		GREET, LARDER, DOORS, ROUND
 	}
 
+	/**
+	 * What a servant is about now, for the Household page: {@code greet}, {@code larder}, {@code doors}, {@code round}, or
+	 * {@code house} (keeping house as the routine has them).
+	 */
+	public static String duty(UUID resident) {
+		Task t = TASKS.get(resident);
+		return t == null ? "house" : t.kind.name().toLowerCase(java.util.Locale.ROOT);
+	}
+
 	private static final class Task {
 		final Kind kind;
 		final BlockPos at;

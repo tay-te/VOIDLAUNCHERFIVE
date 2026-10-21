@@ -86,6 +86,23 @@ public final class Conversations {
 			ServerPlayNetworking.send(player, new TalkPayloads.Detail(session.folk.getId(), talk.title(), "", List.of(), 0, 0, "", 0, 0, "", "", 0, minute,
 				skills.level(player, dev.voidmc.hearth.api.PlayerSkills.SPEECH), infos));
 		}
+		if (ServerPlayNetworking.canSend(player, TalkPayloads.StrangerCard.TYPE)) {
+			com.google.gson.JsonObject card;
+			try {
+				card = talk.card(player);
+			} catch (RuntimeException e) {
+				dev.voidmc.hearth.Hearth.LOG.warn("stranger card of {} failed", talk.getClass().getName(), e);
+				card = null;
+			}
+			com.google.gson.JsonObject out = card == null ? new com.google.gson.JsonObject() : card;
+			if (!out.has("kind")) {
+				out.addProperty("kind", "traveller");
+			}
+			if (!out.has("hooded")) {
+				out.addProperty("hooded", false);
+			}
+			ServerPlayNetworking.send(player, new TalkPayloads.StrangerCard(session.folk.getId(), out.toString()));
+		}
 	}
 
 	public void open(ServerPlayer player, Folk folk) {

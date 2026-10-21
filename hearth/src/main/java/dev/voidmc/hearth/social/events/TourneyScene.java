@@ -306,6 +306,7 @@ final class TourneyScene implements SceneDirector {
 			if (r[0] >= 2 && s != null) {
 				prize(run, s, p);
 			}
+			ContestLines.result(p, ContestLines.melee(run, p.getUUID(), r[0] >= 2 ? "won" : "lost"));
 		}
 	}
 

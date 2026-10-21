@@ -185,4 +185,22 @@ public final class CompanionState {
 	public void setLastRemark(long tick) {
 		this.tag.putLong("remark", tick);
 	}
+
+	/** The last thing they said to the player (a remark on the road, an answer to an order), or "" (the Household page). */
+	public String lastLine() {
+		return this.tag.getStringOr("last_line", "");
+	}
+
+	/** Where they said it: the town's name, or "" on the road. */
+	public String lastWhere() {
+		return this.tag.getStringOr("last_where", "");
+	}
+
+	public void setLastLine(String line, String where) {
+		if (line == null || line.isEmpty()) {
+			return;
+		}
+		this.tag.putString("last_line", line.length() > 240 ? line.substring(0, 240) : line);
+		this.tag.putString("last_where", where == null ? "" : where);
+	}
 }

@@ -58,6 +58,7 @@ public final class TownEvents {
 		EventBook.touch();
 		HearthServices.setScenes(Scenes.SERVICE);
 		DialogueProvider.register(new EventDialogue());
+		EventPayloads.register();
 		ResourceLoader.get(PackType.SERVER_DATA).registerReloadListener(Hearth.id("events/rules"), new SimpleReloadListener<EventRules.Loaded>() {
 			@Override
 			protected EventRules.Loaded prepare(PreparableReloadListener.SharedState state) {
@@ -84,6 +85,7 @@ public final class TownEvents {
 			EventDirector.clear();
 			FactsReader.clear();
 			Arrivals.clear();
+			ContestLines.clear();
 		});
 		ServerTickEvents.END_SERVER_TICK.register(TownEvents::tick);
 
@@ -147,6 +149,7 @@ public final class TownEvents {
 			EventDirector.tick(server);
 			FireLeash.tick(server);
 			Arrivals.tick(server);
+			ContestLines.tick(server);
 			if (server.overworld().getGameTime() % 1200 == 31) {
 				for (var level : server.getAllLevels()) {
 					HearthWorld w = HearthWorld.of(level);

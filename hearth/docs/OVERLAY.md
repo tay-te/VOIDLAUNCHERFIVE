@@ -324,7 +324,7 @@ type Law = {
 };
 ```
 
-Not sent: per-town folk opinions and the deed log on the reputation page.
+Not sent: per-town folk opinions and the deed log on the reputation page. The retinue and burgher cards (F5) are in "Living-world screens" below.
 
 ---
 
@@ -414,3 +414,240 @@ Additions only; nothing a partner mod copies changed signature.
   for left and 3 for right, not GLFW's 0 and 1): the lockpick hold-to-turn, the dice, the market's right-click haggle, the
   pickpocket's right-click stop, the bank, the board and the journal. A host forwarding a click passes the event as it came;
   the extra button-0 copy the Hub sends the lockpick is now ignored.
+
+---
+
+## Living-world screens (2026-10-21)
+
+The user's picks (docs/HUB_UI.md "Living-world screens: decisions"; Figma page 295:2, section "Hearth - Living world
+screens (explore)"): F1 conversation with a stranger, F2 Household B (the roster), F3 companion gear, F4 People A (the
+list with story), F5 retinue ranks and burgher status on the reputation page, F6 the contest line and F7 the event line
+under the arrival banner. F6 and F7 stay Hearth-native HUDs (drawn by Hearth like the quest HUD, in the Hub look); their
+facts are state too. All additions: earlier keys and calls are unchanged. Text is in the server's language where the
+server builds it (household, people, stranger, contest, arrival), else the client's.
+
+### New top-level keys
+
+```ts
+type HearthState = { /* ...as above, plus: */
+  household: null | Household;               // F2/F3/F5: the player's companions, houses, retinue, burgher towns (null before the server sent any)
+  people: null | People;                     // F4: the named characters the player has met
+  personTrack: null | PersonTrack;           // F4's "Waypoint": the character followed
+  contest: null | ContestLine;               // F6: the contest line under the quest HUD
+  arrival: null | Arrival;                   // F7: today's events in the town the player is in
+};
+type ScreenName = /* ...as above, plus */ "gear";
+```
+
+`talk` gains `stranger` (F1) and `reputation` gains `retinue` and `towns[].burgher` (F5), below.
+
+### Household (`household`) — F2 "Household B, the roster", F3 "Companion gear"
+
+From the server's `npc/place_summary` (sent at login, on every change, once a minute while there is any of it), with
+coin, faces and words added on the client. Sections: "with you" is `companions`, then each of `houses` with its
+servants. Lane B4's keys are kept; the ones marked + are new.
+
+```ts
+type Household = {
+  companions: Companion[];
+  companionsMax: number;                     // companions a player may have
+  houses: House[];
+  retinue: RetinueCard[];                    // as on reputation.retinue (below), without the rights' words
+  burgherOf: { town: string; since: number /* sim day sworn */; settlementId: number; today: number; dues: number;
+               rights: string[]; council: Council }[];
+  inService: number;                         // + companions and servants together ("5 in your service")
+  dailyWages: Coins;                         // + every wage a day together (the roster's pill)
+  hands: Hand[];                             // + the hotbar (slots 0-8) and the off hand (slot 40), for "Take this"
+  gearFor: string | null;                    // + the companion whose gear screen (F3) is open: their id
+};
+type Companion = {
+  id: string /* resident uuid: what the companion calls take */; name: string; job: string; home: string /* their town */;
+  settlementId: number;                      // +
+  portrait: string | null; portraitKey: string;   // + from their look (the server sends `look`, 16 hex digits)
+  traits: string[]; traitNames: Trait[];     // + ("brave, plain-spoken")
+  wage: number /* bits a day */; wageText: string; wageCoins: Coins /* + */;
+  unpaidDays: number; unpaidLimit: number /* + unpaid this long, they go home */;
+  since: number; today: number; paidDay: number;  // + sim days of their home town: hired, now, paid through
+  servedDays: number; paidDays: number;      // + "Paid 3 of 3 days"
+  orders: "follow" | "distance" | "wait"; ordersText: string /* + "following" */; fight: boolean /* fight what I fight, else hold back */;
+  waitAt: Pos | null;                        // + where they were told to wait
+  loyalty: number /* −100…100 */; leaveBelow: number /* + */; loyaltyStep: 0 | 1 | 2 | 3 | 4 /* + the bar's fifths */;
+  loyaltyWord: string;                       // + "Glad of the work"
+  opinion: number; opinionWord: string;      // + what they think of the player
+  embodied: boolean;                         // standing in the world now
+  pos: Pos | null;                           // + where (in the player's dimension), for "Waypoint here"
+  where: string;                             // + the town they stand in, "" on the road
+  near: boolean;                             // + within talking range: "wait", "return", "lend" and "take" need it
+  lastLine: string; lastWhere: string;       // + the last thing they said to the player and the town it was said in ("" the road)
+  gear: { slot: string; item: string /* its name */ }[];   // B4's: the pieces given, by slot
+  slots: { slot: "head" | "chest" | "legs" | "feet" | "mainhand" | "offhand"; item: string /* id */; name: string; count: number;
+           empty: boolean }[];               // + all six, in that order (F3's worn and held)
+  armor: number;                             // + their armour points as worn (−1 when not embodied)
+  weapon: string;                            // + the main hand's name, ""
+};
+type House = {
+  settlementId: number; plot: number;        // +
+  town: string; building: string;            // "longhouse"
+  larder: number; larderSize: number; larderShort: boolean;   // "11/16"
+  servantsMax: number;                       // +
+  servants: { id: string /* + */; name: string; job: string /* + */; portrait: string | null; portraitKey: string /* + */;
+              wage: number; wageText: string; wageCoins: Coins /* + */; unpaidDays: number; unpaidLimit: number /* + */;
+              duty: "house" | "larder" | "doors" | "round" | "greet"; dutyText: string;   // + what they are about now ("keeps house")
+              since: number; today: number; paidDay: number; servedDays: number; paidDays: number /* + */ }[];
+};
+type Hand = { slot: number /* 0-8, 40 */; item: string; name: string; count: number; empty: boolean;
+              gives: "" | "head" | "chest" | "legs" | "feet" | "mainhand" | "offhand" };   // where "Take this" puts it ("" not taken)
+```
+
+Not sent: a companion's pack (companions keep none yet: F3's "her pack" stays empty) and the deed behind their
+loyalty ("Liked: you put out the fire"). A servant takes no orders from the page (they keep the house as the routine has
+them); their wages come out of the owner's bank account each day.
+
+The gear screen (F3): "Let me see your gear" said to a companion, or `companionGear(id)`, makes the server send
+`npc/open_gear`; Hearth sets `household.gearFor` and calls the `gear` opener (host-only: there is no Java screen, and
+without an opener the conversation's answer lists the gear, as before). `close("gear")` clears `gearFor`. What a piece in
+hand would give is `hands[].gives`; the piece it replaces is the companion's `slots[]` entry for that slot.
+
+### People (`people`, `personTrack`) — F4 "People A, list and story"
+
+```ts
+type People = {
+  rows: Person[];                            // the order the server sends: by town
+  met: number; towns: number; moved: number; // the footer: "6 met · 3 towns · 2 stories you moved"
+};
+type Person = {
+  name: string; given: string; role: string /* "the drunk smith" */; roleId: string; town: string;
+  thread: string; beat: string; story: string /* where it stands now */; ended: boolean;
+  opinion: number; opinionWord: string; yours: boolean /* the player moved it last */;
+  // from here, 2026-10-21 (null id: an older server sent no detail)
+  id: string | null;                         // resident uuid: what trackPerson takes
+  settlementId: number; portrait: string | null; portraitKey: string;
+  job: string; place: string /* where they work, "" */; home: string; traits: Trait[];
+  since: number; today: number;              // sim days: the beat began, now
+  beats: { id: string; text: string; now: boolean; end: boolean }[];    // the story as it went, the one now last ("BEAT 4 OF 6": index + 1)
+  chose: null | { id: string; label: string; cost: number; costCoins: Coins | null; by: string /* the player's name */; yours: boolean };
+  choices: { id: string; label: string; cost: number; costCoins: Coins | null; check: "" | "persuade" | "intimidate" | "flatter";
+             quest: boolean; to: string }[];  // what may be done now (in conversation with them)
+  next: { beat: string; text: string; end: boolean; via: "choice" | "time"; choice: string; afterDays: number /* −1 */ }[];   // "where it may go"
+  relations: { id: string; name: string; bond: string /* apprentice, sweetheart, rival, feud... */; partner: boolean /* the one the story is about */;
+               opinion: number /* of the player */ }[];
+  find: { days: "" | "rest" | "work"; from: number; to: number /* minutes */; fromText: string; toText: string; what: string; text: string }[];
+  following: boolean;                        // the waypoint is on them
+};
+type PersonTrack = { id: string; name: string; town: string;
+                     placed: boolean;        // standing in the world (to the nearest 8 blocks), else where their day has them (work, home)
+                     pos: Pos; distance: number; bearing: number | null };
+```
+
+Following a character puts an Atlas marker on them (`hearth:person:<uuid>`, quests layer); it is not the tracked
+marker, so a tracked quest or poster stays tracked. The server checks once a second and sends only changes; a character
+who dies or leaves ends it. Not saved.
+
+### The stranger (`talk.stranger`) — F1
+
+```ts
+type Talk = { /* ...as above, plus */ stranger: null | Stranger };   // null: a resident
+type Stranger = {
+  kind: string;                              // bandit | pedlar | pilgrim | messenger | carter | patrol | guard | trader | market | settler | traveller
+  kindName: string; hooded: boolean;         // hooded: draw the hood, no face, no name ("a hooded man")
+  // bandits only:
+  state?: "camp" | "wait" | "demand" | "fight" | "flee" | "let_by"; demand?: number; demandCoins?: Coins; share?: number /* 0.25: "a quarter of what you carry" */;
+  carried?: number; carriedCoins?: Coins;
+  band?: number; inSight?: number; bows?: number; armed?: string /* the leader's weapon */;
+  armour?: number; bladeDrawn?: boolean; menace?: number /* 0-100, how fearsome the player's gear is */;
+  outcomes?: { paid; talked; talkFailed; scared; threatFailed: string };   // what each answer gets ("...Fine. Go on.")
+  // travellers only:
+  resident?: boolean; bound?: string; partySize?: number;
+};
+```
+
+The name stays `talk.resident.name` ("a hooded man", "a pedlar from Ashbrook"), the trade `talk.resident.job`. The
+answers are ordinary options (`choose(id)`): a bandit's `pay` (kind bribe, `cost` the demand), `talk` (persuade, odds),
+`threaten` (intimidate, odds), `fight`, `run` (leave). Esc does nothing while they wait: answer.
+
+### Reputation (`reputation.retinue`, `reputation.towns[].burgher`) — F5
+
+```ts
+type Reputation = { /* ...as above, plus */
+  retinue: RetinueCard[];                    // a card per lord served (empty: none)
+  towns: { /* ...as above, plus */ burgher: null | Burgher }[];
+};
+type RetinueCard = {
+  seat: string; seatId: number; lord: string /* "" while the seat is empty */;
+  rank: string /* "sworn" */; rankId: string; rankName: string; next: string /* the next rank's name, "" at the top */;
+  ranks: { id: string; name: string; commissions: number /* it asks */; reached: boolean; current: boolean }[];   // petitioner → knight
+  commissions: number /* done */; needed: number /* the next rank asks in all */;
+  standing: number; knightStanding: number; feat: boolean; knighthood: boolean;
+  why: "ok" | "top" | "pledge" | "commissions" | "title" | "standing" | "feat" | "no_knighthood"; whyText: string;   // what the next rank still wants
+  demoted: boolean /* an heir keeps them one lower until they pledge again */; since: number;
+  rights: { id: "lodging" | "toll_free" | "horse" | "colours" | "house"; text: string }[];   // held now
+};
+type Burgher = {
+  town: string; settlementId: number; since: number; today: number; swornDays: number; dues: number /* 0.05 */;
+  rights: { id: "dues" | "arms" | "feast" | "mass" | "council"; text: string }[];
+  council: { sitting: boolean; lastSitting: number /* −1 */; dueFrom: number /* the day it may sit again (the first rest day from then) */;
+             table: { plot: number; name: string; votes: number; yours: boolean }[]; lastChoice: string };
+};
+```
+
+Voting stays in conversation at the reeve's (the council sits on a rest day).
+
+### HUD lines (`contest`, `arrival`) — F6, F7
+
+```ts
+type ContestLine = {
+  kind: "archery" | "melee"; event: string /* fair | tournament */; eventName: string; town: string;
+  state: "open" | "won" | "lost";            // a result is held 6 s, then the line goes (null)
+  purse: number; purseCoins: Coins;
+  // archery
+  score?: number; shots?: number; arrows?: 10; hits?: number[] /* each arrow as it landed, 0 a miss */;
+  table?: { place: number; name: string; score: number; you: boolean }[];   // the folk archers' as far as they have got
+  // melee
+  won?: number; lost?: number; round?: number; rounds?: 3; fighting?: boolean; between?: boolean; yieldAt?: 0.25;
+};
+type Arrival = {
+  settlementId: number; town: string; showing: boolean /* the banner is up */;
+  events: { kind: string; text: string /* "A wedding in the chapel" */; when: string /* "from 12:00", "now" */;
+            tone: "join" | "trouble" | "witness"; venue: string; start: string; begun: boolean }[];   // at most two, a kind once
+};
+```
+
+The contest line is sent while the player has entered and is within 40 blocks of the range or the ring, and once with
+the result; it stacks under the quest panel (or takes its place) and `QuestHudHook.rect()` now covers both, so Atlas
+keeps clear. The arrival line comes once a town a day (with no Hearth client on the other end, the old chat line).
+
+### Actions (2026-10-21)
+
+| Call | Effect |
+|---|---|
+| `companionOrder(id, verb)` | an order from the Household page, as if said aloud: `follow`, `wait` (where they stand; near), `distance`, `fight`, `hold`, `home` (dismissed: they go home, their gear comes back), `return` (all the gear back; near). Their answer becomes `lastLine` |
+| `companionGear(id)` | opens the gear screen (F3) through the `gear` opener |
+| `companionLend(id, slot)` | "Take this": one of the stack in inventory slot `slot` (0-8, 40) to the slot it fits; what it replaces comes back (near) |
+| `companionTake(id, slot)` | takes one piece back (`head`...`offhand`; near) |
+| `refreshHousehold()` | asks for the household summary again |
+| `trackPerson(id)` · `untrackPerson()` | the People page's waypoint (`people.rows[].id`); the same one again stops |
+
+`id` is `household.companions[].id`; a call for anyone else sends nothing, and the server checks that the companion is the
+player's and, for the near ones, within talking range (10 blocks). The stranger's answers are `choose(id)`.
+
+### Openers (2026-10-21)
+
+| Screen | Event | Note |
+|---|---|---|
+| `gear` | "Let me see your gear" to a companion, or `companionGear(id)` | `state.household.gearFor`; `setGearOpener` or `setOpener("gear", ...)`; host-only (`HearthScreens.offerHosted`), `nativeScreen()` null; `close("gear")` on close |
+
+A stranger's conversation opens through the `talk` opener as before (`talk.stranger` set). The Household and People pages
+are segments of the Hub's Quests page, opened by the Hub: no event opens them.
+
+### The server side (2026-10-21), additions only
+
+- `npc/companion/PlaceSummary`: more keys (above); `OpenGear` (`hearth:npc/open_gear`, S2C) and `Action`
+  (`hearth:npc/place_action`, C2S: verb, resident, arg). `CompanionDialogue.order/lend/takeBack` (the page's calls, the same
+  code as the conversation's); `CompanionState.lastLine/lastWhere`; `npc/crowd/Barks.lastSaid`;
+  `economy/household/ServantWork.duty`; `quest/commission/Commissions.why/lordName` (and `cfg()` public).
+- `social/lives/LivesPayloads.Row.detail` (a 10th component; the 9-argument constructor remains), `Track`
+  (`hearth:lives/track`, C2S) and `Followed` (`hearth:lives/followed`, S2C); `social/lives/PeopleDetail`.
+- `npc/travel/StrangerTalk.card` (a default method: null), filled by the bandits and travellers;
+  `npc/talk/TalkPayloads.StrangerCard` (`hearth:npc/stranger_card`), sent after every stranger's `Show`.
+- `social/events/EventPayloads.ContestLine` (`hearth:events/contest_line`) and `ArrivalEvents`
+  (`hearth:events/arrival_events`); `social/events/ContestLines`; `Arrivals.lines`. Lang: `lw_screens.json`.

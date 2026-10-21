@@ -16,10 +16,20 @@ public final class QuestHudHook {
 	private QuestHudHook() {
 	}
 
-	/** The room the quest panel takes now, or null when no quest is tracked or the HUD is hidden. Client thread. */
+	/**
+	 * The room the quest panel takes now, with the contest line under it (F6, 2026-10-21), or null when neither shows (no
+	 * quest tracked and no contest, or the HUD hidden). Client thread.
+	 */
 	public static @Nullable Rect rect() {
-		QuestHud.Layout l = QuestHud.layout(net.minecraft.client.Minecraft.getInstance());
-		return l == null ? null : l.rect();
+		net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+		QuestHud.Layout l = QuestHud.layout(mc);
+		Rect quest = l == null ? null : l.rect();
+		Rect contest = ContestHud.rect(mc);
+		if (quest == null || contest == null) {
+			return quest != null ? quest : contest;
+		}
+		return new Rect(Math.min(quest.x0(), contest.x0()), Math.min(quest.y0(), contest.y0()), Math.max(quest.x1(), contest.x1()),
+			Math.max(quest.y1(), contest.y1()));
 	}
 
 	/** Set while a map tracks the quest (compass, beam): the panel then leaves out its own mini-compass. */

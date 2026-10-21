@@ -27,6 +27,15 @@ public interface StrangerTalk {
 	/** The options now. */
 	List<Option> options(ServerPlayer player);
 
+	/**
+	 * The stranger card (docs/LIVING_WORLD_2.md §10 F1, docs/OVERLAY.md {@code talk.stranger}, 2026-10-21): what the
+	 * richer conversation screen draws in place of a resident's card: {@code kind}, {@code hooded}, a band's size and
+	 * demand, and so on. Null for the plain card (a description, their trade, where they come from).
+	 */
+	default com.google.gson.@Nullable JsonObject card(ServerPlayer player) {
+		return null;
+	}
+
 	/** The player picked an option: the stranger's answer, or null to end the conversation (the screen closes). */
 	@Nullable Component choose(ServerPlayer player, String option);
 

@@ -66,6 +66,7 @@ public final class LivesFolk {
 		ScheduleOverrides.register(NotableSchedule.INSTANCE);
 		DialogueProvider.register(new LivesDialogue());
 		PayloadTypeRegistry.clientboundPlay().register(LivesPayloads.People.TYPE, LivesPayloads.People.CODEC);
+		PeopleDetail.register();
 		registerBehaviours();
 		ServerLifecycleEvents.SERVER_STARTING.register(s -> registerBehaviours());
 		ServerLifecycleEvents.SERVER_STOPPED.register(s -> {
@@ -177,8 +178,15 @@ public final class LivesFolk {
 					continue;
 				}
 				LivesBook.Beat beat = LivesView.beat(n);
+				String detail;
+				try {
+					detail = PeopleDetail.of(player, s, r, n).toString();
+				} catch (RuntimeException e) {
+					Hearth.LOG.warn("people detail for {} failed", r.fullName(), e);
+					detail = "";
+				}
 				rows.add(new LivesPayloads.Row(r.fullName(), r.givenName, n.role, s.name(), n.thread, n.beat, beat != null && beat.end(),
-					Hooks.opinion(r.id, player), player.getUUID().equals(n.by)));
+					Hooks.opinion(r.id, player), player.getUUID().equals(n.by), detail));
 				if (rows.size() >= 64) {
 					return rows;
 				}

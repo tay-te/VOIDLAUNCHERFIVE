@@ -240,11 +240,11 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 		}
 		Mob me = folk.entity();
 		String category;
+		HearthWorld w = HearthWorld.of(level);
+		Settlement here = w == null ? null : w.settlementAt(me.blockPosition());
 		if (me.getHealth() < me.getMaxHealth() * 0.5F) {
 			category = "companion_hurt";
 		} else {
-			HearthWorld w = HearthWorld.of(level);
-			Settlement here = w == null ? null : w.settlementAt(me.blockPosition());
 			if (here == null) {
 				category = level.isDarkOutside() ? "companion_night" : "companion_road";
 			} else if (here.id() == folk.settlement().id()) {
@@ -255,6 +255,7 @@ public final class CompanionBehaviour implements NpcService.FolkBehaviour {
 		}
 		if (CompanionBarks.say(folk, category, player)) {
 			st.setLastRemark(now);
+			st.setLastLine(dev.voidmc.hearth.npc.crowd.Barks.lastSaid(folk.resident().id), here == null ? "" : here.name());
 			folk.settlement().markDirty();
 		}
 	}

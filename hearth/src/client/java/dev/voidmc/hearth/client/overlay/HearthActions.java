@@ -124,6 +124,7 @@ public final class HearthActions {
 				}
 			}
 			case HearthScreens.BOARD -> HearthViews.board(null);
+			case HearthScreens.GEAR -> dev.voidmc.hearth.client.npc.companion.HouseholdClient.gearClosed();
 			default -> {
 			}
 		}
@@ -414,5 +415,71 @@ public final class HearthActions {
 	/** How conversations are drawn: {@code card} (the portrait card, default) or {@code cinematic} (the bar). Saved. */
 	public static boolean setConversationStyle(String style) {
 		return HearthClientOptions.setConversationStyle(style);
+	}
+
+	// ---------------------------------------------------------------- the living-world screens (2026-10-21)
+
+	private static boolean place(String verb, String resident, String arg) {
+		if (!ActionRules.companionListed(dev.voidmc.hearth.client.npc.companion.HouseholdClient.raw(), resident)) {
+			return false;
+		}
+		return send(new dev.voidmc.hearth.npc.companion.PlaceSummary.Action(verb, resident.trim(), arg));
+	}
+
+	/**
+	 * Gives a companion an order from the Household page, the same as saying it aloud ({@code household.companions[].id}):
+	 * {@code follow}, {@code wait} (where they stand; they must be near), {@code distance}, {@code fight}, {@code hold},
+	 * {@code home} (dismissed: they go home, their gear comes back) or {@code return} (give all the gear back; near).
+	 */
+	public static boolean companionOrder(String companion, String verb) {
+		return verb != null && ActionRules.ORDERS.contains(verb) && place(verb, companion, "");
+	}
+
+	/** Opens the Companion gear screen for a companion (the {@code gear} opener runs when the server answers). */
+	public static boolean companionGear(String companion) {
+		return place("gear", companion, "");
+	}
+
+	/**
+	 * "Take this": hands the companion one of the stack in inventory slot {@code slot} (0–8 the hotbar, 40 the off hand;
+	 * {@code household.hands[]}); it goes to the slot it fits and what it replaces comes back. They must stand near.
+	 */
+	public static boolean companionLend(String companion, int slot) {
+		LocalPlayer p = player();
+		if (p == null || !ActionRules.handSlot(slot) || p.getInventory().getItem(slot).isEmpty()) {
+			return false;
+		}
+		return place("lend", companion, Integer.toString(slot));
+	}
+
+	/** Takes one piece back ({@code head}, {@code chest}, {@code legs}, {@code feet}, {@code mainhand}, {@code offhand}). */
+	public static boolean companionTake(String companion, String slot) {
+		return slot != null && ActionRules.GEAR_SLOTS.contains(slot) && place("take", companion, slot);
+	}
+
+	/** Asks the server for the household summary again (it also comes by itself on every change and once a minute). */
+	public static boolean refreshHousehold() {
+		return send(new dev.voidmc.hearth.npc.companion.PlaceSummary.Action("refresh", "", ""));
+	}
+
+	/**
+	 * The People page's "Waypoint": follows a named character the player has met ({@code people.rows[].id});
+	 * {@code state.personTrack} and the map follow them. The same one again stops.
+	 */
+	public static boolean trackPerson(String resident) {
+		if (!ActionRules.personListed(peopleNow(), resident)) {
+			return false;
+		}
+		return send(new dev.voidmc.hearth.social.lives.LivesPayloads.Track(resident.trim()));
+	}
+
+	/** Stops following ({@code state.personTrack} goes null). */
+	public static boolean untrackPerson() {
+		return dev.voidmc.hearth.client.social.lives.PeopleSection.followed() != null
+			&& send(new dev.voidmc.hearth.social.lives.LivesPayloads.Track(""));
+	}
+
+	private static dev.voidmc.hearth.social.lives.LivesPayloads.@Nullable People peopleNow() {
+		return dev.voidmc.hearth.client.social.lives.PeopleSection.people();
 	}
 }
