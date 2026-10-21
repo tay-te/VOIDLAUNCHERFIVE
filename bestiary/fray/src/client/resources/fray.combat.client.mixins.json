@@ -4,7 +4,9 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"MinecraftCombatMixin",
-		"MouseHandlerCombatMixin"
+		"MouseHandlerCombatMixin",
+		"NameTagMixin",
+		"AttackStrengthMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

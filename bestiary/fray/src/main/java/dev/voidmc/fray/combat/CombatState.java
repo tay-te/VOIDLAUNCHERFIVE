@@ -61,8 +61,9 @@ public final class CombatState {
 		if (s == null) {
 			s = new CombatState(e);
 			e.setAttached(TYPE, s);
-			Statuses.track(s);
 		}
+		// Back into the ticking set whenever it is touched again (a creature drops out once idle).
+		Statuses.track(s);
 		return s;
 	}
 

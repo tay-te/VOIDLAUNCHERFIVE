@@ -474,19 +474,23 @@ public class CombatShowcase implements FabricClientGameTest {
 	private static void hud(Stage st) {
 		Stage.log("--- hud");
 		// The HUD's screenshots: the player's own first-person swing clips (the animation lane's) stay out of the frame.
-		st.c.runOnClient(mc -> dev.voidmc.fray.client.ClientMotion.enabled = false);
+		st.c.runOnClient(mc -> dev.voidmc.fray.client.combat.CombatInput.predictClips = false);
 		st.clearCreatures();
 		ready(st, true);
 		st.s.runCommand("time set 1800");
 		st.s.runOnServer(server -> {
 			ServerPlayer p = sp(server);
 			p.getAttribute(Attributes.MAX_HEALTH).setBaseValue(40);
+			p.getAttribute(Attributes.MAX_ABSORPTION).setBaseValue(4);
 			p.setHealth(31);
 			p.setAbsorptionAmount(4);
 			p.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.CHAINMAIL_CHESTPLATE));
 		});
-		st.s.runCommand("effect give @p strength 130 1 true");
-		st.s.runCommand("effect give @p regeneration 24 0 true");
+		// Effects without particles (they fill a first-person screenshot) but with their icons.
+		st.s.runOnServer(server -> {
+			sp(server).addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.STRENGTH, 2600, 1, false, false, true));
+			sp(server).addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.REGENERATION, 480, 0, false, false, true));
+		});
 		// H-1: an elite with affixes, locked; two hurt commons with nameplates; holding a heavy (the cost ghost); Art ready.
 		int elite = zombie(st, 0.5, -3.0, 60);
 		int left = zombie(st, -3.5, -4.5, 20);
@@ -509,6 +513,8 @@ public class CombatShowcase implements FabricClientGameTest {
 		st.c.waitTicks(6);
 		st.c.getInput().holdKey(o -> o.keyAttack);
 		st.c.waitTicks(9);
+		Stage.log("holding attack: client held " + st.c.computeOnClient(mc -> dev.voidmc.fray.client.combat.CombatInput.attackHeld) + ", ghost "
+			+ st.c.computeOnClient(mc -> dev.voidmc.fray.client.combat.CombatInput.ghostCost(mc)));
 		shot(st, "H1_elite_lock_ghost");
 		Stage.expect(st.c.computeOnClient(mc -> FrayHud.clusterShown), "the player cluster is drawn (survival)");
 		st.c.getInput().releaseKey(o -> o.keyAttack);
@@ -606,7 +612,7 @@ public class CombatShowcase implements FabricClientGameTest {
 		st.clearCreatures();
 		ready(st, false);
 		st.s.runCommand("effect clear @p");
-		int t8 = zombie(st, 0.5, -1.4, 200);
+		int t8 = zombie(st, 0.5, -2.4, 200);
 		st.c.waitTicks(6);
 		st.c.runOnClient(mc -> FrayClientOptions.get().damageNumbers = true);
 		attack(st, 1);
@@ -626,7 +632,7 @@ public class CombatShowcase implements FabricClientGameTest {
 			p.setHealth(20);
 			p.setItemSlot(EquipmentSlot.CHEST, ItemStack.EMPTY);
 		});
-		st.c.runOnClient(mc -> dev.voidmc.fray.client.ClientMotion.enabled = true);
+		st.c.runOnClient(mc -> dev.voidmc.fray.client.combat.CombatInput.predictClips = true);
 		st.clearCreatures();
 	}
 

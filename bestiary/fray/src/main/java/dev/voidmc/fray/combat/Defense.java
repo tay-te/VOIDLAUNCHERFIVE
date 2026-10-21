@@ -50,6 +50,12 @@ public final class Defense implements DefenseHooks {
 	public static boolean replaying;
 	/** Override for tests: a fixed grace in ticks (-1: from the ping). */
 	public static int graceOverride = -1;
+	/** The rewind cap (ANIM_EVENTS.md §4: 250 ms), and against players 100 ms. */
+	public static final int CAP_TICKS = 5, PVP_CAP_TICKS = 2;
+	/** A round trip below this is a local game: nothing is held. */
+	public static final int LOCAL_RTT_MS = 20;
+	/** Set while the pipeline replays a timeline hit whose window Fray Motion already judged (its outcome). */
+	private GuardOutcome forced;
 
 	private Defense() {
 	}
@@ -59,8 +65,69 @@ public final class Defense implements DefenseHooks {
 		if (graceOverride >= 0) {
 			return graceOverride;
 		}
-		int ping = player.connection == null ? 0 : player.connection.latency();
-		return Math.min(3, Math.round(ping / 2F / 50F));
+		return grace(rtt(player), CAP_TICKS);
+	}
+
+	public static int rtt(ServerPlayer p) {
+		return p.connection == null ? 0 : p.connection.latency();
+	}
+
+	/** The defender's grace (ANIM_EVENTS.md §4): the round trip in ticks + 1, at most {@code cap}; 0 in a local game. */
+	public static int grace(int rttMs, int cap) {
+		if (cap <= 0 || rttMs < LOCAL_RTT_MS) {
+			return 0;
+		}
+		return Math.min(cap, (rttMs + 49) / 50 + 1);
+	}
+
+	/**
+	 * The tick the server accepts for an action received at {@code receipt} and stamped {@code stamp} by the client: no
+	 * earlier than the grace allows, never in the future, never before the player's previous stamp.
+	 */
+	public static long clampStamp(long stamp, long receipt, int rttMs, long lastStamp) {
+		long earliest = receipt - grace(rttMs, CAP_TICKS);
+		long s = Math.max(earliest, Math.min(stamp, receipt));
+		if (lastStamp != Long.MIN_VALUE) {
+			s = Math.max(s, Math.min(lastStamp, receipt));
+		}
+		return s;
+	}
+
+	/**
+	 * A creature's timeline hit, with the window the defender's action covered (Fray Motion judged it on the defender's
+	 * clock): mapped to a guard outcome by the tell rules, then the pipeline. A player's own clip volumes are ignored:
+	 * the player's melee is the combat side's arc sweep.
+	 */
+	public void timelineHit(LivingEntity attacker, LivingEntity target, net.minecraft.resources.Identifier clip, @Nullable String tell, float damage, String window) {
+		if (attacker instanceof Player || !target.isAlive() || !(target.level() instanceof ServerLevel)) {
+			return;
+		}
+		dev.voidmc.fray.api.TellColour colour = dev.voidmc.fray.api.TellColour.byId(tell == null ? "white" : tell);
+		int flags = HitFlags.MELEE | colour.hitFlags();
+		float dmg = damage > 0 ? damage : (float) (attacker.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
+			? attacker.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) : 1);
+		HitContext hit = new HitContext(attacker, attacker.getMainHandItem(), clip, Pipeline.INSTANCE.specFor(attacker.getMainHandItem(), dmg, 1), flags, 0, null);
+		if (!(target instanceof ServerPlayer p)) {
+			Pipeline.INSTANCE.deal(target, hit);
+			return;
+		}
+		PlayerCombat pc = CombatState.of(p).player;
+		boolean unblockable = HitFlags.has(flags, HitFlags.UNBLOCKABLE);
+		boolean heavy = HitFlags.has(flags, HitFlags.HEAVY_TELL);
+		GuardOutcome g = switch (window) {
+			case "PERFECT" -> pc != null && !pc.slipped ? GuardOutcome.SLIP : GuardOutcome.DODGED;
+			case "IFRAMES" -> GuardOutcome.DODGED;
+			case "PARRY" -> unblockable ? GuardOutcome.NONE
+				: heavy && pc != null && !pc.guard.shield() ? (pc.guardHeld ? GuardOutcome.BLOCKED : GuardOutcome.NONE) : GuardOutcome.PARRIED;
+			case "BLOCK" -> unblockable ? GuardOutcome.NONE : GuardOutcome.BLOCKED;
+			default -> GuardOutcome.NONE;
+		};
+		this.forced = g;
+		try {
+			Pipeline.INSTANCE.run(p, hit, true);
+		} finally {
+			this.forced = null;
+		}
 	}
 
 	@Override
@@ -222,7 +289,7 @@ public final class Defense implements DefenseHooks {
 
 	private GuardOutcome guardAt(PlayerCombat pc, @Nullable LivingEntity attacker, @Nullable Entity direct, int flags, Map<DamageKind, Float> amounts, long at,
 		long now) {
-		GuardOutcome g = this.resolve(pc, attacker, direct, flags, at);
+		GuardOutcome g = this.forced != null ? this.forced : this.resolve(pc, attacker, direct, flags, at);
 		ServerPlayer p = pc.player;
 		switch (g) {
 			case SLIP -> {

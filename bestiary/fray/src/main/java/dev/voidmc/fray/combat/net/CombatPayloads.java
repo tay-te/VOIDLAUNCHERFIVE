@@ -72,14 +72,15 @@ public final class CombatPayloads {
 	}
 
 	/** An entity started an action (trackers; the actor predicts its own). */
-	public record ActionPlay(int entity, byte kind, long startTick, float speed) implements CustomPacketPayload {
+	public record ActionPlay(int entity, byte kind, byte variant, long startTick, float speed) implements CustomPacketPayload {
 		public static final Type<ActionPlay> TYPE = new Type<>(Fray.id("combat/action"));
 		public static final StreamCodec<FriendlyByteBuf, ActionPlay> STREAM_CODEC = StreamCodec.of((b, p) -> {
 			b.writeVarInt(p.entity);
 			b.writeByte(p.kind);
+			b.writeByte(p.variant);
 			b.writeVarLong(p.startTick);
 			b.writeFloat(p.speed);
-		}, b -> new ActionPlay(b.readVarInt(), b.readByte(), b.readVarLong(), b.readFloat()));
+		}, b -> new ActionPlay(b.readVarInt(), b.readByte(), b.readByte(), b.readVarLong(), b.readFloat()));
 
 		@Override
 		public Type<ActionPlay> type() {

@@ -64,6 +64,8 @@ public final class PlayerCombat {
 		public float yaw;
 		public boolean aimed;
 		public int declared = -1;
+		/** The light's combo index or the dodge's compass direction (which clip plays). */
+		public int variant;
 		public boolean slipBonus;
 		public final IntOpenHashSet hit = new IntOpenHashSet();
 	}
@@ -148,9 +150,13 @@ public final class PlayerCombat {
 		return (float) Math.max(base * 0.65, v);
 	}
 
-	private int lag() {
-		int ping = this.player.connection == null ? 0 : this.player.connection.latency();
-		return Math.min(3, Math.round(ping / 2F / 50F));
+	private long lastStamp = Long.MIN_VALUE;
+
+	/** The defender stamp of an input (ANIM_EVENTS.md §4): the client's tick, clamped by the grace and monotonic. */
+	private long stamp(CombatPayloads.Input in, long now) {
+		long s = dev.voidmc.fray.combat.Defense.clampStamp(in.clientTick(), now, dev.voidmc.fray.combat.Defense.rtt(this.player), this.lastStamp);
+		this.lastStamp = s;
+		return s;
 	}
 
 	public long now() {
@@ -197,7 +203,7 @@ public final class PlayerCombat {
 		switch (in.kind()) {
 			case CombatPayloads.ATTACK_DOWN -> {
 				this.attackHeld = true;
-				this.attackDown = now - this.lag();
+				this.attackDown = this.stamp(in, now);
 				this.attackSeq = in.seq();
 				this.declaredOnDown = in.target();
 				this.ack(in.seq(), true, (byte) -1, now, OK);
@@ -351,6 +357,7 @@ public final class PlayerCombat {
 		r.phases = def.phases().speed(speed);
 		r.start = now;
 		r.combo = combo;
+		r.variant = combo;
 		r.charge = charge;
 		r.declared = declared;
 		r.slipBonus = now < this.slipBonusUntil;
@@ -369,7 +376,12 @@ public final class PlayerCombat {
 		this.run = r;
 		ACTIONS.add(r.start + " " + this.player.getName().getString() + " " + r.kind.name() + (r.kind == ActionKind.LIGHT ? " " + r.combo : ""));
 		this.ack(seq, true, (byte) r.kind.ordinal(), r.start, OK);
-		CombatSync.actionPlay(this.player, r.kind, r.start, ActionKind.clipSpeed(r.kind, r.phases.windup()));
+		// With the stage 1 motion runtime the clip runs on Fray Motion (defender windows, trackers); else our own packet.
+		Identifier clip = ActionClips.pick(r.kind, r.variant, id -> dev.voidmc.fray.motion.MotionServer.timeline(id) != null);
+		long defender = r.kind == ActionKind.DODGE || r.kind == ActionKind.BACKSTEP ? this.dodgeStart : r.start;
+		if (clip == null || !dev.voidmc.fray.combat.MotionBridge.startPlayerAction(this.player, clip, defender)) {
+			CombatSync.actionPlay(this.player, r.kind, r.variant, r.start, ActionKind.clipSpeed(r.kind, r.phases.windup()));
+		}
 		CombatEvents.ACTION_STARTED.invoker().on(this.player, r.kind.id(), CombatEvents.ActionOutcome.DONE);
 		this.applySlow(r, 0);
 	}
@@ -386,7 +398,7 @@ public final class PlayerCombat {
 		this.removeSlow();
 		CombatEvents.ACTION_ENDED.invoker().on(this.player, r.kind.id(), outcome);
 		if (outcome == CombatEvents.ActionOutcome.INTERRUPTED) {
-			CombatSync.actionPlay(this.player, null, this.now(), 1);
+			CombatSync.actionPlay(this.player, null, 0, this.now(), 1);
 		}
 	}
 
@@ -449,7 +461,7 @@ public final class PlayerCombat {
 		this.guard = shield ? GuardMath.shield(1.3F) : GuardMath.weapon();
 		boolean spammed = now - this.lastParryPress < GuardMath.SPAM_TICKS;
 		this.lastParryPress = now;
-		this.guardPress = now - this.lag();
+		this.guardPress = this.stamp(in, now);
 		this.guardHeld = true;
 		this.parriedThisPress = false;
 		float cost = this.cost(GuardMath.PARRY_COST, "parry", ActionKind.PARRY.id());
@@ -462,7 +474,7 @@ public final class PlayerCombat {
 			this.parryWindow = GuardMath.window(base, bonus, spammed);
 		}
 		this.ack(in.seq(), true, (byte) ActionKind.PARRY.ordinal(), now, OK);
-		CombatSync.actionPlay(this.player, ActionKind.PARRY, now, 1);
+		CombatSync.actionPlay(this.player, ActionKind.PARRY, 0, now, 1);
 	}
 
 	private void guardUp(long now) {
@@ -533,7 +545,8 @@ public final class PlayerCombat {
 		r.def = def;
 		r.phases = def.phases();
 		r.start = now;
-		this.dodgeStart = now - this.lag();
+		r.variant = in.param();
+		this.dodgeStart = this.stamp(in, now);
 		int bonus = (int) Math.round(MettleStats.add(this.player, "dodge_iframes") / 50.0);
 		int to = roll ? 7 : 4;
 		int extra = (int) Math.round(MettleStats.balance(this.player, BalanceKey.IFRAME_TICKS, to, kind.id())) - to + bonus;

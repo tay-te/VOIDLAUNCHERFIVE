@@ -47,8 +47,8 @@ public final class CombatSync {
 	}
 
 	/** An action started (kind null: stopped) to everyone tracking the player, not the player (it predicted it). */
-	public static void actionPlay(ServerPlayer p, @Nullable ActionKind kind, long start, float speed) {
-		CombatPayloads.ActionPlay play = new CombatPayloads.ActionPlay(p.getId(), (byte) (kind == null ? -1 : kind.ordinal()), start, speed);
+	public static void actionPlay(ServerPlayer p, @Nullable ActionKind kind, int variant, long start, float speed) {
+		CombatPayloads.ActionPlay play = new CombatPayloads.ActionPlay(p.getId(), (byte) (kind == null ? -1 : kind.ordinal()), (byte) variant, start, speed);
 		for (ServerPlayer o : PlayerLookup.tracking(p)) {
 			if (o != p) {
 				send(o, play, 12);

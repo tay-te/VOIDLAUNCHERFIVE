@@ -53,6 +53,7 @@ public final class FrayCombat {
 		CombatHandshake.init();
 		Actions.init();
 		DamageProfiles.init();
+		MotionBridge.init();
 		CombatCommands.init();
 		FrayApi.install(Pipeline.INSTANCE, Statuses.INSTANCE, Resources.INSTANCE, Threat.INSTANCE, Actions.INSTANCE, Encounters.INSTANCE, Telegraphs.INSTANCE,
 			Profiles.INSTANCE, Defense.INSTANCE);

@@ -46,6 +46,8 @@ public final class CombatInput {
 	private static float dodgeSpeed;
 	private static int dodgeTicks;
 
+	/** Off: the local player's actions aren't predicted with clips (HUD screenshots). */
+	public static boolean predictClips = true;
 	/** Inputs sent (tests). */
 	public static int sent;
 
@@ -208,7 +210,7 @@ public final class CombatInput {
 		dodgeSpeed = (roll ? Movesets.DODGE_DISTANCE[cls] : Movesets.BACKSTEP.step()) / dodgeTicks;
 		ClientCombat.predictedSpend += roll ? Movesets.DODGE_COST[cls] : Movesets.BACKSTEP.stamina();
 		ClientCombat.predictedAt = ClientCombat.ms();
-		predictClip(mc, roll ? ActionKind.DODGE : ActionKind.BACKSTEP, 1);
+		predictClip(mc, roll ? ActionKind.DODGE : ActionKind.BACKSTEP, param, 0);
 	}
 
 	private static void applyDodge(LocalPlayer p, long now) {
@@ -251,15 +253,25 @@ public final class CombatInput {
 		}
 		ClientCombat.predictedSpend += cost;
 		ClientCombat.predictedAt = ClientCombat.ms();
-		predictClip(mc, ak, ClientActionClips.speed(ak, windup));
+		int variant = 0;
+		if (ak == ActionKind.LIGHT) {
+			long now = mc.level.getGameTime();
+			lightCombo = now - lastLight <= 14 ? (lightCombo + 1) % ms.lights().size() : 0;
+			lastLight = now;
+			variant = lightCombo;
+		}
+		predictClip(mc, ak, variant, windup);
 	}
 
-	private static void predictClip(Minecraft mc, ActionKind kind, float speed) {
-		Identifier id = ClientActionClips.clip(kind);
+	private static int lightCombo;
+	private static long lastLight = Long.MIN_VALUE / 2;
+
+	private static void predictClip(Minecraft mc, ActionKind kind, int variant, int windup) {
+		Identifier id = ClientActionClips.clip(kind, variant);
 		Clip clip = id == null ? null : ClientClips.get(id);
 		ClientCombat.lastPredictedKind = kind.ordinal();
-		if (clip != null && mc.player != null) {
-			ClientMotion.animator(mc.player.getId()).play(Animator.ACTION, clip, ClientMotion.now(0), speed);
+		if (clip != null && mc.player != null && predictClips) {
+			ClientMotion.animator(mc.player.getId()).play(Animator.ACTION, clip, ClientMotion.now(0), ClientActionClips.speed(kind, windup, id));
 		}
 	}
 
@@ -299,10 +311,11 @@ public final class CombatInput {
 			}
 			return;
 		}
-		Identifier id = ClientActionClips.clip(kind);
+		Identifier id = ClientActionClips.clip(kind, play.variant());
 		Clip clip = id == null ? null : ClientClips.get(id);
 		if (clip != null) {
-			ClientMotion.animator(play.entity()).play(Animator.ACTION, clip, play.startTick(), play.speed());
+			ClientMotion.animator(play.entity()).play(Animator.ACTION, clip, play.startTick(),
+				id.equals(dev.voidmc.fray.combat.action.ActionClips.SWING_ALIAS) ? play.speed() : 1);
 		}
 	}
 
