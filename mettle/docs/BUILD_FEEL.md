@@ -627,8 +627,8 @@ new pure classes, server in `character.cards`, screens in the Hub from overlay s
 | **F5 · Mythics within reach** | the sixteen new drawn Mythics (data, effects in `MythicEffects`, ceilings checked by CardReportTest's worst-case search); the drawn roll offering an unclaimed one of the skill; shard sources (events already exist: drafts, levels, feats, synergies, set tiers, claims, boss credit); the forge at the shrine (cost ladder, unclaimed only, skill 18); the legend title and frame; deed progress in the Hall (`cards.mythics` gains `progress`) | tour: each new Mythic granted and checked; shards granted by op, a forge, a refused forge of a held Mythic, the legend title on an emptied pool |
 | **F6 · Deeds one of a kind** | `MythicRules` drops copy numbering; deed credit as world firsts; later achievers' 10 shards and titles; titles on the record and name card; the one-time migration (§12) with its log and notice | JUnit below; tour: a second player finishing Long Walker gets shards and the title, a world with two Unclad copies migrates to one |
 | **F7 · Talents** | `talent` registry (26 talents as data, `tools/cards/cards_data.py`), the `TL` ledger prefix (bound), `TalentRules` (pure: slots, cadence, rarity, values, one per talent), the talent draft beside skill drafts (`DraftState.talents`), the talent row and slot rules, the wake-up window, earned talents (the five feats re-homed, no change to how they're earned), effects (attribute modifiers and hooks; Fleet, Weathered Hide, Grit and Scavenger feed `Ceilings`) | BuildFeelReportTest §7 with `TalentRules`; tour: drafts at 3 and 7, a swap on waking, Packrat's pocket, ceilings still clamp |
-| **F8 · Stealth** | the tree, traits and card skill as data; XP sources (sneak proximity, sneak attacks, Warden pass, Hearth's unseen awards); visibility through `LivingEntity#getVisibilityPercent`, vibrations, Vanish, Shadowstep; effective Stealth in `MettlePlayerSkills.level` | PacingReportTest Stealth phase near 600–750 XP/h; tour: a sneak attack, Vanish, Ghost in the dark; with `-Phearth` a witness sees an effective Stealth |
-| **F9 · Speech** | the tree, traits, card skill; villager and piglin hooks without Hearth; effective Speech and Presence in `MettlePlayerSkills`; item-kind factors in `MettlePrices`; Appraiser tooltips; feats counted from award reasons; Hearth request 12–14 slots used when present (fallbacks otherwise) | tour with `-Phearth`: Glib moves a haggle's band and a check's odds chip; Provisioner and Appraiser at a market; without Hearth, a villager discount |
+| **F8 · Stealth** | `src/hearthApi`: default `PlayerSkills.bonus` / `title` / `titles` and `StandingEvents` (`SPEECH_CHECK`, the law-check event), as Hearth will ship them; the init check for `bonus` and the fallback switch; the tree, traits and card skill as data; XP sources (sneak proximity, sneak attacks, Warden pass, Hearth's unseen awards); visibility through `LivingEntity#getVisibilityPercent`, vibrations, Vanish, Shadowstep; effective Stealth in `MettlePlayerSkills.level` | PacingReportTest Stealth phase near 600–750 XP/h; tour: a sneak attack, Vanish, Ghost in the dark; with `-Phearth` a witness sees an effective Stealth |
+| **F9 · Speech** | the tree, traits, card skill; villager and piglin hooks without Hearth; effective Speech and Presence in `MettlePlayerSkills`; item-kind factors in `MettlePrices`; Appraiser tooltips; feats counted from award reasons; `MettlePlayerSkills.bonus` (the keys of §14, one channel per effect) and `title` (byname, deed or legend title); Golden Mouth on `SPEECH_CHECK`; fallbacks when the running Hearth lacks them | tour with `-Phearth`: Glib moves a haggle's band and a check's odds chip; Provisioner and Appraiser at a market; without Hearth, a villager discount |
 
 ### Tests
 
@@ -657,8 +657,10 @@ new pure classes, server in `character.cards`, screens in the Hub from overlay s
   per talent in the deck; bound (trade and listing refused); the wake window opens only after a full night; earned
   talents always on and never slotted; Fleet / Weathered Hide / Grit / Scavenger counted in `Ceilings`.
 - Stealth and Speech: every perk, trait and keyword table loads; effective levels never pass 20 and include only the
-  listed sources; `MettlePrices` item-kind factors; request-12 effects fall back exactly as written when the slot is
-  absent; feats count the right award reasons.
+  listed sources; `MettlePrices` item-kind factors; **one channel per effect**: a table test walks every Speech and
+  Stealth perk, trait, Teaching and talent and asserts each reaches Hearth through exactly one of effective level,
+  bonus key or price factor (and that a fallback is off whenever `bonus` exists); `bonus` answers 0 for unknown keys,
+  `standing/gain` only on gains, `stealth/unseen_beyond` 4 or 0; Golden Mouth counts `SPEECH_CHECK` passes only.
 
 **Simulator:** `BuildFeelReportTest` asserts: power ≤ 1.15× / 1.3× in every skill; deck overlap < 0.25 (any two, and
 two chasing one keyword in one skill); no identical decks; every keyword reaches a 6-set when chased. CardReportTest
@@ -688,7 +690,8 @@ Mythics one of a kind, Talents, and Stealth and Speech as the next released skil
    freely on waking from a night's sleep, bound to the character (never traded), Wits adds no talent slot.
 3. The five general feats become **earned talents** (gold, always on, no slot).
 4. Speech and Stealth perks reach Hearth through **effective levels** ("counts N higher wherever Hearth reads it") and
-   price factors; the per-context ones wait on Hearth request 12, each with a working fallback.
+   price factors, or one of Hearth's bonus keys (request 12, accepted by Hearth 2026-10-21) — one channel per effect,
+   never two; each key has a fallback until Hearth ships it.
 5. Speech's honey colour sits near the earned champagne gold: Figma checks they read apart.
 
 ---
@@ -854,8 +857,47 @@ either.
 - **Training**: inline, paid in conversation in the 300–399 band (built), as the Hub's conversation shows it.
 
 Effects that need one number Hearth doesn't read yet are asked for in
-[hearth/docs/requests/mettle-speech-stealth.md](../../hearth/docs/requests/mettle-speech-stealth.md) (requests 12–14);
-until Hearth answers, each such perk names a fallback that works through the slots above.
+[hearth/docs/requests/mettle-speech-stealth.md](../../hearth/docs/requests/mettle-speech-stealth.md) (requests 12–14).
+**Hearth reviewed them (2026-10-21): all three fit, and Hearth builds them after its living-world batch.** As agreed:
+
+- **12** is an additive **default** method `double bonus(ServerPlayer player, String key)` on `PlayerSkills` (0 by
+  default). Hearth reads these keys and keeps every clamp of its own (odds 5–95 %, band and patience caps):
+  `hearth:haggle/band` (Speech levels for reading the limit band), `hearth:haggle/patience` (a share, the player passed
+  in), `hearth:haggle/never_sour` (1 = walking away never sours), `hearth:speech/<kind>` for each SpeechCheck kind
+  (`persuade`, `intimidate`, `bribe`, `flatter`: odds added before the clamp), `hearth:speech/retry` (failed checks
+  that may be tried again at once, per sim day), `hearth:standing/gain` (a share on positive reputation deltas only),
+  `hearth:stealth/sight` (a share off how far witnesses and `Detection` see a sneaking player), `hearth:stealth/give_up`
+  (a share off a guard's search timer), `hearth:stealth/unseen_beyond` (blocks beyond which a sneaking player is not
+  seen at all; 0 = off), `hearth:pickpocket/awareness` (a share off how fast the mark notices), and
+  `hearth:greet/hero` (1 = folk greet the player as a hero; flavour only, standing untouched).
+- **13** is an api event, **`StandingEvents.SPEECH_CHECK (player, settlement, kind, passed, difficulty)`**, and the same
+  for the law's checks; award reasons stay exactly as they are. Mettle listens to it for Golden Mouth.
+- **14** is an additive default `Component title(ServerPlayer player)` on `PlayerSkills`, beside request 10's
+  `titles(player)` (still open on Hearth's side).
+
+**Mettle's `src/hearthApi` copy** gains the same three additions, so `compat.hearth` compiles against them: the default
+methods `bonus` and `title` (and request 10's `titles`) on `PlayerSkills`, and `StandingEvents` with `SPEECH_CHECK` and
+the law-check event. `MettlePlayerSkills` overrides `bonus` and `title`. Against a Hearth that predates them, the
+defaults are never called and the event never fires: Mettle checks once at init whether the running Hearth's
+`PlayerSkills` declares `bonus` (reflection on the loaded interface) and, if not, turns on each perk's **fallback**
+below instead.
+
+**One channel per effect (rule a, no double counting).** Every Speech and Stealth perk, trait, Teaching and talent
+reaches Hearth through exactly one channel: the **effective level** (`level()` / `attribute()`), a **bonus key**, or a
+**price factor**. None does two of them for the same thing; a fallback replaces the key's effect only while Hearth has
+no `bonus`, never on top of it. The audit:
+
+| Channel | Speech | Stealth |
+|---|---|---|
+| effective level / attribute (`level`, `attribute("presence")`) | Glib, Persuasive, Commanding Voice (Presence), Voice of the Realm, Honeyed Lies, Demagogue (Presence), The Courtier's Manners (Presence) | Shadow (its Hearth half) |
+| bonus key | Shrewd Eye, Shrewd (`haggle/band`); Patient (`haggle/patience`); Merchant Prince's never-sour (`haggle/never_sour`); Smooth (`speech/persuade`, `speech/flatter`); Imposing (`speech/intimidate`); Second Word (`speech/retry`); Charmer, Charming (`standing/gain`); Hero's Welcome (`greet/hero`) | Cloak of Dusk, Unseen, The Quiet Way (`stealth/sight`); The Quiet Way (`stealth/give_up`); Ghost (`stealth/unseen_beyond`); Light-fingered (`pickpocket/awareness`) |
+| price factor (`MettlePrices`) | Haggler, Haggling, Provisioner, Provisioning, Appraising, Merchant Prince's edge, Honeyed Lies' cost, Tavern-Keeper; talent Silver Tongue | — |
+| Mettle only (vanilla mobs, villagers, XP, weight) | Appraiser (reads `EconomyService.price`), Ledger-Keeper, Barterer, Bartering, Gregarious, Rallying, Heroic, Coinwise, Caravan Master | everything else (sneak speed, mob sight, vibrations, sneak attacks, Vanish, Shadowstep, Assassin) |
+
+Fallbacks (only without `bonus`): Cloak of Dusk and Unseen → Stealth counts 2 / 1 higher at night; Ghost → Stealth
+counts 5 higher; The Quiet Way → Stealth counts 2 higher; Shrewd Eye → market edge +2 %; Charmer → Presence counts 1
+higher; Second Word → Speech counts 1 higher; Merchant Prince's never-sour → +2 % more edge; Light-fingered → animals
+notice you closer; Smooth, Imposing, Patient, Shrewd, Charming → not rolled at all (`requires: hearth_bonus`).
 
 ### 14.1 Stealth (Agility) — "unseen, unheard, first to strike"
 
@@ -883,7 +925,7 @@ for a player who hunts by night; PacingReportTest gets a Stealth phase when it i
 | Tier | Perk | What it does |
 |---|---|---|
 | II | **Quiet Feet** | Your sneaking steps and landings make no vibration for sculk sensors and shriekers. |
-| II | **Cloak of Dusk** | In light 7 or less, hostiles notice you at 75 % of their range (request 12: and Hearth's witnesses see you at 75 %; until then your Stealth counts 2 higher with folk at night). |
+| II | **Cloak of Dusk** | In light 7 or less, hostiles notice you at 75 % of their range, and Hearth's witnesses see you 25 % nearer (`stealth/sight`). |
 | III | **Vanish** | Sneak for 2 s out of a hostile's sight: it loses you at once (30 s cooldown). |
 | III | **Silent Fall** | Falls while sneaking make no vibration and land 2 blocks softer. |
 
@@ -900,7 +942,7 @@ for a player who hunts by night; PacingReportTest gets a Stealth phase when it i
 
 | Mastery | Needs | What it does |
 |---|---|---|
-| **Ghost** | 2 Ghost perks | Sneaking in light 7 or less and not attacking, hostiles beyond 4 blocks can't see you at all; your Stealth counts 5 higher with Hearth folk. |
+| **Ghost** | 2 Ghost perks | Sneaking in light 7 or less and not attacking, hostiles beyond 4 blocks can't see you at all, and neither can Hearth's witnesses (`hearth:stealth/unseen_beyond` = 4 while those hold, else 0). |
 | **Shadowstep** | any 2 path perks | Sneak-jump at a mob within 8 blocks that isn't targeting you to step behind it (12 s cooldown; never at a player; walls stop it). |
 | **Assassin** | 2 Knife perks | Your first sneak attack on a mob that hasn't seen you deals triple damage (a boss: half again). |
 
@@ -922,10 +964,10 @@ for a player who hunts by night; PacingReportTest gets a Stealth phase when it i
 targeting you always crit. **Footpad** (Stealth 10 + Athletics 10): climbing and swimming make no sound and keep
 sneaking's cover.
 
-**Teaching**: **The Quiet Way** (a city's fence, or *The Nightwalker's Book* in an Expanse ruin): your Stealth counts 2
-higher with Hearth folk, and a guard who loses sight of you gives up a third sooner (request 12; until then +1 more).
+**Teaching**: **The Quiet Way** (a city's fence, or *The Nightwalker's Book* in an Expanse ruin): Hearth's witnesses see
+you 10 % nearer (`stealth/sight`) and a guard who loses sight of you gives up a third sooner (`stealth/give_up`).
 
-**Traits** (X rolled; Attr as CARDS.md §4.2; "Hearth" lines read through request 12, else the fallback in brackets)
+**Traits** (X rolled; Attr as CARDS.md §4.2; bonus keys as above, the fallback without `bonus` in brackets)
 
 | Trait | What it does | Range | Attr |
 |---|---|---|---|
@@ -940,8 +982,8 @@ higher with Hearth folk, and a guard who loses sight of you gives up a third soo
 | **Patient** | After sneaking still for 2 s, your next hit deals X more. | 6–15 % | Agi |
 | **Lurking** | Darkness and Blindness on you last X less. | 15–25 % | Vit |
 | **Swift Exit** | After a sneak attack, +X speed for 2 s. | 4–10 % | Agi (movement ceiling) |
-| **Light-fingered** | The pickpocket mark notices you X slower (Hearth, request 12) [animals notice you X closer]. | 5–12 % | Pre |
-| **Unseen** | Hearth's witnesses see you X nearer (request 12) [hostiles, as Shadowed]. | 5–12 % | Agi |
+| **Light-fingered** | The pickpocket mark notices you X slower (`pickpocket/awareness`) [animals notice you X closer]. | 5–12 % | Pre |
+| **Unseen** | Hearth's witnesses see you X nearer (`stealth/sight`) [Stealth counts 1 higher at night]. | 5–12 % | Agi |
 | **Lootfinger** | Mobs you kill unseen drop one more of their loot X of the time. | 3–8 % | Pre (extra-drop ceiling) |
 
 **Keywords**: natives Soft Step Swift · Shadow Deep · Quiet Feet Gale · Cloak of Dusk Deep · Vanish Echo · Silent Fall
@@ -970,23 +1012,23 @@ Village 100, a piglin barter 1.
 | II | **Provisioner** | Food, drink and potions: you buy 10 % cheaper and sell 10 % dearer. |
 | II | **Appraiser** | Item tooltips show what this settlement's market pays and asks (`EconomyService.price`); without Hearth, what the nearest villager pays. |
 | III | **Ledger-Keeper** | Speech XP from business never tapers, and coins you carry weigh nothing. |
-| III | **Shrewd Eye** | You read a merchant's limit band as if your Speech were 5 higher (request 12; until then your market edge +2 %). |
+| III | **Shrewd Eye** | You read a merchant's limit band as if your Speech were 5 higher (`haggle/band`). |
 
 **Path B · Courtier** (people)
 
 | Tier | Perk | What it does |
 |---|---|---|
-| II | **Charmer** | Reputation you gain with Hearth folk +25 % (request 12; until then your Presence counts 1 higher). |
+| II | **Charmer** | Reputation you gain with Hearth folk +25 % (`standing/gain`, gains only). |
 | II | **Barterer** | Piglins give one more item a quarter of the time; wandering traders restock once more. |
 | III | **Commanding Voice** | Your Presence counts 2 higher wherever Hearth reads it; allies within 8 blocks gain 5 % more skill XP. |
-| III | **Second Word** | Once a sim day, a failed Hearth speech check may be tried again at once (request 12; until then your Speech counts 1 higher). |
+| III | **Second Word** | Once a sim day, a failed Hearth speech check may be tried again at once (`speech/retry` = 1). |
 
 **Masteries**
 
 | Mastery | Needs | What it does |
 |---|---|---|
-| **Merchant Prince** | 2 Trader perks | Your market edge +5 %, and a merchant you walked away from is never sour with you (request 12; until then +2 % more edge). |
-| **Hero's Welcome** | any 2 path perks | Hero of the Village after a raid you helped win lasts 3 in-game days; Hearth folk greet you as a hero (request 14). |
+| **Merchant Prince** | 2 Trader perks | Your market edge +5 % (price), and a merchant you walked away from is never sour with you (`haggle/never_sour`). |
+| **Hero's Welcome** | any 2 path perks | Hero of the Village after a raid you helped win lasts 3 in-game days; Hearth folk greet you as a hero (`hearth:greet/hero` = 1: a greeting only; Hearth's per-town HERO reputation title and standing are untouched). |
 | **Voice of the Realm** | 2 Courtier perks | Your Speech counts 4 higher and your Presence 2 higher wherever Hearth reads them. |
 
 **Cursed**
@@ -1000,7 +1042,7 @@ Village 100, a piglin barter 1.
 
 | Feat | Hint | Earned by | Grants |
 |---|---|---|---|
-| **Golden Mouth** | "They came to argue and left agreeing." | 50 Hearth speech checks won (request 13; until then 50 checks tried) · without Hearth: 5 zombie villagers cured | Failed speech checks give full XP. |
+| **Golden Mouth** | "They came to argue and left agreeing." | 50 Hearth speech checks won (`StandingEvents.SPEECH_CHECK` and the law's check event, `passed`; before Hearth has them, 50 checks tried, counted from award reasons) · without Hearth: 5 zombie villagers cured | Failed speech checks give full XP. |
 | **Market Regular** | "Every stall knows your name." | 100 struck haggles (`hearth:economy/haggle`) · without Hearth: 200 villager trades | Speech XP from haggles +25 %. |
 
 **Synergies**: **Caravan Master** (Speech 10 + Athletics 10): you and allies within 8 blocks carry 10 % more on paths
@@ -1018,18 +1060,18 @@ Presence counts 2 higher wherever Hearth reads it.
 | **Persuasive** | Your Speech counts X higher wherever Hearth reads it. | 1–2 levels | Pre (whole levels, not boosted) |
 | **Appraising** | Tools, weapons and armour sell X dearer. | 3–8 % | Pre |
 | **Provisioning** | Food and drink cost X less. | 3–8 % | Pre |
-| **Charming** | Reputation gains +X (request 12) [Presence +1 with folk at X ≥ 10 %]. | 5–12 % | Pre |
-| **Imposing** | Intimidate odds +X (request 12) [none]. | 3–8 % | Str |
-| **Smooth** | Persuade and flatter odds +X (request 12) [none]. | 3–8 % | Pre |
-| **Patient** | A merchant's patience +X (request 12) [none]. | 5–15 % | Vit |
-| **Shrewd** | You read the haggle band as if your Speech were X higher (request 12). | 1–3 levels | Pre (whole levels, not boosted) |
+| **Charming** | Reputation gains +X (`standing/gain`, gains only) [not rolled]. | 5–12 % | Pre |
+| **Imposing** | Intimidate odds +X (`speech/intimidate`) [not rolled]. | 3–8 % | Str |
+| **Smooth** | Persuade and flatter odds +X (`speech/persuade`, `speech/flatter`) [not rolled]. | 3–8 % | Pre |
+| **Patient** | A merchant's patience +X (`haggle/patience`) [not rolled]. | 5–15 % | Vit |
+| **Shrewd** | You read the haggle band as if your Speech were X higher (`haggle/band`) [not rolled]. | 1–3 levels | Pre (whole levels, not boosted) |
 | **Bartering** | Piglins give one more item X of the time. | 5–12 % | Pre |
 | **Gregarious** | Speech XP +X. | 5–12 % | Pre |
 | **Rallying** | Allies within 8 blocks gain X more skill XP. | 2–5 % | Pre |
 | **Heroic** | Hero of the Village lasts X longer. | 25–50 % | Pre |
 | **Coinwise** | Coins you carry weigh X less. | 20–40 % | Str |
 
-Traits whose only effect waits on request 12 roll only once Hearth answers it (the pool reads `requires: hearth_bonus`),
+Traits whose only effect is a bonus key roll only when the running Hearth has `bonus` (the pool reads `requires: hearth_bonus`),
 so no card carries a dead trait.
 
 **Keywords**: natives Haggler Hoard · Glib Kin · Provisioner Ember · Appraiser Keen · Ledger-Keeper Hoard · Shrewd Eye
