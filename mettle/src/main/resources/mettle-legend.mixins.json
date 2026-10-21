@@ -3,6 +3,27 @@
 	"package": "dev.voidmc.mettle.mixin.legend",
 	"compatibilityLevel": "JAVA_25",
 	"mixins": [
+		"LegendAnvilMixin",
+		"LegendArrowMixin",
+		"LegendBaseSpawnerMixin",
+		"LegendBerryBushMixin",
+		"LegendBlockBehaviourMixin",
+		"LegendCombinerAccess",
+		"LegendContainerMenuMixin",
+		"LegendEntityMixin",
+		"LegendFurnaceAccess",
+		"LegendFurnaceMenuAccess",
+		"LegendFurnaceMixin",
+		"LegendHorseMixin",
+		"LegendLightningMixin",
+		"LegendLivingEntityMixin",
+		"LegendMobAccess",
+		"LegendMobMixin",
+		"LegendNaturalSpawnerMixin",
+		"LegendPlayerMixin",
+		"LegendTargetGoalMixin",
+		"LegendTrialSpawnerMixin",
+		"LegendZombieMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
