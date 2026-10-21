@@ -290,6 +290,9 @@ wagon, friend."*; bandit leader *"Nice boots. Nicer purse, I'd wager."*, *"Lay i
 Bells and Sunday mass, market-day crowds, tavern nights with music and dice, children playing, washing at the river,
 the night watch with torches.
 
+**Built** (lane A2, branch `hearth-lwA2`): `social/rhythm/*`, documented in SOCIAL.md §11; what it added outside its
+package and asks of others is in `requests/lwA2.md`.
+
 ### 2.1 What the player sees and does
 
 A temperate town's day (other cultures shift it: siesta and late suppers in the south, early nights in the north; the
@@ -367,6 +370,14 @@ Mass offerings (a bit a head attending) go to the treasury once per rest day (`S
 Per embodied town: the rhythm director every 20 ticks (a clock check, ≤ 20 µs); behaviours' `wants()` are cached lookups
 (the day's agenda); watch lights ≤ 8 block changes a second; smoke ≤ 24 particle packets every 2 s; wash-place scan once
 per embodiment (≤ 4 000 loaded block reads, spread over 20 ticks). Abstract: nothing per tick; ≤ 2 µs per town per day.
+
+**Measured** (lane A2, `RhythmTour` on a 145-soul northern town, an overloaded dev client; `/hearth sim stats`): the
+director 0.17–0.27 ms a pass every 20 ticks, of which the steady part (clocks, bells, attendance, light sweep) is
+~0.06 ms (≈ 3 µs a tick a town) — over the 20 µs aim; the rest is bounded one-offs: smoke 0.1 ms every 40 ticks at meal
+times, the wash-place scan 0.15 ms a pass for ~40 passes per embodiment, laundry 0.7–1.1 ms a pass for ~37 passes on a
+wash-day morning (one yard a pass, max ~5 ms). Folk behaviours 3–9 µs a step. Abstract (`RhythmTest.abstractCost`): the
+offering 0.5 µs a town a day; a rest day's schedule windows ~36 µs a resident a day (`ScheduleOverrides.overlay`, see
+requests/lwA2.md). After a town is let go: 0 watch lights, 0 rhythm dressings.
 
 ### 2.5 Persistence and multiplayer
 

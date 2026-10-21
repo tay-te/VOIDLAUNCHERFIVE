@@ -1,0 +1,13 @@
+{
+	"rest_weekday": 4,
+	"service": {
+		"name": "prayers"
+	},
+	"first_snow": {
+		"day": 46,
+		"winter_days": 8
+	},
+	"tavern": {
+		"instrument": "flute"
+	}
+}

@@ -138,4 +138,90 @@ class TownCalendarTest {
 		assertEquals(TownEvent.Kind.FUNERAL, Agenda.forResident(events, a, funeral.start(), this.cfg).kind());
 		assertTrue(Agenda.of(s, ledger, 51, this.cfg).stream().noneMatch(e -> e.kind() == TownEvent.Kind.WEDDING));
 	}
+
+	// ---- the week's rhythm (docs/LIVING_WORLD_2.md §2.8)
+
+	@Test
+	void everyTownKeepsOneRestDayAndAWashDayAfterIt() {
+		int week = this.cfg.market().weekDays();
+		for (Culture culture : Culture.values()) {
+			dev.voidmc.hearth.social.rhythm.RhythmData data = dev.voidmc.hearth.social.rhythm.RhythmData.of(culture);
+			Set<Integer> restDays = new HashSet<>();
+			for (long id = 1; id <= 200; id++) {
+				int rests = 0;
+				int washes = 0;
+				for (long day = 70; day < 70 + week; day++) {
+					boolean rest = TownCalendar.isRestDay(id, day, week, data.restWeekday());
+					boolean wash = TownCalendar.isWashDay(id, day, week, data.restWeekday());
+					boolean market = TownCalendar.isMarketDay(id, day, this.cfg.market(), SettlementTier.TOWN);
+					assertFalse(rest && market, "market day on the rest day: town " + id + " " + culture);
+					assertFalse(wash && market, "market day on the wash day: town " + id + " " + culture);
+					assertFalse(rest && wash);
+					if (rest) {
+						rests++;
+						restDays.add((int) Math.floorMod(day, (long) week));
+						assertTrue(TownCalendar.isWashDay(id, day + 1, week, data.restWeekday()), "the wash day follows the rest day");
+					}
+					if (wash) {
+						washes++;
+					}
+				}
+				assertEquals(1, rests, "one rest day a week: town " + id + " " + culture);
+				assertEquals(1, washes, "one wash day a week: town " + id + " " + culture);
+				long next = TownCalendar.nextRestDay(id, 100, week, data.restWeekday());
+				assertTrue(next >= 100 && next < 100 + week && TownCalendar.isRestDay(id, next, week, data.restWeekday()));
+			}
+			assertTrue(restDays.size() >= 5, "towns along a road keep different rest days");
+		}
+	}
+
+	@Test
+	void anyWantedWeekdayStaysOffTheMarket() {
+		for (int week = 3; week <= 10; week++) {
+			for (int wanted = -3; wanted < 20; wanted++) {
+				int w = TownCalendar.restWeekday(wanted, week);
+				assertTrue(w >= 1 && w + 1 < week, "rest " + w + " and wash " + (w + 1) + " in a week of " + week);
+			}
+		}
+		assertEquals(-1, TownCalendar.restWeekday(3, 2), "no rest day in a two-day week");
+	}
+
+	@Test
+	void theCalendarServiceAgreesWithTheTownCalendar() {
+		dev.voidmc.hearth.api.SettlementCalendar cal = dev.voidmc.hearth.social.rhythm.RhythmCalendar.INSTANCE;
+		for (long id = 1; id <= 30; id++) {
+			SimpleSettlement s = new SimpleSettlement(id, "T" + id, Culture.values()[(int) (id % Culture.values().length)], new net.minecraft.core.BlockPos(0, 64, 0), -50);
+			dev.voidmc.hearth.social.rhythm.RhythmData data = dev.voidmc.hearth.social.rhythm.RhythmData.of(s.culture());
+			for (long day = 0; day < 21; day++) {
+				assertEquals(TownCalendar.isRestDay(id, day, 7, data.restWeekday()), cal.restDay(s, day));
+				assertEquals(TownCalendar.isWashDay(id, day, 7, data.restWeekday()), cal.washDay(s, day));
+				assertEquals(TownCalendar.isMarketDay(id, day, this.cfg.market(), s.tier()), cal.marketDay(s, day));
+				assertFalse(cal.restDay(s, day) && cal.marketDay(s, day));
+			}
+		}
+	}
+
+	@Test
+	void winterInTheColdCulturesOnly() {
+		int year = this.cfg.festivals().yearDays();
+		for (Culture c : Culture.values()) {
+			dev.voidmc.hearth.social.rhythm.RhythmData data = dev.voidmc.hearth.social.rhythm.RhythmData.of(c);
+			int winter = 0;
+			int first = 0;
+			for (long day = 0; day < year; day++) {
+				if (dev.voidmc.hearth.social.rhythm.RhythmCalendar.winter(data, day, year)) {
+					winter++;
+				}
+				if (dev.voidmc.hearth.social.rhythm.RhythmCalendar.firstSnow(data, day, year)) {
+					first++;
+				}
+			}
+			if (data.snow().cold()) {
+				assertEquals(1, first, c + " has one first snow a year");
+				assertEquals(Math.min(year, data.snow().winterDays()), winter, c + " winter days");
+			} else {
+				assertEquals(0, winter + first, c + " has no winter");
+			}
+		}
+	}
 }

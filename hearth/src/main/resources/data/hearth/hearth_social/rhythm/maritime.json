@@ -1,0 +1,16 @@
+{
+	"rest_weekday": 1,
+	"tavern": {
+		"open": 1110,
+		"close": 1425,
+		"instrument": "guitar"
+	},
+	"wash": {
+		"places": [
+			"river",
+			"lake",
+			"fountain",
+			"well"
+		]
+	}
+}

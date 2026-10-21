@@ -75,6 +75,25 @@ public interface NpcService {
 		/** Wakes a sleeping folk (a fire, an alarm bell, a thief caught at their bedside); they stay up a while. */
 		default void wake() {
 		}
+
+		/**
+		 * Holds a body pose for {@code ticks} (0: until changed): {@code sit, hammer, craft, read, pray, wave, talk, tend, cower,
+		 * cheer}, or {@code none} to stand (docs/LIVING_WORLD_2.md §2: the congregation, washers, children, drinkers).
+		 */
+		default void pose(String pose, int ticks) {
+		}
+
+		/**
+		 * Sits on a seat block (a pew, a chair, a stair) facing {@code facing}, as the routine's own sitting does; false if
+		 * someone sits there already or it is not loaded. {@link #standUp} (or a new walk) ends it.
+		 */
+		default boolean sit(BlockPos seat, net.minecraft.core.Direction facing) {
+			return false;
+		}
+
+		/** Gets up from a {@link #sit} onto standing room beside the seat; nothing if not seated. */
+		default void standUp() {
+		}
 	}
 
 	/** How an escort started with {@link #follow} stands, or null if there is none (outcomes are kept ten minutes). */

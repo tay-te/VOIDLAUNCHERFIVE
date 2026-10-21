@@ -1,0 +1,19 @@
+{
+  "_comment": "The daily rhythm's deeds (docs/LIVING_WORLD_2.md \u00a72.1); merged with deeds/default.json.",
+  "deeds": {
+    "social:attended_mass": {
+      "settlement": 1.0,
+      "victim": 0.5,
+      "witness": 0.2,
+      "gossip": 0.2,
+      "fame": 0.1
+    },
+    "social:bought_a_round": {
+      "settlement": 1.0,
+      "victim": 0.5,
+      "witness": 0.6,
+      "gossip": 0.4,
+      "fame": 0.3
+    }
+  }
+}

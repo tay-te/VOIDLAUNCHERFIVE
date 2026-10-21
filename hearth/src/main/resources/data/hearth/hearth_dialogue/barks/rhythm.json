@@ -1,0 +1,193 @@
+{
+	"rhythm.sermon": [
+		"Love your neighbour — even the one whose geese are in your cabbages.",
+		"A kind word costs nothing, and buys more than a crown.",
+		"Who mends a neighbour's fence mends his own heart.",
+		"Do not sell the miller short, nor let the miller sell you short.",
+		"The field gives to the hand that works it. So does the soul.",
+		"Rest today, and let the oxen rest. They have earned it more than most of you.",
+		"Bear your neighbour's burden, and you'll find your own the lighter.",
+		"Pride is a heavy coat in summer. Take it off.",
+		"The stranger at the gate may be the friend you have not met.",
+		"Give the widow her due weight. The scales remember.",
+		"Anger is a fire in your own thatch. Put it out before it spreads.",
+		"Pay the labourer his wage by dusk, and sleep easy.",
+		"Forgive as you would be forgiven, and quicker than you'd like.",
+		"Even the smallest candle pushes back the dark.",
+		"Honest bread is sweeter than a stolen feast.",
+		"Speak well of the absent. They cannot answer for themselves.",
+		"A soft answer turns away wrath. A hard one sends it home with you.",
+		"Look after the old ones. You will be old sooner than you think.",
+		"Share the harvest, and the lean year will share with you.",
+		"Mind your tongue at the tavern, and your purse at the market.",
+		"We are all guests here, and the house is not ours to wreck.",
+		"Patience grows like an oak: slowly, and then it shelters many.",
+		{
+			"text": "Keep a warm hearth and an open door through the long winter.",
+			"cultures": [
+				"northern",
+				"alpine",
+				"tundra",
+				"moorland"
+			]
+		},
+		{
+			"text": "Rest in the heat of the day, and rise to serve in the cool of it.",
+			"cultures": [
+				"mediterranean",
+				"desert",
+				"mesa",
+				"tropical"
+			]
+		}
+	],
+	"rhythm.porch": [
+		"Fine words this morning, weren't they?",
+		"Did you hear him on the geese? Meant for Tomas, that was.",
+		"Shall we walk out to the green after?",
+		"My knees are not made for those pews.",
+		"Lovely singing. Mostly.",
+		"Who was that snoring at the back?",
+		"Come by for dinner, both of you.",
+		"{service} always runs long when there's gossip to get to."
+	],
+	"rhythm.priest_regular": [
+		"Good to see you again, {player}. Peace be with you.",
+		"{player}! A familiar face at {service}. Welcome.",
+		"You keep coming back, {player}. That does an old priest good."
+	],
+	"rhythm.watch_call": [
+		"{hour} o'clock, and all's well!",
+		"{hour} o'clock! Bar your doors, mind your fires!",
+		"{hour} of the clock, and a quiet night!",
+		{
+			"text": "{hour} o'clock, and a cold one! Bank your fires!",
+			"cultures": [
+				"northern",
+				"alpine",
+				"tundra",
+				"moorland"
+			]
+		},
+		{
+			"text": "{hour} o'clock! Sleep sound, {settlement}!",
+			"cultures": [
+				"mediterranean",
+				"desert",
+				"mesa",
+				"tropical"
+			]
+		}
+	],
+	"rhythm.watch_challenge": [
+		"Who goes there?",
+		"Halt! Who's that skulking about?",
+		"You there! Show yourself.",
+		"Late to be abroad, {player}. Mind how you go.",
+		"Step into the light where I can see you."
+	],
+	"rhythm.curfew": [
+		"Bell's gone. Off home with you.",
+		"Curfew. Doors shut, fires banked.",
+		"That's the bell. Home now, unless you've business with the watch."
+	],
+	"rhythm.toast": [
+		"To the harvest!",
+		"To {lord}'s health — may he pay for the next one!",
+		"To good bread and better beer!",
+		"To {settlement}, and all who drink in her!",
+		"To the absent ones!",
+		"To dry boots and full bellies!",
+		{
+			"text": "To the snow staying on the mountain!",
+			"cultures": [
+				"alpine",
+				"northern",
+				"tundra"
+			]
+		},
+		{
+			"text": "To the sea, and the fish in it!",
+			"cultures": [
+				"maritime"
+			]
+		}
+	],
+	"rhythm.cheer": [
+		"Again! Play it again!",
+		"Ha! That's the one!",
+		"Well played, well played!",
+		"Give the man a drink!"
+	],
+	"rhythm.arm_wrestle": [
+		"Come on, put your back into it!",
+		"He's going... he's going...",
+		"Ha! Down you go!",
+		"Best of three. Best of three!"
+	],
+	"rhythm.round": [
+		"To {player}! Your health!",
+		"A round from {player}! Drink up, all!",
+		"{player}, you're a gentleman. Your health!",
+		"Bless you, {player}! To your health!"
+	],
+	"rhythm.closing": [
+		"Time, gentlemen! Haven't you homes to go to?",
+		"Drink up! Doors are closing.",
+		"That's the last of it. Off with you, and quietly."
+	],
+	"rhythm.homeward": [
+		"Which way's home again?",
+		"Shh! Shh. The wife's asleep.",
+		"The road's moving. Is the road moving?",
+		"Night, all! Night!"
+	],
+	"rhythm.call_child": [
+		"{child}! Supper!",
+		"{child}! In, now! I'll not call twice!",
+		"{child}, come home, it's getting dark!",
+		"{child}! Wash your hands and come in!"
+	],
+	"rhythm.washer": [
+		"...and she said the miller's boy had been seen at the mill pond.",
+		"Look at this shirt. What does he do in it, fight bears?",
+		"Water's cold today. Colder than his heart.",
+		"Did you hear about the cooper's daughter?",
+		"Mind, that's my good linen.",
+		"My hands are raw. Pass the ash.",
+		{
+			"text": "Hurry, before the sun's too high.",
+			"cultures": [
+				"mediterranean",
+				"desert",
+				"mesa",
+				"tropical"
+			]
+		}
+	],
+	"rhythm.seek_count": [
+		"...eight, nine, ten! Ready or not, here I come!",
+		"...ninety-nine, a hundred! Coming!",
+		"No peeking? I wasn't peeking! Coming!"
+	],
+	"rhythm.seek_found": [
+		"Found you!",
+		"Ha! I see your feet!",
+		"Got you! You're it next!"
+	],
+	"rhythm.play": [
+		"Have at you!",
+		"I'm the captain of the guard!",
+		"You can't catch me!",
+		"My turn! My turn!"
+	],
+	"rhythm.snow": [
+		"Snowball!",
+		"Got you! Right in the ear!",
+		"Snow fort! Build a snow fort!"
+	],
+	"rhythm.winter": [
+		"Snow's here. Bring the wood in.",
+		"Close the door, you're letting the warm out."
+	]
+}

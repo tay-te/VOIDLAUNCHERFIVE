@@ -147,4 +147,80 @@ class ScheduleTest {
 	private static int firstStart(Schedule s, Activity a) {
 		return s.blocks().stream().filter(b -> b.activity() == a).mapToInt(Schedule.Block::start).min().orElse(-1);
 	}
+
+	// ---- the week's rhythm (docs/LIVING_WORLD_2.md §2.8): the rest day, the watch, the tavern night
+
+	private static Schedule rested(JobType job, AgeStage age, Culture culture, long seed, boolean rest, boolean drinker) {
+		dev.voidmc.hearth.social.rhythm.RhythmData data = dev.voidmc.hearth.social.rhythm.RhythmData.of(culture);
+		Schedule base = Schedule.of(job, age, NONE, culture, seed, 4);
+		List<dev.voidmc.hearth.npc.routine.ScheduleOverrides.Window> w = dev.voidmc.hearth.social.rhythm.RhythmSchedule.windows(job, age, List.of(), data,
+			rest, drinker, false, seed, 4);
+		// as ScheduleOverrides.apply: no windows, the day unchanged
+		return w.isEmpty() ? base : dev.voidmc.hearth.npc.routine.ScheduleOverrides.overlay(base, w);
+	}
+
+	@Test
+	void noWorkOnTheRestDayButTheListedTrades() {
+		for (Culture culture : Culture.values()) {
+			Set<JobType> listed = dev.voidmc.hearth.social.rhythm.RhythmData.of(culture).restDayWork();
+			for (JobType job : JobType.values()) {
+				for (long seed = 1; seed <= 6; seed++) {
+					Schedule rest = rested(job, AgeStage.ADULT, culture, seed * 7919 + (seed << 12), true, false);
+					Schedule plain = Schedule.of(job, AgeStage.ADULT, NONE, culture, seed * 7919 + (seed << 12), 4);
+					for (int m = 8 * 60; m < 17 * 60; m += 10) {
+						if (listed.contains(job)) {
+							assertEquals(plain.at(m).activity(), rest.at(m).activity(), job + " keeps its hours on the rest day: " + rest);
+						} else {
+							assertNotEquals(Activity.WORK, rest.at(m).activity(), job + " " + culture + " works on the rest day at " + m + ": " + rest);
+						}
+					}
+					// before eight the bakers' bread and the herders' milking stand as on any day
+					for (int m = 0; m < 8 * 60; m += 15) {
+						assertEquals(plain.at(m).activity(), rest.at(m).activity(), job + " early hours on the rest day");
+					}
+				}
+			}
+		}
+	}
+
+	@Test
+	void theRestDayChangesNothingOnOtherDays() {
+		for (JobType job : JobType.values()) {
+			Schedule plain = Schedule.of(job, AgeStage.ADULT, NONE, Culture.TEMPERATE, 77, 4);
+			assertEquals(plain.toString(), rested(job, AgeStage.ADULT, Culture.TEMPERATE, 77, false, false).toString());
+		}
+	}
+
+	@Test
+	void theNightWatchKeepsTheDarkHours() {
+		int watch = 0;
+		for (long seed = 0; seed < 60; seed++) {
+			Schedule s = Schedule.of(JobType.GUARD, AgeStage.ADULT, NONE, Culture.TEMPERATE, seed << 12 | seed, 4);
+			if (s.at(23 * 60).activity() != Activity.WORK) {
+				continue;
+			}
+			watch++;
+			dev.voidmc.hearth.social.rhythm.RhythmData.Watch hours = dev.voidmc.hearth.social.rhythm.RhythmData.of(Culture.TEMPERATE).watch();
+			for (int m = 0; m < Schedule.DAY; m += 10) {
+				if (hours.covers(m)) {
+					assertEquals(Activity.WORK, s.at(m).activity(), "the night watch is on duty at " + m + ": " + s);
+				}
+			}
+			// and the rest day does not stand the watch down
+			assertEquals(s.toString(), rested(JobType.GUARD, AgeStage.ADULT, Culture.TEMPERATE, seed << 12 | seed, true, false).toString(),
+				"the watch works the rest day");
+		}
+		assertTrue(watch > 10, "about a third of the guards keep the night watch");
+	}
+
+	@Test
+	void tonightsDrinkersStayUntilClosing() {
+		dev.voidmc.hearth.social.rhythm.RhythmData data = dev.voidmc.hearth.social.rhythm.RhythmData.of(Culture.TEMPERATE);
+		Schedule s = rested(JobType.CARPENTER, AgeStage.ADULT, Culture.TEMPERATE, 5, false, true);
+		for (int m = data.tavern().open(); m < data.tavern().close(); m += 10) {
+			assertEquals(Activity.LEISURE, s.at(m).activity(), "at the tavern at " + m + ": " + s);
+			assertEquals(Leisure.INN, s.at(m).leisure(), s.toString());
+		}
+		assertEquals(Activity.SLEEP, s.at(2 * 60).activity(), "and home to bed after: " + s);
+	}
 }

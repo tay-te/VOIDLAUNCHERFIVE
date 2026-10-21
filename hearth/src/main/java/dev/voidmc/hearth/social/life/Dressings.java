@@ -34,7 +34,164 @@ public final class Dressings {
 	/** No neighbour updates and no {@code onPlace} (a dressing never reacts to what is next to it, nor reads the next chunk). */
 	private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_ON_PLACE;
 
+	/**
+	 * Told when market stalls go up and come down (docs/LIVING_WORLD_2.md §6.3: lane A4's stall wares lay goods on the
+	 * counters). Called on the server thread, with the chunks loaded; keep it cheap. Register during mod init.
+	 */
+	public interface StallListener {
+		/** The stalls of a market just set up (only those with room went up). */
+		void up(ServerLevel level, Settlement s, TownEvent market, List<Stall> stalls);
+
+		/**
+		 * Blocks set up for an event came down: {@code positions} are their packed positions (a stall's counter among them
+		 * when its stall came down), so what was laid on a counter told in {@link #up} can go with it.
+		 */
+		void down(ServerLevel level, String eventKey, Set<Long> positions);
+	}
+
+	private static volatile StallListener[] listeners = new StallListener[0];
+
+	public static synchronized void listen(StallListener listener) {
+		StallListener[] next = java.util.Arrays.copyOf(listeners, listeners.length + 1);
+		next[next.length - 1] = listener;
+		listeners = next;
+	}
+
+	/** Events of the daily rhythm (docs/LIVING_WORLD_2.md §2): taken down at their {@code until}, or with everything. */
+	public static final String RHYTHM = "rhythm:";
+
 	private Dressings() {
+	}
+
+	/**
+	 * Puts up laundry lines in households' yards for the wash day (docs/LIVING_WORLD_2.md §2.3): two posts, a string between
+	 * them and white and grey linen hanging from it, inside the plot and clear of its doors. Recorded under {@code key}
+	 * (which starts with {@link #RHYTHM}) until {@code until}; returns how many lines went up.
+	 */
+	public static int setUpLaundry(ServerLevel level, Settlement s, SocialLedger ledger, String key, long until, List<PlotView> homes, int most) {
+		Palette pal = Palette.of(s.culture());
+		Set<Long> taken = new HashSet<>();
+		List<BlockPos> doors = Venues.positions(s.pois(PoiType.DOOR));
+		List<Part> all = new ArrayList<>();
+		int lines = 0;
+		int tried = 0;
+		for (PlotView home : homes) {
+			// a few yards each, and only so many yards: a bounded search, once a wash day
+			if (lines >= most || tried++ >= Math.max(3, most * 3)) {
+				break;
+			}
+			dev.voidmc.hearth.api.PlotSpec spec = home.spec();
+			BlockPos o = spec.origin();
+			long seed = TownCalendar.mix(s.id() * 31 + home.id() ^ key.hashCode());
+			// the plots round this one (a part may not stand in them): a short list, not the whole town
+			List<PlotView> round = near(s, centre(home), Math.max(spec.sizeX(), spec.sizeZ()) + 12, 16);
+			List<BlockPos> nearDoors = new ArrayList<>();
+			for (BlockPos d : doors) {
+				if (d.getX() >= o.getX() - 8 && d.getX() <= o.getX() + spec.sizeX() + 8 && d.getZ() >= o.getZ() - 8 && d.getZ() <= o.getZ() + spec.sizeZ() + 8) {
+					nearDoors.add(d);
+				}
+			}
+			int tries = 0;
+			for (int k = 0; k < 32 && tries < 32; k++, tries++) {
+				long h = TownCalendar.mix(seed + k);
+				Direction along = (h & 1) == 0 ? Direction.EAST : Direction.SOUTH;
+				int span = 3;
+				// in the yard: the plot and a few blocks round it, on open ground of earth or grass (not a street, not another plot)
+				BlockPos c = o.offset(-3 + (int) Math.floorMod(h >>> 8, (long) (spec.sizeX() + 6)), 0, -3 + (int) Math.floorMod(h >>> 24, (long) (spec.sizeZ() + 6)));
+				if (!level.isLoaded(c)) {
+					continue;
+				}
+				BlockPos ground = Venues.standable(level, c.atY(level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+					c.getX(), c.getZ())));
+				if (ground == null || !level.canSeeSky(ground)) {
+					LAUNDRY_MISSES.merge("no open ground", 1, Integer::sum);
+					continue;
+				}
+				if (!level.isLoaded(ground.relative(along, span))) {
+					continue; // (never reads into the next chunk unless it is there)
+				}
+				// the ground along the line is level earth or grass with air over it (a yard, not a street or a drop)
+				boolean level0 = true;
+				for (int i = 0; i <= span; i++) {
+					BlockPos under = ground.relative(along, i);
+					BlockState soil = level.getBlockState(under.below());
+					BlockState cell = level.getBlockState(under);
+					boolean open = cell.isAir() || cell.is(Blocks.SNOW) || cell.is(Blocks.SHORT_GRASS) || cell.is(Blocks.FERN);
+					if (!open || !soil.is(net.minecraft.tags.BlockTags.DIRT) && !soil.is(Blocks.SAND)) {
+						level0 = false;
+						break;
+					}
+				}
+				if (!level0) {
+					LAUNDRY_MISSES.merge("not earth", 1, Integer::sum);
+					continue;
+				}
+				List<Part> parts = laundry(ground, along, span, pal);
+				boolean yard = true;
+				for (Part p : parts) {
+					for (PlotView other : round) {
+						if (other.id() != home.id() && !other.spec().archetype().getPath().startsWith("infra/") && Venues.inside(other.spec(), p.pos)) {
+							yard = false;
+							break;
+						}
+					}
+				}
+				if (!yard) {
+					LAUNDRY_MISSES.merge("in another plot", 1, Integer::sum);
+					continue;
+				}
+				if (!clear(level, parts, taken, nearDoors, Venues.square(s), ground, true)) {
+					LAUNDRY_MISSES.merge("not clear", 1, Integer::sum);
+					continue;
+				}
+				reserve(taken, parts);
+				all.addAll(parts);
+				lines++;
+				break;
+			}
+		}
+		place(level, ledger, key, until, all);
+		return lines;
+	}
+
+	/** Why yards had no room for a line (counts, for the rhythm's status). */
+	public static final java.util.Map<String, Integer> LAUNDRY_MISSES = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** A line {@code span} long: posts three high at both ends, string along the top, linen hanging under it. */
+	static List<Part> laundry(BlockPos g, Direction along, int span, Palette pal) {
+		List<Part> parts = new ArrayList<>();
+		BlockPos end = g.relative(along, span);
+		for (int dy = 0; dy < 3; dy++) {
+			parts.add(new Part(g.above(dy), pal.fence()));
+			parts.add(new Part(end.above(dy), pal.fence()));
+		}
+		boolean x = along.getAxis() == Direction.Axis.X;
+		for (int i = 1; i < span; i++) {
+			BlockPos p = g.relative(along, i);
+			parts.add(new Part(p.above(2), Blocks.TRIPWIRE.defaultBlockState()
+				.setValue(net.minecraft.world.level.block.TripWireBlock.EAST, x).setValue(net.minecraft.world.level.block.TripWireBlock.WEST, x)
+				.setValue(net.minecraft.world.level.block.TripWireBlock.NORTH, !x).setValue(net.minecraft.world.level.block.TripWireBlock.SOUTH, !x)));
+			// sheets and shirts hung over the line: white and undyed (grey) linen
+			parts.add(new Part(p.above(), Blocks.WOOL.pick(i % 2 == 1 ? net.minecraft.world.item.DyeColor.WHITE : net.minecraft.world.item.DyeColor.LIGHT_GRAY)
+				.defaultBlockState()));
+		}
+		return parts;
+	}
+
+	/**
+	 * Dresses plots' fronts with one of the build module's dressings ({@code winter}: snow on the ledges, in the cold
+	 * cultures) for the rhythm: recorded under {@code key} until {@code until}.
+	 */
+	public static int dressPlots(ServerLevel level, Settlement s, SocialLedger ledger, String key, long until, String kind, List<PlotView> plots) {
+		TownEvent e = new TownEvent(key, TownEvent.Kind.FESTIVAL, until - 1, until, null, List.of(), List.of(), List.of());
+		List<Part> parts = fronts(level, s, new HashSet<>(), e, kind, plots);
+		place(level, ledger, key, until, parts);
+		return parts.size();
+	}
+
+	/** The plots nearest a point (built, not roads), for the rhythm's dressings. */
+	public static List<PlotView> plotsNear(Settlement s, BlockPos at, int radius, int most) {
+		return near(s, at, radius, most);
 	}
 
 	/** A stall as set up: where its keeper stands and where customers stand. */
@@ -91,6 +248,11 @@ public final class Dressings {
 		// the houses and shops round the square put out their awnings and wares too
 		all.addAll(fronts(level, s, taken, e, "market", near(s, anchor, 32, 14)));
 		place(level, ledger, e, all);
+		if (!stalls.isEmpty()) {
+			for (StallListener l : listeners) {
+				l.up(level, s, e, List.copyOf(stalls));
+			}
+		}
 		return stalls;
 	}
 
@@ -247,9 +409,11 @@ public final class Dressings {
 	/** Takes down what was set up for events that have ended (or every dressing, with {@code all}), where loaded. */
 	public static int takeDown(ServerLevel level, SocialLedger ledger, long now, boolean all, @Nullable Set<String> keep) {
 		int removed = 0;
+		java.util.Map<String, Set<Long>> gone = listeners.length == 0 ? null : new java.util.HashMap<>();
 		for (int i = ledger.dressings.size() - 1; i >= 0; i--) {
 			SocialLedger.Dressing d = ledger.dressings.get(i);
-			boolean due = all || d.until() <= now || keep != null && !keep.contains(d.event());
+			// the rhythm's dressings (laundry lines, winter) are kept to their own hour, not to the day's agenda
+			boolean due = all || d.until() <= now || keep != null && !keep.contains(d.event()) && !d.event().startsWith(RHYTHM);
 			if (!due) {
 				continue;
 			}
@@ -263,6 +427,16 @@ public final class Dressings {
 			}
 			ledger.dressings.remove(i);
 			removed++;
+			if (gone != null) {
+				gone.computeIfAbsent(d.event(), k -> new HashSet<>()).add(d.pos());
+			}
+		}
+		if (gone != null) {
+			for (java.util.Map.Entry<String, Set<Long>> e : gone.entrySet()) {
+				for (StallListener l : listeners) {
+					l.down(level, e.getKey(), e.getValue());
+				}
+			}
 		}
 		return removed;
 	}
@@ -279,9 +453,12 @@ public final class Dressings {
 	}
 
 	private static void place(ServerLevel level, SocialLedger ledger, TownEvent e, List<Part> parts) {
+		place(level, ledger, e.key(), e.end(), parts);
+	}
+
+	private static void place(ServerLevel level, SocialLedger ledger, String key, long until, List<Part> parts) {
 		for (Part p : parts) {
-			ledger.dressings.add(new SocialLedger.Dressing(p.pos.asLong(), BuiltInRegistries.BLOCK.getKey(p.state.getBlock()).toString(), e.key(),
-				e.end()));
+			ledger.dressings.add(new SocialLedger.Dressing(p.pos.asLong(), BuiltInRegistries.BLOCK.getKey(p.state.getBlock()).toString(), key, until));
 		}
 		for (Part p : parts) {
 			level.setBlock(p.pos, p.state, FLAGS);
@@ -299,10 +476,22 @@ public final class Dressings {
 
 	/** Every cell of the parts is air with nothing standing in it, the ground under each column is sturdy and level. */
 	private static boolean clear(ServerLevel level, List<Part> parts, Set<Long> taken, List<BlockPos> doors, BlockPos anchor, BlockPos ground) {
+		return clear(level, parts, taken, doors, anchor, ground, false);
+	}
+
+	/**
+	 * As above; {@code soft}: a yard's thin snow and short grass at the foot of a post may give way to it (laundry; gone
+	 * with the post when it comes down, as trodden snow and grass would be).
+	 */
+	private static boolean clear(ServerLevel level, List<Part> parts, Set<Long> taken, List<BlockPos> doors, BlockPos anchor, BlockPos ground, boolean soft) {
 		int y = ground.getY();
 		for (Part p : parts) {
 			BlockPos pos = p.pos;
-			if (!level.isLoaded(pos) || taken.contains(pos.asLong()) || !level.getBlockState(pos).isAir()) {
+			if (!level.isLoaded(pos) || taken.contains(pos.asLong())) {
+				return false;
+			}
+			BlockState here = level.getBlockState(pos);
+			if (!here.isAir() && !(soft && pos.getY() == y && (here.is(Blocks.SNOW) || here.is(Blocks.SHORT_GRASS) || here.is(Blocks.FERN)))) {
 				return false;
 			}
 			if (Math.abs(pos.getX() - anchor.getX()) <= 2 && Math.abs(pos.getZ() - anchor.getZ()) <= 2) {

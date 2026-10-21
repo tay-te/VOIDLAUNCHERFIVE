@@ -1,0 +1,63 @@
+{
+	"_comment": "How a culture keeps its day and week (docs/LIVING_WORLD_2.md \u00a72.1). Minutes of the day (0 = midnight). A culture's file overrides this one field by field. See social/rhythm/RhythmData.java.",
+	"rest_weekday": 3,
+	"service": {
+		"name": "mass",
+		"start": 540,
+		"minutes": 90,
+		"peal": 20,
+		"share": 0.6,
+		"chant": [
+			12,
+			14,
+			16,
+			14,
+			12,
+			-1,
+			11,
+			12,
+			9,
+			7,
+			-1,
+			-1
+		]
+	},
+	"wash": {
+		"places": [
+			"river",
+			"lake",
+			"well",
+			"fountain"
+		],
+		"start": 480,
+		"end": 720
+	},
+	"curfew": 1260,
+	"tavern": {
+		"open": 1110,
+		"close": 1410,
+		"instrument": ""
+	},
+	"watch": {
+		"from": 1260,
+		"to": 360
+	},
+	"meals": [
+		360,
+		720,
+		1110
+	],
+	"rest_day_work": [
+		"innkeeper",
+		"guard",
+		"jailer",
+		"priest",
+		"monk",
+		"entertainer",
+		"stablemaster"
+	],
+	"first_snow": {
+		"day": -1,
+		"winter_days": 10
+	}
+}
