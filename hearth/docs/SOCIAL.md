@@ -289,3 +289,71 @@ town ticks, the agenda and who attends), `FamilyAndOfficesTest` (matches of an a
 with the feast's food, funerals with kin, births, offices appointed, posts restored after the sim's job pass, the lord's
 heir, small places with few offices), `SocialDataTest` (ledger and config codecs, notices trimmed and translated, bells
 only at their hours).
+
+## 11. The daily rhythm (`rhythm/`, docs/LIVING_WORLD_2.md §2, lane A2)
+
+A town keeps a day and a week you can see. Everything is computed from the calendar and the data; nothing new is
+stored but a guard for the rest day's offering and the watch lights standing.
+
+**The week.** `TownCalendar.isRestDay/isWashDay`: one rest day a week on the culture's `rest_weekday` (kept off the
+market day and the day before it, so the wash day that follows never falls on market day either), towns along a road on
+different days. `RhythmCalendar` publishes it as `HearthServices.calendar()` (`restDay`, `washDay`, `marketDay`,
+`feast` — a festival's id or `first_snow` — and `events`, the day's agenda keys). `/hearth rhythm day rest|wash|plain`
+holds a day in the town here for today (`calendar` gives it back).
+
+**Schedules** (`RhythmSchedule`, a `ScheduleOverrides` source registered as the server starts, after the other modules'
+so a named character's own plans win): on the rest day every trade but `rest_day_work` (innkeeper, guards, jailer,
+priest, monk, entertainer, stablemaster) has 08:00–17:00 off (walks, visits, the square, prayer for the pious; dinner at
+home) — the bakers' bread and the herders' milking are done by eight; tonight's drinkers stay at the inn until closing
+and the walk home; in a cold culture's winter, folk keep in by the fire 17:30–20:30. The sim's books are unchanged
+(daily rates are already a week's average).
+
+**Folk behaviours** (`NpcService`; all embodied only, `wants()` a few cached lookups):
+
+| behaviour | priority | who, when | does |
+|---|---|---|---|
+| `ServiceBehaviour` | 85 | rest day: priest (or monk), elders, the pious, the lord, three adults in five (fixed a week), children with their parents | walk to the chapel/temple/church as the bell peals (20 min), sit in the pews (`SEAT`s nearest the altar: the lord and elders in front), stand at the two chants; the priest at the `ALTAR` says a sermon line every 20 s and leads the chant (flute notes); 15 min at the door after, the priest greeting regular players. No church: an open-air blessing at the square |
+| `WatchRounds` | 70 | guards and jailers on night duty, the culture's watch hours (21:00–06:00) | round from the gate to the square and past the doors, a torch and **real light** (`WatchLights`), the hours called, a challenge to players abroad or sneaking (2 min a player), "Bell's gone" after curfew |
+| `TavernNight.Hands` | 55 | the innkeeper and the town's entertainer, tavern hours | the musician plays the night's tunes (the culture's or the data's instrument); the innkeeper goes round the tables, rings the hand bell at closing |
+| `WashBehaviour` | 55 | wash day 08:00–12:00: one adult from a quarter of households (three at least) | to the wash place (river, lake, well, fountain by the culture's liking; `WashPlaces` scans loaded water within 48 blocks of the bounds once per embodiment), kneels (pose tend) with white wool, splashes, gossip |
+| `TavernNight` | 45 | tonight's drinkers (`RhythmSchedule.drinkers`: adults drawn each night, the sociable twice as often, as many as the taverns' seats, ≤ 16) | sit at the tables with mugs, drink, toast, cheer when a tune ends, two arm-wrestle one night in three; at closing they weave home |
+| `PlayBehaviour` | 25 | children by daylight | the town's game of the hour (hide-and-seek — one counts at the square, the rest hide at plot corners and are found —, hoop and stick, stick fights, snowballs in winter), or their own (skipping stones, chasing chickens, watching the smith); a third left to the routine's tag |
+
+**Town-wide** (`RhythmDirector`, every `pass_ticks` per embodied town): the curfew bell (21:00, five strokes), the
+rest-day peal, parents calling children in at supper by name, laundry lines in the washers' yards on wash day (posts,
+string, white and grey linen; `Dressings.setUpLaundry`, up till 17:00), winter on the ledges in the cold cultures
+(`winter` dressing), chimney smoke at the meal times from homes whose family is in (campfire smoke over the `HEARTH`
+column, ≤ 24 a town every 40 ticks) and from the bakery before dawn, players at the service (`social:attended_mass` +1,
+once a week a town; the priest counts regulars in his `extra("social").regulars`). Abstract, every settlement once a
+day: the rest day's offering, a bit a head of the grown folk who go, to the treasury (`hearth:social/rhythm` guards it).
+
+**Conversation** (`RhythmDialogue`): the innkeeper, in tavern hours, "Buy the house a round" (`round` bits a head of
+the folk near, two heads at least; once a night; `social:bought_a_round` +2; the tavern's drinkers raise their mugs to
+you); the priest "When is mass?" (today, tomorrow, in N days).
+
+**Data**: `data/<ns>/hearth_social/rhythm/<culture>.json` over `default.json` (`RhythmData`: rest weekday; the service's
+name, start, length, peal, share and chant; wash places and hours; curfew; tavern hours and instrument; watch hours;
+meal times; rest-day trades; first snow and winter length), barks in `hearth_dialogue/barks/rhythm.json`
+(`RhythmBarks`: the dialogue templates' format; one a folk a minute, one a player a town every 4 s, a line not again in
+a town for 10 min; scripted lines skip the folk's minute), deeds in `hearth_standing/deeds/rhythm.json`, words in
+`lang/en_us/lw_rhythm.json`. Config `config/hearth/rhythm.json` (`RhythmConfig`): rhythm, lights (8 a town, level 14,
+8 changes a second), service, tavern, wash, smoke.
+
+**Safety.** Laundry, winter dressings and watch lights go only into air, are written down before they are placed and
+are taken down when their hour is over, when the town folds, when the server stops, and (unloaded chunks) on the next
+embodiment; the day's agenda pass leaves the `rhythm:` dressings to their own hour. Watch lights are `minecraft:light`
+blocks at the watchman's head, moved as he walks, ≤ 8 a town (fewer as the server slows, `LoadCaps`); laundry and winter
+dressings are not put up while the server is slow.
+
+**Cost.** Measured (`RhythmTest.abstractCost`, `/hearth rhythm status`, `/hearth sim stats` lines `rhythm` and
+`rhythm folk`): see docs/LIVING_WORLD_2.md §2.4 and docs/requests/lwA2.md.
+
+**A stall callback** for lane A4: `Dressings.listen(StallListener)` — `up(level, s, market, stalls)` when a market's
+stalls are set up, `down(level, eventKey, positions)` with the packed positions of every dressing block taken down.
+
+**Tests**: `TownCalendarTest` (rest and wash day per culture for every town, never on market day; the calendar service;
+winter only in the cold cultures), `ScheduleTest` (no work on the rest day but the listed trades', unchanged otherwise;
+the night watch's hours; drinkers until closing), `RhythmDataTest` (every culture has a file or the default, every file
+reads, every bark category the code says has lines for every culture, placeholders known, no repeats inside the
+cooldown), `RhythmTest` (the congregation, the parts of the service, washers, drinkers, the offering once a rest day,
+held days, the abstract cost). Tour: `JAVA_TOOL_OPTIONS="-Dhearth.tour=rhythm" ./gradlew runClientGameTest` (`gametest/RhythmTour`).

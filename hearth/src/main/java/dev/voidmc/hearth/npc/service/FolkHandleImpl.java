@@ -173,7 +173,9 @@ public final class FolkHandleImpl implements NpcService.FolkHandle {
 				}
 			}
 		}
-		this.brain.pose(FolkPose.TALK, 40);
+		if (f.folkPose() != FolkPose.SIT) {
+			this.brain.pose(FolkPose.TALK, 40); // a seated folk talks from their seat
+		}
 	}
 
 	@Override

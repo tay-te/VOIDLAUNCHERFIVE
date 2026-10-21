@@ -161,7 +161,7 @@ public final class WashBehaviour implements NpcService.FolkBehaviour {
 		State st = new State(bank, water);
 		this.states.put(folk.resident().id, st);
 		folk.hold(new ItemStack(Items.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE)));
-		folk.moveTo(bank, 0.5);
+		RhythmFolk.walk(folk, bank, 0.5);
 		st.nextMove = folk.gameTime() + 80;
 		st.nextScrub = folk.gameTime() + 40;
 	}
@@ -189,7 +189,7 @@ public final class WashBehaviour implements NpcService.FolkBehaviour {
 			}
 			if (!RhythmFolk.near(folk, st.bank, 1.8)) {
 				if (t >= st.nextMove) {
-					folk.moveTo(st.bank, 0.5);
+					RhythmFolk.walk(folk, st.bank, 0.5);
 					st.nextMove = t + 100;
 				}
 				return true;

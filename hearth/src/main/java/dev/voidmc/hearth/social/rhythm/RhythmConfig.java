@@ -39,7 +39,7 @@ public record RhythmConfig(Rhythm rhythm, Lights lights, Service service, Tavern
 	 * @param changesPerSecond block changes a town's lights may make a second
 	 */
 	public record Lights(int maxPerTown, int level, int changesPerSecond) {
-		public static final Lights DEFAULTS = new Lights(8, 12, 8);
+		public static final Lights DEFAULTS = new Lights(8, 14, 8);
 		public static final Codec<Lights> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.intRange(0, 64).optionalFieldOf("max_per_town", DEFAULTS.maxPerTown).forGetter(Lights::maxPerTown),
 			Codec.intRange(1, 15).optionalFieldOf("level", DEFAULTS.level).forGetter(Lights::level),
@@ -85,7 +85,7 @@ public record RhythmConfig(Rhythm rhythm, Lights lights, Service service, Tavern
 	 * @param lines      laundry lines put up at most in a town
 	 */
 	public record Wash(boolean enabled, double households, int least, int reach, int scanReads, int lines) {
-		public static final Wash DEFAULTS = new Wash(true, 0.25, 3, 48, 200, 6);
+		public static final Wash DEFAULTS = new Wash(true, 0.25, 3, 48, 400, 6);
 		public static final Codec<Wash> CODEC = RecordCodecBuilder.create(i -> i.group(
 			Codec.BOOL.optionalFieldOf("enabled", DEFAULTS.enabled).forGetter(Wash::enabled),
 			Codec.doubleRange(0, 1).optionalFieldOf("households", DEFAULTS.households).forGetter(Wash::households),

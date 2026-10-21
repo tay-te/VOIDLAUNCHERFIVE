@@ -57,6 +57,8 @@ public final class RhythmSchedule implements ScheduleOverrides.Source {
 		if (settlement == null || resident == null || !Rhythm.config().rhythm().enabled()) {
 			return List.of();
 		}
+		// the town's own day, as its folk behaviours read it (a settlement run ahead of the world clock keeps its own)
+		day = Math.max(day, settlement.data(SocialModule.LEDGER).lastDay);
 		SettlementCalendar cal = HearthServices.calendar();
 		RhythmData data = RhythmData.of(settlement.culture());
 		boolean rest = cal.restDay(settlement, day);

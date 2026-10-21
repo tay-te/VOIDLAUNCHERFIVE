@@ -70,6 +70,7 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		long toastedAt;
 		int beat;
 		int sway;
+		boolean sat;
 
 		State(long tavern, @Nullable Poi seat, BlockPos stand, BlockPos table, @Nullable BlockPos home, boolean wrestler, boolean musician) {
 			this.tavern = tavern;
@@ -142,8 +143,14 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		}
 		List<Resident> order = order(s, day);
 		int i = Math.max(0, order.indexOf(folk.resident()));
-		PlotView tavern = taverns.get(i % taverns.size());
-		int nth = i / taverns.size();
+		// each to the tavern nearest home; seats by the order of the night among those who go there
+		PlotView tavern = nearest(s, taverns, folk.resident());
+		int nth = 0;
+		for (int k = 0; k < i; k++) {
+			if (nearest(s, taverns, order.get(k)) == tavern) {
+				nth++;
+			}
+		}
 		List<Poi> seats = new ArrayList<>(Venues.inPlot(s.pois(PoiType.SEAT), tavern));
 		List<Poi> tables = Venues.inPlot(s.pois(PoiType.TABLE), tavern);
 		seats.sort(Comparator.comparingDouble(p -> tables.isEmpty() ? 0 : p.pos().distSqr(Venues.nearest(Venues.positions(tables), p.pos()))));
@@ -155,15 +162,30 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		BlockPos home = WashBehaviour.door(s, folk.resident());
 		// the first two at the first table of a tavern arm-wrestle, one night in three
 		boolean wrestler = nth < 2 && Math.floorMod(TownCalendar.mix(day ^ tavern.id()), 3L) == 0;
-		boolean musician = nth == 0 && i < taverns.size() && Rhythm.musician(s, tavern) == null
+		boolean musician = nth == 0 && Rhythm.musician(s, tavern) == null
 			&& (FolkFacts.has(folk.resident(), "cheerful") || FolkFacts.has(folk.resident(), "sociable"));
 		State st = new State(key(s, tavern), musician ? null : seat, musician ? Venues.standFor(level, new Venues.Venue(table, table, List.of(table), 2),
 			folk.resident().id, 7) : stand, table, home, wrestler && !musician, musician);
 		this.states.put(folk.resident().id, st);
 		folk.hold(new ItemStack(Items.HONEY_BOTTLE));
-		folk.moveTo(st.stand, 0.6);
+		RhythmFolk.walk(folk, st.stand, 0.6);
 		st.nextMove = folk.gameTime() + 60;
 		st.nextAct = folk.gameTime() + 100 + Math.floorMod(folk.resident().id.hashCode(), 100);
+	}
+
+	static PlotView nearest(Settlement s, List<PlotView> taverns, Resident r) {
+		BlockPos home = WashBehaviour.door(s, r);
+		BlockPos from = home != null ? home : s.center();
+		PlotView best = taverns.get(0);
+		double bd = Double.MAX_VALUE;
+		for (PlotView p : taverns) {
+			double d = Venues.middle(p.spec()).distSqr(from);
+			if (d < bd) {
+				bd = d;
+				best = p;
+			}
+		}
+		return best;
 	}
 
 	@Override
@@ -189,8 +211,9 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 			return false;
 		}
 		if (!open(hours, minute, false) && st.mode != Mode.HOMEWARD) {
-			if (st.mode == Mode.SEATED && st.seat != null) {
+			if (st.sat) {
 				folk.standUp();
+				st.sat = false;
 			}
 			st.mode = Mode.HOMEWARD;
 			st.nextMove = 0;
@@ -204,12 +227,13 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 				if (RhythmFolk.near(folk, st.stand, st.seat != null ? 1.6 : 2.0)) {
 					if (st.seat != null && folk.sit(st.seat.pos(), st.seat.facing())) {
 						st.mode = Mode.SEATED;
+						st.sat = true;
 					} else {
 						folk.stop();
 						st.mode = Mode.SEATED;
 					}
 				} else if (t >= st.nextMove) {
-					folk.moveTo(st.stand, 0.6);
+					RhythmFolk.walk(folk, st.stand, 0.6);
 					st.nextMove = t + 80;
 				}
 			}
@@ -230,7 +254,7 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 					BlockPos next = here.offset((int) Math.round(dx / len * stride - dz / len * side * 1.3), 0,
 						(int) Math.round(dz / len * stride + dx / len * side * 1.3));
 					BlockPos ok = len < 6 ? st.home : Venues.standable(level, next);
-					folk.moveTo(ok == null ? st.home : ok, 0.42);
+					RhythmFolk.walk(folk, ok == null ? st.home : ok, 0.42);
 					st.nextMove = t + 40;
 				}
 			}
@@ -252,14 +276,14 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		if (round != null && round.time() > st.toastedAt && t - round.time() < 200) {
 			st.toastedAt = round.time();
 			folk.swing();
-			folk.pose("cheer", 40);
+			pose(folk, st, "cheer", 40);
 			RhythmBarks.say(folk, RhythmBarks.ROUND, Map.of("player", round.player()), true);
 			return;
 		}
 		Long ended = TUNE_ENDED.get(st.tavern);
 		if (ended != null && ended > st.cheeredAt && t - ended < 60) {
 			st.cheeredAt = ended;
-			folk.pose("cheer", 30);
+			pose(folk, st, "cheer", 30);
 			folk.swing();
 			if (TownCalendar.chance(folk.resident().id.hashCode(), t, 6) < 0.25) {
 				RhythmBarks.say(folk, RhythmBarks.CHEER, Map.of(), false);
@@ -271,17 +295,24 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		}
 		double roll = TownCalendar.chance(folk.resident().id.hashCode(), t, 45);
 		if (st.wrestler && roll < 0.35) {
-			folk.pose("craft", 160);
+			pose(folk, st, "craft", 160);
 			level.playSound(null, st.table, SoundEvents.WOOD_HIT, SoundSource.NEUTRAL, 0.4F, 0.8F);
 			RhythmBarks.say(folk, RhythmBarks.ARM_WRESTLE, Map.of(), false);
 		} else if (roll < 0.6) {
 			folk.swing(); // a pull at the mug
 			level.playSound(null, folk.entity().blockPosition(), SoundEvents.GENERIC_DRINK.value(), SoundSource.NEUTRAL, 0.35F, 1.0F);
 		} else if (roll < 0.8) {
-			folk.pose("talk", 40);
+			pose(folk, st, "talk", 40);
 			RhythmBarks.say(folk, RhythmBarks.TOAST, Map.of("lord", Rhythm.lordName(s)), false);
 		}
 		st.nextAct = t + 160 + Math.floorMod(TownCalendar.mix(t ^ folk.resident().id.hashCode()), 220L);
+	}
+
+	/** A gesture, unless they sit: a seated drinker keeps their seat (a raised mug is the swing). */
+	private static void pose(NpcService.FolkHandle folk, State st, String pose, int ticks) {
+		if (!st.sat) {
+			folk.pose(pose, ticks);
+		}
 	}
 
 	/** The tune of the night: a beat every five ticks; a pause and a cheer between tunes. */
@@ -313,7 +344,7 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 	public void stop(NpcService.FolkHandle folk) {
 		State st = this.states.remove(folk.resident().id);
 		if (st != null) {
-			if (st.mode == Mode.SEATED && st.seat != null) {
+			if (st.sat) {
 				folk.standUp();
 			}
 			folk.pose("none", 0);
@@ -392,7 +423,7 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 			State st = new State(key(s, tavern), null, stand, table, null, false, musician);
 			this.states.put(folk.resident().id, st);
 			folk.hold(musician ? ItemStack.EMPTY : new ItemStack(Items.HONEY_BOTTLE));
-			folk.moveTo(stand, 0.6);
+			RhythmFolk.walk(folk, stand, 0.6);
 			st.nextMove = folk.gameTime() + 60;
 			st.nextAct = folk.gameTime() + 200;
 		}
@@ -425,7 +456,7 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 				}
 				if (!RhythmFolk.near(folk, st.stand, 1.8)) {
 					if (t >= st.nextMove) {
-						folk.moveTo(st.stand, 0.55);
+						RhythmFolk.walk(folk, st.stand, 0.55);
 						st.nextMove = t + 80;
 					}
 					return true;
@@ -449,7 +480,7 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 							BlockPos next = tables.get((int) Math.floorMod(TownCalendar.mix(t ^ 77), (long) tables.size())).pos();
 							BlockPos stand = Venues.standFor(level, new Venues.Venue(next, next, List.of(next), 1), folk.resident().id, (int) (t % 7));
 							this.states.put(folk.resident().id, new State(st.tavern, null, stand, next, null, false, false));
-							folk.moveTo(stand, 0.5);
+							RhythmFolk.walk(folk, stand, 0.5);
 						}
 					}
 				}

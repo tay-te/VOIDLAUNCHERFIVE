@@ -45,7 +45,8 @@ public final class RhythmCalendar implements SettlementCalendar {
 
 	static @Nullable Forced forced(long settlement, long day) {
 		long[] f = FORCED.get(settlement);
-		return f == null || f[0] != day ? null : Forced.values()[(int) f[1]];
+		// held for the day it was asked on and the next (a town run ahead of the world clock turns its day over early)
+		return f == null || day < f[0] || day > f[0] + 1 ? null : Forced.values()[(int) f[1]];
 	}
 
 	static void clearForced() {

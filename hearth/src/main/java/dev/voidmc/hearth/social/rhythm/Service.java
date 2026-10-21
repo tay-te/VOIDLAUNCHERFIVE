@@ -123,8 +123,11 @@ public final class Service {
 		return out;
 	}
 
-	/** The town's church, else an open-air place at the square. */
+	/** The town's church nearest its square (a far monastery is not the parish), else an open-air place at the square. */
 	public static Church church(Settlement s) {
+		BlockPos square = Venues.square(s);
+		Church best = null;
+		double bestD = Double.MAX_VALUE;
 		for (String path : CHURCHES) {
 			for (PlotView p : Venues.built(s, path)) {
 				List<Poi> altars = Venues.inPlot(s.pois(PoiType.ALTAR), p);
@@ -132,27 +135,30 @@ public final class Service {
 					continue;
 				}
 				Poi altar = altars.get(0);
+				double d = altar.pos().distSqr(square);
+				if (d >= bestD) {
+					continue;
+				}
 				List<Poi> seats = new ArrayList<>(Venues.inPlot(s.pois(PoiType.SEAT), p));
 				seats.sort(Comparator.comparingDouble(q -> q.pos().distSqr(altar.pos())));
 				List<Poi> doors = Venues.inPlot(s.pois(PoiType.DOOR), p);
 				BlockPos door = doors.isEmpty() ? Venues.middle(p.spec()) : doors.get(0).pos();
 				if (doors.isEmpty()) {
 					// a door just outside the plot (blueprints report a doorway's outside block)
-					List<Poi> all = s.pois(PoiType.DOOR);
-					double best = 36;
-					for (Poi d : all) {
-						double dist = d.pos().distSqr(Venues.middle(p.spec()));
-						if (dist < best * best) {
-							best = Math.sqrt(dist);
-							door = d.pos();
+					double near = 36;
+					for (Poi dp : s.pois(PoiType.DOOR)) {
+						double dist = Math.sqrt(dp.pos().distSqr(Venues.middle(p.spec())));
+						if (dist < near) {
+							near = dist;
+							door = dp.pos();
 						}
 					}
 				}
-				return new Church(altar.pos(), altar.facing(), List.copyOf(seats), door, p);
+				best = new Church(altar.pos(), altar.facing(), List.copyOf(seats), door, p);
+				bestD = d;
 			}
 		}
-		BlockPos square = Venues.square(s);
-		return new Church(square, Direction.NORTH, List.of(), square, null);
+		return best != null ? best : new Church(square, Direction.NORTH, List.of(), square, null);
 	}
 
 	static synchronized Day day(Settlement s, long day) {

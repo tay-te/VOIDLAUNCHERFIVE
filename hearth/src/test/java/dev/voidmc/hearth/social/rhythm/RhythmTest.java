@@ -190,14 +190,15 @@ class RhythmTest {
 	}
 
 	@Test
-	void forcedDaysHoldForTheirDayOnly() {
+	void forcedDaysHoldForTheirDayAndTheNext() {
 		SimpleSettlement s = village(16, 3);
 		long day = 300;
 		boolean was = RhythmCalendar.INSTANCE.restDay(s, day);
 		RhythmCalendar.force(s.id(), day, RhythmCalendar.Forced.REST);
 		assertTrue(RhythmCalendar.INSTANCE.restDay(s, day));
 		assertFalse(RhythmCalendar.INSTANCE.marketDay(s, day));
-		assertEquals(TownCalendar.isRestDay(s.id(), day + 1, 7, RhythmData.of(s.culture()).restWeekday()), RhythmCalendar.INSTANCE.restDay(s, day + 1));
+		assertTrue(RhythmCalendar.INSTANCE.restDay(s, day + 1), "and the next, should the town's day turn over early");
+		assertEquals(TownCalendar.isRestDay(s.id(), day + 2, 7, RhythmData.of(s.culture()).restWeekday()), RhythmCalendar.INSTANCE.restDay(s, day + 2));
 		RhythmCalendar.force(s.id(), day, null);
 		assertEquals(was, RhythmCalendar.INSTANCE.restDay(s, day));
 		RhythmCalendar.clearForced();

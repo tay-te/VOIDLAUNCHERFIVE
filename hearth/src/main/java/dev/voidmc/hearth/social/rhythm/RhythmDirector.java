@@ -52,6 +52,9 @@ import org.jspecify.annotations.Nullable;
  */
 public final class RhythmDirector {
 	static final LivingWorldStats.Timer TIMER = LivingWorldStats.timer("rhythm");
+	static final LivingWorldStats.Timer SCAN_TIMER = LivingWorldStats.timer("rhythm wash-place scan");
+	static final LivingWorldStats.Timer LAUNDRY_TIMER = LivingWorldStats.timer("rhythm laundry");
+	static final LivingWorldStats.Timer SMOKE_TIMER = LivingWorldStats.timer("rhythm smoke");
 	static final int RECONCILE_TICKS = 200;
 
 	private static final Map<Long, HearthWorld> EMBODIED = new LinkedHashMap<>();
@@ -60,6 +63,9 @@ public final class RhythmDirector {
 	/** Chimneys of each town: plot → the block above its hearth's column top (found once a plot). */
 	private static final Map<Long, Map<Integer, BlockPos>> CHIMNEYS = new HashMap<>();
 	private static final Set<String> ATTENDED = new HashSet<>();
+	/** Wash day's laundry search per town: {day, next home (MAX: done), lines up}. */
+	private static final Map<Long, int[]> LAUNDRY = new HashMap<>();
+	static final int LAUNDRY_YARDS_A_PASS = 3;
 
 	private RhythmDirector() {
 	}
@@ -91,6 +97,7 @@ public final class RhythmDirector {
 		STROKES.clear();
 		CHIMNEYS.clear();
 		ATTENDED.clear();
+		LAUNDRY.clear();
 	}
 
 	// ---- abstract: once a day for every settlement
@@ -206,17 +213,36 @@ public final class RhythmDirector {
 		// wash day: laundry lines in the yards from the morning till the work-end bell
 		if (wash && cfg.wash().enabled() && admitting && RhythmFolk.within(minute, data.wash().start(), 17 * 60)) {
 			String key = Dressings.RHYTHM + "laundry:" + day;
-			if (!Dressings.isUp(ledger, key)) {
+			int[] progress = LAUNDRY.get(s.id());
+			if (progress == null || progress[0] != (int) day) {
+				// a fresh wash day (or one already seen to before a restart: its lines are in the ledger)
+				progress = new int[] {(int) day, Dressings.isUp(ledger, key) ? Integer.MAX_VALUE : 0, 0};
+				LAUNDRY.put(s.id(), progress);
+			}
+			if (progress[1] != Integer.MAX_VALUE) {
 				List<PlotView> homes = WashBehaviour.homes(s, day);
 				if (homes.isEmpty()) {
-					homes = Dressings.plotsNear(s, Venues.square(s), 64, cfg.wash().lines());
+					homes = Dressings.plotsNear(s, Venues.square(s), 64, cfg.wash().lines() * 3);
 				}
-				// put up once a day: a mark in the ledger even when no yard had room
-				int lines = Dressings.setUpLaundry(level, s, ledger, key, SocialTime.at(day, 17 * 60), homes, cfg.wash().lines());
-				if (lines == 0) {
-					ledger.dressings.add(new SocialLedger.Dressing(Venues.square(s).below(64).asLong(), "minecraft:air", key, SocialTime.at(day, 17 * 60)));
+				// a few yards a pass, so the search never makes a slow tick
+				int from = progress[1];
+				int to = Math.min(homes.size(), from + LAUNDRY_YARDS_A_PASS);
+				if (from < to) {
+					long t0 = System.nanoTime();
+					progress[2] += Dressings.setUpLaundry(level, s, ledger, key, SocialTime.at(day, 17 * 60), homes.subList(from, to),
+						cfg.wash().lines() - progress[2]);
+					LAUNDRY_TIMER.add(System.nanoTime() - t0);
+					s.markDirty();
 				}
-				s.markDirty();
+				progress[1] = to;
+				if (to >= homes.size() || progress[2] >= cfg.wash().lines()) {
+					if (progress[2] == 0) {
+						// a mark in the ledger: this wash day was seen to, though no yard had room
+						ledger.dressings.add(new SocialLedger.Dressing(Venues.square(s).below(64).asLong(), "minecraft:air", key, SocialTime.at(day, 17 * 60)));
+						s.markDirty();
+					}
+					progress[1] = Integer.MAX_VALUE;
+				}
 			}
 		}
 		// the cold cultures' winter: snow on the ledges round the square
@@ -241,7 +267,9 @@ public final class RhythmDirector {
 
 		// chimney smoke at meal times (and the bakers' ovens before dawn)
 		if (cfg.smoke().enabled() && gt % cfg.smoke().everyTicks() < cfg.rhythm().passTicks()) {
+			long t0 = System.nanoTime();
 			smoke(level, s, minute, data, cfg);
+			SMOKE_TIMER.add(System.nanoTime() - t0);
 		}
 
 		// players at the service
@@ -252,7 +280,9 @@ public final class RhythmDirector {
 
 		// the wash-place scan, a little each pass, while the town is embodied
 		if (!WashPlaces.scanned(s)) {
+			long t0 = System.nanoTime();
 			WashPlaces.step(level, s, cfg.wash().reach(), cfg.wash().scanReads());
+			SCAN_TIMER.add(System.nanoTime() - t0);
 		}
 
 		// lights of watchmen no longer walking
@@ -426,6 +456,9 @@ public final class RhythmDirector {
 		List<String> out = new ArrayList<>();
 		out.add(String.format(java.util.Locale.ROOT, "rhythm: %d embodied towns, %d strokes queued, director %.3f ms avg, folk %.4f ms avg a step",
 			EMBODIED.size(), STROKES.size(), TIMER.averageMs(), RhythmFolk.FOLK_TIMER.averageMs()));
+		if (!Dressings.LAUNDRY_MISSES.isEmpty()) {
+			out.add(" laundry lines not put up: " + Dressings.LAUNDRY_MISSES);
+		}
 		for (var e : EMBODIED.entrySet()) {
 			Settlement s = e.getValue().settlement(e.getKey());
 			if (s == null) {
@@ -433,8 +466,8 @@ public final class RhythmDirector {
 			}
 			long day = TownLife.today(e.getValue(), s);
 			long laundry = s.data(SocialModule.LEDGER).dressings.stream().filter(d -> d.event().startsWith(Dressings.RHYTHM)).count();
-			out.add(String.format(java.util.Locale.ROOT, " %s: rest %s, wash %s, market %s, washers %d, drinkers %d, at service %d, wash places %d%s, lights %d, "
-				+ "rhythm dressing blocks %d", s.name(), HearthServices.calendar().restDay(s, day), HearthServices.calendar().washDay(s, day),
+			out.add(String.format(java.util.Locale.ROOT, " %s day %d (world %d): rest %s, wash %s, market %s, washers %d, drinkers %d, at service %d, wash places %d%s, lights %d, "
+				+ "rhythm dressing blocks %d", s.name(), day, e.getValue().day(), HearthServices.calendar().restDay(s, day), HearthServices.calendar().washDay(s, day),
 				HearthServices.calendar().marketDay(s, day), WashBehaviour.washers(s, day).size(), RhythmSchedule.drinkers(s, day).size(),
 				Service.day(s, day).attending().size(), WashPlaces.of(s).size(), WashPlaces.scanned(s) ? "" : " (scanning)", WatchLights.standing(s), laundry));
 		}

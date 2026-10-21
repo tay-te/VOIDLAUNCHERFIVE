@@ -290,6 +290,9 @@ wagon, friend."*; bandit leader *"Nice boots. Nicer purse, I'd wager."*, *"Lay i
 Bells and Sunday mass, market-day crowds, tavern nights with music and dice, children playing, washing at the river,
 the night watch with torches.
 
+**Built** (lane A2, branch `hearth-lwA2`): `social/rhythm/*`, documented in SOCIAL.md §11; what it added outside its
+package and asks of others is in `requests/lwA2.md`.
+
 ### 2.1 What the player sees and does
 
 A temperate town's day (other cultures shift it: siesta and late suppers in the south, early nights in the north; the

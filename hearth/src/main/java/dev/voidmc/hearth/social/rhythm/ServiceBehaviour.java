@@ -116,7 +116,7 @@ public final class ServiceBehaviour implements NpcService.FolkBehaviour {
 		State st = new State(leads, seat, stand, porch, c.altar());
 		this.states.put(r.id, st);
 		folk.hold(leads ? new ItemStack(Items.BOOK) : r.job == JobType.LORD ? ItemStack.EMPTY : ItemStack.EMPTY);
-		folk.moveTo(stand, 0.55);
+		RhythmFolk.walk(folk, stand, 0.55);
 		st.nextMove = folk.gameTime() + 60;
 		st.nextLine = folk.gameTime() + 100 + Math.floorMod(r.id.hashCode(), 60);
 	}
@@ -138,10 +138,10 @@ public final class ServiceBehaviour implements NpcService.FolkBehaviour {
 		}
 		Settlement s = folk.settlement();
 		Service.Part part = partNow(s);
-		if (part == Service.Part.NONE) {
+		long t = folk.gameTime();
+		if (part == Service.Part.NONE || (t & 63) == 0 && !wants(folk)) {
 			return false;
 		}
-		long t = folk.gameTime();
 		ServerLevel level = (ServerLevel) folk.entity().level();
 		RhythmData data = RhythmData.of(s.culture());
 		BlockPos goal = part == Service.Part.PORCH ? st.porch : st.stand;
@@ -151,7 +151,7 @@ public final class ServiceBehaviour implements NpcService.FolkBehaviour {
 		}
 		if (!st.seated && !RhythmFolk.near(folk, goal, st.seat != null && part != Service.Part.PORCH ? 1.6 : 2.2)) {
 			if (t >= st.nextMove) {
-				folk.moveTo(goal, part == Service.Part.PORCH ? 0.45 : 0.55);
+				RhythmFolk.walk(folk, goal, part == Service.Part.PORCH ? 0.45 : 0.55);
 				st.nextMove = t + 80;
 			}
 			return true;

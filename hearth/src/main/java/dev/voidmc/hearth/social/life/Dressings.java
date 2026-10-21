@@ -34,6 +34,29 @@ public final class Dressings {
 	/** No neighbour updates and no {@code onPlace} (a dressing never reacts to what is next to it, nor reads the next chunk). */
 	private static final int FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE | Block.UPDATE_SKIP_ON_PLACE;
 
+	/**
+	 * Told when market stalls go up and come down (docs/LIVING_WORLD_2.md §6.3: lane A4's stall wares lay goods on the
+	 * counters). Called on the server thread, with the chunks loaded; keep it cheap. Register during mod init.
+	 */
+	public interface StallListener {
+		/** The stalls of a market just set up (only those with room went up). */
+		void up(ServerLevel level, Settlement s, TownEvent market, List<Stall> stalls);
+
+		/**
+		 * Blocks set up for an event came down: {@code positions} are their packed positions (a stall's counter among them
+		 * when its stall came down), so what was laid on a counter told in {@link #up} can go with it.
+		 */
+		void down(ServerLevel level, String eventKey, Set<Long> positions);
+	}
+
+	private static volatile StallListener[] listeners = new StallListener[0];
+
+	public static synchronized void listen(StallListener listener) {
+		StallListener[] next = java.util.Arrays.copyOf(listeners, listeners.length + 1);
+		next[next.length - 1] = listener;
+		listeners = next;
+	}
+
 	/** Events of the daily rhythm (docs/LIVING_WORLD_2.md §2): taken down at their {@code until}, or with everything. */
 	public static final String RHYTHM = "rhythm:";
 
@@ -51,49 +74,63 @@ public final class Dressings {
 		List<BlockPos> doors = Venues.positions(s.pois(PoiType.DOOR));
 		List<Part> all = new ArrayList<>();
 		int lines = 0;
+		int tried = 0;
 		for (PlotView home : homes) {
-			if (lines >= most) {
+			// a few yards each, and only so many yards: a bounded search, once a wash day
+			if (lines >= most || tried++ >= Math.max(3, most * 3)) {
 				break;
 			}
 			dev.voidmc.hearth.api.PlotSpec spec = home.spec();
 			BlockPos o = spec.origin();
 			long seed = TownCalendar.mix(s.id() * 31 + home.id() ^ key.hashCode());
+			// the plots round this one (a part may not stand in them): a short list, not the whole town
+			List<PlotView> round = near(s, centre(home), Math.max(spec.sizeX(), spec.sizeZ()) + 12, 16);
 			int tries = 0;
 			for (int k = 0; k < 40 && tries < 40; k++, tries++) {
 				long h = TownCalendar.mix(seed + k);
 				Direction along = (h & 1) == 0 ? Direction.EAST : Direction.SOUTH;
-				int span = 4;
-				int maxX = spec.sizeX() - (along == Direction.EAST ? span : 0) - 1;
-				int maxZ = spec.sizeZ() - (along == Direction.SOUTH ? span : 0) - 1;
-				if (maxX < 1 || maxZ < 1) {
+				int span = 3;
+				// in the yard: the plot and a few blocks round it, on open ground of earth or grass (not a street, not another plot)
+				BlockPos c = o.offset(-3 + (int) Math.floorMod(h >>> 8, (long) (spec.sizeX() + 6)), 0, -3 + (int) Math.floorMod(h >>> 24, (long) (spec.sizeZ() + 6)));
+				if (!level.isLoaded(c)) {
 					continue;
 				}
-				BlockPos c = o.offset(1 + (int) Math.floorMod(h >>> 8, (long) maxX), 0, 1 + (int) Math.floorMod(h >>> 24, (long) maxZ));
-				BlockPos ground = Venues.standable(level, c);
+				BlockPos ground = Venues.standable(level, c.atY(level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+					c.getX(), c.getZ())));
 				if (ground == null || !level.canSeeSky(ground)) {
+					LAUNDRY_MISSES.merge("no open ground", 1, Integer::sum);
 					continue;
 				}
 				List<Part> parts = laundry(ground, along, span, pal);
-				boolean inside = true;
+				boolean yard = true;
 				for (Part p : parts) {
-					if (!Venues.inside(spec, p.pos)) {
-						inside = false;
-						break;
+					for (PlotView other : round) {
+						if (other.id() != home.id() && !other.spec().archetype().getPath().startsWith("infra/") && Venues.inside(other.spec(), p.pos)) {
+							yard = false;
+							break;
+						}
 					}
 				}
-				if (!inside || !clear(level, parts, taken, doors, Venues.square(s), ground)) {
+				if (!yard) {
+					LAUNDRY_MISSES.merge("in another plot", 1, Integer::sum);
 					continue;
 				}
-				// the line must not hang over a drop: the cells under the linen are ground-level air on sturdy ground
+				if (!clear(level, parts, taken, doors, Venues.square(s), ground)) {
+					LAUNDRY_MISSES.merge("not clear", 1, Integer::sum);
+					continue;
+				}
+				// the ground along the line is level earth or grass with air over it (a yard, not a street or a drop)
 				boolean level0 = true;
-				for (int i = 1; i < span; i++) {
+				for (int i = 0; i <= span; i++) {
 					BlockPos under = ground.relative(along, i);
-					if (!level.getBlockState(under).isAir() || !level.getBlockState(under.below()).isFaceSturdy(level, under.below(), Direction.UP)) {
+					BlockState soil = level.getBlockState(under.below());
+					if (i > 0 && i < span && !level.getBlockState(under).isAir() || !soil.is(net.minecraft.tags.BlockTags.DIRT) && !soil.is(Blocks.SAND)) {
 						level0 = false;
 						break;
 					}
 				}
 				if (!level0) {
+					LAUNDRY_MISSES.merge("not earth", 1, Integer::sum);
 					continue;
 				}
 				reserve(taken, parts);
@@ -105,6 +142,9 @@ public final class Dressings {
 		place(level, ledger, key, until, all);
 		return lines;
 	}
+
+	/** Why yards had no room for a line (counts, for the rhythm's status). */
+	public static final java.util.Map<String, Integer> LAUNDRY_MISSES = new java.util.concurrent.ConcurrentHashMap<>();
 
 	/** A line {@code span} long: posts three high at both ends, string along the top, linen hanging under it. */
 	static List<Part> laundry(BlockPos g, Direction along, int span, Palette pal) {
@@ -120,10 +160,9 @@ public final class Dressings {
 			parts.add(new Part(p.above(2), Blocks.TRIPWIRE.defaultBlockState()
 				.setValue(net.minecraft.world.level.block.TripWireBlock.EAST, x).setValue(net.minecraft.world.level.block.TripWireBlock.WEST, x)
 				.setValue(net.minecraft.world.level.block.TripWireBlock.NORTH, !x).setValue(net.minecraft.world.level.block.TripWireBlock.SOUTH, !x)));
-			BlockState linen = Blocks.STAINED_GLASS_PANE.pick(i % 2 == 1 ? net.minecraft.world.item.DyeColor.WHITE : net.minecraft.world.item.DyeColor.LIGHT_GRAY).defaultBlockState()
-				.setValue(net.minecraft.world.level.block.CrossCollisionBlock.EAST, x).setValue(net.minecraft.world.level.block.CrossCollisionBlock.WEST, x)
-				.setValue(net.minecraft.world.level.block.CrossCollisionBlock.NORTH, !x).setValue(net.minecraft.world.level.block.CrossCollisionBlock.SOUTH, !x);
-			parts.add(new Part(p.above(), linen));
+			// sheets and shirts hung over the line: white and undyed (grey) linen
+			parts.add(new Part(p.above(), Blocks.WOOL.pick(i % 2 == 1 ? net.minecraft.world.item.DyeColor.WHITE : net.minecraft.world.item.DyeColor.LIGHT_GRAY)
+				.defaultBlockState()));
 		}
 		return parts;
 	}
@@ -198,6 +237,11 @@ public final class Dressings {
 		// the houses and shops round the square put out their awnings and wares too
 		all.addAll(fronts(level, s, taken, e, "market", near(s, anchor, 32, 14)));
 		place(level, ledger, e, all);
+		if (!stalls.isEmpty()) {
+			for (StallListener l : listeners) {
+				l.up(level, s, e, List.copyOf(stalls));
+			}
+		}
 		return stalls;
 	}
 
@@ -354,6 +398,7 @@ public final class Dressings {
 	/** Takes down what was set up for events that have ended (or every dressing, with {@code all}), where loaded. */
 	public static int takeDown(ServerLevel level, SocialLedger ledger, long now, boolean all, @Nullable Set<String> keep) {
 		int removed = 0;
+		java.util.Map<String, Set<Long>> gone = listeners.length == 0 ? null : new java.util.HashMap<>();
 		for (int i = ledger.dressings.size() - 1; i >= 0; i--) {
 			SocialLedger.Dressing d = ledger.dressings.get(i);
 			// the rhythm's dressings (laundry lines, winter) are kept to their own hour, not to the day's agenda
@@ -371,6 +416,16 @@ public final class Dressings {
 			}
 			ledger.dressings.remove(i);
 			removed++;
+			if (gone != null) {
+				gone.computeIfAbsent(d.event(), k -> new HashSet<>()).add(d.pos());
+			}
+		}
+		if (gone != null) {
+			for (java.util.Map.Entry<String, Set<Long>> e : gone.entrySet()) {
+				for (StallListener l : listeners) {
+					l.down(level, e.getKey(), e.getValue());
+				}
+			}
 		}
 		return removed;
 	}

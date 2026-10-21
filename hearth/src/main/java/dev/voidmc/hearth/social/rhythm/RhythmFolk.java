@@ -50,6 +50,32 @@ final class RhythmFolk {
 		return best;
 	}
 
+	/**
+	 * Walks toward {@code target}; when it is far (beyond the pathfinder's comfortable reach) toward a point on open ground
+	 * {@link #STRIDE} blocks along the way first, so a walk across town arrives instead of failing to find a path.
+	 */
+	static boolean walk(NpcService.FolkHandle folk, BlockPos target, double speed) {
+		BlockPos at = folk.entity().blockPosition();
+		double dx = target.getX() - at.getX();
+		double dz = target.getZ() - at.getZ();
+		double d = Math.sqrt(dx * dx + dz * dz);
+		if (d > FAR && folk.entity().level() instanceof ServerLevel level) {
+			int x = at.getX() + (int) Math.round(dx / d * STRIDE);
+			int z = at.getZ() + (int) Math.round(dz / d * STRIDE);
+			if (level.isLoaded(new BlockPos(x, 0, z))) {
+				int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+				BlockPos step = dev.voidmc.hearth.social.life.Venues.standable(level, new BlockPos(x, y, z));
+				if (step != null && folk.moveTo(step, speed)) {
+					return true;
+				}
+			}
+		}
+		return folk.moveTo(target, speed);
+	}
+
+	static final double FAR = 56;
+	static final int STRIDE = 32;
+
 	static boolean near(NpcService.FolkHandle folk, BlockPos p, double r) {
 		return folk.entity().blockPosition().distSqr(p) <= r * r;
 	}

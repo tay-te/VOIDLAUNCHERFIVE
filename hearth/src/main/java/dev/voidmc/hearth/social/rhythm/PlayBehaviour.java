@@ -171,7 +171,7 @@ public final class PlayBehaviour implements NpcService.FolkBehaviour {
 			case STONES -> new ItemStack(Items.FLINT);
 			default -> ItemStack.EMPTY;
 		});
-		folk.moveTo(target, g == Game.HIDE || g == Game.CHICKENS ? 0.8 : 0.65);
+		RhythmFolk.walk(folk, target, g == Game.HIDE || g == Game.CHICKENS ? 0.8 : 0.65);
 		st.nextMove = folk.gameTime() + 60;
 		st.nextAct = folk.gameTime() + 40 + Math.floorMod(id.hashCode(), 40);
 	}
@@ -242,7 +242,7 @@ public final class PlayBehaviour implements NpcService.FolkBehaviour {
 					BlockPos p = st.home.offset((int) Math.round(Math.cos(a) * 6), 0, (int) Math.round(Math.sin(a) * 6));
 					BlockPos ok = Venues.standable(level, p);
 					st.target = ok == null ? st.home : ok;
-					folk.moveTo(st.target, 0.9);
+					RhythmFolk.walk(folk, st.target, 0.9);
 					st.nextMove = t + 60;
 					if (st.step % 3 == 0) {
 						folk.swing();
@@ -294,7 +294,7 @@ public final class PlayBehaviour implements NpcService.FolkBehaviour {
 					}
 				}
 				if (t >= st.nextMove) {
-					folk.moveTo(st.chicken.blockPosition(), 0.95);
+					RhythmFolk.walk(folk, st.chicken.blockPosition(), 0.95);
 					st.nextMove = t + 20;
 					if (folk.entity().distanceToSqr(st.chicken) < 4) {
 						folk.pose("cheer", 20);
@@ -324,7 +324,7 @@ public final class PlayBehaviour implements NpcService.FolkBehaviour {
 
 	private static void walk(NpcService.FolkHandle folk, State st, long t, double speed) {
 		if (t >= st.nextMove) {
-			folk.moveTo(st.target, speed);
+			RhythmFolk.walk(folk, st.target, speed);
 			st.nextMove = t + 80;
 		}
 	}

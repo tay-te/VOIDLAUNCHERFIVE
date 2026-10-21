@@ -122,7 +122,7 @@ public final class WatchRounds implements NpcService.FolkBehaviour {
 		ServerLevel level = (ServerLevel) folk.entity().level();
 		BlockPos to = Venues.standFor(level, new Venues.Venue(st.round.get(st.leg), st.round.get(st.leg), List.of(st.round.get(st.leg)), 2),
 			folk.resident().id, st.leg);
-		folk.moveTo(to, 0.45);
+		RhythmFolk.walk(folk, to, 0.45);
 		st.nextMove = folk.gameTime() + 100;
 	}
 
@@ -153,13 +153,13 @@ public final class WatchRounds implements NpcService.FolkBehaviour {
 			st.leg = (st.leg + 1) % st.round.size();
 			target = st.round.get(st.leg);
 			BlockPos to = Venues.standFor(level, new Venues.Venue(target, target, List.of(target), 2), folk.resident().id, st.leg);
-			folk.moveTo(to, 0.45);
+			RhythmFolk.walk(folk, to, 0.45);
 			st.nextMove = t + 100;
 		} else if (t >= st.nextMove) {
-			folk.moveTo(Venues.standFor(level, new Venues.Venue(target, target, List.of(target), 2), folk.resident().id, st.leg), 0.45);
+			RhythmFolk.walk(folk, Venues.standFor(level, new Venues.Venue(target, target, List.of(target), 2), folk.resident().id, st.leg), 0.45);
 			st.nextMove = t + 100;
 		}
-		if ((t % 20) == 0) {
+		if ((t % 10) == 0) {
 			WatchLights.carry(level, s, folk.resident().id, folk.entity().blockPosition().above());
 		}
 		int minute = RhythmFolk.minute(s);

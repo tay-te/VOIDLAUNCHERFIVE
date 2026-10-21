@@ -140,6 +140,25 @@ public final class Rhythm {
 		RhythmDirector.clear();
 	}
 
+	/** Holds a rest or wash day (or neither; null: the calendar again) in a town for today (commands, tours). */
+	public static void holdDay(Settlement s, RhythmCalendar.@Nullable Forced kind) {
+		RhythmCommands.hold(s, kind);
+	}
+
+	/** Today's washers and tonight's drinkers of a town (tours, the dev harness). */
+	public static java.util.Set<UUID> washers(Settlement s, long day) {
+		return WashBehaviour.washers(s, day).keySet();
+	}
+
+	public static java.util.Set<UUID> drinkers(Settlement s, long day) {
+		return RhythmSchedule.drinkers(s, day);
+	}
+
+	/** What the rhythm is doing in embodied towns, and its timings (command, tours). */
+	public static List<String> stats() {
+		return RhythmDirector.stats();
+	}
+
 	// ---- small lookups shared by the behaviours
 
 	/** The town's lord's given name (for the toasts), or "the lord". */
