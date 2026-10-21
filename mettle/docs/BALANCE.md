@@ -3,6 +3,14 @@
 Every number here is a first draft to be tuned in playtests. Each one lives in config or data, never hard-coded.
 "Feels right" beats "adds up": change a number when playtesting says so, then update this sheet.
 
+> **Mythic power (design 2026-10-21, [MYTHIC_POWER.md](MYTHIC_POWER.md); not built).** The ARPG retune replaces the
+> flat §14 ceilings of CARDS.md and the 1.15× points budget of §11 with **power bands that grow with depth** (fight
+> power 1.22× at band I, 2.11× at Master, 2.35× at Legend; three layers: always-on, conditions, techniques), every
+> card felt (roots 15 %+ at rank I, traits 8 % / 15 % floors), **fewer and stronger slots** (2 → 5 a skill, +1 at
+> Wits 12; sets 2 / 3 / 5), bonds for hybrid pairs, the Wayfarer, loadouts, Rebirth, and the stat contract other mods
+> read (stamina, mana, damage kinds, resistances, statuses, brews, projectiles). §11's rows change when it ships; the
+> numbers are asserted by `MythicPowerReportTest`.
+
 ---
 
 ## 1. Skill levels
@@ -421,6 +429,10 @@ own table (§11).
 | Cursed cards | two per released skill, tier II and III; numbers in DRAFT.md §4 | `character.draft.Cursed`, perk data |
 
 ## 11. Cards v2 (CARDS.md, wave A built 2026-10-10)
+
+*Mythic power ([MYTHIC_POWER.md](MYTHIC_POWER.md) §4, §14) changes slots to 2 / 3 / 4 / 5 at skill 2 / 6 / 10 / 14 with
++1 at Wits 12, sets to 2 / 3 / 5, rarity to Common 64 − 1.6 L · Rare 28 + L · Epic 8 + 0.6 L, Commons to one trait, and
+retires the 1.15× / 1.3× limits for the bands.*
 
 Every lever, in `config/mettle/cards.json` (CARDS.md §15). The power limits and the simulator's checks are CARDS.md §14.
 

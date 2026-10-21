@@ -485,6 +485,9 @@ class BuildFeelReportTest {
 		/** A keyword's tier; with the proposed gate the 6 needs two of its decks' skills at {@code sixGate} or more. */
 		int tier(Identifier k, Map<Identifier, Integer> counts, Map<Identifier, Set<ResourceKey<Skill>>> from) {
 			Set<ResourceKey<Skill>> decks = from.getOrDefault(k, Set.of());
+			if (SET_COUNTS != null) {
+				return studyTier(counts.getOrDefault(k, 0), decks, this::level, this.rules.sixGate);
+			}
 			return this.rules.sixGate > 0 ? CardRules.tier(counts.getOrDefault(k, 0), decks, this::level) : CardRules.tier(counts.getOrDefault(k, 0), decks.size());
 		}
 
@@ -541,6 +544,20 @@ class BuildFeelReportTest {
 				this.shardForgeLevel = cl;
 			}
 		}
+	}
+
+	/**
+	 * Card counts for a keyword's three set tiers in a study (docs/MYTHIC_POWER.md §4: 2 / 3 / 5), or null for the game's
+	 * 2 / 4 / 6. The tiers still read 2 / 4 / 6 in the metrics (first, middle, top), so the report's columns keep their
+	 * meaning; the top tier needs two decks and, with a gate, two of them at the gate's skill.
+	 */
+	static int[] SET_COUNTS = null;
+
+	static int studyTier(int count, Set<ResourceKey<Skill>> decks, java.util.function.ToIntFunction<ResourceKey<Skill>> levels, int gate) {
+		if (count >= SET_COUNTS[2] && decks.size() >= 2 && (gate <= 0 || decks.stream().filter(s -> levels.applyAsInt(s) >= gate).count() >= 2)) {
+			return 6;
+		}
+		return count >= SET_COUNTS[1] ? 4 : count >= SET_COUNTS[0] ? 2 : 0;
 	}
 
 	static final boolean INSCRIBE_NEEDS_SEED = Boolean.parseBoolean(lever("bf.inscribeSeed", "true"));

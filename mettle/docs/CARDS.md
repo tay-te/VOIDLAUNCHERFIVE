@@ -14,6 +14,12 @@ branches (INTEGRATION.md §1.4, §5).**
 > (`SL`, `SP`) follow in BUILD_FEEL.md §13–§14. Simulated: every committed 6-set lands at skill 12–17 (Tide 7 → 79 % by skill 20), power
 > 1.11× → 1.12×.
 
+> **Mythic power (design approved direction 2026-10-21, not built: [MYTHIC_POWER.md](MYTHIC_POWER.md)).** The ARPG
+> retune: every card felt (§2), ceilings that grow with depth and cover perks and attributes too (§3, replacing §14
+> below), **2 → 5 slots a skill** (+1 at Wits 12) and **sets 2 / 3 / 5** with all fourteen keywords rewritten plus a
+> Wayfarer keyword (§4–§5), techniques that use dodge, parry, charged and heavy attacks (§2.4), bonds and pair Mythics
+> for hybrids (§6), rescaled talents and Mythics (§10), loadouts (§11), Rebirth (§12) and the stat contract (§8).
+
 Builds on the perk draft
 ([DRAFT.md](DRAFT.md)): the draft stays the source of cards. Where this doc and DRAFT.md disagree, this doc wins once
 wave A ships (§16). Screens go to Figma first (§13).
@@ -855,6 +861,9 @@ traits area. Dormant and attuning states: dimmed with a reason chip ("Needs two 
 ---
 
 ## 14. Balance limits
+
+*To be replaced by the Mythic power bands ([MYTHIC_POWER.md](MYTHIC_POWER.md) §3, §16): the ceilings below are flat
+and see only cards; the bands grow with depth, cover everything Mettle adds, and clamp in three layers.*
 
 Points are the old perk costs (TREES.md §1), so v1 and v2 compare: a root rank 1, tier II 2, tier III 3, Mastery 5,
 cursed 2 or 3. A trait is worth its value ÷ its card cap (a capped trait = 1 point, an average one about 0.55). A set's
