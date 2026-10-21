@@ -521,7 +521,49 @@ Citadel, Palm Harbour, the Logging Camp...) stay: remote, unpeopled places to ex
     quest module's old internal `COMPLETED` moved there; `QuestType` is in the api now), and `api/MarketEvents.TRADED`
     `(player, settlement, item, count, bits, playerBuys)` after every market trade, posted or haggled.
 
-  What Mettle asked (all done): `docs/requests/mettle.md`; Mettle's side: `mettle/docs/INTEGRATION.md` §1 on its branch.
+  - Named bonuses (added 2026-10-21, Mettle requests 12–14): `PlayerSkills.bonus(player, key)` (default 0), read
+    through `PlayerSkills.bonus(skills, player, key, lo, hi)` (NaN, a throwing partner and a missing player read 0;
+    Hearth's clamp is applied there, and every rule keeps its own clamp after it). A Mettle effect answers either here,
+    through `level`/`attribute`, or as a price factor, never two of them. Keys (`PlayerSkills.BONUS_*`) and where:
+
+    | Key | Applied in | Rule (Hearth's clamp) |
+    |---|---|---|
+    | `hearth:haggle/band` | `Market.haggleStart` → `Temper.bandSpeech` | Speech levels added only for reading the limit band (0–10, total ≤ 20) |
+    | `hearth:haggle/patience` | `Temper.patience(patience, share)` | merchant's patience × (1 + share) (0–0.5) |
+    | `hearth:haggle/never_sour` | `Market.settle` on a walk-away | ≥ 0.5: no sour mark, no `economy:haggle_soured` deed |
+    | `hearth:speech/<kind>` | `SpeechOdds` factor `perk`; the law's `LawSkills.speech(player, kind, odds)` | odds added before the clamp (0–0.15; law kinds `persuade`, `bribe`, `intimidate` = a threat) |
+    | `hearth:speech/retry` | `SpeechCheck.attempt` (`SpeechRetries`), `Justice.persuade/bribe` (`LawSkills.retry`) | whole failures a sim day taken back (0–3): no memory, no repeat penalty, the option stays; the law's guard word is not spent and the warrant does not grow. One budget a day shared by talk and law, in memory |
+    | `hearth:standing/gain` | `StandingEngine.deed` via `StandingHost.gainShare` | the town standing delta × (1 + share) when positive (0–0.5); losses, opinion and fame untouched |
+    | `hearth:stealth/sight` | `Detection.Stance.sightBonus` (`Visibility.stance`) | sneaking only: sight range × (1 − share) (0–0.5), on top of Stealth's |
+    | `hearth:stealth/unseen_beyond` | `Detection.Stance.unseenBeyond` | sneaking only: sight range capped at this many blocks (off at 0, else 2–32) |
+    | `hearth:stealth/give_up` | `GuardBehaviour.chase` (`LawSkills.searchTicks`) | the 12 s a guard searches out of sight × (1 − share) (0–0.75) |
+    | `hearth:pickpocket/awareness` | `PickpocketSessions.rate` (`LawSkills.awareness`) | the mark's awareness rate × (1 − share) (0–0.5) |
+    | `hearth:greet/hero` | `npc/talk/Legends` | ≥ 0.5: a hero's-welcome greeting line; flavour only |
+
+  - Worn title and Mythics: `PlayerSkills.title(player)` (a `Component`, empty when none) and `titles(player)` (Mythic
+    ids, `mettle:mythic/<name>`). `npc/talk/Legends` gives one conversation greeting in two a line from
+    `hearth_dialogue/legend.json` (`legend.title` with `{title}`, `legend.mythic` with `{mythic}` = the id's last path
+    part in title case, `legend.hero`); nothing known means no random number drawn, so greetings are as before.
+  - `api/StandingEvents.SPEECH_CHECK` (a conversation check: kind `persuade/intimidate/bribe/flatter`) and `LAW_CHECK`
+    (kind = the law's reason: `persuade_guard`, `persuade_search`, `bribe_guard`, `bribe_search`, `bribe_witness`,
+    `threaten_witness`), `(player, settlement?, kind, passed, difficulty)`, fired right after each roll beside the
+    unchanged `award`; `difficulty` is `StandingEvents.difficulty(odds)`, the plain-check difficulty (1–25) a skill-less
+    character would face at the odds rolled.
+  - Standing bands: `SettlementEvents.STANDING_CHANGED (world, settlement, player, from, to)` already fires on every
+    title change; "Honoured" is `Title.HERO` (request 9).
+  - Coin between players: `EconomyService.canReceive(player, bits)` (would `pay` fit it all) and
+    `transfer(from, to, bits)` (all or nothing: refused if the payer cannot pay or the receiver cannot hold it).
+  - Virtual goods and the broker: `api/VirtualGoods` (`kind`, `listable`, `name`, `describe`, `display`, `hold`,
+    `release`, `transfer`) via `HearthServices.addVirtualGoods` / `virtualGoods()`. `economy/broker`: in towns and cities
+    a merchant or trader (or anyone working at a `commerce/market*` plot) offers "The card table" (dialogue band
+    140–149, until the broker screen is designed in Figma); a board per settlement (`hearth:economy/broker`, at most 96
+    listings, 8 a seller), seller-set price (start at the median listing of the kind, else a crown; ±25 %/−20 % steps),
+    listing fee 2 % (at least a bit) to the treasury, tax 5 % on a sale to the treasury, the rest to the seller's bank
+    deposits (online or not), term 7 sim days then `release` (on the day pass and at every look). `Broker.search` matches
+    names; `display` is for the screen still to come.
+  - Request 11 (the trainer's rebuild option) needs nothing new: the 300–399 band and `EconomyService.charge`.
+
+  What Mettle asked (1–14 done): `docs/requests/mettle.md`; Mettle's side: `mettle/docs/INTEGRATION.md` §1 on its branch.
 - **LOD** (optional, later phase): VOID LOD draws settlements at the horizon from `Blueprint.silhouette()` of built
   plots, through a small read-only API the sim module will expose (`sim/LodFootprints`): columns of (wall, roof)
   colour and height, thread-safe, versioned so the LOD rebuilds only tiles that changed.
