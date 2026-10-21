@@ -15,7 +15,20 @@ touched: `npc/crowd`, `social/rhythm`, their tests and tours (`CrowdsTour`, `Rhy
 
 ## Measured
 
-See the commit message of the final commit for the numbers (before/after, tour and bench).
+Client tours (`-Dhearth.tour=crowds,rhythm`), the same town (Sigskog, ~120–145 souls, 48 embodied). The machine was
+shared with other agents' builds and games, so means carry stalls; medians are the steadier figure. "Warm" = after the
+director's bench has run its loops (the JIT compiled as on a server with many players), then timed in real ticks.
+
+| | Before | After |
+|---|---|---|
+| Crowds, a whole tour (cold JIT included), µs a player a pass | 113.6 mean | 143.9 / 502 mean (two loaded runs), median 42–53 |
+| Crowds, 40 s warm stretch in the busiest street (20 s with a blade) | 36.8 mean | 33.2–34.8 mean, **median 4.7** (p90 81; 57 of 80 passes a glance) |
+| Crowds, bench (hot loop): a whole pass a player | 2.1 | 1.6 |
+| Rhythm director, a town's pass, warm stretch | 27.6 mean | **18.6 mean, median 10.6** |
+| Rhythm, bench at supper (smoke on) | — | 1.9–10.5 (with chimneys near the player) |
+| Blade: folk within 6 that were 4+ blocks off within 3 s | 4/4, 0/0 (and 1 of 3, 9 of 9 earlier) | 26/26 (5 spots); 21/30, **30/30 within 5 s** in a 22-folk crowd |
+| Tavern night | 1 drinker, 1 table (no room to embody more); earlier tours 0 tables | 10 drinkers, 4 tables in use (5 at tables in one inn); 6 drinkers, 2 tables |
+| Market day | not shown | 4 stalls up, 3–4 showing their wares, 42–60 ware displays; `hearth_rhythm_market` shot |
 
 ## Requests
 
