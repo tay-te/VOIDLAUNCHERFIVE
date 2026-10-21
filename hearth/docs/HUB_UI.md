@@ -93,3 +93,20 @@ T, /, L advancements, P social, C and X hotbar save/load, Tab, 1-9, F1-F3, F5, F
   GUI 3+). Make the perf gate measure that UI-thread paint cost at GUI 2, not only the render thread; accepted for now.
 - Hearth conversation: with training offered, two options share key 8.
 - Not yet in game captures for Figma: the quest HUD and law HUD (still DESIGN on 295:2).
+
+## Living world screens (explore, 2026-10-21; Figma section 708:43644 on page 295:2)
+
+Designed for the user to pick from (LIVING_WORLD_2.md §10, requests/lw0.md F1-F7; F8 is Atlas's own UI). Nothing is
+built; lanes keep shipping through conversation options until one is picked.
+
+| # | Frame | Id |
+|---|---|---|
+| F1 | Conversation with a stranger (hooded bandit's demand in coin icons; pedlar, pilgrim, tollkeeper inset) | 708:43645 |
+| F2 | Household A, Ledger (houses and companions side by side, a Quests segment) | 709:44433 |
+| F2 | Household B, Roster (everyone in your service, one list, one card) | 710:45834 |
+| F3 | Companion gear (worn, held, a small pack; "Take this" from your hotbar) | 711:47250 |
+| F4 | People A, List and story (beats, your choice, endings, relations) | 713:48066 |
+| F4 | People B, Cards (pixel cards, story pips) | 714:49356 |
+| F5 | Reputation with burgher status per town and retinue ranks per lord | 712:47881 |
+| F6 | Contest line under the quest HUD (archery table, melee rounds) | 715:50448 |
+| F7 | Event line under the arrival banner | 715:50620 |
