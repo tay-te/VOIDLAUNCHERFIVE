@@ -9,6 +9,7 @@ import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.RoadNetwork;
 import dev.voidmc.hearth.api.Settlement;
 import dev.voidmc.hearth.api.StandingService;
+import dev.voidmc.hearth.quest.service.Standings;
 import dev.voidmc.hearth.npc.companion.Companions;
 import dev.voidmc.hearth.npc.companion.PlaceConfig;
 import dev.voidmc.hearth.quest.model.Objective;
@@ -64,7 +65,7 @@ public final class Commissions {
 			CommissionDialogue.forget(handler.player.getUUID()));
 	}
 
-	static PlaceConfig.Commissions cfg() {
+	public static PlaceConfig.Commissions cfg() {
 		return Companions.config().commissions();
 	}
 
@@ -151,6 +152,18 @@ public final class Commissions {
 	public static boolean colours(ServerPlayer player, Settlement s) {
 		Rank r = rankIn(player, s);
 		return r != null && r.atLeast(Rank.SWORN);
+	}
+
+	/** Whether the servant may rise at the seat now, and what they lack (the Reputation page's retinue card). */
+	public static RetinueRules.Why why(ServerPlayer player, Settlement seat, Retinue.Service sv) {
+		return RetinueRules.rise(sv, CommissionDialogue.pledged(seat, player), Standings.title(seat, player.getUUID()),
+			Standings.standing(seat, player.getUUID()), cfg());
+	}
+
+	/** The seat's lord's name, or "" while the seat is empty. */
+	public static String lordName(Settlement seat) {
+		Resident l = lord(seat);
+		return l == null ? "" : l.fullName();
 	}
 
 	// ---------------------------------------------------------------- the seat

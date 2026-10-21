@@ -21,6 +21,20 @@ public final class SimClient {
 		ClientPlayNetworking.registerGlobalReceiver(ArrivalPayload.TYPE, (payload, context) -> ArrivalBanner.receive(payload));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ArrivalBanner.reset());
 		HudElementRegistry.addLast(Hearth.id("sim/arrival"), ArrivalBanner::extract);
+		// F7: the day's events under the banner (2026-10-21)
+		ClientPlayNetworking.registerGlobalReceiver(dev.voidmc.hearth.social.events.EventPayloads.ArrivalEvents.TYPE,
+			(payload, context) -> ArrivalBanner.events(payload.settlementId(), payload.json()));
+		dev.voidmc.hearth.client.overlay.HearthStateSections.register("arrival", new dev.voidmc.hearth.client.overlay.HearthStateSections.Section() {
+			@Override
+			public com.google.gson.JsonElement build(net.minecraft.client.Minecraft mc) {
+				return ArrivalBanner.state();
+			}
+
+			@Override
+			public long fingerprint(net.minecraft.client.Minecraft mc) {
+				return ArrivalBanner.revision();
+			}
+		});
 		DebugScreenEntries.register(Hearth.id("sim"), new DebugLine());
 	}
 

@@ -34,6 +34,7 @@ public final class NpcClient {
 			}
 		});
 		ClientPlayNetworking.registerGlobalReceiver(TalkPayloads.Detail.TYPE, (payload, ctx) -> HearthViews.talkDetail(payload));
+		ClientPlayNetworking.registerGlobalReceiver(TalkPayloads.StrangerCard.TYPE, (payload, ctx) -> HearthViews.strangerCard(payload));
 		ClientPlayNetworking.registerGlobalReceiver(TalkPayloads.Close.TYPE, (payload, ctx) -> {
 			Minecraft mc = ctx.client();
 			HearthViews.talkClosed(payload.entity());

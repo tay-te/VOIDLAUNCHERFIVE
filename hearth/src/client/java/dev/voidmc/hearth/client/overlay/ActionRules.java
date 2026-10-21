@@ -152,4 +152,43 @@ public final class ActionRules {
 		}
 		return false;
 	}
+
+	// ---------------------------------------------------------------- the living-world screens (2026-10-21)
+
+	/** The Household page's order verbs ({@code HearthActions.companionOrder}). */
+	public static final java.util.Set<String> ORDERS = java.util.Set.of("follow", "wait", "distance", "fight", "hold", "home", "return");
+	/** The slots a companion wears and holds ({@code HearthActions.companionTake}). */
+	public static final java.util.Set<String> GEAR_SLOTS = java.util.Set.of("head", "chest", "legs", "feet", "mainhand", "offhand");
+
+	/** A companion listed in the household summary ({@code household.companions[].id}). */
+	public static boolean companionListed(com.google.gson.@Nullable JsonObject household, @Nullable String id) {
+		if (household == null || id == null || !(household.get("companions") instanceof com.google.gson.JsonArray list)) {
+			return false;
+		}
+		for (com.google.gson.JsonElement e : list) {
+			if (e.isJsonObject() && e.getAsJsonObject().get("id") != null && id.equals(e.getAsJsonObject().get("id").getAsString())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** An inventory slot "Take this" may hand over from: the hotbar (0–8) or the off hand (40). */
+	public static boolean handSlot(int slot) {
+		return slot >= 0 && slot <= 8 || slot == 40;
+	}
+
+	/** A named character the People list shows ({@code people.rows[].id}). */
+	public static boolean personListed(dev.voidmc.hearth.social.lives.LivesPayloads.@Nullable People people, @Nullable String id) {
+		if (people == null || id == null || id.isEmpty()) {
+			return false;
+		}
+		for (dev.voidmc.hearth.social.lives.LivesPayloads.Row r : people.rows()) {
+			com.google.gson.JsonObject d = LivingWorldJson.parse(r.detail());
+			if (d != null && id.trim().equals(LivingWorldJson.getString(d, "id"))) {
+				return true;
+			}
+		}
+		return false;
+	}
 }

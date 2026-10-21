@@ -61,6 +61,7 @@ public final class QuestClient {
 		ClientPlayNetworking.registerGlobalReceiver(QuestPayloads.Toast.TYPE, (payload, context) ->
 			context.client().gui.toastManager().addToast(new QuestToast(payload)));
 		HudElementRegistry.attachElementAfter(VanillaHudElements.BOSS_BAR, Hearth.id("quest/tracker"), new QuestHud());
+		ContestHud.init(); // F6, the contest line under it (2026-10-21)
 		QuestClientTour.install();
 	}
 

@@ -127,6 +127,157 @@ public final class CompanionDialogue implements DialogueProvider {
 
 	@Override
 	public boolean select(ServerPlayer player, Settlement s, Resident r, String id) {
+		boolean done = act(player, s, r, id);
+		if (done) {
+			heard(player, s, r, id);
+		}
+		return done;
+	}
+
+	/**
+	 * After an order or a gear change (said aloud or picked on the Household page): their answer is the last thing they
+	 * said, the page's data goes out again, and "Let me see your gear" opens the gear screen where a host draws one (F3).
+	 */
+	private static void heard(ServerPlayer player, Settlement s, Resident r, String id) {
+		CompanionState st = CompanionState.of(r);
+		Component line = ANSWER.get(player.getUUID());
+		if (st != null && line != null && st.player().equals(player.getUUID())) {
+			NpcService.FolkHandle h = folk(r);
+			Settlement here = null;
+			if (h != null && player.level() instanceof ServerLevel level) {
+				dev.voidmc.hearth.api.HearthWorld w = dev.voidmc.hearth.api.HearthWorld.of(level);
+				here = w == null ? null : w.settlementAt(h.entity().blockPosition());
+			}
+			st.setLastLine(line.getString(), here == null ? "" : here.name());
+		}
+		if (id.equals(GEAR) && st != null) {
+			PlaceSummary.openGear(player, r.id);
+		}
+		PlaceSummary.send(player);
+	}
+
+	// ---------------------------------------------------------------- the Household page's calls (F2, F3)
+
+	/** The order verbs the Household page sends, as the conversation's option ids. */
+	static @Nullable String orderId(String verb) {
+		return switch (verb) {
+			case "follow" -> FOLLOW;
+			case "wait" -> WAIT;
+			case "distance" -> DISTANCE;
+			case "fight" -> FIGHT;
+			case "hold" -> HOLD;
+			case "home" -> HOME;
+			case "return" -> RETURN;
+			default -> null;
+		};
+	}
+
+	/**
+	 * An order given from the Household page, the same as saying it aloud: refused when they are not the player's, and
+	 * "wait here" only when they stand somewhere (embodied). Returns their answer, or null when nothing was done.
+	 */
+	public static @Nullable Component order(ServerPlayer player, Settlement s, Resident r, String verb) {
+		String id = orderId(verb);
+		CompanionState st = CompanionState.of(r);
+		if (id == null || st == null || !st.player().equals(player.getUUID())) {
+			return null;
+		}
+		if ((id.equals(WAIT) || id.equals(RETURN)) && !near(player, r)) {
+			return null;
+		}
+		if (!act(player, s, r, id)) {
+			return null;
+		}
+		Component line = ANSWER.get(player.getUUID());
+		heard(player, s, r, id);
+		ANSWER.remove(player.getUUID());
+		return line;
+	}
+
+	/**
+	 * "Take this" with a stack from the player's inventory ({@code slot}: 0–8 the hotbar, 40 the off hand, any other
+	 * inventory index too), into the slot it fits; what it replaces comes back. They must stand near.
+	 */
+	public static @Nullable Component lend(ServerPlayer player, Settlement s, Resident r, int slot) {
+		CompanionState st = CompanionState.of(r);
+		if (st == null || !st.player().equals(player.getUUID()) || !near(player, r) || !(player.level() instanceof ServerLevel level)) {
+			return null;
+		}
+		if (slot < 0 || slot >= player.getInventory().getContainerSize()) {
+			return null;
+		}
+		ItemStack held = player.getInventory().getItem(slot);
+		if (CompanionGear.slotFor(held) == null) {
+			return null;
+		}
+		ANSWER.put(player.getUUID(), give(player, level, r, st, held));
+		s.markDirty();
+		Component line = ANSWER.get(player.getUUID());
+		heard(player, s, r, TAKE);
+		ANSWER.remove(player.getUUID());
+		return line;
+	}
+
+	/** Takes back one piece ({@code slot}: head, chest, legs, feet, mainhand, offhand). They must stand near. */
+	public static @Nullable Component takeBack(ServerPlayer player, Settlement s, Resident r, String slotName) {
+		CompanionState st = CompanionState.of(r);
+		if (st == null || !st.player().equals(player.getUUID()) || !near(player, r) || !(player.level() instanceof ServerLevel level)) {
+			return null;
+		}
+		EquipmentSlot slot = null;
+		for (EquipmentSlot e : CompanionGear.SLOTS) {
+			if (e.getSerializedName().equals(slotName)) {
+				slot = e;
+			}
+		}
+		if (slot == null) {
+			return null;
+		}
+		Map<EquipmentSlot, ItemStack> gear = new HashMap<>(CompanionGear.read(st, level.registryAccess()));
+		ItemStack piece = gear.remove(slot);
+		if (piece == null || piece.isEmpty()) {
+			return null;
+		}
+		CompanionGear.write(st, gear, level.registryAccess());
+		NpcService.FolkHandle h = folk(r);
+		if (h != null) {
+			h.entity().setItemSlot(slot, ItemStack.EMPTY);
+		}
+		CompanionGear.give(player, piece);
+		s.markDirty();
+		ANSWER.put(player.getUUID(), Component.translatable("hearth.companion.talk.returned_one", piece.getHoverName()));
+		Component line = ANSWER.get(player.getUUID());
+		heard(player, s, r, RETURN);
+		ANSWER.remove(player.getUUID());
+		return line;
+	}
+
+	/** Whether the companion's folk stands within talking range of the player. */
+	static boolean near(ServerPlayer player, Resident r) {
+		NpcService.FolkHandle h = folk(r);
+		return h != null && h.entity().level() == player.level()
+			&& h.entity().distanceToSqr(player) <= dev.voidmc.hearth.npc.talk.Conversations.RANGE * dev.voidmc.hearth.npc.talk.Conversations.RANGE;
+	}
+
+	/** Hands one of {@code held} to the companion, into the slot it fits; the piece it replaces goes back to the player. */
+	private static Component give(ServerPlayer player, ServerLevel level, Resident r, CompanionState st, ItemStack held) {
+		EquipmentSlot slot = CompanionGear.slotFor(held);
+		Map<EquipmentSlot, ItemStack> gear = new HashMap<>(CompanionGear.read(st, level.registryAccess()));
+		ItemStack old = gear.put(slot, held.copyWithCount(1));
+		held.shrink(1);
+		if (old != null) {
+			CompanionGear.give(player, old);
+		}
+		CompanionGear.write(st, gear, level.registryAccess());
+		NpcService.FolkHandle h = folk(r);
+		if (h != null) {
+			h.entity().setItemSlot(slot, gear.get(slot).copy());
+			h.entity().setDropChance(slot, 0.0F);
+		}
+		return Component.translatable("hearth.companion.talk.taken", gear.get(slot).getHoverName());
+	}
+
+	private static boolean act(ServerPlayer player, Settlement s, Resident r, String id) {
 		if (!id.startsWith(P) || !(player.level() instanceof ServerLevel level)) {
 			return false;
 		}
@@ -210,22 +361,10 @@ public final class CompanionDialogue implements DialogueProvider {
 			case GEAR -> answer(player, gearText(level, st));
 			case TAKE -> {
 				ItemStack held = player.getMainHandItem();
-				EquipmentSlot slot = CompanionGear.slotFor(held);
-				if (slot == null) {
+				if (CompanionGear.slotFor(held) == null) {
 					return false;
 				}
-				Map<EquipmentSlot, ItemStack> gear = new HashMap<>(CompanionGear.read(st, level.registryAccess()));
-				ItemStack old = gear.put(slot, held.copyWithCount(1));
-				held.shrink(1);
-				if (old != null) {
-					CompanionGear.give(player, old);
-				}
-				CompanionGear.write(st, gear, level.registryAccess());
-				if (h != null) {
-					h.entity().setItemSlot(slot, gear.get(slot).copy());
-					h.entity().setDropChance(slot, 0.0F);
-				}
-				answer(player, Component.translatable("hearth.companion.talk.taken", gear.get(slot).getHoverName()));
+				answer(player, give(player, level, r, st, held));
 			}
 			case RETURN -> {
 				if (h != null) {

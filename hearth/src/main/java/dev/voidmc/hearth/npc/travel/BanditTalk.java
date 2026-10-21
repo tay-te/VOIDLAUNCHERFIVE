@@ -64,6 +64,55 @@ final class BanditTalk implements StrangerTalk {
 		return out;
 	}
 
+	@Override
+	public com.google.gson.JsonObject card(ServerPlayer player) {
+		com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+		o.addProperty("kind", "bandit");
+		o.addProperty("hooded", true);
+		o.addProperty("state", this.band.state.name().toLowerCase(java.util.Locale.ROOT));
+		var cfg = dev.voidmc.hearth.sim.roads.Roads.config().bandits();
+		long toll = this.band.toll(player);
+		EconomyService eco = HearthServices.economy();
+		o.addProperty("demand", Math.max(0, toll));
+		o.addProperty("share", cfg.toll());
+		o.addProperty("carried", eco == null ? 0 : eco.balance(player));
+		int size = this.band.size();
+		int inSight = 0;
+		int bows = 0;
+		String armed = "";
+		for (net.minecraft.world.entity.Mob m : this.band.men) {
+			if (!m.isAlive() || m.isRemoved()) {
+				continue;
+			}
+			if (m.distanceToSqr(player) < 32 * 32 && player.hasLineOfSight(m)) {
+				inSight++;
+			}
+			net.minecraft.world.item.ItemStack held = m.getMainHandItem();
+			if (held.getItem() instanceof net.minecraft.world.item.BowItem || held.getItem() instanceof net.minecraft.world.item.CrossbowItem) {
+				bows++;
+			}
+			if (m == this.band.leader && !held.isEmpty()) {
+				armed = held.getHoverName().getString();
+			}
+		}
+		o.addProperty("band", size);
+		o.addProperty("inSight", inSight);
+		o.addProperty("bows", bows);
+		o.addProperty("armed", armed);
+		o.addProperty("armour", player.getArmorValue());
+		var main = player.getMainHandItem();
+		o.addProperty("bladeDrawn", main.is(net.minecraft.tags.ItemTags.SWORDS) || main.is(net.minecraft.tags.ItemTags.AXES));
+		o.addProperty("menace", Math.round(BanditParty.armour(player) * 100));
+		com.google.gson.JsonObject outcomes = new com.google.gson.JsonObject();
+		outcomes.addProperty("paid", Component.translatable("hearth.roads.bandit.paid").getString());
+		outcomes.addProperty("talked", Component.translatable("hearth.roads.bandit.talked").getString());
+		outcomes.addProperty("talkFailed", Component.translatable("hearth.roads.bandit.talk_failed").getString());
+		outcomes.addProperty("scared", Component.translatable("hearth.roads.bandit.scared").getString());
+		outcomes.addProperty("threatFailed", Component.translatable("hearth.roads.bandit.threat_failed").getString());
+		o.add("outcomes", outcomes);
+		return o;
+	}
+
 	/** They set on the player: the last word goes to the chat and the conversation closes. */
 	private @Nullable Component attacked(ServerPlayer player, String line) {
 		if (this.band.leader != null) {

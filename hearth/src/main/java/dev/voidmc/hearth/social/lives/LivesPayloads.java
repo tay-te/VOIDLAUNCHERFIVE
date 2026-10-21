@@ -21,8 +21,15 @@ public final class LivesPayloads {
 	 * @param ended    the story has come to an end
 	 * @param relation how the player stands with them (their opinion, −100…100)
 	 * @param by       whether this player moved the story last
+	 * @param detail   the People page's detail as JSON (docs/OVERLAY.md {@code people.rows[]}: id, look, beats, choices, where
+	 *                 it may go, relations, find-him windows), "" when none; added 2026-10-21
 	 */
-	public record Row(String name, String given, String role, String town, String thread, String beat, boolean ended, int relation, boolean by) {
+	public record Row(String name, String given, String role, String town, String thread, String beat, boolean ended, int relation, boolean by,
+		String detail) {
+		public Row(String name, String given, String role, String town, String thread, String beat, boolean ended, int relation, boolean by) {
+			this(name, given, role, town, thread, beat, ended, relation, by, "");
+		}
+
 		static final StreamCodec<RegistryFriendlyByteBuf, Row> CODEC = StreamCodec.of((buf, r) -> {
 			buf.writeUtf(r.name);
 			buf.writeUtf(r.given);
@@ -33,8 +40,9 @@ public final class LivesPayloads {
 			buf.writeBoolean(r.ended);
 			buf.writeVarInt(r.relation);
 			buf.writeBoolean(r.by);
+			buf.writeUtf(r.detail, 1 << 15);
 		}, buf -> new Row(buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readBoolean(), buf.readVarInt(),
-			buf.readBoolean()));
+			buf.readBoolean(), buf.readUtf(1 << 15)));
 	}
 
 	/** The People list: the named characters the player has met, in every town of the world they are in. */
@@ -56,6 +64,45 @@ public final class LivesPayloads {
 
 		@Override
 		public Type<People> type() {
+			return TYPE;
+		}
+	}
+
+	/**
+	 * Follow a named character (C2S, the People page's "Waypoint", 2026-10-21): {@code resident} their id, "" stops.
+	 * The same one again stops too.
+	 */
+	public record Track(String resident) implements CustomPacketPayload {
+		public static final Type<Track> TYPE = new Type<>(Hearth.id("lives/track"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Track> CODEC = StreamCodec.of((buf, p) -> buf.writeUtf(p.resident, 64),
+			buf -> new Track(buf.readUtf(64)));
+
+		@Override
+		public Type<Track> type() {
+			return TYPE;
+		}
+	}
+
+	/**
+	 * Where the followed character is (S2C, once a second while it changes): {@code active} false when nothing is followed.
+	 * {@code placed}: they stand in the world (to the nearest 8 blocks), else {@code pos} is where their day has them
+	 * (their workplace or home).
+	 */
+	public record Followed(boolean active, String resident, String name, String town, boolean placed, net.minecraft.core.BlockPos pos)
+		implements CustomPacketPayload {
+		public static final Followed NONE = new Followed(false, "", "", "", false, net.minecraft.core.BlockPos.ZERO);
+		public static final Type<Followed> TYPE = new Type<>(Hearth.id("lives/followed"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Followed> CODEC = StreamCodec.of((buf, p) -> {
+			buf.writeBoolean(p.active);
+			buf.writeUtf(p.resident, 64);
+			buf.writeUtf(p.name, 256);
+			buf.writeUtf(p.town, 256);
+			buf.writeBoolean(p.placed);
+			buf.writeBlockPos(p.pos);
+		}, buf -> new Followed(buf.readBoolean(), buf.readUtf(64), buf.readUtf(256), buf.readUtf(256), buf.readBoolean(), buf.readBlockPos()));
+
+		@Override
+		public Type<Followed> type() {
 			return TYPE;
 		}
 	}

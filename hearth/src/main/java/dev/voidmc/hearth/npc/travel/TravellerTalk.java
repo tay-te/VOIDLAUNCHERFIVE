@@ -67,6 +67,17 @@ final class TravellerTalk implements StrangerTalk {
 	}
 
 	@Override
+	public com.google.gson.JsonObject card(ServerPlayer player) {
+		com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+		o.addProperty("kind", who());
+		o.addProperty("hooded", false);
+		o.addProperty("resident", this.resident);
+		o.addProperty("bound", this.party.toName);
+		o.addProperty("partySize", this.party.size());
+		return o;
+	}
+
+	@Override
 	public String title() {
 		return "hearth.npc.job." + this.folk.job().getSerializedName();
 	}

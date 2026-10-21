@@ -78,6 +78,9 @@ public final class HearthAtlas implements AtlasPlugin {
 	// the tracked wanted poster (docs/OVERLAY.md wantedTrack): followed like a quest, ahead of it while tracked
 	private Object posterFrom;
 	private Marker poster;
+	// the named character followed from the People page (docs/OVERLAY.md personTrack, 2026-10-21): a marker, not tracked
+	private Object personFrom;
+	private Marker person;
 	private Marker quest;
 	private String trackedId;
 	private boolean trackPending;
@@ -223,6 +226,33 @@ public final class HearthAtlas implements AtlasPlugin {
 		if (m != null && m.dimension().equals(q.dimension())) {
 			out.accept(m); // always: the minimap's rim and the list want it however far it is
 		}
+		Marker p = this.currentPerson();
+		if (p != null && p.dimension().equals(q.dimension())) {
+			out.accept(p);
+		}
+	}
+
+	/** The followed character's marker, made again when where they are changes. */
+	private Marker currentPerson() {
+		LocalPlayer player = Minecraft.getInstance().player;
+		if (player == null) {
+			return null;
+		}
+		dev.voidmc.hearth.social.lives.LivesPayloads.Followed f = dev.voidmc.hearth.client.social.lives.PeopleSection.followed();
+		if (f != this.personFrom) {
+			this.personFrom = f;
+			this.person = f == null || !f.active() ? null : personMarker(f, player.level().dimension().identifier().toString());
+		}
+		return this.person;
+	}
+
+	private static Marker personMarker(dev.voidmc.hearth.social.lives.LivesPayloads.Followed f, String dimension) {
+		List<MarkerDetail.Row> rows = new ArrayList<>();
+		rows.add(new MarkerDetail.Row(tr(f.placed() ? "hearth.map.person.placed" : "hearth.map.person.their_day"), "", true));
+		MarkerDetail detail = new MarkerDetail(List.of(), null, List.of(new MarkerDetail.Section(tr("hearth.map.person.section"), rows)));
+		String subtitle = Component.translatable("hearth.map.person.subtitle", f.town().toUpperCase(Locale.ROOT)).getString();
+		return new Marker("hearth:person:" + f.resident(), QUESTS, f.name(), "", subtitle, f.pos().getX() + 0.5, f.pos().getY(), f.pos().getZ() + 0.5,
+			dimension, MarkerGlyph.QUEST, Marker.Style.QUEST, 0, detail, Source.plugin("hearth:quest"), Tier.MAJOR);
 	}
 
 	/** The tracked quest's marker, made again when the synced quests change (they are replaced, not edited). */
