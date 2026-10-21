@@ -69,7 +69,7 @@ public class MotionShowcase implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext c) {
-		if (!MotionDuo.ROLE.isEmpty()) {
+		if (!MotionDuo.ROLE.isEmpty() || dev.voidmc.bestiary.studio.MotionStudio.active()) {
 			return;
 		}
 		Stage.log("Fray motion showcase" + (TAG.isEmpty() ? "" : " [" + TAG + "]") + ": sodium " + FabricLoader.getInstance().isModLoaded("sodium") + ", iris "

@@ -31,17 +31,17 @@ import net.minecraft.world.item.Items;
  * The showcase's stage: a stone platform in the sky, creatures summoned on the server, a camera on an invisible armour
  * stand (so the local player can be filmed like any entity), screenshots and a report.
  */
-final class Stage {
+public final class Stage {
 	/** The platform's top: blocks at Y - 1, creatures stand at Y. */
-	static final int Y = 200;
+	public static final int Y = 200;
 	static final List<String> REPORT = new ArrayList<>();
 
-	final ClientGameTestContext c;
-	final TestServerContext s;
+	public final ClientGameTestContext c;
+	public final TestServerContext s;
 	final String tag;
 	private int camId = -1;
 
-	Stage(ClientGameTestContext c, TestServerContext s, String tag) {
+	public Stage(ClientGameTestContext c, TestServerContext s, String tag) {
 		this.c = c;
 		this.s = s;
 		this.tag = tag;
@@ -72,7 +72,7 @@ final class Stage {
 	}
 
 	/** A world ready for filming: fixed time and weather, no spawns, a 33 x 33 stone platform at Y - 1. */
-	void build() {
+	public void build() {
 		for (String cmd : new String[] {"gamerule advance_time false", "gamerule advance_weather false", "gamerule spawn_mobs false", "gamerule mob_griefing false",
 			"gamerule fall_damage false", "time set 1800", "weather clear", "difficulty normal"}) {
 			this.s.runCommand(cmd);
@@ -92,7 +92,7 @@ final class Stage {
 	}
 
 	/** Removes every creature and dropped item (discarded: nothing drops), keeping players and the camera. */
-	void clearCreatures() {
+	public void clearCreatures() {
 		this.s.runOnServer(server -> {
 			List<Entity> gone = new ArrayList<>();
 			for (Entity e : server.overworld().getAllEntities()) {
@@ -107,7 +107,7 @@ final class Stage {
 	}
 
 	/** A mannequin (an Avatar drawn with the player model) in iron armour with a sword: player clips from any angle. */
-	int mannequin(double x, double z, float yaw) {
+	public int mannequin(double x, double z, float yaw) {
 		return this.s.computeOnServer(server -> {
 			ServerLevel level = server.overworld();
 			net.minecraft.world.entity.decoration.Mannequin m = EntityTypes.MANNEQUIN.create(level, EntitySpawnReason.COMMAND);
@@ -125,7 +125,7 @@ final class Stage {
 	}
 
 	/** Third person around the local player (the only way vanilla draws the local player), HUD hidden. */
-	void thirdPerson(CameraType type) {
+	public void thirdPerson(CameraType type) {
 		this.c.runOnClient(mc -> {
 			mc.setCameraEntity(mc.player);
 			mc.options.setCameraType(type);
@@ -139,7 +139,7 @@ final class Stage {
 	// ------------------------------------------------------------------ camera
 
 	/** Films from (x, y, z) towards (tx, ty, tz), with the HUD and hands hidden. */
-	void cam(double x, double y, double z, double tx, double ty, double tz) {
+	public void cam(double x, double y, double z, double tx, double ty, double tz) {
 		float yaw = (float) Math.toDegrees(Math.atan2(-(tx - x), tz - z));
 		float pitch = (float) -Math.toDegrees(Math.atan2(ty - y, Math.hypot(tx - x, tz - z)));
 		if (this.camId < 0) {
@@ -170,7 +170,7 @@ final class Stage {
 	}
 
 	/** Back to the player's own eyes, HUD shown (first-person hands need it). */
-	void playerCam(CameraType type) {
+	public void playerCam(CameraType type) {
 		this.c.runOnClient(mc -> {
 			mc.setCameraEntity(mc.player);
 			mc.options.setCameraType(type);
@@ -183,7 +183,7 @@ final class Stage {
 		this.c.waitTicks(3);
 	}
 
-	void shot(String name) {
+	public void shot(String name) {
 		this.c.waitTick();
 		this.c.takeScreenshot("fray_" + (this.tag.isEmpty() ? "" : this.tag + "_") + name);
 	}
@@ -191,7 +191,7 @@ final class Stage {
 	// ------------------------------------------------------------------ creatures
 
 	/** A NoAI zombie facing {@code yaw}, a zombie head on (it stays a zombie in daylight without burning). */
-	int zombie(double x, double z, float yaw, boolean armour) {
+	public int zombie(double x, double z, float yaw, boolean armour) {
 		return this.s.computeOnServer(server -> {
 			ServerLevel level = server.overworld();
 			Zombie zombie = EntityTypes.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
@@ -214,7 +214,7 @@ final class Stage {
 	}
 
 	/** A NoAI pig to be hit: the dummy of the authority test. */
-	int dummy(double x, double z) {
+	public int dummy(double x, double z) {
 		return this.s.computeOnServer(server -> {
 			ServerLevel level = server.overworld();
 			Pig pig = EntityTypes.PIG.create(level, EntitySpawnReason.COMMAND);
@@ -227,11 +227,11 @@ final class Stage {
 		});
 	}
 
-	float health(int id) {
+	public float health(int id) {
 		return this.s.computeOnServer(server -> server.overworld().getEntity(id) instanceof LivingEntity le ? le.getHealth() : -1F);
 	}
 
-	void play(int id, Identifier clip) {
+	public void play(int id, Identifier clip) {
 		this.s.runOnServer(server -> {
 			if (!(server.overworld().getEntity(id) instanceof LivingEntity le) || !MotionServer.play(le, clip, 1)) {
 				throw new AssertionError("couldn't play " + clip + " on " + id);
@@ -239,7 +239,7 @@ final class Stage {
 		});
 	}
 
-	long serverTime() {
+	public long serverTime() {
 		return this.s.computeOnServer(server -> server.overworld().getGameTime());
 	}
 
@@ -248,7 +248,7 @@ final class Stage {
 	}
 
 	/** Holds the ACTION layer of an entity's animator at {@code ticks} after its start (NaN: live again). */
-	void freeze(int id, double ticks) {
+	public void freeze(int id, double ticks) {
 		this.c.runOnClient(mc -> {
 			Animator a = ClientMotion.get(id);
 			if (a == null) {

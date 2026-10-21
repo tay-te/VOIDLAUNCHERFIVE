@@ -78,8 +78,13 @@ public final class MotionBake {
 				Identifier id = idOf(rigSrc, file, ".bbmodel");
 				List<String> rep = new ArrayList<>();
 				Identifier tex = Identifier.fromNamespaceAndPath(id.getNamespace(), "textures/entity/" + id.getPath() + ".png");
-				BlockbenchImport.RigResult rr = BlockbenchImport.convertRig(JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject(),
-					id, tex, rep);
+				JsonObject project = JsonParser.parseString(Files.readString(file, StandardCharsets.UTF_8)).getAsJsonObject();
+				// What Blockbench has no field for (shadow, model scale) sits beside the project in <name>.fray.json.
+				Path side = file.resolveSibling(file.getFileName().toString().replace(".bbmodel", ".fray.json"));
+				if (Files.exists(side)) {
+					project.add("fray", JsonParser.parseString(Files.readString(side, StandardCharsets.UTF_8)));
+				}
+				BlockbenchImport.RigResult rr = BlockbenchImport.convertRig(project, id, tex, rep);
 				String json = RigJson.write(rr.rig());
 				Rig rig = RigJson.parse(json, ClipJson.sha256(ClipJson.utf8(json)));
 				RigJson.register(rig);
@@ -163,6 +168,10 @@ public final class MotionBake {
 	/** Parses a source, writes its client clip, hashes it and bakes the timeline from the client clip as parsed back. */
 	public static Baked bake(Identifier id, String source, List<String> warnings) {
 		Clip parsed = ClipJson.parse(id, source);
+		JsonObject src = JsonParser.parseString(source).getAsJsonObject();
+		if (src.has("ground") && src.get("ground").getAsString().equals("plant")) {
+			parsed = ClipJson.parse(id, Ground.plant(parsed, src).toString());
+		}
 		String clientJson = ClipJson.writeClient(parsed);
 		String hash = ClipJson.sha256(ClipJson.utf8(clientJson));
 		// The timeline is baked from the source (it has the markers and locators), but the curves it samples must be the
@@ -254,6 +263,53 @@ public final class MotionBake {
 			s.append(String.format(Locale.ROOT, " | hurt %s ticks %d-%d", e.getKey(), e.getValue().from(), e.getValue().from() + e.getValue().caps().length - 1));
 		}
 		return s.toString();
+	}
+
+	/**
+	 * {@code "ground": "plant"}: the body's lowest point is put on the ground at every tick (half ticks for short clips) by
+	 * re-keying the root bone's Y position: feet never sink into the floor or float above it, whatever the knees, the
+	 * crouch or a roll do. The corrected root channel is what the client plays and what the hit volumes are baked from.
+	 */
+	static final class Ground {
+		private Ground() {
+		}
+
+		static JsonObject plant(Clip clip, JsonObject src) {
+			int n = Math.max(2, Math.round(clip.length * 40));
+			Posed posed = new Posed(clip.rig, clip.modelScale);
+			float[] base = new float[3];
+			JsonArray keys = new JsonArray();
+			dev.voidmc.fray.motion.Channel root = clip.position[0];
+			for (int i = 0; i <= n; i++) {
+				float t = clip.length * i / n;
+				float low = posed.at(clip, t).lowest(0);
+				if (root != null) {
+					root.sample(t, base, 0);
+				} else {
+					base[0] = base[1] = base[2] = 0;
+				}
+				// lowest is in entity blocks; the root's file position is in model pixels with Y up.
+				float up = -low * 16 / clip.modelScale;
+				JsonArray key = new JsonArray();
+				key.add(t);
+				JsonArray v = new JsonArray();
+				v.add(base[0]);
+				v.add(base[1] + up);
+				v.add(base[2]);
+				key.add(v);
+				key.add("catmullrom");
+				keys.add(key);
+			}
+			JsonObject out = src.deepCopy();
+			JsonObject bones = out.has("bones") ? out.getAsJsonObject("bones") : new JsonObject();
+			String rootName = clip.rig.name(0);
+			JsonObject rootBone = bones.has(rootName) ? bones.getAsJsonObject(rootName) : new JsonObject();
+			rootBone.add("position", keys);
+			bones.add(rootName, rootBone);
+			out.add("bones", bones);
+			out.remove("ground");
+			return out;
+		}
 	}
 
 	/** Left-right mirroring of a motion source (model space mirrors across X). */

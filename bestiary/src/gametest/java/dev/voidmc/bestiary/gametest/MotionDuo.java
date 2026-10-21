@@ -58,7 +58,7 @@ public class MotionDuo implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext c) {
-		if (ROLE.isEmpty()) {
+		if (ROLE.isEmpty() || dev.voidmc.bestiary.studio.MotionStudio.active()) {
 			return;
 		}
 		try {

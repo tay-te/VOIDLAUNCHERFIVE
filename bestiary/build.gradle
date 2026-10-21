@@ -166,6 +166,13 @@ tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	systemProperty 'fray.duo.role', System.getProperty('fray.duo.role', '')
 	systemProperty 'fray.duo.dir', System.getProperty('fray.duo.dir', 'duo')
 	systemProperty 'fray.duo.lag', System.getProperty('fray.duo.lag', '0')
+	// The Motion Studio (docs/STUDIO.md): -Dfray.studio=true turns the client game test into the persistent studio.
+	systemProperty 'fray.studio', System.getProperty('fray.studio', 'false')
+	systemProperty 'fray.studio.port', System.getProperty('fray.studio.port', '25700')
+	systemProperty 'fray.studio.size', System.getProperty('fray.studio.size', '1280x720')
+	systemProperty 'fray.studio.src', file('src/main').absolutePath
+	systemProperty 'fray.studio.out', System.getProperty('fray.studio.out', file('build/studio').absolutePath)
+	systemProperty 'fray.lag.ms', System.getProperty('fray.lag.ms', '0')
 }
 
 // ---------------------------------------------------------------------------------------------

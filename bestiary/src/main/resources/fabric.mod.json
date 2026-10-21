@@ -8,8 +8,8 @@
 	"license": "All-Rights-Reserved",
 	"environment": "*",
 	"entrypoints": {
-		"main": ["dev.voidmc.bestiary.Bestiary"],
-		"client": ["dev.voidmc.bestiary.client.BestiaryClient"]
+		"main": ["dev.voidmc.bestiary.Bestiary", "dev.voidmc.bestiary.anim.BestiaryAnim"],
+		"client": ["dev.voidmc.bestiary.client.BestiaryClient", "dev.voidmc.bestiary.anim.BestiaryAnimClient"]
 	},
 	"depends": {
 		"fabricloader": ">=0.19.5",

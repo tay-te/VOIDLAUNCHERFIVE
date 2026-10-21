@@ -79,7 +79,44 @@ public final class BlockbenchImport {
 	// ------------------------------------------------------------------ project structure (4.x and 5.x)
 
 	/** The project's groups in Blockbench's {@code getAllGroups} order (depth first), with their parents and children. */
-	record Group(String uuid, String name, float[] origin, float[] rotation, @Nullable Group parent, List<Object> children) {
+	static final class Group {
+		private final String uuid, name;
+		private final float[] origin, rotation;
+		private final @Nullable Group parent;
+		private final List<Object> children;
+
+		Group(String uuid, String name, float[] origin, float[] rotation, @Nullable Group parent, List<Object> children) {
+			this.uuid = uuid;
+			this.name = name;
+			this.origin = origin;
+			this.rotation = rotation;
+			this.parent = parent;
+			this.children = children;
+		}
+
+		String uuid() {
+			return this.uuid;
+		}
+
+		String name() {
+			return this.name;
+		}
+
+		float[] origin() {
+			return this.origin;
+		}
+
+		float[] rotation() {
+			return this.rotation;
+		}
+
+		@Nullable Group parent() {
+			return this.parent;
+		}
+
+		List<Object> children() {
+			return this.children;
+		}
 	}
 
 	record Project(List<Group> groups, Map<String, JsonObject> elements, Map<String, Group> parentOf, List<JsonObject> loose, boolean flipY,
@@ -186,33 +223,70 @@ public final class BlockbenchImport {
 			helper.add(false);
 			List<Rig.Cube> mine = new ArrayList<>();
 			cubes.add(mine);
-			int sub = 0;
-			for (Object child : g.children()) {
-				if (!(child instanceof String uuid)) {
+			// Blockbench's rotation subgroups: walking the group's cubes from the last, each rotated cube joins a
+			// subgroup with the same rotation (and origin, on the rotated axes) or starts one named "<cube>_r1"; the
+			// subgroups follow the group in the order they were made, their cubes in that same reverse order.
+			List<float[]> subRot = new ArrayList<>(), subOrigin = new ArrayList<>();
+			List<String> subName = new ArrayList<>();
+			List<List<Rig.Cube>> subCubes = new ArrayList<>();
+			List<Object> kids = g.children();
+			for (int ci = kids.size() - 1; ci >= 0; ci--) {
+				JsonObject el = kids.get(ci) instanceof String uuid ? p.elements().get(uuid) : null;
+				if (el == null || !isCube(el)) {
 					continue;
 				}
-				JsonObject el = p.elements().get(uuid);
-				if (el == null || !"cube".equals(el.has("type") ? el.get("type").getAsString() : "cube")) {
+				float[] rot = vec(el, "rotation");
+				if (rot[0] == 0 && rot[1] == 0 && rot[2] == 0) {
 					continue;
 				}
-				if (el.has("export") && !el.get("export").getAsBoolean()) {
+				float[] origin = vec(el, "origin");
+				int found = -1;
+				for (int k = 0; k < subRot.size() && found < 0; k++) {
+					float[] sr = subRot.get(k), so = subOrigin.get(k);
+					if (!java.util.Arrays.equals(sr, rot)) {
+						continue;
+					}
+					int nonZero = (rot[0] != 0 ? 1 : 0) + (rot[1] != 0 ? 1 : 0) + (rot[2] != 0 ? 1 : 0);
+					boolean same = true;
+					for (int a = 0; a < 3; a++) {
+						if (nonZero > 1 ? so[a] != origin[a] : rot[a] == 0 && so[a] != origin[a]) {
+							same = false;
+						}
+					}
+					if (same) {
+						found = k;
+					}
+				}
+				if (found < 0) {
+					String base = boneName(el.has("name") ? el.get("name").getAsString() : "cube") + "_r";
+					int n = 1;
+					while (names.contains(base + n) || subName.contains(base + n)) {
+						n++;
+					}
+					subRot.add(rot);
+					subOrigin.add(origin);
+					subName.add(base + n);
+					subCubes.add(new ArrayList<>());
+					found = subRot.size() - 1;
+				}
+				subCubes.get(found).add(cube(el, subOrigin.get(found), p.flipY()));
+			}
+			for (Object child : kids) {
+				JsonObject el = child instanceof String uuid ? p.elements().get(uuid) : null;
+				if (el == null || !isCube(el)) {
 					continue;
 				}
 				float[] rot = vec(el, "rotation");
 				if (rot[0] == 0 && rot[1] == 0 && rot[2] == 0) {
 					mine.add(cube(el, g.origin(), p.flipY()));
-				} else {
-					// Blockbench's rotation subgroup: a helper bone at the cube's origin carrying its rotation.
-					float[] origin = vec(el, "origin");
-					String hn = boneName(el.has("name") ? el.get("name").getAsString() : "cube") + "_r" + (++sub);
-					names.add(hn);
-					parents.add(me);
-					rest.add(offsetAndRotation(origin, g.origin(), rot, p.flipY()));
-					helper.add(true);
-					List<Rig.Cube> hc = new ArrayList<>();
-					hc.add(cube(el, origin, p.flipY()));
-					cubes.add(hc);
 				}
+			}
+			for (int k = 0; k < subRot.size(); k++) {
+				names.add(subName.get(k));
+				parents.add(me);
+				rest.add(offsetAndRotation(subOrigin.get(k), g.origin(), subRot.get(k), p.flipY()));
+				helper.add(true);
+				cubes.add(subCubes.get(k));
 			}
 		}
 		// Locators: hv_<volume>_a@radius / hv_<volume>_b in a group.
@@ -263,6 +337,11 @@ public final class BlockbenchImport {
 			n += l.size();
 		}
 		return n;
+	}
+
+	private static boolean isCube(JsonObject el) {
+		String type = el.has("type") ? el.get("type").getAsString() : "cube";
+		return type.equals("cube") && !(el.has("export") && !el.get("export").getAsBoolean());
 	}
 
 	/** The exporter's bone pose: offset from the parent's origin, X negated, Y negated (+24 at the top) with flip Y. */
