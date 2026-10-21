@@ -42,6 +42,6 @@ public final class Visibility {
 		int light = player.level().getMaxLocalRawBrightness(eyes);
 		boolean moving = MOVING.getOrDefault(player.getUUID(), false) || player.isSprinting();
 		return new Detection.Stance(light, player.isShiftKeyDown(), player.isSprinting(), moving, player.getArmorValue(), player.isInvisible(),
-			LawSkills.stealth(player));
+			LawSkills.stealth(player), LawSkills.sightBonus(player), LawSkills.unseenBeyond(player));
 	}
 }

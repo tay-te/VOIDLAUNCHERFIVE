@@ -26,8 +26,17 @@ public final class Detection {
 	 * @param invisible under an invisibility effect
 	 * @param stealth   the player's Stealth skill, 0–20 (a character mod's, through {@code PlayerSkills}; 0 without one):
 	 *                  a skilled sneak is seen from nearer and heard less
+	 * @param sightBonus   a character mod's share off how far a sneak is seen ({@code hearth:stealth/sight}), 0–0.5, on
+	 *                     top of Stealth's; 0 changes nothing
+	 * @param unseenBeyond blocks beyond which a sneak is not seen at all ({@code hearth:stealth/unseen_beyond}); 0 is off
 	 */
-	public record Stance(int light, boolean sneaking, boolean sprinting, boolean moving, int armour, boolean invisible, int stealth) {
+	public record Stance(int light, boolean sneaking, boolean sprinting, boolean moving, int armour, boolean invisible, int stealth, double sightBonus,
+		double unseenBeyond) {
+		/** Without a character mod's named bonuses. */
+		public Stance(int light, boolean sneaking, boolean sprinting, boolean moving, int armour, boolean invisible, int stealth) {
+			this(light, sneaking, sprinting, moving, armour, invisible, stealth, 0, 0);
+		}
+
 		/** Without a character's Stealth (0), which changes nothing. */
 		public Stance(int light, boolean sneaking, boolean sprinting, boolean moving, int armour, boolean invisible) {
 			this(light, sneaking, sprinting, moving, armour, invisible, 0);
@@ -67,13 +76,20 @@ public final class Detection {
 				// a skilled sneak keeps to the shadows: seen up to 30 % nearer at Stealth 20
 				stanceFactor *= 1.0 - 0.015 * Math.min(20, stance.stealth);
 			}
+			if (stance.sightBonus > 0) {
+				stanceFactor *= 1.0 - Math.min(0.5, stance.sightBonus);
+			}
 		} else if (stance.sprinting) {
 			stanceFactor = 1.15;
 		}
 		if (stance.invisible) {
 			stanceFactor *= 0.15;
 		}
-		return baseRange * lightFactor * stanceFactor * observer.alertness;
+		double range = baseRange * lightFactor * stanceFactor * observer.alertness;
+		if (stance.sneaking && stance.unseenBeyond > 0) {
+			range = Math.min(range, stance.unseenBeyond);
+		}
+		return range;
 	}
 
 	/**

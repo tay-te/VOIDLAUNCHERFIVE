@@ -141,7 +141,7 @@ public final class PickpocketSessions {
 		rate *= 0.75 + 0.5 * stance.light() / 15.0;
 		rate *= 1.0 + player.getArmorValue() / 40.0;
 		rate *= 1.0 - LawSkills.pickpocket(player) * 0.02;
-		return rate;
+		return LawSkills.awareness(player, rate);
 	}
 
 	public static void action(ServerPlayer player, LawPayloads.PocketAction action) {

@@ -1,0 +1,25 @@
+{
+	"legend.title": [
+		"You're {title}, aren't you? I'd know you anywhere.",
+		"{title}, here in {settlement}! Wait till I tell the others.",
+		{"text": "So you're {title}. Smaller than the songs make you.", "traits": ["grumpy"]},
+		{"text": "{title}! Oh, may I shake your hand?", "traits": ["cheerful", "sociable"]},
+		{"text": "{title}. The whole market is talking.", "traits": ["gossip"]},
+		{"text": "Are you really {title}? My da told me about you!", "age": "child"},
+		{"text": "{title}. I'd heard you'd come this way.", "rep": [-100, -20]}
+	],
+	"legend.mythic": [
+		"You're the one they talk of. {mythic}, they call it.",
+		"I've heard the tale: {mythic}. Was it really you?",
+		{"text": "{mythic}. They'll sing of that long after we're gone.", "age": "elder"},
+		{"text": "{mythic}! Tell me everything, please!", "age": "child"},
+		{"text": "Folk say you're the one behind {mythic}. I'll believe it when I see it.", "traits": ["grumpy", "cautious"]}
+	],
+	"legend.hero": [
+		"Look who it is. A hero walks among us.",
+		"Welcome, welcome! Folk have been talking about you.",
+		{"text": "A hero in {settlement}! Mind the mud, my lord.", "traits": ["cheerful"]},
+		{"text": "Heroes. Always underfoot.", "traits": ["grumpy"]},
+		{"text": "Are you the hero? You are, aren't you!", "age": "child"}
+	]
+}

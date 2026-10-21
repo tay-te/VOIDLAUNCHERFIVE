@@ -194,8 +194,9 @@ public final class Confrontations {
 				}
 			}
 			case "persuade" -> {
-				boolean talked = player.getRandom().nextDouble() < searchPersuadeOdds(player, s, guard);
-				LawSkills.speechCheck(player, talked, "persuade_search");
+				double odds = searchPersuadeOdds(player, s, guard);
+				boolean talked = player.getRandom().nextDouble() < odds;
+				LawSkills.speechCheck(player, s, talked, "persuade_search", odds);
 				if (talked) {
 					Law.state(s).addSuspicion(player.getUUID(), -50);
 					s.markDirty();
@@ -209,10 +210,10 @@ public final class Confrontations {
 			case "bribe" -> {
 				EconomyService economy = HearthServices.economy();
 				long amount = searchBribe();
-				double odds = LawSkills.speech(player, SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(guard).listener()));
+				double odds = LawSkills.speech(player, "bribe", SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(guard).listener()));
 				boolean took = economy != null && economy.balance(player) >= amount && player.getRandom().nextDouble() < odds;
 				if (economy != null && economy.balance(player) >= amount) {
-					LawSkills.speechCheck(player, took, "bribe_search");
+					LawSkills.speechCheck(player, s, took, "bribe_search", odds);
 				}
 				if (took) {
 					economy.bribe(player, s, guard, amount);
@@ -237,10 +238,10 @@ public final class Confrontations {
 			case "bribe" -> {
 				EconomyService economy = HearthServices.economy();
 				long amount = SpeechCheck.witnessBribe(fine);
-				double odds = LawSkills.speech(player, SpeechCheck.bribe(amount, SpeechCheck.witnessBribe(fine), worst(reports), FolkTraits.of(witness).listener()));
+				double odds = LawSkills.speech(player, "bribe", SpeechCheck.bribe(amount, SpeechCheck.witnessBribe(fine), worst(reports), FolkTraits.of(witness).listener()));
 				boolean took = economy != null && economy.balance(player) >= amount && player.getRandom().nextDouble() < odds;
 				if (economy != null && economy.balance(player) >= amount) {
-					LawSkills.speechCheck(player, took, "bribe_witness");
+					LawSkills.speechCheck(player, s, took, "bribe_witness", odds);
 				}
 				if (took) {
 					economy.bribe(player, s, witness, amount);
@@ -254,8 +255,9 @@ public final class Confrontations {
 				}
 			}
 			case "threaten" -> {
-				boolean cowed = player.getRandom().nextDouble() < threatenOdds(player, witness);
-				LawSkills.speechCheck(player, cowed, "threaten_witness");
+				double odds = threatenOdds(player, witness);
+				boolean cowed = player.getRandom().nextDouble() < odds;
+				LawSkills.speechCheck(player, s, cowed, "threaten_witness", odds);
 				if (cowed) {
 					CrimeDesk.silence(s, witness.id, player.getUUID());
 					CrimeDesk.deed(s, player.getUUID(), "law:threatened_witness", -8, witness.id, player.blockPosition(), false);
@@ -389,11 +391,11 @@ public final class Confrontations {
 						odds = Justice.bribeOdds(player, s, folk);
 					} else if (talk.kind == Kind.SEARCH) {
 						amount = searchBribe();
-						odds = LawSkills.speech(player, SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(folk).listener()));
+						odds = LawSkills.speech(player, "bribe", SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(folk).listener()));
 					} else {
 						long fine = reports.stream().mapToLong(p -> Offences.fine(p.crime(), cfg.fines())).max().orElse(10);
 						amount = SpeechCheck.witnessBribe(fine);
-						odds = LawSkills.speech(player, SpeechCheck.bribe(amount, amount, worst(reports), FolkTraits.of(folk).listener()));
+						odds = LawSkills.speech(player, "bribe", SpeechCheck.bribe(amount, amount, worst(reports), FolkTraits.of(folk).listener()));
 					}
 					yield new LawPayloads.ChoiceInfo("bribe", "bribe", SpeechCheck.percent(odds), amount, -1);
 				}
@@ -476,7 +478,7 @@ public final class Confrontations {
 			if (economy != null && Law.config().witnesses().bribes()) {
 				long amount = searchBribe();
 				out.add(new LawPayloads.Choice("bribe", Component.translatable("hearth.law.choice.bribe", economy.format(amount),
-					SpeechCheck.percent(LawSkills.speech(player, SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(guard).listener())))), Justice.canAfford(player, amount)));
+					SpeechCheck.percent(LawSkills.speech(player, "bribe", SpeechCheck.bribe(amount, amount, 2, FolkTraits.of(guard).listener())))), Justice.canAfford(player, amount)));
 			}
 		}
 		return out;
@@ -490,7 +492,7 @@ public final class Confrontations {
 		if (economy != null && Law.config().witnesses().bribes()) {
 			long amount = SpeechCheck.witnessBribe(fine);
 			out.add(new LawPayloads.Choice("bribe", Component.translatable("hearth.law.choice.hush", economy.format(amount),
-				SpeechCheck.percent(LawSkills.speech(player, SpeechCheck.bribe(amount, amount, worst(reports), FolkTraits.of(witness).listener())))),
+				SpeechCheck.percent(LawSkills.speech(player, "bribe", SpeechCheck.bribe(amount, amount, worst(reports), FolkTraits.of(witness).listener())))),
 				Justice.canAfford(player, amount)));
 		}
 		if (Law.config().witnesses().threats()) {
@@ -504,7 +506,7 @@ public final class Confrontations {
 	static double threatenOdds(ServerPlayer player, Resident witness) {
 		StandingService standing = HearthServices.standing();
 		float menace = standing != null ? standing.menace(player) : fallbackMenace(player);
-		return LawSkills.speech(player, SpeechCheck.threaten(menace, FolkTraits.of(witness).listener()));
+		return LawSkills.speech(player, "intimidate", SpeechCheck.threaten(menace, FolkTraits.of(witness).listener()));
 	}
 
 	/** Without the standing module: armour and a weapon in hand make a threat. */
@@ -518,7 +520,7 @@ public final class Confrontations {
 		StandingService standing = HearthServices.standing();
 		int st = standing != null ? standing.standing(s.id(), player.getUUID()) : s.reputation(player.getUUID());
 		float charisma = standing != null ? standing.charisma(player) : 0;
-		return LawSkills.speech(player, SpeechCheck.persuade(st, 0, charisma, 1, FolkTraits.of(guard).listener()));
+		return LawSkills.speech(player, "persuade", SpeechCheck.persuade(st, 0, charisma, 1, FolkTraits.of(guard).listener()));
 	}
 
 	private static long searchBribe() {

@@ -4,6 +4,7 @@ import dev.voidmc.hearth.api.HearthServices;
 import dev.voidmc.hearth.api.PlayerSkills;
 import dev.voidmc.hearth.api.Resident;
 import dev.voidmc.hearth.api.Settlement;
+import dev.voidmc.hearth.api.StandingEvents;
 import dev.voidmc.hearth.standing.StandingConfig;
 import dev.voidmc.hearth.standing.StandingEngine;
 import dev.voidmc.hearth.standing.StandingModule;
@@ -41,7 +42,11 @@ public final class SpeechCheck {
 	 * @param chance the odds it was rolled at
 	 * @param roll   the roll, 0…1 (success when below the chance)
 	 */
-	public record Outcome(SpeechKind kind, boolean success, double chance, double roll) {
+	public record Outcome(SpeechKind kind, boolean success, double chance, double roll, boolean retry) {
+		public Outcome(SpeechKind kind, boolean success, double chance, double roll) {
+			this(kind, success, chance, roll, false);
+		}
+
 		public int percent() {
 			return (int) Math.round(this.chance * 100);
 		}
@@ -73,7 +78,8 @@ public final class SpeechCheck {
 		PlayerSkills skills = HearthServices.playerSkills();
 		SpeechOdds.Inputs in = new SpeechOdds.Inputs(standing, opinion, look.charisma(), look.menace(), FolkFacts.traits(resident), FolkFacts.mood(resident),
 			resident.station, resident.job, difficulty, ratio, recentTries(engine, resident, player, kind), skills.level(player, PlayerSkills.SPEECH),
-			skills.attribute(player, PlayerSkills.PRESENCE));
+			skills.attribute(player, PlayerSkills.PRESENCE),
+			PlayerSkills.bonus(skills, player, PlayerSkills.BONUS_SPEECH + kind.getSerializedName(), 0, SpeechOdds.MAX_BONUS));
 		return SpeechOdds.of(kind, in, cfg.speech().minChance(), cfg.speech().maxChance());
 	}
 
@@ -86,12 +92,20 @@ public final class SpeechCheck {
 		double roll = player.getRandom().nextDouble();
 		boolean success = roll < odds.chance();
 		StandingEngine engine = StandingModule.engine();
-		if (engine != null && StandingModule.config().speech().consequences()) {
+		// a character's "second word": a failure taken back, so it may be tried again at once (no memory, no repeat)
+		boolean retry = !success && SpeechRetries.take(player, today(engine, player));
+		if (engine != null && StandingModule.config().speech().consequences() && !retry) {
 			engine.remember(resident, player.getUUID(), kind.memoryKind(success), success ? kind.successMemory : kind.failureMemory);
 			settlement.markDirty();
 		}
 		HearthServices.playerSkills().award(player, PlayerSkills.SPEECH, xp(success, difficulty), "hearth:speech/" + kind.getSerializedName());
-		return new Outcome(kind, success, odds.chance(), roll);
+		StandingEvents.SPEECH_CHECK.invoker().onSpeechCheck(player, settlement, kind.getSerializedName(), success, StandingEvents.difficulty(odds.chance()));
+		return new Outcome(kind, success, odds.chance(), roll, retry);
+	}
+
+	/** The sim day for the retry budget: the standing engine's calendar, else the world's. */
+	private static long today(@Nullable StandingEngine engine, ServerPlayer player) {
+		return engine != null ? engine.host().day() : player.level().getOverworldClockTime() / 24000L;
 	}
 
 	/**
