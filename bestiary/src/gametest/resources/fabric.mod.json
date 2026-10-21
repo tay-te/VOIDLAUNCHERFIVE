@@ -5,7 +5,7 @@
 	"name": "VOID Bestiary motion showcase",
 	"environment": "*",
 	"entrypoints": {
-		"fabric-client-gametest": ["dev.voidmc.bestiary.gametest.MotionShowcase", "dev.voidmc.bestiary.gametest.MotionDuo"]
+		"fabric-client-gametest": ["dev.voidmc.bestiary.gametest.MotionShowcase", "dev.voidmc.bestiary.gametest.MotionDuo", "dev.voidmc.bestiary.gametest.CombatShowcase"]
 	},
 	"depends": {"bestiary": "*", "fray": "*"}
 }

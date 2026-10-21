@@ -163,6 +163,8 @@ tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	systemProperty 'fray.duo.role', System.getProperty('fray.duo.role', '')
 	systemProperty 'fray.duo.dir', System.getProperty('fray.duo.dir', 'duo')
 	systemProperty 'fray.duo.lag', System.getProperty('fray.duo.lag', '0')
+	// Fray combat's showcase (CombatShowcase): -Dfray.combat=all|pipeline,actions,hud,perf,dedicated
+	systemProperty 'fray.combat', System.getProperty('fray.combat', '')
 }
 
 // ---------------------------------------------------------------------------------------------

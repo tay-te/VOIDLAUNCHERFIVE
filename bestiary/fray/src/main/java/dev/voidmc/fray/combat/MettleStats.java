@@ -25,7 +25,13 @@ public final class MettleStats {
 	private MettleStats() {
 	}
 
+	/** Mettle isn't loaded: every stat is neutral (no lookups in hot paths). */
+	private static final boolean ABSENT = !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("mettle");
+
 	private static Optional<Holder<Attribute>> holder(String path) {
+		if (ABSENT) {
+			return Optional.empty();
+		}
 		return CACHE.computeIfAbsent(path, p -> {
 			Identifier id = Identifier.tryParse("mettle:" + p);
 			return id == null ? Optional.empty() : BuiltInRegistries.ATTRIBUTE.get(id).map(h -> (Holder<Attribute>) h);

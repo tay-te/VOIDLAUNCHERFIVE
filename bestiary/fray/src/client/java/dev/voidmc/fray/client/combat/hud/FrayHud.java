@@ -51,10 +51,24 @@ public final class FrayHud {
 	/** Draw cost probes (perf test). */
 	public static long drawNanos;
 	public static long frames;
+	/** Per-section draw cost (perf test): edge, plates, reticle, feedback, cues, top, cluster, arts, status, banner, subtitles. */
+	public static final long[] SECTION = new long[12];
+	public static final String[] SECTIONS = {"edge", "nameplates", "reticle", "feedback", "cues", "top", "cluster", "arts", "status", "banner", "subtitles", "numbers"};
+	private static long mark;
+
+	private static void lap(int i) {
+		long n = System.nanoTime();
+		SECTION[i] += n - mark;
+		mark = n;
+	}
+
 	/** Forces the HUD "in a fight" (screenshots). */
 	public static boolean forceCombat;
 
 	private static final Paint P = new Paint();
+	/** Nameplates drawn at most (the nearest). */
+	public static final int MAX_PLATES = 10;
+	private static final List<Entity> PLATES = new ArrayList<>();
 	private static float lastHealth = -1;
 	private static float ghostHealth;
 	private static long ghostAt;
@@ -134,13 +148,19 @@ public final class FrayHud {
 		Project.setup(mc, p.guiW, p.guiH);
 		long now = ClientCombat.ms();
 
+		mark = System.nanoTime();
 		cues(p, mc, opt, now, true);
+		lap(0);
 		if (opt.nameplates != FrayClientOptions.Nameplates.OFF) {
 			nameplates(p, mc, opt, partial);
 		}
+		lap(1);
 		reticle(p, mc, partial, now);
+		lap(2);
 		feedback(p, mc, opt, now);
+		lap(3);
 		cues(p, mc, opt, now, false);
+		lap(4);
 		topHeight = 0;
 		if (ClientCombat.bar != null) {
 			bossBar(p, mc, now);
@@ -149,20 +169,27 @@ public final class FrayHud {
 			targetFrame(p, mc, now);
 			topHeight = Math.round(128 * p.k);
 		}
+		lap(5);
 		if (clusterActive()) {
 			cluster(p, mc, player, now);
+			lap(6);
 			arts(p, mc, now);
+			lap(7);
 			clusterShown = true;
 			clusterTop = Math.round((980 - 880) * p.k) + 22;
 		}
 		if (mc.gui.screen() == null) {
 			statusRow(p, mc, player, now);
 		}
+		lap(8);
 		banner(p, now);
+		lap(9);
 		tellSubtitles(p, mc, now);
+		lap(10);
 		if (opt.damageNumbers) {
 			numbers(p, now);
 		}
+		lap(11);
 		drawNanos += System.nanoTime() - t0;
 		frames++;
 	}
@@ -219,8 +246,8 @@ public final class FrayHud {
 				p.round(left + 2 + hpW - 1, y + 2, aw + 1, 8, 4, Paint.ABSORB);
 			}
 		}
-		// Build-up meters under the bar: fullest first, at most 4, then "+N".
-		meterRow(p, pl.getId(), left, 957, 70, 44, 14, now, true);
+		// Build-up meters under the bar (over vanilla's XP bar, on their own ink, only while they fill): fullest first, at most 4.
+		meterRow(p, pl.getId(), left, 958, 70, 44, 14, now, true);
 
 		// H1 stamina, right of health.
 		CombatPayloads.Self s = ClientCombat.self;
@@ -294,6 +321,9 @@ public final class FrayHud {
 				p.round(mx - 3, y - 3, icon + 6, icon + 6, 5, Paint.alpha(s.colour, 0.45F));
 				f = 1;
 			}
+			if (self) {
+				p.pill(mx - 3, y - 2, icon + meterW + 12, icon + 4, Paint.ink(0.85F));
+			}
 			Icons.status(p, s, mx, y, icon, 1);
 			p.bar(mx + icon + 4, y + icon / 2 - 2, meterW, 4, f, Paint.ink(0.6F), s.colour, 0);
 		}
@@ -338,9 +368,9 @@ public final class FrayHud {
 		for (int i = 0; i < n; i++) {
 			Chip c = chips.get(i);
 			float x = 673 + i * 34;
-			p.round(x, y, 30, 36, 8, Paint.ink(0.78F));
+			p.blit(Paint.sprite("chip"), x, y, 30, 36, Paint.ink(0.78F));
 			int outlineCol = c.fray() != null ? c.fray().colour : 0x66FFFFFF;
-			p.outline(x, y, 30, 36, 8, 1, outlineCol);
+			p.blit(Paint.sprite("chip_outline"), x, y, 30, 36, outlineCol);
 			if (c.fray() != null) {
 				Icons.status(p, c.fray(), x + 8, y + 4, 14, 1);
 				if (c.fray() == StatusType.CHILL) {
@@ -377,7 +407,7 @@ public final class FrayHud {
 		CombatPayloads.Self s = ClientCombat.self;
 		p.pushBottom();
 		float x = 1259, y = 980, w = 74;
-		p.round(x, y, w, w, 18, Paint.ink(0.72F));
+		p.blit(Paint.sprite("well"), x, y, w, w, Paint.ink(0.72F));
 		int cd = s == null ? 0 : Math.max(0, s.artCooldown() - (int) ((now - ClientCombat.selfAt) / 50));
 		if (lastArtCooldown > 0 && cd == 0) {
 			artReadyFlash = now;
@@ -385,16 +415,16 @@ public final class FrayHud {
 		lastArtCooldown = cd;
 		if (s == null || s.art() < 0) {
 			// A dashed outline: "No Art".
-			p.ring(x + w / 2, y + w / 2, 30, 1.5F, 0x55FFFFFF, 0, 1, 24, true);
+			p.fullRing(x + w / 2, y + w / 2, 30, true, 0x88FFFFFF);
 			p.centred("No Art", x + w / 2, y + 33, Paint.DIM, 7);
 		} else {
-			p.round(x + 9, y + 9, 56, 56, 12, Paint.ink(0.85F));
+			p.blit(Paint.sprite("well_inner"), x + 9, y + 9, 56, 56, Paint.ink(0.85F));
 			boolean ready = cd == 0;
 			if (ready) {
-				p.outline(x + 9, y + 9, 56, 56, 12, 2, Paint.STAMINA);
+				p.blit(Paint.sprite("well_inner_outline"), x + 9, y + 9, 56, 56, Paint.STAMINA);
 				Icons.spiral(p, x + w / 2, y + w / 2, 30, Paint.STAMINA);
 				if (now - artReadyFlash < 250) {
-					p.round(x + 9, y + 9, 56, 56, 12, Paint.alpha(0xFFFFFFFF, 1 - (now - artReadyFlash) / 250F));
+					p.blit(Paint.sprite("well_inner"), x + 9, y + 9, 56, 56, Paint.alpha(0xFFFFFFFF, 1 - (now - artReadyFlash) / 250F));
 				}
 			} else {
 				Icons.spiral(p, x + w / 2, y + w / 2, 30, 0x55EDE6CF);
@@ -405,7 +435,7 @@ public final class FrayHud {
 		}
 		// The keycap: sneak + C.
 		p.round(x + 44, y - 8, 30, 18, 9, Paint.ink(0.85F));
-		p.centred("⇧C", x + 59, y - 4, Paint.TEXT, 7);
+		p.centred("↑C", x + 59, y - 4, Paint.TEXT, 7);
 		p.pop();
 	}
 
@@ -518,7 +548,20 @@ public final class FrayHud {
 
 	private static void nameplates(Paint p, Minecraft mc, FrayClientOptions opt, float partial) {
 		int bossId = ClientCombat.bar == null ? -1 : ClientCombat.bar.boss();
+		PLATES.clear();
 		for (Entity e : mc.level.entitiesForRendering()) {
+			if (e instanceof LivingEntity && e != mc.player && !(e instanceof Player) && e.distanceToSqr(mc.player) <= 24 * 24) {
+				PLATES.add(e);
+			}
+		}
+		if (PLATES.size() > MAX_PLATES) {
+			PLATES.sort(Comparator.comparingDouble(e -> e.distanceToSqr(mc.player)));
+		}
+		int drawn = 0;
+		for (Entity e : PLATES) {
+			if (drawn >= MAX_PLATES) {
+				break;
+			}
 			if (!(e instanceof LivingEntity le) || e == mc.player || e instanceof Player || e instanceof ArmorStand || !le.isAlive() || le.isInvisible()
 				|| e.getId() == LockOn.target || e.getId() == bossId) {
 				continue;
@@ -541,13 +584,15 @@ public final class FrayHud {
 			double y = Mth.lerp(partial, e.yo, e.getY()) + e.getBbHeight() + 0.45;
 			double z = Mth.lerp(partial, e.zo, e.getZ());
 			float[] at = Project.point(x, y, z);
-			if (at == null || !mc.player.hasLineOfSight(e)) {
+			if (at == null || !Sight.visible(mc, e)) {
 				continue;
 			}
-			float scale = (float) Mth.clampedLerp(1.0, 0.7, (d - 8) / 16);
+			// Full size within 8 blocks, 70 % at 24.
+			float scale = (float) (1.0 - 0.3 * Math.max(0, Math.min(1, (d - 8) / 16)));
 			p.g.pose().pushMatrix();
 			p.g.pose().translate(at[0], at[1]);
 			p.g.pose().scale(p.k * scale, p.k * scale);
+			drawn++;
 			float frac = le.getHealth() / Math.max(1, le.getMaxHealth());
 			if (elite) {
 				String name = le.getName().getString();
@@ -641,10 +686,7 @@ public final class FrayHud {
 		p.pushTop();
 		float cy = 300;
 		int glow = felled ? 0xE8C46A : 0xB33A3A;
-		for (int i = 0; i < 6; i++) {
-			float w = 1100 - i * 140, h = 190 - i * 24;
-			p.round(960 - w / 2, cy - h / 2, w, h, h / 2, (Math.round(0x14 * f) << 24) | glow);
-		}
+		p.blit(Paint.sprite("glow"), 960 - 620, cy - 130, 1240, 250, (Math.round(0x70 * f) << 24) | glow);
 		String title = b.title().getString();
 		float tw = p.width(title, 26);
 		int tc = Paint.alpha(felled ? 0xFFF3D98C : Paint.TEXT, f);
@@ -671,10 +713,10 @@ public final class FrayHud {
 		float flash = opt.flashReduction ? 0.5F : 1;
 		for (ClientCombat.Fx fx : ClientCombat.FX) {
 			long age = now - fx.at();
-			if (fx.mine() && (fx.outcome() == GuardOutcome.NONE || fx.outcome() == GuardOutcome.BLOCKED) && opt.hitMarkers && age < 250) {
+			if (fx.mine() && (fx.outcome() == GuardOutcome.NONE || fx.outcome() == GuardOutcome.BLOCKED) && opt.hitMarkers && age < 350) {
 				boolean kill = (fx.flags() & CombatPayloads.HIT_KILL) != 0;
 				boolean crit = HitFlags.has(fx.flags(), HitFlags.CRIT);
-				int col = Paint.alpha(kill ? 0xFFFF5A5A : crit ? Paint.GOLD : 0xFFFFFFFF, 1 - age / 250F);
+				int col = Paint.alpha(kill ? 0xFFFF5A5A : crit ? Paint.GOLD : 0xFFFFFFFF, 1 - age / 350F);
 				float r0 = kill ? 11 : 8, r1 = kill ? 20 : 14;
 				for (int q = 0; q < 4; q++) {
 					p.g.pose().pushMatrix();
@@ -698,7 +740,7 @@ public final class FrayHud {
 				pill(p, "Guard broken", 0, 44, Paint.WINDED, f);
 			}
 			if (fx.onMe() && fx.outcome() == GuardOutcome.PARRIED && age < 300) {
-				p.ring(0, 0, 30 + age / 30F, 2, Paint.alpha(0xFFFFFFFF, (1 - age / 300F) * flash), 0, 1, 48, false);
+				p.fullRing(0, 0, 30 + age / 30F, false, Paint.alpha(0xFFFFFFFF, (1 - age / 300F) * flash));
 			}
 		}
 		// The parry ring holds while the riposte window is open, its outer arc draining.
@@ -706,7 +748,7 @@ public final class FrayHud {
 		if (s != null && s.riposteLeft() > 0) {
 			float left = Math.max(0, s.riposteLeft() - (now - ClientCombat.selfAt) / 50F);
 			if (left > 0) {
-				p.ring(0, 0, 32, 2, Paint.alpha(0xFFFFFFFF, 0.9F * flash), 0, 1, 48, false);
+				p.fullRing(0, 0, 32, false, Paint.alpha(0xFFFFFFFF, 0.9F * flash));
 				p.ring(0, 0, 40, 3, Paint.alpha(0xFFFFFFFF, 0.75F * flash), 0, Math.min(1, left / 20F), 56, false);
 				pill(p, "Parried   riposte LMB", 0, 72, 0xFFF2F2EE, 1);
 			}
@@ -734,7 +776,7 @@ public final class FrayHud {
 			int col = crit ? Paint.GOLD : DamageKind.VALUES[Math.max(0, Math.min(DamageKind.VALUES.length - 1, fx.kind()))].colour;
 			p.push(at[0], at[1] - age / 40F);
 			String n = fx.amount() >= 10 ? Integer.toString(Math.round(fx.amount())) : String.format(Locale.ROOT, "%.1f", fx.amount());
-			p.centred(n, 0, 0, Paint.alpha(col, 1 - Math.max(0, age - 500) / 300F), crit ? 14 : 10);
+			p.centred(n, 0, 0, Paint.alpha(col, 1 - Math.max(0, age - 500) / 300F), crit ? 20 : 14);
 			p.pop();
 		}
 	}
@@ -774,7 +816,7 @@ public final class FrayHud {
 		}
 		if (any && !edge) {
 			p.push(p.cx, p.cy);
-			p.ring(0, 0, 84, 1, 0x40FFFFFF, 0, 1, 64, true);
+			p.fullRing(0, 0, 84, true, 0x50FFFFFF);
 			p.pop();
 		}
 	}

@@ -29,7 +29,7 @@ public final class FrayCombatClient {
 		CombatKeys.register();
 		FrayClientOptions.get();
 		ClientConfigurationNetworking.registerGlobalReceiver(CombatPayloads.Hello.TYPE, (payload, context) -> {
-			context.responseSender().sendPacket(CombatHandshake.hello());
+			context.responseSender().sendPacket(CombatHandshake.clientHello());
 		});
 		ClientPlayNetworking.registerGlobalReceiver(CombatPayloads.Ack.TYPE, (p, c) -> CombatInput.onAck(p));
 		ClientPlayNetworking.registerGlobalReceiver(CombatPayloads.ActionPlay.TYPE, (p, c) -> CombatInput.onActionPlay(p));

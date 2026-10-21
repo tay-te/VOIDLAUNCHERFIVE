@@ -27,9 +27,16 @@ public class FrayDamageSource extends DamageSource {
 		this.hit = hit;
 	}
 
+	private static Object cachedAccess;
+	private static Holder<DamageType> cachedCombat;
+
 	public static FrayDamageSource combat(ServerLevel level, HitContext hit) {
-		Holder<DamageType> type = level.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(COMBAT);
-		return new FrayDamageSource(type, hit.attacker(), hit.attacker(), hit);
+		Object access = level.registryAccess();
+		if (access != cachedAccess) {
+			cachedCombat = level.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(COMBAT);
+			cachedAccess = access;
+		}
+		return new FrayDamageSource(cachedCombat, hit.attacker(), hit.attacker(), hit);
 	}
 
 	public static FrayDamageSource status(ServerLevel level, @Nullable Entity source) {

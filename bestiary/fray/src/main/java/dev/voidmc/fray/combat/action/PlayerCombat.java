@@ -47,6 +47,8 @@ public final class PlayerCombat {
 		BUFFERED = 9, BAD_TARGET = 10;
 
 	private static final Identifier SLOW = Fray.id("action_slow");
+	/** Every action started ("tick player KIND"), for tests and the studio log. */
+	public static final java.util.List<String> ACTIONS = new java.util.concurrent.CopyOnWriteArrayList<>();
 
 	public final ServerPlayer player;
 	public final CombatState state;
@@ -365,6 +367,7 @@ public final class PlayerCombat {
 
 	private void begin(Run r, int seq) {
 		this.run = r;
+		ACTIONS.add(r.start + " " + this.player.getName().getString() + " " + r.kind.name() + (r.kind == ActionKind.LIGHT ? " " + r.combo : ""));
 		this.ack(seq, true, (byte) r.kind.ordinal(), r.start, OK);
 		CombatSync.actionPlay(this.player, r.kind, r.start, ActionKind.clipSpeed(r.kind, r.phases.windup()));
 		CombatEvents.ACTION_STARTED.invoker().on(this.player, r.kind.id(), CombatEvents.ActionOutcome.DONE);

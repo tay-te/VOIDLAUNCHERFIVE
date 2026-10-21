@@ -3,6 +3,8 @@ package dev.voidmc.fray.client.combat.hud;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.resources.Identifier;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.util.ARGB;
@@ -88,9 +90,46 @@ public final class Paint {
 		this.g.fill(x0, y0, Math.max(x0 + 1, Math.round(x + w)), Math.max(y0 + 1, Math.round(y + h)), col);
 	}
 
-	/** A rounded rectangle: rows of fills on the curve (radius in design px). */
+	private static final int[] RADII = {2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 14, 18, 22};
+	private static final Identifier[] ROUND = new Identifier[RADII.length];
+	private static final Identifier DISC = sprite("disc"), RING = sprite("ring"), RING_DASHED = sprite("ring_dashed"), DIAMOND = sprite("diamond"),
+		DIAMOND_OUTLINE = sprite("diamond_outline"), TRIANGLE = sprite("triangle"), CAP_L = sprite("cap_l"), CAP_R = sprite("cap_r");
+
+	static {
+		for (int i = 0; i < RADII.length; i++) {
+			ROUND[i] = sprite("round_" + RADII[i]);
+		}
+	}
+
+	public static Identifier sprite(String name) {
+		return Identifier.fromNamespaceAndPath("fray", "hud/" + name);
+	}
+
+	/** Draws a GUI sprite (nine-sliced or stretched) over a design-space rectangle, tinted. */
+	public void blit(Identifier sprite, float x, float y, float w, float h, int col) {
+		int x0 = Math.round(x), y0 = Math.round(y);
+		int w0 = Math.max(1, Math.round(x + w) - x0), h0 = Math.max(1, Math.round(y + h) - y0);
+		this.g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x0, y0, w0, h0, col);
+	}
+
+	/** A rounded rectangle (radius in design px): one nine-sliced sprite, the largest baked radius not above r. */
 	public void round(float x, float y, float w, float h, float r, int col) {
 		if (w <= 0 || h <= 0 || (col >>> 24) == 0) {
+			return;
+		}
+		float rr = Math.min(r, Math.min(w, h) / 2);
+		if (rr >= h / 2 - 0.5F && w >= h) {
+			this.pill(x, y, w, h, col);
+			return;
+		}
+		if (rr >= 2) {
+			int pick = 0;
+			for (int i = 0; i < RADII.length; i++) {
+				if (RADII[i] <= rr + 0.5F) {
+					pick = i;
+				}
+			}
+			this.blit(ROUND[pick], x, y, w, h, col);
 			return;
 		}
 		r = Math.min(r, Math.min(w, h) / 2);
@@ -108,8 +147,29 @@ public final class Paint {
 		}
 	}
 
-	/** A rounded outline {@code t} px thick. */
+	/** A pill (radius h / 2): two half-disc caps and a fill (3 draws). */
+	public void pill(float x, float y, float w, float h, int col) {
+		if (w <= h) {
+			this.blit(DISC, x, y, w, h, col);
+			return;
+		}
+		float c = h / 2;
+		int x0 = Math.round(x), x1 = Math.round(x + c), x2 = Math.round(x + w - c), x3 = Math.round(x + w);
+		int y0 = Math.round(y), y1 = Math.max(y0 + 1, Math.round(y + h));
+		this.g.blitSprite(RenderPipelines.GUI_TEXTURED, CAP_L, x0, y0, Math.max(1, x1 - x0), y1 - y0, col);
+		if (x2 > x1) {
+			this.g.fill(x1, y0, x2, y1, col);
+		}
+		this.g.blitSprite(RenderPipelines.GUI_TEXTURED, CAP_R, x2, y0, Math.max(1, x3 - x2), y1 - y0, col);
+	}
+
+	/** A rounded outline {@code t} px thick (baked sprites for the radii the HUD uses). */
 	public void outline(float x, float y, float w, float h, float r, float t, int col) {
+		int ri0 = Math.round(r), ti = Math.round(t);
+		if ((ri0 == 6 || ri0 == 8 || ri0 == 10) && ti == 1 || ri0 == 12 && ti == 2) {
+			this.blit(sprite("outline_" + ri0 + "_" + ti), x, y, w, h, col);
+			return;
+		}
 		int ri = Math.round(Math.min(r, Math.min(w, h) / 2));
 		this.rect(x + ri, y, w - 2 * ri, t, col);
 		this.rect(x + ri, y + h - t, w - 2 * ri, t, col);
@@ -140,6 +200,7 @@ public final class Paint {
 	/** Scale (in design units) for text whose capitals are about {@code size} design px tall, snapped to whole screen pixels. */
 	public float textScale(float size) {
 		float screenPerFontPx = size / 7F * this.k * this.gs;
+
 		float snapped = Math.max(1, Math.round(screenPerFontPx));
 		return snapped / (this.k * this.gs);
 	}
@@ -202,8 +263,17 @@ public final class Paint {
 		}
 	}
 
+	/** A full ring of radius r (the baked ring is about 2 px thick at r 32; the dashed one 1 px at r 84). */
+	public void fullRing(float cx, float cy, float r, boolean dashed, int col) {
+		this.blit(dashed ? RING_DASHED : RING, cx - r, cy - r, 2 * r, 2 * r, col);
+	}
+
 	/** A filled diamond (a square turned 45°) centred at (x, y), {@code size} across. */
 	public void diamond(float x, float y, float size, int col) {
+		this.blit(DIAMOND, x - size / 2, y - size / 2, size, size, col);
+	}
+
+	public void diamondFills(float x, float y, float size, int col) {
 		this.g.pose().pushMatrix();
 		this.g.pose().translate(x, y);
 		this.g.pose().rotate((float) (Math.PI / 4));
@@ -212,8 +282,12 @@ public final class Paint {
 		this.g.pose().popMatrix();
 	}
 
-	/** A diamond outline {@code t} thick. */
+	/** A diamond outline (about 2 px). */
 	public void diamondOutline(float x, float y, float size, float t, int col) {
+		this.blit(DIAMOND_OUTLINE, x - size / 2, y - size / 2, size, size, col);
+	}
+
+	public void diamondOutlineFills(float x, float y, float size, float t, int col) {
 		this.g.pose().pushMatrix();
 		this.g.pose().translate(x, y);
 		this.g.pose().rotate((float) (Math.PI / 4));
@@ -226,8 +300,12 @@ public final class Paint {
 		this.g.pose().popMatrix();
 	}
 
-	/** A filled triangle pointing up (rows of fills), centred at (x, y). */
+	/** A filled triangle pointing up, centred at (x, y). */
 	public void triangle(float x, float y, float size, int col) {
+		this.blit(TRIANGLE, x - size / 2, y - size * 0.44F, size, size * 0.875F, col);
+	}
+
+	public void triangleFills(float x, float y, float size, int col) {
 		int h = Math.round(size * 0.87F);
 		for (int i = 0; i < h; i++) {
 			float w = size * (i + 1) / h;
@@ -237,7 +315,7 @@ public final class Paint {
 
 	/** A disc. */
 	public void disc(float x, float y, float size, int col) {
-		this.round(x - size / 2, y - size / 2, size, size, size / 2, col);
+		this.blit(DISC, x - size / 2, y - size / 2, size, size, col);
 	}
 
 	public static int lerpColour(float f, int a, int b) {

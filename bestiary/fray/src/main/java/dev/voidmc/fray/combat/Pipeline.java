@@ -47,6 +47,8 @@ public final class Pipeline implements DamageService {
 	/** Cost probes. */
 	public static long dealNanos;
 	public static long deals;
+	/** Time spent in vanilla's hurtServer (stage 8) inside {@link #dealNanos}. */
+	public static long handoffNanos;
 	/** The last breakdown (tests, the studio log). */
 	public static volatile @Nullable DamageBreakdown last;
 	public static final List<String> LOG = new java.util.concurrent.CopyOnWriteArrayList<>();
@@ -349,7 +351,9 @@ public final class Pipeline implements DamageService {
 		if (atk != null) {
 			ts.lastHitBy.put(atk.getId(), now);
 		}
+		long h0 = System.nanoTime();
 		boolean hurt = total > 0 && target.hurtServer(level, source, total);
+		handoffNanos += System.nanoTime() - h0;
 		if (hurt && atk != null && !status) {
 			float kb = HitFlags.has(flags, HitFlags.CHARGED) ? 0.8F : HitFlags.has(flags, HitFlags.HEAVY) ? 0.45F : 0.15F;
 			if (target.isDeadOrDying()) {

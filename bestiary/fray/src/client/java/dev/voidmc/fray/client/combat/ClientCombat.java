@@ -71,11 +71,6 @@ public final class ClientCombat {
 	}
 
 	public static void onSelf(CombatPayloads.Self s) {
-		CombatPayloads.Self old = self;
-		if (old != null && s.stamina() - old.stamina() >= 8 && s.windedLeft() == 0) {
-			refund = s.stamina() - old.stamina();
-			refundAt = ms();
-		}
 		self = s;
 		selfAt = ms();
 		predictedSpend = 0;
@@ -123,6 +118,11 @@ public final class ClientCombat {
 		boolean onMe = h.target() == mc.player.getId();
 		GuardOutcome o = GuardOutcome.values()[Math.max(0, Math.min(GuardOutcome.values().length - 1, h.outcome()))];
 		FX.add(new Fx(o, h.flags(), h.amount(), h.kind(), mine, onMe, h.x(), h.y(), h.z(), ms()));
+		if (onMe && (o == GuardOutcome.PARRIED || o == GuardOutcome.SLIP)) {
+			// The parry's +15 (the Slip's +12) flashes on the stamina bar.
+			refund = o == GuardOutcome.PARRIED ? 15 : 12;
+			refundAt = ms();
+		}
 		if (FX.size() > 48) {
 			FX.removeFirst();
 		}

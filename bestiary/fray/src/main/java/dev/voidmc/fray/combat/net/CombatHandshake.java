@@ -37,6 +37,15 @@ public final class CombatHandshake {
 		}
 	}
 
+	/** Tests: the client answers with this content hash instead of its own (null: its own). */
+	public static volatile String clientOverride;
+
+	/** The client's answer. */
+	public static CombatPayloads.Hello clientHello() {
+		CombatPayloads.Hello h = hello();
+		return clientOverride == null ? h : new CombatPayloads.Hello(h.protocol(), h.version(), clientOverride);
+	}
+
 	public static CombatPayloads.Hello hello() {
 		return new CombatPayloads.Hello(FrayApi.PROTOCOL, Fray.version(), contentHash());
 	}
