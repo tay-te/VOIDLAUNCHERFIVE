@@ -464,7 +464,8 @@
   }
 
   function rail(cur) {
-    var list = skillsShown(), h = '<div class="o-rail">';
+    // Nine or more skills (Stealth, Mettle 0.4.0) take smaller buttons so the rail still fits the window.
+    var list = skillsShown(), h = '<div class="o-rail' + (list.length > 8 ? " many" : "") + '">';
     for (var i = 0; i < list.length; i++) {
       var s = list[i], hue = hueOf(s), on = s.id === cur.id;
       var st = on ? "background:" + mix(WELL, hue, 0.22) + ";border:2px solid " + hue + ";box-shadow:0 0 18px " + rgba(hue, 0.55)

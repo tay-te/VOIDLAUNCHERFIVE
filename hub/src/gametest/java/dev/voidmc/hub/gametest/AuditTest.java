@@ -1164,6 +1164,7 @@ public final class AuditTest {
 			}
 		});
 		this.check(scroll.painted() >= 20 && scroll.within(10, 60), "PERF gs2 binder wheel scroll (20+ paints): UI p95 under 10 ms and no paint over 60 ms: " + scroll);
+		int hb0 = dev.voidmc.hub.mettle.MettleSync.builds;
 		Perf hover = this.perf("gs2 binder hover sweep", () -> {
 			for (int k = 0; k < 3; k++) {
 				for (int t = 0; t < 12; t++) {
@@ -1174,6 +1175,7 @@ public final class AuditTest {
 				}
 			}
 		});
+		log("PERF gs2 binder hover sweep: Mettle state built " + (dev.voidmc.hub.mettle.MettleSync.builds - hb0) + " times; page " + this.js("MC.debug()"));
 		this.check(hover.painted() >= 20 && hover.within(10, 30), "PERF gs2 binder hover sweep (20+ paints): UI p95 under 10 ms and no paint over 30 ms: " + hover);
 		this.ui.parkMouse();
 		this.context.waitTicks(4);

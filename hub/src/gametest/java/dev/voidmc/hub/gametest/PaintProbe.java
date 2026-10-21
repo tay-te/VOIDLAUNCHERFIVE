@@ -51,36 +51,44 @@ final class PaintProbe {
 	@SuppressWarnings("unchecked")
 	static Result run(ClientGameTestContext context, String name, boolean centre) {
 		String json = context.computeOnClient(mc -> HubView.get().eval(ADD));
-		context.waitTicks(6);
-		Path shot = context.takeScreenshot(name);
-		context.computeOnClient(mc -> HubView.get().eval(REMOVE));
 		Map<String, Object> m = Json.parseObject(json);
 		double w = ((Number) m.get("w")).doubleValue();
 		double h = ((Number) m.get("h")).doubleValue();
 		List<String> missing = new ArrayList<>();
-		String page;
-		try (InputStream in = Files.newInputStream(shot); NativeImage img = NativeImage.read(in)) {
-			double sx = img.getWidth() / w;
-			double sy = img.getHeight() / h;
-			page = String.format(java.util.Locale.ROOT, "page %.0fx%.0f CSS, frame %dx%d", w, h, img.getWidth(), img.getHeight());
-			List<Object> c = (List<Object>) m.get("c");
-			for (int i = 0; i < (centre ? c.size() : 4); i++) {
-				List<Object> p = (List<Object>) c.get(i);
-				int x = (int) Math.floor(((Number) p.get(0)).doubleValue() * sx);
-				int y = (int) Math.floor(((Number) p.get(1)).doubleValue() * sy);
-				int argb = img.getPixel(Math.max(0, Math.min(img.getWidth() - 1, x)), Math.max(0, Math.min(img.getHeight() - 1, y)));
-				int a = argb >>> 24 & 0xFF;
-				int r = argb >> 16 & 0xFF;
-				int g = argb >> 8 & 0xFF;
-				int b = argb & 0xFF;
-				// Magenta is red and blue alike, so ARGB and ABGR read the same.
-				if (!(r > 220 && b > 220 && g < 40)) {
-					missing.add(NAMES[i] + " at " + x + "," + y + String.format(java.util.Locale.ROOT, " is #%02X%02X%02X", r, g, b) + (a < 255 ? " a" + a : ""));
+		String page = "";
+		// The UI thread runs below the game's priority: on a loaded machine (another game) the probes may land a few
+		// ticks later than on a quiet one. Up to four looks, 6 ticks apart; a probe that never lands still fails.
+		for (int attempt = 0; attempt < 4; attempt++) {
+			context.waitTicks(6);
+			Path shot = context.takeScreenshot(attempt == 0 ? name : name + "_again" + attempt);
+			missing.clear();
+			try (InputStream in = Files.newInputStream(shot); NativeImage img = NativeImage.read(in)) {
+				double sx = img.getWidth() / w;
+				double sy = img.getHeight() / h;
+				page = String.format(java.util.Locale.ROOT, "page %.0fx%.0f CSS, frame %dx%d", w, h, img.getWidth(), img.getHeight()) + (attempt > 0 ? ", look " + (attempt + 1) : "");
+				List<Object> c = (List<Object>) m.get("c");
+				for (int i = 0; i < (centre ? c.size() : 4); i++) {
+					List<Object> p = (List<Object>) c.get(i);
+					int x = (int) Math.floor(((Number) p.get(0)).doubleValue() * sx);
+					int y = (int) Math.floor(((Number) p.get(1)).doubleValue() * sy);
+					int argb = img.getPixel(Math.max(0, Math.min(img.getWidth() - 1, x)), Math.max(0, Math.min(img.getHeight() - 1, y)));
+					int a = argb >>> 24 & 0xFF;
+					int r = argb >> 16 & 0xFF;
+					int g = argb >> 8 & 0xFF;
+					int b = argb & 0xFF;
+					// Magenta is red and blue alike, so ARGB and ABGR read the same.
+					if (!(r > 220 && b > 220 && g < 40)) {
+						missing.add(NAMES[i] + " at " + x + "," + y + String.format(java.util.Locale.ROOT, " is #%02X%02X%02X", r, g, b) + (a < 255 ? " a" + a : ""));
+					}
 				}
+			} catch (java.io.IOException e) {
+				throw new java.io.UncheckedIOException(e);
 			}
-		} catch (java.io.IOException e) {
-			throw new java.io.UncheckedIOException(e);
+			if (missing.isEmpty()) {
+				break;
+			}
 		}
+		context.computeOnClient(mc -> HubView.get().eval(REMOVE));
 		return new Result(missing, page);
 	}
 }

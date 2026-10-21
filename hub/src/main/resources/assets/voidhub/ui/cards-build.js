@@ -120,7 +120,10 @@
     if (legend) h += '<div class="ch-legend">' + stars(legend.stars) + esc(legend.title) + "</div>";
     var held = (bn.held || []).length, open = P().st.menu && P().st.menu.id === "bynames";
     h += '<div class="ch-pill' + (open ? " open" : "") + '"' + (held ? ' data-dd="bynames"' : "") + ">Bynames · " + held + " held" + (held ? '<i class="dd"></i>' : "") + "</div>";
-    h += '<div class="ch-note">Shown on your name card</div>';
+    // A worn deed title (Mettle 0.4.0): beside the byname or instead of it; the Hall of Firsts' picker changes it.
+    var tt = b.titles;
+    if (tt && tt.worn) h += '<div class="ch-note tt" data-tab="hall" title="' + esc("Title: " + tt.wornText + (tt.instead ? ", instead of the byname" : ", beside the byname") + ". Change it in the Hall of Firsts.") + '">' + esc("Wearing " + tt.wornText) + "</div>";
+    else h += '<div class="ch-note">Shown on your name card</div>';
     return h;
   }
   function stars(n) { var s = '<span class="stars">'; for (var i = 0; i < n; i++) s += "★"; return s + "</span>"; }
@@ -244,22 +247,13 @@
     }
     return h;
   }
-  function talents() {
-    var t = M().talents;
-    if (!t) return "";
-    var list = t.slots || t.talents || [];
-    var h = '<div class="eb9" style="left:16px;top:14px">TALENTS</div><div class="tl-n">' + esc(t.text || list.length + " slots") + "</div>";
-    for (var i = 0; i < list.length && i < 7; i++) h += '<div class="tl-t" style="left:' + (150 + i * 108) + 'px"><div class="n">' + esc(list[i].name || "") + '</div><div class="v">' + esc(list[i].text || list[i].description || "") + "</div></div>";
-    return h;
-  }
-
   P().SCREENS["home-character"] = function () {
     P().homeHead("character");
     var cv = P().cv(), b = B();
     if (!b) { patch(part(cv, "ch-none", "dk-none"), "none", "This Mettle has no character sheet."); return; }
     var c = M().character, ik = P().iconsKey(), menuId = P().st.menu && P().st.menu.id;
     patch(part(cv, "ch-name", "bf-panel ch-name", "left:29px;top:" + Y(68) + "px;width:300px;height:226px"),
-      JSON.stringify([b.byname, b.signatures, c.level, c.background, MC.player, ik, menuId === "bynames"]), nameCard);
+      JSON.stringify([b.byname, b.signatures, b.titles, c.level, c.background, MC.player, ik, menuId === "bynames"]), nameCard);
     var offer = b.byname && b.byname.offer && !keptMine[b.byname.offerText];
     patch(part(cv, "ch-grew", "bf-panel ch-grew" + (offer ? " offer" : ""), "left:29px;top:" + Y(306) + "px;width:300px;height:182px"),
       JSON.stringify([offer, b.byname]), offer ? offerBox : grew);
@@ -269,9 +263,9 @@
       JSON.stringify([M().cards.sets, b.focus, ik, menuId === "focus"]), sheetSets);
     patch(part(cv, "ch-sigs", "bf-panel ch-sigs", "left:683px;top:" + Y(398) + "px;width:275px;height:90px"), JSON.stringify([b.signatures, b.byname && b.byname.worn, ik,
       M().cards.decks.map(function (d) { return d.skill + (d.signature || "") + d.row.filter(function (r) { return r.card; }).length; })]), sigs);
-    // Talents (a later Mettle wave): the row stays hidden until Mettle reports them.
-    var tl = part(cv, "ch-talents", "bf-panel ch-talents", "left:29px;top:" + Y(498) + "px;width:929px;height:88px" + (M().talents ? "" : ";display:none"));
-    patch(tl, JSON.stringify(M().talents || null), talents);
+    // Talents (Mettle 0.4.0, cards-talents.js): the row, its drafts and the earned talents; hidden with an older Mettle.
+    var tl = part(cv, "ch-talents", "bf-panel ch-talents", "left:29px;top:" + Y(498) + "px;width:929px;height:88px" + (M().talents && MC.tl ? "" : ";display:none"));
+    if (MC.tl) patch(tl, MC.tl.rowKey(), MC.tl.row);
     P().footer("", "");
   };
 
@@ -631,7 +625,7 @@
         for (var r = 0; r < by[cols[c]].length && r < 3; r++) {
           var m = by[cols[c]][r], sel = m.id === forgeSel, hue = s ? s.colour : "#9A9DA1";
           var line = m.state === "held" ? m.text : m.state === "forgeable" ? "Forge · " + sh.cost : "needs 18 · you " + lv;
-          h += '<div class="fg-t ' + m.state + (sel ? " sel" : "") + (legend ? " lg" : "") + '"' + (m.state === "forgeable" ? ' data-forgepick="' + esc(m.id) + '"' : "") + ' style="left:' + x + "px;top:" + (legend ? 28 + r * 66 : 28 + r * 80) + "px;height:" + (legend ? 60 : 74) + 'px">' +
+          h += '<div class="fg-t ' + m.state + (sel ? " sel" : "") + (legend ? " lg" : "") + '"' + (m.state === "forgeable" ? ' data-forgepick="' + esc(m.id) + '"' : "") + ' style="left:' + x + "px;top:" + (legend ? 28 + r * 66 : 28 + r * 76) + "px;height:" + (legend ? 60 : 70) + 'px">' +
             '<span class="sg" style="border-color:' + MC.rgba(hue, m.state === "held" ? 0.25 : 0.8) + '">' + MC.img(m.icon, 12) + "</span>" + (sel ? '<i class="ck"></i>' : "") +
             (legend ? '<span class="hd">' + esc(m.holder || "") + '</span><span class="nm lg">' + esc(m.name) + "</span>" : '<span class="nm">' + esc(m.name) + '</span><span class="st">' + esc(line) + "</span>") + "</div>";
         }
@@ -640,7 +634,7 @@
     });
     var sel = forgeSel && pool.filter(function (m) { return m.id === forgeSel; })[0];
     var bn = b.byname || {}, lg = bn.legend;
-    patch(part(cv, "fg-sel", "bf-panel fg-sel" + (legend ? " lg" : ""), "left:29px;top:" + Y(legend ? 414 : 452) + "px;width:929px;height:" + (legend ? 172 : 134) + "px"),
+    patch(part(cv, "fg-sel", "bf-panel fg-sel" + (legend ? " lg" : ""), "left:29px;top:" + Y(legend ? 408 : 438) + "px;width:929px;height:" + (legend ? 154 : 124) + "px"),
       JSON.stringify([sel, legend, fg.waitingText, sh, fg.legendText, lg, MC.player, bn.worn, P().iconsKey()]), function () {
         if (legend) {
           var h = '<div class="eb9" style="left:20px;top:18px">NO MYTHIC LEFT · A LEGEND INSTEAD</div><div class="lg-t">Your shards buy a legend title and frame</div><div class="lg-s">A cosmetic: no power. One per player; each later forge adds a star, up to three.</div>';

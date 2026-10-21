@@ -30,6 +30,8 @@
     timers.push(t);
     return t;
   }
+  /** Timers of the talent panels (cards-talents.js): they pause with the hub like the draft's. */
+  ov.later = function (ms, fn) { return later(ms, fn); };
   function clearTimers() { for (var i = 0; i < timers.length; i++) clearTimeout(timers[i].id); timers = []; paused = null; }
 
   /** No screen shows the page: every pending step waits, with the time it had left. */
@@ -87,6 +89,7 @@
     clearTimers();
     var el = host();
     if (el) { el.innerHTML = ""; el.className = ""; }
+    if (was.panel && was.panel.onClose) was.panel.onClose();
     MC.fxSet("draft", []);
     MC.toggle(MC.$("classes"), "ov-up", false);
     if (!quiet) MC.sound("stop", "");
@@ -297,6 +300,7 @@
 
   /** The pointer moved over the hand. The page only relabels the keycap; the lift and hot frame are native. */
   ov.hover = function (target) {
+    if (cur && cur.panel) { if (cur.panel.onHover) cur.panel.onHover(target); return; }
     if (!cur || cur.kind !== "draft" || cur.picked >= 0 || cur.revealing || cur.faded) return;
     var i = -1;
     var hc = target && target.closest ? target.closest(".dr-hand .hc") : null;
@@ -489,6 +493,28 @@
     later(ms || 2500, function () { if (cur && cur.kind === "banner") ov.close(true); });
     return true;
   };
+
+  /**
+   * A panel over the page (talents: the talent draft, "Reconsider your talents"): opts {html, fx, cls, onClick(target),
+   * onKey(key), onHover(target), onWheel(step), onState(), onClose()}. Esc closes it unless onKey takes it; every click
+   * and key inside is the panel's. One overlay at a time.
+   */
+  ov.panel = function (kind, opts) {
+    if (cur && cur.kind !== kind) return false;
+    var first = !cur;
+    cur = {kind: kind, panel: opts};
+    if (first) setUi();
+    var el = host();
+    el.className = "ov-panel " + (opts.cls || "");
+    if (opts.html != null) el.innerHTML = opts.html;
+    cur.mythicFx = opts.fx || [];
+    MC.fxSet("draft", cur.mythicFx);
+    return true;
+  };
+  /** The panel's native layers changed (a hover, a new hand). */
+  /** A wheel step over a panel (its binder scrolls). */
+  ov.wheel = function (step) { if (cur && cur.panel && cur.panel.onWheel) cur.panel.onWheel(step); };
+  ov.panelFx = function (fx) { if (cur && cur.panel) { cur.mythicFx = fx || []; MC.fxSet("draft", cur.mythicFx); } };
 
   // ---- the Mythic --------------------------------------------------------------------------------------------
   function markers() {
@@ -724,6 +750,11 @@
   /** A key from Java while an overlay is up (Esc, 1-9, Enter, r). */
   ov.key = function (k) {
     if (!cur) return false;
+    if (cur.panel) {
+      if (cur.panel.onKey && cur.panel.onKey(k)) return true;
+      if (k === "Escape") ov.close(true);
+      return true;
+    }
     if (k === "Escape") {
       if (cur.revealing) { skipReveal(); return true; }
       ov.close(false);
@@ -752,6 +783,10 @@
   /** A click inside the overlay; true when it was ours. */
   ov.click = function (t) {
     if (!cur) return false;
+    if (cur.panel) {
+      if (cur.panel.onClick) cur.panel.onClick(t);
+      return true;
+    }
     if (cur.kind === "set" || cur.kind === "banner") { ov.close(true); return true; }
     while (t && t !== document.body) {
       if (t.getAttribute) {
@@ -771,6 +806,7 @@
 
   /** A new state while an overlay is up: a waiting next hand, a finished reroll or claim, the badge. */
   ov.onState = function () {
+    if (cur && cur.panel) { if (cur.panel.onState) cur.panel.onState(); return; }
     if (!cur || cur.kind !== "draft") return;
     var s = skill(cur.skill);
     if (cur.waitClaim && s && handKey(s) !== cur.handKey) { cur.waitClaim = false; ov.draft(cur.skill, true); return; }
