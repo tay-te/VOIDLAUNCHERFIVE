@@ -89,6 +89,7 @@ public final class QuestGenerator {
 		int added = postNeeds(ctx, templates);
 		added += postEvents(ctx, templates);
 		added += postBounty(ctx, templates);
+		added += OfferSources.post(ctx, templates); // road happenings, commissions (LIVING_WORLD_2.md §11.2)
 		added += fill(ctx, templates);
 		data.refreshedDay = day;
 		return added;

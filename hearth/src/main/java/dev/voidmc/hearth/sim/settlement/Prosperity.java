@@ -254,7 +254,7 @@ public final class Prosperity {
 	private static void leave(SimSettlement s, RandomSource random) {
 		List<Resident> adults = new ArrayList<>();
 		for (Resident res : s.residents.values()) {
-			if (res.age == AgeStage.ADULT && !s.isResidentEmbodied(res.id)) {
+			if (res.age == AgeStage.ADULT && !s.isResidentOut(res.id)) {
 				adults.add(res);
 			}
 		}
@@ -264,7 +264,7 @@ public final class Prosperity {
 		Resident first = adults.get(random.nextInt(adults.size()));
 		List<UUID> going = new ArrayList<>();
 		for (Resident res : s.residents.values()) {
-			if (res == first || first.home != Resident.NO_PLOT && res.home == first.home && !s.isResidentEmbodied(res.id)) {
+			if (res == first || first.home != Resident.NO_PLOT && res.home == first.home && !s.isResidentOut(res.id)) {
 				going.add(res.id);
 			}
 		}

@@ -168,6 +168,30 @@ public interface Settlement {
 		return null;
 	}
 
+	// ---- living world, part 2 (docs/LIVING_WORLD_2.md §11.4)
+
+	/** A town, or a post in the wild with a fixed programme (§7). */
+	default SettlementKind kind() {
+		return SettlementKind.TOWN;
+	}
+
+	/** For a post, which kind ({@code inn}, {@code toll_gate}, {@code hospice}...); "" for a town. */
+	default String postType() {
+		return "";
+	}
+
+	/**
+	 * A resident is away from the town (on the road, with a companion, at a remote work site) until {@code untilTick} on the
+	 * sim clock ({@link HearthWorld#clock()}): left out of the town's abstract labour and production (they still eat and
+	 * age), as an embodied resident is. A tick already past (or {@link Long#MIN_VALUE}) brings them back now.
+	 */
+	default void setResidentAway(UUID id, long untilTick, String why) {
+	}
+
+	default boolean isResidentAway(UUID id) {
+		return false;
+	}
+
 	/** A module's own data for this settlement, created from the key's factory on first use and saved with it. */
 	<T> T data(HearthDataKey<T> key);
 

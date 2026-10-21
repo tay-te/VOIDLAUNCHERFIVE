@@ -52,6 +52,11 @@ public final class DataMap {
 		return (T) value;
 	}
 
+	/** Whether the key holds anything (loaded or still raw), without creating it. */
+	public boolean has(HearthDataKey<?> key) {
+		return this.live.containsKey(key.id()) || this.raw.containsKey(key.id());
+	}
+
 	public boolean isEmpty() {
 		return this.live.isEmpty() && this.raw.isEmpty();
 	}

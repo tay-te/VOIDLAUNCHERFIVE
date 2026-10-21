@@ -36,7 +36,8 @@ public final class RoutinePlacement {
 	/** The resident's day, as their brain would have it. */
 	public static Schedule schedule(Settlement settlement, Resident resident, long day) {
 		long seed = resident.id.getMostSignificantBits() ^ resident.id.getLeastSignificantBits();
-		return Schedule.of(resident.job, resident.age, NpcData.of(resident).traits(), settlement.culture(), seed, day);
+		return ScheduleOverrides.apply(Schedule.of(resident.job, resident.age, NpcData.of(resident).traits(), settlement.culture(), seed, day), settlement,
+			resident, day);
 	}
 
 	/** As above, with the resident's schedule for today already at hand (the embodiment manager keeps them). */

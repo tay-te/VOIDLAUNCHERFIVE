@@ -152,7 +152,69 @@ public final class SettlementEvents {
 		}
 	});
 
+	// ---- living world, part 2 (docs/LIVING_WORLD_2.md §11.4)
+
+	/** A journey on the roads set out, arrived, was waylaid or was lost ({@code from}/{@code to}: settlement ids, 0 for the wild). */
+	public static final Event<Traveller> TRAVELLER = EventFactory.createArrayBacked(Traveller.class, ls -> (w, k, id, from, to, phase) -> {
+		for (Traveller l : ls) {
+			l.onTraveller(w, k, id, from, to, phase);
+		}
+	});
+
+	/** A town event (a wedding, a fair, a trial, a raid; §3) was scheduled, began or ended; {@code outcome} "" until it ends. */
+	public static final Event<TownEvent> TOWN_EVENT = EventFactory.createArrayBacked(TownEvent.class, ls -> (w, s, kind, phase, outcome) -> {
+		for (TownEvent l : ls) {
+			l.onTownEvent(w, s, kind, phase, outcome);
+		}
+	});
+
+	/** Something happened in a resident's life (§4): {@code kind} as {@link LivesService#lifeEvent}. */
+	public static final Event<LifeEvent> LIFE_EVENT = EventFactory.createArrayBacked(LifeEvent.class, ls -> (w, s, r, kind, player) -> {
+		for (LifeEvent l : ls) {
+			l.onLifeEvent(w, s, r, kind, player);
+		}
+	});
+
+	/** A resident was hired as a player's companion, dismissed, left or died (§8). */
+	public static final Event<Companion> COMPANION = EventFactory.createArrayBacked(Companion.class, ls -> (w, s, r, player, phase) -> {
+		for (Companion l : ls) {
+			l.onCompanion(w, s, r, player, phase);
+		}
+	});
+
 	private SettlementEvents() {
+	}
+
+	@FunctionalInterface
+	public interface Traveller {
+		void onTraveller(HearthWorld world, TravelService.TravelKind kind, long id, long from, long to, Phase phase);
+
+		enum Phase {
+			DEPARTED, ARRIVED, WAYLAID, LOST
+		}
+	}
+
+	@FunctionalInterface
+	public interface TownEvent {
+		void onTownEvent(HearthWorld world, Settlement settlement, String kind, Phase phase, String outcome);
+
+		enum Phase {
+			SCHEDULED, BEGUN, ENDED
+		}
+	}
+
+	@FunctionalInterface
+	public interface LifeEvent {
+		void onLifeEvent(HearthWorld world, Settlement settlement, java.util.UUID resident, String kind, java.util.@org.jspecify.annotations.Nullable UUID player);
+	}
+
+	@FunctionalInterface
+	public interface Companion {
+		void onCompanion(HearthWorld world, Settlement settlement, java.util.UUID resident, java.util.UUID player, Phase phase);
+
+		enum Phase {
+			HIRED, DISMISSED, LEFT, DIED
+		}
 	}
 
 	@FunctionalInterface

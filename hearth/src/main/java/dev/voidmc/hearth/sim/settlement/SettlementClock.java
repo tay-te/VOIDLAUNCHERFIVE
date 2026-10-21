@@ -632,7 +632,7 @@ public final class SettlementClock {
 		List<UUID> dead = new ArrayList<>();
 		boolean starving = s.clock.hungerDays > 2 * r.population.hungerDays();
 		for (Resident res : s.residents.values()) {
-			if (res.age == AgeStage.ELDER && !s.isResidentEmbodied(res.id)
+			if (res.age == AgeStage.ELDER && !s.isResidentOut(res.id)
 				&& random.nextDouble() < r.population.elderDeathPerDay() * (starving ? 4 : 1)) {
 				dead.add(res.id);
 			}
@@ -645,7 +645,7 @@ public final class SettlementClock {
 	private static void emigrate(SimSettlement s, RandomSource random) {
 		List<Resident> adults = new ArrayList<>();
 		for (Resident res : s.residents.values()) {
-			if (res.age == AgeStage.ADULT && !s.isResidentEmbodied(res.id)) {
+			if (res.age == AgeStage.ADULT && !s.isResidentOut(res.id)) {
 				adults.add(res);
 			}
 		}
@@ -780,7 +780,23 @@ public final class SettlementClock {
 	 */
 	static void assignHomes(SimSettlement s) {
 		it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap used = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
+		// homes other modules settled (servants, apprentices; ResidentClaims): theirs, and their house is not moved
+		boolean claims = ResidentClaims.active();
+		java.util.Set<java.util.UUID> settled = claims ? new java.util.HashSet<>() : java.util.Set.of();
+		it.unimi.dsi.fastutil.ints.IntSet settledHomes = claims ? new it.unimi.dsi.fastutil.ints.IntOpenHashSet() : it.unimi.dsi.fastutil.ints.IntSets.EMPTY_SET;
 		for (Resident res : s.residents.values()) {
+			if (claims) {
+				Integer claimed = ResidentClaims.exempt(s, res) ? Integer.valueOf(res.home) : ResidentClaims.home(s, res);
+				if (claimed != null) {
+					res.home = claimed;
+					settled.add(res.id);
+					if (claimed != Resident.NO_PLOT) {
+						used.addTo(claimed, 1);
+						settledHomes.add(claimed.intValue());
+					}
+					continue;
+				}
+			}
 			if (res.home != Resident.NO_PLOT) {
 				SimPlot home = s.plots.get(res.home);
 				if (home == null || !home.isStanding() || used.get(res.home) >= home.beds) {
@@ -802,7 +818,7 @@ public final class SettlementClock {
 		// families: the homeless by family name (a head's spouse and children share it)
 		Map<String, List<Resident>> homeless = new LinkedHashMap<>();
 		for (Resident res : s.residents.values()) {
-			if (res.home == Resident.NO_PLOT) {
+			if (res.home == Resident.NO_PLOT && !settled.contains(res.id)) {
 				homeless.computeIfAbsent(res.familyName, k -> new ArrayList<>()).add(res);
 			}
 		}
@@ -856,6 +872,9 @@ public final class SettlementClock {
 		for (Map.Entry<Integer, List<Resident>> e : households.entrySet()) {
 			if (moves >= 2) {
 				break;
+			}
+			if (settledHomes.contains(e.getKey().intValue())) {
+				continue;
 			}
 			SimPlot home = s.plots.get(e.getKey());
 			String st = home == null ? null : stationOf(home);
@@ -932,11 +951,25 @@ public final class SettlementClock {
 		it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap usedAt = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
 		List<Resident> idle = new ArrayList<>();
 		dev.voidmc.hearth.api.EconomyService eco = dev.voidmc.hearth.api.HearthServices.economy();
+		boolean claims = ResidentClaims.active();
 		for (Resident res : s.residents.values()) {
 			if (res.age != AgeStage.ADULT) {
 				res.job = JobType.NONE;
 				res.work = Resident.NO_PLOT;
 				continue;
+			}
+			if (claims) {
+				// jobs other modules settled (apprentices, masters, servants; ResidentClaims): kept, and they fill their slot
+				ResidentClaims.Job claimed = ResidentClaims.exempt(s, res) ? new ResidentClaims.Job(res.job, res.work) : ResidentClaims.job(s, res);
+				if (claimed != null) {
+					res.job = claimed.job();
+					res.work = claimed.work();
+					filled[res.job.ordinal()]++;
+					if (res.work != Resident.NO_PLOT) {
+						usedAt.addTo(res.work * jobs + res.job.ordinal(), 1);
+					}
+					continue;
+				}
 			}
 			int j = res.job.ordinal();
 			if (eco != null && res.job != JobType.NONE && res.work != Resident.NO_PLOT && eco.businessOwner(s, res.work) != null) {
@@ -1126,12 +1159,12 @@ public final class SettlementClock {
 					case ELDER -> w.elders++;
 				}
 				// embodied folk do their work as entities, not as numbers
-				if (res.age == AgeStage.ADULT && !s.isResidentEmbodied(res.id)) {
+				if (res.age == AgeStage.ADULT && !s.isResidentOut(res.id)) {
 					w.workers[res.job.ordinal()]++;
 					// (the crew is found first: finding a new one may grow the counts array)
 					int crew = Production.crewOf(w.crews, s, res.job, res.work, data, r);
 					w.crews.counts[crew]++;
-				} else if (res.age == AgeStage.ADULT && res.job == JobType.BUILDER) {
+				} else if (res.age == AgeStage.ADULT && res.job == JobType.BUILDER && s.isResidentEmbodied(res.id)) {
 					w.embodiedBuilders++;
 				}
 			}

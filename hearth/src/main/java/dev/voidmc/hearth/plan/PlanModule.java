@@ -48,6 +48,9 @@ public final class PlanModule {
 				registerUnderground(world.terrain(), world.underground());
 			}
 		});
+
+		// the living world, part 2 (docs/LIVING_WORLD_2.md §11.2): each lane fills in its own entry point
+		dev.voidmc.hearth.plan.wild.WildPlanner.init();       // B3 posts in the wild
 	}
 
 	private static volatile @Nullable Thread serverThread;

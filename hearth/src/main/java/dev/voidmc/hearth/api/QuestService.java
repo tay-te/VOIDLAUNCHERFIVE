@@ -6,6 +6,15 @@ import net.minecraft.server.level.ServerPlayer;
 public interface QuestService {
 	Marker marker(ServerPlayer player, Settlement settlement, Resident resident);
 
+	/**
+	 * Offers the player a personal quest from {@code giver}, bound from a template with {@code vars} (a named character's
+	 * thread, docs/LIVING_WORLD_2.md §4). Returns whether it was offered.
+	 */
+	default boolean offerPersonal(ServerPlayer player, Settlement settlement, Resident giver, net.minecraft.resources.Identifier template,
+		net.minecraft.nbt.CompoundTag vars) {
+		return false;
+	}
+
 	enum Marker {
 		NONE,
 		/** Has a quest to offer this player. */

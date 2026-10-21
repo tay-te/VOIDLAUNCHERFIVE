@@ -36,6 +36,11 @@ public interface SettlementPlanner {
 		return false;
 	}
 
+	/** Where roads out of the settlement end: its {@code highway} arm ends and gates (docs/LIVING_WORLD_2.md §1.2). */
+	default List<BlockPos> exits(Settlement settlement) {
+		return List.of();
+	}
+
 	record FoundingContext(Settlement settlement, BlockPos center, TerrainProbe terrain, RandomSource random) {
 	}
 

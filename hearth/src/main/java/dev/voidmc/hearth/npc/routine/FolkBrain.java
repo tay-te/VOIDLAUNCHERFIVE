@@ -228,7 +228,8 @@ public final class FolkBrain {
 
 		long day = NpcTime.today();
 		if (this.schedule == null || day != this.scheduleDay) {
-			this.schedule = Schedule.of(this.resident.job, this.resident.age, this.traits, this.settlement.culture(), this.seed, day);
+			this.schedule = ScheduleOverrides.apply(Schedule.of(this.resident.job, this.resident.age, this.traits, this.settlement.culture(), this.seed, day),
+				this.settlement, this.resident, day);
 			this.scheduleDay = day;
 		}
 		// Places are re-resolved now and then, and soon after spawning if a plot's POIs were not known yet.

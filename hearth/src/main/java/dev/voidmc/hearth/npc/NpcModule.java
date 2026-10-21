@@ -125,6 +125,12 @@ public final class NpcModule {
 		registerReloaders();
 		registerEvents();
 		CommandRegistrationCallback.EVENT.register((dispatcher, registries, environment) -> NpcCommands.register(dispatcher));
+
+		// the living world, part 2 (docs/LIVING_WORLD_2.md §11.2): each lane fills in its own entry point
+		dev.voidmc.hearth.npc.travel.Travel.init();          // A1 travellers
+		dev.voidmc.hearth.npc.crowd.Crowds.init();           // A3 crowds
+		dev.voidmc.hearth.npc.work.field.FieldWork.init();   // A4 visible work
+		dev.voidmc.hearth.npc.companion.Companions.init();   // B4 companions
 	}
 
 	private static void registerNetworking() {

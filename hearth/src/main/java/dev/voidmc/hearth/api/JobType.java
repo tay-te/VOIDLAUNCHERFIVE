@@ -65,7 +65,25 @@ public enum JobType implements StringRepresentable {
 	JAILER("jailer"),
 	FENCE("fence"),
 	STEWARD("steward"),
-	LORD("lord");
+	LORD("lord"),
+	// ---- living world, part 2 (docs/LIVING_WORLD_2.md §11.4): appended
+	/** Lives by robbing travellers on the roads (worn by strangers; a band is never a town's residents). */
+	BANDIT("bandit"),
+	PILGRIM("pilgrim"),
+	/** Carries letters and news between towns along the roads. */
+	MESSENGER("messenger"),
+	/** Drives a cart of goods between towns, or between a town and its remote works. */
+	CARTER("carter"),
+	/** A travelling seller of small wares (worn by strangers). */
+	PEDLAR("pedlar"),
+	/** Keeps a toll gate or a bridge toll. */
+	TOLLKEEPER("tollkeeper"),
+	/** Keeps a household: a player's or a notable's. */
+	SERVANT("servant"),
+	HERMIT("hermit"),
+	MONK("monk"),
+	/** The lord's officer: collects the dues of his domain. */
+	BAILIFF("bailiff");
 
 	public static final StringRepresentable.EnumCodec<JobType> CODEC = StringRepresentable.fromEnum(JobType::values);
 
