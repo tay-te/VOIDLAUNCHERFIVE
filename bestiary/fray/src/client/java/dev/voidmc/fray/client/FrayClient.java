@@ -26,5 +26,7 @@ public final class FrayClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(MotionPayloads.ActionAck.TYPE, (payload, context) -> ClientMotion.onAck(payload));
 		ClientTickEvents.END_CLIENT_TICK.register(ClientMotion::tick);
 		ClientEntityEvents.ENTITY_UNLOAD.register((entity, level) -> ClientMotion.remove(entity.getId()));
+		// Combat (stage 1B): input, prediction and the native HUD; after Fray Motion so the dodge runs after root motion.
+		dev.voidmc.fray.client.combat.FrayCombatClient.init();
 	}
 }

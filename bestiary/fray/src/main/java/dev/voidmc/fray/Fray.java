@@ -34,5 +34,7 @@ public final class Fray implements ModInitializer {
 		PayloadTypeRegistry.serverboundPlay().register(MotionPayloads.ActionRequest.TYPE, MotionPayloads.ActionRequest.STREAM_CODEC);
 		MotionServer.init();
 		FrayHandshake.init();
+		// Combat systems (stage 1B): pipeline, statuses, stamina, actions, encounters, the combat handshake.
+		dev.voidmc.fray.combat.FrayCombat.init();
 	}
 }

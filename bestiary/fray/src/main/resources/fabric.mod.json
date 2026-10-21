@@ -12,7 +12,9 @@
 		"client": ["dev.voidmc.fray.client.FrayClient"]
 	},
 	"mixins": [
-		{"config": "fray.client.mixins.json", "environment": "client"}
+		{"config": "fray.client.mixins.json", "environment": "client"},
+		"fray.combat.mixins.json",
+		{"config": "fray.combat.client.mixins.json", "environment": "client"}
 	],
 	"depends": {
 		"fabricloader": ">=0.19.5",

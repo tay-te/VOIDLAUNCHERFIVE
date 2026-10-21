@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "dev.voidmc.fray.client.combat.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"MinecraftCombatMixin",
+		"MouseHandlerCombatMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

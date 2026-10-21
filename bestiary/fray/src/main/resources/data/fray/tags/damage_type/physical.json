@@ -1,0 +1,4 @@
+{
+  "replace": false,
+  "values": ["minecraft:falling_anvil", "minecraft:falling_block", "minecraft:falling_stalactite", "minecraft:stalagmite", "minecraft:cactus", "minecraft:sweet_berry_bush"]
+}
