@@ -159,12 +159,26 @@ public final class Shops {
 			if (pick == null) {
 				pick = merchant(free);
 			}
+			if (pick == null && shop.general()) {
+				// a stall or the market hall: any grown townsman free of a shop and of an office minds it (a farmer's wife
+				// at the stall); a trade's own shop waits for its trade
+				for (Resident r : free) {
+					if (!STANDS_APART.contains(r.job)) {
+						pick = r;
+						break;
+					}
+				}
+			}
 			if (pick != null) {
 				shop.keeper = pick.id;
 				free.remove(pick);
 			}
 		}
 	}
+
+	/** Trades who never mind a stall for the town: on watch, in office, at the altar. */
+	static final Set<JobType> STANDS_APART = java.util.EnumSet.of(JobType.GUARD, JobType.JAILER, JobType.LORD, JobType.STEWARD, JobType.REEVE, JobType.JUDGE,
+		JobType.PRIEST, JobType.MONK, JobType.HERMIT, JobType.FENCE);
 
 	private static @Nullable Resident merchant(List<Resident> free) {
 		for (Resident r : free) {

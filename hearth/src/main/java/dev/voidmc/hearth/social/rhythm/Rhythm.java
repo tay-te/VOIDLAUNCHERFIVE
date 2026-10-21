@@ -37,6 +37,9 @@ import org.jspecify.annotations.Nullable;
  * week through {@link RhythmSchedule}.
  */
 public final class Rhythm {
+	/** The tavern-night behaviour (for the tour's count of who sits). */
+	public static @org.jspecify.annotations.Nullable TavernNight TAVERN;
+
 	private static RhythmConfig config = RhythmConfig.DEFAULTS;
 	private static boolean behavioursRegistered;
 	private static boolean scheduleRegistered;
@@ -112,7 +115,7 @@ public final class Rhythm {
 		npc.registerBehaviour(new WatchRounds());
 		npc.registerBehaviour(new TavernNight.Hands());
 		npc.registerBehaviour(new WashBehaviour());
-		npc.registerBehaviour(new TavernNight());
+		npc.registerBehaviour(TAVERN = new TavernNight());
 		npc.registerBehaviour(new PlayBehaviour());
 		behavioursRegistered = true;
 	}

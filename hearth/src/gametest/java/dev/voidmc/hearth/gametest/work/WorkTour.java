@@ -105,6 +105,7 @@ public class WorkTour implements FabricClientGameTest {
 			world.getServer().runOnServer(server -> forceChunks(server, town, false));
 			log("town: " + world.getServer().computeOnServer(server -> describe(town(server, town))));
 			leg("stall", () -> stall(context, world, town));
+			leg("market", () -> market(context, world, town));
 			leg("pen", () -> pen(context, world, town));
 			leg("meadow", () -> meadow(context, world, town));
 			leg("clamp", () -> clamp(context, world, town));
@@ -367,6 +368,33 @@ public class WorkTour implements FabricClientGameTest {
 		settle(context, 12_000);
 		context.takeScreenshot("hearth_work_stall");
 		log("stall: showing " + world.getServer().computeOnServer(server -> StallWares.showing(t.id)) + ", " + StallWares.count() + " wares out");
+	}
+
+	/** A market day: the stalls round the square with their keepers' real wares on the counters (A2's stall callback). */
+	private static void market(ClientGameTestContext context, TestSingleplayerContext world, Town t) {
+		for (int day = 0; day < 8; day++) {
+			boolean market = world.getServer().computeOnServer(server -> {
+				SimSettlement s = town(server, t);
+				return HearthServices.calendar().marketDay(s, dev.voidmc.hearth.social.life.TownLife.today(s));
+			});
+			if (market) {
+				break;
+			}
+			world.getServer().runCommand("time add 24000");
+			settle(context, 1_500);
+		}
+		int open = dev.voidmc.hearth.social.SocialModule.config().market().open();
+		timeTo(world, (int) dev.voidmc.hearth.npc.routine.Schedule.dayTimeOf(open + 90));
+		BlockPos sq = world.getServer().computeOnServer(server -> dev.voidmc.hearth.social.life.Venues.square(town(server, t)));
+		teleport(world, sq.getX() + 9.5, surface(world, sq) + 7, sq.getZ() + 9.5, 135, 32);
+		settle(context, 14_000);
+		log("market: " + world.getServer().computeOnServer(server -> {
+			SimSettlement s = town(server, t);
+			var e = dev.voidmc.hearth.social.life.TownLife.current(s, dev.voidmc.hearth.social.calendar.TownEvent.Kind.MARKET);
+			int stalls = e == null ? 0 : dev.voidmc.hearth.social.life.TownLife.stalls(s, e.key()).size();
+			return (e == null ? "no market on" : "market " + e.key()) + ", " + stalls + " stalls up, wares on " + StallWares.marketShowing(t.id);
+		}));
+		context.takeScreenshot("hearth_work_market");
 	}
 
 	/** The pen full at 20:00. */

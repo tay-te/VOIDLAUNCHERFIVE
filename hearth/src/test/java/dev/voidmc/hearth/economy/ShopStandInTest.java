@@ -60,4 +60,16 @@ class ShopStandInTest {
 		Shops.sync(s, 0);
 		assertTrue(!shop(s, "work/tailor").open(), "no tailor and the merchant keeps the stall");
 	}
+
+	@Test
+	void aStallWithNoMerchantIsMindedByATownsman() {
+		SimpleSettlement s = Towns.village();
+		Resident merchant = s.residents().stream().filter(r -> r.job == JobType.MERCHANT).findFirst().orElseThrow();
+		s.removeResident(merchant.id);
+		Shops.sync(s, 0);
+		Shop stall = shop(s, "commerce/market_stall");
+		assertTrue(stall.open(), "a stall is minded by whoever is free");
+		Resident keeper = s.resident(stall.keeper);
+		assertTrue(keeper != null && keeper.job != JobType.GUARD);
+	}
 }

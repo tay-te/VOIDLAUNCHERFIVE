@@ -79,3 +79,8 @@ No other new screen. Paying toward a road is a conversation option at the reeve 
   types at that end and whether fords on water above the walking level next to a cut need a lip or a causeway.
 - A party spawning costs up to ~6 ms in its tick (six entities at once); spreading the members over a few ticks would
   keep the parties under 0.6 ms in every tick.
+
+## Batch A polish (2026-10-21)
+
+The open items above were taken by the batch A polish pass: what was done, and what it asks of others, is in
+`lwApolish.md`.

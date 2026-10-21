@@ -200,9 +200,14 @@ public final class TravelParty implements Folk.Controller {
 		if (step == null) {
 			return false;
 		}
+		long t0 = System.nanoTime();
 		step.accept(level);
+		BODIES.add(System.nanoTime() - t0);
 		return true;
 	}
+
+	/** Time making the bodies that follow a party on (one a tick), within the {@code travel} timer. */
+	static final dev.voidmc.hearth.sim.LivingWorldStats.Timer BODIES = dev.voidmc.hearth.sim.LivingWorldStats.timer("travel bodies");
 
 	private static CartEntity.Load cargoLoad(Journey j) {
 		int[] cargo = j.details().getIntArray("cargo").orElse(new int[0]);

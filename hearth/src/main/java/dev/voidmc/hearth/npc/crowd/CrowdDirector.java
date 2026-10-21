@@ -59,7 +59,18 @@ public final class CrowdDirector {
 	private final Map<Long, Households> households = new HashMap<>();
 	private final List<Spectacle> spectacles = new ArrayList<>();
 	private final List<Body> bodies = new ArrayList<>();
+	/** Per player: what the last full look saw, so a player standing still among folk who have all reacted is looked at less. */
+	private final Map<UUID, Quiet> quiet = new HashMap<>();
 	private int tick;
+
+	/** The last full look at a player: their stimuli, where they stood, when, and whether anyone new reacted. */
+	private record Quiet(long stimuli, BlockPos at, long when, boolean fresh) {
+	}
+
+	/** At most this long between full looks at a quiet player (a refreshed reaction holds 60 ticks). */
+	static final int QUIET_TICKS = 40;
+	/** How long a player's title, outlawry and menace are kept between reads (the law's guards act on an outlaw at once). */
+	static final int SEEN_TICKS = 200;
 
 	/** A thing worth watching. {@code settlement} 0 for any. */
 	record Spectacle(long settlement, ResourceKey<Level> dimension, BlockPos at, String kind, long until, int max) {
@@ -68,7 +79,7 @@ public final class CrowdDirector {
 	record Body(ResourceKey<Level> dimension, BlockPos at, long until) {
 	}
 
-	/** A player's title, outlawry and menace in a town, refreshed every 100 ticks (standing caches them too). */
+	/** A player's title, outlawry and menace in a town, refreshed every {@link #SEEN_TICKS} (standing caches them too). */
 	private record Seen(long settlement, Title title, boolean outlaw, float menace, long until) {
 	}
 
@@ -198,8 +209,21 @@ public final class CrowdDirector {
 						this.outlawSeen.put(s.id(), now);
 					}
 					if (sensed.isEmpty()) {
+						this.quiet.remove(p.getUUID());
 						continue;
 					}
+					// the same stimuli, the player where they were, nobody new reacting last time: the folk near have had their say
+					// (cooldowns), so the next full look can wait a few passes (§5.4's budget on a busy server)
+					long sig = 0;
+					for (Stimuli.Sensed x : sensed) {
+						sig |= 1L << x.stimulus().ordinal();
+					}
+					Quiet q = this.quiet.get(p.getUUID());
+					if (q != null && q.stimuli == sig && !q.fresh && now - q.when < QUIET_TICKS && q.at.closerThan(p.blockPosition(), 2)) {
+						CrowdStats.QUIET_SKIPS.increment();
+						continue;
+					}
+					this.quiet.put(p.getUUID(), new Quiet(sig, p.blockPosition(), now, false));
 					long n0 = System.nanoTime();
 					List<CrowdSelector.Candidate> near = new ArrayList<>();
 					for (FolkHandle h : npc.folkNear(level, p.position(), RADIUS)) {
@@ -229,6 +253,12 @@ public final class CrowdDirector {
 				Set<UUID> taken = new HashSet<>();
 				for (CrowdSelector.Assignment a : picks) {
 					taken.add(a.folk());
+					if (!a.refresh()) {
+						Quiet q = this.quiet.get(a.player());
+						if (q != null && !q.fresh) {
+							this.quiet.put(a.player(), new Quiet(q.stimuli, q.at, q.when, true));
+						}
+					}
 					ServerPlayer p = server.getPlayerList().getPlayer(a.player());
 					if (p == null) {
 						continue;
@@ -243,6 +273,7 @@ public final class CrowdDirector {
 			}
 		}
 		this.drawnSince.keySet().retainAll(online);
+		this.quiet.keySet().retainAll(online);
 		this.seen.keySet().retainAll(online);
 	}
 
@@ -368,7 +399,8 @@ public final class CrowdDirector {
 			Title title = standing == null ? Title.STRANGER : standing.title(s.id(), p.getUUID());
 			boolean outlaw = law != null && law.outlaw(p.getUUID(), s.id());
 			float menace = standing == null ? 0 : standing.menace(p);
-			seen = new Seen(s.id(), title, outlaw, menace, now + 100);
+			// (standing reads the whole town for a title and the inventory for a look: every 10 s, not every 5)
+			seen = new Seen(s.id(), title, outlaw, menace, now + SEEN_TICKS);
 			this.seen.put(p.getUUID(), seen);
 		}
 		int combat = Integer.MAX_VALUE;
@@ -382,7 +414,10 @@ public final class CrowdDirector {
 		}
 		boolean night = minute >= 22 * 60 || minute < 5 * 60;
 		float health = p.getMaxHealth() <= 0 ? 1 : p.getHealth() / p.getMaxHealth();
-		return new PlayerFacts(drawn, drawnTicks, p.getArmorValue(), Math.max(0, combat), seen.title, seen.outlaw, seen.menace, p.isShiftKeyDown(), night,
+		// outlawry is the law's word now (a warrant lookup): the crowd runs the moment it is out
+		LawService lawNow = HearthServices.law();
+		boolean outlawNow = lawNow != null ? lawNow.outlaw(p.getUUID(), s.id()) : seen.outlaw;
+		return new PlayerFacts(drawn, drawnTicks, p.getArmorValue(), Math.max(0, combat), seen.title, outlawNow, seen.menace, p.isShiftKeyDown(), night,
 			health, nearestBody(level, p.blockPosition()) != null);
 	}
 
@@ -465,6 +500,7 @@ public final class CrowdDirector {
 		this.households.clear();
 		this.spectacles.clear();
 		this.bodies.clear();
+		this.quiet.clear();
 	}
 
 	/** For {@code /hearth crowds}: what the crowd sees about a player right now. */

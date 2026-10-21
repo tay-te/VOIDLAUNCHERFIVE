@@ -401,8 +401,10 @@ public class RhythmTour implements FabricClientGameTest {
 			tablesInUse += here;
 			busiest = Math.max(busiest, here);
 		}
-		return String.format(Locale.ROOT, "%d drinkers (%d seated), %d tables in use (the busiest tavern %d), %d innkeeper/entertainer at work, %d taverns with a drinker playing",
-			drinkers, seated, tablesInUse, busiest, hands, Rhythm.musicians(s, dev.voidmc.hearth.social.life.TownLife.today(s)));
+		int[] sb = Rhythm.TAVERN == null ? new int[3] : Rhythm.TAVERN.seatedAndBound();
+		return String.format(Locale.ROOT, "%d drinkers (%d seated), %d tables in use (the busiest tavern %d), %d innkeeper/entertainer at work, %d taverns with a drinker playing; "
+			+ "behaviour: %d sat, %d bound for a seat, of %d", drinkers, seated, tablesInUse, busiest, hands, Rhythm.musicians(s, dev.voidmc.hearth.social.life.TownLife.today(s)),
+			sb[0], sb[1], sb[2]);
 	}
 
 	private static String watch(MinecraftServer server, long town) {

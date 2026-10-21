@@ -61,7 +61,7 @@ public final class RhythmDirector {
 	private static final Map<Long, Integer> LAST_MINUTE = new HashMap<>();
 	private static final ArrayDeque<Bells.Stroke> STROKES = new ArrayDeque<>();
 	/** Chimneys of each town: plot → the block above its hearth's column top (found once a plot). */
-	private static final Map<Long, List<Chimney>> CHIMNEYS = new HashMap<>();
+	private static final Map<Long, Chimneys> CHIMNEYS = new HashMap<>();
 	private static final Set<String> ATTENDED = new HashSet<>();
 	/** Wash day's laundry search per town: {day, next home (MAX: done), lines up}. */
 	private static final Map<Long, int[]> LAUNDRY = new HashMap<>();
@@ -71,7 +71,7 @@ public final class RhythmDirector {
 	/** What a town's day is, worked out once a day (the pass reads it every 20 ticks). */
 	private static final Map<Long, TownDay> DAYS = new HashMap<>();
 	/** The wash-place scan's time a pass, at most (it is spread over passes; it used to take 0.15 ms a pass). */
-	static final long SCAN_NANOS = 40_000;
+	static final long SCAN_NANOS = 60_000;
 
 	/** A town's day: the calendar's answers and the dressings' keys, and whether winter's dressing is seen to. */
 	static final class TownDay {
@@ -420,11 +420,13 @@ public final class RhythmDirector {
 		if (most <= 0) {
 			return;
 		}
-		List<Chimney> chimneys = CHIMNEYS.get(s.id());
-		if (chimneys == null) {
-			chimneys = chimneys(level, s);
-			CHIMNEYS.put(s.id(), chimneys);
+		Chimneys found = CHIMNEYS.get(s.id());
+		if (found == null) {
+			found = new Chimneys(s);
+			CHIMNEYS.put(s.id(), found);
 		}
+		found.step(level, s, CHIMNEY_PLOTS_A_PASS);
+		List<Chimney> chimneys = found.list;
 		if (chimneys.isEmpty()) {
 			return;
 		}
@@ -453,37 +455,44 @@ public final class RhythmDirector {
 	record Chimney(int plot, boolean bakery, BlockPos top) {
 	}
 
-	/** The town's chimneys, found once while it is embodied (again when a building is finished). */
-	private static List<Chimney> chimneys(ServerLevel level, Settlement s) {
-		List<Chimney> out = new ArrayList<>();
-		List<Poi> hearths = s.pois(PoiType.HEARTH);
-		if (hearths.isEmpty()) {
-			return out;
-		}
-		for (PlotView p : s.plots()) {
-			if (p.state() != PlotState.BUILT) {
-				continue;
-			}
-			BlockPos top = chimney(level, s, p);
-			if (top.getY() >= level.getMinY()) {
-				out.add(new Chimney(p.id(), p.spec().archetype().getPath().contains("bake"), top));
-			}
-		}
-		return out;
-	}
+	/** Plots looked at for a chimney a smoke pass (a city's 400 plots at once cost 86 ms in the work tour). */
+	static final int CHIMNEY_PLOTS_A_PASS = 24;
 
-	/** The top of the column over a plot's hearth (its fireplace, its oven): where its smoke rises. */
-	static BlockPos chimney(ServerLevel level, Settlement s, PlotView p) {
-		List<Poi> hearths = Venues.inPlot(s.pois(PoiType.HEARTH), p);
-		if (hearths.isEmpty()) {
-			return new BlockPos(0, level.getMinY() - 1, 0); // none: never smokes (cached)
+	/**
+	 * The town's chimneys, found while it is embodied a few plots a pass (again when a building is finished): the hearths
+	 * read once, each plot's first hearth inside it, the top of its column.
+	 */
+	static final class Chimneys {
+		final List<Chimney> list = new ArrayList<>();
+		final List<BlockPos> hearths = new ArrayList<>();
+		final List<PlotView> plots;
+		int next;
+
+		Chimneys(Settlement s) {
+			for (Poi p : s.pois(PoiType.HEARTH)) {
+				this.hearths.add(p.pos());
+			}
+			this.plots = this.hearths.isEmpty() ? List.of() : new ArrayList<>(s.plots());
 		}
-		BlockPos h = hearths.get(0).pos();
-		if (!level.isLoaded(h)) {
-			return new BlockPos(0, level.getMinY() - 1, 0);
+
+		void step(ServerLevel level, Settlement s, int most) {
+			for (int n = 0; n < most && this.next < this.plots.size(); n++) {
+				PlotView p = this.plots.get(this.next++);
+				if (p.state() != PlotState.BUILT) {
+					continue;
+				}
+				BlockPos o = p.spec().origin();
+				for (BlockPos h : this.hearths) {
+					if (h.getX() >= o.getX() && h.getX() < o.getX() + p.spec().sizeX() && h.getZ() >= o.getZ() && h.getZ() < o.getZ() + p.spec().sizeZ()) {
+						if (level.isLoaded(h)) {
+							int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, h.getX(), h.getZ());
+							this.list.add(new Chimney(p.id(), p.spec().archetype().getPath().contains("bake"), new BlockPos(h.getX(), y, h.getZ())));
+						}
+						break;
+					}
+				}
+			}
 		}
-		int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, h.getX(), h.getZ());
-		return new BlockPos(h.getX(), y, h.getZ());
 	}
 
 	/** Players inside the church (or by the open-air altar) during the service: noticed once a week a town. */

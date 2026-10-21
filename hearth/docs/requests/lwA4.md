@@ -52,3 +52,8 @@ noSave-tagged (`FieldWork.NO_SAVE`).
   credits it abstractly. If FolkBrain ever credits labour under behaviours, the drove can move to a behaviour.
 - **gametest `fabric.mod.json`**: A4 adds the `WorkTour` entrypoint to the one-line list (merge by hand if another lane
   adds one too).
+
+## Batch A polish (2026-10-21)
+
+The open items above were taken by the batch A polish pass: what was done, and what it asks of others, is in
+`lwApolish.md`.

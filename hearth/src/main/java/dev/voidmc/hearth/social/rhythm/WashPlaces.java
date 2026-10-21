@@ -107,7 +107,7 @@ public final class WashPlaces {
 		BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
 		int columns = 0;
 		while (used < reads && scan.next < scan.columns()) {
-			if ((++columns & 15) == 0 && System.nanoTime() > deadline) {
+			if ((++columns & 3) == 0 && System.nanoTime() > deadline) {
 				break;
 			}
 			int i = scan.next++;

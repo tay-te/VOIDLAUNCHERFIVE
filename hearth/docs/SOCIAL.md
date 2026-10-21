@@ -305,8 +305,12 @@ holds a day in the town here for today (`calendar` gives it back).
 so a named character's own plans win): on the rest day every trade but `rest_day_work` (innkeeper, guards, jailer,
 priest, monk, entertainer, stablemaster) has 08:00–17:00 off (walks, visits, the square, prayer for the pious; dinner at
 home) — the bakers' bread and the herders' milking are done by eight; tonight's drinkers stay at the inn until closing
-and the walk home; in a cold culture's winter, folk keep in by the fire 17:30–20:30. The sim's books are unchanged
-(daily rates are already a week's average).
+and the walk home; in a cold culture's winter, folk keep in by the fire 17:30–20:30. **A town with guards always keeps a
+night watch**: the schedule gives the night to a third of the guards by their seed, so a town of one or two guards often
+had none; where the rule gives it to nobody, `RhythmSchedule.appointedWatch` names one guard (the same all day, by the
+town and the guard's id) whose day becomes a watchman's (asleep 07:45–15:15, on duty 17:30–07:00). The sim's books are
+unchanged (daily rates are already a week's average). `ScheduleOverrides.overlay` merges the windows' ends with the
+day's block starts (0.4 µs a resident's day; the minute-by-minute walk it replaced was 26 µs, `ScheduleOverlayTest`).
 
 **Folk behaviours** (`NpcService`; all embodied only, `wants()` a few cached lookups):
 
@@ -316,7 +320,7 @@ and the walk home; in a cold culture's winter, folk keep in by the fire 17:30–
 | `WatchRounds` | 70 | guards and jailers on night duty, the culture's watch hours (21:00–06:00) | round from the gate to the square and past the doors, a torch and **real light** (`WatchLights`), the hours called, a challenge to players abroad or sneaking (2 min a player), "Bell's gone" after curfew |
 | `TavernNight.Hands` | 55 | the innkeeper and the town's entertainer, tavern hours | the entertainer plays the night's tunes (the culture's or the data's instrument); the innkeeper goes round the tables, rings the hand bell at closing. A tavern with no entertainer: the first drinker in (the cheerful and sociable before the shy) takes up the instrument, one a tavern a night |
 | `WashBehaviour` | 55 | wash day 08:00–12:00: one adult from a quarter of households (three at least) | to the wash place (river, lake, well, fountain by the culture's liking; `WashPlaces` scans loaded water within 48 blocks of the bounds once per embodiment), kneels (pose tend) with white wool, splashes, gossip |
-| `TavernNight` | 45 | tonight's drinkers (`RhythmSchedule.drinkers`: adults drawn each night, the sociable twice as often, as many as the taverns' seats, ≤ 16) | sit at the tables with mugs, drink, toast, cheer when a tune ends, two arm-wrestle one night in three; at closing they weave home |
+| `TavernNight` | 45 | tonight's drinkers (`RhythmSchedule.drinkers`: adults drawn each night, the sociable twice as often, as many as the taverns' seats, ≤ 16) | sit at the tables with mugs (seats fill round the tables, the first at each table, then the second: `TavernNight.seatOrder`, so two drinkers already use two tables; a seat somebody else sits in sends the drinker on to the next free one), drink, toast, cheer when a tune ends, two arm-wrestle one night in three; at closing they weave home |
 | `PlayBehaviour` | 25 | children by daylight | the town's game of the hour (hide-and-seek — one counts at the square, the rest hide at plot corners and are found —, hoop and stick, stick fights, snowballs in winter), or their own (skipping stones, chasing chickens, watching the smith); a third left to the routine's tag |
 
 **Town-wide** (`RhythmDirector`, every `pass_ticks` per embodied town): the curfew bell (21:00, five strokes), the
@@ -350,7 +354,12 @@ dressings are not put up while the server is slow.
 `rhythm folk`): see docs/LIVING_WORLD_2.md §2.4 and docs/requests/lwA2.md.
 
 **A stall callback** for lane A4: `Dressings.listen(StallListener)` — `up(level, s, market, stalls)` when a market's
-stalls are set up, `down(level, eventKey, positions)` with the packed positions of every dressing block taken down.
+stalls are set up, `down(level, eventKey, positions)` with the packed positions of every dressing block taken down;
+a listener that `dressesCounters()` (`StallWares`) lays the real wares there, so no stand-in ware block goes on the
+counter. Dressing blocks are set through `npc/work/field/QuietBlocks` (the clients told by the chunk's change list, not
+by `sendBlockUpdated`, which re-plans every nearby walker's path at once: the first block of a pass cost up to 25 ms).
+The calendar also tells the curfew and dawn bells (`SettlementCalendar.curfew/dawn`, the culture's): the crowds'
+shutters keep them.
 
 **Tests**: `TownCalendarTest` (rest and wash day per culture for every town, never on market day; the calendar service;
 winter only in the cold cultures), `ScheduleTest` (no work on the rest day but the listed trades', unchanged otherwise;

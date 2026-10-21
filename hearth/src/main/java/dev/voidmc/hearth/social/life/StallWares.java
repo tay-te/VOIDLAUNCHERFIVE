@@ -156,6 +156,7 @@ public final class StallWares {
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPED.register(s -> {
 			TOWNS.clear();
 			MARKETS.clear();
+			COUNTERS.clear();
 			count = 0;
 		});
 		dev.voidmc.hearth.api.SettlementEvents.EMBODIMENT_CHANGED.register((w, s, embodied) -> {
@@ -227,7 +228,7 @@ public final class StallWares {
 	private static void dress(ServerLevel level, Settlement s, FieldWorkConfig.Displays cfg, int serverCap, boolean admitting) {
 		EconomyService economy = HearthServices.economy();
 		Map<Integer, Stall> stalls = TOWNS.computeIfAbsent(s.id(), k -> new HashMap<>());
-		Map<Integer, List<Poi>> counters = counters(s);
+		Map<Integer, List<Poi>> counters = cachedCounters(s, level.getGameTime());
 		int townCap = cfg.maxPerTown();
 		int inTown = 0;
 		for (Stall st : stalls.values()) {
@@ -495,6 +496,23 @@ public final class StallWares {
 			}
 		}
 		return out;
+	}
+
+	/** Each town's counters, worked out a sim hour at a time (every plot against every counter point is dear in a city). */
+	private static final Map<Long, Object[]> COUNTERS = new HashMap<>();
+
+	private static Map<Integer, List<Poi>> cachedCounters(Settlement s, long now) {
+		Object[] c = COUNTERS.get(s.id());
+		if (c == null || (long) c[0] < now) {
+			if (COUNTERS.size() > 512) {
+				COUNTERS.clear();
+			}
+			c = new Object[]{now + REFRESH_TICKS, counters(s)};
+			COUNTERS.put(s.id(), c);
+		}
+		@SuppressWarnings("unchecked")
+		Map<Integer, List<Poi>> m = (Map<Integer, List<Poi>>) c[1];
+		return m;
 	}
 
 	/** The counter and stall points of each built plot with any, by plot id. */

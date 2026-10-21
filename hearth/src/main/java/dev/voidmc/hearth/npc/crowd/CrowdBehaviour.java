@@ -48,6 +48,7 @@ public final class CrowdBehaviour implements FolkBehaviour {
 		List<BlockPos> ways = List.of();
 		int way;
 		double startGap;
+		int stalls;
 		@Nullable Vec3 lastPos;
 
 		Job(Order order) {
@@ -210,10 +211,13 @@ public final class CrowdBehaviour implements FolkBehaviour {
 			return job.ticks < 240;
 		}
 		if (job.repath <= 0) {
-			// no headway since the last order (a wall, a fence, a way the path will not find): the next way out
+			// no headway over two orders (a wall, a fence, a way the path will not find): the next way out
 			Vec3 here = folk.entity().position();
-			if (job.lastPos != null && here.distanceToSqr(job.lastPos) < 0.25 && job.way + 1 < job.ways.size()) {
+			boolean stuck = job.lastPos != null && here.distanceToSqr(job.lastPos) < 0.36;
+			job.stalls = stuck ? job.stalls + 1 : 0;
+			if (job.stalls >= 2 && job.way + 1 < job.ways.size()) {
 				job.goal = job.ways.get(++job.way);
+				job.stalls = 0;
 			}
 			job.lastPos = here;
 			folk.moveTo(job.goal, folk.resident().age == dev.voidmc.hearth.api.AgeStage.CHILD ? 1.35 : 1.25);
@@ -247,16 +251,22 @@ public final class CrowdBehaviour implements FolkBehaviour {
 		double len = Math.sqrt(dx * dx + dz * dz);
 		double base = len < 0.5 ? Math.floorMod(seed(folk), 628) / 100.0 : Math.atan2(dz, dx);
 		double side = (seed(folk) & 1) == 0 ? 1 : -1;
+		List<BlockPos> closed = new ArrayList<>(2);
 		for (int k = 0; k < 7 && out.size() < 4; k++) {
 			double turn = Math.toRadians(40 * ((k + 1) / 2)) * (k % 2 == 1 ? side : -side);
 			double a = base + turn;
 			BlockPos want = BlockPos.containing(me.x + Math.cos(a) * dist, me.y, me.z + Math.sin(a) * dist);
 			BlockPos spot = FolkSpots.standableNear(level, want, 2);
-			if (spot == null || Math.sqrt(spot.distSqr(from)) < gap + 4 || !open(level, folk.entity().blockPosition(), spot)) {
+			if (spot == null || Math.sqrt(spot.distSqr(from)) < gap + 4) {
 				continue;
 			}
-			out.add(spot);
+			if (open(level, folk.entity().blockPosition(), spot)) {
+				out.add(spot);
+			} else if (closed.size() < 2) {
+				closed.add(spot); // not open along a straight line, but the path may find a way round
+			}
 		}
+		out.addAll(closed);
 		return out;
 	}
 

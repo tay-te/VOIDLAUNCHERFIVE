@@ -165,7 +165,15 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 		List<Poi> tables = Venues.inPlot(s.pois(PoiType.TABLE), tavern);
 		List<Poi> seats = seatOrder(Venues.inPlot(s.pois(PoiType.SEAT), tavern), tables);
 		ServerLevel level = (ServerLevel) folk.entity().level();
-		Poi seat = nth < seats.size() ? seats.get(nth) : null;
+		// the first seat in the tavern's order that no drinker here now is bound for (those who drink tonight but are not
+		// about take none: the seats go to whoever is in the room)
+		Poi seat = null;
+		for (Poi p : seats) {
+			if (!claimed(p, folk.resident().id)) {
+				seat = p;
+				break;
+			}
+		}
 		BlockPos table = tables.isEmpty() ? Venues.middle(tavern.spec()) : Venues.nearest(Venues.positions(tables), seat != null ? seat.pos()
 			: Venues.middle(tavern.spec()));
 		BlockPos stand = seat != null ? seat.pos() : Venues.standFor(level, new Venues.Venue(table, table, List.of(table), 2), folk.resident().id, 45);
@@ -224,6 +232,31 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 			}
 		}
 		return out;
+	}
+
+	/** Whether another drinker of the night is bound for (or sits in) this seat. */
+	private boolean claimed(Poi p, UUID who) {
+		for (Map.Entry<UUID, State> e : this.states.entrySet()) {
+			if (!e.getKey().equals(who) && e.getValue().seat != null && e.getValue().seat.pos().equals(p.pos())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** Drinkers tonight, for the tour: how many are seated, and how many have a seat to go to. */
+	public int[] seatedAndBound() {
+		int sat = 0;
+		int bound = 0;
+		for (State st : this.states.values()) {
+			if (st.sat) {
+				sat++;
+			}
+			if (st.seat != null) {
+				bound++;
+			}
+		}
+		return new int[]{sat, bound, this.states.size()};
 	}
 
 	/** The first seat of the tavern nobody sits in and no other drinker is bound for, or null. */
@@ -314,7 +347,7 @@ public final class TavernNight implements NpcService.FolkBehaviour {
 					if (st.seat != null && folk.sit(st.seat.pos(), st.seat.facing())) {
 						st.mode = Mode.SEATED;
 						st.sat = true;
-					} else if (st.seat != null && st.retries < 3 && (other = freeSeat(level, folk.resident().id, st)) != null) {
+					} else if (!st.musician && st.retries < 3 && (other = freeSeat(level, folk.resident().id, st)) != null) {
 						// somebody is in the seat: the next free one in the tavern
 						st.retries++;
 						st.seat = other;
