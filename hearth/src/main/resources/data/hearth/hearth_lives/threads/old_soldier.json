@@ -1,0 +1,102 @@
+{
+	"start": "war_story",
+	"beats": {
+		"war_story": {
+			"next": [
+				{
+					"to": "banner",
+					"after": 6
+				}
+			]
+		},
+		"banner": {
+			"next": [
+				{
+					"to": "fading",
+					"after": 14
+				}
+			],
+			"choices": [
+				{
+					"id": "listen",
+					"to": "heard",
+					"effects": [
+						{
+							"type": "memory",
+							"weight": 8
+						}
+					]
+				},
+				{
+					"id": "find",
+					"to": "seeking",
+					"quest": "hearth:lives/old_blade",
+					"fallback": {
+						"cost": 30,
+						"to": "blade_home"
+					}
+				}
+			]
+		},
+		"heard": {
+			"next": [
+				{
+					"to": "drills",
+					"after": 5
+				}
+			]
+		},
+		"seeking": {
+			"next": [
+				{
+					"to": "blade_home",
+					"flag": "quest:hearth:lives/old_blade"
+				},
+				{
+					"to": "fading",
+					"after": 25
+				}
+			]
+		},
+		"blade_home": {
+			"effects": [
+				{
+					"type": "memory",
+					"weight": 20
+				},
+				{
+					"type": "deed",
+					"kind": "lives:honoured_soldier",
+					"weight": 5
+				}
+			],
+			"end": true
+		},
+		"drills": {
+			"effects": [
+				{
+					"type": "news",
+					"kind": "soldier_drills"
+				}
+			],
+			"end": true
+		},
+		"fading": {
+			"next": [
+				{
+					"to": "passed",
+					"after": 10,
+					"chance": 0.3
+				}
+			]
+		},
+		"passed": {
+			"effects": [
+				{
+					"type": "die"
+				}
+			],
+			"end": true
+		}
+	}
+}

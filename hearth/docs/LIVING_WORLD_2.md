@@ -582,6 +582,14 @@ the roof still leaks."*), fair crier (*"Come see the fire-eater from the souther
 Families with children who grow up, apprentices who become masters, friendships, feuds and romances, a few named
 characters per town with personal schedules and a story thread (KCD-style), who talk about you and remember.
 
+> **Built (lane B2, 2026-10-21)** in `sim/lives/` (books, on `DAY_PASSED`) and `social/lives/` (behaviours, talk,
+> choices), documented in SOCIAL.md §12; additions outside them and requests in `requests/lwB2.md`. Thirteen roles and
+> threads (4–8 beats, 2–3 endings), 279 barks, 240 lines of talk and thread dialogue. Differences from the text below:
+> relations are stepped for a sixth of the town a day with six days' gains (same outcome, a sixth of the cost);
+> the town is looked over for new apprentices and masterless workshops once a week (builders take apprentices too);
+> a journeyman kept a whole season from the trade gives it up; thread quests fall back to a coin cost until B1's
+> `offerPersonal` lands; the mourning dress and the People page wait on others (requests/lwB2.md 1, F4).
+
 ### 4.1 What the player sees and does
 
 - **Growing up.** Children grow up (exists); now an older child (28 days on) is **apprenticed**: they follow a master
@@ -655,6 +663,16 @@ characters per town with personal schedules and a story thread (KCD-style), who 
 
 ≤ 30 µs per 150-person town per sim day; relations bounded (8 a resident, ≤ 200 bytes); threads ≤ 6 a town, ≤ 64 bytes
 of state each; behaviours as any (cached `wants`). Nothing per tick abstractly.
+
+**Measured** (lane B2, 2026-10-21, a loaded dev machine): a made-up town of 150, warm, 19.5 µs a sim day
+(`LivesTest.costOfATownOf150`); a real town grown 380 days by the real sim (`LivesHarnessTest`, 107 people, warm):
+crafts 6.7 + relations 18.6 + feuds, characters and threads 0.9 µs ≈ 36 µs per 150 people, 46 µs a day for the whole
+pass with its allocation (64 per 150) — over the 30 µs aim, though paid once a sim day per town. Relations ≤ 192 bytes,
+a resident's lives ≤ 260 bytes saved. The clock's job claims 0.17 ms per town-day in the tour (cold code included).
+Embodied (`LivesTour`, a 145-soul northern town, 48 folk about): the talk pass 57 µs a player every 40 ticks at the
+default chances, the behaviours 7 µs a step on average. In the tour: sweethearts 1 block apart at the viewpoint on the
+rest-day afternoon (courting), two folk talking of the player's fire-fighting within earshot, the drunk smith in the
+tavern at 22:00, the People list with three met characters, feud insults traded in passing.
 
 ### 4.5 Persistence and multiplayer
 

@@ -1,0 +1,103 @@
+{
+	"start": "secret",
+	"beats": {
+		"secret": {
+			"next": [
+				{
+					"to": "found_out",
+					"after": 5
+				}
+			],
+			"effects": [
+				{
+					"type": "feud",
+					"cause": "love"
+				}
+			]
+		},
+		"found_out": {
+			"next": [
+				{
+					"to": "forbidden",
+					"after": 8
+				}
+			],
+			"choices": [
+				{
+					"id": "speak",
+					"to": "blessed",
+					"speech": "persuade",
+					"difficulty": 0.4,
+					"fail": "forbidden"
+				},
+				{
+					"id": "elope",
+					"to": "eloped",
+					"cost": 25,
+					"effects": [
+						{
+							"type": "memory",
+							"weight": 10
+						}
+					]
+				}
+			]
+		},
+		"blessed": {
+			"effects": [
+				{
+					"type": "peace"
+				},
+				{
+					"type": "sweethearts"
+				},
+				{
+					"type": "memory",
+					"weight": 12
+				},
+				{
+					"type": "deed",
+					"kind": "lives:spoke_for_lovers",
+					"weight": 6
+				}
+			],
+			"end": true
+		},
+		"forbidden": {
+			"next": [
+				{
+					"to": "eloped",
+					"after": 6,
+					"chance": 0.15
+				},
+				{
+					"to": "parted",
+					"after": 10
+				}
+			]
+		},
+		"eloped": {
+			"effects": [
+				{
+					"type": "leave",
+					"kind": "both"
+				},
+				{
+					"type": "news",
+					"kind": "eloped"
+				}
+			],
+			"end": true
+		},
+		"parted": {
+			"effects": [
+				{
+					"type": "relation",
+					"delta": -60,
+					"bond": "friend"
+				}
+			],
+			"end": true
+		}
+	}
+}

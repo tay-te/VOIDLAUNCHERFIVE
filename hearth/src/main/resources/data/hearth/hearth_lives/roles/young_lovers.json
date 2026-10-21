@@ -1,0 +1,26 @@
+{
+	"thread": "young_lovers",
+	"weight": 3,
+	"min_tier": "village",
+	"who": {
+		"ages": [
+			"adult"
+		],
+		"needs": "single"
+	},
+	"partner": "sweetheart",
+	"schedule": [
+		{
+			"days": "all",
+			"from": "20:00",
+			"to": "21:00",
+			"activity": "leisure",
+			"leisure": "wander",
+			"beats": [
+				"secret",
+				"found_out",
+				"forbidden"
+			]
+		}
+	]
+}

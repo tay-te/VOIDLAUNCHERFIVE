@@ -9,18 +9,27 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.random.RandomGenerator;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Who marries whom: two unmarried grown residents of the settlement, not close kin and not already promised, of an
- * age with each other. Pure (the caller supplies the random), so it is tested without a server.
+ * age with each other. Sweethearts (docs/LIVING_WORLD_2.md §4.1, the lives' courtships) are married first. Pure (the
+ * caller supplies the random), so it is tested without a server.
  */
 public final class Matchmaker {
 	/** How many singles a match is sought among at once (a seeded draw from all of them). */
 	static final int MET = 8;
+	/** Each resident's sweetheart, if any (the lives register it; none by default). */
+	private static volatile Function<Resident, @Nullable UUID> sweethearts = r -> null;
 
 	private Matchmaker() {
+	}
+
+	/** Who courts whom, so the banns go to sweethearts first (lane B2's lives register it at init). */
+	public static void sweethearts(Function<Resident, @Nullable UUID> lookup) {
+		sweethearts = lookup;
 	}
 
 	public record Match(Resident a, Resident b) {
@@ -40,6 +49,10 @@ public final class Matchmaker {
 		}
 		if (singles.size() < 2) {
 			return null;
+		}
+		Match courting = sweethearts(singles, random);
+		if (courting != null) {
+			return courting;
 		}
 		// a stable order first, then a seeded shuffle, so the same random gives the same match
 		singles.sort(Comparator.comparing(r -> r.id));
@@ -69,5 +82,27 @@ public final class Matchmaker {
 			}
 		}
 		return best;
+	}
+
+	/** Two of these singles who are each other's sweethearts (a seeded pick among the pairs), or null. */
+	static @Nullable Match sweethearts(List<Resident> singles, RandomGenerator random) {
+		Function<Resident, @Nullable UUID> lookup = sweethearts;
+		java.util.Map<UUID, Resident> byId = new java.util.HashMap<>();
+		for (Resident r : singles) {
+			byId.put(r.id, r);
+		}
+		List<Match> pairs = new ArrayList<>();
+		for (Resident r : singles) {
+			UUID o = lookup.apply(r);
+			Resident other = o == null ? null : byId.get(o);
+			if (other != null && r.id.compareTo(other.id) < 0 && r.id.equals(lookup.apply(other)) && !FolkFacts.kin(r, other)) {
+				pairs.add(new Match(r, other));
+			}
+		}
+		if (pairs.isEmpty()) {
+			return null;
+		}
+		pairs.sort(Comparator.comparing(m -> m.a().id));
+		return pairs.get(random.nextInt(pairs.size()));
 	}
 }

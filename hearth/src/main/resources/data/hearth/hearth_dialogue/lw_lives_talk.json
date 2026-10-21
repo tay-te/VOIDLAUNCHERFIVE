@@ -1,0 +1,197 @@
+{
+	"about.player.fire": [
+		"You're the one who put out the fire. Drinks are on me.",
+		"You carried water when the roofs were burning. I saw you.",
+		{
+			"text": "I won't forget you at the fire, {player}. None of us will.",
+			"rep": [
+				0,
+				100
+			]
+		}
+	],
+	"about.player.theft": [
+		"I know what you did. Keep your hands where I can see them.",
+		"Thief. Don't think we've forgotten.",
+		"Hands out of my sight, if you please."
+	],
+	"about.player.murder": [
+		"Get away from me. I know what you are.",
+		"You've blood on you. Leave me be.",
+		"Murderer. Go, before I call the watch."
+	],
+	"about.player.assault": [
+		"You're the one with the fists. Keep them down.",
+		"I saw you strike a man. Stay back."
+	],
+	"about.player.quest": [
+		"You did right by us. I hear it everywhere.",
+		"You're the one who helped. Thank you, truly.",
+		"Folk say you get things done. They're not wrong."
+	],
+	"about.player.let_down": [
+		"You said you'd help. Then nothing.",
+		"Promises are cheap. Yours cheaper."
+	],
+	"about.player.defender": [
+		"You stood at the gate when they came. I owe you my life, maybe.",
+		"You fought for us. Sit, eat something.",
+		"The beasts ran from you. I saw it with my own eyes."
+	],
+	"about.player.gift": [
+		"That gift you gave... it was kind. Kinder than you know.",
+		"You're generous. The town notices."
+	],
+	"about.player.rescue": [
+		"You saved one of ours. Bless you.",
+		"If you ever need anything, you've only to ask. After what you did."
+	],
+	"about.player.donor": [
+		"Your coin built the well. My children drink from it.",
+		"Open-handed, you are. Rare."
+	],
+	"about.player.builder": [
+		"You helped mend the roofs. That's neighbourly.",
+		"Your hands were in that stonework. Good hands."
+	],
+	"about.player.fugitive": [
+		"Last I heard, the guards were after you.",
+		"Running from the watch, weren't you? I'll not be caught helping."
+	],
+	"about.player.punished": [
+		"You paid your debt to the town. Fair enough.",
+		"Saw you in the pillory. No hard feelings, I hope."
+	],
+	"about.player.round": [
+		"You bought the house a round! Generous soul.",
+		"Next one's on me. Well, maybe."
+	],
+	"about.player.pious": [
+		"Good to see you at service.",
+		"You keep the rest day. That's well."
+	],
+	"about.player.rude": [
+		"You've a sharp tongue. I heard what you said to the baker.",
+		"Mind your words with me."
+	],
+	"about.player.trouble": [
+		"Trouble follows you, doesn't it.",
+		"I've heard about you. Behave yourself here."
+	],
+	"about.player.poacher": [
+		"The lord's deer, was it? Careful.",
+		"Poaching's a hanging matter in some towns."
+	],
+	"about.player.neighbour": [
+		"Neighbour! Welcome to the lane.",
+		"You've a house here now. You're one of us, near enough."
+	],
+	"about.player.kindness": [
+		"You helped one of ours when nobody else did. I heard.",
+		"Kind of you, what you did. Word gets about."
+	],
+	"about.player.good": [
+		"Folk speak well of you here.",
+		"Your name's a good one in this town.",
+		{
+			"text": "Welcome back, {player}. You're well thought of.",
+			"rep": [
+				20,
+				100
+			]
+		}
+	],
+	"about.player.bad": [
+		"People talk about you. Not kindly.",
+		"I've heard things about you.",
+		"Your name's mud here, you know."
+	],
+	"remember.last.fire": [
+		"Back again? Last time you were up to your elbows in fire buckets."
+	],
+	"remember.last.theft": [
+		"Back again? Last time, my things went missing."
+	],
+	"remember.last.murder": [
+		"You. Last time you were here, someone died."
+	],
+	"remember.last.assault": [
+		"Back again? Last time you came swinging."
+	],
+	"remember.last.quest": [
+		"Back again? Last time you did me a good turn.",
+		"Ah, you. You helped me last time."
+	],
+	"remember.last.let_down": [
+		"Back again? You never finished what you promised me."
+	],
+	"remember.last.defender": [
+		"You again! Last I saw you, you had a sword in your hand and beasts at the gate."
+	],
+	"remember.last.gift": [
+		"Back again? I still have your gift."
+	],
+	"remember.last.rescue": [
+		"You! Last time you pulled me out of a fix."
+	],
+	"remember.last.donor": [
+		"Back again? Your coin's still in the well-stones."
+	],
+	"remember.last.builder": [
+		"You again. Your mortar's still holding."
+	],
+	"remember.last.fugitive": [
+		"Last I saw you, you were running from the guards.",
+		"Back? Last time you left at a run, with the watch behind you."
+	],
+	"remember.last.punished": [
+		"Last I saw you, you were in the pillory. You look better."
+	],
+	"remember.last.round": [
+		"You again! Last time you bought the round. Your turn again?"
+	],
+	"remember.last.pious": [
+		"Back again? I saw you at service last time."
+	],
+	"remember.last.rude": [
+		"Back again? Last time you were rude to me."
+	],
+	"remember.last.trouble": [
+		"Back again? Last time there was trouble."
+	],
+	"remember.last.poacher": [
+		"Back again? With venison this time?"
+	],
+	"remember.last.neighbour": [
+		"Back again, neighbour?"
+	],
+	"remember.last.kindness": [
+		"Back again? You were kind to me last time."
+	],
+	"lives.story.by_you": [
+		"I haven't forgotten your part in it, {player}.",
+		"You were there for it. I remember.",
+		"Whatever folk say, I know what you did.",
+		{
+			"text": "You've a long memory in this town now, {player}. So have I.",
+			"rep": [
+				20,
+				100
+			]
+		}
+	],
+	"lives.story.by_other": [
+		"{helper} had a hand in it, you know.",
+		"Did you hear what {helper} did? A stranger, too.",
+		"It was {helper} who stepped in. Folk still talk of it.",
+		"Ask {helper}, if you see them. They know the whole of it."
+	],
+	"remember.last.good": [
+		"Back again? Good to see you.",
+		"You again. Last time went well, as I recall."
+	],
+	"remember.last.bad": [
+		"You again. Last time didn't go well.",
+		"Back? I remember you."
+	]
+}

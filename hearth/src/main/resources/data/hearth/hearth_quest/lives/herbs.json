@@ -1,0 +1,36 @@
+{
+	"type": "personal",
+	"weight": 0,
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "minecraft:fern",
+			"count": 6
+		}
+	],
+	"text": {
+		"title": [
+			"Herbs for {giver}"
+		],
+		"summary": [
+			"{giver}, the healer of {settlement}, is out of herbs. Bring {count} × {item} from the shade of the woods."
+		],
+		"offer": [
+			"Ferns from the shade, six of them, and I can make a start on the coughs."
+		],
+		"progress": [
+			"The ferns? The coughs are getting worse."
+		],
+		"complete": [
+			"Good, green, fresh. These will do a great deal of good."
+		]
+	},
+	"reward": {
+		"coin": [
+			5,
+			15
+		],
+		"reputation": 3
+	},
+	"cooldown_days": 0
+}

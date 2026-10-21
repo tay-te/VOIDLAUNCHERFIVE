@@ -1,0 +1,474 @@
+{
+	"lives.drunk_smith": [
+		"Another, and put it on the slate.",
+		"Who moved the anvil? Somebody moved the anvil.",
+		"My hands are steady. It's the world that shakes.",
+		"Iron and ale, the two things a smith needs.",
+		"Don't look at me, I'm resting my eyes.",
+		"One more and I'll go home. One more.",
+		"The lad does the bellows better than me now. Don't tell him.",
+		"Hot iron, cold ale. In that order.",
+		{
+			"text": "Hey, {player}! Buy a smith a drink?",
+			"time": "night"
+		},
+		{
+			"text": "Mornings are for other people.",
+			"time": "morning"
+		},
+		"Steward wants his coin. Steward can want.",
+		"I made the lord's gate hinges, you know. Before.",
+		{
+			"text": "Snow on the roof and fire in the belly.",
+			"cultures": [
+				"northern",
+				"alpine",
+				"tundra"
+			]
+		},
+		{
+			"text": "Too hot for the forge. Too hot for anything but beer.",
+			"cultures": [
+				"desert",
+				"mediterranean",
+				"mesa",
+				"steppe"
+			]
+		}
+	],
+	"lives.drunk_smith.sober": [
+		"Water, if you please. Just water.",
+		"The iron rings true again.",
+		{
+			"text": "{player}! Come by the forge, I've not forgotten.",
+			"weight": 2
+		},
+		"Up at dawn with a clear head. Strange feeling."
+	],
+	"lives.drunk_smith.forge_lost": [
+		"The lad keeps the forge well. Better than I did.",
+		"I watch the carts now. Somebody has to.",
+		"Sit by me, old friend. Nobody listens to us anyway."
+	],
+	"lives.widow_at_well": [
+		"He used to carry the bucket.",
+		"Morning, love. Morning.",
+		"The well's deep today. Or I'm tired.",
+		"Forty years, and now the bed's too big.",
+		"Don't mind me. I talk to the well.",
+		"Good water, this. He always said so.",
+		"You remind me of him, a little. Around the eyes.",
+		"I bake for two still. Habit.",
+		{
+			"text": "Cold water on a cold morning. He'd laugh at me.",
+			"time": "morning"
+		},
+		"The little ones splash me. I let them.",
+		"Everyone's in such a hurry.",
+		"I'll sit a moment. Just a moment.",
+		{
+			"text": "The fjord took mine. The sea takes and takes.",
+			"cultures": [
+				"northern",
+				"maritime"
+			]
+		},
+		{
+			"text": "The river gives and the river takes.",
+			"cultures": [
+				"bayou",
+				"tropical"
+			]
+		}
+	],
+	"lives.young_lovers": [
+		"Have you seen... no. Never mind.",
+		"Lovely evening for a walk. Alone. Entirely alone.",
+		"If anyone asks, I was at the well.",
+		"The stile at dusk. Nothing. Forget I said it.",
+		"My father would kill me. Slowly.",
+		"Is my hair all right?",
+		"Flowers? These? Found them. On the ground.",
+		"Some families just can't let a ditch be a ditch.",
+		{
+			"text": "The stars are out. Somewhere someone's looking at them too.",
+			"time": "night"
+		},
+		"Don't tell my mother you saw me here.",
+		"I'm not blushing. It's the sun.",
+		"What do you know about eloping? Asking for a friend."
+	],
+	"lives.ambitious_apprentice": [
+		"First one in, last one out.",
+		"Watch this joint. Tight as a drum.",
+		"Two seasons more? I could do it now.",
+		"The master's old. Good, but old.",
+		"One day they'll come from the next town for my work.",
+		"Sleep is for journeymen. Oh. I am one.",
+		"I've a drawing for my masterpiece. Want to see?",
+		{
+			"text": "Fire's lit. Somebody has to.",
+			"time": "morning"
+		},
+		"Faster isn't worse. Faster is faster.",
+		"The guild will drink to me. You'll see.",
+		"My hands know the work before my head does.",
+		"Don't touch that, it's still hot."
+	],
+	"lives.old_soldier": [
+		"Three days at the ford. Three days.",
+		"Stand up straight, boy, you're not a sack of turnips.",
+		"We had no banners. We had mud.",
+		"I remember when this was all fields. Before the fields.",
+		"The bolt took me here. Still aches in the rain.",
+		"Did I tell you about the ford?",
+		"Young ones think war is songs. It's waiting, and feet, and mud.",
+		"Sit, sit. Plenty of bench.",
+		{
+			"text": "Noon. Time for the bench and the story.",
+			"time": "day"
+		},
+		"The lord's men march like ducks.",
+		"Keep your shield high and your mouth shut. Best advice I ever had.",
+		"We held. That's all there is to say. Then I'll say it again.",
+		{
+			"text": "Snow at the ford, too, in the second winter.",
+			"cultures": [
+				"northern",
+				"alpine",
+				"tundra"
+			]
+		},
+		{
+			"text": "Sand in everything. In the bread, in the wounds.",
+			"cultures": [
+				"desert",
+				"mesa",
+				"steppe"
+			]
+		}
+	],
+	"lives.old_soldier.drills": [
+		"Left! Left! Your other left!",
+		"Shields up, you rabble!",
+		"Again! Until you can do it asleep."
+	],
+	"lives.gossip": [
+		"You'll never guess.",
+		"I'm not one to talk, but.",
+		"Did you hear about the miller's wife?",
+		"I only repeat what I'm told. Faithfully.",
+		"Who's that with the baker's boy? Interesting.",
+		"Well I never. Well I NEVER.",
+		"Some people should close their shutters.",
+		"Not that it's any of my business.",
+		{
+			"text": "{player}! Come here, I've heard something about you.",
+			"weight": 2
+		},
+		"Mark my words, there'll be a wedding.",
+		"Three nights running, the same door. Make of that what you will.",
+		"I saw nothing. Nothing at all. But."
+	],
+	"lives.miser_merchant": [
+		"A bit's a bit.",
+		"No credit. No exceptions. No.",
+		"Charity begins at home. Mine.",
+		"Prices are fair. Fair for me.",
+		"Shut the door, the heat's getting out.",
+		"Count it again.",
+		"Every bit has a name. Mine.",
+		"You want a discount? I want a castle.",
+		"Mind the step. If you break it, you pay for it.",
+		{
+			"text": "Closing early. Candles cost money.",
+			"time": "evening"
+		},
+		"Thieves everywhere. Thieves and beggars.",
+		"Well? Buying or browsing?"
+	],
+	"lives.healer": [
+		"Wrap it tight and keep it dry.",
+		"Willow bark for the ache. Not too much.",
+		"Who's coughing? I heard coughing.",
+		"Wash your hands. Please. Everyone. Wash your hands.",
+		"Rest, water, and a bit of broth.",
+		"The fever comes with the damp.",
+		"Bring me yarrow if you see it.",
+		"That's not a scratch, that's a gash. Come here.",
+		{
+			"text": "Up all night with the miller's boy.",
+			"time": "morning"
+		},
+		"Sit. Let me look at you.",
+		"Herbs don't grow on shelves.",
+		"Eat something green, for goodness' sake."
+	],
+	"lives.runaway": [
+		"Where does that road go?",
+		"One day I'll see the sea.",
+		"Nobody leaves here. Except me. Someday.",
+		"What's it like, the city?",
+		"I could walk to the next town in a day. Two at most.",
+		"Everyone here is old. Even the young ones.",
+		"Take me with you? Joking. Mostly.",
+		{
+			"text": "The carts leave at dawn. I watch them go.",
+			"time": "morning"
+		},
+		"I've got a bundle. Just in case.",
+		"My father says the world's the same everywhere. How would he know?",
+		"Stars look different elsewhere, I bet.",
+		"Some day you'll hear of me. You'll see."
+	],
+	"lives.poacher": [
+		"Lovely night for a walk.",
+		"Rabbit? Found it. Dead. On the road.",
+		"The lord has more deer than sense.",
+		"What snares? I've never seen a snare.",
+		"Shh. Listen. Nothing. Good.",
+		"The woods are free. Or should be.",
+		{
+			"text": "Out late? So am I. We didn't see each other.",
+			"time": "night"
+		},
+		"Venison's a rich man's meat. Shame.",
+		"The steward walks like a cow. You hear him a mile off.",
+		"A man's got to eat.",
+		"Quiet feet, quiet mouth.",
+		"If anyone asks, I was home."
+	],
+	"lives.miller_in_debt": [
+		"The wheel turns and the debt grows.",
+		"Flour on everything. Even my worries.",
+		"Bad year, they say. Every year's a bad year.",
+		{
+			"text": "Up before the cock to beat the debt.",
+			"time": "morning"
+		},
+		"The stones need dressing. Everything needs something.",
+		"My father never owed a bit in his life.",
+		"Harvest, they say. Pay by harvest.",
+		"A good mill, this. For now.",
+		"Weigh it twice; I'll not be called a cheat on top of the rest.",
+		"Water's low. Everything's low.",
+		"If the rain comes, maybe.",
+		"Bring your grain. I need the toll."
+	],
+	"lives.pious_pilgrim": [
+		"Blessings on you.",
+		"The shrine is far, but the road is holy.",
+		"I pray for this town. It needs it.",
+		"Alms for the road, friend?",
+		"My mother walked it. Now I will.",
+		{
+			"text": "Dawn prayers are the best heard.",
+			"time": "morning"
+		},
+		"Every step a prayer.",
+		"Light a candle and the dark gets smaller.",
+		"Have you been to the shrine? You should.",
+		"Bare feet keep a pilgrim humble.",
+		"The saints are listening. Mostly.",
+		"Peace be on this house."
+	],
+	"lives.exile_come_home": [
+		"Twelve years. Not a day less.",
+		"They look at me like I still owe them.",
+		"I've changed. They haven't.",
+		"The old inn's the same. Same stain on the same table.",
+		"Nobody's said welcome. Not one.",
+		{
+			"text": "A cup to forget, and one to remember.",
+			"time": "evening"
+		},
+		"I came back for my mother. That's all.",
+		"Say what you like. I've heard worse on the road.",
+		"The road teaches a man things.",
+		"I'd work, if anyone would have me.",
+		"Old wrongs keep longer than old wine.",
+		"Home. Funny word."
+	],
+	"lives.courting": [
+		"Look, you can see the whole valley.",
+		"Stay a while longer.",
+		"Your hand's cold. Here.",
+		"They'll be wondering where we are.",
+		"Let them wonder.",
+		"Do you think it'll be like this always?",
+		{
+			"text": "The sun's going down on us.",
+			"time": "evening"
+		}
+	],
+	"lives.courting.flower": [
+		"For you. Picked it on the way.",
+		"I found this and thought of you.",
+		"Don't laugh. It's a flower. For you."
+	],
+	"lives.courting.thanks": [
+		"Oh. It's lovely.",
+		"You fool. Thank you.",
+		"I'll press it in a book."
+	],
+	"lives.feud.insult": [
+		"Look who it is. Mind your purse.",
+		"Your house always did smell of pigs.",
+		"Walk on. Nobody wants you here.",
+		"Thief's blood runs in that family.",
+		"Your father owes mine an apology, and a ditch.",
+		"Don't you look at me.",
+		"Liars, the lot of you.",
+		"Keep to your side of the lane."
+	],
+	"lives.feud.answer": [
+		"Say that again, I dare you.",
+		"At least my house pays its debts.",
+		"Go and boil your head.",
+		"You'll be sorry you said that.",
+		"Hah! Listen to it bark.",
+		"We'll see who's laughing at harvest."
+	],
+	"lives.feud.brawl": [
+		"That's it. Outside! No, here!",
+		"I've waited years for this.",
+		"Hold my cup."
+	],
+	"lives.grief": [
+		"I miss you.",
+		"Rest easy, love.",
+		"I brought flowers. You never liked flowers.",
+		"The garden's grown wild without you.",
+		"Not a day goes by."
+	],
+	"lives.masterpiece": [
+		"To the guild! To the work!",
+		"A master. Me. Pour another.",
+		"My masterpiece, look at it!"
+	],
+	"lives.condolence": [
+		"Thank you. It helps, a little.",
+		"You're kind to say so.",
+		"Everyone says sorry. You seem to mean it."
+	],
+	"lives.peace.yes": [
+		"Maybe you're right. It's gone on long enough.",
+		"Fine. I'll shake their hand. Once.",
+		"For the children's sake, then."
+	],
+	"lives.peace.no": [
+		"You don't know what they did.",
+		"Peace? With them? Never.",
+		"Mind your own house."
+	],
+	"lives.refused": [
+		"I've heard enough, thank you.",
+		"Pretty words. No.",
+		"Not today. Maybe not ever."
+	],
+	"lives.overheard.fire": [
+		"That's {player}. Fought the fire with the buckets, they say.",
+		"That one carried water when the roof was alight.",
+		"If it weren't for {player} the whole street would've gone up."
+	],
+	"lives.overheard.theft": [
+		"Watch your purse, that's {player}.",
+		"That's the one. Light fingers.",
+		"Lock the door tonight. {player}'s about."
+	],
+	"lives.overheard.murder": [
+		"Don't look. That's {player}. Killed a man, they say.",
+		"Blood on those hands. Walk on.",
+		"Murderer. Right here in the street."
+	],
+	"lives.overheard.assault": [
+		"That's the one who struck the cooper.",
+		"Keep your distance from {player}. Quick with the fists."
+	],
+	"lives.overheard.quest": [
+		"That's {player}. Did right by the town, they did.",
+		"{player}'s the one who helped the reeve.",
+		"Good sort, that one. Gets things done."
+	],
+	"lives.overheard.let_down": [
+		"Promised the earth, that one, and brought nothing.",
+		"Don't ask {player} for help. Won't come."
+	],
+	"lives.overheard.defender": [
+		"That's {player}. Fought off the raiders.",
+		"Stood at the gate when the beasts came. Brave as a bull.",
+		"{player} kept us safe that night."
+	],
+	"lives.overheard.gift": [
+		"{player} brought a gift for the bride. Generous.",
+		"Gave the old woman a present, did {player}. Kind."
+	],
+	"lives.overheard.rescue": [
+		"{player} pulled the boy out, they say.",
+		"That's who saved the miller's lad."
+	],
+	"lives.overheard.donor": [
+		"{player} paid for the new well. Can you believe it?",
+		"Open-handed, that one. Put coin in the works."
+	],
+	"lives.overheard.builder": [
+		"That's {player}, helped mend the roofs.",
+		"{player} carried stone for the rebuilding."
+	],
+	"lives.overheard.fugitive": [
+		"That's the one who ran from the guards.",
+		"Broke out of the jail, {player} did."
+	],
+	"lives.overheard.punished": [
+		"Saw {player} in the pillory. Paid for it, at least.",
+		"Did their time, that one. Fair's fair."
+	],
+	"lives.overheard.round": [
+		"{player} bought the house a round the other night!",
+		"Generous with the ale, that one."
+	],
+	"lives.overheard.pious": [
+		"{player} comes to mass. Good to see.",
+		"Sits at the back at service. Pious, for a stranger."
+	],
+	"lives.overheard.rude": [
+		"That's who insulted the baker.",
+		"Sharp tongue on {player}."
+	],
+	"lives.overheard.trouble": [
+		"That's who's been trampling the gardens.",
+		"Trouble follows {player}, mark me."
+	],
+	"lives.overheard.poacher": [
+		"{player} had a deer of the lord's, they say.",
+		"Poacher. Right there."
+	],
+	"lives.overheard.neighbour": [
+		"{player} bought the house on the lane. A neighbour now.",
+		"Owns property here now, does {player}."
+	],
+	"lives.overheard.kindness": [
+		"{player} helped one of ours when nobody else would.",
+		"{player} has a kind heart, they say."
+	],
+	"lives.overheard.good": [
+		"That's {player}. Good sort, I hear.",
+		"Folk speak well of {player}.",
+		"That one's done right by us."
+	],
+	"lives.overheard.bad": [
+		"That's {player}. Watch yourself.",
+		"Nothing good said of {player} in this town.",
+		"Keep your children close. That's {player}."
+	],
+	"lives.overheard.answer.good": [
+		"Good. We need more like that.",
+		"Aye, I heard the same.",
+		"Buy them a drink if you see them."
+	],
+	"lives.overheard.answer.bad": [
+		"Hush, they'll hear you.",
+		"The guard should do something.",
+		"Don't stare. Walk on."
+	]
+}

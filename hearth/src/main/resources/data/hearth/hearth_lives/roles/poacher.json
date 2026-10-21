@@ -1,0 +1,35 @@
+{
+	"thread": "poacher",
+	"weight": 2,
+	"min_tier": "hamlet",
+	"who": {
+		"jobs": [
+			"hunter",
+			"none",
+			"farmer",
+			"herder"
+		],
+		"ages": [
+			"adult"
+		],
+		"traits": [
+			"brave",
+			"greedy"
+		]
+	},
+	"partner": "none",
+	"schedule": [
+		{
+			"days": "all",
+			"from": "21:00",
+			"to": "23:30",
+			"activity": "leisure",
+			"leisure": "wander",
+			"beats": [
+				"snares",
+				"suspected",
+				"covered"
+			]
+		}
+	]
+}

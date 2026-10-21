@@ -1,0 +1,74 @@
+{
+	"start": "debt",
+	"beats": {
+		"debt": {
+			"next": [
+				{
+					"to": "pressed",
+					"after": 5
+				}
+			]
+		},
+		"pressed": {
+			"next": [
+				{
+					"to": "mill_lost",
+					"after": 12
+				}
+			],
+			"choices": [
+				{
+					"id": "pay",
+					"to": "free",
+					"cost": 150,
+					"effects": [
+						{
+							"type": "deed",
+							"kind": "lives:paid_debt",
+							"weight": 6
+						},
+						{
+							"type": "memory",
+							"weight": 15
+						}
+					]
+				},
+				{
+					"id": "talk",
+					"to": "eased",
+					"speech": "persuade",
+					"difficulty": 0.45,
+					"fail": "pressed"
+				}
+			]
+		},
+		"eased": {
+			"next": [
+				{
+					"to": "free",
+					"after": 10
+				}
+			]
+		},
+		"free": {
+			"end": true
+		},
+		"mill_lost": {
+			"effects": [
+				{
+					"type": "idle",
+					"days": 40
+				},
+				{
+					"type": "feud",
+					"cause": "debt"
+				},
+				{
+					"type": "news",
+					"kind": "mill_lost"
+				}
+			],
+			"end": true
+		}
+	}
+}

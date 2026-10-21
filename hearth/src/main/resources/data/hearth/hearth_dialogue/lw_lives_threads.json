@@ -1,0 +1,315 @@
+{
+	"thread.drunk_smith.drinking": [
+		"Hammer's heavy of a morning. Heavier every morning, it seems.",
+		"One cup to wash the soot down. Then another for the ache. You know how it goes.",
+		"Don't look at me like that. The iron doesn't care if my hands shake."
+	],
+	"thread.drunk_smith.complaints": [
+		"So the reeve's hinges cracked. Bad iron, I told him. Bad iron.",
+		"They talk behind my back at the well. I hear them. I'm not deaf, only thirsty.",
+		"The lad does half the work now. More than half, if I'm honest. I'm not, mostly."
+	],
+	"thread.drunk_smith.debt": [
+		"The steward wants his coin by the rest day. I've got slag and a sore head.",
+		"I owe the tavern, I owe the charcoal man, I owe the steward. Everyone but the devil, and he's patient.",
+		"If someone paid it off I'd swear off the drink. I would. Ask the priest, he's heard me swear before."
+	],
+	"thread.drunk_smith.vowing": [
+		"The priest wants candles for the vow. Good wax, mind, not tallow.",
+		"Bring the candles and I'll kneel. Before I lose my nerve."
+	],
+	"thread.drunk_smith.vowed": [
+		"I swore before the altar. The candles burned all night. I've been dry four days.",
+		"My hands still shake, but they shake over the anvil now, not the cup."
+	],
+	"thread.drunk_smith.sworn_off": [
+		"Water. Water and bread. My head's never been so clear, nor my temper so short.",
+		"The tavern keeper looks at me like I've died. Maybe I have, a bit."
+	],
+	"thread.drunk_smith.sober": [
+		"Sober a month. The lad's back at the bellows and the hinges hold.",
+		"I owe you. Come by the forge; I'll make you a blade at cost, and a good one.",
+		"Funny thing. The iron sings when you can hear it."
+	],
+	"thread.drunk_smith.forge_lost": [
+		"The forge is the lad's now. He's good. Better than I was, these last years.",
+		"I sit by the gate and watch the carts. Somebody has to.",
+		"Don't pity me. Buy me a cup, if you must do something."
+	],
+	"thread.widow_at_well.mourning": [
+		"I come to the well because we came together. Silly, isn't it.",
+		"The bucket's lighter than it was. Everything is, without him to carry for.",
+		"Good of you to stop. Most walk faster when they see me."
+	],
+	"thread.widow_at_well.alone": [
+		"The house is so quiet I hear the mice arguing.",
+		"The roof leaks over his side of the bed. I can't bring myself to see to it.",
+		"Sit a moment, would you? Just a moment."
+	],
+	"thread.widow_at_well.comforted": [
+		"I laughed yesterday. At a goat. First time since the funeral.",
+		"You were kind to me when nobody had the time. I won't forget it."
+	],
+	"thread.widow_at_well.new_purpose": [
+		"Six of the little ones today. They wear me out and I sleep like a stone.",
+		"A house wants noise in it. Now mine has plenty."
+	],
+	"thread.widow_at_well.withdrawn": [
+		"I'm going to my sister's. There's nothing here but the grave."
+	],
+	"thread.young_lovers.secret": [
+		"If you see {partner} at the stile tonight, you didn't see anything. Understand?",
+		"Our fathers haven't spoken in years. Over a ditch. A ditch!",
+		"Don't tell anyone. Please."
+	],
+	"thread.young_lovers.found_out": [
+		"They found us. My father said things I won't repeat, and {partner}'s mother threw a pot.",
+		"They'd sooner see us both in the river than wed. Will nobody speak for us?",
+		"We could go. Tonight. If we had a little coin for the road."
+	],
+	"thread.young_lovers.blessed": [
+		"They said yes. Both of them! I think my father was relieved, the old goat.",
+		"The banns go up soon. You'll come to the wedding? You must."
+	],
+	"thread.young_lovers.forbidden": [
+		"I'm watched day and night. I see {partner} across the square and we can't even nod.",
+		"It'll pass, they say. As if they know."
+	],
+	"thread.young_lovers.eloped": [
+		"We're going. Don't try to stop us."
+	],
+	"thread.young_lovers.parted": [
+		"It's over. {partner} won't look at me now.",
+		"Let the houses keep their feud. I've nothing left for it to take."
+	],
+	"thread.ambitious_apprentice.eager": [
+		"I'm up before the cock. Someone has to light the fire, and I like to have it hot.",
+		"My master says I rush. I say the work doesn't wait."
+	],
+	"thread.ambitious_apprentice.asks": [
+		"If I had the iron I could make my masterpiece now. Why wait two more seasons?",
+		"Bring me what I need and I'll show the guild. I'll show them all.",
+		"My master would say no. So I'm not asking my master."
+	],
+	"thread.ambitious_apprentice.waiting": [
+		"Six good ingots, that's all. Then you'll see."
+	],
+	"thread.ambitious_apprentice.early_master": [
+		"The guild drank to me. Me! Before my time, they said, and they meant it kindly.",
+		"I won't forget who helped me to it."
+	],
+	"thread.ambitious_apprentice.humbled": [
+		"So you told on me. Fine. Maybe I needed telling.",
+		"The master says patience is half the trade. I'm learning the other half first."
+	],
+	"thread.ambitious_apprentice.patient": [
+		"My time comes when it comes. The work's better for the waiting."
+	],
+	"thread.ambitious_apprentice.resentful": [
+		"Held back, that's what I am. Held back by an old fool who fears the competition.",
+		"There are towns where a journeyman gets a fair chance."
+	],
+	"thread.ambitious_apprentice.left": [
+		"I'm off. There's a guild in the next town that'll know my worth."
+	],
+	"thread.old_soldier.war_story": [
+		"Did I tell you about the ford? Three days we held it. Three days, in the rain.",
+		"The young ones don't listen. They think war is banners and songs.",
+		"Sit. You've the look of someone who's never been told about the ford."
+	],
+	"thread.old_soldier.banner": [
+		"I lost my blade at the ford. Dropped it in the mud when the bolt took me. Forty years and I still reach for it.",
+		"A soldier without his sword is just an old man on a bench.",
+		"You'd not have time for the whole of the story, I suppose."
+	],
+	"thread.old_soldier.heard": [
+		"You listened to all of it. Nobody has, since my wife.",
+		"I'll teach the lads the drill, I think. Before it's lost with me."
+	],
+	"thread.old_soldier.seeking": [
+		"A plain blade, mind. Nothing with gilt on it. We weren't gentry."
+	],
+	"thread.old_soldier.blade_home": [
+		"It hangs over my door, see? I take it down of a morning and the boys come running.",
+		"You've given an old man back his name. I won't forget it."
+	],
+	"thread.old_soldier.drills": [
+		"Left foot! Your other left! Gods, the ford would have eaten you alive.",
+		"They'll stand in a line now. That's more than the lord's men can do."
+	],
+	"thread.old_soldier.fading": [
+		"Cold today. The old wound knows it before the sky does.",
+		"I'll tell you about the ford another day. Not today."
+	],
+	"thread.old_soldier.passed": [
+		"..."
+	],
+	"thread.gossip.whispers": [
+		"Have you heard about {partner}'s lot? No? Come closer.",
+		"I don't say it's true. I only say what I heard. That's different."
+	],
+	"thread.gossip.spreading": [
+		"Everybody knows about {partner}'s house now. Not from me, of course.",
+		"If it isn't true, why does {partner} go so red when it's mentioned?",
+		"You look like someone who knows things. Tell me something."
+	],
+	"thread.gossip.quashed": [
+		"Well. Perhaps I had it wrong. It happens to the best of us.",
+		"You took the fun out of the whole week, you know that?"
+	],
+	"thread.gossip.feud_brews": [
+		"I never meant for it to come to fists. Words are just words.",
+		"{partner}'s lot won't speak to mine now. Is that my fault?"
+	],
+	"thread.gossip.shunned": [
+		"Nobody tells me anything any more. I'm the last to hear of a birth."
+	],
+	"thread.gossip.forgotten": [
+		"Old news, that. Now, about the miller's wife..."
+	],
+	"thread.miser_merchant.hoarding": [
+		"A bit saved is a bit earned. Twice earned, if you count the interest.",
+		"Charity? I give the gift of fair prices. Well. Prices."
+	],
+	"thread.miser_merchant.refuses": [
+		"The town wants my coin for a well. Let them drink from the river like their grandfathers.",
+		"Everyone has a hand out. I keep mine in my pockets.",
+		"You won't shame me into it. Better folk have tried."
+	],
+	"thread.miser_merchant.gives": [
+		"Fine. Fine! Put my name on the well, at least. In big letters.",
+		"They tip their hats to me in the street. Strange. Not unpleasant."
+	],
+	"thread.miser_merchant.robbed": [
+		"Robbed! Robbed in my own house! Where was the watch? Where was anyone?",
+		"Every bit I had. Every last bit."
+	],
+	"thread.miser_merchant.humbled": [
+		"When it was all gone, the neighbours brought me bread. The neighbours. I never gave them so much as a nail.",
+		"I give a little now. It's cheaper than being alone."
+	],
+	"thread.miser_merchant.alone": [
+		"Nobody calls. Good. Callers want things."
+	],
+	"thread.healer.short": [
+		"Yarrow, comfrey, willow bark. I've a pinch of each and a town full of coughs.",
+		"If a fever comes now I'll be treating it with prayers and hot water.",
+		"You've the look of someone who walks the woods. Bring me what grows there?"
+	],
+	"thread.healer.gathering": [
+		"Ferns from the shade and berries from the edge of the wood. That will do to start."
+	],
+	"thread.healer.stocked": [
+		"The shelves are full. I can sleep again.",
+		"Whatever comes, we'll meet it now."
+	],
+	"thread.healer.fever": [
+		"The fever's in three houses. I go from bed to bed and there's nothing in my bag.",
+		"Coin would buy what the pedlar has. Coin I haven't got."
+	],
+	"thread.healer.saved": [
+		"Every one of them on their feet. Every one.",
+		"They bless your name in the houses that had the fever. I made sure they knew it."
+	],
+	"thread.healer.lost_one": [
+		"I couldn't save the little one. I keep going over it, every leaf, every hour."
+	],
+	"thread.runaway.restless": [
+		"Where does the road go, past the bridge? Have you been? What's there?",
+		"Everyone here dies where they were born. Not me."
+	],
+	"thread.runaway.plans": [
+		"I've a bundle under the bed. Bread, a knife, a blanket. That's all you need, isn't it?",
+		"Don't tell {partner}. Swear it.",
+		"A few bits for the road and I'd be off tonight."
+	],
+	"thread.runaway.watched": [
+		"You told. I can't step out to the privy without someone following."
+	],
+	"thread.runaway.stays": [
+		"The road will keep. There's work here, and it's not so bad."
+	],
+	"thread.runaway.gone": [
+		"..."
+	],
+	"thread.poacher.snares": [
+		"The lord's deer eat our barley. Seems fair the barley eats a deer now and then.",
+		"I'm out walking of a night. For my health. Very good for the health, the woods."
+	],
+	"thread.poacher.suspected": [
+		"They found snares by the oaks. Could be anybody's. Could be yours, for all they know.",
+		"If anyone asks, I was home. You'd say so, wouldn't you?",
+		"A haunch of venison for a short memory. Fair trade."
+	],
+	"thread.poacher.covered": [
+		"You're a friend. I don't forget friends.",
+		"Quieter now. The steward's watching the oaks."
+	],
+	"thread.poacher.caught": [
+		"A day in the pillory and a rotten cabbage in the ear. Could have been the rope.",
+		"Somebody talked. I know somebody talked."
+	],
+	"thread.poacher.reformed": [
+		"The lord made me his huntsman. Who knows the wood better?",
+		"I catch the poachers now. I know all their tricks. They were mine."
+	],
+	"thread.poacher.fled": [
+		"..."
+	],
+	"thread.miller_in_debt.debt": [
+		"The stones need dressing, the wheel needs a new paddle, and the debt needs paying. Pick one.",
+		"I borrowed from {partner} in the wet year. The wet year's long gone; the debt isn't."
+	],
+	"thread.miller_in_debt.pressed": [
+		"{partner} wants it all by harvest, or the mill.",
+		"My father's mill. His father's. And I'll lose it for a bad year.",
+		"Would you speak to {partner}? They might listen to someone who isn't me."
+	],
+	"thread.miller_in_debt.eased": [
+		"A season's grace. A season! I could kiss you. I won't. But I could."
+	],
+	"thread.miller_in_debt.free": [
+		"Every bit paid. The wheel sounds different now. Lighter.",
+		"Bring your grain to me any time. I'll not take the miller's toll from you."
+	],
+	"thread.miller_in_debt.mill_lost": [
+		"{partner} has the mill. I grind for wages now, at my own stones.",
+		"Don't say {partner}'s name in my hearing."
+	],
+	"thread.pious_pilgrim.vow": [
+		"I have vowed to walk to the shrine, as my mother did. Barefoot, if my feet allow it.",
+		"Alms for the road, friend? A bit for every league, and I'll pray for you at each."
+	],
+	"thread.pious_pilgrim.blessed_road": [
+		"With your alms I'll eat on the road. I'll light a candle for you at the shrine."
+	],
+	"thread.pious_pilgrim.departs": [
+		"I'm away at first light."
+	],
+	"thread.pious_pilgrim.returns": [
+		"I went, and I came back, and the candle burned for you. Here, from the shrine.",
+		"My feet are ruined and my heart is light."
+	],
+	"thread.pious_pilgrim.lost": [
+		"..."
+	],
+	"thread.exile_come_home.returned": [
+		"Twelve years gone and they look at me like I left yesterday, with the silver.",
+		"I wasn't a good man when I left. I'm a better one now. Nobody believes it."
+	],
+	"thread.exile_come_home.old_wrong": [
+		"{partner}'s house remembers. Every word I said, every door I broke.",
+		"If someone would vouch for me to the elders. Someone they'd listen to.",
+		"Or I could earn my place. If I had tools to start with."
+	],
+	"thread.exile_come_home.welcomed": [
+		"They set a place for me. My mother cried into the soup.",
+		"{partner} shook my hand. Stiffly. But they shook it."
+	],
+	"thread.exile_come_home.settles": [
+		"Work's the best answer to talk. They'll come round, or they won't."
+	],
+	"thread.exile_come_home.leaves": [
+		"There's nothing for me here. There never was."
+	]
+}

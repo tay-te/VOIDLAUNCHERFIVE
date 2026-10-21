@@ -1,0 +1,74 @@
+{
+	"start": "restless",
+	"beats": {
+		"restless": {
+			"next": [
+				{
+					"to": "plans",
+					"after": 5
+				}
+			]
+		},
+		"plans": {
+			"next": [
+				{
+					"to": "gone",
+					"after": 8
+				}
+			],
+			"choices": [
+				{
+					"id": "talk",
+					"to": "stays",
+					"speech": "persuade",
+					"difficulty": 0.35,
+					"fail": "plans"
+				},
+				{
+					"id": "coin",
+					"to": "gone",
+					"cost": 20,
+					"effects": [
+						{
+							"type": "memory",
+							"weight": 10
+						}
+					]
+				},
+				{
+					"id": "tell",
+					"to": "watched",
+					"effects": [
+						{
+							"type": "memory",
+							"weight": -8
+						}
+					]
+				}
+			]
+		},
+		"watched": {
+			"next": [
+				{
+					"to": "stays",
+					"after": 8
+				}
+			]
+		},
+		"stays": {
+			"end": true
+		},
+		"gone": {
+			"effects": [
+				{
+					"type": "leave"
+				},
+				{
+					"type": "news",
+					"kind": "ran_away"
+				}
+			],
+			"end": true
+		}
+	}
+}

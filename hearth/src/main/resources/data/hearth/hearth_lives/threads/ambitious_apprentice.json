@@ -1,0 +1,113 @@
+{
+	"start": "eager",
+	"beats": {
+		"eager": {
+			"next": [
+				{
+					"to": "asks",
+					"after": 5
+				}
+			]
+		},
+		"asks": {
+			"next": [
+				{
+					"to": "resentful",
+					"after": 10
+				}
+			],
+			"choices": [
+				{
+					"id": "bring",
+					"to": "waiting",
+					"quest": "hearth:lives/masterpiece_iron",
+					"fallback": {
+						"cost": 40,
+						"to": "early_master"
+					}
+				},
+				{
+					"id": "tell",
+					"to": "humbled",
+					"effects": [
+						{
+							"type": "memory",
+							"weight": -8
+						}
+					]
+				}
+			]
+		},
+		"waiting": {
+			"next": [
+				{
+					"to": "early_master",
+					"flag": "quest:hearth:lives/masterpiece_iron"
+				},
+				{
+					"to": "resentful",
+					"after": 20
+				}
+			]
+		},
+		"early_master": {
+			"effects": [
+				{
+					"type": "master"
+				},
+				{
+					"type": "memory",
+					"weight": 15
+				},
+				{
+					"type": "deed",
+					"kind": "lives:made_master",
+					"weight": 4
+				},
+				{
+					"type": "news",
+					"kind": "early_master"
+				}
+			],
+			"end": true
+		},
+		"humbled": {
+			"next": [
+				{
+					"to": "patient",
+					"after": 4
+				}
+			]
+		},
+		"patient": {
+			"effects": [
+				{
+					"type": "relation",
+					"delta": 20
+				}
+			],
+			"end": true
+		},
+		"resentful": {
+			"next": [
+				{
+					"to": "left",
+					"after": 8,
+					"chance": 0.5
+				},
+				{
+					"to": "patient",
+					"after": 15
+				}
+			]
+		},
+		"left": {
+			"effects": [
+				{
+					"type": "leave"
+				}
+			],
+			"end": true
+		}
+	}
+}

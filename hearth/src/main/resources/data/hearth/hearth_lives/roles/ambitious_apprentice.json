@@ -1,0 +1,31 @@
+{
+	"thread": "ambitious_apprentice",
+	"weight": 2,
+	"min_tier": "hamlet",
+	"who": {
+		"ages": [
+			"adult"
+		],
+		"needs": "apprentice",
+		"traits": [
+			"industrious",
+			"curious"
+		]
+	},
+	"partner": "master",
+	"schedule": [
+		{
+			"days": "work",
+			"from": "06:00",
+			"to": "07:30",
+			"activity": "work",
+			"where": "work",
+			"beats": [
+				"eager",
+				"asks",
+				"waiting",
+				"resentful"
+			]
+		}
+	]
+}

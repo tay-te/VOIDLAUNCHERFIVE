@@ -1,0 +1,45 @@
+{
+	"thread": "drunk_smith",
+	"weight": 3,
+	"min_tier": "hamlet",
+	"who": {
+		"jobs": [
+			"smith"
+		],
+		"ages": [
+			"adult"
+		],
+		"traits": [
+			"lazy",
+			"grumpy",
+			"sociable"
+		]
+	},
+	"partner": "apprentice",
+	"schedule": [
+		{
+			"days": "all",
+			"from": "19:30",
+			"to": "23:45",
+			"activity": "leisure",
+			"leisure": "inn",
+			"where": "inn",
+			"beats": [
+				"drinking",
+				"complaints",
+				"debt",
+				"vowing"
+			]
+		},
+		{
+			"days": "all",
+			"from": "11:00",
+			"to": "13:00",
+			"activity": "leisure",
+			"leisure": "bench",
+			"beats": [
+				"forge_lost"
+			]
+		}
+	]
+}

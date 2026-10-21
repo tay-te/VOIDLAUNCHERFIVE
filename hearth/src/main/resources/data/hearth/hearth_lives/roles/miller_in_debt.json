@@ -1,0 +1,30 @@
+{
+	"thread": "miller_in_debt",
+	"weight": 2,
+	"min_tier": "hamlet",
+	"who": {
+		"jobs": [
+			"baker",
+			"farmer",
+			"brewer"
+		],
+		"ages": [
+			"adult"
+		]
+	},
+	"partner": "creditor",
+	"schedule": [
+		{
+			"days": "work",
+			"from": "05:30",
+			"to": "07:00",
+			"activity": "work",
+			"where": "work",
+			"beats": [
+				"debt",
+				"pressed",
+				"eased"
+			]
+		}
+	]
+}

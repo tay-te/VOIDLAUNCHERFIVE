@@ -84,6 +84,19 @@ public final class Greetings {
 		Map<String, String> v = values(settlement, resident, player);
 		String line = DialogueTemplates.pick("greeting", ctx, random);
 		String text = DialogueTemplates.fill(line != null ? line : "Hello.", v);
+		// what they remember of the player, or have heard, before the town's news (docs/LIVING_WORLD_2.md §4.3)
+		long today = NpcTime.today();
+		String about = PlayerTalk.aboutPlayer(level, settlement, resident, player, ctx, v, today, random);
+		if (about != null && random.nextInt(4) != 0) {
+			return text + " " + about;
+		}
+		if (ctx.met() > 0 && random.nextInt(3) == 0) {
+			PlayerTalk.Deed last = PlayerTalk.last(resident, player.getUUID());
+			String back = last == null ? null : PlayerTalk.line("remember.last", last, ctx, v, random);
+			if (back != null) {
+				return text + " " + back;
+			}
+		}
 		if (random.nextInt(3) == 0) {
 			String news = news(level, settlement, resident, player, at, random, false);
 			if (news != null) {

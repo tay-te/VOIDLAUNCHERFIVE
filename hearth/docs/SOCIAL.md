@@ -439,3 +439,71 @@ awnings (dropped since). The leash 0.14 ms a pass while a fire burns. A day plan
 
 **Tests**: `EventRulesTest`, `SceneTimelineTest`, `EventAgreementTest`, `FireLeashTest`, `EventsBenchTest`. Tour:
 `JAVA_TOOL_OPTIONS="-Dhearth.tour=events" ./gradlew runClientGameTest` (`gametest/EventsTour`).
+
+## 13. People with lives (`sim/lives`, `social/lives`, docs/LIVING_WORLD_2.md §4, lane B2)
+
+Folk have families, friends, sweethearts, rivals and trades they learn; a few in each town are named characters with a
+role, a personal day and a story that moves on whether or not anyone is there. The books are the sim's (`sim/lives`,
+run on each town's `DAY_PASSED`, catch-up included, histories left out); the bodies, talk and choices are the social
+module's (`social/lives`).
+
+**Saved.** Each resident's `extra("lives")` (`Life`): up to 8 relations packed 3 longs each (the other's id; strength
+−100…100, bond, last day met) — ≤ 192 bytes, ~200 with the rest; an apprentice's master and trade (`am/al/at/as`), a
+journeyman's trade and days kept from it (`jt/js/jh`), a master's trade and day (`mt/md`, also read by the planner's
+needs), mourning (`gu`), kept from work by a thread (`idle`), a grown newcomer's arrival (`arr`). The town's
+`hearth:lives/town` (`TownLives`): the named characters (role, thread, beat, since, partner, the player who moved it,
+flags, who has met them, the beats passed), feuds by house heads (cause, since, heat), orphans, the life news (8) and the
+counts. All of it dies with the resident or the town; a feud passes to the house's next head.
+
+**Relations** (`Bonds`): a sixth of the town takes its contacts each day (six days' worth): a workmate (same
+workplace), the neighbour (the nearest home), the evening's company (an old friend half the time, else anyone; the
+sociable more often, the shy less). Strength fades lazily without contact (from the last day met, after a few days'
+grace); 40 makes friends. Unmarried adults fond of each other (55) court by the odds (`same_sex` from the social config,
+a share of courtships); a third fond of one of them may turn rival, and their houses may feud. The weddings prefer
+sweethearts (`Matchmaker.sweethearts`); a sweetheart wed to another leaves a rival behind.
+
+**Crafts** (`Crafts`, `LivesClaims`): once a week the town is looked over: each workshop at work with no master gets its
+senior hand as master (builders too: the town's senior builder), children 28 days old are apprenticed (to a parent who
+masters a trade, else a master with room; one each); between, only the crafters are stepped, every third day. A grown apprentice is a
+journeyman of the trade, and `ResidentClaims` sees that the sim's job assignment gives them the trade first, at the
+master's workplace when it has room (≥ 90 % when places exist, `LivesTest`); 60 days at the trade make the masterpiece
+(120 at most if half were at it; a season kept from it entirely and they give it up). A master keeps to the trade at a
+workplace with no other master first; two sharing one ask the planner for another (`plan/growth/Needs`).
+
+**Feuds** (`Feuds`): between households (the folk of a home, led by the eldest grown). From love (the jilted), a theft
+blamed (an unwitnessed theft from a resident laid at the neighbours' door, 25 %), the boundary between plots in a crowded
+town, a gossip's tale, a thread's turn. They cool, and make up by odds that grow with age and temper; a wedding between the
+houses ends one; a player can talk a head round ("Make peace with the ..." — a persuasion check). Feuding folk turn away
+and trade insults in passing; of an evening they may brawl (lane A3's `CrowdService.brawl`). `LivesService.feuds` for
+trials and commissions.
+
+**Named characters** (`Notables`, `Threads`, `LivesBook`): a hamlet keeps 1–2, a village 3, a town 5, a city 6, one of each
+role, never an official. Thirteen roles in `data/hearth/hearth_lives/roles/` (who may hold it: jobs, ages, traits, a need —
+widowed, apprentice, single, newcomer, young —, the partner the thread is about, the personal day) and their threads in
+`hearth_lives/threads/`: beats with conditions (days in the beat, a chance, a calendar event, the partner, a flag such as
+a quest done), effects (news, relations, sweethearts, feud, peace, the forge to the apprentice, master, idle, leave, die,
+away on pilgrimage, mourn, coin to the treasury; for the player who moved it: memory, deed, gift, coin — kept for their
+next visit when the beat came by itself) and choices offered in conversation to the first player who takes one (a coin
+cost, a speech check, a personal quest with a plain fallback). `ThreadDataTest` checks every beat reachable, no loops,
+every branch ends, every line, label and quest named exists.
+
+**Embodied** (`social/lives`): `ApprenticeBehaviour` (105: at the master's side through the working day with the trade's
+tool, carrying what the master carries), `CourtingBehaviour` (30: sweethearts walk out together on the rest day's
+afternoon to a viewpoint, a poppy given), `FeudBehaviour` (42), `GriefBehaviour` (36: a mourner at the grave on the rest
+day's morning), `NotableSchedule` (the characters' windows and the courting and mourning ones, through
+`ScheduleOverrides`, ahead of the week's), `LivesTalk` (every 40 ticks per player in an embodied town: a character's
+remark, `lives.<role>[.<beat>]`; two idle folk talking about the player after a deed, `lives.overheard.<deed>` and an
+answer — all through the crowds' bark cooldowns). A master made in an embodied town draws onlookers to the workshop.
+
+**Talk** (`npc/talk/PlayerTalk`, `LivesDialogue`): the greeting prefers what the folk remembers of the player, or the
+town says (`about.player.<deed>`), and "Back again? Last time you..." (`remember.last.<deed>`); a character's
+"How are things with you?" tells where the story stands (`thread.<thread>.<beat>`) and who moved it ("Did you hear what
+the stranger did?"); anyone tells who the folk of note are. The People list (`LivesPayloads.People`, state section
+`people`) waits on its Figma page (F4).
+
+**Commands.** `/hearth lives here` (characters, feuds, news, counts), `/hearth lives stats` (cost, overheard talk);
+game masters: `/hearth lives notable <role> [name]`, `/hearth lives beat <role> <beat>`. Config `config/hearth/lives.json`
+(`LivesConfig`).
+
+**Tests**: `LivesTest`, `ThreadDataTest`, `MatchmakerTest`, the 200-day `LivesHarnessTest` (real planner and blueprints).
+Tour: `JAVA_TOOL_OPTIONS="-Dhearth.tour=lives" ./gradlew runClientGameTest` (`gametest/LivesTour`).

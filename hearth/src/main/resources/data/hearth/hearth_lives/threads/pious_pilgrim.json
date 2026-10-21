@@ -1,0 +1,76 @@
+{
+	"start": "vow",
+	"beats": {
+		"vow": {
+			"next": [
+				{
+					"to": "departs",
+					"after": 6
+				}
+			],
+			"choices": [
+				{
+					"id": "alms",
+					"to": "blessed_road",
+					"cost": 15,
+					"effects": [
+						{
+							"type": "memory",
+							"weight": 10
+						},
+						{
+							"type": "deed",
+							"kind": "lives:alms",
+							"weight": 2
+						}
+					]
+				}
+			]
+		},
+		"blessed_road": {
+			"next": [
+				{
+					"to": "departs",
+					"after": 1
+				}
+			]
+		},
+		"departs": {
+			"next": [
+				{
+					"to": "returns",
+					"after": 12,
+					"chance": 0.85
+				},
+				{
+					"to": "lost",
+					"after": 12
+				}
+			],
+			"effects": [
+				{
+					"type": "away",
+					"days": 12
+				}
+			]
+		},
+		"returns": {
+			"effects": [
+				{
+					"type": "gift",
+					"item": "minecraft:candle",
+					"count": 1
+				}
+			],
+			"end": true
+		},
+		"lost": {
+			"effects": [
+				{
+					"type": "leave"
+				}
+			],
+			"end": true
+		}
+	}
+}

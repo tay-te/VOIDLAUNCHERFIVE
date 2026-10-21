@@ -73,6 +73,7 @@ public final class Needs {
 		}
 		this.adults = a;
 		this.homeless = unhoused;
+		masters(ctx);
 		for (PlotView plot : ctx.settlement.plots()) {
 			boolean built = plot.state() == PlotState.BUILT || plot.state() == PlotState.ABANDONED;
 			if (plot.state() == PlotState.DEMOLISHING) {
@@ -85,6 +86,41 @@ public final class Needs {
 		}
 		for (QueuedProject q : ctx.state.queue) {
 			count(ctx, q.spec(), false);
+		}
+	}
+
+	/**
+	 * A master craftsman sharing a workshop with another master of the trade wants one of their own (the lives,
+	 * docs/LIVING_WORLD_2.md §4.1: "he'll have his own forge by spring"): one more of the trade counted unplaced, at most
+	 * one a trade at a time, so the trade's workplace need reads it. Masters are read from the residents' documented
+	 * {@code extra("lives").mt}.
+	 */
+	private void masters(PlanContext ctx) {
+		Map<JobType, java.util.Set<Integer>> shared = null;
+		Map<Long, Integer> at = null;
+		for (Resident r : ctx.settlement.residents()) {
+			if (r.age != AgeStage.ADULT || r.work < 0 || !(r.extra.get("lives") instanceof net.minecraft.nbt.CompoundTag lives)) {
+				continue;
+			}
+			String mt = lives.getStringOr("mt", "");
+			if (mt.isEmpty() || !mt.equals(r.job.getSerializedName())) {
+				continue;
+			}
+			if (at == null) {
+				at = new HashMap<>();
+			}
+			long key = (long) r.work << 8 | r.job.ordinal();
+			if (at.merge(key, 1, Integer::sum) == 2) {
+				if (shared == null) {
+					shared = new EnumMap<>(JobType.class);
+				}
+				shared.computeIfAbsent(r.job, k -> new java.util.HashSet<>()).add(r.work);
+			}
+		}
+		if (shared != null) {
+			for (JobType job : shared.keySet()) {
+				this.unplaced.merge(job, 1, Integer::sum);
+			}
 		}
 	}
 

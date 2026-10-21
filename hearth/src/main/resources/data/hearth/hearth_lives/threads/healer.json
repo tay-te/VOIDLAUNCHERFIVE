@@ -1,0 +1,96 @@
+{
+	"start": "short",
+	"beats": {
+		"short": {
+			"next": [
+				{
+					"to": "fever",
+					"after": 6
+				}
+			],
+			"choices": [
+				{
+					"id": "bring",
+					"to": "gathering",
+					"quest": "hearth:lives/herbs",
+					"fallback": {
+						"cost": 25,
+						"to": "stocked"
+					}
+				}
+			]
+		},
+		"gathering": {
+			"next": [
+				{
+					"to": "stocked",
+					"flag": "quest:hearth:lives/herbs"
+				},
+				{
+					"to": "fever",
+					"after": 12
+				}
+			]
+		},
+		"stocked": {
+			"next": [
+				{
+					"to": "saved",
+					"after": 4
+				}
+			],
+			"effects": [
+				{
+					"type": "memory",
+					"weight": 10
+				}
+			]
+		},
+		"fever": {
+			"next": [
+				{
+					"to": "lost_one",
+					"after": 5
+				}
+			],
+			"choices": [
+				{
+					"id": "buy",
+					"to": "saved",
+					"cost": 40,
+					"effects": [
+						{
+							"type": "deed",
+							"kind": "lives:fever_help",
+							"weight": 8
+						}
+					]
+				}
+			],
+			"effects": [
+				{
+					"type": "news",
+					"kind": "fever"
+				}
+			]
+		},
+		"saved": {
+			"effects": [
+				{
+					"type": "news",
+					"kind": "fever_beaten"
+				}
+			],
+			"end": true
+		},
+		"lost_one": {
+			"effects": [
+				{
+					"type": "mourn",
+					"days": 7
+				}
+			],
+			"end": true
+		}
+	}
+}

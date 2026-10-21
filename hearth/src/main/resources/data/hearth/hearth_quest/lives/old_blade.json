@@ -1,0 +1,36 @@
+{
+	"type": "personal",
+	"weight": 0,
+	"objectives": [
+		{
+			"kind": "deliver",
+			"item": "minecraft:iron_sword",
+			"count": 1
+		}
+	],
+	"text": {
+		"title": [
+			"A blade for the old soldier"
+		],
+		"summary": [
+			"{giver} of {settlement} lost a sword at the ford, forty years gone. Bring {item} to stand in for it."
+		],
+		"offer": [
+			"A plain blade, mind. Like the one I lost. Would you? I'd hang it over my door."
+		],
+		"progress": [
+			"A plain blade. Nothing fancy."
+		],
+		"complete": [
+			"Ah. The weight is right. The weight is right."
+		]
+	},
+	"reward": {
+		"coin": [
+			5,
+			15
+		],
+		"reputation": 3
+	},
+	"cooldown_days": 0
+}

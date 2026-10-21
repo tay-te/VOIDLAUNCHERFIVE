@@ -1,0 +1,42 @@
+{
+	"thread": "old_soldier",
+	"weight": 3,
+	"min_tier": "hamlet",
+	"who": {
+		"ages": [
+			"elder"
+		],
+		"traits": [
+			"brave",
+			"grumpy"
+		]
+	},
+	"partner": "none",
+	"schedule": [
+		{
+			"days": "all",
+			"from": "11:30",
+			"to": "13:30",
+			"activity": "leisure",
+			"leisure": "bench",
+			"beats": [
+				"war_story",
+				"banner",
+				"heard",
+				"seeking",
+				"fading"
+			]
+		},
+		{
+			"days": "all",
+			"from": "08:00",
+			"to": "09:30",
+			"activity": "leisure",
+			"leisure": "plaza",
+			"beats": [
+				"drills",
+				"blade_home"
+			]
+		}
+	]
+}

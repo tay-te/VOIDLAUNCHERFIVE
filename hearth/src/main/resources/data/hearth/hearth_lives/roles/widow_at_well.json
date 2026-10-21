@@ -1,0 +1,38 @@
+{
+	"thread": "widow_at_well",
+	"weight": 3,
+	"min_tier": "hamlet",
+	"who": {
+		"ages": [
+			"adult",
+			"elder"
+		],
+		"needs": "widowed"
+	},
+	"partner": "none",
+	"schedule": [
+		{
+			"days": "all",
+			"from": "07:00",
+			"to": "08:30",
+			"activity": "leisure",
+			"leisure": "plaza",
+			"beats": [
+				"mourning",
+				"alone",
+				"comforted"
+			]
+		},
+		{
+			"days": "rest",
+			"from": "09:00",
+			"to": "10:30",
+			"activity": "leisure",
+			"leisure": "pray",
+			"beats": [
+				"mourning",
+				"alone"
+			]
+		}
+	]
+}
