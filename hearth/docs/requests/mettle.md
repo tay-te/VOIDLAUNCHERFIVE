@@ -117,3 +117,12 @@ posted price or haggled), with the bits that changed hands.
 
 **Why.** Speech XP per crown of business, and Mettle's stats. `Standing.earn` already measures the same thing
 internally.
+
+## Queued (2026-10-21): Mettle requests 7-11 (mettle-cards.md) and 12-14 (mettle-speech-stealth.md), both on branch mettle-build-feel
+
+Agreed answer to 12-14 (sent to the Mettle session): `PlayerSkills.bonus(player, key)` additive default with the keys in
+that doc (Hearth applies and clamps; a perk is either in the effective level or a key, never both); a separate key
+`hearth:stealth/unseen_beyond` (blocks); `speech/retry` as a new rule; outcome via a new api event
+`StandingEvents.SPEECH_CHECK (player, settlement, kind, passed, difficulty)` and the same for law checks (award reasons
+unchanged); `PlayerSkills.title(player)` -> Component (beside request 10's `titles(player)`); `hearth:greet/hero` = 1 is
+a greeting flavour only, never a standing change. To build after the living-world batch B merges.
