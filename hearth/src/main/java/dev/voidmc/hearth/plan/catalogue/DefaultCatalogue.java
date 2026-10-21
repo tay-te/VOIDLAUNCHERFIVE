@@ -244,6 +244,8 @@ public final class DefaultCatalogue {
 		l.add(info(Archetypes.QUARRY_PIT, E, jobs(JobType.QUARRIER), 0, 15, 31, 15, 31, 8, 14, SettlementTier.HAMLET, cultures(), flags(OUTSKIRTS), List.of(), 0, 1.2));
 		l.add(info(Archetypes.MINE, E, jobs(JobType.MINER), 0, 7, 11, 16, 48, 6, 12, SettlementTier.HAMLET, cultures(), flags(HILLSIDE, OUTSKIRTS), List.of(), 0, 1.2));
 		l.add(info(Archetypes.SHAFT, E, jobs(JobType.MINER), 0, 7, 11, 7, 11, 10, 16, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(), 0, 1.0));
+		// the Great Mine reopened (LIVING_WORLD_2.md §6.2, lane A4): planned only on one of Expanse's great mines (GreatMinePlan)
+		l.add(info(dev.voidmc.hearth.sim.land.GreatMines.PITHEAD, E, jobs(JobType.MINER), 2, 25, 25, 25, 25, 18, 22, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(), 1, 1.0));
 		l.add(info(Archetypes.CLAY_PIT, E, jobs(JobType.CLAY_DIGGER), 0, 9, 17, 9, 17, 6, 9, SettlementTier.CAMP, cultures(), flags(OUTSKIRTS), List.of(), 0, 1.0));
 		l.add(info(Archetypes.SAND_PIT, E, jobs(JobType.CLAY_DIGGER), 0, 9, 17, 9, 17, 6, 9, SettlementTier.CAMP, cultures(), flags(OUTSKIRTS), List.of(), 0, 0.8));
 		l.add(info(Archetypes.PLANTATION, E, jobs(JobType.FORESTER), 0, 15, 31, 15, 31, 9, 16, SettlementTier.VILLAGE, cultures(), flags(OUTSKIRTS), List.of(), 0, 0.8));

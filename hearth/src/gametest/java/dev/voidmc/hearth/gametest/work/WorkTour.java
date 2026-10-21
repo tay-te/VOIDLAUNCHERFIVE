@@ -277,6 +277,8 @@ public class WorkTour implements FabricClientGameTest {
 				Poi poi = e.getValue().get(0);
 				return look(poi.pos(), poi.facing(), 4, 2.2);
 			}
+			log("stall: " + counters.size() + " plots with counters, " + s.pois(PoiType.COUNTER).size() + " counter and " + s.pois(PoiType.MARKET_STALL).size()
+				+ " stall points; shops " + s.data(dev.voidmc.hearth.economy.EconomyModule.SHOPS).shops.size());
 			return null;
 		});
 		if (view == null) {

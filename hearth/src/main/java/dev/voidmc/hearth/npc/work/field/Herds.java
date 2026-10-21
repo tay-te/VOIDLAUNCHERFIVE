@@ -423,9 +423,11 @@ public final class Herds {
 	// ---------------------------------------------------------------- going away
 
 	private static void discard(MinecraftServer server, Herd herd) {
+		// a copy: discarding a beast unloads it, and the unload listener (onRemoved) takes it out of herd.beasts
+		List<UUID> beasts = List.copyOf(herd.beasts);
 		for (ServerLevel level : server.getAllLevels()) {
 			closeGates(level, herd);
-			for (UUID id : herd.beasts) {
+			for (UUID id : beasts) {
 				Entity e = level.getEntity(id);
 				if (e != null) {
 					e.discard();
@@ -438,7 +440,7 @@ public final class Herds {
 				}
 			}
 		}
-		for (UUID id : herd.beasts) {
+		for (UUID id : beasts) {
 			BEAST.remove(id);
 		}
 		if (herd.dog != null) {
