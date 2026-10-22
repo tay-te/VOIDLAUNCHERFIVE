@@ -672,7 +672,10 @@ public class MotionStudio implements FabricClientGameTest {
 			return out + " (" + frames.size() + " frames)";
 		}
 
-		/** split <t> [cam]: first person (the local player) beside third person (a mannequin twin), the same clip and tick. */
+		/**
+		 * split <t> [cam]: first person (the local player) beside third person (a mannequin twin), the same clip and tick. First
+		 * person is derived from the third-person pose (FirstPersonFrame), so the two always agree.
+		 */
 		private String split(String[] a) throws Exception {
 			if (!this.isPlayer()) {
 				throw new IllegalStateException("split needs subject player (first person) and makes a mannequin twin for the third person");
@@ -702,8 +705,8 @@ public class MotionStudio implements FabricClientGameTest {
 			BufferedImage tp = Images.read(this.shot("split_tp_" + this.clipName() + "_t" + (int) t));
 			this.kind = savedKind;
 			this.st.playerCam(CameraType.FIRST_PERSON);
-			List<BufferedImage> pair = List.of(Images.label(Images.scale(fp, 800), "first person t" + (int) t), Images.label(Images.scale(tp, 800),
-				"third person t" + (int) t + " " + this.phaseAt(t)));
+			List<BufferedImage> pair = List.of(Images.label(Images.scale(fp, 800), "first person t" + (int) t + " (derived from the third-person pose)"), Images.label(Images.scale(tp, 800),
+				"third person t" + (int) t + " " + this.phaseAt(t) + " (the one source)"));
 			Path out = OUT.resolve("split/" + this.clipName() + "_t" + (int) t + ".jpg");
 			Images.writeJpg(Images.grid(pair, 2, 800), out);
 			return out.toString();

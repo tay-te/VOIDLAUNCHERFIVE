@@ -169,7 +169,8 @@ Incoming: 2.2° × weight, × 0.55-1.45 by the damage as a share of max health; 
 `Camera.alignWithEntity`, before the frustum and matrices: the camera turns, the player's look and aim don't.
 
 Options (`config/fray-combat-client.json`): `cameraShake` (on/off), `shakeIntensity` 0-1 (shown as 0-100 %, default
-0.6). Minecraft has no reduce-motion toggle; Fray follows the accessibility slider closest to it, **Damage Tilt**: the
+0.45 since 2026-10-22), `cameraMotion` 0-1 (default 0.4: the clips' own first-person camera kicks and dips, also off with
+`cameraShake` and scaled by Damage Tilt). Minecraft has no reduce-motion toggle; Fray follows the accessibility slider closest to it, **Damage Tilt**: the
 shake is multiplied by it, so Damage Tilt 0 means no shake. Game test: at intensity 0 a heavy on the player adds no
 impulse and the camera stays exactly on the look (0.0000°); at 100 % it moves off the look (0.6-1.4° in the samples
 taken once a tick) and settles within half a second.

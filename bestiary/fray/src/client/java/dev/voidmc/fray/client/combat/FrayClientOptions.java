@@ -38,7 +38,12 @@ public final class FrayClientOptions {
 	public boolean hitStop = true;
 	/** Camera shake on hits (off switch), and its intensity 0..1 (shown as 0-100 %); vanilla's Damage Tilt scales it too. */
 	public boolean cameraShake = true;
-	public float shakeIntensity = 0.6F;
+	public float shakeIntensity = 0.45F;
+	/**
+	 * The clips' own first-person camera motion (swing kicks, a dodge's dip), 0..1; gated like the shake (off with
+	 * {@link #cameraShake}, scaled by Damage Tilt).
+	 */
+	public float cameraMotion = 0.4F;
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static FrayClientOptions instance;

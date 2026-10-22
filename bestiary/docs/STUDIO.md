@@ -28,7 +28,7 @@ Commands chain with `;`. Every command answers with what it did (file paths for 
 | `strip [t1,t2,...] [cam=..]` | labelled frozen frames in a grid with tick, phase, windows and tell (`build/studio/strips`) |
 | `gif [cam=..] [from=..] [to=..] [step=..] [width=..] [name=..]` | one frozen frame per step, real-time GIF (`build/studio/gif`; the PNG frames stay in `shots/gif_<name>_<tick>.png`) |
 | `onion <t1,t2,...>` / `onion off` | translucent ghosts of the subject at other ticks (vanilla's friendly-invisible look, so it works with shader packs) |
-| `split <tick> [cam]` | first person (you) beside third person (a mannequin twin), the same clip and tick (`build/studio/split`) |
+| `split <tick> [cam]` | first person (you) beside third person (a mannequin twin), the same clip and tick (`build/studio/split`). First person is derived from the third-person pose (one source), so the two always agree |
 | `overlay on\|off` | hit volumes (red while ACTIVE), hurt volumes (yellow), and the clip, tick, phase and tell above the subject (Gizmos; the text is skipped under shader packs, which draw it as a haze) |
 | `travel on\|off` | shows root motion: the subject is moved along the clip's travel (dodges); the local player is teleported |
 | `walk <speed>` / `walk 0` | drives the subject's walk cycle (vanilla legs swing, the walk loop plays synced); `gif` then films a cycle |
@@ -48,6 +48,17 @@ Commands chain with `;`. Every command answers with what it did (file paths for 
 The bake's checks run on every reload and in the build: `ground` (the lowest point of the body: `"ground": "plant"`
 re-keys the root so feet never sink or float, `"floor"` only lifts what sinks) and `fp_framing` (how much of the screen
 the first-person arms cover, limit 45 %). `report` shows them for the current clip.
+
+## First person
+
+First person has no curves of its own: `FirstPersonFrame` solves the clip's third-person pose (root, torso, arms, item
+bones) and draws each arm and the held item from the posed eye, looking along the player's view. A clip's `fp` block keeps
+only `framing`, a constant `offset` / `pitch` nudge (sword clips use `[0, -0.2, -0.8]`, pitch 10; the plunge 20) and the
+`camera` channels; first-person `bones` curves still parse but are ignored. To change what first person shows, change the
+third-person clip (the wrist roll on `item_r` turns the blade's flat to the camera). The left arm joins when it rises
+(or `"arms": "both"`). Camera channels are scaled by the client's `cameraMotion` (40 %) and Damage Tilt, and are off
+with camera shake. While iterating, `bash tools/studio.sh start -Dfray.bake.lenient=true` keeps failing bake checks
+(the first-person framing check) from stopping the studio; they are reported in `report`.
 
 ## Review sets
 

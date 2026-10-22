@@ -670,7 +670,7 @@ public class CombatShowcase implements FabricClientGameTest {
 		boolean settled = st.c.computeOnClient(mc -> !dev.voidmc.fray.client.combat.feel.CameraShake.active() || Math.abs(dev.voidmc.fray.client.combat.feel.CameraShake.lastYaw) < 1e-3);
 		Stage.expect(settled, "the shake has decayed half a second later");
 		st.c.runOnClient(mc -> {
-			opt.shakeIntensity = 0.6F;
+			opt.shakeIntensity = 0.45F;
 			opt.cameraShake = true;
 		});
 
@@ -778,51 +778,65 @@ public class CombatShowcase implements FabricClientGameTest {
 	 */
 	private static void fpGif(Stage st) {
 		Stage.log("--- fpgif");
+		// The new defaults: shake 45 %, the clips' own camera motion 40 %.
 		st.c.runOnClient(mc -> {
 			dev.voidmc.fray.client.combat.feel.FeelClock.source = () -> mc.level == null ? System.nanoTime() : mc.level.getGameTime() * 50_000_000L;
-			FrayClientOptions.get().shakeIntensity = 1F;
+			FrayClientOptions.get().shakeIntensity = 0.45F;
+			FrayClientOptions.get().cameraMotion = 0.4F;
+			FrayClientOptions.get().cameraShake = true;
 		});
 		st.clearCreatures();
 		ready(st, false);
 		st.playerCam(CameraType.FIRST_PERSON);
 		st.c.waitTicks(20);
-		film(st, "fp_light_1", 18, i -> {
+		java.util.function.IntConsumer tap = i -> {
 			if (i == 0) {
 				st.c.getInput().holdKey(o -> o.keyAttack);
 			} else if (i == 1) {
 				st.c.getInput().releaseKey(o -> o.keyAttack);
 			}
-		});
-		st.c.waitTicks(20);
-		ready(st, false);
-		film(st, "fp_heavy", 42, i -> {
+		};
+		java.util.function.IntConsumer heavy = i -> {
 			if (i == 0) {
 				st.c.getInput().holdKey(o -> o.keyAttack);
 			} else if (i == 8) {
 				st.c.getInput().releaseKey(o -> o.keyAttack);
 			}
+		};
+		film(st, "light_1", 18, 0, tap);
+		ready(st, false);
+		film(st, "heavy", 40, 0, heavy);
+		ready(st, false);
+		film(st, "charge_release", 54, 0, i -> {
+			if (i == 0) {
+				st.c.getInput().holdKey(o -> o.keyAttack);
+			} else if (i == 26) {
+				st.c.getInput().releaseKey(o -> o.keyAttack);
+			}
 		});
-		st.c.waitTicks(20);
+		ready(st, false);
+		film(st, "parry", 22, 0, i -> {
+			if (i == 0) {
+				st.c.getInput().holdKey(o -> o.keyUse);
+			} else if (i == 3) {
+				st.c.getInput().releaseKey(o -> o.keyUse);
+			}
+		});
 		ready(st, false);
 		int z = zombie(st, 0.5, -2.0, 2000);
 		st.c.waitTicks(20);
 		int started = st.c.computeOnClient(mc -> dev.voidmc.fray.client.combat.feel.HitStop.started);
-		film(st, "fp_heavy_zombie", 46, i -> {
-			if (i == 0) {
-				st.c.getInput().holdKey(o -> o.keyAttack);
-			} else if (i == 8) {
-				st.c.getInput().releaseKey(o -> o.keyAttack);
-			}
-		});
+		// From behind: the zombie stands in front of the player.
+		film(st, "heavy_zombie", 44, CameraType.THIRD_PERSON_BACK, heavy);
 		int started2 = st.c.computeOnClient(mc -> dev.voidmc.fray.client.combat.feel.HitStop.started);
 		Stage.log("fpgif: heavy on the zombie, freezes started " + (started2 - started) + ", zombie health " + health(st, z) + ", action " + lastAction(st));
 		Stage.expect(started2 > started, "the filmed heavy lands with hit-stop");
 		st.clearCreatures();
-		st.c.waitTicks(20);
+		st.c.waitTicks(10);
 		ready(st, false);
 		st.s.runCommand("tp @p 0.5 " + Y + " 4.5 180 0");
 		st.c.waitTicks(10);
-		film(st, "fp_dodge_forward", 18, i -> {
+		film(st, "dodge_forward", 18, 3.5, i -> {
 			if (i == 0) {
 				st.c.getInput().holdKey(o -> o.keyUp);
 				st.c.getInput().pressKey(CombatKeys.dodge);
@@ -831,25 +845,44 @@ public class CombatShowcase implements FabricClientGameTest {
 			}
 		});
 		Stage.log("fpgif: dodge " + lastAction(st));
-		st.c.runOnClient(mc -> {
-			dev.voidmc.fray.client.combat.feel.FeelClock.source = System::nanoTime;
-			FrayClientOptions.get().shakeIntensity = 0.6F;
-		});
+		st.playerCam(CameraType.FIRST_PERSON);
+		st.c.runOnClient(mc -> dev.voidmc.fray.client.combat.feel.FeelClock.source = System::nanoTime);
 	}
 
-	/** Films one game tick a frame: the game is frozen and stepped a tick at a time (a screenshot is slower than a tick). */
-	private static void film(Stage st, String name, int frames, java.util.function.IntConsumer before) {
+	/**
+	 * Films one game tick a frame, first person and third person of the same tick (screenshots/gif_fp_<name>_<nn>.png and
+	 * gif_tp_<name>_<nn>.png): the game is frozen and stepped a tick at a time; the third person is F5
+	 * from the front (vanilla draws the local player only with its own detached camera): mirrored, facing you.
+	 */
+	private static void film(Stage st, String name, int frames, double travel, java.util.function.IntConsumer before) {
+		film(st, name, frames, CameraType.THIRD_PERSON_FRONT, before);
+	}
+
+	private static void film(Stage st, String name, int frames, CameraType third, java.util.function.IntConsumer before) {
+		st.playerCam(CameraType.FIRST_PERSON);
+		st.c.waitTicks(10);
 		st.s.runCommand("tick freeze");
 		st.c.waitTicks(2);
 		for (int i = 0; i < frames; i++) {
 			before.accept(i);
 			st.s.runCommand("tick step 1");
 			st.c.waitTicks(2);
-			st.c.takeScreenshot(net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions.of(String.format(Locale.ROOT, "gif_%s_%02d", name, i))
+			st.c.takeScreenshot(net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions.of(String.format(Locale.ROOT, "gif_fp_%s_%02d", name, i))
 				.disableCounterPrefix());
+			st.c.runOnClient(mc -> {
+				mc.options.setCameraType(third);
+				mc.gui.hud.toggle();
+			});
+			st.c.waitTicks(1);
+			st.c.takeScreenshot(net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions.of(String.format(Locale.ROOT, "gif_tp_%s_%02d", name, i))
+				.disableCounterPrefix());
+			st.c.runOnClient(mc -> {
+				mc.options.setCameraType(CameraType.FIRST_PERSON);
+				mc.gui.hud.toggle();
+			});
 		}
 		st.s.runCommand("tick unfreeze");
-		st.c.waitTicks(2);
+		st.c.waitTicks(20);
 	}
 
 	private static void feelPerf(Stage st) {
@@ -888,7 +921,7 @@ public class CombatShowcase implements FabricClientGameTest {
 		Stage.log(String.format(Locale.ROOT, "perf feel: hit-stop %.2f us a frame, camera shake %.2f us a frame over %.0f frames (20 creatures in view, a heavy every other tick, up to %d frozen, %.1f frozen draws a frame)",
 			r[0], r[1], r[3], maxActive, r[2]));
 		Stage.expect(r[0] + r[1] < 20, "hit-stop and shake cost under 0.02 ms a frame");
-		st.c.runOnClient(mc -> FrayClientOptions.get().shakeIntensity = 0.6F);
+		st.c.runOnClient(mc -> FrayClientOptions.get().shakeIntensity = 0.45F);
 		st.clearCreatures();
 	}
 

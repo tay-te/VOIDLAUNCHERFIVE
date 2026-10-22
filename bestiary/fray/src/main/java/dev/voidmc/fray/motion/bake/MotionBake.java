@@ -53,7 +53,8 @@ public final class MotionBake {
 		for (String l : r.lines()) {
 			System.out.println(l);
 		}
-		if (!r.failures().isEmpty()) {
+		// -Dfray.bake.lenient=true (the studio while iterating): failed checks are reported, not fatal.
+		if (!r.failures().isEmpty() && !Boolean.getBoolean("fray.bake.lenient")) {
 			throw new IllegalStateException("motionBake: " + r.failures().size() + " check(s) failed:\n  " + String.join("\n  ", r.failures()));
 		}
 	}

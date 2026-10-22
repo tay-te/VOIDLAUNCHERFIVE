@@ -17,9 +17,9 @@
     "left_leg":  { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.05, [-4, 0, -2], "catmullrom"], [0.15, [10, 0, -4], "catmullrom"], [0.25, [6, 0, -4], "catmullrom"], [0.31, [14, 0, -2], "catmullrom"], [0.40, [0, 0, 0], "catmullrom"]] },
     "item_r":    { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.12, [-20, 0, 0], "catmullrom"], [0.30, [-20, 0, 0], "catmullrom"], [0.40, [0, 0, 0], "catmullrom"]] }
   },
-  "fp": { "framing": "fray:default",
-          "camera": { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.06, [2, 0, 0], "catmullrom"], [0.18, [-3, 0, 0], "catmullrom"], [0.32, [2, 0, 0], "catmullrom"], [0.40, [0, 0, 0], "catmullrom"]],
-                      "position": [[0.00, [0, 0, 0], "catmullrom"], [0.06, [0, -0.1, 0], "catmullrom"], [0.18, [0, 0.06, 0], "catmullrom"], [0.31, [0, -0.14, 0], "catmullrom"], [0.40, [0, 0, 0], "catmullrom"]] } },
+  "fp": { "framing": "fray:default", 
+          "camera": { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.06, [1.4, 0, 0], "catmullrom"], [0.18, [-2.1, 0, 0], "catmullrom"], [0.32, [1.4, 0, 0], "catmullrom"], [0.40, [0, 0, 0], "catmullrom"]],
+                      "position": [[0.00, [0, 0, 0], "catmullrom"], [0.06, [0, -0.07, 0], "catmullrom"], [0.18, [0, 0.042, 0], "catmullrom"], [0.31, [0, -0.098, 0], "catmullrom"], [0.40, [0, 0, 0], "catmullrom"]] } },
   "motion": [0.04, 0.32, 2.0, 180],
   "cues": [[0.03, "sound", "minecraft:entity.player.attack.nodamage"]],
   "windows": { "iframes": [1, 4], "perfect": [1, 2], "recovery": [5, 7] },

@@ -70,8 +70,8 @@ count rewinds, clamps and saves.
 ## Known issues and next steps
 
 1. Fixed on `bestiary-stage1`: first person crossfades the held item from vanilla's placement into the clip (and back
-   out) over the clip's blend in/out; the arm fades in. The first-person sword clips were reworked (blade flat to the
-   camera, strikes through the centre).
+   out) over the clip's blend in/out; the arm fades in. First person is now derived from the third-person pose (STUDIO.md
+   "First person"), so the two can't disagree.
 2. Player hit volumes ride the arm, not `item_r` (the combat lane sweeps arcs for players, so this only affects
    creature clips that use item bones; none do yet).
 3. `zombie/double_claw` sweeps both claws in both strikes (hit-once per strike); per-strike volume lists would be tidier.

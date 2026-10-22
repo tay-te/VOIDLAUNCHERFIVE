@@ -96,6 +96,7 @@ tasks.register('motionBake', JavaExec) {
 		project.delete(motionOut)
 	}
 	args motionSrc.absolutePath, motionOut.get().asFile.absolutePath, motionReport.get().asFile.absolutePath, rigSrc.absolutePath
+	systemProperty 'fray.bake.lenient', System.getProperty('fray.bake.lenient', 'false')
 }
 
 tasks.register('bbImport', JavaExec) {

@@ -80,11 +80,7 @@ public final class Checks {
 
 	/** Fray draws its own first-person arms only for clips with first-person bone curves or a framing (else vanilla's hands). */
 	public static boolean drawsArms(Clip.FirstPerson fp) {
-		boolean any = false;
-		for (int b = 0; b < HumanoidRig.BONES; b++) {
-			any |= fp.rotation() != null && fp.rotation()[b] != null || fp.position() != null && fp.position()[b] != null;
-		}
-		return any || !"fray:default".equals(fp.framing());
+		return !fp.hideArms() && !"fray:default".equals(fp.framing());
 	}
 
 	/** {coverage 0..1, 1 if an arm crosses the near plane} at one moment. */
@@ -92,40 +88,18 @@ public final class Checks {
 		PoseBuffer buf = new PoseBuffer(Rig.HUMANOID);
 		float lt = clip.localTime(t);
 		ClipSampler.accumulate(clip, lt, 1, buf, new float[3]);
-		float[] s = new float[3];
 		Clip.FirstPerson fp = clip.fp;
-		for (int b = 0; b < HumanoidRig.BONES; b++) {
-			int o = b * PoseBuffer.STRIDE;
-			Channel r = fp.rotation() == null ? null : fp.rotation()[b];
-			if (r != null) {
-				r.sample(lt, s, 0);
-				buf.v[o] = (float) Math.toRadians(s[0]);
-				buf.v[o + 1] = (float) Math.toRadians(s[1]);
-				buf.v[o + 2] = (float) Math.toRadians(s[2]);
-				buf.v[o + PoseBuffer.W_ROT] = 1;
-			}
-			Channel p = fp.position() == null ? null : fp.position()[b];
-			if (p != null) {
-				p.sample(lt, s, 0);
-				buf.v[o + 3] = s[0];
-				buf.v[o + 4] = -s[1];
-				buf.v[o + 5] = s[2];
-				buf.v[o + PoseBuffer.W_POS] = 1;
-			}
-		}
-		FirstPersonFrame.torso(buf, fp);
+		// First person is the third-person pose seen from the eye (FirstPersonFrame): no curves of its own.
 		PartPose[] rest = HumanoidRig.restPose();
 		PartPose[] parts = HumanoidRig.restPose();
-		new HumanoidSolver().solve(parts, rest, buf);
-		// FirstPersonBody: translate(offset), rotX(pitch), scale(-s,-s,s), translate(0, -eyeModelY, 0), then the part.
-		float sc = HumanoidRig.PLAYER_SCALE;
-		float eyeModelY = HumanoidRig.MODEL_Y_OFFSET - EYE_HEIGHT / sc;
-		Matrix4f view = new Matrix4f().translate(fp.offset()[0], fp.offset()[1], fp.offset()[2]).rotateX((float) Math.toRadians(fp.pitch()))
-			.scale(-sc, -sc, sc).translate(0, -eyeModelY, 0);
+		HumanoidSolver solver = new HumanoidSolver();
+		solver.solve(parts, rest, buf);
+		Matrix4f view = FirstPersonFrame.cameraFromModel(parts, buf, fp, solver, new Matrix4f());
 		float tanY = (float) Math.tan(Math.toRadians(35)), tanX = tanY * 16 / 9F;
 		float area = 0;
 		boolean through = false;
-		for (int arm : fp.bothArms() ? new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.LEFT_ARM} : new int[] {HumanoidRig.RIGHT_ARM}) {
+		boolean left = FirstPersonFrame.leftArm(parts, fp) > 0.5F;
+		for (int arm : left ? new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.LEFT_ARM} : new int[] {HumanoidRig.RIGHT_ARM}) {
 			if (fp.hideArms()) {
 				continue;
 			}

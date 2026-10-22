@@ -18,9 +18,7 @@
     "left_leg":  { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.12, [-14, 0, -6], "catmullrom"], [0.20, [-14, 0, -6], "catmullrom"]] },
     "item_r":    { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.12, [-10, 0, 80], "catmullrom"], [0.20, [-10, 0, 78], "catmullrom"]] }
   },
-  "fp": { "framing": "bestiary:sword_1h", "offset": [0.02, -0.3, -0.5], "pitch": 0,
-          "bones": { "right_arm": { "rotation": [[0.00, [-14, 0, 4], "catmullrom"], [0.12, [-66, -34, -4], "catmullrom"], [0.20, [-64, -32, -4], "catmullrom"]] },
-                     "left_arm": { "rotation": [[0.00, [0, 0, -4], "catmullrom"], [0.12, [-40, 16, 6], "catmullrom"], [0.20, [-40, 16, 6], "catmullrom"]] } } },
+  "fp": { "framing": "bestiary:sword_1h", "offset": [0, -0.2, -0.8], "pitch": 10 },
   "windows": { "block": [3, 3] },
   "checks": ["ground", "fp_framing"]
 }

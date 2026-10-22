@@ -3,7 +3,6 @@ package dev.voidmc.fray.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import dev.voidmc.fray.client.compat.IrisCompat;
-import dev.voidmc.fray.motion.Channel;
 import dev.voidmc.fray.motion.Clip;
 import dev.voidmc.fray.motion.HumanoidRig;
 import dev.voidmc.fray.motion.HumanoidSolver;
@@ -24,6 +23,7 @@ import net.minecraft.client.renderer.state.level.PlayerRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.entity.HumanoidArm;
 import dev.voidmc.fray.client.mixin.ItemLayerAccess;
+import dev.voidmc.fray.motion.bake.FirstPersonFrame;
 import dev.voidmc.fray.client.mixin.ItemStackRenderStateAccess;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -40,10 +40,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class FirstPersonBody {
 	private static final HumanoidSolver SOLVER = new HumanoidSolver();
-	private static final PoseBuffer FP_BUF = new PoseBuffer();
 	private static final float[] SCRATCH = new float[3];
-	/** Standing eye height (blocks) over the player's model scale: where the camera sits in model space. */
-	private static final float EYE_HEIGHT = 1.62F;
 
 	private FirstPersonBody() {
 	}
@@ -96,41 +93,16 @@ public final class FirstPersonBody {
 		PlayerModel model = renderer.getModel();
 		PartPose[] rest = HumanoidRig.restPose();
 		PartPose[] parts = HumanoidRig.restPose();
-		// The clip's first-person curves replace its third-person ones for the bones they name.
-		FP_BUF.copyFrom(buf);
-		float t = clip.localTime((float) (animator.actionElapsed(now) / 20.0));
-		float tp = fromClip ? prev.localTime((float) (animator.previousElapsed(now) / 20.0)) : 0;
-		for (int b = 0; b < HumanoidRig.BONES; b++) {
-			int o = b * PoseBuffer.STRIDE;
-			Channel r = fp.rotation() == null ? null : fp.rotation()[b];
-			Channel rp = fromClip && prev.fp.rotation() != null ? prev.fp.rotation()[b] : null;
-			if (r != null || rp != null) {
-				for (int i = 0; i < 3; i++) {
-					SCRATCH2[i] = (float) Math.toDegrees(FP_BUF.v[o + i]);
-					SCRATCH[i] = SCRATCH2[i];
-				}
-				if (r != null) {
-					r.sample(t, SCRATCH, 0);
-				}
-				if (rp != null) {
-					rp.sample(tp, SCRATCH2, 0);
-				}
-				for (int i = 0; i < 3; i++) {
-					FP_BUF.v[o + i] = (float) Math.toRadians(fromClip ? SCRATCH2[i] + (SCRATCH[i] - SCRATCH2[i]) * a : SCRATCH[i]);
-				}
-			}
-			Channel p = fp.position() == null ? null : fp.position()[b];
-			if (p != null) {
-				p.sample(t, SCRATCH, 0);
-				FP_BUF.v[o + 3] = SCRATCH[0];
-				FP_BUF.v[o + 4] = -SCRATCH[1];
-				FP_BUF.v[o + 5] = SCRATCH[2];
-				FP_BUF.v[o + PoseBuffer.W_POS] = Math.max(FP_BUF.v[o + PoseBuffer.W_POS], FP_BUF.v[o + PoseBuffer.W_ROT]);
-			}
+		// First person IS the third-person pose (FirstPersonFrame): the same solved arms and item bones, seen from the posed
+		// eye along the view. Only the clip's constant fp framing (offset, pitch) nudges it; it blends between string cuts.
+		SOLVER.solve(parts, rest, buf);
+		Clip.FirstPerson framing = fp;
+		if (fromClip && a < 1) {
+			float[] po = prev.fp.offset(), o = fp.offset();
+			framing = new Clip.FirstPerson(fp.framing(), new float[] {po[0] + (o[0] - po[0]) * a, po[1] + (o[1] - po[1]) * a, po[2] + (o[2] - po[2]) * a},
+				prev.fp.pitch() + (fp.pitch() - prev.fp.pitch()) * a, null, null, null, null, false, fp.bothArms());
 		}
-		// First person has no vanilla pose underneath: the clip over the rest pose; the torso only by the fp block's own curve.
-		dev.voidmc.fray.motion.bake.FirstPersonFrame.torso(FP_BUF, fp);
-		SOLVER.solve(parts, rest, FP_BUF);
+		FirstPersonFrame.cameraFromModel(parts, buf, framing, SOLVER, CAMERA);
 
 		// Vanilla's held item, as FirstPersonHandsAndItemsRenderer would place it this frame (sway and equip included).
 		boolean right = avatar.mainArm == HumanoidArm.RIGHT;
@@ -144,20 +116,7 @@ public final class FirstPersonBody {
 		}
 
 		poseStack.pushPose();
-		float[] off = fp.offset();
-		float pitch = fp.pitch();
-		if (fromClip) {
-			float[] po = prev.fp.offset();
-			off = new float[] {po[0] + (off[0] - po[0]) * a, po[1] + (off[1] - po[1]) * a, po[2] + (off[2] - po[2]) * a};
-			pitch = prev.fp.pitch() + (pitch - prev.fp.pitch()) * a;
-		}
-		poseStack.translate(off[0], off[1], off[2]);
-		poseStack.rotateDegrees(Axis.XP, pitch);
-		float s = HumanoidRig.PLAYER_SCALE;
-		poseStack.scale(-s, -s, s);
-		// Model space with the eye at the origin: the eye is EYE_HEIGHT / s above the feet, the model origin 1.501 above.
-		float eyeModelY = HumanoidRig.MODEL_Y_OFFSET - EYE_HEIGHT / s;
-		poseStack.translate(0, -eyeModelY, 0);
+		poseStack.mulPose(CAMERA);
 
 		RenderType skin = RenderTypes.entityTranslucent(avatar.skin.body().texturePath());
 		model.rightSleeve.visible = avatar.showRightSleeve;
@@ -167,13 +126,15 @@ public final class FirstPersonBody {
 		int color = weight >= 0.998F ? -1 : ((int) (weight * 255) << 24) | 0xFFFFFF;
 		submitArm(poseStack, collector, model.rightArm, parts[HumanoidRig.RIGHT_ARM], skin, light, color);
 		if (blendItem) {
-			submitBlendedItem(poseStack, collector, parts[HumanoidRig.RIGHT_ARM], avatar.rightHandItemState, state.mainHandRenderState, light, weight);
+			submitBlendedItem(poseStack, collector, parts[HumanoidRig.RIGHT_ARM], avatar.rightHandItemState, state.mainHandRenderState, light, weight, buf);
 		} else {
-			submitItem(poseStack, collector, parts[HumanoidRig.RIGHT_ARM], avatar.rightHandItemState, false, light, FP_BUF);
+			submitItem(poseStack, collector, parts[HumanoidRig.RIGHT_ARM], avatar.rightHandItemState, false, light, buf);
 		}
-		if (fp.bothArms()) {
-			submitArm(poseStack, collector, model.leftArm, parts[HumanoidRig.LEFT_ARM], skin, light, color);
-			submitItem(poseStack, collector, parts[HumanoidRig.LEFT_ARM], avatar.leftHandItemState, true, light, FP_BUF);
+		float left = FirstPersonFrame.leftArm(parts, fp) * weight;
+		if (left > 0.002F) {
+			int lc = left >= 0.998F ? -1 : ((int) (left * 255) << 24) | 0xFFFFFF;
+			submitArm(poseStack, collector, model.leftArm, parts[HumanoidRig.LEFT_ARM], skin, light, lc);
+			submitItem(poseStack, collector, parts[HumanoidRig.LEFT_ARM], avatar.leftHandItemState, true, light, buf);
 		}
 		poseStack.popPose();
 		return true;
@@ -181,20 +142,11 @@ public final class FirstPersonBody {
 
 	/** A clip whose first person draws Fray's arms (not a camera-only clip such as a dodge, nor one hiding the arms). */
 	private static boolean drawsArms(Clip clip) {
-		Clip.FirstPerson fp = clip.fp;
-		if (fp == null || fp.hideArms()) {
-			return false;
-		}
-		for (int b = 0; b < HumanoidRig.BONES; b++) {
-			if (fp.rotation() != null && fp.rotation()[b] != null || fp.position() != null && fp.position()[b] != null) {
-				return true;
-			}
-		}
-		return !"fray:default".equals(fp.framing());
+		return clip.fp != null && dev.voidmc.fray.motion.bake.Checks.drawsArms(clip.fp);
 	}
 
 	private static final Matrix4f VANILLA = new Matrix4f();
-	private static final float[] SCRATCH2 = new float[3];
+	private static final Matrix4f CAMERA = new Matrix4f();
 
 	/**
 	 * The held item between vanilla's first-person placement and the clip's hand, by {@code w} (0 vanilla, 1 the clip):
@@ -202,15 +154,15 @@ public final class FirstPersonBody {
 	 * the first-person item drawn there.
 	 */
 	private static void submitBlendedItem(PoseStack poseStack, SubmitNodeCollector collector, PartPose arm, ItemStackRenderState thirdPerson,
-		ItemStackRenderState firstPerson, int light, float w) {
+		ItemStackRenderState firstPerson, int light, float w, PoseBuffer pose) {
 		Matrix4f tf = layerTransform(thirdPerson);
 		Matrix4f tv = layerTransform(firstPerson);
 		if (tf == null || tv == null) {
-			submitItem(poseStack, collector, arm, thirdPerson, false, light, FP_BUF);
+			submitItem(poseStack, collector, arm, thirdPerson, false, light, pose);
 			return;
 		}
 		poseStack.pushPose();
-		itemChain(poseStack, arm, false, FP_BUF);
+		itemChain(poseStack, arm, false, pose);
 		Matrix4f ff = new Matrix4f(poseStack.last().pose()).mul(tf);
 		poseStack.popPose();
 		Matrix4f fv = new Matrix4f(VANILLA).mul(tv);
@@ -263,16 +215,21 @@ public final class FirstPersonBody {
 		if (Double.isNaN(e) || e < 0 || e > clip.length * 20) {
 			return;
 		}
+		// Gated and scaled like the camera shake: the cameraMotion option (default 40 %) × Damage Tilt, off with the shake.
+		float k = dev.voidmc.fray.client.combat.feel.CameraShake.motionScale();
+		if (k <= 0) {
+			return;
+		}
 		float t = clip.localTime((float) (e / 20.0));
 		if (clip.fp.cameraPos() != null) {
 			clip.fp.cameraPos().sample(t, SCRATCH, 0);
-			view.translate(-SCRATCH[0], -SCRATCH[1], -SCRATCH[2]);
+			view.translate(-SCRATCH[0] * k, -SCRATCH[1] * k, -SCRATCH[2] * k);
 		}
 		if (clip.fp.camera() != null) {
 			clip.fp.camera().sample(t, SCRATCH, 0);
-			view.rotateDegrees(Axis.ZP, SCRATCH[2]);
-			view.rotateDegrees(Axis.XP, SCRATCH[0]);
-			view.rotateDegrees(Axis.YP, SCRATCH[1]);
+			view.rotateDegrees(Axis.ZP, SCRATCH[2] * k);
+			view.rotateDegrees(Axis.XP, SCRATCH[0] * k);
+			view.rotateDegrees(Axis.YP, SCRATCH[1] * k);
 		}
 	}
 

@@ -38,6 +38,17 @@ public final class CameraShake {
 		return (float) (Math.max(0, Math.min(1, o.shakeIntensity)) * Math.max(0, Math.min(1, tilt)));
 	}
 
+	/** The scale of the clips' first-person camera motion: the cameraMotion option × Damage Tilt; 0 when shake is off. */
+	public static float motionScale() {
+		FrayClientOptions o = FrayClientOptions.get();
+		if (!o.cameraShake) {
+			return 0;
+		}
+		Minecraft mc = Minecraft.getInstance();
+		double tilt = mc.options == null ? 1 : mc.options.damageTiltStrength().get();
+		return (float) (Math.max(0, Math.min(1, o.cameraMotion)) * Math.max(0, Math.min(1, tilt)));
+	}
+
 	/** Adds an impulse of {@code degrees} peak (before the player's scale), {@code weight} 0..1, along (ux, uy). */
 	public static void add(float degrees, float weight, float ux, float uy) {
 		float amp = degrees * scale();
