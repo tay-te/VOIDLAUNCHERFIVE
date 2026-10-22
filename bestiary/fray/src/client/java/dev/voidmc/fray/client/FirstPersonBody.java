@@ -3,12 +3,6 @@ package dev.voidmc.fray.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import dev.voidmc.fray.client.compat.IrisCompat;
-import dev.voidmc.fray.client.mixin.ModelPartAccess;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
 import dev.voidmc.fray.motion.Clip;
 import dev.voidmc.fray.motion.FirstPersonRig;
 import dev.voidmc.fray.motion.PartPose;
@@ -30,12 +24,12 @@ import org.joml.Matrix4f;
 
 /**
  * First person (ANIMATION.md §7.4): while the local player runs an action whose clip has first-person rig curves, the
- * hand, forearm and held item are drawn by the {@link FirstPersonRig} <em>inside</em>
+ * hand, arm and held item are drawn by the {@link FirstPersonRig} <em>inside</em>
  * {@code FirstPersonHandsAndItemsRenderer.submitHandsWithItems} (verified in 26.3: {@code GameRenderer.renderItemInHand}
  * calls it with its own submit storage and a hand render pass; Iris's {@code HandRenderer} calls the same method for its
  * solid and translucent hand passes). The clip's own first-person curves move the hand from vanilla's held-item pose
  * (the item is vanilla's first-person item, drawn where vanilla draws it at rest), so a swing starts and ends on
- * vanilla's picture; the forearm enters from the bottom corner, never the upper arm or the shoulder.
+ * vanilla's picture; the arm is vanilla's first-person arm, running off the bottom right of the screen.
  */
 public final class FirstPersonBody {
 	private static final float[] SCRATCH = new float[3];
@@ -43,75 +37,45 @@ public final class FirstPersonBody {
 	private FirstPersonBody() {
 	}
 
-	/** A model whose root is a forearm-only copy of one arm ({@link #forearmOnly}), at the arm's origin. */
+	/** A model whose root is one arm, drawn straight (vanilla's own boxes, as vanilla's first-person hand draws it). */
 	private static final class ArmModel extends Model<PartPose> {
-		ArmModel(ModelPart root, RenderType type) {
-			super(root, t -> type);
+		ArmModel(ModelPart arm, RenderType type) {
+			super(arm, t -> type);
 		}
 
 		@Override
 		public void setupAnim(PartPose pose) {
 			PoseApply.write(pose, this.root());
+			Elbows.straighten(this.root());
 		}
 	}
 
-	private static final Map<ModelPart, ModelPart> FOREARM_ONLY = new IdentityHashMap<>();
+	/** A sleeve segment model (its own part, nothing to straighten). */
+	private static final class SegmentModel extends Model<PartPose> {
+		SegmentModel(ModelPart root, RenderType type) {
+			super(root, t -> type);
+		}
+	}
+
+	private static final java.util.Map<ModelPart, ModelPart> SLEEVES = new java.util.IdentityHashMap<>();
 
 	/**
-	 * The arm's forearm and its sleeve's (the elbow cut's lower halves, {@link Elbows}), in parts of their own (the
-	 * player model the third-person renderer poses is never touched), each closed at the elbow by a cuff: the arm's top
-	 * face moved down to the cut. The whole arm when elbows are off.
+	 * One length of sleeve for a raised first-person arm: the arm's upper half and its sleeve layer's (the elbow cut,
+	 * sharing their cubes), in a part of its own so the player model is never touched. Null without elbows.
 	 */
-	private static ModelPart forearmOnly(ModelPart arm) {
-		return FOREARM_ONLY.computeIfAbsent(arm, a -> {
-			List<ModelPart> fs = Elbows.forearms(a);
-			if (fs.isEmpty()) {
-				return a;
+	private static @org.jspecify.annotations.Nullable ModelPart sleeveSegment(ModelPart arm) {
+		return SLEEVES.computeIfAbsent(arm, a -> {
+			java.util.List<java.util.List<ModelPart.Cube>> uppers = Elbows.uppers(a);
+			if (uppers.isEmpty()) {
+				return null;
 			}
-			List<ModelPart> wholes = new ArrayList<>();
-			wholes.add(a);
-			wholes.addAll(((ModelPartAccess) (Object) a).fray$children().values());
-			Map<String, ModelPart> kids = new HashMap<>();
-			for (int i = 0; i < fs.size(); i++) {
-				ModelPart f = fs.get(i);
-				List<ModelPart.Cube> cubes = new ArrayList<>(((ModelPartAccess) (Object) f).fray$cubes());
-				ModelPart.Cube cap = cap(wholes, f);
-				if (cap != null) {
-					cubes.add(cap);
-				}
-				ModelPart c = new ModelPart(cubes, new HashMap<>());
-				c.setInitialPose(f.getInitialPose());
-				c.loadPose(f.getInitialPose());
-				kids.put(i == 0 ? "forearm" : "sleeve", c);
+			java.util.Map<String, ModelPart> kids = new java.util.HashMap<>();
+			kids.put("arm", new ModelPart(uppers.get(0), new java.util.HashMap<>()));
+			if (uppers.size() > 1) {
+				kids.put("sleeve", new ModelPart(uppers.get(1), new java.util.HashMap<>()));
 			}
-			return new ModelPart(List.of(), kids);
+			return new ModelPart(java.util.List.of(), kids);
 		});
-	}
-
-	/** The cuff closing a forearm at the elbow: the top face of the part it was cut from, at the cut, facing the elbow. */
-	private static ModelPart.@org.jspecify.annotations.Nullable Cube cap(List<ModelPart> wholes, ModelPart forearm) {
-		for (ModelPart w : wholes) {
-			if (!w.hasChild(Elbows.FOREARM) || w.getChild(Elbows.FOREARM) != forearm) {
-				continue;
-			}
-			net.minecraft.client.model.geom.PartPose pivot = forearm.getInitialPose();
-			for (ModelPart.Cube cube : ((ModelPartAccess) (Object) w).fray$cubes()) {
-				for (ModelPart.Polygon poly : cube.polygons) {
-					if (poly.normal().y() < -0.9F) {
-						ModelPart.Vertex[] v = poly.vertices();
-						ModelPart.Vertex[] out = new ModelPart.Vertex[v.length];
-						for (int k = 0; k < v.length; k++) {
-							out[k] = new ModelPart.Vertex(v[k].x() - pivot.x(), 0, v[k].z() - pivot.z(), v[k].u(), v[k].v());
-						}
-						ModelPart.Cube c = new ModelPart.Cube(0, 0, cube.minX - pivot.x(), 0, cube.minZ - pivot.z(), cube.maxX - cube.minX, 0, cube.maxZ - cube.minZ, 0, 0, 0,
-							false, 64, 64, java.util.EnumSet.of(net.minecraft.core.Direction.UP));
-						c.polygons[0] = new ModelPart.Polygon(out, poly.normal());
-						return c;
-					}
-				}
-			}
-		}
-		return null;
 	}
 
 	private static final FirstPersonRig.Pose POSE = new FirstPersonRig.Pose(), PREV = new FirstPersonRig.Pose(), MIX = new FirstPersonRig.Pose();
@@ -179,7 +143,7 @@ public final class FirstPersonBody {
 		model.rightSleeve.visible = avatar.showRightSleeve;
 		model.leftSleeve.visible = avatar.showLeftSleeve;
 		int light = avatar.lightCoords;
-		// The forearm fades in with the clip (vanilla shows no arm with an item in hand); the item stays solid.
+		// The arm fades in with the clip (vanilla shows no arm with an item in hand); the item stays solid.
 		float armAlpha = fromClip ? 1 : weight;
 		// The main hand is the rig's right hand (a left-handed player's main arm is the rig's left, mirrored).
 		hand(poseStack, collector, model, skin, light, POSE, !rightMain, state.mainHandRenderState, mainHeight, armAlpha);
@@ -196,18 +160,29 @@ public final class FirstPersonBody {
 		return true;
 	}
 
-	/** One hand of the rig: its forearm (faded by {@code alpha}) and its first-person item. */
+	/** One hand of the rig: its arm (faded by {@code alpha}) and its first-person item. */
 	private static void hand(PoseStack poseStack, SubmitNodeCollector collector, PlayerModel model, RenderType skin, int light, FirstPersonRig.Pose pose,
 		boolean left, ItemStackRenderState item, float height, float alpha) {
 		FirstPersonRig.Hand h = pose.hand(left);
 		poseStack.pushPose();
 		poseStack.last().pose().set(BASE).translate(0, height * -0.6F, 0).mul(FirstPersonRig.arm(h, left, M));
 		int color = alpha >= 0.998F ? -1 : ((int) (alpha * 255) << 24) | 0xFFFFFF;
-		ModelPart arm = forearmOnly(left ? model.leftArm : model.rightArm);
-		if (arm.hasChild("sleeve")) {
-			arm.getChild("sleeve").visible = left ? model.leftSleeve.visible : model.rightSleeve.visible;
-		}
+		ModelPart arm = left ? model.leftArm : model.rightArm;
 		collector.submitModel(new ArmModel(arm, skin), new PartPose(), poseStack, skin, light, OverlayTexture.NO_OVERLAY, color, null, 0);
+		// A hand raised high: more sleeve along the arm, so it still runs off the edge of the screen.
+		int ext = FirstPersonRig.armExtension(h, left);
+		ModelPart segment = ext > 0 ? sleeveSegment(arm) : null;
+		if (segment != null) {
+			if (segment.hasChild("sleeve")) {
+				segment.getChild("sleeve").visible = left ? model.leftSleeve.visible : model.rightSleeve.visible;
+			}
+			for (int k = 1; k <= ext; k++) {
+				poseStack.pushPose();
+				poseStack.last().pose().translate(0, -k * FirstPersonRig.SEGMENT / 16F, 0);
+				collector.submitModel(new SegmentModel(segment, skin), new PartPose(), poseStack, skin, light, OverlayTexture.NO_OVERLAY, color, null, 0);
+				poseStack.popPose();
+			}
+		}
 		poseStack.popPose();
 		if (!item.isEmpty()) {
 			poseStack.pushPose();

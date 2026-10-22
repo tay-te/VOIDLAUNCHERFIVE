@@ -94,6 +94,22 @@ public final class Elbows {
 		return l == null ? List.of() : l;
 	}
 
+	/**
+	 * The arm's upper halves (the cut above the elbow), its own first, then its sleeve's: each list of cubes, in its
+	 * part's frame. Empty for an arm without an elbow. First person stacks them to lengthen a raised arm's sleeve.
+	 */
+	public static List<List<ModelPart.Cube>> uppers(ModelPart arm) {
+		List<Cut> cuts = CUTS.get(arm);
+		if (cuts == null) {
+			return List.of();
+		}
+		List<List<ModelPart.Cube>> out = new ArrayList<>();
+		for (Cut c : cuts) {
+			out.add(c.upper());
+		}
+		return out;
+	}
+
 	/** Straightens the arm's elbows (vanilla's first-person hand resets only the arm). */
 	public static void straighten(ModelPart arm) {
 		bend(arm, false);

@@ -52,10 +52,15 @@ re-keys the root so feet never sink or float, `"floor"` only lifts what sinks), 
 ## First person
 
 First person has its own rig and its own curves (`FirstPersonRig`, 2026-10-22), as action games do: a hand and its held
-item anchored to the camera, and the forearm (the elbow cut's lower half, closed by a cuff) coming in from the bottom
-right. Never the upper arm or the shoulder. The rest pose is vanilla's first-person held item (`applyItemArmTransform`
+item anchored to the camera, and vanilla's own first-person arm (the long arm box vanilla draws for the empty hand,
+unscaled, its sleeve as the skin says) with its hand at the grip, pointing back at vanilla's shoulder off screen at the
+bottom right, so it always runs off the edge of the screen; a hand raised high gets more sleeve along the same line
+(the elbow cut's upper half, stacked). The item is vanilla's first-person item at vanilla's scale and distance (1.18
+blocks to the grip) throughout, so it never changes size. The rest pose is vanilla's held item (`applyItemArmTransform`
 and the item model's `firstperson_righthand` display), so a clip starts and ends exactly on vanilla's picture; the
-crossfade (the clip's blend in and out, or one string cut into the next) blends the rig's hands with slerp.
+crossfade (the clip's blend in and out, or one string cut into the next) blends the rig's hands with slerp. A clip that
+starts from another's pose (light_2 after light_1, charge_release after charge_hold) starts there with a 2-tick blend
+in, so played on its own it eases out of vanilla's pose.
 
 A clip's `fp` block carries `bones.item_r` (and `item_l`, the off hand, drawn with `"arms": "both"`): a rigid offset of
 the hand and its item from vanilla's held sword, rotation in degrees about the camera's axes (ZYX, turned about the
@@ -71,7 +76,7 @@ The bake's checks for first person:
 
 | Check | What |
 |---|---|
-| `fp_framing` | forearm and blade at most 15 % of the screen (the forearm box cut at the near plane, its outline clipped to the screen); the crosshair covered only on ACTIVE ± 1; also reports how many ticks the forearm's cuff is on screen |
+| `fp_framing` | arm and blade at most 15 % of the screen (22 % on the strike's ticks, ACTIVE ± 1; the arm box cut at the near plane, its outline clipped to the screen); the crosshair covered only on ACTIVE ± 1; the arm's far end never on screen (it must run off the edge) |
 | `fp_match` | first and third person do the same move (`FirstPersonMatch`): the sword in each view relative to its own eye (first person: the camera; third person: the animated head), in view angles (the azimuthal projection about the view axis, continuous behind the head). Per tick: the tip's direction of travel (where both move 10°+ a tick) and the blade's angle on screen, each within 25°; the wind-up and follow-through sides within 45°; the strike's direction across the screen within 25° and the same way; and the edge leads (the blade's travel within 35° of its plane) on the ACTIVE ticks in both views. Compared over the move itself, from first person's first authored pose to its last before the return to rest: leaving and regaining rest, each view starts from and returns to its own rest, and the two rests differ |
 
 `-Dfray.fp.plot=<dir>` on `motionBake` writes a picture per clip with both views' blades over the clip. The hand reach

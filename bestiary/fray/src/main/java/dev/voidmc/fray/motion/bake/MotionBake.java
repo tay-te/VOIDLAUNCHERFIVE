@@ -233,8 +233,16 @@ public final class MotionBake {
 		}
 		if (Checks.drawsArms(clip)) {
 			Checks.Framing f = Checks.firstPerson(clip);
-			s.append(String.format(Locale.ROOT, " | first person: forearm and blade cover up to %.0f %% of the screen at %.2f s, crosshair covered %d ticks outside the strike, forearm's cuff on screen %d ticks%s",
+			s.append(String.format(Locale.ROOT, " | first person: arm and blade cover up to %.0f %% of the screen at %.2f s, crosshair covered %d ticks outside the strike, arm's far end on screen %d ticks%s",
 				f.maxCoverage() * 100, f.atSeconds(), f.crosshairTicks(), f.armEndTicks(), f.throughCamera() ? " (a hand reaches the camera)" : ""));
+			if (f.armEndTicks() > 0) {
+				String msg = String.format(Locale.ROOT, "%s: the first-person arm ends on screen for %d ticks (it must run off the edge)", clip.id, f.armEndTicks());
+				if (clip.checks.contains("fp_framing")) {
+					failures.add(msg);
+				} else {
+					warnings.add(msg);
+				}
+			}
 			if (f.crosshairTicks() > 0) {
 				String msg = String.format(Locale.ROOT, "%s: first person covers the crosshair for %d ticks outside the strike", clip.id, f.crosshairTicks());
 				if (clip.checks.contains("fp_framing")) {
@@ -243,9 +251,9 @@ public final class MotionBake {
 					warnings.add(msg);
 				}
 			}
-			if (clip.checks.contains("fp_framing") && (f.maxCoverage() > Checks.FP_LIMIT || f.throughCamera())) {
-				failures.add(String.format(Locale.ROOT, "%s: first-person forearm and blade cover %.0f %% of the screen at %.2f s%s (limit %.0f %%)", clip.id, f.maxCoverage() * 100,
-					f.atSeconds(), f.throughCamera() ? " and reach the camera" : "", Checks.FP_LIMIT * 100));
+			if (clip.checks.contains("fp_framing") && (f.overLimit() || f.throughCamera())) {
+				failures.add(String.format(Locale.ROOT, "%s: first-person arm and blade cover %.0f %% of the screen at %.2f s%s (limit %.0f %%, %.0f %% on the strike)", clip.id,
+					f.maxCoverage() * 100, f.atSeconds(), f.throughCamera() ? " and reach the camera" : "", Checks.FP_LIMIT * 100, Checks.FP_LIMIT_STRIKE * 100));
 			}
 		}
 		if (FirstPersonMatch.applies(clip)) {

@@ -7,7 +7,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The first-person rig (ANIMATION.md §7.4): what action games draw in first person, a hand and its held item anchored to
- * the camera, with a forearm coming in from the edge of the screen. Never the upper arm or the shoulder.
+ * the camera, the arm running off the edge of the screen as vanilla's first-person hand does.
  *
  * <p>Camera space throughout: blocks, x right, y up, the view along -z, the eye at the origin (the frame vanilla's
  * {@code FirstPersonHandsAndItemsRenderer} draws the held item in, after its sway).
@@ -19,10 +19,10 @@ import org.jspecify.annotations.Nullable;
  * <li>A clip moves each hand by its {@code fp} curves on {@code item_r} / {@code item_l}: a rigid transform of the
  * hand and its item, rotation (degrees, ZYX, the camera's axes) about the hand's grip and an offset in pixels. Rotations
  * are interpolated on quaternions ({@link Channel#sampleQuat}). The item never turns in the hand: the hand carries it.</li>
- * <li>The forearm is the lower half of the player's arm (the elbow cut, {@code Elbows}: hand, wrist, forearm, closed by a
- * cuff; never the upper arm or the shoulder), at the first-person item's proportions, its hand at the grip, pointing
- * down and right ({@link #FOREARM}), so it comes in from the bottom right, seen from the side. Its roll follows the
- * hand.</li>
+ * <li>The arm is vanilla's first-person arm (the long arm box vanilla draws for the empty hand, its sleeve as the skin
+ * says), its hand at the grip, pointing back at vanilla's shoulder off screen at the bottom right ({@link #arm}); a hand
+ * raised high gets more sleeve along the same line ({@link #armExtension}), so the arm always runs off the edge of the
+ * screen. Its roll follows the hand.</li>
  * </ul>
  * Common code: the client draws with it ({@code FirstPersonBody}), the bake measures it ({@code Checks},
  * {@code FirstPersonMatch}).
@@ -30,25 +30,18 @@ import org.jspecify.annotations.Nullable;
 public final class FirstPersonRig {
 	/** Vanilla's {@code applyItemArmTransform} for the right hand (no equip offset). */
 	public static final float ARM_X = 0.56F, ARM_Y = -0.52F, ARM_Z = -0.72F;
-	/**
-	 * The forearm's scale: the player's model scale times the first-person item's size against the third-person one
-	 * (0.68 / 0.85), so hand and sword keep third person's proportions.
-	 */
-	public static final float SCALE = HumanoidRig.PLAYER_SCALE * 0.68F / 0.85F;
 	/** The hand (the grip) in the arm part's frame, model pixels: the fist's end, where {@code item_r} turns the item. */
 	public static final float GRIP_ARM_X = -1, GRIP_ARM_Y = 10;
 	/** A sword in item space (the item model centred, blocks): the grip in the fist, the tip, the pommel. */
 	public static final Vector3f GRIP_ITEM = new Vector3f(), TIP_ITEM = new Vector3f(0.44F, 0.44F, 0), POMMEL_ITEM = new Vector3f(-0.44F, -0.44F, 0);
 	/**
-	 * Where the forearm points from the hand (camera space, unit): down and right across the screen, a little toward the
-	 * camera, so it comes in from the bottom right and is seen from the side, never end-on.
+	 * Vanilla's first-person arm (the empty hand, {@code renderPlayerArm} at rest): the arm part's frame in camera space,
+	 * per side, and its shoulder (the top of the arm box), off screen at the bottom right. The rig's arm is this arm,
+	 * its hand moved to the grip, pointing back at the shoulder.
 	 */
-	public static final Vector3f FOREARM = new Vector3f(0.55F, -0.75F, 0.36F).normalize();
-	/** Where the arm points from the grip at rest. */
-	private static final Vector3f REST_FOREARM = new Vector3f();
-	/** The forearm's roll about its own axis at rest (degrees): the thumb side toward the blade. */
-	private static final float REST_ROLL = 35;
-
+	private static final Matrix4f VANILLA_ARM_R = vanillaArm(1), VANILLA_ARM_L = vanillaArm(-1);
+	public static final Vector3f SHOULDER_R = VANILLA_ARM_R.transformPosition(new Vector3f(GRIP_ARM_X / 16F, -2 / 16F, 0));
+	private static final float TAN_Y = (float) Math.tan(Math.toRadians(35)), TAN_X = TAN_Y * 16 / 9F;
 	private static final Matrix4f FP_DISPLAY_R = display(new float[] {0, -90, 25}, new float[] {1.13F, 3.2F, 1.13F}, 0.68F);
 	private static final Matrix4f FP_DISPLAY_L = display(new float[] {0, 90, -25}, new float[] {1.13F, 3.2F, 1.13F}, 0.68F);
 	private static final Matrix4f TP_DISPLAY_R = display(new float[] {0, -90, 55}, new float[] {0, 4, 0.5F}, 0.85F);
@@ -57,8 +50,6 @@ public final class FirstPersonRig {
 	private static final Matrix4f REST_ITEM_R = new Matrix4f().translate(ARM_X, ARM_Y, ARM_Z).mul(FP_DISPLAY_R);
 	private static final Matrix4f REST_ITEM_L = new Matrix4f().translate(-ARM_X, ARM_Y, ARM_Z).mul(FP_DISPLAY_L);
 	private static final Vector3f REST_GRIP_R = new Vector3f(), REST_GRIP_L = new Vector3f();
-	/** The arm's rest rotation in camera space (applied after vanilla's model flip and scale), per side. */
-	private static final Quaternionf REST_ARM_R = new Quaternionf(), REST_ARM_L = new Quaternionf();
 
 	static {
 		// The grip in item space: the point third person turns the item about (the fist, GRIP_ARM in the arm's frame),
@@ -68,10 +59,6 @@ public final class FirstPersonRig {
 		GRIP_ITEM.z = 0;
 		REST_ITEM_R.transformPosition(GRIP_ITEM, REST_GRIP_R);
 		REST_GRIP_L.set(-REST_GRIP_R.x, REST_GRIP_R.y, REST_GRIP_R.z);
-		REST_FOREARM.set(FOREARM);
-		// The arm points from the hand (+y down the arm in model space, flipped up) along FOREARM, rolled.
-		REST_ARM_R.rotationTo(0, 1, 0, REST_FOREARM.x, REST_FOREARM.y, REST_FOREARM.z).rotateY((float) Math.toRadians(REST_ROLL));
-		mirror(REST_ARM_R, REST_ARM_L);
 	}
 
 	private FirstPersonRig() {
@@ -104,9 +91,11 @@ public final class FirstPersonRig {
 		return out.set(left ? REST_GRIP_L : REST_GRIP_R);
 	}
 
-	private static void mirror(Quaternionf in, Quaternionf out) {
-		// Mirroring across x: a rotation (x, y, z, w) becomes (x, -y, -z, w).
-		out.set(in.x, -in.y, -in.z, in.w);
+	/** {@code FirstPersonHandsAndItemsRenderer.renderPlayerArm} at rest (no swing, no equip offset), then the arm part's pose. */
+	private static Matrix4f vanillaArm(float f) {
+		return new Matrix4f().translate(f * 0.64F, -0.6F, -0.72F).rotateY((float) Math.toRadians(f * 45)).translate(f * -1.0F, 3.6F, 3.5F)
+			.rotateZ((float) Math.toRadians(f * 120)).rotateX((float) Math.toRadians(200)).rotateY((float) Math.toRadians(f * -135)).translate(f * 5.6F, 0, 0)
+			.translate(-f * 5 / 16F, 2 / 16F, 0);
 	}
 
 	/** One hand: its rigid offset from rest (rotation about the rest grip, then a translation, camera space). */
@@ -228,20 +217,56 @@ public final class FirstPersonRig {
 	}
 
 	/**
-	 * The arm part's frame in camera space (model pixels / 16, vanilla's model flip and the player's scale included): the
-	 * hand at the grip, the forearm pointing from it along {@link #FOREARM}, rolled with the hand.
+	 * The arm part's frame in camera space (model pixels / 16, as vanilla's first-person hand draws it): vanilla's
+	 * first-person arm with its hand moved to the grip, pointing back at vanilla's shoulder, off screen at the bottom
+	 * right. Its roll follows the hand. When the arm box would end on screen (a hand raised high), {@link #armExtension}
+	 * says how much sleeve to add along the same line, so the arm always runs off the edge.
 	 */
 	public static Matrix4f arm(Hand hand, boolean left, Matrix4f out) {
-		Vector3f rest = new Vector3f(REST_FOREARM);
-		if (left) {
-			rest.x = -rest.x;
-		}
-		Vector3f grip = hand.grip(left, new Vector3f());
-		// Where the hand's turn would point the forearm, and where it stays (down and right): the smallest turn between,
-		// so the forearm keeps its direction and rolls with the hand.
-		Vector3f rigid = hand.rot.transform(new Vector3f(rest));
-		Quaternionf q = new Quaternionf().rotationTo(rigid, rest).mul(hand.rot).mul(left ? REST_ARM_L : REST_ARM_R);
+		Matrix4f vanilla = left ? VANILLA_ARM_L : VANILLA_ARM_R;
 		float gx = (left ? -GRIP_ARM_X : GRIP_ARM_X) / 16F, gy = GRIP_ARM_Y / 16F;
-		return out.identity().translate(grip).rotate(q).scale(-SCALE, -SCALE, SCALE).translate(-gx, -gy, 0);
+		Vector3f vGrip = vanilla.transformPosition(new Vector3f(gx, gy, 0));
+		Vector3f vTop = vanilla.transformPosition(new Vector3f(gx, -2 / 16F, 0));
+		Vector3f dv = new Vector3f(vTop).sub(vGrip).normalize();
+		Quaternionf vRot = vanilla.getUnnormalizedRotation(new Quaternionf()).normalize();
+		Vector3f grip = hand.grip(left, new Vector3f());
+		Vector3f shoulder = new Vector3f(SHOULDER_R);
+		if (left) {
+			shoulder.x = -shoulder.x;
+		}
+		Vector3f d = new Vector3f(shoulder).sub(grip);
+		if (d.lengthSquared() < 1e-6F) {
+			d.set(dv);
+		}
+		d.normalize();
+		Vector3f rigid = hand.rot.transform(new Vector3f(dv));
+		Quaternionf q = new Quaternionf().rotationTo(rigid, d).mul(hand.rot).mul(vRot);
+		return out.identity().translate(grip).rotate(q).translate(-gx, -gy, 0);
+	}
+
+	/** One sleeve segment: the arm box's upper half (the elbow cut), in pixels. */
+	public static final float SEGMENT = 6;
+
+	/**
+	 * How many sleeve segments to add above the arm box ({@link #SEGMENT} px each, along the arm) so its far end leaves
+	 * the screen: 0 for a hand near vanilla's place, more for a hand raised high (at most 4).
+	 */
+	public static int armExtension(Hand hand, boolean left) {
+		Matrix4f m = arm(hand, left, new Matrix4f());
+		float gx = (left ? -GRIP_ARM_X : GRIP_ARM_X) / 16F;
+		for (int n = 0; n <= 4; n++) {
+			if (!onScreen(m.transformPosition(new Vector3f(gx, (-2 - n * SEGMENT) / 16F, 0)))) {
+				return n;
+			}
+		}
+		return 4;
+	}
+
+	/** A point inside the view (a small margin outside the screen counts as inside). */
+	private static boolean onScreen(Vector3f p) {
+		if (p.z > -0.05F) {
+			return false;
+		}
+		return Math.abs(p.x / -p.z) < TAN_X * 1.05F && Math.abs(p.y / -p.z) < TAN_Y * 1.05F;
 	}
 }
