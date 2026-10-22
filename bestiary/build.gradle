@@ -97,7 +97,8 @@ tasks.register('motionBake', JavaExec) {
 	}
 	args motionSrc.absolutePath, motionOut.get().asFile.absolutePath, motionReport.get().asFile.absolutePath, rigSrc.absolutePath
 	systemProperty 'fray.bake.lenient', System.getProperty('fray.bake.lenient', 'false')
-	systemProperty 'fray.fp.swing', System.getProperty('fray.fp.swing', '0.6')
+	// -Dfray.fp.plot=<dir>: a picture per first-person clip, both views' blades over the clip (FirstPersonMatch.plot)
+	systemProperty 'fray.fp.plot', System.getProperty('fray.fp.plot', '')
 }
 
 tasks.register('bbImport', JavaExec) {

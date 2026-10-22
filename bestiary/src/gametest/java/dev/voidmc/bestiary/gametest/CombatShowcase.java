@@ -784,7 +784,6 @@ public class CombatShowcase implements FabricClientGameTest {
 			FrayClientOptions.get().shakeIntensity = 0.45F;
 			FrayClientOptions.get().cameraMotion = 0.4F;
 			FrayClientOptions.get().cameraShake = true;
-			FrayClientOptions.get().fpSwingScale = 0.6F;
 		});
 		st.clearCreatures();
 		ready(st, false);
@@ -807,11 +806,6 @@ public class CombatShowcase implements FabricClientGameTest {
 		film(st, "light_1", 18, 0, tap);
 		ready(st, false);
 		film(st, "heavy", 40, 0, heavy);
-		// The same heavy at the full derived swing (fpSwingScale 1.0), for comparison.
-		st.c.runOnClient(mc -> FrayClientOptions.get().fpSwingScale = 1.0F);
-		ready(st, false);
-		film(st, "heavy_swing100", 40, 0, heavy);
-		st.c.runOnClient(mc -> FrayClientOptions.get().fpSwingScale = 0.6F);
 		ready(st, false);
 		film(st, "charge_release", 54, 0, i -> {
 			if (i == 0) {

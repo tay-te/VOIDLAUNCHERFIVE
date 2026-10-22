@@ -1,4 +1,4 @@
-"""Two first-person films side by side (e.g. the heavy at fpSwingScale 1.0 and 0.6):
+"""Two first-person films side by side (e.g. two versions of the heavy):
 
     python tools/review/compare.py <screenshots dir> <out.gif> <name A> <label A> <name B> <label B> [width]
 

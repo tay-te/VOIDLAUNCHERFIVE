@@ -64,6 +64,8 @@ public final class ClipJson {
 			}
 		}
 		float syncWalk = o.has("sync_walk") ? o.get("sync_walk").getAsFloat() : 0;
+		// "slerp": rotations are interpolated on quaternions (Channel#slerp).
+		boolean slerp = o.has("slerp") && o.get("slerp").getAsBoolean();
 		Channel[] rot = new Channel[n];
 		Channel[] pos = new Channel[n];
 		Channel[] scl = new Channel[n];
@@ -79,7 +81,7 @@ public final class ClipJson {
 						throw new IllegalArgumentException(id + ": bone " + e.getKey() + " has an unknown channel '" + key + "'");
 					}
 				}
-				rot[bone] = b.has("rotation") ? channel(b.getAsJsonArray("rotation")) : null;
+				rot[bone] = b.has("rotation") ? channel(b.getAsJsonArray("rotation")).withSlerp(slerp) : null;
 				pos[bone] = b.has("position") ? channel(b.getAsJsonArray("position")) : null;
 				scl[bone] = b.has("scale") ? channel(b.getAsJsonArray("scale")) : null;
 			}
@@ -87,22 +89,27 @@ public final class ClipJson {
 		Clip.FirstPerson fp = null;
 		if (o.has("fp")) {
 			JsonObject f = o.getAsJsonObject("fp");
+			for (String key : f.keySet()) {
+				if (!List.of("framing", "camera", "bones", "hide_arms", "arms").contains(key)) {
+					throw new IllegalArgumentException(id + ": fp has an unknown key '" + key + "' (offset, pitch and swing are gone: first person has its own curves)");
+				}
+			}
 			Channel[] fpRot = new Channel[n];
 			Channel[] fpPos = new Channel[n];
 			if (f.has("bones")) {
 				for (Map.Entry<String, JsonElement> e : f.getAsJsonObject("bones").entrySet()) {
 					JsonObject b = e.getValue().getAsJsonObject();
 					int bone = rig.bone(e.getKey());
-					fpRot[bone] = b.has("rotation") ? channel(b.getAsJsonArray("rotation")) : null;
+					// First-person rotations are orientations: always interpolated on quaternions.
+					fpRot[bone] = b.has("rotation") ? channel(b.getAsJsonArray("rotation")).withSlerp(true) : null;
 					fpPos[bone] = b.has("position") ? channel(b.getAsJsonArray("position")) : null;
 				}
 			}
 			JsonObject cam = f.has("camera") ? f.getAsJsonObject("camera") : null;
-			fp = new Clip.FirstPerson(f.has("framing") ? f.get("framing").getAsString() : "fray:default", f.has("offset") ? vec(f.getAsJsonArray("offset")) : new float[3],
-				f.has("pitch") ? f.get("pitch").getAsFloat() : 0, cam != null && cam.has("rotation") ? channel(cam.getAsJsonArray("rotation")) : null,
+			fp = new Clip.FirstPerson(f.has("framing") ? f.get("framing").getAsString() : "fray:default",
+				cam != null && cam.has("rotation") ? channel(cam.getAsJsonArray("rotation")) : null,
 				cam != null && cam.has("position") ? channel(cam.getAsJsonArray("position")) : null, fpRot, fpPos,
-				f.has("hide_arms") && f.get("hide_arms").getAsBoolean(), f.has("arms") && f.get("arms").getAsString().equals("both"),
-				f.has("swing") ? f.get("swing").getAsFloat() : 1);
+				f.has("hide_arms") && f.get("hide_arms").getAsBoolean(), f.has("arms") && f.get("arms").getAsString().equals("both"));
 		}
 		List<Clip.Cue> cues = new ArrayList<>();
 		if (o.has("cues")) {
@@ -228,6 +235,9 @@ public final class ClipJson {
 		if (c.syncWalk > 0) {
 			s.append("  \"sync_walk\": ").append(num(c.syncWalk)).append(",\n");
 		}
+		if (slerp(c)) {
+			s.append("  \"slerp\": true,\n");
+		}
 		s.append("  \"bones\": {");
 		boolean first = true;
 		for (int b = 0; b < rig.bones(); b++) {
@@ -251,16 +261,12 @@ public final class ClipJson {
 		s.append(first ? "},\n" : "\n  },\n");
 		if (c.fp != null) {
 			Clip.FirstPerson f = c.fp;
-			s.append("  \"fp\": { \"framing\": \"").append(f.framing()).append("\", \"offset\": [").append(num(f.offset()[0])).append(", ")
-				.append(num(f.offset()[1])).append(", ").append(num(f.offset()[2])).append("], \"pitch\": ").append(num(f.pitch()));
+			s.append("  \"fp\": { \"framing\": \"").append(f.framing()).append('"');
 			if (f.hideArms()) {
 				s.append(", \"hide_arms\": true");
 			}
 			if (f.bothArms()) {
 				s.append(", \"arms\": \"both\"");
-			}
-			if (f.swing() != 1) {
-				s.append(", \"swing\": ").append(num(f.swing()));
 			}
 			if (f.camera() != null || f.cameraPos() != null) {
 				s.append(",\n    \"camera\": {");
@@ -312,6 +318,16 @@ public final class ClipJson {
 		}
 		s.append("]\n}\n");
 		return s.toString();
+	}
+
+	/** Whether the clip's rotations are interpolated on quaternions (its {@code "slerp"} key). */
+	public static boolean slerp(Clip c) {
+		for (Channel ch : c.rotation) {
+			if (ch != null) {
+				return ch.slerp;
+			}
+		}
+		return false;
 	}
 
 	private static String maskJson(Rig rig, float[] mask, float @Nullable [] base) {

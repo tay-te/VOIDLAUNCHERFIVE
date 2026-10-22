@@ -3,11 +3,15 @@ package dev.voidmc.fray.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import dev.voidmc.fray.client.compat.IrisCompat;
+import dev.voidmc.fray.client.mixin.ModelPartAccess;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 import dev.voidmc.fray.motion.Clip;
-import dev.voidmc.fray.motion.HumanoidRig;
-import dev.voidmc.fray.motion.HumanoidSolver;
+import dev.voidmc.fray.motion.FirstPersonRig;
 import dev.voidmc.fray.motion.PartPose;
-import dev.voidmc.fray.motion.PoseBuffer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.Model;
 import net.minecraft.client.model.geom.ModelPart;
@@ -22,49 +26,96 @@ import net.minecraft.client.renderer.state.level.FirstPersonHandsAndItemsRenderS
 import net.minecraft.client.renderer.state.level.PlayerRenderState;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.entity.HumanoidArm;
-import dev.voidmc.fray.client.mixin.ItemLayerAccess;
-import dev.voidmc.fray.motion.bake.FirstPersonFrame;
-import dev.voidmc.fray.client.mixin.ItemStackRenderStateAccess;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
-import org.jspecify.annotations.Nullable;
 
 /**
- * First person (ANIMATION.md §7.4): while the local player runs an action whose clip has an {@code fp} block, the
- * player's own posed arms and held item are drawn from the camera <em>inside</em>
+ * First person (ANIMATION.md §7.4): while the local player runs an action whose clip has first-person rig curves, the
+ * hand, forearm and held item are drawn by the {@link FirstPersonRig} <em>inside</em>
  * {@code FirstPersonHandsAndItemsRenderer.submitHandsWithItems} (verified in 26.3: {@code GameRenderer.renderItemInHand}
  * calls it with its own submit storage and a hand render pass; Iris's {@code HandRenderer} calls the same method for its
- * solid and translucent hand passes). The same clip and the same solver as third person: the arms are the third-person
- * arms seen from the eye, moved by the clip's framing offset so the arc reads on screen.
+ * solid and translucent hand passes). The clip's own first-person curves move the hand from vanilla's held-item pose
+ * (the item is vanilla's first-person item, drawn where vanilla draws it at rest), so a swing starts and ends on
+ * vanilla's picture; the forearm enters from the bottom corner, never the upper arm or the shoulder.
  */
 public final class FirstPersonBody {
-	private static final HumanoidSolver SOLVER = new HumanoidSolver();
 	private static final float[] SCRATCH = new float[3];
 
 	private FirstPersonBody() {
 	}
 
-	/** A model whose root is one arm, posed at draw time from the state it is submitted with. */
+	/** A model whose root is a forearm-only copy of one arm ({@link #forearmOnly}), at the arm's origin. */
 	private static final class ArmModel extends Model<PartPose> {
-		private final float[] fore;
-
-		ArmModel(ModelPart arm, RenderType type, float[] fore) {
-			super(arm, t -> type);
-			this.fore = fore;
+		ArmModel(ModelPart root, RenderType type) {
+			super(root, t -> type);
 		}
 
 		@Override
 		public void setupAnim(PartPose pose) {
 			PoseApply.write(pose, this.root());
-			// The elbow: the forearm (and the sleeve's) turned relative to the arm.
-			Elbows.bend(this.root(), true);
-			for (ModelPart f : Elbows.forearms(this.root())) {
-				f.setRotation(this.fore[0], this.fore[1], this.fore[2]);
-			}
 		}
 	}
 
+	private static final Map<ModelPart, ModelPart> FOREARM_ONLY = new IdentityHashMap<>();
+
+	/**
+	 * The arm's forearm and its sleeve's (the elbow cut's lower halves, {@link Elbows}), in parts of their own (the
+	 * player model the third-person renderer poses is never touched), each closed at the elbow by a cuff: the arm's top
+	 * face moved down to the cut. The whole arm when elbows are off.
+	 */
+	private static ModelPart forearmOnly(ModelPart arm) {
+		return FOREARM_ONLY.computeIfAbsent(arm, a -> {
+			List<ModelPart> fs = Elbows.forearms(a);
+			if (fs.isEmpty()) {
+				return a;
+			}
+			List<ModelPart> wholes = new ArrayList<>();
+			wholes.add(a);
+			wholes.addAll(((ModelPartAccess) (Object) a).fray$children().values());
+			Map<String, ModelPart> kids = new HashMap<>();
+			for (int i = 0; i < fs.size(); i++) {
+				ModelPart f = fs.get(i);
+				List<ModelPart.Cube> cubes = new ArrayList<>(((ModelPartAccess) (Object) f).fray$cubes());
+				ModelPart.Cube cap = cap(wholes, f);
+				if (cap != null) {
+					cubes.add(cap);
+				}
+				ModelPart c = new ModelPart(cubes, new HashMap<>());
+				c.setInitialPose(f.getInitialPose());
+				c.loadPose(f.getInitialPose());
+				kids.put(i == 0 ? "forearm" : "sleeve", c);
+			}
+			return new ModelPart(List.of(), kids);
+		});
+	}
+
+	/** The cuff closing a forearm at the elbow: the top face of the part it was cut from, at the cut, facing the elbow. */
+	private static ModelPart.@org.jspecify.annotations.Nullable Cube cap(List<ModelPart> wholes, ModelPart forearm) {
+		for (ModelPart w : wholes) {
+			if (!w.hasChild(Elbows.FOREARM) || w.getChild(Elbows.FOREARM) != forearm) {
+				continue;
+			}
+			net.minecraft.client.model.geom.PartPose pivot = forearm.getInitialPose();
+			for (ModelPart.Cube cube : ((ModelPartAccess) (Object) w).fray$cubes()) {
+				for (ModelPart.Polygon poly : cube.polygons) {
+					if (poly.normal().y() < -0.9F) {
+						ModelPart.Vertex[] v = poly.vertices();
+						ModelPart.Vertex[] out = new ModelPart.Vertex[v.length];
+						for (int k = 0; k < v.length; k++) {
+							out[k] = new ModelPart.Vertex(v[k].x() - pivot.x(), 0, v[k].z() - pivot.z(), v[k].u(), v[k].v());
+						}
+						ModelPart.Cube c = new ModelPart.Cube(0, 0, cube.minX - pivot.x(), 0, cube.minZ - pivot.z(), cube.maxX - cube.minX, 0, cube.maxZ - cube.minZ, 0, 0, 0,
+							false, 64, 64, java.util.EnumSet.of(net.minecraft.core.Direction.UP));
+						c.polygons[0] = new ModelPart.Polygon(out, poly.normal());
+						return c;
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	private static final FirstPersonRig.Pose POSE = new FirstPersonRig.Pose(), PREV = new FirstPersonRig.Pose(), MIX = new FirstPersonRig.Pose();
+	private static final Matrix4f BASE = new Matrix4f(), M = new Matrix4f();
 
 	/** Returns true when Fray drew (or deliberately skipped, in Iris's other hand pass) the hands: vanilla's are cancelled. */
 	public static boolean draw(float partialTicks, PoseStack poseStack, SubmitNodeCollector collector, PlayerRenderState playerState,
@@ -77,119 +128,93 @@ public final class FirstPersonBody {
 		if (avatar == null || mc.player == null) {
 			return false;
 		}
-		PoseBuffer buf = PoseApply.pose(avatar);
 		Animator animator = ClientMotion.get(mc.player.getId());
 		Clip clip = animator == null ? null : animator.clip(Animator.ACTION);
-		if (buf == null || clip == null || !drawsArms(clip) || !buf.rig.humanoid) {
-			return clip != null && clip.fp != null && clip.fp.hideArms() && buf != null;
+		if (clip == null || clip.fp == null) {
+			return false;
 		}
-		Clip.FirstPerson fp = clip.fp;
+		if (clip.fp.hideArms()) {
+			return true;
+		}
+		if (!FirstPersonRig.animates(clip)) {
+			return false;
+		}
 		if (IrisCompat.skipHand(state.mainHandItem)) {
 			return true;
 		}
 		double now = ClientMotion.now(partialTicks);
-		// The crossfade with vanilla's held item (no jump at the start or the end of a swing): the clip's own weight, or
-		// from the previous first-person clip when one string cut blends into the next.
+		// The crossfade (no jump at the start or the end of a swing): from vanilla's held item by the clip's own weight,
+		// or from the previous first-person clip when one string cut blends into the next. Every blend is on the rig's
+		// hands (slerp), never on drawn matrices.
 		Clip prev = animator.previousAction(now);
-		boolean fromClip = prev != null && drawsArms(prev);
+		boolean fromClip = prev != null && FirstPersonRig.animates(prev);
 		float weight = fromClip ? 1 : animator.actionWeight(now);
 		if (weight <= 0.002F) {
 			return false;
 		}
-		float a = fromClip ? animator.actionBlendIn(now) : 1;
+		FirstPersonRig.sample(clip, clip.localTime((float) (animator.actionElapsed(now) / 20.0)), POSE);
+		if (fromClip) {
+			float a = animator.actionBlendIn(now);
+			if (a < 0.998F) {
+				FirstPersonRig.sample(prev, prev.localTime((float) (animator.previousElapsed(now) / 20.0)), PREV);
+				POSE.set(MIX.blend(PREV, POSE, a));
+			}
+		} else if (weight < 0.998F) {
+			POSE.set(MIX.blend(null, POSE, weight));
+		}
 		FrayStats.fpDraws++;
+
+		// Vanilla's frame for the held item: its sway, as FirstPersonHandsAndItemsRenderer applies it before
+		// applyItemArmTransform (whose equip height is added per hand).
+		BASE.set(poseStack.last().pose());
+		BASE.rotate(Axis.XP.rotationDegrees((state.viewXRot - state.xBob) * 0.1F));
+		BASE.rotate(Axis.YP.rotationDegrees((state.viewYRot - state.yBob) * 0.1F));
+		boolean rightMain = avatar.mainArm == HumanoidArm.RIGHT;
+		float mainHeight = state.mainHandSwapScale * (1.0F - net.minecraft.util.Mth.lerp(partialTicks, state.oldMainHandHeight, state.mainHandHeight));
+		float offHeight = state.offHandSwapScale * (1.0F - net.minecraft.util.Mth.lerp(partialTicks, state.oldOffHandHeight, state.offHandHeight));
+
 		AvatarRenderer<?> renderer = mc.getEntityRenderDispatcher().getRenderer(avatar);
 		PlayerModel model = renderer.getModel();
-		// First person is the third-person pose seen from the real eye, calmed toward a ready framing and eased
-		// (FirstPersonFrame). One clip alone: sampled from the clip with the easing window; a string cut blending into the
-		// next: the animator's blended pose as it is.
-		float swing = FirstPersonFrame.swing(fp, dev.voidmc.fray.client.combat.FrayClientOptions.get().fpSwingScale);
-		if (fromClip && a < 1) {
-			float[] po = prev.fp.offset(), o = fp.offset();
-			Clip.FirstPerson framing = new Clip.FirstPerson(fp.framing(), new float[] {po[0] + (o[0] - po[0]) * a, po[1] + (o[1] - po[1]) * a,
-				po[2] + (o[2] - po[2]) * a}, prev.fp.pitch() + (fp.pitch() - prev.fp.pitch()) * a, null, null, null, null, false, fp.bothArms(), fp.swing());
-			FirstPersonFrame.derive(buf, framing, swing, SOLVER, FRAME);
-		} else {
-			FirstPersonFrame.clip(clip, animator.actionElapsed(now), fp, swing, SOLVER, FRAME);
-		}
-
-		// Vanilla's held item, as FirstPersonHandsAndItemsRenderer would place it this frame (sway and equip included).
-		boolean right = avatar.mainArm == HumanoidArm.RIGHT;
-		boolean blendItem = weight < 0.998F && right && !state.mainHandItem.isEmpty();
-		ENTRY.set(poseStack.last().pose());
-		if (blendItem) {
-			VANILLA.set(ENTRY);
-			VANILLA.rotate(Axis.XP.rotationDegrees((state.viewXRot - state.xBob) * 0.1F));
-			VANILLA.rotate(Axis.YP.rotationDegrees((state.viewYRot - state.yBob) * 0.1F));
-			float inverseArmHeight = state.mainHandSwapScale * (1.0F - net.minecraft.util.Mth.lerp(partialTicks, state.oldMainHandHeight, state.mainHandHeight));
-			VANILLA.translate(0.56F, -0.52F + inverseArmHeight * -0.6F, -0.72F);
-		}
-
 		RenderType skin = RenderTypes.entityTranslucent(avatar.skin.body().texturePath());
 		model.rightSleeve.visible = avatar.showRightSleeve;
 		model.leftSleeve.visible = avatar.showLeftSleeve;
 		int light = avatar.lightCoords;
-		// The arm fades in with the clip (vanilla shows no arm with an item in hand).
-		int color = weight >= 0.998F ? -1 : ((int) (weight * 255) << 24) | 0xFFFFFF;
-		submitArm(poseStack, collector, model.rightArm, FRAME.rightArm, FRAME.rightForeLocal, skin, light, color);
-		if (blendItem) {
-			submitBlendedItem(poseStack, collector, FRAME.rightItem, avatar.rightHandItemState, state.mainHandRenderState, light, weight);
-		} else {
-			submitItem(poseStack, collector, FRAME.rightItem, avatar.rightHandItemState, light);
-		}
-		float left = FRAME.left * weight;
-		if (left > 0.002F) {
-			int lc = left >= 0.998F ? -1 : ((int) (left * 255) << 24) | 0xFFFFFF;
-			submitArm(poseStack, collector, model.leftArm, FRAME.leftArm, FRAME.leftForeLocal, skin, light, lc);
-			submitItem(poseStack, collector, FRAME.leftItem, avatar.leftHandItemState, light);
+		// The forearm fades in with the clip (vanilla shows no arm with an item in hand); the item stays solid.
+		float armAlpha = fromClip ? 1 : weight;
+		// The main hand is the rig's right hand (a left-handed player's main arm is the rig's left, mirrored).
+		hand(poseStack, collector, model, skin, light, POSE, !rightMain, state.mainHandRenderState, mainHeight, armAlpha);
+		float off = POSE.off * armAlpha;
+		if (off > 0.002F) {
+			hand(poseStack, collector, model, skin, light, POSE, rightMain, state.offHandRenderState, offHeight, off);
+		} else if (!state.offHandRenderState.isEmpty()) {
+			// The off hand's item where vanilla draws it (a shield, a torch), no arm.
+			poseStack.pushPose();
+			poseStack.last().pose().set(BASE).translate(0, offHeight * -0.6F, 0).mul(FirstPersonRig.itemAnchor(new FirstPersonRig.Hand(), rightMain, M));
+			state.offHandRenderState.submit(poseStack, collector, light, OverlayTexture.NO_OVERLAY, 0);
+			poseStack.popPose();
 		}
 		return true;
 	}
 
-	/** A clip whose first person draws Fray's arms (not a camera-only clip such as a dodge, nor one hiding the arms). */
-	private static boolean drawsArms(Clip clip) {
-		return clip.fp != null && dev.voidmc.fray.motion.bake.Checks.drawsArms(clip.fp);
-	}
-
-	private static final Matrix4f VANILLA = new Matrix4f();
-	private static final Matrix4f ENTRY = new Matrix4f();
-	private static final FirstPersonFrame.Frame FRAME = new FirstPersonFrame.Frame();
-
-	/**
-	 * The held item between vanilla's first-person placement and the clip's hand, by {@code w} (0 vanilla, 1 the clip):
-	 * the two final item matrices (each with its own display transform) are blended (translation, rotation, scale) and
-	 * the first-person item drawn there.
-	 */
-	private static void submitBlendedItem(PoseStack poseStack, SubmitNodeCollector collector, Matrix4f hand, ItemStackRenderState thirdPerson,
-		ItemStackRenderState firstPerson, int light, float w) {
-		Matrix4f tf = layerTransform(thirdPerson);
-		Matrix4f tv = layerTransform(firstPerson);
-		if (tf == null || tv == null) {
-			submitItem(poseStack, collector, hand, thirdPerson, light);
-			return;
-		}
-		Matrix4f ff = new Matrix4f(ENTRY).mul(hand).mul(tf);
-		Matrix4f fv = new Matrix4f(VANILLA).mul(tv);
-		Matrix4f b = FirstPersonFrame.blend(fv, ff, w);
+	/** One hand of the rig: its forearm (faded by {@code alpha}) and its first-person item. */
+	private static void hand(PoseStack poseStack, SubmitNodeCollector collector, PlayerModel model, RenderType skin, int light, FirstPersonRig.Pose pose,
+		boolean left, ItemStackRenderState item, float height, float alpha) {
+		FirstPersonRig.Hand h = pose.hand(left);
 		poseStack.pushPose();
-		poseStack.last().setIdentity();
-		poseStack.last().mulPose(b.mul(tv.invert(new Matrix4f())));
-		firstPerson.submit(poseStack, collector, light, OverlayTexture.NO_OVERLAY, 0);
-		poseStack.popPose();
-	}
-
-	/** Layer 0's display transform of an item state, as a matrix (null without layers). */
-	private static @Nullable Matrix4f layerTransform(ItemStackRenderState item) {
-		ItemStackRenderStateAccess acc = (ItemStackRenderStateAccess) (Object) item;
-		if (acc.fray$layerCount() <= 0) {
-			return null;
+		poseStack.last().pose().set(BASE).translate(0, height * -0.6F, 0).mul(FirstPersonRig.arm(h, left, M));
+		int color = alpha >= 0.998F ? -1 : ((int) (alpha * 255) << 24) | 0xFFFFFF;
+		ModelPart arm = forearmOnly(left ? model.leftArm : model.rightArm);
+		if (arm.hasChild("sleeve")) {
+			arm.getChild("sleeve").visible = left ? model.leftSleeve.visible : model.rightSleeve.visible;
 		}
-		ItemLayerAccess layer = (ItemLayerAccess) (Object) acc.fray$layers()[0];
-		PoseStack tmp = new PoseStack();
-		tmp.last().setIdentity();
-		layer.fray$itemTransform().apply(acc.fray$displayContext().leftHand(), tmp.last());
-		tmp.last().mulPose(layer.fray$localTransform());
-		return new Matrix4f(tmp.last().pose());
+		collector.submitModel(new ArmModel(arm, skin), new PartPose(), poseStack, skin, light, OverlayTexture.NO_OVERLAY, color, null, 0);
+		poseStack.popPose();
+		if (!item.isEmpty()) {
+			poseStack.pushPose();
+			poseStack.last().pose().set(BASE).translate(0, height * -0.6F, 0).mul(FirstPersonRig.itemAnchor(h, left, M));
+			item.submit(poseStack, collector, light, OverlayTexture.NO_OVERLAY, 0);
+			poseStack.popPose();
+		}
 	}
 
 	/**
@@ -227,28 +252,6 @@ public final class FirstPersonBody {
 			view.rotateDegrees(Axis.XP, SCRATCH[0] * k);
 			view.rotateDegrees(Axis.YP, SCRATCH[1] * k);
 		}
-	}
-
-	private static final PartPose AT_ORIGIN = new PartPose();
-
-	/** An arm drawn at {@code at} (camera space, the part's own frame: the part itself at its origin, unrotated). */
-	private static void submitArm(PoseStack poseStack, SubmitNodeCollector collector, ModelPart arm, Matrix4f at, float[] fore, RenderType type, int light,
-		int color) {
-		poseStack.pushPose();
-		poseStack.mulPose(at);
-		collector.submitModel(new ArmModel(arm, type, fore.clone()), new PartPose().set(AT_ORIGIN), poseStack, type, light, OverlayTexture.NO_OVERLAY, color, null, 0);
-		poseStack.popPose();
-	}
-
-	/** The held item at {@code at} (camera space, {@code ItemInHandLayer}'s transform already applied). */
-	private static void submitItem(PoseStack poseStack, SubmitNodeCollector collector, Matrix4f at, ItemStackRenderState item, int light) {
-		if (item.isEmpty()) {
-			return;
-		}
-		poseStack.pushPose();
-		poseStack.mulPose(at);
-		item.submit(poseStack, collector, light, OverlayTexture.NO_OVERLAY, 0);
-		poseStack.popPose();
 	}
 
 	/** Which arm is the main one (the prototype draws both arms either way). */

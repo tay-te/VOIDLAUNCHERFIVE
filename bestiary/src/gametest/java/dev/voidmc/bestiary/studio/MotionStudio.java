@@ -555,6 +555,10 @@ public class MotionStudio implements FabricClientGameTest {
 				return "cam " + this.cam;
 			}
 			this.cam = a[0];
+			if (this.cam.equals("ots")) {
+				this.camAround(new String[] {"ots"}, 0);
+				return "cam ots";
+			}
 			if (this.cam.equals("fp")) {
 				if (!this.isPlayer()) {
 					throw new IllegalStateException("cam fp needs subject player");
@@ -674,7 +678,7 @@ public class MotionStudio implements FabricClientGameTest {
 
 		/**
 		 * split <t> [cam]: first person (the local player) beside third person (a mannequin twin), the same clip and tick. First
-		 * person is derived from the third-person pose (FirstPersonFrame), so the two always agree.
+		 * person is the clip's own first-person rig (FirstPersonRig); the bake's fp_match check compares the two.
 		 */
 		private String split(String[] a) throws Exception {
 			if (!this.isPlayer()) {
@@ -694,27 +698,32 @@ public class MotionStudio implements FabricClientGameTest {
 			this.place(this.twin, this.home.add(4, 0, 0), t);
 			this.st.playerCam(CameraType.FIRST_PERSON);
 			BufferedImage fp = Images.read(this.shot("split_fp_" + this.clipName() + "_t" + (int) t));
-			// Third person of the twin, from a preset around it.
-			Vec3 saved = this.home;
+			// Third person of the twin, from one or more presets around it (comma separated: ots,right).
 			String savedKind = this.kind;
 			this.kind = "mannequin";
-			Session shifted = this;
-			double ox = 4;
-			String[] presetArgs = {tpCam};
-			this.camAround(presetArgs, ox);
-			BufferedImage tp = Images.read(this.shot("split_tp_" + this.clipName() + "_t" + (int) t));
+			List<BufferedImage> pair = new ArrayList<>();
+			pair.add(Images.label(Images.scale(fp, 800), "first person t" + (int) t + " " + this.phaseAt(t)));
+			for (String c : tpCam.split(",")) {
+				this.camAround(new String[] {c}, 4);
+				BufferedImage tp = Images.read(this.shot("split_tp_" + c + "_" + this.clipName() + "_t" + (int) t));
+				pair.add(Images.label(Images.scale(tp, 800), "third person (" + c + ") t" + (int) t + " " + this.phaseAt(t) + ", same clip and tick"));
+			}
 			this.kind = savedKind;
 			this.st.playerCam(CameraType.FIRST_PERSON);
-			List<BufferedImage> pair = List.of(Images.label(Images.scale(fp, 800), "first person t" + (int) t + " (derived from the third-person pose)"), Images.label(Images.scale(tp, 800),
-				"third person t" + (int) t + " " + this.phaseAt(t) + " (the one source)"));
 			Path out = OUT.resolve("split/" + this.clipName() + "_t" + (int) t + ".jpg");
-			Images.writeJpg(Images.grid(pair, 2, 800), out);
+			Images.writeJpg(Images.grid(pair, pair.size(), 800), out);
 			return out.toString();
 		}
 
 		private void camAround(String[] preset, double offsetX) {
 			float h = this.height(), mid = h * 0.55F, d = h * 1.75F;
 			double x = this.home.x + offsetX, z = this.home.z;
+			if (preset[0].equals("ots")) {
+				// Over the right shoulder, looking where the subject looks: an action game's third-person camera, so its
+				// screen directions read like first person's.
+				this.st.cam(x - 0.8, Y + 2.15, z - 1.45, x - 0.05, Y + 1.25, z + 2);
+				return;
+			}
 			double[] p = switch (preset[0]) {
 				case "front" -> new double[] {x, Y + mid + 0.15, z + d};
 				case "right" -> new double[] {x - d, Y + mid, z};
@@ -918,7 +927,7 @@ public class MotionStudio implements FabricClientGameTest {
 		strip [t1,t2,...] [cam=..]      labelled frozen frames in a grid (build/studio/strips)
 		gif [cam=..] [from=..] [to=..] [step=..] [width=..] [name=..]   one frame per step (build/studio/gif)
 		onion <t1,t2,...> | onion off   translucent ghosts of the subject at other ticks
-		split <tick> [cam]              first person beside third person (subject player; a mannequin twin)
+		split <tick> [cam[,cam]]        first person beside third person (subject player; a mannequin twin; ots = over the shoulder)
 		overlay on|off                  hit (red) and hurt (yellow) volumes, tick, phase and tell above the subject
 		travel on|off                   show root motion by moving the subject along the clip's travel
 		walk <speed> | walk 0           drive the subject's walk cycle (the walk loop plays, vanilla legs swing); gif then films a cycle

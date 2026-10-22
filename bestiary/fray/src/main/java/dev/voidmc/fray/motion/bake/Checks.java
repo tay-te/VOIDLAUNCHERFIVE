@@ -3,6 +3,7 @@ package dev.voidmc.fray.motion.bake;
 import dev.voidmc.fray.motion.Channel;
 import dev.voidmc.fray.motion.Clip;
 import dev.voidmc.fray.motion.ClipSampler;
+import dev.voidmc.fray.motion.FirstPersonRig;
 import dev.voidmc.fray.motion.HumanoidRig;
 import dev.voidmc.fray.motion.HumanoidSolver;
 import dev.voidmc.fray.motion.PartPose;
@@ -11,7 +12,6 @@ import dev.voidmc.fray.motion.Rig;
 import java.util.List;
 import java.util.Locale;
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
@@ -20,9 +20,11 @@ import org.joml.Vector3f;
  * <li><b>ground</b>: the lowest point of the posed body (armour included: boxes grown by a pixel), sampled six times a
  * tick. A dodge or a plunge that dips below 0 clips into the floor. Fails the build when the clip lists
  * {@code "checks": ["ground"]} and goes lower than half a pixel.</li>
- * <li><b>fp_framing</b>: in first person, how much of the screen the arms cover (70° vertical field of view, 16:9),
- * through the same transform {@code FirstPersonBody} uses. An arm that reaches the camera's near plane counts as the
- * whole screen. Fails at more than 45 % when listed.</li>
+ * <li><b>fp_framing</b>: in first person, how much of the screen the forearms and the blade cover (70° vertical field
+ * of view, 16:9), through the {@link FirstPersonRig} {@code FirstPersonBody} draws with (each arm box cut at the near
+ * plane, its outline clipped to the screen). A hand that reaches the camera counts as the whole screen. Fails at more
+ * than {@link #FP_LIMIT} when listed; the crosshair may be covered only on the strike's ticks (ACTIVE ± 1).</li>
+ * <li><b>fp_match</b>: first and third person do the same move ({@link FirstPersonMatch}).</li>
  * <li><b>euler</b>: two keys that differ by more than 150° on one axis (per-component blending would unwind the long
  * way): a warning.</li>
  * </ul>
@@ -30,9 +32,8 @@ import org.joml.Vector3f;
 public final class Checks {
 	/** Pixels: what we tolerate below the ground (half a pixel). */
 	public static final float GROUND_TOLERANCE = 0.5F / 16F;
-	/** First-person screen coverage limit (arms and blade, the default swing scale). */
+	/** First-person screen coverage limit (forearms and blade). */
 	public static final float FP_LIMIT = 0.15F;
-	private static final float EYE_HEIGHT = 1.62F;
 
 	private Checks() {
 	}
@@ -57,21 +58,21 @@ public final class Checks {
 	}
 
 	/**
-	 * First-person framing of a clip at the default swing scale: the peak share of the screen the arms and the blade
+	 * First-person framing of a clip: the peak share of the screen the arms and the blade
 	 * cover, whether an arm reaches the camera, and how many ticks outside the strike (ACTIVE ± 1) the arm or blade
 	 * covers the crosshair.
 	 */
-	public record Framing(float maxCoverage, float atSeconds, boolean throughCamera, int crosshairTicks) {
+	public record Framing(float maxCoverage, float atSeconds, boolean throughCamera, int crosshairTicks, int armEndTicks) {
 	}
 
 	/** First-person screen coverage over the clip (clips that draw first-person arms). */
 	public static Framing firstPerson(Clip clip) {
-		if (clip.fp == null || !clip.rig.humanoid || clip.fp.hideArms() || !drawsArms(clip.fp)) {
-			return new Framing(0, 0, false, 0);
+		if (!clip.rig.humanoid || !drawsArms(clip)) {
+			return new Framing(0, 0, false, 0, 0);
 		}
 		float max = 0, at = 0;
 		boolean through = false;
-		java.util.Set<Integer> cross = new java.util.TreeSet<>();
+		java.util.Set<Integer> cross = new java.util.TreeSet<>(), ends = new java.util.TreeSet<>();
 		int steps = Math.max(1, clip.lengthTicks() * 3);
 		for (int i = 0; i <= steps; i++) {
 			float t = clip.length * i / steps;
@@ -85,8 +86,11 @@ public final class Checks {
 			if (cov[2] > 0 && !nearStrike(clip, tick)) {
 				cross.add(tick);
 			}
+			if (cov[3] > 0) {
+				ends.add(tick);
+			}
 		}
-		return new Framing(max, at, through, cross.size());
+		return new Framing(max, at, through, cross.size(), ends.size());
 	}
 
 	private static boolean nearStrike(Clip clip, int tick) {
@@ -142,56 +146,150 @@ public final class Checks {
 		return new Reach(max, outside, n == 0 ? 0 : sum / n, over.size());
 	}
 
-	/** Fray draws its own first-person arms only for clips with a framing (else vanilla's hands). */
-	public static boolean drawsArms(Clip.FirstPerson fp) {
-		return !fp.hideArms() && !"fray:default".equals(fp.framing());
+	/** Fray draws its own first-person hands only for clips with first-person rig curves (else vanilla's hands). */
+	public static boolean drawsArms(Clip clip) {
+		return FirstPersonRig.animates(clip);
 	}
 
-	/** A sword in the hand (vanilla's handheld third-person transform), as a blade from grip to tip, model blocks. */
-	private static final Matrix4f SWORD_R = new Matrix4f().translate(0, 4 / 16F, 0.5F / 16F)
-		.rotate(new Quaternionf().rotationXYZ(0, (float) Math.toRadians(-90), (float) Math.toRadians(55))).scale(0.85F);
+	private static final float NEAR = 0.05F;
+
+	private static float[] project(Vector3f v, float tanX, float tanY) {
+		return new float[] {v.x / (-v.z * tanX), v.y / (-v.z * tanY)};
+	}
+
+	/** The convex hull (Andrew's monotone chain), counter-clockwise. */
+	private static List<float[]> hull(List<float[]> pts) {
+		List<float[]> p = new java.util.ArrayList<>(pts);
+		p.sort((a, b) -> a[0] != b[0] ? Float.compare(a[0], b[0]) : Float.compare(a[1], b[1]));
+		float[][] h = new float[p.size() * 2][];
+		int k = 0;
+		for (float[] q : p) {
+			while (k >= 2 && cross(h[k - 2], h[k - 1], q) <= 0) {
+				k--;
+			}
+			h[k++] = q;
+		}
+		for (int i = p.size() - 2, lo = k + 1; i >= 0; i--) {
+			float[] q = p.get(i);
+			while (k >= lo && cross(h[k - 2], h[k - 1], q) <= 0) {
+				k--;
+			}
+			h[k++] = q;
+		}
+		List<float[]> out = new java.util.ArrayList<>();
+		for (int i = 0; i < k - 1; i++) {
+			out.add(h[i]);
+		}
+		return out;
+	}
+
+	private static float cross(float[] o, float[] a, float[] b) {
+		return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+	}
+
+	/** Sutherland-Hodgman against the screen square [-1, 1]². */
+	private static List<float[]> clipToScreen(List<float[]> poly) {
+		float[][] planes = {{1, 0, 1}, {-1, 0, 1}, {0, 1, 1}, {0, -1, 1}};
+		List<float[]> out = poly;
+		for (float[] pl : planes) {
+			List<float[]> in = out;
+			out = new java.util.ArrayList<>();
+			for (int i = 0; i < in.size(); i++) {
+				float[] a = in.get(i), b = in.get((i + 1) % in.size());
+				float da = pl[0] * a[0] + pl[1] * a[1] + pl[2], db = pl[0] * b[0] + pl[1] * b[1] + pl[2];
+				if (da >= 0) {
+					out.add(a);
+				}
+				if ((da >= 0) != (db >= 0)) {
+					float f = da / (da - db);
+					out.add(new float[] {a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f});
+				}
+			}
+			if (out.isEmpty()) {
+				break;
+			}
+		}
+		return out;
+	}
+
+	private static float polygonArea(List<float[]> poly) {
+		float a = 0;
+		for (int i = 0; i < poly.size(); i++) {
+			float[] p0 = poly.get(i), p1 = poly.get((i + 1) % poly.size());
+			a += p0[0] * p1[1] - p1[0] * p0[1];
+		}
+		return Math.abs(a) / 2;
+	}
+
+	private static boolean contains(List<float[]> poly, float x, float y) {
+		boolean pos = true, neg = true;
+		for (int i = 0; i < poly.size(); i++) {
+			float[] p0 = poly.get(i), p1 = poly.get((i + 1) % poly.size());
+			float cz = (p1[0] - p0[0]) * (y - p0[1]) - (p1[1] - p0[1]) * (x - p0[0]);
+			pos &= cz >= 0;
+			neg &= cz <= 0;
+		}
+		return pos || neg;
+	}
+
 	private static final float[][] BLADE = {{-0.35F, -0.35F}, {0.45F, 0.45F}};
 	private static final float BLADE_HALF = 0.06F;
 
 	/** {coverage 0..1, 1 if an arm crosses the near plane, 1 if the arm or blade covers the crosshair} at one moment. */
 	static float[] coverage(Clip clip, float t) {
-		Clip.FirstPerson fp = clip.fp;
-		FirstPersonFrame.Frame f = FirstPersonFrame.clip(clip, t * 20, fp, FirstPersonFrame.swing(fp, Float.parseFloat(System.getProperty("fray.fp.swing", String.valueOf(FirstPersonFrame.DEFAULT_SWING)))), new HumanoidSolver(),
-			new FirstPersonFrame.Frame());
+		FirstPersonRig.Pose pose = FirstPersonRig.sample(clip, clip.localTime(t), new FirstPersonRig.Pose());
 		float tanY = (float) Math.tan(Math.toRadians(35)), tanX = tanY * 16 / 9F;
 		float area = 0;
-		boolean through = false, cross = false;
+		boolean through = false, cross = false, endSeen = false;
 		Vector3f v = new Vector3f();
-		int[] arms = f.left > 0.5F ? new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.RIGHT_FOREARM, HumanoidRig.LEFT_ARM, HumanoidRig.LEFT_FOREARM}
-			: new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.RIGHT_FOREARM};
-		for (int arm : arms) {
-			Matrix4f m = arm == HumanoidRig.RIGHT_ARM ? f.rightArm : arm == HumanoidRig.RIGHT_FOREARM ? f.rightFore : arm == HumanoidRig.LEFT_ARM ? f.leftArm : f.leftFore;
-			Rig.Cube c = Rig.HUMANOID.cubes[arm].getFirst();
-			float minX = 1, maxX = -1, minY = 1, maxY = -1;
+		for (int side = 0; side < (pose.off > 0.5F ? 2 : 1); side++) {
+			boolean left = side == 1;
+			Matrix4f m = FirstPersonRig.arm(pose.hand(left), left, new Matrix4f());
+			Rig.Cube c = Rig.HUMANOID.cubes[left ? HumanoidRig.LEFT_ARM : HumanoidRig.RIGHT_ARM].getFirst();
+			// The arm box in front of the near plane (edges cut there), projected, its convex hull clipped to the screen.
+			Vector3f[] corner = new Vector3f[8];
 			for (int k = 0; k < 8; k++) {
-				v.set(((k & 1) == 0 ? c.x() : c.x() + c.dx()) / 16, ((k & 2) == 0 ? c.y() : c.y() + c.dy()) / 16, ((k & 4) == 0 ? c.z() : c.z() + c.dz()) / 16);
-				m.transformPosition(v);
-				if (v.z > -0.05F) {
-					through = true;
-					continue;
-				}
-				float nx = v.x / (-v.z * tanX), ny = v.y / (-v.z * tanY);
-				minX = Math.min(minX, nx);
-				maxX = Math.max(maxX, nx);
-				minY = Math.min(minY, ny);
-				maxY = Math.max(maxY, ny);
+				// The forearm: the arm box below the elbow.
+				corner[k] = m.transformPosition(new Vector3f(((k & 1) == 0 ? c.x() : c.x() + c.dx()) / 16, ((k & 2) == 0 ? HumanoidRig.ELBOW_Y : c.y() + c.dy()) / 16,
+					((k & 4) == 0 ? c.z() : c.z() + c.dz()) / 16));
 			}
-			cross |= minX < 0 && maxX > 0 && minY < 0 && maxY > 0;
-			minX = Math.max(-1, minX);
-			maxX = Math.min(1, maxX);
-			minY = Math.max(-1, minY);
-			maxY = Math.min(1, maxY);
-			if (maxX > minX && maxY > minY) {
-				area += (maxX - minX) * (maxY - minY) / 4;
+			List<float[]> pts = new java.util.ArrayList<>();
+			for (int k = 0; k < 8; k++) {
+				if (corner[k].z <= -NEAR) {
+					pts.add(project(corner[k], tanX, tanY));
+				}
+				for (int bit = 1; bit < 8; bit <<= 1) {
+					int o = k | bit;
+					if (o == k) {
+						continue;
+					}
+					Vector3f p0 = corner[k], p1 = corner[o];
+					if ((p0.z <= -NEAR) != (p1.z <= -NEAR)) {
+						float f = (-NEAR - p0.z) / (p1.z - p0.z);
+						pts.add(project(new Vector3f(p0).lerp(p1, f), tanX, tanY));
+					}
+				}
+			}
+			// The forearm's elbow end: on screen it reads as a cuff in the air, so it should leave the screen.
+			Vector3f end = m.transformPosition(new Vector3f(FirstPersonRig.GRIP_ARM_X / 16F * (left ? -1 : 1), HumanoidRig.ELBOW_Y / 16, 0));
+			if (end.z < -NEAR) {
+				float[] e = project(end, tanX, tanY);
+				endSeen |= Math.abs(e[0]) < 0.98F && Math.abs(e[1]) < 0.98F;
+			}
+			// The hand end of the arm reaching the near plane is an arm in the face.
+			Vector3f hand = m.transformPosition(new Vector3f(FirstPersonRig.GRIP_ARM_X / 16F * (left ? -1 : 1), FirstPersonRig.GRIP_ARM_Y / 16F, 0));
+			through |= hand.z > -0.15F;
+			if (pts.size() < 3) {
+				continue;
+			}
+			List<float[]> hull = clipToScreen(hull(pts));
+			if (hull.size() >= 3) {
+				area += polygonArea(hull) / 4;
+				cross |= contains(hull, 0, 0);
 			}
 		}
-		// The blade in the right hand: a thin quad from grip to tip.
-		Matrix4f item = new Matrix4f(f.rightItem).mul(SWORD_R);
+		// The blade in the main hand: a thin quad from grip to tip.
+		Matrix4f item = FirstPersonRig.item(pose.right, false, new Matrix4f());
 		float[][] q = new float[4][];
 		float d = BLADE_HALF / (float) Math.sqrt(2);
 		float[][] corners = {{BLADE[0][0] + d, BLADE[0][1] - d}, {BLADE[1][0] + d, BLADE[1][1] - d}, {BLADE[1][0] - d, BLADE[1][1] + d}, {BLADE[0][0] - d, BLADE[0][1] + d}};
@@ -222,7 +320,7 @@ public final class Checks {
 			}
 			cross |= pos || neg;
 		}
-		return new float[] {through ? 1 : Math.min(1, area), through ? 1 : 0, cross ? 1 : 0};
+		return new float[] {through ? 1 : Math.min(1, area), through ? 1 : 0, cross ? 1 : 0, endSeen ? 1 : 0};
 	}
 
 	/** Keys more than 150° apart on one axis, as warnings. */

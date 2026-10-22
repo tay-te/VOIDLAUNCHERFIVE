@@ -55,14 +55,15 @@ public final class Clip {
 	}
 
 	/**
-	 * First-person data (ANIMATION.md §7.4): a framing (where the arms sit in view), an offset (view blocks) and pitch,
-	 * camera kick channels (degrees; position in blocks, Y up), and per-bone rotation and position curves that replace
-	 * the third-person ones in first person only. {@code rotation}/{@code position} are indexed by bone. Only the main
-	 * arm is drawn unless {@code bothArms} (as vanilla's first person), and the virtual torso only turns the arms when the
-	 * block has its own torso curve (the camera is the player's eye, not the animated head).
+	 * First-person data (ANIMATION.md §7.4). A framing names what first person draws ({@code fray:default}: vanilla's
+	 * hands, for camera-only clips such as dodges); camera kick channels (degrees; position in blocks, Y up); and the
+	 * first-person rig's own curves ({@link dev.voidmc.fray.motion.FirstPersonRig}): {@code item_r} (the main hand and
+	 * its item) and {@code item_l} (the off hand, drawn with {@code "arms": "both"}), a rigid offset from vanilla's
+	 * first-person held item, rotation in degrees about the camera's axes (turned about the grip, sampled on
+	 * quaternions), position in pixels (x right, y up, z back). {@code rotation}/{@code position} are indexed by bone.
 	 */
-	public record FirstPerson(String framing, float[] offset, float pitch, @Nullable Channel camera, @Nullable Channel cameraPos,
-		@Nullable Channel[] rotation, @Nullable Channel[] position, boolean hideArms, boolean bothArms, float swing) {
+	public record FirstPerson(String framing, @Nullable Channel camera, @Nullable Channel cameraPos, @Nullable Channel[] rotation,
+		@Nullable Channel[] position, boolean hideArms, boolean bothArms) {
 	}
 
 	public final Identifier id;

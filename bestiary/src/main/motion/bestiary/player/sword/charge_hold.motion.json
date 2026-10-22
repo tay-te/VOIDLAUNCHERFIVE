@@ -2,26 +2,29 @@
   "format": 1,
   "rig": "fray:humanoid",
   "ground": "floor",
-  "length": 1.0,
+  "length": 1,
   "loop": "loop",
   "blend_in": 5, "blend_out": 3,
   "model_scale": 0.9375,
+  "slerp": true,
   "mask": { "right_leg": 0.8, "left_leg": 0.8 },
   "move_mask": { "right_leg": 0, "left_leg": 0, "root": 0.2 },
   "bones": {
     "left_forearm": { "rotation": [[0.00, [-52.9, 0, 0], "catmullrom"], [0.50, [-54.3, 0, 0], "catmullrom"], [1.00, [-52.9, 0, 0], "catmullrom"]] },
-    "right_forearm": { "rotation": [[0.00, [-25, 0, 0], "catmullrom"], [0.12, [-25, 0, 0], "catmullrom"], [0.25, [-25, 0, 0], "catmullrom"], [0.37, [-25, 0, 0], "catmullrom"], [0.50, [-25, 0, 0], "catmullrom"], [0.62, [-25, 0, 0], "catmullrom"], [0.75, [-25, 0, 0], "catmullrom"], [0.87, [-25, 0, 0], "catmullrom"], [1.00, [-25, 0, 0], "catmullrom"]] },
-    "root":      { "position": [[0.00, [0, -1.6, 1.6], "catmullrom"], [0.50, [0, -1.9, 1.7], "catmullrom"], [1.00, [0, -1.6, 1.6], "catmullrom"]],
-                   "rotation": [[0.00, [-4, 10, 0], "catmullrom"], [0.50, [-4, 11, 0], "catmullrom"], [1.00, [-4, 10, 0], "catmullrom"]] },
+    "right_forearm": { "rotation": [[0.00, [-31.1, 0, 0], "catmullrom"], [0.50, [-31.3, 0, 0], "catmullrom"], [1.00, [-30.2, 0, 0], "catmullrom"]] },
+    "root": { "position": [[0.00, [0, -1.6, 1.6], "catmullrom"], [0.50, [0, -1.9, 1.7], "catmullrom"], [1.00, [0, -1.6, 1.6], "catmullrom"]], "rotation": [[0.00, [-4, 10, 0], "catmullrom"], [0.50, [-4, 11, 0], "catmullrom"], [1.00, [-4, 10, 0], "catmullrom"]] },
     "torso": { "rotation": [[0.00, [6.9, 57.2, 0], "catmullrom"], [0.25, [8, 59.8, 1], "catmullrom"], [0.50, [6.9, 58.5, 0], "catmullrom"], [0.75, [8, 60, -1], "catmullrom"], [1.00, [6.9, 57.2, 0], "catmullrom"]] },
-    "head":      { "rotation": [[0.00, [0, -40, 0], "catmullrom"], [0.50, [-2, -42, 0], "catmullrom"], [1.00, [0, -40, 0], "catmullrom"]] },
-    "right_arm": { "rotation": [[0.00, [24, 30, 12], "catmullrom"], [0.12, [26, 31, 12.4], "catmullrom"], [0.25, [23, 29, 12], "catmullrom"], [0.37, [25, 30, 12.8], "catmullrom"], [0.50, [24, 31, 12], "catmullrom"], [0.62, [26, 29, 12.4], "catmullrom"], [0.75, [23, 30, 11.6], "catmullrom"], [0.87, [25, 31, 12.4], "catmullrom"], [1.00, [24, 30, 12], "catmullrom"]] },
+    "head": { "rotation": [[0.00, [0, -40, 0], "catmullrom"], [0.50, [-2, -42, 0], "catmullrom"], [1.00, [0, -40, 0], "catmullrom"]] },
+    "right_arm": { "rotation": [[0.00, [-98.1, -45.6, -5.6], "catmullrom"], [0.50, [-99.9, -47.1, -5.6], "catmullrom"], [1.00, [-98.6, -45.9, -6], "catmullrom"]] },
     "left_arm": { "rotation": [[0.00, [-33.3, 13.6, 1.6], "catmullrom"], [0.50, [-34.2, 14.4, 1.6], "catmullrom"], [1.00, [-33.3, 13.6, 1.6], "catmullrom"]] },
     "right_leg": { "rotation": [[0.00, [16, 0, 6], "catmullrom"], [1.00, [16, 0, 6], "catmullrom"]] },
-    "left_leg":  { "rotation": [[0.00, [-26, 0, -6], "catmullrom"], [1.00, [-26, 0, -6], "catmullrom"]] },
-    "item_r":    { "rotation": [[0.00, [-62, 0, 0], "catmullrom"], [0.50, [-64, 0, 1], "catmullrom"], [1.00, [-62, 0, 0], "catmullrom"]] }
+    "left_leg": { "rotation": [[0.00, [-26, 0, -6], "catmullrom"], [1.00, [-26, 0, -6], "catmullrom"]] },
+    "item_r": { "rotation": [[0.00, [43.7, 0, 70.1], "catmullrom"], [0.50, [42.2, 0, 69.6], "catmullrom"], [1.00, [43.1, 0, 70], "catmullrom"]] }
   },
-  "fp": { "framing": "bestiary:sword_1h", "offset": [0, -0.1, -0.85], "pitch": 10, 
-          "camera": { "position": [[0.00, [0, -0.05, 0], "catmullrom"], [0.50, [0, -0.06, 0], "catmullrom"], [1.00, [0, -0.05, 0], "catmullrom"]] } },
-  "checks": ["ground", "fp_framing"]
+  "fp": { "framing": "bestiary:sword_1h",
+          "camera": { "position": [[0.00, [0, -0.05, 0], "catmullrom"], [0.50, [0, -0.06, 0], "catmullrom"], [1.00, [0, -0.05, 0], "catmullrom"]] },
+          "bones": {
+            "item_r": { "rotation": [[0.00, [-38.4, -22.6, -28.6], "catmullrom"], [0.50, [-37.6, -22.6, -28.5], "catmullrom"], [1.00, [-38.4, -22.6, -28.6], "catmullrom"]], "position": [[0.00, [-2.1, 8, 0.3], "catmullrom"], [0.50, [-1.9, 8.3, 0.3], "catmullrom"], [1.00, [-2.1, 8, 0.3], "catmullrom"]] }
+          } },
+  "checks": ["ground", "fp_framing", "fp_match"]
 }

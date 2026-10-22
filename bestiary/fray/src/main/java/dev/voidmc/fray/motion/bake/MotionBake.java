@@ -223,7 +223,7 @@ public final class MotionBake {
 				warnings.add(msg);
 			}
 		}
-		if (clip.rig.humanoid && clip.id.getPath().startsWith("player/") && clip.fp != null && Checks.drawsArms(clip.fp)) {
+		if (clip.rig.humanoid && clip.id.getPath().startsWith("player/") && Checks.drawsArms(clip)) {
 			Checks.Reach r = Checks.reach(clip);
 			s.append(String.format(Locale.ROOT, " | hand reach: max %.2f, outside the strike %.2f, mean %.2f blocks", r.max(), r.maxOutside(), r.mean()));
 			if (r.ticksOver() > 0) {
@@ -231,17 +231,44 @@ public final class MotionBake {
 					Checks.REACH_LIMIT, r.ticksOver(), r.maxOutside()));
 			}
 		}
-		if (clip.fp != null) {
+		if (Checks.drawsArms(clip)) {
 			Checks.Framing f = Checks.firstPerson(clip);
-			s.append(String.format(Locale.ROOT, " | first person: arms and blade cover up to %.0f %% of the screen at %.2f s, crosshair covered %d ticks outside the strike%s",
-				f.maxCoverage() * 100, f.atSeconds(), f.crosshairTicks(), f.throughCamera() ? " (an arm reaches the camera)" : ""));
+			s.append(String.format(Locale.ROOT, " | first person: forearm and blade cover up to %.0f %% of the screen at %.2f s, crosshair covered %d ticks outside the strike, forearm's cuff on screen %d ticks%s",
+				f.maxCoverage() * 100, f.atSeconds(), f.crosshairTicks(), f.armEndTicks(), f.throughCamera() ? " (a hand reaches the camera)" : ""));
 			if (f.crosshairTicks() > 0) {
-				warnings.add(String.format(Locale.ROOT, "%s: first person covers the crosshair for %d ticks outside the strike", clip.id, f.crosshairTicks()));
+				String msg = String.format(Locale.ROOT, "%s: first person covers the crosshair for %d ticks outside the strike", clip.id, f.crosshairTicks());
+				if (clip.checks.contains("fp_framing")) {
+					failures.add(msg);
+				} else {
+					warnings.add(msg);
+				}
 			}
 			if (clip.checks.contains("fp_framing") && (f.maxCoverage() > Checks.FP_LIMIT || f.throughCamera())) {
-				failures.add(String.format(Locale.ROOT, "%s: first-person arms and blade cover %.0f %% of the screen at %.2f s%s (limit %.0f %%)", clip.id, f.maxCoverage() * 100,
+				failures.add(String.format(Locale.ROOT, "%s: first-person forearm and blade cover %.0f %% of the screen at %.2f s%s (limit %.0f %%)", clip.id, f.maxCoverage() * 100,
 					f.atSeconds(), f.throughCamera() ? " and reach the camera" : "", Checks.FP_LIMIT * 100));
 			}
+		}
+		if (FirstPersonMatch.applies(clip)) {
+			FirstPersonMatch.Result m = FirstPersonMatch.run(clip);
+			s.append(" | ").append(m.line());
+			for (String p : m.problems()) {
+				String msg = clip.id + ": first and third person disagree: " + p;
+				if (clip.checks.contains("fp_match")) {
+					failures.add(msg);
+				} else {
+					warnings.add(msg);
+				}
+			}
+			String plot = System.getProperty("fray.fp.plot", "");
+			if (!plot.isEmpty()) {
+				try {
+					FirstPersonMatch.plot(clip, m, java.nio.file.Path.of(plot, clip.id.getPath().replace('/', '_') + ".png"));
+				} catch (IOException e) {
+					warnings.add("fp plot: " + e);
+				}
+			}
+		} else if (clip.checks.contains("fp_match")) {
+			failures.add(clip.id + ": fp_match needs first-person rig curves (fp.bones.item_r)");
 		}
 		return s.toString();
 	}
@@ -354,11 +381,8 @@ public final class MotionBake {
 			}
 			if (m.has("fp") && m.getAsJsonObject("fp").has("bones")) {
 				JsonObject fp = m.getAsJsonObject("fp");
+				// First-person curves are in camera space: mirroring across the camera's X turns them the same way.
 				fp.add("bones", bones(fp.getAsJsonObject("bones")));
-				if (fp.has("offset")) {
-					JsonArray off = fp.getAsJsonArray("offset");
-					off.set(0, new com.google.gson.JsonPrimitive(-off.get(0).getAsFloat()));
-				}
 				if (fp.has("camera") && fp.getAsJsonObject("camera").has("rotation")) {
 					// Camera yaw and roll flip; pitch stays.
 					fp.getAsJsonObject("camera").add("rotation", keys(fp.getAsJsonObject("camera").getAsJsonArray("rotation"), 1, -1, -1));
