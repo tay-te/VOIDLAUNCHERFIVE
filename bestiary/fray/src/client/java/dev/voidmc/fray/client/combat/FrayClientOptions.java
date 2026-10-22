@@ -44,6 +44,12 @@ public final class FrayClientOptions {
 	 * {@link #cameraShake}, scaled by Damage Tilt).
 	 */
 	public float cameraMotion = 0.4F;
+	/**
+	 * Fray's custom first-person animation (FirstPersonRig and the clips' {@code fp} curves, swing camera kicks). Off by
+	 * default since 2026-10-22: first person is vanilla's held item and swing (heavy and charge release slower, a guard
+	 * raises the sword a little), with hit-stop and the dodge's camera dip. {@code -Dfray.fpAnimations=true} also turns it on.
+	 */
+	public boolean fpAnimations = false;
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static FrayClientOptions instance;

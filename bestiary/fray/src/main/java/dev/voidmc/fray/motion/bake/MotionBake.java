@@ -207,6 +207,12 @@ public final class MotionBake {
 		return new Baked(forBake, clientJson, hash, timeline);
 	}
 
+	/**
+	 * Fray's custom first person is on (the client option {@code fpAnimations}; {@code -Dfray.fpAnimations=true} here).
+	 * Off by default: the first-person checks {@code fp_framing} and {@code fp_match} are skipped.
+	 */
+	public static final boolean FP_ANIMATIONS = Boolean.getBoolean("fray.fpAnimations");
+
 	/** The looks checks' report line; failures for the checks the clip asked for. */
 	public static String checks(Clip clip, List<String> warnings, List<String> failures) {
 		StringBuilder s = new StringBuilder("      checks:");
@@ -230,6 +236,11 @@ public final class MotionBake {
 				warnings.add(String.format(Locale.ROOT, "%s: the right hand is more than %.2f blocks from the chest for %d ticks outside the strike (max %.2f)", clip.id,
 					Checks.REACH_LIMIT, r.ticksOver(), r.maxOutside()));
 			}
+		}
+		if (!FP_ANIMATIONS && (Checks.drawsArms(clip) || FirstPersonMatch.applies(clip) || clip.checks.contains("fp_match"))) {
+			// Custom first person is parked (the client's fpAnimations option, off): first person draws vanilla's hands,
+			// so its framing and its match with third person aren't checked. -Dfray.fpAnimations=true checks them again.
+			return s.append(" | first person: vanilla (fpAnimations off: fp_framing, fp_match skipped)").toString();
 		}
 		if (Checks.drawsArms(clip)) {
 			Checks.Framing f = Checks.firstPerson(clip);

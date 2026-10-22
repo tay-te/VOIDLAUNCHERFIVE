@@ -460,8 +460,14 @@ public class MotionShowcase implements FabricClientGameTest {
 			st.shot(String.format(Locale.ROOT, "fp_swing_t%02d", t));
 		}
 		long draws = FrayStats.fpDraws;
-		Stage.log("first person: " + FrayStats.line());
-		Stage.expect(draws > 0, "first-person arms drawn by Fray inside the hand pass (" + draws + " draws)");
+		long swings = st.c.computeOnClient(mc -> dev.voidmc.fray.client.VanillaFirstPerson.swings);
+		Stage.log("first person: " + FrayStats.line() + ", vanilla swings drawn " + swings);
+		if (dev.voidmc.fray.client.VanillaFirstPerson.customOn()) {
+			Stage.expect(draws > 0, "first-person arms drawn by Fray inside the hand pass (" + draws + " draws)");
+		} else {
+			// Custom first person parked (fpAnimations off): vanilla's hands play vanilla's swing for the action.
+			Stage.expect(draws == 0 && swings > 0, "first person is vanilla's swing (" + swings + " swing frames, " + draws + " Fray draws)");
+		}
 		st.freeze(me, Double.NaN);
 		st.c.waitTicks(30);
 		st.shot("fp_after_swing_vanilla_again");

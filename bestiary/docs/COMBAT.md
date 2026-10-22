@@ -158,6 +158,17 @@ Measured: the same heavy lands 13 server ticks after release with hit-stop on an
 second through the freeze (tick rate 20, not frozen, 10 ticks in 10). The local player's first-person arms are the one
 part not frozen yet (§4, the animation lane).
 
+**First person is vanilla for now (decided 2026-10-22).** The local player's first person draws Minecraft's own held
+item and attack swing for every action (`client.VanillaFirstPerson`): a strike plays vanilla's swing timed so its contact
+lands on the clip's first ACTIVE tick (from the baked timeline), heavy and charge release play it slower (10 ticks
+instead of 6), and a guard (parry, block) raises the sword a little toward vanilla's old sword-block pose. Hit-stop still
+freezes that vanilla hand (it reads the Animator's held time) and camera shake is unchanged; dodges keep vanilla hands
+and their gentle camera dip. Fray's custom first person (`FirstPersonRig`, the clips' `fp` curves and swing camera kicks)
+is parked behind the client option `fpAnimations` (default off; `-Dfray.fpAnimations=true` also turns it on, and makes
+the bake check `fp_framing` and `fp_match` again). Combat timing never depended on it: hit ticks, windows, dodge and
+parry timing and the defender-favoured rewind all come from the clips' timelines either way. Third person keeps its
+clips and elbows; the plunge's twisted arm pose was replaced by a plain overhead-to-down stab.
+
 ### 5.3 Camera shake
 
 Up to eight decaying impulses (`client.combat.feel.CameraShake`, maths in `Feel`): each pushes the view along the hit
@@ -170,7 +181,8 @@ Incoming: 2.2° × weight, × 0.55-1.45 by the damage as a share of max health; 
 
 Options (`config/fray-combat-client.json`): `cameraShake` (on/off), `shakeIntensity` 0-1 (shown as 0-100 %, default
 0.45 since 2026-10-22), `cameraMotion` 0-1 (default 0.4: the clips' own first-person camera kicks and dips, also off with
-`cameraShake` and scaled by Damage Tilt). Minecraft has no reduce-motion toggle; Fray follows the accessibility slider closest to it, **Damage Tilt**: the
+`cameraShake` and scaled by Damage Tilt; with `fpAnimations` off only camera-only clips such as the dodges' dip play),
+`fpAnimations` (default off: vanilla first person, §5.2). Minecraft has no reduce-motion toggle; Fray follows the accessibility slider closest to it, **Damage Tilt**: the
 shake is multiplied by it, so Damage Tilt 0 means no shake. Game test: at intensity 0 a heavy on the player adds no
 impulse and the camera stays exactly on the look (0.0000°); at 100 % it moves off the look (0.6-1.4° in the samples
 taken once a tick) and settles within half a second.
@@ -222,4 +234,5 @@ branch, integrated and dedicated server.
 
 First-person review frames of real actions: `-Dfray.combat=fpgif` (not in `all`) freezes the game and steps it a tick
 per screenshot (`FeelClock` on game time); the GIFs live outside the repository in
-`C:/Users/bitto/VOID/.tools/share/bestiary/stage1/merged/`.
+`C:/Users/bitto/VOID/.tools/share/bestiary/stage1/merged/` (custom first person) and `.../stage1/basic/` (vanilla first
+person: a heavy landing with hit-stop, a guard raise).

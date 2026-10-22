@@ -34,8 +34,9 @@ with the tick. `*_fp.gif` show first person beside third person. `sheet_player.j
 | Gallows Knight | `gallows_knight_idle`, `gallows_knight_walk`, `gallows_knight_chain_sweep`, `gallows_knight_stagger` |
 | Studio | `studio_onion.jpg` (onion skin of the sweep), `studio_split.jpg` (first/third person), `studio_overlay.jpg` (hit volumes) |
 
-Ground: every dodge, attack and the knight's clips stay on the floor (bake check `ground`, < 0.5 px). First person:
-the sword clips cover at most 21 % of the screen (heavy, light_3), nothing reaches the camera.
+Ground: every dodge, attack and the knight's clips stay on the floor (bake check `ground`, < 0.5 px). First person
+(custom, now parked behind `fpAnimations`): the sword clips cover at most 21 % of the screen (heavy, light_3), nothing
+reaches the camera.
 
 ## Performance (client probes, per mob per frame; 24 mobs unless noted)
 
@@ -69,9 +70,15 @@ count rewinds, clamps and saves.
 
 ## Known issues and next steps
 
-1. Fixed on `bestiary-stage1`: first person has its own rig and curves per move, starting and ending on vanilla's held
-   sword, checked against third person by the bake (`fp_match`, STUDIO.md "First person"); sword clips interpolate
-   rotations on quaternions and have no wrist roll.
+1. **Decision 2026-10-22: player first person is vanilla for now.** After many rounds on custom first-person
+   animation the user chose basic, low-risk player animation: first person draws vanilla's held item and swing for
+   every action (heavy and charge release slower, a guard raises the sword a little; hit-stop freezes the hand; dodges
+   keep their camera dip). The custom first person built on `bestiary-stage1` (its own rig and curves per move,
+   `FirstPersonRig`, checked against third person by `fp_match`, STUDIO.md "First person") is **parked behind the client
+   option `fpAnimations`** (default off; `-Dfray.fpAnimations=true` turns it and its bake checks `fp_framing` /
+   `fp_match` back on). Third person keeps its clips and elbows (no further polish); the plunge's twisted arm pose became
+   a plain overhead-to-down stab. Combat timing is unchanged: it always came from the clips' timelines. Creatures and the
+   Gallows Knight keep their animations. Frames: `C:/Users/bitto/VOID/.tools/share/bestiary/stage1/basic/`.
 2. Player hit volumes ride the arm, not `item_r` (the combat lane sweeps arcs for players, so this only affects
    creature clips that use item bones; none do yet).
 3. `zombie/double_claw` sweeps both claws in both strikes (hit-once per strike); per-strike volume lists would be tidier.

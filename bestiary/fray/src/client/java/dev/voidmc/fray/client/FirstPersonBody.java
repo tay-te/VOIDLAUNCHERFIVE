@@ -84,7 +84,8 @@ public final class FirstPersonBody {
 	/** Returns true when Fray drew (or deliberately skipped, in Iris's other hand pass) the hands: vanilla's are cancelled. */
 	public static boolean draw(float partialTicks, PoseStack poseStack, SubmitNodeCollector collector, PlayerRenderState playerState,
 		FirstPersonHandsAndItemsRenderState state) {
-		if (!ClientMotion.enabled) {
+		// Custom first person is parked behind the fpAnimations option (off: vanilla's hands, VanillaFirstPerson).
+		if (!ClientMotion.enabled || !VanillaFirstPerson.customOn()) {
 			return false;
 		}
 		AvatarRenderState avatar = playerState.avatarRenderState;
@@ -205,6 +206,11 @@ public final class FirstPersonBody {
 		Animator animator = ClientMotion.get(mc.player.getId());
 		Clip clip = animator == null ? null : animator.clip(Animator.ACTION);
 		if (clip == null || clip.fp == null || (clip.fp.camera() == null && clip.fp.cameraPos() == null)) {
+			return;
+		}
+		// With custom first person off, only camera-only clips (a dodge's dip) keep their camera motion; a strike's kicks
+		// belong to the parked first-person curves.
+		if (!VanillaFirstPerson.customOn() && FirstPersonRig.animates(clip)) {
 			return;
 		}
 		double e = animator.actionElapsed(ClientMotion.now(partialTicks));

@@ -51,6 +51,10 @@ re-keys the root so feet never sink or float, `"floor"` only lifts what sinks), 
 
 ## First person
 
+**Parked (2026-10-22):** by default first person is vanilla's held item and swing (COMBAT.md §5.2). Everything in this
+section needs the client option `fpAnimations` on (or `bash tools/studio.sh start -Dfray.fpAnimations=true`, which also
+turns the bake's `fp_framing` and `fp_match` back on; with it off they are reported as skipped).
+
 First person has its own rig and its own curves (`FirstPersonRig`, 2026-10-22), as action games do: a hand and its held
 item anchored to the camera, and vanilla's own first-person arm (the long arm box vanilla draws for the empty hand,
 unscaled, its sleeve as the skin says) with its hand at the grip, pointing back at vanilla's shoulder off screen at the
