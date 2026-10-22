@@ -356,6 +356,10 @@ public final class Pipeline implements DamageService {
 		long h0 = System.nanoTime();
 		boolean hurt = total > 0 && target.hurtServer(level, source, total);
 		handoffNanos += System.nanoTime() - h0;
+		if (hurt && !status && !target.isDeadOrDying()) {
+			// The hit flinch (additive, ANIM_EVENTS.md §1): player/hit_light or hit_heavy, zombie/hit_light, ...
+			MotionBridge.flinch(target, target instanceof Player && HitFlags.has(flags, HitFlags.HEAVY) ? "hit_heavy" : "hit_light");
+		}
 		if (hurt && atk != null && !status) {
 			float kb = HitFlags.has(flags, HitFlags.CHARGED) ? 0.8F : HitFlags.has(flags, HitFlags.HEAVY) ? 0.45F : 0.15F;
 			if (target.isDeadOrDying()) {

@@ -20,6 +20,8 @@ import dev.voidmc.fray.combat.math.PoiseMeter;
 import dev.voidmc.fray.combat.math.StaminaPool;
 import dev.voidmc.fray.combat.net.CombatPayloads;
 import dev.voidmc.fray.combat.net.CombatSync;
+import dev.voidmc.fray.motion.DefenderTiming;
+import dev.voidmc.fray.motion.MotionServer;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
@@ -58,6 +60,10 @@ public final class PlayerCombat {
 		public ActionKind kind;
 		public ActionDef def;
 		public Phases phases;
+		/** When hits land and windows open: the clip's timeline when the action plays its own clip ({@link ActionTiming}). */
+		public ActionTiming timing;
+		/** The action's clip runs on Fray Motion (its defensive windows are judged by {@code DefenderTiming}). */
+		public boolean onMotion;
 		public long start;
 		public int combo;
 		public float charge;
@@ -95,6 +101,10 @@ public final class PlayerCombat {
 	public int iFrom, iTo;
 	public long slipBonusUntil = Long.MIN_VALUE / 2;
 	public boolean slipped;
+	/** No clip for the last dodge or parry: its windows are judged from iFrom/iTo and the parry press. */
+	private boolean legacyWindows;
+	/** The held guard's pose on Fray Motion: 0 the parry clip, 1 block_raise, 2 block_hold. */
+	private int guardPose;
 
 	// Windows.
 	public long flinchUntil = Long.MIN_VALUE / 2;
@@ -150,13 +160,13 @@ public final class PlayerCombat {
 		return (float) Math.max(base * 0.65, v);
 	}
 
-	private long lastStamp = Long.MIN_VALUE;
 
-	/** The defender stamp of an input (ANIM_EVENTS.md §4): the client's tick, clamped by the grace and monotonic. */
+	/**
+	 * The defender stamp of an input (ANIM_EVENTS.md §4): the client's tick, clamped by {@link DefenderTiming} (the one
+	 * place the grace, the measured round trip and the anti-abuse rules live).
+	 */
 	private long stamp(CombatPayloads.Input in, long now) {
-		long s = dev.voidmc.fray.combat.Defense.clampStamp(in.clientTick(), now, dev.voidmc.fray.combat.Defense.rtt(this.player), this.lastStamp);
-		this.lastStamp = s;
-		return s;
+		return DefenderTiming.accept(this.player.getUUID(), in.clientTick(), now);
 	}
 
 	public long now() {
@@ -251,8 +261,8 @@ public final class PlayerCombat {
 		Run cur = this.run;
 		if (cur != null) {
 			int k = (int) (now - cur.start);
-			boolean chain = cur.kind.attack() && cur.phases.chainOpen(k);
-			boolean rollAttack = (cur.kind == ActionKind.DODGE || cur.kind == ActionKind.BACKSTEP) && k >= cur.phases.total() - 3;
+			boolean chain = cur.kind.attack() && cur.timing.chainOpen(k);
+			boolean rollAttack = (cur.kind == ActionKind.DODGE || cur.kind == ActionKind.BACKSTEP) && cur.timing.chainOpen(k);
 			if (!chain && !rollAttack) {
 				this.buffer(new CombatPayloads.Input(CombatPayloads.ATTACK_UP, in.seq(), in.clientTick(), in.yaw(), in.pitch(), in.target(), held), now);
 				this.ack(in.seq(), true, (byte) -1, now, BUFFERED);
@@ -354,10 +364,11 @@ public final class PlayerCombat {
 		r.kind = kind;
 		r.def = def;
 		double speed = MettleStats.balance(this.player, BalanceKey.ACTION_SPEED, 1.0, kind.id());
-		r.phases = def.phases().speed(speed);
+		r.variant = combo;
+		r.timing = this.timing(kind, r.variant, def, speed);
+		r.phases = r.timing.phases();
 		r.start = now;
 		r.combo = combo;
-		r.variant = combo;
 		r.charge = charge;
 		r.declared = declared;
 		r.slipBonus = now < this.slipBonusUntil;
@@ -372,15 +383,29 @@ public final class PlayerCombat {
 		this.begin(r, seq);
 	}
 
+	/** The clip an action plays and its timing (the client predicts with the same function). */
+	private ActionTiming timing(ActionKind kind, int variant, ActionDef def, double speed) {
+		Identifier clip = ActionClips.pick(kind, variant, id -> MotionServer.timeline(id) != null);
+		return ActionTiming.of(kind, Weapons.family(this.player.getMainHandItem()), def.phases(), clip, clip == null ? null : MotionServer.timeline(clip), speed);
+	}
+
 	private void begin(Run r, int seq) {
+		this.begin(r, seq, null);
+	}
+
+	private void begin(Run r, int seq, java.util.@Nullable Map<String, int[]> windows) {
 		this.run = r;
 		ACTIONS.add(r.start + " " + this.player.getName().getString() + " " + r.kind.name() + (r.kind == ActionKind.LIGHT ? " " + r.combo : ""));
 		this.ack(seq, true, (byte) r.kind.ordinal(), r.start, OK);
-		// With the stage 1 motion runtime the clip runs on Fray Motion (defender windows, trackers); else our own packet.
-		Identifier clip = ActionClips.pick(r.kind, r.variant, id -> dev.voidmc.fray.motion.MotionServer.timeline(id) != null);
+		// The clip runs on Fray Motion (defender windows; trackers see it); without the clip in the jar, our own packet.
+		Identifier clip = r.timing.clip();
 		long defender = r.kind == ActionKind.DODGE || r.kind == ActionKind.BACKSTEP ? this.dodgeStart : r.start;
-		if (clip == null || !dev.voidmc.fray.combat.MotionBridge.startPlayerAction(this.player, clip, defender)) {
-			CombatSync.actionPlay(this.player, r.kind, r.variant, r.start, ActionKind.clipSpeed(r.kind, r.phases.windup()));
+		r.onMotion = clip != null && dev.voidmc.fray.combat.MotionBridge.start(this.player, clip, defender, r.timing.clipSpeed(), windows);
+		if (r.kind == ActionKind.DODGE || r.kind == ActionKind.BACKSTEP) {
+			this.legacyWindows = !r.onMotion;
+		}
+		if (!r.onMotion) {
+			CombatSync.actionPlay(this.player, r.kind, r.variant, r.start, r.timing.clipSpeed());
 		}
 		CombatEvents.ACTION_STARTED.invoker().on(this.player, r.kind.id(), CombatEvents.ActionOutcome.DONE);
 		this.applySlow(r, 0);
@@ -398,7 +423,11 @@ public final class PlayerCombat {
 		this.removeSlow();
 		CombatEvents.ACTION_ENDED.invoker().on(this.player, r.kind.id(), outcome);
 		if (outcome == CombatEvents.ActionOutcome.INTERRUPTED) {
-			CombatSync.actionPlay(this.player, null, 0, this.now(), 1);
+			if (r.onMotion) {
+				dev.voidmc.fray.combat.MotionBridge.stop(this.player, 3);
+			} else {
+				CombatSync.actionPlay(this.player, null, 0, this.now(), 1);
+			}
 		}
 	}
 
@@ -406,10 +435,47 @@ public final class PlayerCombat {
 		boolean had = this.run != null;
 		this.end(CombatEvents.ActionOutcome.INTERRUPTED);
 		this.attackHeld = false;
-		if (reason == InterruptReason.FLINCH) {
-			this.flinchUntil = this.now() + dev.voidmc.fray.combat.Poise.FLINCH_TICKS;
+		if (reason == InterruptReason.FLINCH || reason == InterruptReason.STAGGER) {
+			if (reason == InterruptReason.FLINCH) {
+				this.flinchUntil = this.now() + dev.voidmc.fray.combat.Poise.FLINCH_TICKS;
+			}
+			dev.voidmc.fray.combat.MotionBridge.react(this.player, "flinch");
 		}
 		return had;
+	}
+
+	/**
+	 * Fray Motion's gate for a raw clip request (not a combat input: the studio, tests, other mods' keys): refused while an
+	 * action runs or the player can't act; a clip with a strike or a defensive window costs what the action would (a
+	 * dodge's or a light's stamina) and is refused when Winded or short of it. Clips with neither (emotes) pass.
+	 */
+	public boolean allowRaw(Identifier clip) {
+		long now = this.now();
+		dev.voidmc.fray.motion.Timeline t = MotionServer.timeline(clip);
+		if (t == null || this.run != null || !this.canAct(now)) {
+			return false;
+		}
+		boolean dodge = t.window("iframes") != null;
+		boolean guard = t.window("parry") != null || t.window("block") != null;
+		if (!dodge && !guard && !t.hasPhases()) {
+			return true;
+		}
+		if (this.winded()) {
+			return false;
+		}
+		Moveset ms = Movesets.of(Weapons.family(this.player.getMainHandItem()));
+		ActionKind kind = dodge ? ActionKind.DODGE : guard ? ActionKind.PARRY : ActionKind.LIGHT;
+		float base = dodge ? Movesets.DODGE_COST[Weapons.armourClass(this.player)] : guard ? GuardMath.PARRY_COST : ms.light(0).stamina();
+		float cost = this.cost(base, dodge ? "dodge" : guard ? "parry" : null, kind.id());
+		if (!this.stamina.canAfford(cost)) {
+			return false;
+		}
+		this.spend(cost, kind.id());
+		this.legacyWindows = false;
+		if (dodge) {
+			this.slipped = false;
+		}
+		return true;
 	}
 
 	private void applySlow(Run r, int k) {
@@ -417,7 +483,7 @@ public final class PlayerCombat {
 		if (speed == null) {
 			return;
 		}
-		Phases.Phase phase = r.phases.at(k);
+		Phases.Phase phase = r.timing.at(k);
 		float slow = r.def.slow();
 		if ((phase == Phases.Phase.WINDUP || phase == Phases.Phase.ACTIVE) && slow < 1) {
 			AttributeModifier m = speed.getModifier(SLOW);
@@ -442,10 +508,10 @@ public final class PlayerCombat {
 		Run cur = this.run;
 		if (cur != null) {
 			int k = (int) (now - cur.start);
-			if ((cur.kind == ActionKind.HEAVY || cur.kind == ActionKind.CHARGED) && cur.phases.at(k) == Phases.Phase.WINDUP && cur.phases.feint(k)) {
+			if ((cur.kind == ActionKind.HEAVY || cur.kind == ActionKind.CHARGED) && cur.timing.at(k) == Phases.Phase.WINDUP && cur.timing.feint(k)) {
 				this.spend(this.cost(GuardMath.FEINT_COST, null, ActionKind.PARRY.id()), Fray.id("player/feint"));
 				this.end(CombatEvents.ActionOutcome.CANCELLED);
-			} else if (cur.phases.guardCancel(k) || cur.kind == ActionKind.DODGE || cur.kind == ActionKind.BACKSTEP && k >= cur.phases.total() - 2) {
+			} else if (cur.timing.guardCancel(k) || cur.kind == ActionKind.DODGE) {
 				this.end(CombatEvents.ActionOutcome.CANCELLED);
 			} else {
 				this.buffer(in, now);
@@ -474,7 +540,15 @@ public final class PlayerCombat {
 			this.parryWindow = GuardMath.window(base, bonus, spammed);
 		}
 		this.ack(in.seq(), true, (byte) ActionKind.PARRY.ordinal(), now, OK);
-		CombatSync.actionPlay(this.player, ActionKind.PARRY, 0, now, 1);
+		// The parry clip runs on Fray Motion with this press's window (Mettle's bonus, spamming): DefenderTiming judges it.
+		Identifier clip = ActionClips.pick(ActionKind.PARRY, 0, id -> MotionServer.timeline(id) != null);
+		java.util.Map<String, int[]> w = java.util.Map.of("parry", new int[] {0, this.parryWindow - 1});
+		boolean onMotion = clip != null && dev.voidmc.fray.combat.MotionBridge.start(this.player, clip, this.guardPress, 1, w);
+		this.legacyWindows = !onMotion;
+		if (!onMotion) {
+			CombatSync.actionPlay(this.player, ActionKind.PARRY, 0, now, 1);
+		}
+		this.guardPose = 0;
 	}
 
 	private void guardUp(long now) {
@@ -482,6 +556,10 @@ public final class PlayerCombat {
 			return;
 		}
 		this.guardHeld = false;
+		if (this.guardPose > 0 && this.run == null) {
+			dev.voidmc.fray.combat.MotionBridge.stop(this.player, 4);
+		}
+		this.guardPose = 0;
 		long since = now - this.guardPress;
 		if (!this.parriedThisPress && this.parryWindow > 0 && since <= this.parryWindow + 2) {
 			this.whiffUntil = Math.max(now, this.guardPress + this.parryWindow) + GuardMath.WHIFF_TICKS;
@@ -490,7 +568,23 @@ public final class PlayerCombat {
 
 	/** True while a press's parry window is open or the block is held. */
 	public boolean guarding(long at) {
-		return this.guardHeld || GuardMath.inParry((int) (at - this.guardPress), this.parryWindow);
+		return this.guardHeld || this.window(at) == DefenderTiming.Window.PARRY;
+	}
+
+	/**
+	 * What the player's own action covers at {@code at} on their clock: the one judge for every hit on them (timeline,
+	 * Fray and vanilla hits alike) is {@code DefenderTiming} over the clip running on Fray Motion. Only without the clips
+	 * in the jar, the combat side's own numbers.
+	 */
+	public DefenderTiming.Window window(long at) {
+		if (!this.legacyWindows) {
+			return MotionServer.windowFor(this.player, at);
+		}
+		long k = at - this.dodgeStart;
+		if (k >= this.iFrom && k <= this.iTo) {
+			return k < this.iFrom + Movesets.SLIP_TICKS ? DefenderTiming.Window.PERFECT : DefenderTiming.Window.IFRAMES;
+		}
+		return GuardMath.inParry((int) (at - this.guardPress), this.parryWindow) ? DefenderTiming.Window.PARRY : DefenderTiming.Window.NONE;
 	}
 
 	// ------------------------------------------------------------------ dodge
@@ -500,7 +594,7 @@ public final class PlayerCombat {
 		boolean cancel = false;
 		if (cur != null) {
 			int k = (int) (now - cur.start);
-			if (cur.kind.attack() && cur.phases.dodgeCancel(k)) {
+			if (cur.kind.attack() && cur.timing.dodgeCancel(k)) {
 				cancel = true;
 			} else {
 				this.buffer(in, now);
@@ -543,29 +637,33 @@ public final class PlayerCombat {
 		Run r = new Run();
 		r.kind = kind;
 		r.def = def;
-		r.phases = def.phases();
-		r.start = now;
 		r.variant = in.param();
+		r.timing = this.timing(kind, r.variant, def, 1);
+		r.phases = r.timing.phases();
+		r.start = now;
 		this.dodgeStart = this.stamp(in, now);
+		// The i-frames are the clip's (ANIM_EVENTS.md §1.1: roll 1-7, backstep 1-4); Mettle's bonus widens them.
+		dev.voidmc.fray.motion.Timeline t = r.timing.clip() == null ? null : MotionServer.timeline(r.timing.clip());
+		int[] frames = t == null ? null : t.window("iframes");
+		int from = frames != null ? frames[0] : 1;
+		int to = frames != null ? frames[1] : roll ? 7 : 4;
 		int bonus = (int) Math.round(MettleStats.add(this.player, "dodge_iframes") / 50.0);
-		int to = roll ? 7 : 4;
 		int extra = (int) Math.round(MettleStats.balance(this.player, BalanceKey.IFRAME_TICKS, to, kind.id())) - to + bonus;
-		this.iFrom = 1;
-		this.iTo = Math.min(10, to + Math.max(0, extra));
+		this.iFrom = from;
+		this.iTo = Math.min(from + 9, to + Math.max(0, extra));
 		this.slipped = false;
-		this.begin(r, in.seq());
+		this.begin(r, in.seq(), this.iTo != to ? java.util.Map.of("iframes", new int[] {from, this.iTo}) : null);
 	}
 
-	/** Inside the dodge's i-frames at tick {@code at} (lag allowance included). */
+	/** Inside the dodge's i-frames at tick {@code at} (on the player's clock). */
 	public boolean invulnerable(long at) {
-		long k = at - this.dodgeStart;
-		return k >= this.iFrom && k <= this.iTo;
+		DefenderTiming.Window w = this.window(at);
+		return w == DefenderTiming.Window.IFRAMES || w == DefenderTiming.Window.PERFECT;
 	}
 
-	/** Inside the first three i-frame ticks: a hit here is a Slip. */
+	/** Inside the dodge's perfect ticks: a hit here is a Slip. */
 	public boolean perfect(long at) {
-		long k = at - this.dodgeStart;
-		return k >= this.iFrom && k < this.iFrom + Movesets.SLIP_TICKS;
+		return this.window(at) == DefenderTiming.Window.PERFECT;
 	}
 
 	// ------------------------------------------------------------------ Arts
@@ -587,7 +685,7 @@ public final class PlayerCombat {
 		}
 		if (this.run != null) {
 			int k = (int) (now - this.run.start);
-			if (this.run.kind.attack() && this.run.phases.chainOpen(k)) {
+			if (this.run.kind.attack() && this.run.timing.chainOpen(k)) {
 				this.end(CombatEvents.ActionOutcome.CANCELLED);
 			} else {
 				this.buffer(in, now);
@@ -649,10 +747,27 @@ public final class PlayerCombat {
 		poise.max = dev.voidmc.fray.combat.Poise.max(this.player, Rank.COMMON);
 		poise.tick(now, dev.voidmc.fray.combat.Poise.PLAYER_REFILL);
 
+		// The held guard's pose (others see it; the guarding client predicts the same): once the parry window is over,
+		// block_raise, then block_hold while held.
+		if (this.guardHeld && this.run == null) {
+			int since = (int) (now - this.guardPress);
+			if (this.guardPose == 0 && since >= Math.max(this.parryWindow, this.guard.blockFrom())) {
+				this.guardPose = 1;
+				this.poseClip("player/block_raise", now);
+			} else if (this.guardPose == 1 && since >= Math.max(this.parryWindow, this.guard.blockFrom()) + BLOCK_RAISE_TICKS) {
+				this.guardPose = 2;
+				this.poseClip("player/block_hold", now);
+			}
+		}
+
 		// A held attack charging: full charge drains stamina and releases itself after 40 ticks.
 		if (this.attackHeld && this.run == null) {
 			Moveset ms = Movesets.of(Weapons.family(this.player.getMainHandItem()));
 			int held = (int) (now - this.attackDown);
+			if (held == HoldMath.CHARGE_HOLD) {
+				// Past the heavy: the charge pose loops until the release (charge_release replaces it).
+				this.poseClip("player/sword/charge_hold", now);
+			}
 			double cs = MettleStats.mul(this.player, "charge_speed");
 			if (held >= HoldMath.CHARGE_HOLD && HoldMath.charge(held, ms.chargeTicks(), cs) >= 1) {
 				float drain = this.cost(Movesets.CHARGE_HOLD_DRAIN, "charged", ActionKind.CHARGED.id()) / 20F;
@@ -669,14 +784,14 @@ public final class PlayerCombat {
 		if (r != null) {
 			int k = (int) (now - r.start);
 			this.applySlow(r, k);
-			if (r.phases.active(k) && r.kind.attack()) {
+			if (r.timing.active(k) && r.kind.attack()) {
 				if (!r.aimed) {
 					r.aimed = true;
 					r.yaw = Sweep.aimYaw(this, r);
 				}
 				Sweep.sweep(this, r, k, level);
 			}
-			if (this.run == r && k >= r.phases.total() - 1) {
+			if (this.run == r && k >= r.timing.total() - 1) {
 				this.end(CombatEvents.ActionOutcome.DONE);
 			}
 		}
@@ -721,6 +836,17 @@ public final class PlayerCombat {
 		CombatSync.self(this, now);
 	}
 
+	/** Ticks of block_raise before block_hold takes over (its length, ANIM_EVENTS.md §1.1). */
+	public static final int BLOCK_RAISE_TICKS = 4;
+
+	/** A pose clip of the player's own (guard, charge) on Fray Motion: trackers see it; this player's client predicts it. */
+	private void poseClip(String path, long now) {
+		Identifier id = Identifier.fromNamespaceAndPath("bestiary", path);
+		if (MotionServer.timeline(id) != null) {
+			dev.voidmc.fray.combat.MotionBridge.start(this.player, id, now, 1, null);
+		}
+	}
+
 	private boolean windowOpenFor(CombatPayloads.Input b, long now) {
 		Run r = this.run;
 		if (r == null) {
@@ -728,10 +854,9 @@ public final class PlayerCombat {
 		}
 		int k = (int) (now - r.start);
 		return switch (b.kind()) {
-			case CombatPayloads.ATTACK_UP, CombatPayloads.ART -> r.kind.attack() && r.phases.chainOpen(k)
-				|| (r.kind == ActionKind.DODGE || r.kind == ActionKind.BACKSTEP) && k >= r.phases.total() - 3;
-			case CombatPayloads.DODGE -> r.kind.attack() && r.phases.dodgeCancel(k);
-			case CombatPayloads.GUARD_DOWN -> r.phases.guardCancel(k);
+			case CombatPayloads.ATTACK_UP, CombatPayloads.ART -> r.timing.chainOpen(k);
+			case CombatPayloads.DODGE -> r.kind.attack() && r.timing.dodgeCancel(k);
+			case CombatPayloads.GUARD_DOWN -> r.timing.guardCancel(k);
 			default -> false;
 		};
 	}

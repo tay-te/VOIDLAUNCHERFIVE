@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
+import dev.voidmc.fray.combat.math.GuardMath;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
@@ -151,6 +152,10 @@ public final class CombatInput {
 		if (attackHeld) {
 			int held = (int) (now - attackDown);
 			Moveset ms = Movesets.of(Weapons.family(p.getMainHandItem()));
+			if (held == HoldMath.CHARGE_HOLD && !autoReleased) {
+				// Past the heavy: the charge pose loops until the release (the server shows it to others).
+				predictPose(mc, "player/sword/charge_hold");
+			}
 			if (!autoReleased && HoldMath.autoRelease(held, ms.chargeTicks(), 1.0)) {
 				// The server releases a full charge itself; predict it.
 				autoReleased = true;
@@ -170,13 +175,37 @@ public final class CombatInput {
 		boolean useDown = mc.options.keyUse.isDown() || useClick;
 		if (!guardHeld && useDown && !screen && guardAllowed(mc)) {
 			guardHeld = true;
+			guardDown = now;
+			guardPose = 0;
 			send(CombatPayloads.GUARD_DOWN, crosshairEntity(mc), 0);
 			ClientCombat.predictedSpend += 6;
 			ClientCombat.predictedAt = ClientCombat.ms();
+			predictClip(mc, ActionKind.PARRY, 0, new dev.voidmc.fray.combat.math.Phases(0, 0, 14));
 		}
 		if (guardHeld && (!mc.options.keyUse.isDown() || screen)) {
 			guardHeld = false;
 			send(CombatPayloads.GUARD_UP, -1, 0);
+			if (guardPose > 0) {
+				Animator a = ClientMotion.get(p.getId());
+				if (a != null) {
+					a.stop(Animator.ACTION, ClientMotion.now(0), 4);
+				}
+			}
+			guardPose = 0;
+		}
+		if (guardHeld) {
+			// The same poses the server shows others (PlayerCombat.tick): block_raise after the parry window, then block_hold.
+			boolean shield = p.getOffhandItem().has(DataComponents.BLOCKS_ATTACKS) || p.getMainHandItem().has(DataComponents.BLOCKS_ATTACKS);
+			GuardMath.Spec spec = shield ? GuardMath.shield(1.3F) : GuardMath.weapon();
+			int from = Math.max(spec.parryWindow(), spec.blockFrom());
+			int since = (int) (now - guardDown);
+			if (guardPose == 0 && since >= from) {
+				guardPose = 1;
+				predictPose(mc, "player/block_raise");
+			} else if (guardPose == 1 && since >= from + dev.voidmc.fray.combat.action.PlayerCombat.BLOCK_RAISE_TICKS) {
+				guardPose = 2;
+				predictPose(mc, "player/block_hold");
+			}
 		}
 		useClick = false;
 
@@ -340,7 +369,7 @@ public final class CombatInput {
 		dodgeSpeed = (roll ? Movesets.DODGE_DISTANCE[cls] : Movesets.BACKSTEP.step()) / dodgeTicks;
 		ClientCombat.predictedSpend += roll ? Movesets.DODGE_COST[cls] : Movesets.BACKSTEP.stamina();
 		ClientCombat.predictedAt = ClientCombat.ms();
-		predictClip(mc, roll ? ActionKind.DODGE : ActionKind.BACKSTEP, param, 0);
+		predictClip(mc, roll ? ActionKind.DODGE : ActionKind.BACKSTEP, param, roll ? Movesets.ROLL.phases() : Movesets.BACKSTEP.phases());
 	}
 
 	private static void applyDodge(LocalPlayer p, long now) {
@@ -362,22 +391,18 @@ public final class CombatInput {
 			kind = HoldMath.Kind.LIGHT;
 		}
 		ActionKind ak;
-		int windup;
 		float cost;
 		switch (kind) {
 			case HEAVY -> {
 				ak = ActionKind.HEAVY;
-				windup = ms.heavy().phases().windup();
 				cost = ms.heavy().stamina();
 			}
 			case CHARGED -> {
 				ak = ActionKind.CHARGED;
-				windup = ms.heavy().phases().windup();
 				cost = HoldMath.chargedCost(ms.heavy().stamina(), ms.chargedStaminaMax(), HoldMath.charge(held, ms.chargeTicks(), 1));
 			}
 			default -> {
 				ak = ActionKind.LIGHT;
-				windup = ms.light(0).phases().windup();
 				cost = ms.light(0).stamina();
 			}
 		}
@@ -390,18 +415,31 @@ public final class CombatInput {
 			lastLight = now;
 			variant = lightCombo;
 		}
-		predictClip(mc, ak, variant, windup);
+		predictClip(mc, ak, variant, ak == ActionKind.LIGHT ? ms.light(variant).phases() : ms.heavy().phases());
 	}
 
 	private static int lightCombo;
 	private static long lastLight = Long.MIN_VALUE / 2;
 
-	private static void predictClip(Minecraft mc, ActionKind kind, int variant, int windup) {
+	private static int guardPose;
+	private static long guardDown;
+
+	/** Plays the predicted clip of an action at the speed the server will (ActionTiming, the same function). */
+	private static void predictClip(Minecraft mc, ActionKind kind, int variant, dev.voidmc.fray.combat.math.Phases def) {
 		Identifier id = ClientActionClips.clip(kind, variant);
 		Clip clip = id == null ? null : ClientClips.get(id);
 		ClientCombat.lastPredictedKind = kind.ordinal();
 		if (clip != null && mc.player != null && predictClips) {
-			ClientMotion.animator(mc.player.getId()).play(Animator.ACTION, clip, ClientMotion.now(0), ClientActionClips.speed(kind, windup, id));
+			float speed = ClientActionClips.speed(kind, Weapons.family(mc.player.getMainHandItem()), def, id);
+			ClientMotion.animator(mc.player.getId()).play(Animator.ACTION, clip, ClientMotion.now(0), speed);
+		}
+	}
+
+	/** A pose clip of the player's own (guard, charge), predicted like an action. */
+	private static void predictPose(Minecraft mc, String path) {
+		Clip clip = ClientClips.get(Identifier.fromNamespaceAndPath("bestiary", path));
+		if (clip != null && mc.player != null && predictClips) {
+			ClientMotion.animator(mc.player.getId()).play(Animator.ACTION, clip, ClientMotion.now(0), 1);
 		}
 	}
 
@@ -444,8 +482,7 @@ public final class CombatInput {
 		Identifier id = ClientActionClips.clip(kind, play.variant());
 		Clip clip = id == null ? null : ClientClips.get(id);
 		if (clip != null) {
-			ClientMotion.animator(play.entity()).play(Animator.ACTION, clip, play.startTick(),
-				id.equals(dev.voidmc.fray.combat.action.ActionClips.SWING_ALIAS) ? play.speed() : 1);
+			ClientMotion.animator(play.entity()).play(Animator.ACTION, clip, play.startTick(), play.speed());
 		}
 	}
 

@@ -167,6 +167,10 @@ public final class Statuses implements StatusService {
 		switch (status) {
 			case STAGGER -> {
 				Actions.INSTANCE.interrupt(target, InterruptReason.STAGGER);
+				if (!(target instanceof net.minecraft.world.entity.player.Player)) {
+					// The creature's stagger clip (zombie/stagger, gallows_knight/stagger) on the action layer.
+					MotionBridge.react(target, "stagger");
+				}
 				this.root(target, true);
 				CombatEvents.STAGGERED.invoker().staggered(target, source, dur);
 			}

@@ -97,6 +97,8 @@ public final class MotionServer {
 		public final long defenderStart;
 		final Set<Integer> hit = new HashSet<>();
 		int strike = -1;
+		/** Per-action window overrides (Mettle's longer i-frames, the parry window): see {@link DefenderTiming#windowAt}. */
+		public volatile @Nullable Map<String, int[]> windows;
 
 		Running(LivingEntity entity, Timeline timeline, int clip, long startTick, float yaw, float speed, boolean byPlayer, long defenderStart) {
 			this.entity = entity;
@@ -232,11 +234,43 @@ public final class MotionServer {
 		}
 		long receipt = player.level().getGameTime();
 		long stamp = DefenderTiming.accept(player.getUUID(), clientTick, receipt);
-		Running r = start(player, clip, 1, true, stamp);
+		return startAccepted(player, clip, stamp, 1, null);
+	}
+
+	/**
+	 * A player action the combat side already validated (stamina, state, item) and stamped with
+	 * {@link DefenderTiming#accept}: runs it like {@link #startPlayerAction} without asking the gate again.
+	 * {@code windows} overrides the timeline's defensive windows for this run; {@code speed} retimes the clip (a stand-in
+	 * clip lined up with another action's ACTIVE phase).
+	 */
+	public static @Nullable Running startAccepted(ServerPlayer player, Identifier clip, long defenderStart, float speed, @Nullable Map<String, int[]> windows) {
+		Running r = start(player, clip, speed, true, defenderStart);
 		if (r != null) {
+			r.windows = windows;
 			recheck(player);
 		}
 		return r;
+	}
+
+	/**
+	 * A clip that is only a picture (additive reactions: hit flinches, a blocked hit): sent to the entity's trackers and
+	 * to the entity itself if it is a player and {@code toSelf} (false when that client predicted it), never replaces the
+	 * running action and has no timeline effect.
+	 */
+	public static boolean overlay(LivingEntity entity, Identifier clip, boolean toSelf) {
+		if (timelines.get(clip) == null || !(entity.level() instanceof ServerLevel level)) {
+			return false;
+		}
+		MotionPayloads.Play play = new MotionPayloads.Play(entity.getId(), indexOf(clip), level.getGameTime(), 1, LAYER_ACTION);
+		for (ServerPlayer p : PlayerLookup.tracking(entity)) {
+			if (p != entity) {
+				ServerPlayNetworking.send(p, play);
+			}
+		}
+		if (toSelf && entity instanceof ServerPlayer self) {
+			ServerPlayNetworking.send(self, play);
+		}
+		return true;
 	}
 
 	private static @Nullable Running start(LivingEntity entity, Identifier id, float speed, boolean byPlayer, long defenderStart) {
@@ -444,7 +478,7 @@ public final class MotionServer {
 		if (r == null) {
 			return DefenderTiming.Window.NONE;
 		}
-		return DefenderTiming.windowAt(r.timeline, r.defenderStart, serverTick);
+		return DefenderTiming.windowAt(r.timeline, r.defenderStart, serverTick, r.windows);
 	}
 
 	private static void deliver(MotionHits.MotionHit hit, @Nullable ServerPlayer player, DefenderTiming.Window w, boolean late) {

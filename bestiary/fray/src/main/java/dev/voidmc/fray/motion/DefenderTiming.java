@@ -5,6 +5,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Defender-favoured timing (the user's decision, 2026-10-21; ANIM_EVENTS.md §4): a dodge or parry that was in time on
@@ -131,24 +132,41 @@ public final class DefenderTiming {
 
 	/** Which defensive window of {@code t}, started at {@code start} (defender's clock), covers tick {@code at}. */
 	public static Window windowAt(Timeline t, long start, long at) {
+		return windowAt(t, start, at, null);
+	}
+
+	/**
+	 * The same, with per-action overrides of the timeline's windows ({@code name -> [from, to]} inclusive; a {@code to}
+	 * below {@code from} closes the window): the combat side widens i-frames by Mettle's bonus or sets the parry window
+	 * Mettle and spamming decide. This is the one judge of dodge and parry timing for every kind of hit.
+	 */
+	public static Window windowAt(Timeline t, long start, long at, @Nullable Map<String, int[]> overrides) {
 		long k = at - start;
-		if (k < 0 || k >= t.ticks) {
+		if (k < 0) {
 			return Window.NONE;
 		}
-		int i = (int) k;
-		if (t.inWindow("perfect", i)) {
+		int i = (int) Math.min(k, Integer.MAX_VALUE);
+		if (in(t, overrides, "perfect", i)) {
 			return Window.PERFECT;
 		}
-		if (t.inWindow("iframes", i)) {
+		if (in(t, overrides, "iframes", i)) {
 			return Window.IFRAMES;
 		}
-		if (t.inWindow("parry", i)) {
+		if (in(t, overrides, "parry", i)) {
 			return Window.PARRY;
 		}
-		if (t.inWindow("block", i)) {
+		if (in(t, overrides, "block", i)) {
 			return Window.BLOCK;
 		}
 		return Window.NONE;
+	}
+
+	private static boolean in(Timeline t, @Nullable Map<String, int[]> overrides, String name, int k) {
+		int[] w = overrides == null ? null : overrides.get(name);
+		if (w == null) {
+			return k < t.ticks && t.inWindow(name, k);
+		}
+		return k >= w[0] && k <= w[1];
 	}
 
 	public static String stats() {
