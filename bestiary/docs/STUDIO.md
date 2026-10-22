@@ -51,14 +51,20 @@ the first-person arms cover, limit 45 %). `report` shows them for the current cl
 
 ## First person
 
-First person has no curves of its own: `FirstPersonFrame` solves the clip's third-person pose (root, torso, arms, item
-bones) and draws each arm and the held item from the posed eye, looking along the player's view. A clip's `fp` block keeps
-only `framing`, a constant `offset` / `pitch` nudge (sword clips use `[0, -0.2, -0.8]`, pitch 10; the plunge 20) and the
-`camera` channels; first-person `bones` curves still parse but are ignored. To change what first person shows, change the
-third-person clip (the wrist roll on `item_r` turns the blade's flat to the camera). The left arm joins when it rises
-(or `"arms": "both"`). Camera channels are scaled by the client's `cameraMotion` (40 %) and Damage Tilt, and are off
-with camera shake. While iterating, `bash tools/studio.sh start -Dfray.bake.lenient=true` keeps failing bake checks
-(the first-person framing check) from stopping the studio; they are reported in `report`.
+First person has no curves of its own (`FirstPersonFrame`): the clip's third-person pose (torso and item bones included)
+is solved as third person solves it and drawn from the player's real eye at rest, so the clip's root, lean and head turns
+never move the view. It is then calmed: each arm, and the item relative to its hand, is blended from a ready framing (the
+sword held up at the lower right) toward the derived pose by the swing factor, the clip's `fp.swing` × the client option
+`fpSwingScale` (default 0.6), so the move keeps its direction and timing, smaller. And it is eased: a centred average over
+±1.5 ticks of the clip, so a strike spreads over a few frames with its middle (the hit) where it was. A clip's `fp` block
+keeps `framing`, a constant `offset` / `pitch` (sword clips `[0, -0.1, -1.0]`, pitch 10), `swing` and the `camera`
+channels; first-person `bones` curves still parse but are ignored. To change what first person shows, change the
+third-person clip (the wrist roll on `item_r` turns the blade's flat to the camera). The left arm joins as it rises (or
+with `"arms": "both"`). The bake's `fp_framing` check measures arms and blade at the default swing (limit 15 % of the
+screen) and warns when the crosshair is covered outside the strike (ACTIVE ± 1 tick); `-Dfray.fp.swing=1.0` measures
+the full swing. Camera channels are scaled by the client's `cameraMotion` (40 %) and Damage Tilt, and are off with
+camera shake. While iterating, `bash tools/studio.sh start -Dfray.bake.lenient=true` keeps failing checks from
+stopping the studio; they are reported in `report`.
 
 ## Review sets
 

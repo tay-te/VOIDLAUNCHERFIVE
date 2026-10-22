@@ -30,7 +30,8 @@ import org.joml.Vector3f;
 public final class Checks {
 	/** Pixels: what we tolerate below the ground (half a pixel). */
 	public static final float GROUND_TOLERANCE = 0.5F / 16F;
-	public static final float FP_LIMIT = 0.45F;
+	/** First-person screen coverage limit (arms and blade, the default swing scale). */
+	public static final float FP_LIMIT = 0.15F;
 	private static final float EYE_HEIGHT = 1.62F;
 
 	private Checks() {
@@ -55,16 +56,22 @@ public final class Checks {
 		return new Ground(low, at);
 	}
 
-	public record Framing(float maxCoverage, float atSeconds, boolean throughCamera) {
+	/**
+	 * First-person framing of a clip at the default swing scale: the peak share of the screen the arms and the blade
+	 * cover, whether an arm reaches the camera, and how many ticks outside the strike (ACTIVE ± 1) the arm or blade
+	 * covers the crosshair.
+	 */
+	public record Framing(float maxCoverage, float atSeconds, boolean throughCamera, int crosshairTicks) {
 	}
 
-	/** First-person screen coverage of the arms over the clip (clips with an {@code fp} block). */
+	/** First-person screen coverage over the clip (clips that draw first-person arms). */
 	public static Framing firstPerson(Clip clip) {
 		if (clip.fp == null || !clip.rig.humanoid || clip.fp.hideArms() || !drawsArms(clip.fp)) {
-			return new Framing(0, 0, false);
+			return new Framing(0, 0, false, 0);
 		}
 		float max = 0, at = 0;
 		boolean through = false;
+		java.util.Set<Integer> cross = new java.util.TreeSet<>();
 		int steps = Math.max(1, clip.lengthTicks() * 3);
 		for (int i = 0; i <= steps; i++) {
 			float t = clip.length * i / steps;
@@ -74,40 +81,43 @@ public final class Checks {
 				at = t;
 			}
 			through |= cov[1] > 0;
+			int tick = Math.round(t * 20);
+			if (cov[2] > 0 && !nearStrike(clip, tick)) {
+				cross.add(tick);
+			}
 		}
-		return new Framing(max, at, through);
+		return new Framing(max, at, through, cross.size());
 	}
 
-	/** Fray draws its own first-person arms only for clips with first-person bone curves or a framing (else vanilla's hands). */
+	private static boolean nearStrike(Clip clip, int tick) {
+		float a = clip.marker("windup_end"), b = clip.marker("active_end");
+		return a >= 0 && b >= 0 && tick >= Math.round(a * 20) - 1 && tick <= Math.round(b * 20) + 1;
+	}
+
+	/** Fray draws its own first-person arms only for clips with a framing (else vanilla's hands). */
 	public static boolean drawsArms(Clip.FirstPerson fp) {
 		return !fp.hideArms() && !"fray:default".equals(fp.framing());
 	}
 
-	/** {coverage 0..1, 1 if an arm crosses the near plane} at one moment. */
+	/** A sword in the hand (vanilla's handheld third-person transform), as a blade from grip to tip, model blocks. */
+	private static final Matrix4f SWORD_R = new Matrix4f().translate(0, 4 / 16F, 0.5F / 16F)
+		.rotate(new Quaternionf().rotationXYZ(0, (float) Math.toRadians(-90), (float) Math.toRadians(55))).scale(0.85F);
+	private static final float[][] BLADE = {{-0.35F, -0.35F}, {0.45F, 0.45F}};
+	private static final float BLADE_HALF = 0.06F;
+
+	/** {coverage 0..1, 1 if an arm crosses the near plane, 1 if the arm or blade covers the crosshair} at one moment. */
 	static float[] coverage(Clip clip, float t) {
-		PoseBuffer buf = new PoseBuffer(Rig.HUMANOID);
-		float lt = clip.localTime(t);
-		ClipSampler.accumulate(clip, lt, 1, buf, new float[3]);
 		Clip.FirstPerson fp = clip.fp;
-		// First person is the third-person pose seen from the eye (FirstPersonFrame): no curves of its own.
-		PartPose[] rest = HumanoidRig.restPose();
-		PartPose[] parts = HumanoidRig.restPose();
-		HumanoidSolver solver = new HumanoidSolver();
-		solver.solve(parts, rest, buf);
-		Matrix4f view = FirstPersonFrame.cameraFromModel(parts, buf, fp, solver, new Matrix4f());
+		FirstPersonFrame.Frame f = FirstPersonFrame.clip(clip, t * 20, fp, FirstPersonFrame.swing(fp, Float.parseFloat(System.getProperty("fray.fp.swing", String.valueOf(FirstPersonFrame.DEFAULT_SWING)))), new HumanoidSolver(),
+			new FirstPersonFrame.Frame());
 		float tanY = (float) Math.tan(Math.toRadians(35)), tanX = tanY * 16 / 9F;
 		float area = 0;
-		boolean through = false;
-		boolean left = FirstPersonFrame.leftArm(parts, fp) > 0.5F;
-		for (int arm : left ? new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.LEFT_ARM} : new int[] {HumanoidRig.RIGHT_ARM}) {
-			if (fp.hideArms()) {
-				continue;
-			}
-			PartPose p = parts[arm];
-			Matrix4f m = new Matrix4f(view).translate(p.x / 16, p.y / 16, p.z / 16).rotate(new Quaternionf().rotationZYX(p.zRot, p.yRot, p.xRot));
+		boolean through = false, cross = false;
+		Vector3f v = new Vector3f();
+		for (int arm : f.left > 0.5F ? new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.LEFT_ARM} : new int[] {HumanoidRig.RIGHT_ARM}) {
+			Matrix4f m = arm == HumanoidRig.RIGHT_ARM ? f.rightArm : f.leftArm;
 			Rig.Cube c = Rig.HUMANOID.cubes[arm].getFirst();
 			float minX = 1, maxX = -1, minY = 1, maxY = -1;
-			Vector3f v = new Vector3f();
 			for (int k = 0; k < 8; k++) {
 				v.set(((k & 1) == 0 ? c.x() : c.x() + c.dx()) / 16, ((k & 2) == 0 ? c.y() : c.y() + c.dy()) / 16, ((k & 4) == 0 ? c.z() : c.z() + c.dz()) / 16);
 				m.transformPosition(v);
@@ -121,6 +131,7 @@ public final class Checks {
 				minY = Math.min(minY, ny);
 				maxY = Math.max(maxY, ny);
 			}
+			cross |= minX < 0 && maxX > 0 && minY < 0 && maxY > 0;
 			minX = Math.max(-1, minX);
 			maxX = Math.min(1, maxX);
 			minY = Math.max(-1, minY);
@@ -129,7 +140,39 @@ public final class Checks {
 				area += (maxX - minX) * (maxY - minY) / 4;
 			}
 		}
-		return new float[] {through ? 1 : Math.min(1, area), through ? 1 : 0};
+		// The blade in the right hand: a thin quad from grip to tip.
+		Matrix4f item = new Matrix4f(f.rightItem).mul(SWORD_R);
+		float[][] q = new float[4][];
+		float d = BLADE_HALF / (float) Math.sqrt(2);
+		float[][] corners = {{BLADE[0][0] + d, BLADE[0][1] - d}, {BLADE[1][0] + d, BLADE[1][1] - d}, {BLADE[1][0] - d, BLADE[1][1] + d}, {BLADE[0][0] - d, BLADE[0][1] + d}};
+		boolean bladeOk = true;
+		for (int k = 0; k < 4; k++) {
+			v.set(corners[k][0], corners[k][1], 0);
+			item.transformPosition(v);
+			if (v.z > -0.05F) {
+				bladeOk = false;
+				break;
+			}
+			q[k] = new float[] {Math.max(-1.2F, Math.min(1.2F, v.x / (-v.z * tanX))), Math.max(-1.2F, Math.min(1.2F, v.y / (-v.z * tanY)))};
+		}
+		if (bladeOk) {
+			float a2 = 0;
+			for (int k = 0; k < 4; k++) {
+				float[] p0 = q[k], p1 = q[(k + 1) % 4];
+				a2 += p0[0] * p1[1] - p1[0] * p0[1];
+			}
+			area += Math.abs(a2) / 2 / 4;
+			// The crosshair: the origin inside the quad (same side of every edge).
+			boolean pos = true, neg = true;
+			for (int k = 0; k < 4; k++) {
+				float[] p0 = q[k], p1 = q[(k + 1) % 4];
+				float cz = (p1[0] - p0[0]) * (0 - p0[1]) - (p1[1] - p0[1]) * (0 - p0[0]);
+				pos &= cz >= 0;
+				neg &= cz <= 0;
+			}
+			cross |= pos || neg;
+		}
+		return new float[] {through ? 1 : Math.min(1, area), through ? 1 : 0, cross ? 1 : 0};
 	}
 
 	/** Keys more than 150° apart on one axis, as warnings. */

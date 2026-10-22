@@ -18,7 +18,7 @@
     "left_leg":  { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.15, [-6, 0, -2], "catmullrom"], [0.30, [-22, 0, -4], "linear"], [0.60, [0, 0, 0], "catmullrom"]] },
     "item_r": { "rotation": [[0.00, [0, 0, 0], "catmullrom"], [0.15, [20, 60, 0], "catmullrom"], [0.20, [22, 60, 0], "linear"], [0.25, [20, 0, 0], "linear"], [0.30, [20, -60, 0], "linear"], [0.42, [20, -55, 0], "catmullrom"], [0.60, [0, 0, 0], "catmullrom"]] }
   },
-  "fp": { "framing": "bestiary:sword_1h", "offset": [0, -0.05, -0.8], "pitch": 12, 
+  "fp": { "framing": "bestiary:sword_1h", "offset": [0, 0.05, -1.0], "pitch": 12, 
           "camera": { "rotation": [[0.30, [0, 0, 0], "catmullrom"], [0.35, [0.3, -0.3, 0], "catmullrom"], [0.50, [0, 0, 0], "catmullrom"]] } },
   "cues": [[0.21, "sound", "minecraft:entity.player.attack.weak"]],
   "markers": [[0.2, "windup_end"], [0.3, "active_end"]],

@@ -44,6 +44,8 @@ public final class FrayClientOptions {
 	 * {@link #cameraShake}, scaled by Damage Tilt).
 	 */
 	public float cameraMotion = 0.4F;
+	/** First person: how much of the third-person swing the arm and sword travel (0..1; 1 = the full derived swing). */
+	public float fpSwingScale = 0.6F;
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static FrayClientOptions instance;

@@ -62,7 +62,7 @@ public final class Clip {
 	 * block has its own torso curve (the camera is the player's eye, not the animated head).
 	 */
 	public record FirstPerson(String framing, float[] offset, float pitch, @Nullable Channel camera, @Nullable Channel cameraPos,
-		@Nullable Channel[] rotation, @Nullable Channel[] position, boolean hideArms, boolean bothArms) {
+		@Nullable Channel[] rotation, @Nullable Channel[] position, boolean hideArms, boolean bothArms, float swing) {
 	}
 
 	public final Identifier id;

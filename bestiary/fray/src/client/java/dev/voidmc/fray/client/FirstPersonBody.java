@@ -91,32 +91,30 @@ public final class FirstPersonBody {
 		FrayStats.fpDraws++;
 		AvatarRenderer<?> renderer = mc.getEntityRenderDispatcher().getRenderer(avatar);
 		PlayerModel model = renderer.getModel();
-		PartPose[] rest = HumanoidRig.restPose();
-		PartPose[] parts = HumanoidRig.restPose();
-		// First person IS the third-person pose (FirstPersonFrame): the same solved arms and item bones, seen from the posed
-		// eye along the view. Only the clip's constant fp framing (offset, pitch) nudges it; it blends between string cuts.
-		SOLVER.solve(parts, rest, buf);
-		Clip.FirstPerson framing = fp;
+		// First person is the third-person pose seen from the real eye, calmed toward a ready framing and eased
+		// (FirstPersonFrame). One clip alone: sampled from the clip with the easing window; a string cut blending into the
+		// next: the animator's blended pose as it is.
+		float swing = FirstPersonFrame.swing(fp, dev.voidmc.fray.client.combat.FrayClientOptions.get().fpSwingScale);
 		if (fromClip && a < 1) {
 			float[] po = prev.fp.offset(), o = fp.offset();
-			framing = new Clip.FirstPerson(fp.framing(), new float[] {po[0] + (o[0] - po[0]) * a, po[1] + (o[1] - po[1]) * a, po[2] + (o[2] - po[2]) * a},
-				prev.fp.pitch() + (fp.pitch() - prev.fp.pitch()) * a, null, null, null, null, false, fp.bothArms());
+			Clip.FirstPerson framing = new Clip.FirstPerson(fp.framing(), new float[] {po[0] + (o[0] - po[0]) * a, po[1] + (o[1] - po[1]) * a,
+				po[2] + (o[2] - po[2]) * a}, prev.fp.pitch() + (fp.pitch() - prev.fp.pitch()) * a, null, null, null, null, false, fp.bothArms(), fp.swing());
+			FirstPersonFrame.derive(buf, framing, swing, SOLVER, FRAME);
+		} else {
+			FirstPersonFrame.clip(clip, animator.actionElapsed(now), fp, swing, SOLVER, FRAME);
 		}
-		FirstPersonFrame.cameraFromModel(parts, buf, framing, SOLVER, CAMERA);
 
 		// Vanilla's held item, as FirstPersonHandsAndItemsRenderer would place it this frame (sway and equip included).
 		boolean right = avatar.mainArm == HumanoidArm.RIGHT;
 		boolean blendItem = weight < 0.998F && right && !state.mainHandItem.isEmpty();
+		ENTRY.set(poseStack.last().pose());
 		if (blendItem) {
-			VANILLA.set(poseStack.last().pose());
+			VANILLA.set(ENTRY);
 			VANILLA.rotate(Axis.XP.rotationDegrees((state.viewXRot - state.xBob) * 0.1F));
 			VANILLA.rotate(Axis.YP.rotationDegrees((state.viewYRot - state.yBob) * 0.1F));
 			float inverseArmHeight = state.mainHandSwapScale * (1.0F - net.minecraft.util.Mth.lerp(partialTicks, state.oldMainHandHeight, state.mainHandHeight));
 			VANILLA.translate(0.56F, -0.52F + inverseArmHeight * -0.6F, -0.72F);
 		}
-
-		poseStack.pushPose();
-		poseStack.mulPose(CAMERA);
 
 		RenderType skin = RenderTypes.entityTranslucent(avatar.skin.body().texturePath());
 		model.rightSleeve.visible = avatar.showRightSleeve;
@@ -124,19 +122,18 @@ public final class FirstPersonBody {
 		int light = avatar.lightCoords;
 		// The arm fades in with the clip (vanilla shows no arm with an item in hand).
 		int color = weight >= 0.998F ? -1 : ((int) (weight * 255) << 24) | 0xFFFFFF;
-		submitArm(poseStack, collector, model.rightArm, parts[HumanoidRig.RIGHT_ARM], skin, light, color);
+		submitArm(poseStack, collector, model.rightArm, FRAME.rightArm, skin, light, color);
 		if (blendItem) {
-			submitBlendedItem(poseStack, collector, parts[HumanoidRig.RIGHT_ARM], avatar.rightHandItemState, state.mainHandRenderState, light, weight, buf);
+			submitBlendedItem(poseStack, collector, FRAME.rightItem, avatar.rightHandItemState, state.mainHandRenderState, light, weight);
 		} else {
-			submitItem(poseStack, collector, parts[HumanoidRig.RIGHT_ARM], avatar.rightHandItemState, false, light, buf);
+			submitItem(poseStack, collector, FRAME.rightItem, avatar.rightHandItemState, light);
 		}
-		float left = FirstPersonFrame.leftArm(parts, fp) * weight;
+		float left = FRAME.left * weight;
 		if (left > 0.002F) {
 			int lc = left >= 0.998F ? -1 : ((int) (left * 255) << 24) | 0xFFFFFF;
-			submitArm(poseStack, collector, model.leftArm, parts[HumanoidRig.LEFT_ARM], skin, light, lc);
-			submitItem(poseStack, collector, parts[HumanoidRig.LEFT_ARM], avatar.leftHandItemState, true, light, buf);
+			submitArm(poseStack, collector, model.leftArm, FRAME.leftArm, skin, light, lc);
+			submitItem(poseStack, collector, FRAME.leftItem, avatar.leftHandItemState, light);
 		}
-		poseStack.popPose();
 		return true;
 	}
 
@@ -146,27 +143,25 @@ public final class FirstPersonBody {
 	}
 
 	private static final Matrix4f VANILLA = new Matrix4f();
-	private static final Matrix4f CAMERA = new Matrix4f();
+	private static final Matrix4f ENTRY = new Matrix4f();
+	private static final FirstPersonFrame.Frame FRAME = new FirstPersonFrame.Frame();
 
 	/**
 	 * The held item between vanilla's first-person placement and the clip's hand, by {@code w} (0 vanilla, 1 the clip):
 	 * the two final item matrices (each with its own display transform) are blended (translation, rotation, scale) and
 	 * the first-person item drawn there.
 	 */
-	private static void submitBlendedItem(PoseStack poseStack, SubmitNodeCollector collector, PartPose arm, ItemStackRenderState thirdPerson,
-		ItemStackRenderState firstPerson, int light, float w, PoseBuffer pose) {
+	private static void submitBlendedItem(PoseStack poseStack, SubmitNodeCollector collector, Matrix4f hand, ItemStackRenderState thirdPerson,
+		ItemStackRenderState firstPerson, int light, float w) {
 		Matrix4f tf = layerTransform(thirdPerson);
 		Matrix4f tv = layerTransform(firstPerson);
 		if (tf == null || tv == null) {
-			submitItem(poseStack, collector, arm, thirdPerson, false, light, pose);
+			submitItem(poseStack, collector, hand, thirdPerson, light);
 			return;
 		}
-		poseStack.pushPose();
-		itemChain(poseStack, arm, false, pose);
-		Matrix4f ff = new Matrix4f(poseStack.last().pose()).mul(tf);
-		poseStack.popPose();
+		Matrix4f ff = new Matrix4f(ENTRY).mul(hand).mul(tf);
 		Matrix4f fv = new Matrix4f(VANILLA).mul(tv);
-		Matrix4f b = blend(fv, ff, w);
+		Matrix4f b = FirstPersonFrame.blend(fv, ff, w);
 		poseStack.pushPose();
 		poseStack.last().setIdentity();
 		poseStack.last().mulPose(b.mul(tv.invert(new Matrix4f())));
@@ -186,14 +181,6 @@ public final class FirstPersonBody {
 		layer.fray$itemTransform().apply(acc.fray$displayContext().leftHand(), tmp.last());
 		tmp.last().mulPose(layer.fray$localTransform());
 		return new Matrix4f(tmp.last().pose());
-	}
-
-	/** Translation, rotation and scale of two transforms blended (rotation by slerp). */
-	static Matrix4f blend(Matrix4f a, Matrix4f b, float w) {
-		Vector3f ta = a.getTranslation(new Vector3f()), tb = b.getTranslation(new Vector3f());
-		Vector3f sa = a.getScale(new Vector3f()), sb = b.getScale(new Vector3f());
-		Quaternionf qa = a.getUnnormalizedRotation(new Quaternionf()).normalize(), qb = b.getUnnormalizedRotation(new Quaternionf()).normalize();
-		return new Matrix4f().translationRotateScale(ta.lerp(tb, w), qa.slerp(qb, w), sa.lerp(sb, w));
 	}
 
 	/**
@@ -233,30 +220,25 @@ public final class FirstPersonBody {
 		}
 	}
 
-	private static void submitArm(PoseStack poseStack, SubmitNodeCollector collector, ModelPart arm, PartPose pose, RenderType type, int light, int color) {
-		PartPose copy = new PartPose().set(pose);
-		collector.submitModel(new ArmModel(arm, type), copy, poseStack, type, light, OverlayTexture.NO_OVERLAY, color, null, 0);
+	private static final PartPose AT_ORIGIN = new PartPose();
+
+	/** An arm drawn at {@code at} (camera space, the part's own frame: the part itself at its origin, unrotated). */
+	private static void submitArm(PoseStack poseStack, SubmitNodeCollector collector, ModelPart arm, Matrix4f at, RenderType type, int light, int color) {
+		poseStack.pushPose();
+		poseStack.mulPose(at);
+		collector.submitModel(new ArmModel(arm, type), new PartPose().set(AT_ORIGIN), poseStack, type, light, OverlayTexture.NO_OVERLAY, color, null, 0);
+		poseStack.popPose();
 	}
 
-	/** {@code ItemInHandLayer.submitArmWithItem}'s transform on our posed arm. */
-	private static void submitItem(PoseStack poseStack, SubmitNodeCollector collector, PartPose arm, ItemStackRenderState item, boolean left, int light,
-		PoseBuffer buf) {
+	/** The held item at {@code at} (camera space, {@code ItemInHandLayer}'s transform already applied). */
+	private static void submitItem(PoseStack poseStack, SubmitNodeCollector collector, Matrix4f at, ItemStackRenderState item, int light) {
 		if (item.isEmpty()) {
 			return;
 		}
 		poseStack.pushPose();
-		itemChain(poseStack, arm, left, buf);
+		poseStack.mulPose(at);
 		item.submit(poseStack, collector, light, OverlayTexture.NO_OVERLAY, 0);
 		poseStack.popPose();
-	}
-
-	private static void itemChain(PoseStack poseStack, PartPose arm, boolean left, PoseBuffer buf) {
-		poseStack.translate(arm.x / 16F, arm.y / 16F, arm.z / 16F);
-		poseStack.rotate(new Quaternionf().rotationZYX(arm.zRot, arm.yRot, arm.xRot));
-		PoseApply.itemBone(buf, left, poseStack);
-		poseStack.rotateDegrees(Axis.XP, -90.0F);
-		poseStack.rotateDegrees(Axis.YP, 180.0F);
-		poseStack.translate((left ? -1 : 1) / 16.0F, 2 / 16.0F, -10 / 16.0F);
 	}
 
 	/** Which arm is the main one (the prototype draws both arms either way). */

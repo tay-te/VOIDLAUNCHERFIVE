@@ -225,10 +225,13 @@ public final class MotionBake {
 		}
 		if (clip.fp != null) {
 			Checks.Framing f = Checks.firstPerson(clip);
-			s.append(String.format(Locale.ROOT, " | first person: arms cover up to %.0f %% of the screen at %.2f s%s", f.maxCoverage() * 100, f.atSeconds(),
-				f.throughCamera() ? " (an arm reaches the camera)" : ""));
+			s.append(String.format(Locale.ROOT, " | first person: arms and blade cover up to %.0f %% of the screen at %.2f s, crosshair covered %d ticks outside the strike%s",
+				f.maxCoverage() * 100, f.atSeconds(), f.crosshairTicks(), f.throughCamera() ? " (an arm reaches the camera)" : ""));
+			if (f.crosshairTicks() > 0) {
+				warnings.add(String.format(Locale.ROOT, "%s: first person covers the crosshair for %d ticks outside the strike", clip.id, f.crosshairTicks()));
+			}
 			if (clip.checks.contains("fp_framing") && (f.maxCoverage() > Checks.FP_LIMIT || f.throughCamera())) {
-				failures.add(String.format(Locale.ROOT, "%s: first-person arms cover %.0f %% of the screen at %.2f s%s (limit %.0f %%)", clip.id, f.maxCoverage() * 100,
+				failures.add(String.format(Locale.ROOT, "%s: first-person arms and blade cover %.0f %% of the screen at %.2f s%s (limit %.0f %%)", clip.id, f.maxCoverage() * 100,
 					f.atSeconds(), f.throughCamera() ? " and reach the camera" : "", Checks.FP_LIMIT * 100));
 			}
 		}
