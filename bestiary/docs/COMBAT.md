@@ -87,7 +87,14 @@ in-process dedicated server).
 | Server, 50 creatures in combat | upkeep 0.05-0.08 ms a tick; a pipeline hit 50-77 µs of which vanilla's `hurtServer` is 23-39 µs; 10 Fray hits a tick + upkeep ≈ 0.6-0.8 ms; whole server tick 1.0-1.6 ms (shared machine) |
 | Handshake | a client with other movesets is refused: "Your VOID combat rules don't match this server's (movesets 61357ab7 here, 00000000 on your side)…" |
 
-## 3. With the animation lane (on merge)
+## 3. With the animation lane (merged on `bestiary-stage1`, 2026-10-21)
+
+Merged: `MotionBridge` now calls Fray Motion directly (no reflection). What changed against the list below:
+`ActionTiming` takes phases and windows from the clips (ANIM_EVENTS.md §2.1); every dodge and parry is judged by
+`DefenderTiming` over the running clip (§4 there; combat's own `Defense.clampStamp/grace` are gone, the grace for Fray
+and vanilla hits is `DefenderTiming`'s, which also holds hits ~2 ticks in a local game because the probe reads one tick
+above the network); the `ActionGate` refuses raw clip requests that skip combat; guard, charge and reaction clips play.
+The original hand-off notes, kept for history:
 
 - `MotionBridge` finds `MotionHits.setHandler` and `MotionServer.startPlayerAction` by reflection: creature timeline
   hits then run through the pipeline with the window Fray Motion judged (PERFECT → Slip, IFRAMES → dodged, PARRY →
@@ -106,9 +113,8 @@ in-process dedicated server).
 - Mettle: implement `BalanceProvider`/`ArtProvider` and the §8 attributes; Fray already reads `mettle:*` where present.
   Status build-up for players: §5.4 lists the three hooks (attribute modifiers, `mettle:status_resist.<s>`,
   `fray:status_threshold`).
-- Animation lane: the local player's own first-person arms don't freeze on hit-stop yet (Fray Motion samples them
-  from its own clock). Wanted: a per-entity hold in `Animator` (e.g. "hold the ACTION layer until t") that Fray's
-  `HitStop` can set; third-person and every other entity already freeze (§5.2).
+- Done on `bestiary-stage1`: `Animator.hold(now, until)`; `HitStop` sets it on every frozen entity, so the local
+  player's first-person arms and camera channels freeze too (§5.2).
 - Not built: mana/toxicity pools (attributes only), the accessibility windows (forgiving ×1.5/×2), PvP diminishing
   returns, the stamina bar's "above the hotbar" placement, the
   Combat settings page (P1, Hub), technique on C (Arsenal, stage 3: refused for now), a latency-injected G-MP run.
@@ -144,7 +150,9 @@ freezes the entities involved (`client.combat.feel.HitStop`). `LevelExtractorHit
 captured on the freeze's first frame (vanilla's pose and Fray Motion's sampled clip with it), moved each frame to the
 entity's real position, and the victim shudders along the push (≤ 0.06 blocks, 28 Hz). The entity keeps moving and
 its clip keeps running underneath, so when the freeze ends the pose rejoins the server's timeline. Inventory previews
-never freeze. Option `hitStop` (on).
+never freeze. Option `hitStop` (on). Merged: every frozen entity with a Fray animator also gets `Animator.hold` (the clip
+pose stops at the same moment in every view); the local player freezes only through the hold (first person included,
+vanilla's parts stay live in F5). `FeelClock` lets tests run hit-stop and shake on game time.
 
 Measured: the same heavy lands 13 server ticks after release with hit-stop on and off; the server keeps 20 ticks a
 second through the freeze (tick rate 20, not frozen, 10 ticks in 10). The local player's first-person arms are the one
@@ -197,3 +205,20 @@ and `feel`, 8 checks, plus the feel perf check; the earlier 42 unchanged), integ
 Pictures (as a bystander sees them; a mannequin is the player model): `docs/combat/11_feel_windup.jpg`,
 `12_feel_break_hitstop.jpg` (the Break's first frozen frame: the swing held at contact, the boss in its hurt flash),
 `13_feel_break_hitstop_later.jpg` (three ticks on, still frozen).
+
+## 6. Merged with the animation lane (`bestiary-stage1`, 2026-10-21)
+
+All 78 unit tests (combat and Fray Motion) pass; the combat game test (`-Dfray.combat=all`: pipeline, actions, keys,
+feel, hud, perf, dedicated) and the motion showcase (every part, latency at 0/150/250 ms, dedicated) pass on the merged
+branch, integrated and dedicated server.
+
+| | |
+|---|---|
+| HUD | 0.091-0.098 ms a frame |
+| Hit-stop / shake | 0.69-1.20 µs / 0.31-0.36 µs a frame (now including the Animator hold) |
+| Fray Motion per mob per frame | zombie 1.23-1.25 µs, knight 1.46-1.49 µs (vanilla renderer); with Iris + Complementary 2.22-2.25 µs and 1.81 µs |
+| Server, 50 creatures in combat | upkeep 0.045 ms a tick, 54-57 µs a pipeline hit, whole tick 0.98 ms |
+
+First-person review frames of real actions: `-Dfray.combat=fpgif` (not in `all`) freezes the game and steps it a tick
+per screenshot (`FeelClock` on game time); the GIFs live outside the repository in
+`C:/Users/bitto/VOID/.tools/share/bestiary/stage1/merged/`.

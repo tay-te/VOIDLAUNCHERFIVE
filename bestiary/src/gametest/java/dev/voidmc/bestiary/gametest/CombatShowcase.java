@@ -108,7 +108,7 @@ public class CombatShowcase implements FabricClientGameTest {
 			mc.options.inactivityFpsLimit().set(net.minecraft.client.InactivityFpsLimit.MINIMIZED);
 			FrayClientOptions.get().damageNumbers = false;
 		});
-		if (want("pipeline") || want("actions") || want("keys") || want("feel") || want("hud") || want("perf")) {
+		if (want("pipeline") || want("actions") || want("keys") || want("feel") || want("hud") || want("perf") || PARTS.contains("fpgif")) {
 			try (TestSingleplayerContext world = c.worldBuilder().setUseConsistentSettings(false).adjustSettings(s -> {
 				s.setSeed("20261021");
 				s.setGameMode(WorldCreationUiState.SelectedGameMode.SURVIVAL);
@@ -142,6 +142,9 @@ public class CombatShowcase implements FabricClientGameTest {
 				if (want("perf")) {
 					perf(st);
 					feelPerf(st);
+				}
+				if (PARTS.contains("fpgif")) {
+					fpGif(st);
 				}
 			}
 		}
@@ -766,6 +769,89 @@ public class CombatShowcase implements FabricClientGameTest {
 	}
 
 	/** Perf of hit-stop and shake: a crowd taking a heavy every other tick (several frozen at once), per frame. */
+	// ------------------------------------------------------------------ first-person review frames (not in "all")
+
+	/**
+	 * One first-person screenshot a tick of real actions (screenshots/gif_<name>_<nn>.png, for tools/gif.py): light_1, the
+	 * heavy in the air, the heavy landing on a zombie (hit-stop and camera shake, shake at 100 %), the forward dodge.
+	 * Hit-stop and shake run on game time here (FeelClock) so a filmed tick is a tick.
+	 */
+	private static void fpGif(Stage st) {
+		Stage.log("--- fpgif");
+		st.c.runOnClient(mc -> {
+			dev.voidmc.fray.client.combat.feel.FeelClock.source = () -> mc.level == null ? System.nanoTime() : mc.level.getGameTime() * 50_000_000L;
+			FrayClientOptions.get().shakeIntensity = 1F;
+		});
+		st.clearCreatures();
+		ready(st, false);
+		st.playerCam(CameraType.FIRST_PERSON);
+		st.c.waitTicks(20);
+		film(st, "fp_light_1", 18, i -> {
+			if (i == 0) {
+				st.c.getInput().holdKey(o -> o.keyAttack);
+			} else if (i == 1) {
+				st.c.getInput().releaseKey(o -> o.keyAttack);
+			}
+		});
+		st.c.waitTicks(20);
+		ready(st, false);
+		film(st, "fp_heavy", 42, i -> {
+			if (i == 0) {
+				st.c.getInput().holdKey(o -> o.keyAttack);
+			} else if (i == 8) {
+				st.c.getInput().releaseKey(o -> o.keyAttack);
+			}
+		});
+		st.c.waitTicks(20);
+		ready(st, false);
+		int z = zombie(st, 0.5, -2.0, 2000);
+		st.c.waitTicks(20);
+		int started = st.c.computeOnClient(mc -> dev.voidmc.fray.client.combat.feel.HitStop.started);
+		film(st, "fp_heavy_zombie", 46, i -> {
+			if (i == 0) {
+				st.c.getInput().holdKey(o -> o.keyAttack);
+			} else if (i == 8) {
+				st.c.getInput().releaseKey(o -> o.keyAttack);
+			}
+		});
+		int started2 = st.c.computeOnClient(mc -> dev.voidmc.fray.client.combat.feel.HitStop.started);
+		Stage.log("fpgif: heavy on the zombie, freezes started " + (started2 - started) + ", zombie health " + health(st, z) + ", action " + lastAction(st));
+		Stage.expect(started2 > started, "the filmed heavy lands with hit-stop");
+		st.clearCreatures();
+		st.c.waitTicks(20);
+		ready(st, false);
+		st.s.runCommand("tp @p 0.5 " + Y + " 4.5 180 0");
+		st.c.waitTicks(10);
+		film(st, "fp_dodge_forward", 18, i -> {
+			if (i == 0) {
+				st.c.getInput().holdKey(o -> o.keyUp);
+				st.c.getInput().pressKey(CombatKeys.dodge);
+			} else if (i == 1) {
+				st.c.getInput().releaseKey(o -> o.keyUp);
+			}
+		});
+		Stage.log("fpgif: dodge " + lastAction(st));
+		st.c.runOnClient(mc -> {
+			dev.voidmc.fray.client.combat.feel.FeelClock.source = System::nanoTime;
+			FrayClientOptions.get().shakeIntensity = 0.6F;
+		});
+	}
+
+	/** Films one game tick a frame: the game is frozen and stepped a tick at a time (a screenshot is slower than a tick). */
+	private static void film(Stage st, String name, int frames, java.util.function.IntConsumer before) {
+		st.s.runCommand("tick freeze");
+		st.c.waitTicks(2);
+		for (int i = 0; i < frames; i++) {
+			before.accept(i);
+			st.s.runCommand("tick step 1");
+			st.c.waitTicks(2);
+			st.c.takeScreenshot(net.fabricmc.fabric.api.client.gametest.v1.screenshot.TestScreenshotOptions.of(String.format(Locale.ROOT, "gif_%s_%02d", name, i))
+				.disableCounterPrefix());
+		}
+		st.s.runCommand("tick unfreeze");
+		st.c.waitTicks(2);
+	}
+
 	private static void feelPerf(Stage st) {
 		st.clearCreatures();
 		ready(st, false);

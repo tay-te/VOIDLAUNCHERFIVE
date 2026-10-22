@@ -132,6 +132,12 @@ public final class Animator {
 	 * read the held time, so the local player's own arms freeze with everyone else.
 	 */
 	public void hold(double now, double until) {
+		// Hold what is on screen: the last frame was drawn at the tick plus its partial tick, a little after "now" at
+		// tick time (holding at the tick itself would step the pose back by up to a tick).
+		if (this.cachedNow > now && this.cachedNow - now < 2) {
+			until += this.cachedNow - now;
+			now = this.cachedNow;
+		}
 		if (!(now < this.holdUntil)) {
 			this.holdAt = now;
 			this.holdWalkPos = Float.NaN;

@@ -94,8 +94,21 @@ public final class DefenderTiming {
 		return Math.min(cap, rttTicks(rttMs) + 1);
 	}
 
+	/**
+	 * Below this measured round trip the player is local (the integrated server's owner, a LAN): nothing is held and no
+	 * stamp is rewound. The probe reads up to a tick above the network (its echo waits for the client tick), so 60 ms
+	 * is a network round trip of about 10 ms.
+	 */
+	public static final int LOCAL_RTT_MS = 60;
+
+	/** The cap for a player with this measured round trip: 0 when local. */
+	static int cap(int rttMs, int cap) {
+		return rttMs < LOCAL_RTT_MS ? 0 : cap;
+	}
+
 	public static int graceTicks(UUID player, boolean pvp) {
-		return grace(clock(player).rttMs(), pvp ? Math.min(capTicks, PVP_CAP_TICKS) : capTicks);
+		int rtt = clock(player).rttMs();
+		return grace(rtt, cap(rtt, pvp ? Math.min(capTicks, PVP_CAP_TICKS) : capTicks));
 	}
 
 	/**
@@ -115,7 +128,8 @@ public final class DefenderTiming {
 	/** Clamps and records a player's action stamp. */
 	public static long accept(UUID player, long stamp, long receipt) {
 		PlayerClock c = clock(player);
-		long s = clamp(stamp, receipt, c.rttMs(), capTicks, c.lastStamp);
+		int rtt = c.rttMs();
+		long s = clamp(stamp, receipt, rtt, cap(rtt, capTicks), c.lastStamp);
 		if (stamp < s) {
 			c.clampedOld++;
 		}

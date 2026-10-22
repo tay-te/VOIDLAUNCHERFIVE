@@ -89,6 +89,15 @@ action and tick) so the combat side can react to `tell`, `hit_start`, `window_op
 `MotionServer.setActionGate((player, clip, running) -> boolean)` lets the combat side refuse a player's request
 (stamina, Winded, the item in hand); a refusal acks "refused" and the client's predicted clip blends out in 3 ticks.
 
+### 2.1 How combat reads it (merged)
+
+| Combat | From the clip |
+|---|---|
+| `ActionTiming.of(kind, family, def, clip, timeline, speed)` | an action playing its own clip (sword light_1/2/3, heavy, charge_release, plunge, the dodges) takes `phases` from `strikes()`, and `chain`, `dodge_cancel`, `feint`, `hyper_armour`, `roll_attack`, `recovery` from `window(name)`; a borrowed clip (other families, Execute, guard counter, roll attack, Arts) keeps the moveset's phases and plays retimed so its strike lands on ACTIVE. Mettle's action speed scales the clip. The client predicts with the same function. |
+| The arc sweep | runs on the ticks `ActionTiming.active(k)` (the clip's ACTIVE window); the player's own clip volumes stay ignored |
+| `ActionGate` | set by combat: a raw `ActionRequest` (not a combat input) is refused while a combat action runs or the player can't act, and pays the dodge's / parry's / light's stamina (free in creative: the studio, tests) |
+| Pose clips | guard: `player/parry` on the press, `block_raise` after the parry window, then `block_hold`; `player/sword/charge_hold` from tick 16 of a held attack; `flinch` on a flinch or stagger; additive `hit_light`/`hit_heavy`/`block_hit` and creatures' `<type>/hit_light` through `MotionServer.overlay`; a creature's `<type>/stagger` on Stagger |
+
 ## 3. Hits from timelines
 
 A creature's ACTIVE-tick capsule that touches a living entity becomes a `MotionHit` (attacker, target, clip, volume,
@@ -123,6 +132,7 @@ Anti-abuse limits (all server-side, `DefenderTiming`):
 
 | Rule | Value |
 |---|---|
+| Local players | a measured round trip under 60 ms (`DefenderTiming.LOCAL_RTT_MS`: the probe reads up to a tick above the network) holds nothing and rewinds nothing |
 | Rewind cap | 5 ticks (250 ms), server config `fray.defender_grace_ms` (0 turns it off; PvP uses `min(cap, 100 ms)`) |
 | Claimed lag | `receipt - stamp` may not exceed the measured RTT + 1 tick; older stamps are clamped to that |
 | Future stamps | clamped to the receipt tick |
@@ -130,6 +140,14 @@ Anti-abuse limits (all server-side, `DefenderTiming`):
 | One window, one hit set | a dodge or parry covers only hits whose tick falls in its own window |
 | RTT measure | Fray's own probe (`fray:motion/clock`, once a second to every player): the median of the last 5 round trips, so one slow echo can't widen the window. The echo is answered on the client's main thread, so it reads about one tick (50 ms) above the network's round trip |
 | Logged | each rewound outcome is counted per player (`DefenderTiming.stats`) for server owners |
+
+**On the merged branch (`bestiary-stage1`) this is the only judge.** Combat's `PlayerCombat.window(at)` asks
+`MotionServer.windowFor(player, at)`, i.e. `DefenderTiming.windowAt` over the clip the player is running, for every hit on
+a player (timeline hits, Fray hits, vanilla hits); stamps are `DefenderTiming.accept`, the hold for Fray and vanilla hits
+is `DefenderTiming.graceTicks`. Combat's own numbers widen windows per run through overrides
+(`MotionServer.startAccepted(player, clip, stamp, speed, windows)`): Mettle's extra i-frames (`iframes` → `[1, 7 + n]`), the
+press's parry window (`parry` → `[0, window - 1]`: Mettle's bonus, halved when spammed, none when Winded). Without the
+clips in the jar combat falls back to its own `iFrom/iTo` and parry press.
 
 Tests: `DefenderTimingTest` (JUnit, the clock maths at 0/150/250 ms RTT, cheats clamped) and the game test
 `-Dfray.show.only=latency` (a zombie's claw against the local player with 0, 150 and 250 ms injected round-trip

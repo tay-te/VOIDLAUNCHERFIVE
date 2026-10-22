@@ -676,7 +676,8 @@ public class MotionShowcase implements FabricClientGameTest {
 				+ FrayHandshake.shortHash(MotionServer.clipSetHash()) + " (" + MotionServer.clipCount() + " timelines)");
 			// 1. A client whose claw differs by one keyframe is refused at login, with a plain reason.
 			byte[] shipped = ClientClips.shippedBytes(CLAW);
-			String modified = new String(shipped, StandardCharsets.UTF_8).replaceFirst("-172", "-150");
+			// The first keyframe value of the first channel, changed (the claw is re-authored from time to time; no fixed literal).
+			String modified = new String(shipped, StandardCharsets.UTF_8).replaceFirst("(\\[\\s*-?[\\d.]+,\\s*\\[\\s*)(-?[\\d.]+)", "$1-123.5");
 			Stage.expect(!modified.equals(new String(shipped, StandardCharsets.UTF_8)), "made a client claw that differs by one keyframe");
 			c.runOnClient(mc -> ClientClips.load(Map.of(CLAW, modified.getBytes(StandardCharsets.UTF_8))));
 			Stage.log("client clip set with the modified claw: " + FrayHandshake.shortHash(ClientClips.setHash()));

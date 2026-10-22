@@ -41,7 +41,7 @@ public final class HitStop {
 		if (ticks <= 0 || entity < 0) {
 			return;
 		}
-		long now = System.nanoTime();
+		long now = FeelClock.now();
 		long end = now + ticks * 50_000_000L;
 		Entry e = ACTIVE.get(entity);
 		if (e == null || now >= e.end) {
@@ -73,16 +73,17 @@ public final class HitStop {
 			return null;
 		}
 		long t0 = System.nanoTime();
+		long clock = FeelClock.now();
 		Entry e = ACTIVE.get(entity.getId());
 		EntityRenderState s = null;
 		if (e != null && entity == Minecraft.getInstance().player) {
 			// The local player: the Animator's hold freezes the clip; vanilla's parts stay live (the head follows the mouse),
 			// and first person (never extracted here) freezes the same way.
-			if (t0 >= e.end) {
+			if (clock >= e.end) {
 				ACTIVE.remove(entity.getId());
 			}
 		} else if (e != null) {
-			if (t0 >= e.end) {
+			if (clock >= e.end) {
 				ACTIVE.remove(entity.getId());
 			} else if (e.state != null) {
 				s = e.state;
@@ -90,8 +91,8 @@ public final class HitStop {
 				double y = Mth.lerp(partialTick, entity.yOld, entity.getY());
 				double z = Mth.lerp(partialTick, entity.zOld, entity.getZ());
 				if (e.victim && e.amp > 0) {
-					float k = (t0 - e.start) / (float) Math.max(1, e.end - e.start);
-					double sh = e.amp * (1 - k) * Math.sin((t0 - e.start) / 1e9 * 2 * Math.PI * SHUDDER_HZ);
+					float k = (clock - e.start) / (float) Math.max(1, e.end - e.start);
+					double sh = e.amp * (1 - k) * Math.sin((clock - e.start) / 1e9 * 2 * Math.PI * SHUDDER_HZ);
 					x += e.dx * sh;
 					z += e.dz * sh;
 				}
@@ -120,7 +121,7 @@ public final class HitStop {
 
 	public static boolean isFrozen(int entity) {
 		Entry e = ACTIVE.get(entity);
-		return e != null && System.nanoTime() < e.end;
+		return e != null && FeelClock.now() < e.end;
 	}
 
 	public static int active() {
@@ -130,7 +131,7 @@ public final class HitStop {
 	/** Client tick: forgets finished freezes of entities no longer drawn. */
 	public static void prune() {
 		if (!ACTIVE.isEmpty()) {
-			long now = System.nanoTime();
+			long now = FeelClock.now();
 			ACTIVE.int2ObjectEntrySet().removeIf(x -> now >= x.getValue().end);
 		}
 	}

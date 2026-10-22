@@ -44,7 +44,7 @@ public final class CameraShake {
 		if (amp < 0.01F) {
 			return;
 		}
-		long now = System.nanoTime();
+		long now = FeelClock.now();
 		int slot = -1;
 		for (int i = 0; i < count; i++) {
 			if ((now - START[i]) / 1e9F > 4 * TAU[i]) {
@@ -82,10 +82,11 @@ public final class CameraShake {
 			return null;
 		}
 		long t0 = System.nanoTime();
+		long clock = FeelClock.now();
 		float yaw = 0, pitch = 0;
 		int live = 0;
 		for (int i = 0; i < count; i++) {
-			float t = (t0 - START[i]) / 1e9F;
+			float t = (clock - START[i]) / 1e9F;
 			if (t > 4 * TAU[i]) {
 				continue;
 			}
