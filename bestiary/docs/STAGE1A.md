@@ -17,9 +17,11 @@ sign-off before the full ~60 clips; nothing in it is final.
 | Bake checks | `ground` (lowest point of the body; `"ground": "plant"` re-keys the root so feet never sink or float), `fp_framing` (first-person screen coverage, limit 45 %), Euler jumps; `mirror_of` and `same_as` sources | `bake/Checks.java`, `bake/MotionBake.java` |
 | Defender-favoured timing | hold-and-rewind on the server, bounded (RTT + 1 tick, cap 250 ms; PvP 100 ms), anti-abuse clamps, RTT probe (median of 5) | `DefenderTiming`, `MotionServer` |
 
-## The review set (`docs/stage1/`)
+## The review set
 
-Every GIF shows **Complementary Reimagined r5.9.3 and VOID Welkin side by side**, one frame per tick (real time), labelled
+The user signed the set off on 2026-10-21. The GIFs (35 MB) now live outside the repository, in
+`C:/Users/bitto/VOID/.tools/share/bestiary/stage1/` (they stay in this branch's history up to the sign-off); the contact sheets and stills stay in
+`docs/stage1/`. Every GIF shows **Complementary Reimagined r5.9.3 and VOID Welkin side by side**, one frame per tick (real time), labelled
 with the tick. `*_fp.gif` show first person beside third person. `sheet_player.jpg`, `sheet_zombie.jpg`,
 `sheet_knight.jpg` are contact sheets (six frames per clip).
 
@@ -74,4 +76,4 @@ count rewinds, clamps and saves.
 3. `zombie/double_claw` sweeps both claws in both strikes (hit-once per strike); per-strike volume lists would be tidier.
 4. Root motion for creatures stays visual (the server moves them); the dodge travel is the local player's.
 5. The knight's AI is a placeholder (approach, sweep, 3 s cooldown) until the Bestiary AI lane's boss framework.
-6. Review GIFs are 35 MB in total (45 files); after sign-off they can move out of the repo.
+6. Done after sign-off: the review GIFs moved to `C:/Users/bitto/VOID/.tools/share/bestiary/stage1/` (see above).

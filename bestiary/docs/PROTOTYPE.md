@@ -77,7 +77,7 @@ sessions' game tests) on 2026-10-21.
 
 ## 4. What the tests showed
 
-### 4.1 Zombie: claw, idle, blending (`docs/prototype/1_zombie_claw_strip.jpg`, `2_blend_and_blockbench.jpg`, `iris_claw_and_swing.gif`)
+### 4.1 Zombie: claw, idle, blending (`docs/prototype/1_zombie_claw_strip.jpg`, `2_blend_and_blockbench.jpg`, `iris_claw_and_swing.gif`; the GIFs now live in `C:/Users/bitto/VOID/.tools/share/bestiary/stage1/prototype/`)
 
 - The server's `motion/play` reaches the client and the claw plays over the idle; a bare zombie and one in iron armour with
   a sword pose identically (armour models are posed by the same hook; the sword follows `translateToHand`).
@@ -100,7 +100,7 @@ true`), a NoAI pig as the dummy:
 Server cost (warmed up, 150 zombies clawing in turn): **0.8 µs per running action per tick outside ACTIVE, 1.6-4.2 µs per
 ACTIVE-tick sweep** (budget: 2 µs and 20 µs). The first sweeps after start cost ~200 µs (JIT warm-up).
 
-### 4.3 The player (`3_player_swing_third_person.jpg`, `4_dodge_roll.jpg`, `5_first_person.jpg`, `iris_roll.gif`, `sodium_fp_swing.gif`)
+### 4.3 The player (`3_player_swing_third_person.jpg`, `4_dodge_roll.jpg`, `5_first_person.jpg`, `iris_roll.gif`, `sodium_fp_swing.gif`; GIFs in `C:/Users/bitto/VOID/.tools/share/bestiary/stage1/prototype/`)
 
 - **Third person**: the local player in iron armour, heavy swing frozen through its phases in the F5 front and back views
   (vanilla draws the local player only as the camera entity, so arbitrary angles use a **Mannequin**, which is drawn with
@@ -208,4 +208,4 @@ Both clients ran on one machine and the uplink wasn't delayed; G-MP's 100/150/25
 5. **Latency**: implement re-basing on the ack and compress-never-skip for late tells; run the duo at 100/150/250 ms as
    part of G-MP.
 6. **Blockbench**: verify one real export, then write the small Fray plugin (marker palette, rig check).
-7. **Ask the user for a GIF review now** (`docs/prototype/*.gif`), especially the roll and first person.
+7. **Ask the user for a GIF review now** (the GIFs, now in `C:/Users/bitto/VOID/.tools/share/bestiary/stage1/prototype/`), especially the roll and first person.

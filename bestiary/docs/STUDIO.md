@@ -52,14 +52,15 @@ the first-person arms cover, limit 45 %). `report` shows them for the current cl
 ## Review sets
 
 `tools/review/stage1.studio` films every stage 1A clip (replace `PACK` with a pack tag), `stage1_fp.studio` the
-first-person versions; `python tools/review/compose.py build/studio/shots docs/stage1` makes the side-by-side GIFs and
-the contact sheets.
+first-person versions; `python tools/review/compose.py build/studio/shots <out>` makes the side-by-side GIFs and the
+contact sheets. Review GIFs don't go in the repository: write them to `C:/Users/bitto/VOID/.tools/share/bestiary/stage1/` (or a folder beside it) and
+copy only the contact sheets and stills into `docs/`.
 
 ```bash
 bash tools/studio.sh cmd "pack complementary"; sed 's/PACK/comp/g' tools/review/stage1.studio | bash tools/studio.sh repl
 bash tools/studio.sh cmd "pack welkin";        sed 's/PACK/welk/g' tools/review/stage1.studio | bash tools/studio.sh repl
 bash tools/studio.sh repl < tools/review/stage1_fp.studio
-python tools/review/compose.py build/studio/shots docs/stage1
+python tools/review/compose.py build/studio/shots C:/Users/bitto/VOID/.tools/share/bestiary/stage1/
 ```
 
 ## Notes

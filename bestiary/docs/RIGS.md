@@ -33,7 +33,7 @@ parts plus the virtual torso, `fray:humanoid`).
 - **Rendering**: `RigModel` is an `EntityModel` built from the rig at renderer creation (`LayerDefinition.create(...)
   .bakeRoot()`), posed in `setupAnim` from the render state's pose buffer, drawn with `entityCutout`. Sodium draws its
   cubes, Iris shades it and re-poses it in the shadow pass from the same render state (verified with Complementary and
-  Welkin, `docs/stage1/gallows_knight_*.gif`). The studio's reload rebuilds the model and the texture live.
+  Welkin, `gallows_knight_*.gif` in `C:/Users/bitto/VOID/.tools/share/bestiary/stage1/`, outside the repository). The studio's reload rebuilds the model and the texture live.
 
 ## Blockbench: verified against real exports
 
