@@ -19,9 +19,11 @@
     "left_leg":  { "rotation": [[0.00, [-26, 0, -6], "catmullrom"], [1.00, [-26, 0, -6], "catmullrom"]] },
     "item_r":    { "rotation": [[0.00, [-62, 0, 0], "catmullrom"], [0.50, [-64, 0, 1], "catmullrom"], [1.00, [-62, 0, 0], "catmullrom"]] }
   },
-  "fp": { "framing": "bestiary:sword_1h", "offset": [0.06, -0.26, -0.5], "pitch": 0,
-          "camera": { "position": [[0.00, [0, -0.05, 0], "catmullrom"], [0.50, [0, -0.06, 0], "catmullrom"], [1.00, [0, -0.05, 0], "catmullrom"]] },
-          "bones": { "right_arm": { "rotation": [[0.00, [-6, 18, 36], "catmullrom"], [0.25, [-5, 19, 37], "catmullrom"], [0.50, [-6, 18, 36], "catmullrom"], [0.75, [-7, 17, 37], "catmullrom"], [1.00, [-6, 18, 36], "catmullrom"]] },
-                     "left_arm": { "rotation": [[0.00, [-60, -6, 4], "catmullrom"], [1.00, [-60, -6, 4], "catmullrom"]] } } },
+  "fp": { "framing": "bestiary:sword_1h", "offset": [0.06, -0.26, -0.5], "pitch": 0, 
+          "camera": { "position": [[0.00, [0, -0.05, 0], "catmullrom"], [0.50, [0, -0.06, 0], "catmullrom"], [1.00, [0, -0.05, 0], "catmullrom"]] }, 
+          "bones": {
+            "right_arm": { "rotation": [[0.00, [-128, 30, 8], "catmullrom"], [0.25, [-127, 31, 9], "catmullrom"], [0.50, [-128, 30, 8], "catmullrom"], [0.75, [-129, 29, 9], "catmullrom"], [1.00, [-128, 30, 8], "catmullrom"]] },
+            "item_r": { "rotation": [[0.00, [50, -40, 70], "catmullrom"], [0.50, [51, -41, 70], "catmullrom"], [1.00, [50, -40, 70], "catmullrom"]] },
+            "left_arm": { "rotation": [[0.00, [-60, -6, 4], "catmullrom"], [1.00, [-60, -6, 4], "catmullrom"]] } } },
   "checks": ["ground", "fp_framing"]
 }

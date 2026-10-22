@@ -457,7 +457,8 @@ public final class PlayerCombat {
 		}
 		boolean dodge = t.window("iframes") != null;
 		boolean guard = t.window("parry") != null || t.window("block") != null;
-		if (!dodge && !guard && !t.hasPhases()) {
+		if (!dodge && !guard && !t.hasPhases() || this.player.isCreative()) {
+			// Emotes, and anything in creative (the Motion Studio, tests): no stamina.
 			return true;
 		}
 		if (this.winded()) {

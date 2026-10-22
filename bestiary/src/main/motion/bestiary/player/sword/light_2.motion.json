@@ -18,10 +18,11 @@
     "left_leg":  { "rotation": [[0.00, [-22, 0, -4], "catmullrom"], [0.15, [-14, 0, -4], "catmullrom"], [0.30, [10, 0, -2], "linear"], [0.60, [0, 0, 0], "catmullrom"]] },
     "item_r":    { "rotation": [[0.00, [60, 0, 0], "catmullrom"], [0.15, [64, 0, 0], "catmullrom"], [0.25, [68, 0, 0], "linear"], [0.30, [66, 0, 0], "linear"], [0.42, [60, 0, 0], "catmullrom"], [0.60, [0, 0, 0], "catmullrom"]] }
   },
-  "fp": { "framing": "bestiary:sword_1h", "offset": [0.04, -0.24, -0.5], "pitch": 0,
-          "camera": { "rotation": [[0.22, [0, 0, 0], "linear"], [0.27, [0.6, 0.8, 0], "linear"], [0.40, [0, 0, 0], "catmullrom"]] },
-          "bones": { "right_arm": { "rotation": [[0.00, [-58, 10, -40], "catmullrom"], [0.15, [-60, 14, -52], "catmullrom"], [0.20, [-62, 12, -50], "linear"], [0.25, [-74, 0, -6], "linear"],
-                                                 [0.30, [-70, -10, 38], "linear"], [0.42, [-62, -12, 48], "catmullrom"], [0.60, [-14, 0, 4], "catmullrom"]] } } },
+  "fp": { "framing": "bestiary:sword_1h", "offset": [0.04, -0.24, -0.5], "pitch": 0, 
+          "camera": { "rotation": [[0.22, [0, 0, 0], "linear"], [0.27, [0.6, 0.8, 0], "linear"], [0.40, [0, 0, 0], "catmullrom"]] }, 
+          "bones": {
+            "right_arm": { "rotation": [[0.00, [-74, -36, 0], "catmullrom"], [0.15, [-80, -40, 0], "catmullrom"], [0.20, [-82, -40, 0], "linear"], [0.25, [-112, -4, 6], "linear"], [0.30, [-134, 28, 8], "linear"], [0.42, [-136, 30, 8], "catmullrom"], [0.60, [-14, 0, 4], "catmullrom"]] },
+            "item_r": { "rotation": [[0.00, [8, -50, 45], "catmullrom"], [0.15, [10, -60, 50], "catmullrom"], [0.20, [10, -60, 50], "linear"], [0.25, [30, 0, 60], "linear"], [0.30, [50, -40, 70], "linear"], [0.42, [52, -40, 70], "catmullrom"], [0.60, [0, 0, 0], "catmullrom"]] } } },
   "cues": [[0.21, "sound", "minecraft:entity.player.attack.weak"]],
   "markers": [[0.2, "windup_end"], [0.3, "active_end"]],
   "windows": { "chain": [6, 11], "dodge_cancel": [8, 11] },
