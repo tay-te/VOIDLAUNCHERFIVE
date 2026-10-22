@@ -77,7 +77,7 @@ public final class Posed {
 		float min = Float.MAX_VALUE;
 		Vector3f p = new Vector3f();
 		for (int b = 0; b < this.rig.bones(); b++) {
-			if (this.rig.humanoid && (b < HumanoidRig.FIRST_PART || b > HumanoidRig.LAST_PART)) {
+			if (this.rig.humanoid && (b < HumanoidRig.FIRST_PART || b > HumanoidRig.LAST_PART) && b != HumanoidRig.RIGHT_FOREARM && b != HumanoidRig.LEFT_FOREARM) {
 				continue;
 			}
 			for (Rig.Cube c : this.rig.cubes[b]) {

@@ -149,8 +149,11 @@ public final class Rig {
 		// Vanilla's HumanoidModel.createMesh boxes (for the bake's ground and first-person checks; the client draws vanilla's).
 		cubes[HumanoidRig.HEAD].add(new Cube(-4, -8, -4, 8, 8, 8, 0, 0, 0, false));
 		cubes[HumanoidRig.BODY].add(new Cube(-4, 0, -2, 8, 12, 4, 16, 16, 0, false));
-		cubes[HumanoidRig.RIGHT_ARM].add(new Cube(-3, -2, -2, 4, 12, 4, 40, 16, 0, false));
-		cubes[HumanoidRig.LEFT_ARM].add(new Cube(-1, -2, -2, 4, 12, 4, 40, 16, 0, true));
+		// Arms: the upper half on the arm, the lower half on the forearm (from the elbow).
+		cubes[HumanoidRig.RIGHT_ARM].add(new Cube(-3, -2, -2, 4, 6, 4, 40, 16, 0, false));
+		cubes[HumanoidRig.LEFT_ARM].add(new Cube(-1, -2, -2, 4, 6, 4, 40, 16, 0, true));
+		cubes[HumanoidRig.RIGHT_FOREARM].add(new Cube(-2, 0, -2, 4, 6, 4, 40, 22, 0, false));
+		cubes[HumanoidRig.LEFT_FOREARM].add(new Cube(-2, 0, -2, 4, 6, 4, 40, 22, 0, true));
 		cubes[HumanoidRig.RIGHT_LEG].add(new Cube(-2, 0, -2, 4, 12, 4, 0, 16, 0, false));
 		cubes[HumanoidRig.LEFT_LEG].add(new Cube(-2, 0, -2, 4, 12, 4, 0, 16, 0, true));
 		return new Rig(HumanoidRig.ID, names, parent, HumanoidRig.restPose(), true, new boolean[n], cubes, null, 64, 64, 1, 0.5F, Map.of(), "");

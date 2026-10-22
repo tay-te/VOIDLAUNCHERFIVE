@@ -47,15 +47,24 @@ public final class FirstPersonBody {
 
 	/** A model whose root is one arm, posed at draw time from the state it is submitted with. */
 	private static final class ArmModel extends Model<PartPose> {
-		ArmModel(ModelPart arm, RenderType type) {
+		private final float[] fore;
+
+		ArmModel(ModelPart arm, RenderType type, float[] fore) {
 			super(arm, t -> type);
+			this.fore = fore;
 		}
 
 		@Override
 		public void setupAnim(PartPose pose) {
 			PoseApply.write(pose, this.root());
+			// The elbow: the forearm (and the sleeve's) turned relative to the arm.
+			Elbows.bend(this.root(), true);
+			for (ModelPart f : Elbows.forearms(this.root())) {
+				f.setRotation(this.fore[0], this.fore[1], this.fore[2]);
+			}
 		}
 	}
+
 
 	/** Returns true when Fray drew (or deliberately skipped, in Iris's other hand pass) the hands: vanilla's are cancelled. */
 	public static boolean draw(float partialTicks, PoseStack poseStack, SubmitNodeCollector collector, PlayerRenderState playerState,
@@ -122,7 +131,7 @@ public final class FirstPersonBody {
 		int light = avatar.lightCoords;
 		// The arm fades in with the clip (vanilla shows no arm with an item in hand).
 		int color = weight >= 0.998F ? -1 : ((int) (weight * 255) << 24) | 0xFFFFFF;
-		submitArm(poseStack, collector, model.rightArm, FRAME.rightArm, skin, light, color);
+		submitArm(poseStack, collector, model.rightArm, FRAME.rightArm, FRAME.rightForeLocal, skin, light, color);
 		if (blendItem) {
 			submitBlendedItem(poseStack, collector, FRAME.rightItem, avatar.rightHandItemState, state.mainHandRenderState, light, weight);
 		} else {
@@ -131,7 +140,7 @@ public final class FirstPersonBody {
 		float left = FRAME.left * weight;
 		if (left > 0.002F) {
 			int lc = left >= 0.998F ? -1 : ((int) (left * 255) << 24) | 0xFFFFFF;
-			submitArm(poseStack, collector, model.leftArm, FRAME.leftArm, skin, light, lc);
+			submitArm(poseStack, collector, model.leftArm, FRAME.leftArm, FRAME.leftForeLocal, skin, light, lc);
 			submitItem(poseStack, collector, FRAME.leftItem, avatar.leftHandItemState, light);
 		}
 		return true;
@@ -223,10 +232,11 @@ public final class FirstPersonBody {
 	private static final PartPose AT_ORIGIN = new PartPose();
 
 	/** An arm drawn at {@code at} (camera space, the part's own frame: the part itself at its origin, unrotated). */
-	private static void submitArm(PoseStack poseStack, SubmitNodeCollector collector, ModelPart arm, Matrix4f at, RenderType type, int light, int color) {
+	private static void submitArm(PoseStack poseStack, SubmitNodeCollector collector, ModelPart arm, Matrix4f at, float[] fore, RenderType type, int light,
+		int color) {
 		poseStack.pushPose();
 		poseStack.mulPose(at);
-		collector.submitModel(new ArmModel(arm, type), new PartPose().set(AT_ORIGIN), poseStack, type, light, OverlayTexture.NO_OVERLAY, color, null, 0);
+		collector.submitModel(new ArmModel(arm, type, fore.clone()), new PartPose().set(AT_ORIGIN), poseStack, type, light, OverlayTexture.NO_OVERLAY, color, null, 0);
 		poseStack.popPose();
 	}
 

@@ -63,7 +63,7 @@ third-person clip (the wrist roll on `item_r` turns the blade's flat to the came
 with `"arms": "both"`). The bake's `fp_framing` check measures arms and blade at the default swing (limit 15 % of the
 screen) and warns when the crosshair is covered outside the strike (ACTIVE ± 1 tick); `-Dfray.fp.swing=1.0` measures
 the full swing. The bake also reports hand reach per clip (the right hand's distance from the chest centre over the
-solved third-person pose) and warns past 0.75 blocks outside the strike ± 1 tick. Camera channels are scaled by the client's `cameraMotion` (40 %) and Damage Tilt, and are off with
+solved third-person pose) and warns past 0.65 blocks outside the strike ± 1 tick (the hand is on the forearm: RIGS.md, player elbows). Camera channels are scaled by the client's `cameraMotion` (40 %) and Damage Tilt, and are off with
 camera shake. While iterating, `bash tools/studio.sh start -Dfray.bake.lenient=true` keeps failing checks from
 stopping the studio; they are reported in `report`.
 

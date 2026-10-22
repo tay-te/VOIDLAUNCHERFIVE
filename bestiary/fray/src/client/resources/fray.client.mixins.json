@@ -3,7 +3,11 @@
 	"package": "dev.voidmc.fray.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"AvatarRendererHandMixin",
 		"FirstPersonHandsMixin",
+		"HumanoidModelElbowMixin",
+		"ModelAccess",
+		"ModelPartAccess",
 		"ItemLayerAccess",
 		"ItemStackRenderStateAccess",
 		"GameRendererMixin",

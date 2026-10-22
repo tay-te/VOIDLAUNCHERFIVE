@@ -7,6 +7,7 @@ import dev.voidmc.fray.motion.HumanoidSolver;
 import dev.voidmc.fray.motion.PartPose;
 import dev.voidmc.fray.motion.PoseBuffer;
 import dev.voidmc.fray.motion.Rig;
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -59,6 +60,9 @@ public final class FirstPersonFrame {
 	/** The result for one frame: camera-space matrices for each arm (the part's own frame) and its item (before display). */
 	public static final class Frame {
 		public final Matrix4f rightArm = new Matrix4f(), rightItem = new Matrix4f(), leftArm = new Matrix4f(), leftItem = new Matrix4f();
+		/** Each forearm: its frame in camera space (at the elbow) and its rotation relative to the arm (x, y, z radians, ZYX). */
+		public final Matrix4f rightFore = new Matrix4f(), leftFore = new Matrix4f();
+		public final float[] rightForeLocal = new float[3], leftForeLocal = new float[3];
 		/** How much of the left arm is drawn (0..1). */
 		public float left;
 	}
@@ -92,8 +96,10 @@ public final class FirstPersonFrame {
 		PartPose[] parts = HumanoidRig.restPose();
 		solver.solve(parts, rest, buf);
 		Matrix4f cam = cameraFromModel(fp, new Matrix4f());
-		arm(cam, parts[HumanoidRig.RIGHT_ARM], READY_R, buf, false, swing, out.rightArm, out.rightItem);
-		arm(cam, parts[HumanoidRig.LEFT_ARM], READY_L, buf, true, swing, out.leftArm, out.leftItem);
+		arm(cam, parts[HumanoidRig.RIGHT_ARM], parts[HumanoidRig.RIGHT_FOREARM], READY_R, buf, false, swing, out.rightArm, out.rightFore, out.rightForeLocal,
+			out.rightItem);
+		arm(cam, parts[HumanoidRig.LEFT_ARM], parts[HumanoidRig.LEFT_FOREARM], READY_L, buf, true, swing, out.leftArm, out.leftFore, out.leftForeLocal,
+			out.leftItem);
 		out.left = leftArm(parts, fp);
 		return out;
 	}
@@ -119,6 +125,8 @@ public final class FirstPersonFrame {
 				out.rightItem.set(f.rightItem);
 				out.leftArm.set(f.leftArm);
 				out.leftItem.set(f.leftItem);
+				out.rightFore.set(f.rightFore);
+				out.leftFore.set(f.leftFore);
 				out.left = f.left;
 			} else {
 				float k = w / (sum + w);
@@ -126,21 +134,42 @@ public final class FirstPersonFrame {
 				out.rightItem.set(blend(out.rightItem, f.rightItem, k));
 				out.leftArm.set(blend(out.leftArm, f.leftArm, k));
 				out.leftItem.set(blend(out.leftItem, f.leftItem, k));
+				out.rightFore.set(blend(out.rightFore, f.rightFore, k));
+				out.leftFore.set(blend(out.leftFore, f.leftFore, k));
 				out.left += (f.left - out.left) * k;
 			}
 			sum += w;
 		}
+		localOf(out.rightArm, out.rightFore, out.rightForeLocal);
+		localOf(out.leftArm, out.leftFore, out.leftForeLocal);
 		return out;
 	}
 
-	private static void arm(Matrix4f cam, PartPose part, PartPose ready, PoseBuffer buf, boolean left, float swing, Matrix4f armOut, Matrix4f itemOut) {
+	/** The forearm's rotation relative to its arm (ZYX euler, radians). */
+	private static void localOf(Matrix4f arm, Matrix4f fore, float[] out) {
+		Matrix4f l = new Matrix4f(arm).invert().mul(fore);
+		Quaternionf q = l.getUnnormalizedRotation(new Quaternionf()).normalize();
+		Vector3f e = new Matrix3f().set(q).getEulerAnglesZYX(new Vector3f());
+		out[0] = e.x;
+		out[1] = e.y;
+		out[2] = e.z;
+	}
+
+	private static void arm(Matrix4f cam, PartPose part, PartPose forePart, PartPose ready, PoseBuffer buf, boolean left, float swing, Matrix4f armOut,
+		Matrix4f foreOut, float[] foreLocal, Matrix4f itemOut) {
 		Matrix4f derived = new Matrix4f(cam).mul(partMatrix(part));
 		Matrix4f calm = new Matrix4f(cam).mul(partMatrix(ready));
 		armOut.set(blend(calm, derived, swing));
-		// The item relative to the hand, calmed the same way, so the grip never leaves the hand.
+		// The forearm relative to the arm, calmed toward a straight elbow by the same factor.
+		Matrix4f foreDerived = new Matrix4f(derived).invert().mul(new Matrix4f(cam).mul(partMatrix(forePart)));
+		float ex = left ? HumanoidRig.ELBOW_LEFT_X : HumanoidRig.ELBOW_RIGHT_X;
+		Matrix4f straight = new Matrix4f().translate(ex / 16, HumanoidRig.ELBOW_Y / 16, 0);
+		foreOut.set(armOut).mul(blend(straight, foreDerived, swing));
+		localOf(armOut, foreOut, foreLocal);
+		// The item relative to the hand (on the forearm), calmed the same way, so the grip never leaves the hand.
 		Matrix4f chain = itemChain(buf, left, new Matrix4f());
 		Matrix4f chainRest = itemChain(null, left, new Matrix4f());
-		itemOut.set(armOut).mul(blend(chainRest, chain, swing));
+		itemOut.set(foreOut).translate(-ex / 16, -HumanoidRig.ELBOW_Y / 16, 0).mul(blend(chainRest, chain, swing));
 	}
 
 	/** A part's own transform (vanilla's {@code ModelPart.translateAndRotate}, blocks). */

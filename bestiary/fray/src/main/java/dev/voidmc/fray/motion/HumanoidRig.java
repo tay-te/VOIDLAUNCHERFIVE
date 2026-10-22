@@ -25,10 +25,23 @@ public final class HumanoidRig {
 	public static final int ITEM_R = 8;
 	public static final int ITEM_L = 9;
 	public static final int CAMERA = 10;
-	public static final int BONES = 11;
+	/**
+	 * The elbows (2026-10-22): each arm is an upper arm ({@code right_arm}, the vanilla part, its box cut at the middle)
+	 * and a forearm hinged at the vanilla arm's midpoint. A forearm's rotation is relative to its arm; the solver gives
+	 * its model-space pose like the other parts.
+	 */
+	public static final int RIGHT_FOREARM = 11;
+	public static final int LEFT_FOREARM = 12;
+	public static final int BONES = 13;
 
 	public static final List<String> NAMES = List.of("root", "torso", "head", "body", "right_arm", "left_arm", "right_leg", "left_leg",
-		"item_r", "item_l", "camera");
+		"item_r", "item_l", "camera", "right_forearm", "left_forearm");
+
+	/** The elbow (the forearm's pivot) in its arm's frame, model pixels: the vanilla arm box's centre, halfway down. */
+	public static final float ELBOW_Y = 4;
+	public static final float ELBOW_RIGHT_X = -1, ELBOW_LEFT_X = 1;
+	/** The hand (where the grip is) in the forearm's frame. */
+	public static final float HAND_Y = 6;
 
 	/** The real model parts, in bone order HEAD..LEFT_LEG. */
 	public static final int FIRST_PART = HEAD;
@@ -64,6 +77,8 @@ public final class HumanoidRig {
 		rest[LEFT_ARM].setPos(5, 2, 0);
 		rest[RIGHT_LEG].setPos(-1.9F, 12, 0);
 		rest[LEFT_LEG].setPos(1.9F, 12, 0);
+		rest[RIGHT_FOREARM].setPos(ELBOW_RIGHT_X, ELBOW_Y, 0);
+		rest[LEFT_FOREARM].setPos(ELBOW_LEFT_X, ELBOW_Y, 0);
 		return rest;
 	}
 }

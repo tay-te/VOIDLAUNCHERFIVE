@@ -107,7 +107,7 @@ public final class Checks {
 	}
 
 	/** Hands further than this from the chest outside the strike are reported (blocks). */
-	public static final float REACH_LIMIT = 0.75F;
+	public static final float REACH_LIMIT = 0.65F;
 
 	public static Reach reach(Clip clip) {
 		PoseBuffer buf = new PoseBuffer(Rig.HUMANOID);
@@ -125,7 +125,7 @@ public final class Checks {
 			PartPose[] rest = HumanoidRig.restPose();
 			PartPose[] parts = HumanoidRig.restPose();
 			solver.solve(parts, rest, buf);
-			HumanoidSolver.partToModel(parts[HumanoidRig.RIGHT_ARM], -1, 10, 0, hand);
+			HumanoidSolver.partToModel(parts[HumanoidRig.RIGHT_FOREARM], 0, HumanoidRig.HAND_Y, 0, hand);
 			HumanoidSolver.partToModel(parts[HumanoidRig.BODY], 0, 4, 0, chest);
 			float d = hand.distance(chest) / 16 * HumanoidRig.PLAYER_SCALE;
 			max = Math.max(max, d);
@@ -162,8 +162,10 @@ public final class Checks {
 		float area = 0;
 		boolean through = false, cross = false;
 		Vector3f v = new Vector3f();
-		for (int arm : f.left > 0.5F ? new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.LEFT_ARM} : new int[] {HumanoidRig.RIGHT_ARM}) {
-			Matrix4f m = arm == HumanoidRig.RIGHT_ARM ? f.rightArm : f.leftArm;
+		int[] arms = f.left > 0.5F ? new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.RIGHT_FOREARM, HumanoidRig.LEFT_ARM, HumanoidRig.LEFT_FOREARM}
+			: new int[] {HumanoidRig.RIGHT_ARM, HumanoidRig.RIGHT_FOREARM};
+		for (int arm : arms) {
+			Matrix4f m = arm == HumanoidRig.RIGHT_ARM ? f.rightArm : arm == HumanoidRig.RIGHT_FOREARM ? f.rightFore : arm == HumanoidRig.LEFT_ARM ? f.leftArm : f.leftFore;
 			Rig.Cube c = Rig.HUMANOID.cubes[arm].getFirst();
 			float minX = 1, maxX = -1, minY = 1, maxY = -1;
 			for (int k = 0; k < 8; k++) {

@@ -176,6 +176,7 @@ tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	systemProperty 'fray.studio.src', file('src/main').absolutePath
 	systemProperty 'fray.studio.out', System.getProperty('fray.studio.out', file('build/studio').absolutePath)
 	systemProperty 'fray.lag.ms', System.getProperty('fray.lag.ms', '0')
+	systemProperty 'fray.noElbows', System.getProperty('fray.noElbows', 'false')
 	// Fray combat's showcase (CombatShowcase): -Dfray.combat=all|pipeline,actions,hud,perf,dedicated
 	systemProperty 'fray.combat', System.getProperty('fray.combat', '')
 }

@@ -28,6 +28,57 @@ public final class HumanoidSolver {
 
 	/** {@code parts} hold the pose underneath (vanilla's, or the rest pose on the server) and receive the result. */
 	public void solve(PartPose[] parts, PartPose[] rest, PoseBuffer buf) {
+		this.solveParts(parts, rest, buf);
+		if (parts.length > HumanoidRig.LEFT_FOREARM) {
+			this.forearm(parts, rest, buf, HumanoidRig.RIGHT_ARM, HumanoidRig.RIGHT_FOREARM);
+			this.forearm(parts, rest, buf, HumanoidRig.LEFT_ARM, HumanoidRig.LEFT_FOREARM);
+		}
+	}
+
+	/**
+	 * The forearm's local rotation (relative to its arm, radians, x/y/z) from the buffer: rest + clip × weight + the
+	 * additive layers. Zero (a straight elbow) without a clip.
+	 */
+	public static void forearmLocal(PoseBuffer buf, PartPose rest, int bone, float[] out) {
+		float[] v = buf.v;
+		int o = bone * PoseBuffer.STRIDE;
+		if (o + PoseBuffer.ADD_ROT + 2 >= v.length) {
+			out[0] = out[1] = out[2] = 0;
+			return;
+		}
+		float w = v[o + PoseBuffer.W_ROT];
+		out[0] = rest.xRot + v[o] * w + v[o + PoseBuffer.ADD_ROT];
+		out[1] = rest.yRot + v[o + 1] * w + v[o + PoseBuffer.ADD_ROT + 1];
+		out[2] = rest.zRot + v[o + 2] * w + v[o + PoseBuffer.ADD_ROT + 2];
+	}
+
+	private final float[] local = new float[3];
+	private final Quaternionf qa = new Quaternionf(), ql = new Quaternionf();
+
+	/** The forearm in model space: hinged at the elbow (rest position, in the arm's frame), turned by its local rotation. */
+	private void forearm(PartPose[] parts, PartPose[] rest, PoseBuffer buf, int armBone, int foreBone) {
+		PartPose arm = parts[armBone];
+		PartPose fo = parts[foreBone];
+		PartPose r = rest[foreBone];
+		forearmLocal(buf, r, foreBone, this.local);
+		this.qa.rotationZYX(arm.zRot, arm.yRot, arm.xRot);
+		this.tmp.set(r.x * arm.xScale, r.y * arm.yScale, r.z * arm.zScale);
+		this.qa.transform(this.tmp);
+		fo.x = arm.x + this.tmp.x;
+		fo.y = arm.y + this.tmp.y;
+		fo.z = arm.z + this.tmp.z;
+		this.ql.rotationZYX(this.local[2], this.local[1], this.local[0]);
+		this.part.set(this.qa.mul(this.ql));
+		this.part.getEulerAnglesZYX(this.tmp);
+		fo.xRot = this.tmp.x;
+		fo.yRot = this.tmp.y;
+		fo.zRot = this.tmp.z;
+		fo.xScale = arm.xScale;
+		fo.yScale = arm.yScale;
+		fo.zScale = arm.zScale;
+	}
+
+	private void solveParts(PartPose[] parts, PartPose[] rest, PoseBuffer buf) {
 		float[] v = buf.v;
 		for (int b = HumanoidRig.FIRST_PART; b <= HumanoidRig.LAST_PART; b++) {
 			int o = b * PoseBuffer.STRIDE;

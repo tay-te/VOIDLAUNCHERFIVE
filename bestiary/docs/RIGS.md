@@ -89,3 +89,16 @@ game (`ingame_front.jpg`).
 
 Budgets (ANIMATION.md §4.3, §10): up to 48 bones; the knight's 30 bones cost 1.5 µs per frame without shaders, 1.9 µs
 with Iris (the shadow pass reuses the frame's sample).
+
+## Player elbows (2026-10-22)
+
+The player's arms (and every humanoid model's: armour, mannequins; zombies never bend theirs) have elbows. `fray:humanoid`
+gains `right_forearm` / `left_forearm`: a forearm's rotation is relative to its arm, hinged at the vanilla arm box's
+middle (`HumanoidRig.ELBOW_*`, model px), the hand 6 px below it. On the client `Elbows` cuts each arm part's faces at
+that plane when the model is built (UVs interpolated, so any skin, slim or wide, sleeve layer, armour, trim and glint
+maps exactly) into the vanilla part (upper half) plus a `fray_forearm` child, and the sleeve likewise. While an elbow
+is straight the arm draws vanilla's own boxes (the halves are swapped in only while it bends), so models without a
+clip, and other mods' poses, are vanilla. The upper half carries a 1.5 px skirt on its back and sides, 0.15 px inside
+the surface, that fills the joint on a forward bend. Held items ride the forearm (`ItemInHandLayer`), vanilla's
+first-person hand straightens it. The rig check (`MotionShowcase` part `rig`, `tools/review/rig_compare.py`) compares
+rest poses pixel by pixel against a build without elbows; `-Dfray.noElbows=true` turns them off for measurements.

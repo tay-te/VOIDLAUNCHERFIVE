@@ -117,6 +117,9 @@ public class MotionShowcase implements FabricClientGameTest {
 			if (want("fp")) {
 				firstPerson(stage);
 			}
+			if (want("rig")) {
+				rig(stage);
+			}
 			if (ONLY.contains("shadow")) {
 				shadow(stage);
 			}
@@ -140,6 +143,7 @@ public class MotionShowcase implements FabricClientGameTest {
 						perf(stage, more, "zombie");
 					}
 					perf(stage, 24, "knight");
+					perf(stage, 24, "mannequin");
 				}
 			}
 		}
@@ -389,6 +393,56 @@ public class MotionShowcase implements FabricClientGameTest {
 		st.c.waitTicks(20);
 	}
 
+	/**
+	 * The player rig at rest with no clip (vanilla's poses, as with other mods' models): wide and slim test skins with
+	 * sleeves, with and without full armour (a sword in hand), from the front, back and side; and vanilla's first-person
+	 * hand. With -Piris and -Dfray.show.packs the same under each pack (the shadow pass draws the same models). The shots
+	 * are compared pixel by pixel against the same scene from a build without the elbow (tools/review/rig_compare.py).
+	 */
+	private static void rig(Stage st) {
+		st.clearCreatures();
+		st.c.runOnClient(mc -> ClientMotion.enabled = false);
+		String[][] subjects = {{"wide", "false"}, {"wide", "true"}, {"slim", "false"}, {"slim", "true"}};
+		for (int i = 0; i < subjects.length; i++) {
+			String model = subjects[i][0];
+			boolean armour = Boolean.parseBoolean(subjects[i][1]);
+			double x = -3 + i * 2;
+			String eq = armour ? ",equipment:{head:{id:\"iron_helmet\"},chest:{id:\"diamond_chestplate\",components:{\"minecraft:enchantments\":{\"sharpness\":1},"
+				+ "\"minecraft:trim\":{material:\"gold\",pattern:\"coast\"}}},legs:{id:\"iron_leggings\"},feet:{id:\"iron_boots\"},mainhand:{id:\"iron_sword\"}}" : "";
+			st.s.runCommand(String.format(Locale.ROOT, "summon minecraft:mannequin %.1f %d 0.5 {Rotation:[0f,0f],profile:{texture:\"bestiary_test:skin/%s\",model:\"%s\"}%s}", x, Y,
+				model, model, eq));
+		}
+		st.c.waitTicks(40);
+		String packs = System.getProperty("fray.show.packs", "");
+		for (String pack : packs.isEmpty() ? new String[] {""} : packs.split(",")) {
+			String p = pack.isEmpty() ? "" : pack + "_";
+			if (!pack.isEmpty()) {
+				Stage.log("pack " + st.c.computeOnClient(mc -> dev.voidmc.bestiary.studio.IrisPacks.select(pack)));
+				st.c.waitTicks(60);
+			}
+			st.cam(0, Y + 1.2, 6.5, 0, Y + 1.0, 0.5);
+			st.c.waitTicks(10);
+			st.shot("rig_" + p + "rest_front");
+			st.cam(0, Y + 1.2, -5.5, 0, Y + 1.0, 0.5);
+			st.c.waitTicks(10);
+			st.shot("rig_" + p + "rest_back");
+			st.cam(5.5, Y + 1.6, 3.5, -1, Y + 1.0, 0.5);
+			st.c.waitTicks(10);
+			st.shot("rig_" + p + "rest_side");
+		}
+		// Vanilla's first-person hand (empty hand: the arm itself) and held sword.
+		st.clearCreatures();
+		st.s.runCommand("item replace entity @p weapon.mainhand with minecraft:air");
+		st.s.runCommand("tp @p 0.5 " + Y + " 0.5 0 0");
+		st.playerCam(CameraType.FIRST_PERSON);
+		st.c.waitTicks(10);
+		st.shot("rig_fp_hand");
+		st.s.runCommand("item replace entity @p weapon.mainhand with minecraft:iron_sword");
+		st.c.waitTicks(10);
+		st.shot("rig_fp_sword");
+		st.c.runOnClient(mc -> ClientMotion.enabled = true);
+	}
+
 	private static void firstPerson(Stage st) {
 		st.clearCreatures();
 		st.s.runCommand("tp @p 0.5 " + Y + " -8 0 5");
@@ -594,9 +648,10 @@ public class MotionShowcase implements FabricClientGameTest {
 		for (int i = 0; i < count; i++) {
 			int col = i % cols, row = i / cols;
 			double x = 0.5 + (col - (cols - 1) / 2.0) * spacing, zz = 0.5 + row * spacing;
-			ids.add(knight ? st.knight(x, zz, 180) : st.zombie(x, zz, 180, false));
+			ids.add(knight ? st.knight(x, zz, 180) : kind.equals("mannequin") ? st.mannequin(x, zz, 180) : st.zombie(x, zz, 180, false));
 		}
-		Identifier attack = knight ? dev.voidmc.bestiary.anim.GallowsKnight.CHAIN_SWEEP : CLAW;
+		// Mannequins are the player model (elbows, armour, a sword) and swing the heavy.
+		Identifier attack = knight ? dev.voidmc.bestiary.anim.GallowsKnight.CHAIN_SWEEP : kind.equals("mannequin") ? Bestiary.id("player/sword/heavy") : CLAW;
 		double back = count <= 24 ? -7 : -10;
 		st.cam(0.5, Y + 4.5, back, 0.5, Y + 0.8, rows * spacing / 2);
 		st.c.waitTicks(40);

@@ -820,6 +820,32 @@ public class CombatShowcase implements FabricClientGameTest {
 				st.c.getInput().releaseKey(o -> o.keyAttack);
 			}
 		});
+		// The three-cut string (light_1, light_2, light_3): taps inside each chain window.
+		ready(st, false);
+		film(st, "string", 40, 0, i -> {
+			if (i == 0 || i == 8 || i == 16) {
+				st.c.getInput().holdKey(o -> o.keyAttack);
+			} else if (i == 1 || i == 9 || i == 17) {
+				st.c.getInput().releaseKey(o -> o.keyAttack);
+			}
+		});
+		// Plunge: a light while falling, pressed before filming starts (the server judges the fall unfrozen).
+		ready(st, false);
+		st.s.runCommand("tp @p 0.5 " + (Y + 5) + " 0.5 180 0");
+		st.c.waitTicks(8);
+		attack(st, 1);
+		film(st, "plunge", 26, 0, i -> {
+		});
+		Stage.log("fpgif: plunge " + lastAction(st));
+		// The guard held: parry, block_raise, block_hold.
+		ready(st, false);
+		film(st, "block_raise", 22, 0, i -> {
+			if (i == 0) {
+				st.c.getInput().holdKey(o -> o.keyUse);
+			} else if (i == 20) {
+				st.c.getInput().releaseKey(o -> o.keyUse);
+			}
+		});
 		ready(st, false);
 		film(st, "parry", 22, 0, i -> {
 			if (i == 0) {
@@ -865,8 +891,11 @@ public class CombatShowcase implements FabricClientGameTest {
 	}
 
 	private static void film(Stage st, String name, int frames, CameraType third, java.util.function.IntConsumer before) {
-		st.playerCam(CameraType.FIRST_PERSON);
-		st.c.waitTicks(10);
+		if (!name.equals("plunge")) {
+			// (The plunge is already under way when filming starts: no settling.)
+			st.playerCam(CameraType.FIRST_PERSON);
+			st.c.waitTicks(10);
+		}
 		st.s.runCommand("tick freeze");
 		st.c.waitTicks(2);
 		for (int i = 0; i < frames; i++) {

@@ -21,6 +21,7 @@ abstract class ItemInHandLayerMixin {
 		shift = At.Shift.AFTER))
 	private void fray$itemBone(ArmedEntityRenderState state, ItemStackRenderState item, ItemStack stack, HumanoidArm arm, PoseStack poseStack,
 		SubmitNodeCollector collector, int light, CallbackInfo ci) {
+		PoseApply.forearm(((net.minecraft.client.renderer.entity.layers.RenderLayer<?, ?>) (Object) this).getParentModel(), arm == HumanoidArm.LEFT, poseStack);
 		PoseApply.itemBone(state, arm == HumanoidArm.LEFT, poseStack);
 	}
 }

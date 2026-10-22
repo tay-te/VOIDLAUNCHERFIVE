@@ -42,6 +42,9 @@ public final class PoseApply {
 		}
 		PoseBuffer buf = pose(state);
 		if (buf == null || !ClientMotion.enabled || !buf.rig.humanoid) {
+			// No clip: straight elbows, vanilla's boxes (models are shared between entities).
+			Elbows.bend(humanoid.rightArm, false);
+			Elbows.bend(humanoid.leftArm, false);
 			return;
 		}
 		long t0 = System.nanoTime();
@@ -69,6 +72,46 @@ public final class PoseApply {
 		for (int b = HumanoidRig.FIRST_PART; b <= HumanoidRig.LAST_PART; b++) {
 			write(UNDER[b], parts[b - HumanoidRig.FIRST_PART]);
 		}
+		// The elbows: the forearm's own rotation, relative to its arm (and the sleeve's forearm with it).
+		bend(m.rightArm, buf, rest[HumanoidRig.RIGHT_FOREARM], HumanoidRig.RIGHT_FOREARM);
+		bend(m.leftArm, buf, rest[HumanoidRig.LEFT_FOREARM], HumanoidRig.LEFT_FOREARM);
+	}
+
+	private static final float[] LOCAL = new float[3];
+
+	private static void bend(ModelPart arm, PoseBuffer buf, PartPose rest, int bone) {
+		java.util.List<ModelPart> fs = Elbows.forearms(arm);
+		if (fs.isEmpty()) {
+			return;
+		}
+		HumanoidSolver.forearmLocal(buf, rest, bone, LOCAL);
+		Elbows.bend(arm, Math.abs(LOCAL[0]) + Math.abs(LOCAL[1]) + Math.abs(LOCAL[2]) > 1e-4F);
+		for (ModelPart f : fs) {
+			f.xRot = LOCAL[0];
+			f.yRot = LOCAL[1];
+			f.zRot = LOCAL[2];
+		}
+	}
+
+	/**
+	 * The held item rides the forearm: right after vanilla's {@code translateToHand} (the arm), the forearm's turn about
+	 * the elbow (in the arm's frame), so vanilla's hand offsets that follow still land in the hand.
+	 */
+	public static void forearm(Object parentModel, boolean left, com.mojang.blaze3d.vertex.PoseStack poseStack) {
+		if (!(parentModel instanceof HumanoidModel<?> h)) {
+			return;
+		}
+		java.util.List<ModelPart> fs = Elbows.forearms(left ? h.leftArm : h.rightArm);
+		if (fs.isEmpty()) {
+			return;
+		}
+		ModelPart f = fs.getFirst();
+		if (f.xRot == 0 && f.yRot == 0 && f.zRot == 0) {
+			return;
+		}
+		poseStack.translate(f.x / 16F, f.y / 16F, f.z / 16F);
+		poseStack.rotate(new org.joml.Quaternionf().rotationZYX(f.zRot, f.yRot, f.xRot));
+		poseStack.translate(-f.x / 16F, -f.y / 16F, -f.z / 16F);
 	}
 
 	/** The model's parts in bone order HEAD..LEFT_LEG. */
