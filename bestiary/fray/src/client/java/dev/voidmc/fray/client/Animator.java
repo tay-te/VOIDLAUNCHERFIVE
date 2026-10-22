@@ -61,6 +61,13 @@ public final class Animator {
 	private float[] mask = new float[Rig.HUMANOID.bones()];
 	/** Studio and tests: sample the ACTION and ADD layers at this many ticks after their start (NaN: live). */
 	public double frozenElapsed = Double.NaN;
+	/**
+	 * Hit-stop's hold (COMBAT.md §5.2): until {@code holdUntil} every layer is sampled at {@code holdAt} (and vanilla's walk
+	 * position as it was), so the pose stops dead while the clips keep their start ticks; after it the pose rejoins the
+	 * clips' (the server's) timeline. Animator time (client ticks); NaN: not held.
+	 */
+	private double holdAt = Double.NaN, holdUntil = Double.NaN;
+	private float holdWalkPos = Float.NaN, holdWalk;
 	private double frozen = Double.NaN;
 	/** The last time this animator was sampled (client ticks), for pruning. */
 	long lastUsed;
@@ -119,6 +126,38 @@ public final class Animator {
 		this.cachedFrame = -1;
 	}
 
+	/**
+	 * Holds the whole pose from {@code now} until {@code until} (animator time, ticks): hit-stop. A hold already running
+	 * keeps its pose and is extended; one that ended starts afresh. First person, the camera channels and third person all
+	 * read the held time, so the local player's own arms freeze with everyone else.
+	 */
+	public void hold(double now, double until) {
+		if (!(now < this.holdUntil)) {
+			this.holdAt = now;
+			this.holdWalkPos = Float.NaN;
+			this.holdUntil = until;
+		} else {
+			this.holdUntil = Math.max(this.holdUntil, until);
+		}
+		this.cachedFrame = -1;
+	}
+
+	/** Ends a hold now (tests, the studio). */
+	public void release() {
+		this.holdAt = this.holdUntil = Double.NaN;
+		this.cachedFrame = -1;
+	}
+
+	/** Whether the pose is held at {@code now}. */
+	public boolean held(double now) {
+		return now < this.holdUntil;
+	}
+
+	/** The time the layers are sampled at for {@code now}: the hold's moment while held, else {@code now}. */
+	public double time(double now) {
+		return now < this.holdUntil ? this.holdAt : now;
+	}
+
 	/** Moves an action's start (prediction re-based on the server's ack). */
 	public void rebase(int layer, double start) {
 		this.layers[layer].cur.start = start;
@@ -154,7 +193,43 @@ public final class Animator {
 		if (s.clip == null) {
 			return Double.NaN;
 		}
-		return Double.isNaN(this.frozenElapsed) ? (now - s.start) * s.speed : this.frozenElapsed;
+		return Double.isNaN(this.frozenElapsed) ? (this.time(now) - s.start) * s.speed : this.frozenElapsed;
+	}
+
+	/**
+	 * The ACTION clip's weight at {@code now} (its blend in from the start, its blend out before the end or after a stop),
+	 * for first person's crossfade with vanilla's held item; 0 without an action.
+	 */
+	public float actionWeight(double now) {
+		Slot s = this.layers[ACTION].cur;
+		if (s.clip == null) {
+			return 0;
+		}
+		this.frozen = this.frozenElapsed;
+		return this.envelope(s, this.time(now));
+	}
+
+	/** How far the ACTION clip has blended in over the previous one (0..1, smoothstepped). */
+	public float actionBlendIn(double now) {
+		Slot s = this.layers[ACTION].cur;
+		this.frozen = this.frozenElapsed;
+		return smooth(this.blendIn(s, this.time(now)));
+	}
+
+	/** The ACTION layer's previous clip while it is still blending out under the current one, or null. */
+	public @Nullable Clip previousAction(double now) {
+		Layer l = this.layers[ACTION];
+		if (l.prev.clip == null || l.cur.clip == null) {
+			return null;
+		}
+		this.frozen = Double.NaN;
+		return this.envelope(l.prev, this.time(now)) > 0 && this.blendIn(l.cur, this.time(now)) < 1 ? l.prev.clip : null;
+	}
+
+	/** Ticks into the previous ACTION clip at {@code now}. */
+	public double previousElapsed(double now) {
+		Slot s = this.layers[ACTION].prev;
+		return (this.time(now) - s.start) * s.speed;
 	}
 
 	public boolean idle() {
@@ -182,6 +257,15 @@ public final class Animator {
 	 * carries weight.
 	 */
 	public @Nullable PoseBuffer sample(double now, float walkPos, float walk) {
+		if (now < this.holdUntil) {
+			now = this.holdAt;
+			if (Float.isNaN(this.holdWalkPos)) {
+				this.holdWalkPos = walkPos;
+				this.holdWalk = walk;
+			}
+			walkPos = this.holdWalkPos;
+			walk = this.holdWalk;
+		}
 		PoseBuffer buf = this.buffer;
 		buf.clear();
 		float moving = smooth(Math.min(1, walk * 4));

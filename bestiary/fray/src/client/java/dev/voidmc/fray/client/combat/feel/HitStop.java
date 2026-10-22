@@ -51,6 +51,13 @@ public final class HitStop {
 		}
 		e.end = Math.max(e.end, end);
 		e.victim |= victim;
+		// Fray Motion's per-entity hold: every view of the animated pose (third person, the shadow pass, the local player's
+		// first-person arms and camera channels) stops at the same moment and rejoins the clip's timeline afterwards.
+		dev.voidmc.fray.client.Animator a = dev.voidmc.fray.client.ClientMotion.get(entity);
+		if (a != null) {
+			double t = dev.voidmc.fray.client.ClientMotion.now(0);
+			a.hold(t, t + (e.end - now) / 50_000_000.0);
+		}
 		double len = Math.sqrt(pushX * pushX + pushZ * pushZ);
 		if (victim && len > 1e-4) {
 			e.dx = (float) (pushX / len);
@@ -68,7 +75,13 @@ public final class HitStop {
 		long t0 = System.nanoTime();
 		Entry e = ACTIVE.get(entity.getId());
 		EntityRenderState s = null;
-		if (e != null) {
+		if (e != null && entity == Minecraft.getInstance().player) {
+			// The local player: the Animator's hold freezes the clip; vanilla's parts stay live (the head follows the mouse),
+			// and first person (never extracted here) freezes the same way.
+			if (t0 >= e.end) {
+				ACTIVE.remove(entity.getId());
+			}
+		} else if (e != null) {
 			if (t0 >= e.end) {
 				ACTIVE.remove(entity.getId());
 			} else if (e.state != null) {

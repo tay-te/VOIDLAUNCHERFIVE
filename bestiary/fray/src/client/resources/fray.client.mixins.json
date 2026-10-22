@@ -4,6 +4,8 @@
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"FirstPersonHandsMixin",
+		"ItemLayerAccess",
+		"ItemStackRenderStateAccess",
 		"GameRendererMixin",
 		"ItemInHandLayerMixin",
 		"LivingEntityRendererMixin",
