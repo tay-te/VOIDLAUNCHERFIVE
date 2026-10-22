@@ -223,6 +223,14 @@ public final class MotionBake {
 				warnings.add(msg);
 			}
 		}
+		if (clip.rig.humanoid && clip.id.getPath().startsWith("player/") && clip.fp != null && Checks.drawsArms(clip.fp)) {
+			Checks.Reach r = Checks.reach(clip);
+			s.append(String.format(Locale.ROOT, " | hand reach: max %.2f, outside the strike %.2f, mean %.2f blocks", r.max(), r.maxOutside(), r.mean()));
+			if (r.ticksOver() > 0) {
+				warnings.add(String.format(Locale.ROOT, "%s: the right hand is more than %.2f blocks from the chest for %d ticks outside the strike (max %.2f)", clip.id,
+					Checks.REACH_LIMIT, r.ticksOver(), r.maxOutside()));
+			}
+		}
 		if (clip.fp != null) {
 			Checks.Framing f = Checks.firstPerson(clip);
 			s.append(String.format(Locale.ROOT, " | first person: arms and blade cover up to %.0f %% of the screen at %.2f s, crosshair covered %d ticks outside the strike%s",

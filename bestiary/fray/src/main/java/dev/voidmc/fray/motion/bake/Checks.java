@@ -94,6 +94,54 @@ public final class Checks {
 		return a >= 0 && b >= 0 && tick >= Math.round(a * 20) - 1 && tick <= Math.round(b * 20) + 1;
 	}
 
+	/**
+	 * Hand reach: how far the right hand (the bottom of the arm, where the grip is) is from the chest centre, blocks at the
+	 * player's scale, sampled six times a tick on the solved third-person pose (torso included; the root moves both).
+	 *
+	 * @param max        the furthest anywhere
+	 * @param maxOutside the furthest outside the strike (ACTIVE ± 1 tick; the whole clip when it has no strike)
+	 * @param mean       the average over the clip
+	 * @param ticksOver  ticks outside the strike with the hand further than {@link #REACH_LIMIT}
+	 */
+	public record Reach(float max, float maxOutside, float mean, int ticksOver) {
+	}
+
+	/** Hands further than this from the chest outside the strike are reported (blocks). */
+	public static final float REACH_LIMIT = 0.75F;
+
+	public static Reach reach(Clip clip) {
+		PoseBuffer buf = new PoseBuffer(Rig.HUMANOID);
+		HumanoidSolver solver = new HumanoidSolver();
+		float[] scratch = new float[3];
+		float max = 0, outside = 0, sum = 0;
+		int n = 0;
+		java.util.Set<Integer> over = new java.util.TreeSet<>();
+		int steps = Math.max(1, clip.lengthTicks() * 6);
+		Vector3f hand = new Vector3f(), chest = new Vector3f();
+		for (int i = 0; i <= steps; i++) {
+			float t = clip.length * i / steps;
+			buf.clear();
+			ClipSampler.accumulate(clip, clip.localTime(t), 1, buf, scratch);
+			PartPose[] rest = HumanoidRig.restPose();
+			PartPose[] parts = HumanoidRig.restPose();
+			solver.solve(parts, rest, buf);
+			HumanoidSolver.partToModel(parts[HumanoidRig.RIGHT_ARM], -1, 10, 0, hand);
+			HumanoidSolver.partToModel(parts[HumanoidRig.BODY], 0, 4, 0, chest);
+			float d = hand.distance(chest) / 16 * HumanoidRig.PLAYER_SCALE;
+			max = Math.max(max, d);
+			sum += d;
+			n++;
+			int tick = Math.round(t * 20);
+			if (!nearStrike(clip, tick)) {
+				outside = Math.max(outside, d);
+				if (d > REACH_LIMIT) {
+					over.add(tick);
+				}
+			}
+		}
+		return new Reach(max, outside, n == 0 ? 0 : sum / n, over.size());
+	}
+
 	/** Fray draws its own first-person arms only for clips with a framing (else vanilla's hands). */
 	public static boolean drawsArms(Clip.FirstPerson fp) {
 		return !fp.hideArms() && !"fray:default".equals(fp.framing());
