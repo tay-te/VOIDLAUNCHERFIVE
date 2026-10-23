@@ -64,6 +64,7 @@ public final class Bestiary implements ModInitializer {
 		Elites.init();
 		EliteRules.init();
 		BestiaryCommands.init();
+		dev.voidmc.bestiary.boss.BossEncounter.init();
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			Tokens.clear();
 			dev.voidmc.bestiary.ai.Squads.clear();

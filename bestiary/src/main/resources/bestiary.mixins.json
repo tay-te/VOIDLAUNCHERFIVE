@@ -2,6 +2,6 @@
 	"required": true,
 	"package": "dev.voidmc.bestiary.mixin",
 	"compatibilityLevel": "JAVA_25",
-	"mixins": ["MobAccess", "TargetGoalAccess", "CreeperAccess", "MobSpawnMixin", "SkeletonWeaponMixin"],
+	"mixins": ["MobAccess", "TargetGoalAccess", "CreeperAccess", "MobSpawnMixin", "SkeletonWeaponMixin", "BossDamageMixin"],
 	"injectors": {"defaultRequire": 1}
 }

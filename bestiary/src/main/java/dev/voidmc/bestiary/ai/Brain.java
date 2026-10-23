@@ -78,6 +78,8 @@ public final class Brain {
 	public float seenAttack;
 	public double lastTargetDistance = -1;
 	public boolean takenOver;
+	/** Only targets this accepts are perceived (a boss's arena), or null for any. */
+	public java.util.function.@Nullable Predicate<LivingEntity> leash;
 	/** Ticks of BESTIARY.md's per-creature work (perception, tactics, executor) for the perf gate. */
 	public static long perceptionNanos, tacticsNanos, executorNanos, perceptionRuns, tacticsRuns, executorRuns;
 

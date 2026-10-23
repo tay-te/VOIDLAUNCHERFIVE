@@ -15,6 +15,16 @@ import org.jspecify.annotations.Nullable;
 public interface EncounterService {
 	Encounter start(Mob boss, Component name, @Nullable Component subtitle, float[] phaseThresholds);
 
+	/**
+	 * As {@link #start(Mob, Component, Component, float[])}; {@code announce} false resumes a fight (after a relog, an
+	 * unload or a restart) without the start banner.
+	 *
+	 * @since 0.3.0 (2026-10-22)
+	 */
+	default Encounter start(Mob boss, Component name, @Nullable Component subtitle, float[] phaseThresholds, boolean announce) {
+		return this.start(boss, name, subtitle, phaseThresholds);
+	}
+
 	@Nullable Encounter of(Mob boss);
 
 	/** Adds to the Break meter (a fraction of its size). */

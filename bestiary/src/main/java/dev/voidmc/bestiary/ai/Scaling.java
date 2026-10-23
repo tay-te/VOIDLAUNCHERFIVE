@@ -52,13 +52,16 @@ public final class Scaling {
 
 	/** Applies the modifiers for this creature's data (idempotent). {@code fresh}: a new creature starts at full health. */
 	public static void apply(Mob mob, CreatureProfile p, CreatureData d, boolean fresh) {
-		float health = DangerMath.health(d.danger()) * DangerMath.difficultyHealth(mob.level().getDifficulty().getId()) * (d.elite() ? ELITE_HEALTH : 1);
+		// Bosses carry their own numbers (BESTIARY §8.3: the Gallows Knight is 900 at D3).
+		boolean boss = p.rank().equals("boss");
+		// (Its difficulty and party factors are toughness, BossEncounter.toughness: vanilla caps max health at 1024.)
+		float health = boss ? 1 : DangerMath.health(d.danger()) * (d.elite() ? ELITE_HEALTH : 1) * DangerMath.difficultyHealth(mob.level().getDifficulty().getId());
 		float frac = mob.getHealth() / Math.max(1, mob.getMaxHealth());
 		modifier(mob, Attributes.MAX_HEALTH, HEALTH, health - 1, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		if (!Float.isNaN(p.poise()) && mob.getAttribute(FrayAttributes.POISE) != null) {
 			mob.getAttribute(FrayAttributes.POISE).setBaseValue(p.poise());
 		}
-		modifier(mob, FrayAttributes.POISE, POISE, DangerMath.poise(d.danger()) - 1, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		modifier(mob, FrayAttributes.POISE, POISE, boss ? 0 : DangerMath.poise(d.danger()) - 1, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		modifier(mob, Attributes.SCALE, ELITE_SCALE, d.elite() ? ELITE_SIZE : 0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 		modifier(mob, Attributes.ARMOR, IRON_ARMOUR, d.has(Affix.IRONBOUND.id) ? 6 : 0, AttributeModifier.Operation.ADD_VALUE);
 		modifier(mob, FrayAttributes.POISE, IRON_POISE, d.has(Affix.IRONBOUND.id) ? 0.6 : 0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
@@ -76,6 +79,11 @@ public final class Scaling {
 	public static float damage(Mob mob) {
 		CreatureData d = CreatureData.of(mob);
 		float danger = d.danger() < 1 ? 1 : d.danger();
+		Brain b = Brain.get(mob);
+		if (b != null && b.profile.rank().equals("boss")) {
+			// A boss's moves carry their own damage (the clip's): only game difficulty scales them.
+			return DangerMath.difficultyDamage(mob.level().getDifficulty().getId());
+		}
 		float f = DangerMath.damage(danger) * DangerMath.difficultyDamage(mob.level().getDifficulty().getId());
 		if (d.elite()) {
 			f *= ELITE_DAMAGE;

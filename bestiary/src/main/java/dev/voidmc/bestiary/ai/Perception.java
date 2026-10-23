@@ -49,13 +49,15 @@ public final class Perception {
 	/** Players and registered bots (test mannequins) near the creature that it could fight. */
 	static List<LivingEntity> candidates(Mob mob, ServerLevel level) {
 		List<LivingEntity> out = new ArrayList<>(4);
+		Brain b = Brain.get(mob);
+		java.util.function.Predicate<LivingEntity> leash = b == null ? null : b.leash;
 		for (ServerPlayer p : level.players()) {
-			if (p.isAlive() && !p.isSpectator() && !p.isCreative() && p.distanceToSqr(mob) <= SEARCH * SEARCH) {
+			if (p.isAlive() && !p.isSpectator() && !p.isCreative() && p.distanceToSqr(mob) <= SEARCH * SEARCH && (leash == null || leash.test(p))) {
 				out.add(p);
 			}
 		}
 		for (LivingEntity bot : BestiaryApi.bots()) {
-			if (bot.level() == level && bot.isAlive() && bot.distanceToSqr(mob) <= SEARCH * SEARCH) {
+			if (bot.level() == level && bot.isAlive() && bot.distanceToSqr(mob) <= SEARCH * SEARCH && (leash == null || leash.test(bot))) {
 				out.add(bot);
 			}
 		}
@@ -156,7 +158,7 @@ public final class Perception {
 			if (!wasEngaged) {
 				onEngage(b, seen, level);
 			}
-		} else if (vanillaTarget != null && vanillaTarget != b.target && vanillaTarget.isAlive()) {
+		} else if (vanillaTarget != null && vanillaTarget != b.target && vanillaTarget.isAlive() && (b.leash == null || b.leash.test(vanillaTarget))) {
 			// Someone else's targeting (hurt by, villagers, golems, other mods' goals): being hit reveals the attacker.
 			b.target = vanillaTarget;
 			b.lastKnown = vanillaTarget.position();

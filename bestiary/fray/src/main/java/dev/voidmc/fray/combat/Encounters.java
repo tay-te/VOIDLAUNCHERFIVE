@@ -119,6 +119,11 @@ public final class Encounters implements EncounterService {
 
 	@Override
 	public Encounter start(Mob boss, Component name, @Nullable Component subtitle, float[] phaseThresholds) {
+		return this.start(boss, name, subtitle, phaseThresholds, true);
+	}
+
+	@Override
+	public Encounter start(Mob boss, Component name, @Nullable Component subtitle, float[] phaseThresholds, boolean announce) {
 		Impl old = this.byBoss.get(boss);
 		if (old != null) {
 			return old;
@@ -127,7 +132,7 @@ public final class Encounters implements EncounterService {
 		this.byBoss.put(boss, e);
 		Profiles.INSTANCE.set(boss, Rank.BOSS, subtitle, List.of());
 		CombatEvents.ENCOUNTER_STARTED.invoker().on(e, null);
-		if (boss.level() instanceof ServerLevel level) {
+		if (announce && boss.level() instanceof ServerLevel level) {
 			CombatPayloads.Banner banner = new CombatPayloads.Banner(CombatPayloads.BANNER_START, name,
 				subtitle == null ? Component.empty() : Component.literal(subtitle.getString().toUpperCase(Locale.ROOT)));
 			for (ServerPlayer p : level.players()) {
