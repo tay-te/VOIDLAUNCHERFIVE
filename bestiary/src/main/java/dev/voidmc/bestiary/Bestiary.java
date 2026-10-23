@@ -66,6 +66,7 @@ public final class Bestiary implements ModInitializer {
 		BestiaryCommands.init();
 		ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
 			Tokens.clear();
+			dev.voidmc.bestiary.ai.Squads.clear();
 			Grabs.clear();
 		});
 		CommandRegistrationCallback.EVENT.register((dispatcher, context, selection) -> dispatcher.register(Commands.literal(ID)

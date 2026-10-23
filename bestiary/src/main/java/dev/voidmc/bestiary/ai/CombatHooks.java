@@ -43,6 +43,9 @@ public final class CombatHooks {
 			builder.more(null, f);
 		});
 		CombatEvents.CREATURE_GUARD.register(Guarding::guard);
+		// Monsters fighting side by side don't cut each other down (unless one is the other's target: hurt-by grudges).
+		dev.voidmc.fray.motion.MotionServer.setAllyTest((attacker, other) -> attacker instanceof Mob am && Brain.get(am) != null
+			&& other instanceof net.minecraft.world.entity.monster.Enemy && am.getTarget() != other);
 		CombatEvents.DAMAGE_DEALT.register((attacker, target, hit, result) -> {
 			if (result.total() > 0) {
 				hurt(target, attacker);
@@ -65,6 +68,7 @@ public final class CombatHooks {
 				return;
 			}
 			Tokens.release(b);
+			Squads.leave(b);
 			Grabs.releaseBy(m);
 			Elites.forget(m);
 			if (source.getEntity() instanceof ServerPlayer p) {

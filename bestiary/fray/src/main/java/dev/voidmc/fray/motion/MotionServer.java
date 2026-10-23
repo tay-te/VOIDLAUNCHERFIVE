@@ -82,6 +82,21 @@ public final class MotionServer {
 
 	private static volatile ActionGate gate = (p, c, r) -> true;
 
+	/**
+	 * Who a creature's capsules pass through besides its own kind and team (2026-10-22): Bestiary's creatures don't hit
+	 * the other monsters fighting beside them. Default: nobody.
+	 */
+	@FunctionalInterface
+	public interface AllyTest {
+		boolean allies(LivingEntity attacker, Entity other);
+	}
+
+	private static volatile AllyTest allies = (a, o) -> false;
+
+	public static void setAllyTest(AllyTest test) {
+		allies = test;
+	}
+
 	public record HitRecord(int attacker, int target, Identifier clip, int tick, String phase, long gameTime, String volume, float damage, String window) {
 	}
 
@@ -435,8 +450,9 @@ public final class MotionServer {
 			}
 			float radius = cur.r() * scale;
 			// The prototype's allies rule: a creature never hits its own kind or its team (Bestiary's AI decides more later).
+			AllyTest ally = allies;
 			List<Entity> near = level.getEntities(self, bounds.inflate(radius), e -> e instanceof LivingEntity le && le.isAlive() && !r.hit.contains(e.getId())
-				&& e.getType() != self.getType() && !self.isAlliedTo(e));
+				&& e.getType() != self.getType() && !self.isAlliedTo(e) && !ally.allies(self, e));
 			for (Entity e : near) {
 				AABB box = e.getBoundingBox();
 				boolean touched = false;

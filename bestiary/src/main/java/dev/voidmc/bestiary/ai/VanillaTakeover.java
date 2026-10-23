@@ -34,6 +34,7 @@ import net.minecraft.world.entity.player.Player;
  * for Bestiary's perception; one {@link BestiaryCombatGoal} goes in at the priority of the attack goals it replaced.
  * Every other goal (floating, fleeing the sun, avoiding cats, breaking doors, the villager and golem targets, spear
  * use) stays. Danger is computed once and saved; elites are rolled once, for creatures spawned with Bestiary present.
+ * NoAI mobs (props, dummies) are left alone.
  */
 public final class VanillaTakeover {
 	public static long takenOver;
@@ -46,13 +47,15 @@ public final class VanillaTakeover {
 		ServerEntityEvents.ENTITY_UNLOAD.register((entity, level) -> {
 			if (entity instanceof Mob m && Brain.get(m) != null) {
 				Tokens.release(Brain.get(m));
+				Squads.leave(Brain.get(m));
 				Grabs.releaseBy(m);
 			}
 		});
 	}
 
 	static void onLoad(Entity entity, ServerLevel level) {
-		if (!(entity instanceof Mob mob) || Brain.get(mob) != null) {
+		// NoAI mobs are props (map makers' statues, showcase dummies): Bestiary leaves them exactly as vanilla has them.
+		if (!(entity instanceof Mob mob) || Brain.get(mob) != null || mob.isNoAi()) {
 			return;
 		}
 		CreatureProfile p = CreatureProfiles.forType(mob.getType());

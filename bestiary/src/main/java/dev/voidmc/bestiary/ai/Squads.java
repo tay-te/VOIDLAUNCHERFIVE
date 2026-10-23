@@ -30,6 +30,40 @@ public final class Squads {
 		return roles.get(Math.floorMod(mob.getUUID().hashCode() >>> 3, roles.size()));
 	}
 
+	private static final it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<it.unimi.dsi.fastutil.ints.IntAVLTreeSet> WAITERS =
+		new it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<>();
+
+	/**
+	 * This creature's place among those waiting on the same target (ordered by entity id, so it is stable while the crowd
+	 * stays the same; a creature leaves the list when it changes target, dies or unloads).
+	 */
+	static int waiterIndex(Brain b, net.minecraft.world.entity.LivingEntity target) {
+		if (b.waitingOn != target.getId()) {
+			leave(b);
+			b.waitingOn = target.getId();
+		}
+		it.unimi.dsi.fastutil.ints.IntAVLTreeSet set = WAITERS.computeIfAbsent(target.getId(), k -> new it.unimi.dsi.fastutil.ints.IntAVLTreeSet());
+		set.add(b.mob.getId());
+		return set.headSet(b.mob.getId()).size();
+	}
+
+	public static void leave(Brain b) {
+		if (b.waitingOn >= 0) {
+			it.unimi.dsi.fastutil.ints.IntAVLTreeSet set = WAITERS.get(b.waitingOn);
+			if (set != null) {
+				set.remove(b.mob.getId());
+				if (set.isEmpty()) {
+					WAITERS.remove(b.waitingOn);
+				}
+			}
+			b.waitingOn = -1;
+		}
+	}
+
+	public static void clear() {
+		WAITERS.clear();
+	}
+
 	static void morale(Brain b, ServerLevel level, long now) {
 		CreatureProfile.Morale m = b.profile.morale();
 		if (!m.flees()) {

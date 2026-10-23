@@ -51,7 +51,10 @@ public final class Brain {
 	public long nextThink;
 	public long lastPath = Long.MIN_VALUE / 2;
 	public @Nullable Vec3 pathGoal;
+	public @Nullable Vec3 debugGoal;
 	public int ringSlot;
+	/** The target whose waiting ring this creature stands in (-1 none). */
+	public int waitingOn = -1;
 	public String role = "bruiser";
 	/** A token held on this target id (-1 none). */
 	public int tokenTarget = -1;
@@ -81,7 +84,7 @@ public final class Brain {
 	public Brain(Mob mob, CreatureProfile profile) {
 		this.mob = mob;
 		this.profile = profile;
-		this.ringSlot = Math.floorMod(mob.getUUID().hashCode(), 12);
+		this.ringSlot = Math.floorMod(mob.getUUID().hashCode(), 48);
 	}
 
 	public static @Nullable Brain get(Mob mob) {

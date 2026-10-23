@@ -182,6 +182,9 @@ tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	systemProperty 'fray.noElbows', System.getProperty('fray.noElbows', 'false')
 	// Fray combat's showcase (CombatShowcase): -Dfray.combat=all|pipeline,actions,hud,perf,dedicated
 	systemProperty 'fray.combat', System.getProperty('fray.combat', '')
+	// Bestiary's AI showcase (AiShowcase): -Dbestiary.ai=all|creatures,tokens,elites,codex,compat,media,dedicated
+	systemProperty 'bestiary.ai', System.getProperty('bestiary.ai', '')
+	systemProperty 'bestiary.netdiag', System.getProperty('bestiary.netdiag', 'false')
 	systemProperty 'fray.fpAnimations', System.getProperty('fray.fpAnimations', 'false')
 }
 

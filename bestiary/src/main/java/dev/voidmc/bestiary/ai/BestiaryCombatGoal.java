@@ -55,6 +55,9 @@ public final class BestiaryCombatGoal extends Goal {
 
 	@Override
 	public void stop() {
+		if (this.brain.move != null && this.brain.mob.level() instanceof ServerLevel level) {
+			Executor.end(this.brain, level, level.getGameTime(), true);
+		}
 		Tokens.release(this.brain);
 		Executor.setGuard(this.brain, false);
 		this.brain.mob.getNavigation().stop();

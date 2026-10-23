@@ -30,6 +30,13 @@ public final class Executor {
 	/** Moves started (tests and the perf report). */
 	public static long movesStarted;
 
+	/** A tell sent (tests: every hit must follow one by at least the colour's minimum). */
+	public record Tell(int attacker, int target, long tick, String colour, int windup, String move) {
+	}
+
+	/** The last tells (capped like Fray Motion's logs: it starts over past 2048). */
+	public static final java.util.List<Tell> TELLS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
 	private Executor() {
 	}
 
@@ -98,9 +105,27 @@ public final class Executor {
 				}
 			} else if (c.position() != null) {
 				b.position = c.position();
+				// Only a creature holding a token walks in (BESTIARY §5): it takes one as it closes; without one it waits on
+				// the ring. Any other positioning gives its token back.
+				MoveDef.Tokens kind = meleeKind(b);
+				if (b.position == Brain.Position.CLOSE && kind != MoveDef.Tokens.NONE && !Tokens.acquire(b, t, kind, now)) {
+					b.position = b.profile.tactic("circle") > 0 ? Brain.Position.CIRCLE : Brain.Position.HOLD;
+				} else if (b.position != Brain.Position.CLOSE) {
+					Tokens.release(b);
+				}
 			}
 		}
 		position(b, level, t, now);
+	}
+
+	/** The token kind a creature closes in with: melee if any of its moves needs one, else none. */
+	static MoveDef.Tokens meleeKind(Brain b) {
+		for (MoveDef m : b.profile.moves()) {
+			if (m.tokens() == MoveDef.Tokens.MELEE && m.weight() > 0) {
+				return MoveDef.Tokens.MELEE;
+			}
+		}
+		return MoveDef.Tokens.NONE;
 	}
 
 	static int clipTicks(MoveDef m) {
@@ -137,6 +162,10 @@ public final class Executor {
 		TellColour colour = TellColour.byId(tl.tellColour.isEmpty() ? "white" : tl.tellColour);
 		int windup = Math.max(0, tl.activeStart - Math.max(0, tl.tellFrom));
 		FrayApi.telegraphs().tell(mob, t, colour, windup, Component.literal(b.profile.codexName() + " " + verb(colour)));
+		if (TELLS.size() >= 2048) {
+			TELLS.clear();
+		}
+		TELLS.add(new Tell(mob.getId(), t.getId(), now + Math.max(0, tl.tellFrom), colour.id(), windup, m.id()));
 		if (t instanceof ServerPlayer sp) {
 			Codex.moveSeen(sp, b.profile, m);
 		}
@@ -181,6 +210,16 @@ public final class Executor {
 			b.position = Brain.Position.RETREAT;
 			b.positionUntil = now + 20;
 		}
+		// Shield-bearers take their guard back up between attacks (the revenant's drill: strike, then cover).
+		float pause = b.profile.tactic("guard_pause");
+		if (pause > 0 && (b.profile.guards() || CreatureData.of(b.mob).has(Affix.SHIELDED.id))) {
+			b.position = Brain.Position.GUARD;
+			b.nextThink = now + (long) (pause * (0.75F + b.mob.getRandom().nextFloat() * 0.5F));
+		}
+		if (b.forced != null) {
+			// A forced move (a riposte, a boss's phase script) goes at once.
+			b.nextThink = now;
+		}
 	}
 
 	/** Holds the guard up (a shield in the off hand) or lowers it. */
@@ -213,18 +252,35 @@ public final class Executor {
 			case CLOSE -> {
 				setGuard(b, guards && dist < 6);
 				if (dist > b.profile.keepMax()) {
-					path(b, t.position(), speed, now);
+					path(b, t.position(), speed, now, true);
 				} else {
 					mob.getNavigation().stop();
 				}
 			}
-			case CIRCLE, GUARD -> {
+			case GUARD -> {
+				// Stands its ground a step out of reach, shield up, facing the target; closes in if it backs off.
 				setGuard(b, guards);
-				float r = (b.profile.ringMin() + b.profile.ringMax()) / 2;
-				double a = Math.toRadians(b.ringSlot * 30 + now * (pos == Brain.Position.GUARD ? 0.6 : 1.5));
+				if (dist > b.profile.keepMax() + 0.3) {
+					path(b, t.position(), 0.7, now, true);
+				} else {
+					mob.getNavigation().stop();
+					float yaw = (float) Math.toDegrees(Math.atan2(t.getZ() - mob.getZ(), t.getX() - mob.getX())) - 90;
+					mob.yBodyRot = Mth.approachDegrees(mob.yBodyRot, yaw, 20);
+					mob.setYRot(mob.yBodyRot);
+				}
+			}
+			case CIRCLE -> {
+				setGuard(b, guards);
+				// The waiting ring: each creature takes its own slot and shifts it every few seconds (never all in a line),
+				// with a feint step in now and then. Between shifts it stands and watches (cheap on paths and on the network).
+				// Each waiter takes the next place round its target (golden-angle bearings on three radii between the
+				// ring's edges), so a crowd spreads out instead of jostling for one spot; the ring turns a little now and then.
+				int slot = Squads.waiterIndex(b, t);
+				float r = b.profile.ringMin() + (slot % 3) * (b.profile.ringMax() - b.profile.ringMin()) / 2;
+				long phase = (now + b.mob.getId() * 37L) / 160;
+				double a = Math.toRadians(slot * 137.5 + phase * 25);
 				Vec3 goal = t.position().add(Math.cos(a) * r, 0, Math.sin(a) * r);
-				// Feint steps in now and then (never stand still in a line).
-				if ((now + b.mob.getId() * 7) % 60 < 8) {
+				if ((now + b.mob.getId() * 37L) % 320 < 12) {
 					goal = t.position().add(Math.cos(a) * b.profile.ringMin() * 0.8, 0, Math.sin(a) * b.profile.ringMin() * 0.8);
 				}
 				path(b, goal, 0.8, now);
@@ -233,7 +289,7 @@ public final class Executor {
 				setGuard(b, false);
 				float back = (float) Math.toRadians(t.getYHeadRot() + 90 + 180);
 				Vec3 behind = t.position().add(Math.cos(back) * 2.5, 0, Math.sin(back) * 2.5);
-				path(b, behind, 1.1, now);
+				path(b, behind, 1.1, now, true);
 			}
 			case RETREAT, KITE -> {
 				setGuard(b, guards);
@@ -250,7 +306,7 @@ public final class Executor {
 				setGuard(b, guards);
 				Vec3 to = t.position().subtract(mob.position()).multiply(1, 0, 1);
 				if (to.lengthSqr() > 1e-4) {
-					Vec3 side = new Vec3(-to.z, 0, to.x).normalize().scale(((now / 40) % 2 == 0 ? 1 : -1) * 2.5);
+					Vec3 side = new Vec3(-to.z, 0, to.x).normalize().scale(((now / 160) % 2 == 0 ? 1 : -1) * 2.5);
 					path(b, mob.position().add(side), 0.8, now);
 				}
 			}
@@ -263,12 +319,27 @@ public final class Executor {
 
 	/** Vanilla navigation, repathing at most every {@link #REPATH} ticks (or when the goal moved a lot). */
 	static void path(Brain b, Vec3 goal, double speed, long now) {
+		path(b, goal, speed, now, false);
+	}
+
+	/** {@code chase}: the goal is the target itself, walk on until within reach (CLOSE, FLANK, searching). */
+	static void path(Brain b, Vec3 goal, double speed, long now, boolean chase) {
 		Mob mob = b.mob;
-		boolean moved = b.pathGoal == null || b.pathGoal.distanceToSqr(goal) > 4;
-		if (now - b.lastPath < REPATH && !(moved && mob.getNavigation().isDone())) {
+		b.debugGoal = goal;
+		// Already there: stand (no path, no jostling, nothing to send).
+		if (mob.position().distanceToSqr(goal.x, mob.getY(), goal.z) < 1.2 * 1.2) {
+			if (!mob.getNavigation().isDone()) {
+				mob.getNavigation().stop();
+			}
 			return;
 		}
-		if (now - b.lastPath < REPATH && !mob.getNavigation().isDone()) {
+		// At most every REPATH ticks, and only when the walk is done or the goal moved off the path's end.
+		if (now - b.lastPath < REPATH) {
+			return;
+		}
+		// The same goal as the last path: keep walking it, or (done, even a little short) stay put.
+		boolean moved = b.pathGoal == null || b.pathGoal.distanceToSqr(goal) > 1.5 * 1.5;
+		if (!moved && (!mob.getNavigation().isDone() || !chase && mob.position().distanceToSqr(goal.x, mob.getY(), goal.z) < 3 * 3)) {
 			return;
 		}
 		b.lastPath = now;
