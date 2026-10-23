@@ -101,6 +101,24 @@ public final class MotionBake {
 				}
 			}
 		}
+		if (rigSrc != null && Files.isDirectory(rigSrc)) {
+			// Vanilla-bound rigs (spider, creeper): a vanilla model's own parts written as a rig file by hand.
+			for (Path file : list(rigSrc, ".rig.json")) {
+				Identifier id = idOf(rigSrc, file, ".rig.json");
+				Rig parsed = RigJson.parse(Files.readString(file, StandardCharsets.UTF_8), "");
+				if (!parsed.id.equals(id)) {
+					throw new IllegalArgumentException(file + ": rig file names " + parsed.id + ", its path says " + id);
+				}
+				String json = RigJson.write(parsed);
+				Rig rig = RigJson.parse(json, ClipJson.sha256(ClipJson.utf8(json)));
+				RigJson.register(rig);
+				rigs.put(id, new BakedRig(rig, json, null));
+				lines.add("rig " + id + (rig.vanilla ? " (vanilla-bound)" : "") + ": " + rig.bones() + " bones");
+				if (out != null) {
+					write(out.resolve("assets/" + id.getNamespace() + "/fray/rig/" + id.getPath() + ".json"), json);
+				}
+			}
+		}
 		Map<Identifier, Baked> clips = new LinkedHashMap<>();
 		List<Path> files = list(src, ".motion.json");
 		for (Path file : files) {

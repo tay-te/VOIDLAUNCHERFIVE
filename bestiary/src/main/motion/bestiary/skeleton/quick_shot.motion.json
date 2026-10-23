@@ -1,0 +1,214 @@
+{
+ "format": 1,
+ "rig": "fray:humanoid",
+ "ground": "floor",
+ "length": 0.8,
+ "loop": "none",
+ "blend_in": 2,
+ "blend_out": 4,
+ "mask": {
+  "right_leg": 0,
+  "left_leg": 0
+ },
+ "move_mask": {
+  "right_leg": 0,
+  "left_leg": 0,
+  "root": 0.2
+ },
+ "bones": {
+  "right_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.15,
+     [
+      -88,
+      -6,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.4,
+     [
+      -90,
+      -18,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.47000000000000003,
+     [
+      -88,
+      -4,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.75,
+     [
+      -60,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.8,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "left_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.15,
+     [
+      -88,
+      25,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.47000000000000003,
+     [
+      -90,
+      28,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.75,
+     [
+      -60,
+      10,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.8,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "head": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.2,
+     [
+      0,
+      -8,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.8,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "torso": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.2,
+     [
+      0,
+      -14,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.8,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  }
+ },
+ "cues": [
+  [
+   0.1,
+   "sound",
+   "minecraft:item.crossbow.loading_middle"
+  ]
+ ],
+ "markers": [
+  [
+   0.05,
+   "tell",
+   "white"
+  ],
+  [
+   0.4,
+   "windup_end"
+  ],
+  [
+   0.45,
+   "active_end"
+  ]
+ ],
+ "checks": [
+  "ground"
+ ]
+}

@@ -41,6 +41,12 @@ public final class Rig {
 	/** Rest pose per bone, relative to the parent (model pixels, radians): vanilla's {@code PartPose}. */
 	public final PartPose[] rest;
 	public final boolean humanoid;
+	/**
+	 * A vanilla-bound rig (2026-10-22): the bones are a vanilla model's own parts (spider, creeper: Minecraft's shape),
+	 * written as data so the bake can place hit volumes, plus an optional virtual {@code root}. The client draws vanilla's
+	 * model and adds the clip on top of vanilla's own pose ({@code PoseApply}); there is no {@code RigModel}.
+	 */
+	public final boolean vanilla;
 	/** Bones a clip may not animate (cube rotation helpers, Blockbench's {@code <cube>_r1} groups). */
 	public final boolean[] helper;
 	public final List<Cube>[] cubes;
@@ -62,6 +68,12 @@ public final class Rig {
 	@SuppressWarnings("unchecked")
 	public Rig(Identifier id, List<String> names, int[] parent, PartPose[] rest, boolean humanoid, boolean[] helper, List<Cube>[] cubes,
 		@Nullable Identifier texture, int textureWidth, int textureHeight, float modelScale, float shadowRadius, Map<String, Locator> locators, String hash) {
+		this(id, names, parent, rest, humanoid, false, helper, cubes, texture, textureWidth, textureHeight, modelScale, shadowRadius, locators, hash);
+	}
+
+	public Rig(Identifier id, List<String> names, int[] parent, PartPose[] rest, boolean humanoid, boolean vanilla, boolean[] helper, List<Cube>[] cubes,
+		@Nullable Identifier texture, int textureWidth, int textureHeight, float modelScale, float shadowRadius, Map<String, Locator> locators, String hash) {
+		this.vanilla = vanilla;
 		this.id = id;
 		this.names = List.copyOf(names);
 		this.parent = parent;

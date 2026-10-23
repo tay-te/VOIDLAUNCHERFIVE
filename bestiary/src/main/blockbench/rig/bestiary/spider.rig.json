@@ -1,0 +1,337 @@
+{
+ "format": 1,
+ "id": "bestiary:spider",
+ "vanilla": true,
+ "texture_size": [
+  64,
+  32
+ ],
+ "model_scale": 1,
+ "shadow": 1.0,
+ "bones": [
+  {
+   "name": "root",
+   "parent": "",
+   "offset": [
+    0,
+    15,
+    0
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": []
+  },
+  {
+   "name": "head",
+   "parent": "root",
+   "offset": [
+    0,
+    0,
+    -3
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    [
+     -4,
+     -4,
+     -8,
+     8,
+     8,
+     8,
+     32,
+     4,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "body0",
+   "parent": "root",
+   "offset": [
+    0,
+    0,
+    0
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    [
+     -3,
+     -3,
+     -3,
+     6,
+     6,
+     6,
+     0,
+     0,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "body1",
+   "parent": "root",
+   "offset": [
+    0,
+    0,
+    9
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    [
+     -5,
+     -4,
+     -6,
+     10,
+     8,
+     12,
+     0,
+     12,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "right_hind_leg",
+   "parent": "root",
+   "offset": [
+    -4,
+    0,
+    2
+   ],
+   "rotation": [
+    0,
+    45,
+    -45
+   ],
+   "cubes": [
+    [
+     -15,
+     -1,
+     -1,
+     16,
+     2,
+     2,
+     18,
+     0,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "left_hind_leg",
+   "parent": "root",
+   "offset": [
+    4,
+    0,
+    2
+   ],
+   "rotation": [
+    0,
+    -45,
+    45
+   ],
+   "cubes": [
+    [
+     -1,
+     -1,
+     -1,
+     16,
+     2,
+     2,
+     18,
+     0,
+     0,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "right_middle_hind_leg",
+   "parent": "root",
+   "offset": [
+    -4,
+    0,
+    1
+   ],
+   "rotation": [
+    0,
+    22.5,
+    -33.3
+   ],
+   "cubes": [
+    [
+     -15,
+     -1,
+     -1,
+     16,
+     2,
+     2,
+     18,
+     0,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "left_middle_hind_leg",
+   "parent": "root",
+   "offset": [
+    4,
+    0,
+    1
+   ],
+   "rotation": [
+    0,
+    -22.5,
+    33.3
+   ],
+   "cubes": [
+    [
+     -1,
+     -1,
+     -1,
+     16,
+     2,
+     2,
+     18,
+     0,
+     0,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "right_middle_front_leg",
+   "parent": "root",
+   "offset": [
+    -4,
+    0,
+    0
+   ],
+   "rotation": [
+    0,
+    -22.5,
+    -33.3
+   ],
+   "cubes": [
+    [
+     -15,
+     -1,
+     -1,
+     16,
+     2,
+     2,
+     18,
+     0,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "left_middle_front_leg",
+   "parent": "root",
+   "offset": [
+    4,
+    0,
+    0
+   ],
+   "rotation": [
+    0,
+    22.5,
+    33.3
+   ],
+   "cubes": [
+    [
+     -1,
+     -1,
+     -1,
+     16,
+     2,
+     2,
+     18,
+     0,
+     0,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "right_front_leg",
+   "parent": "root",
+   "offset": [
+    -4,
+    0,
+    -1
+   ],
+   "rotation": [
+    0,
+    -45,
+    -45
+   ],
+   "cubes": [
+    [
+     -15,
+     -1,
+     -1,
+     16,
+     2,
+     2,
+     18,
+     0,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "left_front_leg",
+   "parent": "root",
+   "offset": [
+    4,
+    0,
+    -1
+   ],
+   "rotation": [
+    0,
+    45,
+    45
+   ],
+   "cubes": [
+    [
+     -1,
+     -1,
+     -1,
+     16,
+     2,
+     2,
+     18,
+     0,
+     0,
+     1
+    ]
+   ]
+  }
+ ],
+ "locators": {}
+}

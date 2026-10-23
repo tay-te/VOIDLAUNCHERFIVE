@@ -1,0 +1,197 @@
+{
+ "format": 1,
+ "id": "bestiary:creeper",
+ "vanilla": true,
+ "texture_size": [
+  64,
+  32
+ ],
+ "model_scale": 1,
+ "shadow": 0.5,
+ "bones": [
+  {
+   "name": "root",
+   "parent": "",
+   "offset": [
+    0,
+    24,
+    0
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": []
+  },
+  {
+   "name": "head",
+   "parent": "root",
+   "offset": [
+    0,
+    -18,
+    0
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    [
+     -4,
+     -8,
+     -4,
+     8,
+     8,
+     8,
+     0,
+     0,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "body",
+   "parent": "root",
+   "offset": [
+    0,
+    -18,
+    0
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    [
+     -4,
+     0,
+     -2,
+     8,
+     12,
+     4,
+     16,
+     16,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "right_hind_leg",
+   "parent": "root",
+   "offset": [
+    -2,
+    -6,
+    4
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    [
+     -2,
+     0,
+     -2,
+     4,
+     6,
+     4,
+     0,
+     16,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "left_hind_leg",
+   "parent": "root",
+   "offset": [
+    2,
+    -6,
+    4
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    [
+     -2,
+     0,
+     -2,
+     4,
+     6,
+     4,
+     0,
+     16,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "right_front_leg",
+   "parent": "root",
+   "offset": [
+    -2,
+    -6,
+    -4
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    [
+     -2,
+     0,
+     -2,
+     4,
+     6,
+     4,
+     0,
+     16,
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "left_front_leg",
+   "parent": "root",
+   "offset": [
+    2,
+    -6,
+    -4
+   ],
+   "rotation": [
+    0,
+    0,
+    0
+   ],
+   "cubes": [
+    [
+     -2,
+     0,
+     -2,
+     4,
+     6,
+     4,
+     0,
+     16,
+     0,
+     0
+    ]
+   ]
+  }
+ ],
+ "locators": {}
+}

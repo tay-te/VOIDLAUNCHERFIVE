@@ -1,0 +1,53 @@
+{
+  "entity": "minecraft:creeper",
+  "family": "none",
+  "poise": 10,
+  "senses": {
+    "sight": 18,
+    "night_sight": 14,
+    "fov": 120,
+    "sees_in_dark": false,
+    "hearing": 1.0,
+    "memory": 300,
+    "calls": false
+  },
+  "roles": [
+    "bruiser"
+  ],
+  "morale": {
+    "flees": false
+  },
+  "ring": [
+    3.5,
+    6
+  ],
+  "keep": [
+    0,
+    2.4
+  ],
+  "tactics": {
+    "close": 1.0,
+    "circle": 0.3,
+    "rush_from": 3
+  },
+  "codex": {
+    "name": "Creeper",
+    "text": "It hisses and swells: the fuse is the warning. A hard enough blow staggers it and puts the fuse out."
+  },
+  "moves": [
+    {
+      "id": "fuse",
+      "clip": "bestiary:creeper/fuse",
+      "behaviour": "fuse",
+      "range": [
+        0,
+        3.0
+      ],
+      "cooldown": 30,
+      "weight": 1.0,
+      "tags": [
+        "self_destruct"
+      ]
+    }
+  ]
+}

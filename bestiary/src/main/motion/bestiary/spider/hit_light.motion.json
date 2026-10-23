@@ -1,0 +1,42 @@
+{
+ "format": 1,
+ "rig": "bestiary:spider",
+ "length": 0.4,
+ "loop": "none",
+ "blend": "additive",
+ "blend_in": 0,
+ "blend_out": 2,
+ "bones": {
+  "root": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.08,
+     [
+      -8,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.4,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  }
+ }
+}

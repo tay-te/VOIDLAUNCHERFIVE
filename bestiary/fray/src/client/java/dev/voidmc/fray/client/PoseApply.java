@@ -38,6 +38,14 @@ public final class PoseApply {
 	/** Applies the state's pose (if any) to the model (if it is one the rig knows). */
 	public static void apply(Model<?> model, Object state) {
 		if (!(model instanceof HumanoidModel<?> humanoid)) {
+			PoseBuffer vb = pose(state);
+			if (vb != null && ClientMotion.enabled && vb.rig.vanilla) {
+				// A vanilla-bound rig (spider, creeper): the clip on top of vanilla's own pose.
+				long t0 = System.nanoTime();
+				VanillaBind.apply(model, vb);
+				FrayStats.applyNanos += System.nanoTime() - t0;
+				FrayStats.applies++;
+			}
 			return;
 		}
 		PoseBuffer buf = pose(state);
@@ -191,6 +199,9 @@ public final class PoseApply {
 	/** The root transform for this state's pose, or null (applied to the PoseStack after setupRotations). */
 	public static boolean root(Object state, org.joml.Matrix4f out) {
 		PoseBuffer buf = pose(state);
+		if (buf != null && ClientMotion.enabled && buf.rig.vanilla) {
+			return VanillaBind.root(buf, out);
+		}
 		return buf != null && ClientMotion.enabled && buf.rig.humanoid && SOLVER.rootTransform(buf, out);
 	}
 }

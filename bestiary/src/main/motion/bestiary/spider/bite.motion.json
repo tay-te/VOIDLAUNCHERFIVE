@@ -1,0 +1,335 @@
+{
+ "format": 1,
+ "rig": "bestiary:spider",
+ "length": 0.9,
+ "loop": "none",
+ "blend_in": 2,
+ "blend_out": 4,
+ "bones": {
+  "root": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      -10,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      6,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ],
+   "position": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      0,
+      2,
+      2
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      0,
+      0,
+      -3
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "head": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      -22,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      24,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "right_front_leg": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      0,
+      0,
+      25
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      0,
+      0,
+      -5
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "right_middle_front_leg": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      0,
+      0,
+      25
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      0,
+      0,
+      -5
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "left_front_leg": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      0,
+      0,
+      -25
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      0,
+      0,
+      5
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "left_middle_front_leg": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      0,
+      0,
+      -25
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      0,
+      0,
+      5
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  }
+ },
+ "cues": [
+  [
+   0.1,
+   "sound",
+   "minecraft:entity.spider.ambient"
+  ],
+  [
+   0.46,
+   "sound",
+   "minecraft:entity.player.attack.weak"
+  ]
+ ],
+ "markers": [
+  [
+   0.1,
+   "tell",
+   "white"
+  ],
+  [
+   0.45,
+   "windup_end"
+  ],
+  [
+   0.6,
+   "active_end"
+  ]
+ ],
+ "locators": {
+  "fangs": {
+   "bone": "head",
+   "a": [
+    0,
+    2,
+    -8
+   ],
+   "b": [
+    0,
+    3,
+    -5
+   ],
+   "radius": 0.45
+  }
+ },
+ "hits": [
+  "fangs"
+ ],
+ "damage": 0
+}

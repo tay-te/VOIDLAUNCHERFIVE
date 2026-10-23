@@ -26,6 +26,9 @@ import org.jspecify.annotations.Nullable;
  * {@code offset} is {@code PartPose}'s offset (pixels, relative to the parent), {@code rotation} its angles in degrees,
  * each cube {@code [x, y, z, dx, dy, dz, u, v, inflate, mirror]} is {@code texOffs(u, v).addBox(x, y, z, dx, dy, dz,
  * inflate)}. Bones are listed parents first.
+ *
+ * <p>{@code "vanilla": true} marks a vanilla-bound rig (a vanilla model's own parts as data, written by hand as
+ * {@code src/main/blockbench/rig/<ns>/<name>.rig.json}): see {@link Rig#vanilla}.
  */
 public final class RigJson {
 	public static final int FORMAT = 1;
@@ -123,7 +126,8 @@ public final class RigJson {
 			}
 		}
 		JsonArray ts = o.has("texture_size") ? o.getAsJsonArray("texture_size") : null;
-		return new Rig(id, names, parent, rest, false, helper, cubes, o.has("texture") ? Identifier.parse(o.get("texture").getAsString()) : null,
+		boolean vanilla = o.has("vanilla") && o.get("vanilla").getAsBoolean();
+		return new Rig(id, names, parent, rest, false, vanilla, helper, cubes, o.has("texture") ? Identifier.parse(o.get("texture").getAsString()) : null,
 			ts == null ? 64 : ts.get(0).getAsInt(), ts == null ? 64 : ts.get(1).getAsInt(), o.has("model_scale") ? o.get("model_scale").getAsFloat() : 1,
 			o.has("shadow") ? o.get("shadow").getAsFloat() : 0.5F, locators, hash);
 	}
@@ -139,6 +143,9 @@ public final class RigJson {
 		StringBuilder s = new StringBuilder(4096);
 		s.append("{\n  \"format\": ").append(FORMAT).append(",\n");
 		s.append("  \"id\": \"").append(r.id).append("\",\n");
+		if (r.vanilla) {
+			s.append("  \"vanilla\": true,\n");
+		}
 		if (r.texture != null) {
 			s.append("  \"texture\": \"").append(r.texture).append("\",\n");
 		}

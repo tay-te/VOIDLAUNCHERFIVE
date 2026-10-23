@@ -1,0 +1,152 @@
+{
+  "entity": "minecraft:skeleton",
+  "family": "undead",
+  "poise": 15,
+  "resist": {
+    "radiant": -0.5,
+    "fire": -0.25,
+    "blunt": -0.25
+  },
+  "senses": {
+    "sight": 24,
+    "night_sight": 16,
+    "fov": 120,
+    "sees_in_dark": true,
+    "hearing": 1.0,
+    "memory": 600,
+    "calls": false
+  },
+  "roles": [
+    "ranged"
+  ],
+  "morale": {
+    "flees": false
+  },
+  "ring": [
+    6,
+    10
+  ],
+  "keep": [
+    7,
+    14
+  ],
+  "tactics": {
+    "kite": 1.0,
+    "strafe": 0.6,
+    "circle": 0.3,
+    "close": 0.25
+  },
+  "codex": {
+    "name": "Bone Archer",
+    "text": "Old bones that remember the bow. Listen for the creak of the draw; a glint means the shot is aimed."
+  },
+  "moves": [
+    {
+      "id": "quick_shot",
+      "clip": "bestiary:skeleton/quick_shot",
+      "behaviour": "arrow",
+      "tokens": "ranged",
+      "range": [
+        3,
+        20
+      ],
+      "cooldown": 22,
+      "weight": 1.0,
+      "params": {
+        "inaccuracy": 7,
+        "damage_scale": 1.0
+      }
+    },
+    {
+      "id": "aimed_shot",
+      "clip": "bestiary:skeleton/aimed_shot",
+      "behaviour": "arrow",
+      "tokens": "ranged",
+      "range": [
+        7,
+        24
+      ],
+      "cooldown": 50,
+      "weight": 0.9,
+      "params": {
+        "inaccuracy": 1.5,
+        "damage_scale": 1.5,
+        "power": 2.0,
+        "glint": 1
+      },
+      "considerations": [
+        {
+          "input": "target_guarding",
+          "curve": "bool",
+          "a": 0.5,
+          "b": 1.0
+        }
+      ]
+    },
+    {
+      "id": "backstep_shot",
+      "clip": "bestiary:skeleton/quick_shot",
+      "behaviour": "arrow",
+      "tokens": "ranged",
+      "range": [
+        0,
+        5
+      ],
+      "cooldown": 40,
+      "weight": 1.1,
+      "params": {
+        "inaccuracy": 9,
+        "backstep": 0.6
+      },
+      "considerations": [
+        {
+          "input": "cornered",
+          "curve": "bool",
+          "a": 0.2,
+          "b": 1.0
+        }
+      ]
+    },
+    {
+      "id": "bone_club",
+      "clip": "bestiary:skeleton/bone_club",
+      "tokens": "melee",
+      "range": [
+        0,
+        1.8
+      ],
+      "cooldown": 20,
+      "weight": 1.2,
+      "considerations": [
+        {
+          "input": "cornered",
+          "curve": "bool",
+          "a": 1.0,
+          "b": 0.3
+        }
+      ]
+    },
+    {
+      "id": "volley",
+      "clip": "bestiary:skeleton/volley",
+      "behaviour": "arrow",
+      "tokens": "ranged",
+      "range": [
+        6,
+        20
+      ],
+      "cooldown": 80,
+      "weight": 0.8,
+      "min_danger": 3,
+      "tags": [
+        "ranged_support"
+      ],
+      "params": {
+        "count": 3,
+        "spread": 7,
+        "inaccuracy": 5,
+        "damage_scale": 0.8
+      }
+    }
+  ]
+}

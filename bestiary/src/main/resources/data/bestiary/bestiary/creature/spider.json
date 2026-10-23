@@ -1,0 +1,112 @@
+{
+  "entity": "minecraft:spider",
+  "family": "arthropod",
+  "poise": 15,
+  "day_neutral": true,
+  "resist": {
+    "fire": -0.5,
+    "blunt": -0.25
+  },
+  "senses": {
+    "sight": 20,
+    "night_sight": 20,
+    "fov": 160,
+    "sees_in_dark": true,
+    "hearing": 1.2,
+    "memory": 400,
+    "alert": 16,
+    "calls": true
+  },
+  "roles": [
+    "skirmisher",
+    "flanker"
+  ],
+  "morale": {
+    "flees": true,
+    "alone_below": 0.2,
+    "pack_below": 0.3
+  },
+  "ring": [
+    3,
+    5.5
+  ],
+  "keep": [
+    0,
+    1.2
+  ],
+  "tactics": {
+    "close": 1.0,
+    "circle": 0.7,
+    "flank": 0.8,
+    "retreat": 0.5
+  },
+  "codex": {
+    "name": "Crawler",
+    "text": "A hunting spider the size of a hound. It chitters, then rears up before it pounces; it spits web to hold you still."
+  },
+  "moves": [
+    {
+      "id": "bite",
+      "clip": "bestiary:spider/bite",
+      "range": [
+        0,
+        1.6
+      ],
+      "cooldown": 14,
+      "weight": 1.0
+    },
+    {
+      "id": "pounce",
+      "clip": "bestiary:spider/pounce",
+      "behaviour": "pounce",
+      "range": [
+        3,
+        6.5
+      ],
+      "cooldown": 70,
+      "weight": 1.1,
+      "damage": 1.5,
+      "tags": [
+        "closer"
+      ]
+    },
+    {
+      "id": "ambush",
+      "clip": "bestiary:spider/pounce",
+      "behaviour": "pounce",
+      "range": [
+        1.5,
+        6.5
+      ],
+      "cooldown": 80,
+      "weight": 1.6,
+      "damage": 1.5,
+      "considerations": [
+        {
+          "input": "height",
+          "curve": "linear",
+          "a": -0.5,
+          "b": -2.5
+        }
+      ]
+    },
+    {
+      "id": "web_spit",
+      "clip": "bestiary:spider/web_spit",
+      "behaviour": "web",
+      "tokens": "ranged",
+      "range": [
+        3,
+        10
+      ],
+      "cooldown": 120,
+      "weight": 0.8,
+      "params": {
+        "root": 30
+      },
+      "tags": [
+        "closer"
+      ]
+    }
+  ]
+}

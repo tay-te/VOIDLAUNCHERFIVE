@@ -1,0 +1,132 @@
+{
+ "format": 1,
+ "rig": "bestiary:creeper",
+ "length": 0.8,
+ "loop": "none",
+ "blend_in": 1,
+ "blend_out": 4,
+ "bones": {
+  "root": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.1,
+     [
+      -14,
+      0,
+      6
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      -6,
+      0,
+      -5
+     ],
+     "catmullrom"
+    ],
+    [
+     0.8,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ],
+   "position": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.1,
+     [
+      0,
+      2,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      0,
+      1,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.8,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "head": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.1,
+     [
+      -20,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.8,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  }
+ },
+ "cues": [
+  [
+   0.0,
+   "sound",
+   "minecraft:entity.creeper.hurt"
+  ]
+ ],
+ "windows": {
+  "punish": [
+   1,
+   12
+  ]
+ }
+}

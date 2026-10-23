@@ -1,0 +1,190 @@
+{
+ "format": 1,
+ "rig": "fray:humanoid",
+ "ground": "floor",
+ "length": 1.0,
+ "loop": "none",
+ "blend_in": 2,
+ "blend_out": 4,
+ "mask": {
+  "right_leg": 0,
+  "left_leg": 0
+ },
+ "move_mask": {
+  "right_leg": 0,
+  "left_leg": 0,
+  "root": 0.3
+ },
+ "bones": {
+  "right_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.4,
+     [
+      -145,
+      10,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      -90,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.6,
+     [
+      -30,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "torso": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.4,
+     [
+      -6,
+      18,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.55,
+     [
+      10,
+      -10,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "head": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.4,
+     [
+      -5,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  }
+ },
+ "cues": [
+  [
+   0.1,
+   "sound",
+   "minecraft:entity.skeleton.ambient"
+  ],
+  [
+   0.47,
+   "sound",
+   "minecraft:entity.player.attack.weak"
+  ]
+ ],
+ "markers": [
+  [
+   0.1,
+   "tell",
+   "white"
+  ],
+  [
+   0.45,
+   "windup_end"
+  ],
+  [
+   0.6,
+   "active_end"
+  ]
+ ],
+ "locators": {
+  "bow": {
+   "bone": "right_arm",
+   "a": [
+    -1,
+    7,
+    0
+   ],
+   "b": [
+    -1,
+    12,
+    -5
+   ],
+   "radius": 0.4
+  }
+ },
+ "hits": [
+  "bow"
+ ],
+ "damage": 0,
+ "checks": [
+  "ground"
+ ]
+}
