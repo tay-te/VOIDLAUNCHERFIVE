@@ -37,6 +37,9 @@ import org.jspecify.annotations.Nullable;
  * /bestiary danger                                  the danger where you stand
  * /bestiary codex [player]                          what a player's codex holds
  * /bestiary brain &lt;targets&gt;                         the AI state of creatures
+ * /bestiary summon gallows_knight [yard]            a boss with an arena around you (radius 14), or the gallows yard and a lair
+ * /bestiary boss info|reset &lt;targets&gt;                a boss fight's state; reset it now
+ * /bestiary boss phase &lt;targets&gt; &lt;health share&gt;      set a boss's health share (tests: the phase change)
  * </pre>
  */
 final class BestiaryCommands {
@@ -67,6 +70,34 @@ final class BestiaryCommands {
 			.then(Commands.literal("codex")
 				.executes(c -> codex(c, c.getSource().getPlayerOrException()))
 				.then(Commands.argument("player", EntityArgument.player()).executes(c -> codex(c, EntityArgument.getPlayer(c, "player")))))
+			.then(Commands.literal("summon")
+				.then(Commands.argument("boss", StringArgumentType.word())
+					.executes(c -> summon(c, false))
+					.then(Commands.literal("yard").executes(c -> summon(c, true)))))
+			.then(Commands.literal("boss")
+				.then(Commands.literal("info").then(Commands.argument("targets", EntityArgument.entities()).executes(c -> bossInfo(c))))
+				.then(Commands.literal("reset").then(Commands.argument("targets", EntityArgument.entities()).executes(c -> {
+					int n = 0;
+					for (Entity e : EntityArgument.getEntities(c, "targets")) {
+						if (e instanceof Mob m && e instanceof dev.voidmc.bestiary.boss.Boss b && dev.voidmc.bestiary.boss.BossData.get(m) != null) {
+							dev.voidmc.bestiary.boss.BossEncounter.reset(m, b, dev.voidmc.bestiary.boss.BossData.get(m), c.getSource().getLevel());
+							n++;
+						}
+					}
+					return n;
+				})))
+				.then(Commands.literal("phase").then(Commands.argument("targets", EntityArgument.entities())
+					.then(Commands.argument("share", FloatArgumentType.floatArg(0.01F, 1)).executes(c -> {
+						float share = FloatArgumentType.getFloat(c, "share");
+						int n = 0;
+						for (Entity e : EntityArgument.getEntities(c, "targets")) {
+							if (e instanceof Mob m && dev.voidmc.bestiary.boss.BossData.get(m) != null) {
+								m.setHealth(m.getMaxHealth() * share);
+								n++;
+							}
+						}
+						return n;
+					})))))
 			.then(Commands.literal("brain")
 				.then(Commands.argument("targets", EntityArgument.entities()).executes(c -> {
 					int n = 0;
@@ -140,4 +171,48 @@ final class BestiaryCommands {
 		return entries.size();
 	}
 
+
+	private static int summon(CommandContext<CommandSourceStack> c, boolean yard) throws CommandSyntaxException {
+		String name = StringArgumentType.getString(c, "boss");
+		CreatureProfile p = profile(name);
+		if (p == null || !p.rank().equals("boss")) {
+			c.getSource().sendFailure(Component.literal("no boss " + name + " (gallows_knight)"));
+			return 0;
+		}
+		ServerLevel level = c.getSource().getLevel();
+		net.minecraft.core.BlockPos at = net.minecraft.core.BlockPos.containing(c.getSource().getPosition());
+		float yaw = c.getSource().getRotation().y;
+		dev.voidmc.bestiary.boss.Arena arena = yard ? dev.voidmc.bestiary.boss.GallowsYard.place(level, at)
+			: dev.voidmc.bestiary.boss.Arena.around(at, 14, yaw + 180);
+		dev.voidmc.bestiary.boss.Lairs.Lair lair = null;
+		Mob m = dev.voidmc.bestiary.boss.Lairs.spawn(level, p.id(), arena, null);
+		if (m == null) {
+			c.getSource().sendFailure(Component.literal("couldn't create " + p.entity()));
+			return 0;
+		}
+		if (yard) {
+			lair = dev.voidmc.bestiary.boss.Lairs.get(level).add(p.id(), arena, m.getUUID());
+			dev.voidmc.bestiary.boss.BossData.get(m).lair = lair.id;
+		}
+		String where = yard ? "in the gallows yard (lair " + lair.id.toString().substring(0, 8) + ")" : "with an arena of 14 around you";
+		c.getSource().sendSuccess(() -> Component.literal("summoned " + m.getName().getString() + " #" + m.getId() + " " + where), true);
+		return m.getId();
+	}
+
+	private static int bossInfo(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+		int n = 0;
+		for (Entity e : EntityArgument.getEntities(c, "targets")) {
+			if (e instanceof Mob m && dev.voidmc.bestiary.boss.BossData.get(m) != null) {
+				dev.voidmc.bestiary.boss.BossData d = dev.voidmc.bestiary.boss.BossData.get(m);
+				StringBuilder sb = new StringBuilder();
+				d.participants.forEach((id, pt) -> sb.append(String.format(Locale.ROOT, " %s %.0f dmg %d s;", pt.name, pt.damage, pt.present / 20)));
+				String line = String.format(Locale.ROOT, "%s #%d: %s, phase %d, %.0f/%.0f, caged %s, party %d, break %.2f, arena %s r%d, resets %d; participants:%s",
+					m.getName().getString(), m.getId(), d.active ? "fighting" : "waiting", d.phase, m.getHealth(), m.getMaxHealth(), d.caged, d.party,
+					d.breakMeter, d.arena.centre().toShortString(), d.arena.radius(), d.resets, sb);
+				c.getSource().sendSuccess(() -> Component.literal(line), false);
+				n++;
+			}
+		}
+		return n;
+	}
 }

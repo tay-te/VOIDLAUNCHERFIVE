@@ -1,0 +1,53 @@
+{
+  "type": "minecraft:entity",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [{"type": "minecraft:item", "name": "minecraft:iron_chain",
+        "modifier": [
+          {"type": "minecraft:set_count", "count": {"type": "minecraft:uniform", "min": 2, "max": 4}},
+          {"type": "minecraft:set_name", "target": "item_name", "name": {"text": "Gallows Chain"}},
+          {"type": "minecraft:set_lore", "mode": "append", "lore": [
+            {"text": "The chain they hanged him with.", "color": "gray", "italic": true},
+            {"text": "Arsenal material: a heavy flail's chain (placeholder).", "color": "dark_gray", "italic": false}]}
+        ]}]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {"type": "minecraft:item", "name": "minecraft:paper", "weight": 1,
+          "modifier": [
+            {"type": "minecraft:set_name", "target": "item_name", "name": {"text": "Rune Tablet: Sunder", "color": "gold"}},
+            {"type": "minecraft:set_lore", "mode": "append", "lore": [
+              {"text": "A rune for Arsenal's runesmith (placeholder).", "color": "dark_gray", "italic": false}]}
+          ]},
+        {"type": "minecraft:empty", "weight": 1}
+      ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {"type": "minecraft:item", "name": "minecraft:iron_ingot", "weight": 1,
+          "modifier": [
+            {"type": "minecraft:set_name", "target": "item_name", "name": {"text": "The Gallows Knight's Crossguard", "color": "light_purple"}},
+            {"type": "minecraft:set_lore", "mode": "append", "lore": [
+              {"text": "A named heirloom part: forge it into a blade.", "color": "gray", "italic": true},
+              {"text": "Arsenal heirloom part (placeholder).", "color": "dark_gray", "italic": false}]}
+          ]},
+        {"type": "minecraft:empty", "weight": 3}
+      ]
+    },
+    {
+      "rolls": 1,
+      "entries": [{"type": "minecraft:item", "name": "minecraft:paper",
+        "modifier": [
+          {"type": "minecraft:set_name", "target": "item_name", "name": {"text": "Lore Page: The Hanged Knight"}},
+          {"type": "minecraft:set_lore", "mode": "append", "lore": [
+            {"text": "They hanged him on the hill for a crime", "color": "gray", "italic": true},
+            {"text": "no one now remembers. He would not stay hanged.", "color": "gray", "italic": true},
+            {"text": "He keeps the gallows still, with the chain", "color": "gray", "italic": true},
+            {"text": "and the cage they left him.", "color": "gray", "italic": true}]}
+        ]}]
+    }
+  ]
+}
