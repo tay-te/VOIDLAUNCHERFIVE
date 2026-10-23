@@ -185,6 +185,8 @@ tasks.matching { it.name == 'runClientGameTest' }.configureEach {
 	// Bestiary's AI showcase (AiShowcase): -Dbestiary.ai=all|creatures,tokens,elites,codex,compat,media,dedicated
 	systemProperty 'bestiary.ai', System.getProperty('bestiary.ai', '')
 	systemProperty 'bestiary.netdiag', System.getProperty('bestiary.netdiag', 'false')
+	// The Gallows Knight's showcase (BossShowcase): -Dbestiary.boss=all|moves,phase,break,reset,party,cage,media,dedicated
+	systemProperty 'bestiary.boss', System.getProperty('bestiary.boss', '')
 	systemProperty 'fray.fpAnimations', System.getProperty('fray.fpAnimations', 'false')
 }
 

@@ -27,13 +27,31 @@ public final class GallowsYard {
 	private GallowsYard() {
 	}
 
+	/**
+	 * The yard's floor: trodden earth in soft patches (coarse dirt and dirt, gravel where the ground is worn, podzol in the
+	 * corners) with a worn path from the gate to the gallows; patches, not a checkerboard.
+	 */
+	static BlockState ground(int dx, int dz, RandomSource r) {
+		double n = Math.sin(dx * 0.37 + 1.3) + Math.cos(dz * 0.31 - 0.4) + Math.sin((dx + dz) * 0.19) * 0.8;
+		double m = Math.sin(dx * 0.61 - dz * 0.23 + 2.1) + Math.cos(dz * 0.53 + dx * 0.17);
+		boolean path = Math.abs(dx + Math.sin(dz * 0.4) * 0.8) <= 1.2 && dz > -MOUND_OFFSET + MOUND_RADIUS && r.nextFloat() < 0.85F;
+		if (path) {
+			return Blocks.DIRT_PATH.defaultBlockState();
+		}
+		if (n > 1.95) {
+			return Blocks.GRAVEL.defaultBlockState();
+		}
+		if (n < -1.6) {
+			return Blocks.PODZOL.defaultBlockState();
+		}
+		return m > 0.4 || r.nextFloat() < 0.08F ? Blocks.DIRT.defaultBlockState() : Blocks.COARSE_DIRT.defaultBlockState();
+	}
+
 	public static Arena place(ServerLevel level, BlockPos centre) {
 		RandomSource r = RandomSource.create(centre.asLong());
 		int y = centre.getY();
 		int cx = centre.getX(), cz = centre.getZ();
 		int wall = RADIUS + 1;
-		BlockState[] ground = {Blocks.COARSE_DIRT.defaultBlockState(), Blocks.PODZOL.defaultBlockState(), Blocks.DIRT_PATH.defaultBlockState(),
-			Blocks.GRAVEL.defaultBlockState(), Blocks.PACKED_MUD.defaultBlockState(), Blocks.COARSE_DIRT.defaultBlockState()};
 		BlockState[] stone = {Blocks.COBBLESTONE.defaultBlockState(), Blocks.MOSSY_COBBLESTONE.defaultBlockState(), Blocks.STONE_BRICKS.defaultBlockState(),
 			Blocks.CRACKED_STONE_BRICKS.defaultBlockState(), Blocks.MOSSY_STONE_BRICKS.defaultBlockState()};
 		// The yard: clear the air above, a floor of trodden earth, footing below so nothing floats.
@@ -46,7 +64,7 @@ public final class GallowsYard {
 				for (int dy = 0; dy <= 8; dy++) {
 					level.setBlock(new BlockPos(cx + dx, y + dy, cz + dz), Blocks.AIR.defaultBlockState(), 2);
 				}
-				BlockState floor = d <= wall ? ground[r.nextInt(ground.length)] : Blocks.GRASS_BLOCK.defaultBlockState();
+				BlockState floor = d <= wall ? ground(dx, dz, r) : Blocks.GRASS_BLOCK.defaultBlockState();
 				level.setBlock(new BlockPos(cx + dx, y - 1, cz + dz), floor, 2);
 				for (int dy = 2; dy <= 4; dy++) {
 					BlockPos below = new BlockPos(cx + dx, y - dy, cz + dz);

@@ -13,7 +13,7 @@ import java.util.Objects;
  */
 public final class FrayApi {
 	/** The combat api's version (semver). */
-	public static final String API = "0.2.0";
+	public static final String API = "0.3.0";
 	/** The combat network protocol; part of the login handshake. */
 	public static final int PROTOCOL = 1;
 
