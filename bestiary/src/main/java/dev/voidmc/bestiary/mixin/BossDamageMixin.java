@@ -9,9 +9,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
 /**
- * A boss's toughness (the party and the game difficulty) on damage that doesn't come through Fray's pipeline (arrows,
- * vanilla hits, other mods): the amount is divided by it, as Fray's own hits are in the attacker stage. Vanilla caps
- * max health at 1024, so a boss's extra health for a party is toughness rather than hit points.
+ * A boss's toughness (the party and the game difficulty) on every hit it takes, Fray's and vanilla's: the final amount
+ * is divided by it. Vanilla caps max health at 1024, so a boss's extra health for a party is toughness rather than hit
+ * points.
  */
 @Mixin(LivingEntity.class)
 abstract class BossDamageMixin {

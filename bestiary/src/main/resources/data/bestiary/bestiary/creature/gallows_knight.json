@@ -1,0 +1,155 @@
+{
+  "entity": "bestiary:gallows_knight",
+  "family": "undead",
+  "rank": "boss",
+  "poise": 60,
+  "ignores_tokens": true,
+  "resist": {
+    "radiant": -0.5,
+    "slash": 0.1
+  },
+  "senses": {
+    "sight": 32,
+    "night_sight": 32,
+    "fov": 160,
+    "sees_in_dark": true,
+    "hearing": 1.5,
+    "memory": 1200,
+    "calls": false
+  },
+  "roles": [
+    "bruiser"
+  ],
+  "morale": {
+    "flees": false
+  },
+  "ring": [
+    3,
+    5
+  ],
+  "keep": [
+    0,
+    1.9
+  ],
+  "tactics": {
+    "close": 1.0,
+    "strafe": 0.15
+  },
+  "codex": {
+    "name": "The Gallows Knight",
+    "text": "A knight hanged for a crime nobody remembers, who would not stay hanged. He keeps the gallows hill with the chain they used on him and the gibbet cage still on his back. White cuts can be parried, and a parried cut staggers him; his slam bites into the ground and leaves him hauling at the chain with his chest open. His charge and the Hanging can only be dodged: when he flings the chain over the gallows, get off the mound. Wounded past half, he tears the cage from his back and the chain finds you at any range."
+  },
+  "moves": [
+    {
+      "id": "hook_cut",
+      "clip": "bestiary:gallows_knight/hook_cut",
+      "behaviour": "knight",
+      "range": [0, 2.4],
+      "cooldown": 14,
+      "weight": 1.0,
+      "tokens": "none",
+      "tags": ["parry_stagger"],
+      "params": {"phases": "12", "power": 0.25, "combo": "kick", "combo_phase": 2}
+    },
+    {
+      "id": "two_cut",
+      "clip": "bestiary:gallows_knight/two_cut",
+      "behaviour": "knight",
+      "range": [0, 2.4],
+      "cooldown": 40,
+      "weight": 0.9,
+      "tokens": "none",
+      "tags": ["parry_stagger"],
+      "params": {"phases": "1", "power": 0.25}
+    },
+    {
+      "id": "three_cut",
+      "clip": "bestiary:gallows_knight/three_cut",
+      "behaviour": "knight",
+      "range": [0, 2.4],
+      "cooldown": 36,
+      "weight": 1.1,
+      "tokens": "none",
+      "params": {"phases": "2", "power": 0.25}
+    },
+    {
+      "id": "slam",
+      "clip": "bestiary:gallows_knight/slam",
+      "behaviour": "knight",
+      "range": [0, 2.3],
+      "cooldown": 80,
+      "weight": 0.8,
+      "tokens": "none",
+      "tags": ["guard_break"],
+      "params": {"phases": "12", "power": 0.2}
+    },
+    {
+      "id": "shoulder_charge",
+      "clip": "bestiary:gallows_knight/shoulder_charge",
+      "behaviour": "knight",
+      "range": [3.0, 8.0],
+      "cooldown": 140,
+      "weight": 0.9,
+      "tokens": "none",
+      "tags": ["closer"],
+      "params": {"phases": "12", "charge": 0.6}
+    },
+    {
+      "id": "chain_sweep",
+      "clip": "bestiary:gallows_knight/chain_sweep",
+      "behaviour": "knight",
+      "range": [0, 2.6],
+      "cooldown": 70,
+      "weight": 0.8,
+      "tokens": "none",
+      "params": {"phases": "12"}
+    },
+    {
+      "id": "kick",
+      "clip": "bestiary:gallows_knight/kick",
+      "behaviour": "knight",
+      "range": [0, 1.7],
+      "cooldown": 60,
+      "weight": 0.6,
+      "tokens": "none",
+      "tags": ["guard_break", "parry_stagger"],
+      "considerations": [
+        {"input": "target_guarding", "curve": "bool", "a": 1.0, "b": 0.5}
+      ],
+      "params": {"phases": "12", "power": 0.15, "combo": "slam", "combo_phase": 2}
+    },
+    {
+      "id": "chain_lash",
+      "clip": "bestiary:gallows_knight/chain_lash",
+      "behaviour": "knight",
+      "range": [3.5, 13.0],
+      "cooldown": 110,
+      "weight": 1.0,
+      "tokens": "none",
+      "tags": ["closer"],
+      "params": {"phases": "2", "pull": 1, "damage": 6, "combo": "hook_cut", "combo_phase": 2}
+    },
+    {
+      "id": "the_hanging",
+      "clip": "bestiary:gallows_knight/the_hanging",
+      "behaviour": "knight",
+      "range": [0, 30.0],
+      "cooldown": 360,
+      "weight": 1.4,
+      "tokens": "none",
+      "tags": ["ultimate"],
+      "params": {"phases": "2", "damage": 26, "mound": 1}
+    },
+    {
+      "id": "tear_cage",
+      "clip": "bestiary:gallows_knight/tear_cage",
+      "behaviour": "knight",
+      "range": [0, 64.0],
+      "cooldown": 0,
+      "weight": 0.0,
+      "tokens": "none",
+      "tags": ["transition"],
+      "params": {"phases": "2"}
+    }
+  ]
+}

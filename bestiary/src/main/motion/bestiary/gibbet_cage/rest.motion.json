@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "rig": "bestiary:gibbet_cage",
+  "ground": "plant",
+  "length": 2.0,
+  "loop": "loop",
+  "blend_in": 6, "blend_out": 6,
+  "bones": {
+    "root": { "rotation": [[0.0, [0, 0, 0], "catmullrom"], [2.0, [0, 0, 0], "catmullrom"]] }
+  },
+  "checks": ["ground"]
+}

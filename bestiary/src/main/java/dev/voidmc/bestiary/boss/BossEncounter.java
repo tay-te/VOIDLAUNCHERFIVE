@@ -92,7 +92,9 @@ public final class BossEncounter {
 			if (builder.stage() == CombatEvents.Stage.ATTACKER && target instanceof Mob m && hit.attacker() instanceof LivingEntity a) {
 				BossData d = BossData.get(m);
 				if (d != null) {
-					builder.more(null, d.arena.contains(a) ? 1 / toughness(m, d) : 0);
+					if (!d.arena.contains(a)) {
+						builder.more(null, 0);
+					}
 				}
 			}
 		});
@@ -271,7 +273,7 @@ public final class BossEncounter {
 	/** Damage on a boss from {@code attacker}: credit, and a fight starts if it came from inside the arena. */
 	static void credit(Mob boss, LivingEntity attacker, float amount) {
 		BossData d = BossData.get(boss);
-		if (d == null || !(boss instanceof Boss b) || !(boss.level() instanceof ServerLevel level) || !d.arena.contains(attacker)) {
+		if (d == null || !(boss instanceof Boss b) || !(boss.level() instanceof ServerLevel level) || !d.arena.contains(attacker) || !boss.isAlive()) {
 			return;
 		}
 		if (!d.active && (attacker instanceof ServerPlayer || BestiaryApi.bots().contains(attacker))) {
@@ -295,9 +297,12 @@ public final class BossEncounter {
 		return BossMath.toughness(d.active ? d.party : 1, dev.voidmc.bestiary.danger.DangerMath.difficultyHealth(boss.level().getDifficulty().getId()));
 	}
 
-	/** Damage outside Fray's pipeline on a boss (the mixin on {@code hurtServer}): divided by its toughness. */
+	/**
+	 * Every hit on a boss, at {@code hurtServer} (the mixin): divided by its toughness after armour and resistances, so the
+	 * share is exact (Fray's hits arrive here as {@code fray:combat} with their final amount).
+	 */
 	public static float foreignDamage(LivingEntity e, DamageSource source, float amount) {
-		if (!(e instanceof Mob m) || source instanceof FrayDamageSource || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+		if (!(e instanceof Mob m) || source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			return amount;
 		}
 		BossData d = BossData.get(m);

@@ -56,6 +56,9 @@ class CreatureDataTest {
 		};
 	}
 
+	/** §4.2: a boss's ultimate (red) gives 20 ticks. */
+	static final int ULTIMATE = 20;
+
 	static int longestString(String rank) {
 		return rank.equals("boss") ? 4 : rank.equals("elite") ? 3 : 2;
 	}
@@ -82,6 +85,13 @@ class CreatureDataTest {
 					continue;
 				}
 				Timeline t = b.timeline();
+				if (m.tagged("transition")) {
+					// A boss's phase change (the knight tears its cage off): no hit, no tell; it only has to bake.
+					if (t.hasPhases()) {
+						problems.add(p.id() + "/" + m.id() + ": a transition must not strike");
+					}
+					continue;
+				}
 				checked++;
 				if (m.speed() != 1) {
 					problems.add(p.id() + "/" + m.id() + ": creature clips play at speed 1 (server timelines aren't retimed)");
@@ -95,7 +105,7 @@ class CreatureDataTest {
 					continue;
 				}
 				int lead = t.activeStart - t.tellFrom;
-				int min = minimum(p.rank(), t.tellColour);
+				int min = m.tagged("ultimate") ? ULTIMATE : minimum(p.rank(), t.tellColour);
 				if (lead < min) {
 					problems.add(String.format("%s/%s: %s tell %d ticks before the hit, minimum %d", p.id(), m.id(), t.tellColour, lead, min));
 				}
@@ -111,6 +121,50 @@ class CreatureDataTest {
 		}
 		assertTrue(checked >= 19, "checked " + checked + " moves");
 		assertTrue(problems.isEmpty(), String.join("\n", problems));
+	}
+
+	/** BESTIARY §8.3: the Gallows Knight's two phases, 4-8 moves each, the transition, its reactions. */
+	@Test
+	void theGallowsKnight() throws Exception {
+		CreatureProfile k = PROFILE.get(Identifier.fromNamespaceAndPath("bestiary", "gallows_knight"));
+		assertNotNull(k, "gallows_knight profile");
+		assertEquals("boss", k.rank());
+		assertTrue(k.ignoresTokens(), "bosses ignore tokens");
+		int[] perPhase = new int[3];
+		int reds = 0;
+		for (MoveDef m : k.moves()) {
+			if (m.tagged("transition")) {
+				continue;
+			}
+			String phases = m.params().has("phases") ? m.params().get("phases").getAsString() : "12";
+			for (int ph = 1; ph <= 2; ph++) {
+				if (phases.indexOf((char) ('0' + ph)) >= 0) {
+					perPhase[ph]++;
+				}
+			}
+			assertTrue(m.behaviour().equals("knight"), m.id() + " runs the knight's behaviour");
+			reds += clips.get(m.clip()).timeline().tellColour.equals("red") ? 1 : 0;
+		}
+		assertTrue(perPhase[1] >= 4 && perPhase[1] <= 8, "phase 1 has " + perPhase[1] + " moves");
+		assertTrue(perPhase[2] >= 4 && perPhase[2] <= 8, "phase 2 has " + perPhase[2] + " moves");
+		assertEquals(2, reds, "two red moves (the charge, the Hanging)");
+		assertNotNull(k.move("tear_cage"), "the transition");
+		for (String c : List.of("stagger", "broken", "tear_cage")) {
+			assertNotNull(clips.get(Identifier.fromNamespaceAndPath("bestiary", "gallows_knight/" + c)), c);
+		}
+		// Colours as designed: cuts and the kick white, slam and sweep orange, charge and the Hanging red, the lash purple.
+		Map<String, String> want = Map.of("hook_cut", "white", "two_cut", "white", "three_cut", "white", "kick", "white", "slam", "orange",
+			"chain_sweep", "orange", "shoulder_charge", "red", "the_hanging", "red", "chain_lash", "purple");
+		want.forEach((id, colour) -> assertEquals(colour, clips.get(k.move(id).clip()).timeline().tellColour, id + "'s tell"));
+		// The slam leaves a 14+ tick punish window; the kick crushes guards; the Hanging's tell is 24 ticks.
+		Timeline slam = clips.get(k.move("slam").clip()).timeline();
+		int[] punish = slam.window("punish");
+		assertNotNull(punish, "slam punish window");
+		assertTrue(punish[1] - punish[0] >= 14, "slam punish " + (punish[1] - punish[0]));
+		assertTrue(clips.get(k.move("kick").clip()).timeline().events.stream().anyMatch(e -> e.name().equals("guard_crush")), "kick guard_crush marker");
+		Timeline hanging = clips.get(k.move("the_hanging").clip()).timeline();
+		assertEquals(24, hanging.activeStart - hanging.tellFrom, "the Hanging's tell");
+		assertFalse(hanging.hurtVolumes.isEmpty(), "the chest is open while it hauls");
 	}
 
 	@Test

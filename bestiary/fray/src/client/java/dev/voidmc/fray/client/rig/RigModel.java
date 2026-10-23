@@ -16,6 +16,7 @@ import net.minecraft.client.model.geom.builders.MeshDefinition;
 import net.minecraft.client.model.geom.builders.PartDefinition;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.fabricmc.fabric.api.client.rendering.v1.RenderStateDataKey;
 
 /**
  * A custom rig's model (ANIMATION.md §4.3): vanilla {@code ModelPart}s built from the rig file's geometry (the same
@@ -24,6 +25,13 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
  * render state's {@link PoseBuffer} through {@link RigSolver}: the same maths the bake placed the hit volumes with.
  */
 public final class RigModel extends EntityModel<LivingEntityRenderState> {
+	/**
+	 * Bones to hide this frame, as a bit mask by bone index (a bone and everything under it): a renderer sets it in its
+	 * extract step (the Gallows Knight's cage, torn off in its second phase).
+	 *
+	 * @since 0.3.0 (2026-10-22)
+	 */
+	public static final RenderStateDataKey<Long> HIDDEN = RenderStateDataKey.create(() -> "fray:hidden_bones");
 	public final Rig rig;
 	private final ModelPart[] bones;
 	private final PartPose[] posed;
@@ -63,6 +71,11 @@ public final class RigModel extends EntityModel<LivingEntityRenderState> {
 	@Override
 	public void setupAnim(LivingEntityRenderState state) {
 		super.setupAnim(state);
+		Long hidden = state.getData(HIDDEN);
+		long mask = hidden == null ? 0 : hidden;
+		for (int b = 0; b < this.bones.length && b < 64; b++) {
+			this.bones[b].visible = (mask & 1L << b) == 0;
+		}
 		PoseBuffer buf = ClientMotion.enabled ? state.getData(ClientMotion.POSE) : null;
 		if (buf == null || buf.rig != this.rig) {
 			return;

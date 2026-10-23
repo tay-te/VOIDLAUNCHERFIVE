@@ -94,4 +94,18 @@ class DamageMathTest {
 		assertEquals(12, light * DamageMath.situational(HitFlags.RIPOSTE, 1, 1.5F, false, 1.5F, 1.5F, 3), E);
 		assertEquals(light * 0.6F, light * DamageMath.PVP_SCALE, E);
 	}
+
+	/** The weak-point test's geometry: the shortest distance between a swing's line and a hurt capsule's axis. */
+	@Test
+	void segmentDistance() {
+		net.minecraft.world.phys.Vec3 o = net.minecraft.world.phys.Vec3.ZERO;
+		assertEquals(1.0, DamageMath.segmentDistance(o, new net.minecraft.world.phys.Vec3(0, 0, 4), new net.minecraft.world.phys.Vec3(-1, 1, 2),
+			new net.minecraft.world.phys.Vec3(1, 1, 2)), 1e-9, "crossing lines a block apart");
+		assertEquals(0.0, DamageMath.segmentDistance(o, new net.minecraft.world.phys.Vec3(0, 0, 4), new net.minecraft.world.phys.Vec3(-1, 0, 2),
+			new net.minecraft.world.phys.Vec3(1, 0, 2)), 1e-9, "touching");
+		assertEquals(2.0, DamageMath.segmentDistance(o, new net.minecraft.world.phys.Vec3(0, 0, 4), new net.minecraft.world.phys.Vec3(0, 0, 6),
+			new net.minecraft.world.phys.Vec3(0, 0, 8)), 1e-9, "beyond the swing's reach");
+		assertEquals(Math.sqrt(2), DamageMath.segmentDistance(o, o, new net.minecraft.world.phys.Vec3(1, 1, 0), new net.minecraft.world.phys.Vec3(1, 1, 0)), 1e-9,
+			"two points");
+	}
 }

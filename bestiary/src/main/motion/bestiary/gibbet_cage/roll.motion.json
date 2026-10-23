@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "rig": "bestiary:gibbet_cage",
+  "ground": "plant",
+  "length": 1.0,
+  "loop": "loop",
+  "sync_walk": 4.0,
+  "blend_in": 3, "blend_out": 6,
+  "bones": {
+    "root": { "rotation": [[0.0, [0, 0, 0], "linear"], [0.25, [-90, 0, 0], "linear"], [0.5, [-180, 0, 0], "linear"], [0.75, [-270, 0, 0], "linear"], [1.0, [-360, 0, 0], "linear"]] }
+  },
+  "cues": [[0.0, "sound", "minecraft:block.chain.step"], [0.5, "sound", "minecraft:block.chain.step"]],
+  "checks": ["ground"]
+}

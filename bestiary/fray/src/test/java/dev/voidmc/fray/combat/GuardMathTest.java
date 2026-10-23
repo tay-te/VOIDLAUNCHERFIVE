@@ -60,6 +60,7 @@ class GuardMathTest {
 		assertEquals(GuardOutcome.NONE, GuardMath.resolve(weapon, 1, 5, false, true, orange), "orange: no parry with a weapon");
 		assertEquals(GuardOutcome.BLOCKED, GuardMath.resolve(weapon, 4, 5, true, true, orange), "orange: blocked by a weapon");
 		assertEquals(1.5F * 10 * 1.6F, GuardMath.blockCost(weapon, 10, orange, 1), 1e-4, "orange blocks cost ×1.5");
+		assertEquals(2.0F * 10 * 1.6F, GuardMath.blockCost(weapon, 10, dev.voidmc.fray.api.HitFlags.GUARD_CRUSH, 1), 1e-4, "guard crushers cost ×2");
 	}
 
 	@Test

@@ -95,4 +95,41 @@ public final class DamageMath {
 		float action = HitFlags.has(flags, HitFlags.CHARGED) ? 2.0F : HitFlags.has(flags, HitFlags.HEAVY) ? 1.5F : 1.0F;
 		return damage * weaponFactor * action;
 	}
+
+	/** The shortest distance between segments {@code p1-q1} and {@code p2-q2} (weak-point tests). */
+	public static double segmentDistance(net.minecraft.world.phys.Vec3 p1, net.minecraft.world.phys.Vec3 q1, net.minecraft.world.phys.Vec3 p2,
+		net.minecraft.world.phys.Vec3 q2) {
+		net.minecraft.world.phys.Vec3 d1 = q1.subtract(p1), d2 = q2.subtract(p2), r = p1.subtract(p2);
+		double a = d1.dot(d1), e = d2.dot(d2), f = d2.dot(r);
+		double s, t;
+		if (a <= 1e-9 && e <= 1e-9) {
+			return p1.distanceTo(p2);
+		}
+		if (a <= 1e-9) {
+			s = 0;
+			t = clamp01(f / e);
+		} else {
+			double c = d1.dot(r);
+			if (e <= 1e-9) {
+				t = 0;
+				s = clamp01(-c / a);
+			} else {
+				double b = d1.dot(d2), denom = a * e - b * b;
+				s = denom > 1e-9 ? clamp01((b * f - c * e) / denom) : 0;
+				t = (b * s + f) / e;
+				if (t < 0) {
+					t = 0;
+					s = clamp01(-c / a);
+				} else if (t > 1) {
+					t = 1;
+					s = clamp01((b - c) / a);
+				}
+			}
+		}
+		return p1.add(d1.scale(s)).distanceTo(p2.add(d2.scale(t)));
+	}
+
+	private static double clamp01(double v) {
+		return v < 0 ? 0 : v > 1 ? 1 : v;
+	}
 }

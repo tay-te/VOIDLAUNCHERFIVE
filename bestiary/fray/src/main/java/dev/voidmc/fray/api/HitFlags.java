@@ -37,6 +37,13 @@ public final class HitFlags {
 	public static final int STATUS = 1 << 21;
 	/** A melee hit by a creature (vanilla or Bestiary) on a player: guardable by the defender. */
 	public static final int MELEE = 1 << 22;
+	/**
+	 * A guard crusher (a boss's kick): blocking it costs twice the stamina. Creature clips set it with a {@code guard_crush}
+	 * marker.
+	 *
+	 * @since 0.3.0 (2026-10-22)
+	 */
+	public static final int GUARD_CRUSH = 1 << 23;
 
 	private HitFlags() {
 	}

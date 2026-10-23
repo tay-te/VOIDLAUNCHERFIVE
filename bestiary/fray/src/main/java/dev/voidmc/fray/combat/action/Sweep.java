@@ -120,8 +120,32 @@ public final class Sweep {
 			situational = DamageMath.charged(r.charge, Movesets.of(fam).chargeMax());
 		}
 		float poiseFactor = split.poiseFactor() * (r.kind == ActionKind.EARTHSHAKER ? 3 : 1);
+		if (weakPoint(p.getEyePosition(), p.getLookAngle(), r.def.reach() + 1.5F, target)) {
+			flags |= HitFlags.WEAK_POINT;
+		}
 		DamageSpec spec = FrayApi.damage().specFor(weapon, base * mult, 1);
 		HitContext ctx = new HitContext(p, weapon, r.kind.id(), spec, flags | (r.def.arc() >= 360 ? HitFlags.AOE : 0), r.charge, null, situational, poiseFactor);
 		FrayApi.damage().deal(target, ctx);
+	}
+
+	/**
+	 * Whether a swing along {@code look} from {@code eye} reaches one of the target's exposed weak points (a hurt volume of
+	 * its running clip, ANIM_EVENTS.md §2: the Gallows Knight's chest while it hauls its chain): the swing's line comes
+	 * within the capsule's radius plus a 0.6-block blade margin.
+	 *
+	 * @since 0.3.0 (2026-10-22)
+	 */
+	public static boolean weakPoint(Vec3 eye, Vec3 look, float reach, LivingEntity target) {
+		List<dev.voidmc.fray.motion.MotionServer.Placed> hv = dev.voidmc.fray.motion.MotionServer.hurtVolumesNow(target);
+		if (hv.isEmpty()) {
+			return false;
+		}
+		Vec3 end = eye.add(look.scale(reach));
+		for (dev.voidmc.fray.motion.MotionServer.Placed v : hv) {
+			if (dev.voidmc.fray.combat.math.DamageMath.segmentDistance(eye, end, v.a(), v.b()) <= v.radius() + 0.6) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

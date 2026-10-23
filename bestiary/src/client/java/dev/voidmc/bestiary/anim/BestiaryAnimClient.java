@@ -16,7 +16,10 @@ public final class BestiaryAnimClient implements ClientModInitializer {
 	public void onInitializeClient() {
 		ClientMotion.registerBase(EntityTypes.ZOMBIE, Bestiary.id("zombie/idle"), Bestiary.id("zombie/idle_b"));
 		ClientMotion.registerLocomotion(EntityTypes.ZOMBIE, Bestiary.id("zombie/walk"), Bestiary.id("zombie/walk_b"));
-		EntityRendererRegistry.register(BestiaryAnim.GALLOWS_KNIGHT, ctx -> new RigEntityRenderer<>(ctx, Bestiary.id("gallows_knight")));
+		EntityRendererRegistry.register(BestiaryAnim.GALLOWS_KNIGHT, GallowsKnightRenderer::new);
+		EntityRendererRegistry.register(BestiaryAnim.GIBBET_CAGE, ctx -> new RigEntityRenderer<>(ctx, Bestiary.id("gibbet_cage")));
+		ClientMotion.registerBase(BestiaryAnim.GIBBET_CAGE, Bestiary.id("gibbet_cage/rest"));
+		ClientMotion.registerLocomotion(BestiaryAnim.GIBBET_CAGE, Bestiary.id("gibbet_cage/roll"));
 		ClientMotion.registerBase(BestiaryAnim.GALLOWS_KNIGHT, Bestiary.id("gallows_knight/idle"));
 		ClientMotion.registerLocomotion(BestiaryAnim.GALLOWS_KNIGHT, Bestiary.id("gallows_knight/walk"));
 	}

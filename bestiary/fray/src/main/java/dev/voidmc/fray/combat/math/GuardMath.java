@@ -88,8 +88,9 @@ public final class GuardMath {
 		return GuardOutcome.NONE;
 	}
 
-	/** Stamina a block of {@code blockedPoints} costs (orange hits ×1.5). */
+	/** Stamina a block of {@code blockedPoints} costs (orange hits ×1.5, guard crushers ×2). */
 	public static float blockCost(Spec spec, float blockedPoints, int hitFlags, float costScale) {
-		return blockedPoints * spec.staminaPerPoint() * (HitFlags.has(hitFlags, HitFlags.HEAVY_TELL) ? 1.5F : 1.0F) * costScale;
+		return blockedPoints * spec.staminaPerPoint() * (HitFlags.has(hitFlags, HitFlags.HEAVY_TELL) ? 1.5F : 1.0F)
+			* (HitFlags.has(hitFlags, HitFlags.GUARD_CRUSH) ? 2.0F : 1.0F) * costScale;
 	}
 }

@@ -77,7 +77,7 @@ public final class Defense implements DefenseHooks {
 			return;
 		}
 		dev.voidmc.fray.api.TellColour colour = dev.voidmc.fray.api.TellColour.byId(tell == null ? "white" : tell);
-		int flags = HitFlags.MELEE | colour.hitFlags();
+		int flags = HitFlags.MELEE | colour.hitFlags() | marked(clip, "guard_crush", HitFlags.GUARD_CRUSH);
 		float dmg = damage > 0 ? damage : (float) (attacker.getAttributes().hasAttribute(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
 			? attacker.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) : 1);
 		HitContext hit = new HitContext(attacker, attacker.getMainHandItem(), clip, Pipeline.INSTANCE.specFor(attacker.getMainHandItem(), dmg, 1), flags, 0, null);
@@ -97,6 +97,19 @@ public final class Defense implements DefenseHooks {
 				pc.graceLand = before;
 			}
 		}
+	}
+
+	/** {@code flag} when the clip's timeline carries the marker {@code name}, else 0. */
+	static int marked(net.minecraft.resources.Identifier clip, String name, int flag) {
+		dev.voidmc.fray.motion.Timeline tl = dev.voidmc.fray.motion.MotionServer.timeline(clip);
+		if (tl != null) {
+			for (dev.voidmc.fray.motion.Timeline.Event e : tl.events) {
+				if (e.name().equals(name)) {
+					return flag;
+				}
+			}
+		}
+		return 0;
 	}
 
 	@Override

@@ -20,8 +20,17 @@ public final class BestiaryAnim implements ModInitializer {
 		EntityType.Builder.<GallowsKnight>of(GallowsKnight::new, MobCategory.MONSTER).sized(1.2F, 2.8F).eyeHeight(2.45F).clientTrackingRange(10)
 			.build(GALLOWS_KNIGHT_KEY));
 
+	public static final ResourceKey<EntityType<?>> GIBBET_CAGE_KEY = ResourceKey.create(Registries.ENTITY_TYPE, Bestiary.id("gibbet_cage"));
+	/** The cage the knight tears off its back in phase 2: a rolling hazard (BESTIARY.md §8.3). */
+	public static final EntityType<dev.voidmc.bestiary.boss.GibbetCage> GIBBET_CAGE = Registry.register(BuiltInRegistries.ENTITY_TYPE, GIBBET_CAGE_KEY,
+		EntityType.Builder.<dev.voidmc.bestiary.boss.GibbetCage>of(dev.voidmc.bestiary.boss.GibbetCage::new, MobCategory.MISC).sized(1.0F, 0.9F)
+			.clientTrackingRange(10).build(GIBBET_CAGE_KEY));
+
 	@Override
 	public void onInitialize() {
 		FabricDefaultAttributeRegistry.register(GALLOWS_KNIGHT, GallowsKnight.createAttributes());
+		FabricDefaultAttributeRegistry.register(GIBBET_CAGE, dev.voidmc.bestiary.boss.GibbetCage.createAttributes());
+		dev.voidmc.bestiary.api.BestiaryApi.registerBehaviour(Bestiary.id("knight"), new dev.voidmc.bestiary.boss.KnightMoves());
+		dev.voidmc.bestiary.boss.KnightScript.init();
 	}
 }
