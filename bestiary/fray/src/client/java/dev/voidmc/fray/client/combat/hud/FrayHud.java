@@ -535,7 +535,18 @@ public final class FrayHud {
 		p.pop();
 	}
 
+	/**
+	 * Affix chip colours by affix id path (Bestiary registers its affixes'; others fall back to a colour from the name).
+	 *
+	 * @since 0.2.0 (2026-10-22)
+	 */
+	public static final java.util.Map<String, Integer> AFFIX_COLOURS = new java.util.concurrent.ConcurrentHashMap<>();
+
 	private static int affixColour(String path) {
+		Integer c = AFFIX_COLOURS.get(path);
+		if (c != null) {
+			return c;
+		}
 		return switch (path.hashCode() & 3) {
 			case 0 -> 0xFFE8C46A;
 			case 1 -> 0xFFE5484D;
