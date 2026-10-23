@@ -89,6 +89,12 @@ public final class CombatEvents {
 		void killed(@Nullable Entity killer, LivingEntity victim, @Nullable HitContext hit, Rank rank);
 	}
 
+	/** @since 0.2.0 (2026-10-22) */
+	public interface AllowStatus {
+		/** False refuses the status (an Ironbound plate, an immunity); checked before it is applied. */
+		boolean allow(LivingEntity target, StatusType status, int ticks, @Nullable Entity source);
+	}
+
 	public interface EncounterEvent {
 		void on(Encounter encounter, Encounter.@Nullable Outcome outcome);
 	}
@@ -165,6 +171,33 @@ public final class CombatEvents {
 		for (Killed l : ls) {
 			l.killed(k, v, h, r);
 		}
+	});
+	/**
+	 * A creature's guard (stage 4 for non-players): see {@link CreatureGuard}.
+	 *
+	 * @since 0.2.0 (2026-10-22)
+	 */
+	public static final Event<CreatureGuard> CREATURE_GUARD = EventFactory.createArrayBacked(CreatureGuard.class, ls -> (d, a, h, f) -> {
+		for (CreatureGuard l : ls) {
+			CreatureGuard.Result r = l.guard(d, a, h, f);
+			if (r.outcome() != GuardOutcome.NONE) {
+				return r;
+			}
+		}
+		return CreatureGuard.Result.NONE;
+	});
+	/**
+	 * Before a status is applied (STAGGER, ROOTED, ...); any listener may refuse it.
+	 *
+	 * @since 0.2.0 (2026-10-22)
+	 */
+	public static final Event<AllowStatus> ALLOW_STATUS = EventFactory.createArrayBacked(AllowStatus.class, ls -> (t, s, k, src) -> {
+		for (AllowStatus l : ls) {
+			if (!l.allow(t, s, k, src)) {
+				return false;
+			}
+		}
+		return true;
 	});
 	public static final Event<EncounterEvent> ENCOUNTER_STARTED = EventFactory.createArrayBacked(EncounterEvent.class, ls -> (e, o) -> {
 		for (EncounterEvent l : ls) {

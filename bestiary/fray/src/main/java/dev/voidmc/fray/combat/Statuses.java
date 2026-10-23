@@ -150,6 +150,9 @@ public final class Statuses implements StatusService {
 		if (!target.isAlive() || !(target.level() instanceof ServerLevel)) {
 			return;
 		}
+		if (!CombatEvents.ALLOW_STATUS.invoker().allow(target, status, ticks, source)) {
+			return;
+		}
 		CombatState s = CombatState.of(target);
 		long now = target.level().getGameTime();
 		int dur = ticks > 0 ? ticks : status.duration;

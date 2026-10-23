@@ -1,0 +1,114 @@
+{
+  "entity": "minecraft:zombie",
+  "family": "undead",
+  "poise": 20,
+  "resist": {
+    "radiant": -0.5,
+    "fire": -0.25
+  },
+  "senses": {
+    "sight": 24,
+    "night_sight": 16,
+    "fov": 120,
+    "sees_in_dark": true,
+    "hearing": 1.0,
+    "memory": 600,
+    "alert": 16,
+    "calls": false
+  },
+  "roles": [
+    "bruiser",
+    "bruiser",
+    "flanker"
+  ],
+  "morale": {
+    "flees": false
+  },
+  "shieldable": true,
+  "ring": [
+    3.5,
+    6
+  ],
+  "keep": [
+    0,
+    1.4
+  ],
+  "tactics": {
+    "close": 1.0,
+    "circle": 0.9,
+    "flank": 0.45,
+    "strafe": 0.15
+  },
+  "codex": {
+    "name": "Gravewalker",
+    "text": "The restless dead of the old country. Slow, patient, and never alone for long. It groans before it lunges."
+  },
+  "moves": [
+    {
+      "id": "claw",
+      "clip": "bestiary:zombie/claw",
+      "range": [
+        0,
+        1.8
+      ],
+      "cooldown": 14,
+      "weight": 1.0,
+      "damage": 1.0
+    },
+    {
+      "id": "claw_left",
+      "clip": "bestiary:zombie/claw_left",
+      "range": [
+        0,
+        1.8
+      ],
+      "cooldown": 14,
+      "weight": 0.9,
+      "damage": 1.0
+    },
+    {
+      "id": "double_claw",
+      "clip": "bestiary:zombie/double_claw",
+      "range": [
+        0,
+        1.5
+      ],
+      "cooldown": 40,
+      "weight": 0.9,
+      "damage": 0.8,
+      "min_danger": 3,
+      "tags": [
+        "guard_break"
+      ]
+    },
+    {
+      "id": "lunge_grab",
+      "clip": "bestiary:zombie/lunge_grab",
+      "behaviour": "grab",
+      "range": [
+        1.4,
+        3.2
+      ],
+      "cooldown": 100,
+      "weight": 0.8,
+      "damage": 0.8,
+      "min_danger": 4,
+      "tags": [
+        "closer",
+        "punish"
+      ],
+      "params": {
+        "power": 0.6,
+        "bite": 2
+      },
+      "considerations": [
+        {
+          "input": "target_guarding",
+          "curve": "bool",
+          "a": 0.6,
+          "b": 1.0
+        }
+      ]
+    }
+  ]
+}

@@ -303,6 +303,9 @@ public final class Defense implements DefenseHooks {
 			Vec3 d = p.position().subtract(attacker.position());
 			attacker.knockback(0.3, d.x, d.z, p.damageSources().playerAttack(p), 0);
 		}
+		if (p.level() instanceof ServerLevel sl) {
+			Noises.INSTANCE.noise(sl, p.position(), 20, dev.voidmc.fray.api.PerceptionService.PARRY, p);
+		}
 		pc.riposteUntil = now + window;
 		pc.riposteTotal = window;
 		CombatEvents.GUARDED.invoker().guarded(p, attacker, GuardOutcome.PARRIED, 0);

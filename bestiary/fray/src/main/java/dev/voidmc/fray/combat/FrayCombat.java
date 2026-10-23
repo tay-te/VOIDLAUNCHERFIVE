@@ -58,6 +58,7 @@ public final class FrayCombat {
 		CombatCommands.init();
 		FrayApi.install(Pipeline.INSTANCE, Statuses.INSTANCE, Resources.INSTANCE, Threat.INSTANCE, Actions.INSTANCE, Encounters.INSTANCE, Telegraphs.INSTANCE,
 			Profiles.INSTANCE, Defense.INSTANCE);
+		FrayApi.installPerception(Noises.INSTANCE);
 
 		ServerTickEvents.END_LEVEL_TICK.register(level -> {
 			Defense.INSTANCE.tick(level);
@@ -97,6 +98,7 @@ public final class FrayCombat {
 			Encounters.INSTANCE.clear();
 			Defense.INSTANCE.clear();
 			Telegraphs.INSTANCE.clear();
+			Noises.INSTANCE.clear();
 			MettleStats.clearCache();
 		});
 		Fray.LOGGER.info("Fray combat: api {}, protocol {}, movesets {}", FrayApi.API, FrayApi.PROTOCOL, CombatHandshake.contentHash());

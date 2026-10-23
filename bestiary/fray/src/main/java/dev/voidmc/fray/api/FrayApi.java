@@ -13,7 +13,7 @@ import java.util.Objects;
  */
 public final class FrayApi {
 	/** The combat api's version (semver). */
-	public static final String API = "0.1.0";
+	public static final String API = "0.2.0";
 	/** The combat network protocol; part of the login handshake. */
 	public static final int PROTOCOL = 1;
 
@@ -26,6 +26,7 @@ public final class FrayApi {
 	private static TelegraphService telegraphs;
 	private static ProfileService profiles;
 	private static DefenseHooks defense;
+	private static PerceptionService perception;
 	private static volatile BalanceProvider balance = BalanceProvider.NEUTRAL;
 
 	private FrayApi() {
@@ -65,6 +66,16 @@ public final class FrayApi {
 
 	public static DefenseHooks defense() {
 		return defense;
+	}
+
+	/** Noise for hearing. @since 0.2.0 (2026-10-22) */
+	public static PerceptionService perception() {
+		return perception;
+	}
+
+	/** Fray's own init; not for other mods. @since 0.2.0 */
+	public static void installPerception(PerceptionService p) {
+		perception = p;
 	}
 
 	public static BalanceProvider balance() {

@@ -252,6 +252,30 @@ public final class Pipeline implements DamageService {
 			}
 		}
 
+		// Stage 4 for creatures: Bestiary's shields and parries (CreatureGuard).
+		if (!(target instanceof Player) && !status) {
+			dev.voidmc.fray.api.CreatureGuard.Result cg = CombatEvents.CREATURE_GUARD.invoker().guard(target, attacker, hit, flags);
+			if (cg.outcome() == GuardOutcome.PARRIED || cg.outcome() == GuardOutcome.DODGED || cg.outcome() == GuardOutcome.SLIP) {
+				DamageBreakdown r = DamageBreakdown.avoided(stage3, cg.outcome());
+				last = r;
+				CombatSync.hit(atk, target, cg.outcome(), flags, 0, mainKind(preDefence), false);
+				if (atk != null) {
+					ts.lastHitBy.put(atk.getId(), now);
+				}
+				if (cg.outcome() == GuardOutcome.PARRIED && attacker != null) {
+					Statuses.INSTANCE.apply(attacker, StatusType.STAGGER, 10, target);
+					Noises.INSTANCE.noise(level, target.position(), 20, dev.voidmc.fray.api.PerceptionService.PARRY, target);
+				}
+				CombatEvents.GUARDED.invoker().guarded(target, atk, cg.outcome(), stage3);
+				return r;
+			}
+			if (cg.outcome() == GuardOutcome.BLOCKED || cg.outcome() == GuardOutcome.GUARD_BREAK) {
+				guard = cg.outcome() == GuardOutcome.BLOCKED ? GuardOutcome.BLOCKED : GuardOutcome.GUARD_BREAK;
+				scale(amounts, Math.max(0, Math.min(1, cg.keep())));
+				CombatEvents.GUARDED.invoker().guarded(target, atk, cg.outcome(), stage3 * (1 - cg.keep()));
+			}
+		}
+
 		// Stage 5: defence.
 		FrayDamageSource source = FrayDamageSource.combat(level, hit);
 		float raw = sum(amounts);
@@ -380,6 +404,7 @@ public final class Pipeline implements DamageService {
 		}
 		if (!status) {
 			CombatEvents.DAMAGE_DEALT.invoker().dealt(atk, target, hit, result);
+			Noises.INSTANCE.noise(level, target.position(), 16, dev.voidmc.fray.api.PerceptionService.HIT, atk);
 			if (killed) {
 				CombatEvents.KILLED.invoker().killed(atk, target, hit, ts.rank);
 			}

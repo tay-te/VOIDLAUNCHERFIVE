@@ -292,7 +292,7 @@ public final class MotionServer {
 		if (entity instanceof ServerPlayer self && !byPlayer) {
 			ServerPlayNetworking.send(self, play);
 		}
-		EVENTS.add(now + " start " + id + " on " + entity.getId());
+		record(EVENTS, now + " start " + id + " on " + entity.getId());
 		return r;
 	}
 
@@ -337,7 +337,7 @@ public final class MotionServer {
 			Timeline t = r.timeline;
 			for (Timeline.Event e : t.events) {
 				if (e.tick() == k) {
-					EVENTS.add(now + " " + t.clip + " tick " + k + " " + e.name() + " " + e.arg());
+					record(EVENTS, now + " " + t.clip + " tick " + k + " " + e.name() + " " + e.arg());
 					TIMELINE_EVENT.invoker().onEvent(r.entity, t, k, e);
 				}
 			}
@@ -383,6 +383,18 @@ public final class MotionServer {
 		}
 		sweepNanos += sweep;
 		tickNanos += System.nanoTime() - t0;
+	}
+
+	/**
+	 * The test logs are capped (2026-10-22): {@link CopyOnWriteArrayList} copies itself on every add, so an unbounded log
+	 * grew quadratically with a server's age (200 creatures fighting for an hour). Past 2048 entries a log starts over;
+	 * tests clear them before they look.
+	 */
+	private static <T> void record(List<T> log, T item) {
+		if (log.size() >= 2048) {
+			log.clear();
+		}
+		log.add(item);
 	}
 
 	public static void resetCost() {
@@ -486,7 +498,7 @@ public final class MotionServer {
 			return;
 		}
 		Timeline t = timelines.get(hit.clip());
-		HITS.add(new HitRecord(hit.attacker().getId(), hit.target().getId(), hit.clip(), hit.clipTick(), t == null ? "?" : t.phase(hit.clipTick()),
+		record(HITS, new HitRecord(hit.attacker().getId(), hit.target().getId(), hit.clip(), hit.clipTick(), t == null ? "?" : t.phase(hit.clipTick()),
 			hit.serverTick(), hit.volume(), hit.damage(), w.name().toLowerCase(Locale.ROOT) + (late ? " (late request)" : "")));
 		MotionHits.resolve(hit, w);
 	}
