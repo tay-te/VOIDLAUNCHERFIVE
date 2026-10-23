@@ -124,7 +124,17 @@ and `-Dfray.combat=all` still pass.
 | Gate | Result |
 |---|---|
 | G-PERF-S (dedicated server, 200 engaged creatures around 4 moving mannequin bots, 30 s) | Bestiary AI 1.2-1.4 ms a tick (perception 0.09, tactics 0.12, executor with its path requests 1.0-1.15), Fray 0.03-0.08 ms; whole tick 4.2-5.1 ms mean, p95 5.0-6.0 ms. **Met** (≤ 6 ms, ≤ 25 ms) |
-| G-NET (dedicated server, 30 creatures fighting the player, 20 s, bytes on the wire) | 7.4-9.4 KB/s down. **Not met** (6). Fray and Bestiary's own payloads are 0.04-0.09 KB/s; the rest is vanilla's entity tracking (motion, position, head-turn packets). The same scene with 30 vanilla-AI variants (husks, strays, cave spiders, zombie villagers) costs 11-13 KB/s |
+| G-NET (dedicated server, 30 creatures fighting the player, 20 s) | Bestiary + Fray 0.29 KB/s (encoded payloads); total 9.63 KB/s down on the wire against 10.16 KB/s for the same scene with vanilla AI. **Met** under the revised gate (below; 2026-10-22, stage 1.5 run). First run, under the old gate: 7.4-9.4 KB/s total, **not met** (6) |
+
+**G-NET gate revised (2026-10-22, the user's call):** "≤ 6 KB/s of Bestiary + Fray traffic, and the total no more than the
+vanilla-AI baseline for the same scene". Why: the 6 KB/s total in ROADMAP §4 can't be met by any 30-creature fight; almost
+all of the wire is vanilla's entity tracking (motion, position and head-turn packets: about 5000 motion packets in 20 s
+for 30 creatures), and the same scene run by vanilla AI (30 husks, strays, cave spiders, zombie villagers) costs more
+(10-13 KB/s) than Bestiary's (7.4-9.6). So the gate now measures what Bestiary and Fray add, and holds the whole fight to
+"no worse than vanilla". `AiShowcase.dsNet` reports both numbers: Bestiary + Fray's own payloads counted where the server
+encodes them (custom payloads in the `fray` and `bestiary` namespaces, before compression: an upper bound on their wire
+cost), and the total bytes the client receives, beside the vanilla-AI baseline; the gate is asserted. Margin note: the
+baseline varies run to run (10.2-13 KB/s seen) and the Bestiary scene 7.4-9.6, so the total check has a 5-25 % margin.
 
 Bots are mannequins registered with `BestiaryApi.addBot` (creatures treat them as players), teleported in small circles
 every tick so the crowd keeps repathing; the integrated client shares the machine, so tick times are on the high side.
@@ -137,3 +147,89 @@ creature at half speed, one frame a tick; the elite pack's nameplates; the token
 `PerceptionService` (noise; Fray reports hits and parries), `CreatureGuard` and `CombatEvents.CREATURE_GUARD` (stage 4
 for creatures), `CombatEvents.ALLOW_STATUS`, `MotionServer.setAllyTest` (creatures' capsules pass through allies),
 vanilla-bound rigs (`Rig.vanilla`, `*.rig.json`, `VanillaBind`), `FrayHud.AFFIX_COLOURS`; Fray Motion's test logs are capped.
+
+**api 0.3.0 (stage 1.5, additive):** `EncounterService.start(..., boolean announce)` (resume a fight without the banner),
+`HitFlags.GUARD_CRUSH` (a creature clip's `guard_crush` marker: blocking it costs ×2 stamina), weak points for the player's
+sweep (`Sweep.weakPoint`: the swing's line within a hurt capsule's radius + 0.6 sets `WEAK_POINT`, ×1.5 damage and poise;
+`DamageMath.segmentDistance`), `RigModel.HIDDEN` (bones hidden per frame from the render state). The HUD's floating
+nameplates are laid out before drawing and never overlap each other or the boss bar / target frame (elites first, then
+the nearer; `FrayHud.platesHidden` counts the ones left out).
+
+## 8. The boss: the Gallows Knight (stage 1.5)
+
+Branch `bestiary-boss`. Design: BESTIARY.md §8 (branch `design-arpg`), ROADMAP §3 milestone 1.5.
+
+### 8.1 The encounter framework (`dev.voidmc.bestiary.boss`)
+
+| | |
+|---|---|
+| Arena | `Arena` (saved with the boss): a cylinder (radius, a band below and above), the home spot and facing, an optional mound. The boss's perception only takes targets inside it (`Brain.leash`); it drops one that leaves or dies, walks home when out, and is put back home when 6+ blocks out, fallen below it or in a wall |
+| Start | a fighter (a survival or adventure player, or a test bot) inside the arena whom it sees, who is within 6 blocks, or who hits it from inside |
+| Reset | nobody in the arena for 60 s (`BossEncounter.resetTicks`; everyone left or died): full health, home, cooldowns and threat cleared, Fray's bar ended as RESET, `Boss.onReset` (the knight's cage back on its back, the rolling cage gone) |
+| No cheese | Fray hits from anyone outside the arena are zeroed in the attacker stage; anything else from outside, and damage with no attacker (lava, falls, walls, cacti), is refused (`ALLOW_DAMAGE`); `/kill` still works |
+| Multiplayer | toughness ×(1 + 0.6 per extra participant in the arena, the most seen this fight) × game difficulty's health factor: every hit's final amount is divided by it (`BossDamageMixin` on `hurtServer`). Vanilla caps max health at 1024, so the extra health is toughness; the bar's share is the same |
+| Personal loot | each participant with 10 % of the damage or 30 s in the arena rolls `bestiary:boss/gallows_knight` for themselves: into the inventory of a player online, else dropped where the boss fell, pickable by them only (`ItemEntity.setTarget`), kept until picked up |
+| Music | `BossMusic.CUE` (`start`, `phase_2`, `victory`, `reset`) for Gloam; a vanilla placeholder (a bell) until a listener handles it |
+| Persistence | `BossData` (attachment): arena, fight on, phase, cage, participants (damage, ticks present), when the arena emptied, party size, Break meter, lair. A fight resumes after a relog, an unload or a restart (Fray's bar comes back without a banner) |
+| Watchdog | a boss that wants to move and covers under a block in 5 s gets a fresh path and a hop; after 10 s it is put back home (`BossEncounter.unsticks`) |
+| Lairs | `Lairs` (level saved data). Expanse has no lair anchors yet (CONTRACTS §18.2), so `/bestiary summon gallows_knight yard` builds the gallows yard (`GallowsYard`: trodden earth inside a broken fieldstone wall, a south gate, the mound and gallows, three broken pillars) and registers a lair; a felled lair boss returns after 3 in-game days (`Lairs.respawnDays`, 0 = once) when nobody is in its arena. `/bestiary summon gallows_knight` alone: an arena of 14 around you. A knight spawned any other way takes an arena of 14 where it stands |
+
+Commands: `/bestiary summon gallows_knight [yard]`, `/bestiary boss info|reset <targets>`, `/bestiary boss phase <targets> <share>`.
+
+### 8.2 The knight
+
+Profile `data/bestiary/bestiary/creature/gallows_knight.json` (rank boss, tokens ignored, 900 health at D3, poise 60 into
+the Break meter, undead), behaviour `knight` (`KnightMoves`), phase script `KnightScript`, entity `GallowsKnight`.
+
+| Phase | Moves (tell, ticks from tell to hit) |
+|---|---|
+| 1 (100-55 %) | hook cut (white 8; a parry staggers it 26 ticks), two-cut string (white 8, white), slam (orange 14; the hook bites the ground and it hauls it free, its chest open: punish 28 ticks), shoulder charge (red 16, three blocks), chain sweep (orange 14, 120°), kick (white 7; a guard crusher, ×2 block stamina) |
+| transition | tears the gibbet cage off its back (`tear_cage`, no hit, no tell): the cage falls and rolls away and stays as a hazard (`GibbetCage`: every 12-16 s it rattles, an orange tell of 20 ticks, and rolls at the nearest fighter 3+ blocks away: 7 blunt, guardable and dodgeable) |
+| 2 (55-0 %) | three-cut string with one held beat before an overhead chop (white 7), chain lash (purple 16: it bites for 6 and drags you in, then follows with a cut), the Hanging (red ultimate, 24-tick tell: the mound ringed in red dust; on the drop everyone on it who didn't dodge takes 26), plus the hook cut, slam, charge, sweep and kick, with gaps ×0.65 and combos (cut → kick → slam, lash → cut) |
+
+Rules: at most one red in any three moves (`BossMath.redAllowed`); no move but the Hanging above 18; the chain lash is also
+its answer to a target it can't reach for 3 s (up a pillar, across a gap), in either phase. Damage numbers are the clips'
+(light 10, heavy 18, ultimate 26, kick 8, lash 6), scaled only by game difficulty. Weak point: the chest (`hurts` during
+the slam's, the lash's and the Hanging's haul): ×1.5 damage and poise and +4 % Break. The Break (Fray: poise, parries
++8 %, weak points) kneels it for its 60 Broken ticks (`gallows_knight/broken`; the HUD's "Broken · n s to punish").
+
+Clips are basic, from key poses (`tools/knight/knight_clips.py` writes them; the user asked for basic animation): hook_cut,
+two_cut, three_cut, slam, shoulder_charge, kick, chain_lash, the_hanging, tear_cage, broken; chain_sweep, stagger, idle and
+walk are stage 1A's. The cage has its own little rig (`tools/knight/gibbet_cage.py`: the knight's cage cubes and paint),
+rolling on its walk cycle; the knight's renderer hides the cage bone once it is off (`RigModel.HIDDEN`). Lore and the
+codex entry are in the profile; the codex records what each player saw (`Codex.moveSeen`) and felled (each participant
+who earned loot). Loot (placeholders until Arsenal): Gallows Chain ×2-4, a Sunder rune tablet (1 in 2), the Knight's
+Crossguard (1 in 4), a lore page.
+
+### 8.3 Results (2026-10-22)
+
+Unit tests: `BossMathTest` (arena, reset, party toughness, loot eligibility, the red rule over 5000 random moves, the
+watchdog), `CreatureDataTest` (every knight move meets the boss tell minimums, ultimates 20, phases of 4-8 moves, the
+colours as designed, the slam's punish window, the kick's guard crush, the Hanging's 24-tick tell), Fray's
+`GuardMathTest` (guard crush ×2) and `DamageMathTest` (segment distance): 100 pass.
+
+Game tests: `bash tools/gametest.sh -Dfray.show.only=none -Dbestiary.boss=all` (report `fray-report-boss.txt`), all pass:
+each of the nine moves lands on a mannequin after its tell (white 7-13, orange 14-16, red 19, purple 20, the Hanging 27
+ticks); the charge covers 4 blocks; the lash pulls from 7 to 1.6 blocks; at 55 % the transition plays, the cage is off on
+the client and lies in the arena, Fray's bar moves to phase 2, the transition hits no one, phase 2 draws on its own moves;
+a full Break kneels it, 50 damage lands in the window with no answer, then it fights on; it resets after the fighter
+leaves or dies (full health, home, bar ended) and nothing from outside or lava hurts it; a heavy takes 24.4 solo, 15.3
+with two (×1.60) and 11.1 with three (×2.20); the two who earned it get their own drops, the third doesn't; the cage
+rattles 20 ticks and runs over the player. Dedicated server (in process; the real player in survival with Resistance V;
+a mannequin fighting at about 13 damage a second): a relog mid-fight keeps everything and the bar returns; a server
+restart in phase 2 keeps health, phase, the torn-off cage, the hazard and the participants (a Break in progress is not
+kept); the fight ends with the knight felled (94-112 s of fighting), never out of its arena, never unstuck, the player's
+loot in their inventory. The motion showcase, `-Dfray.combat=all` and `-Dbestiary.ai=all` still pass (one full run,
+16 min).
+
+| | |
+|---|---|
+| Server cost | the encounter framework 13-16 µs a boss tick; the knight's AI 10-21 µs a tick |
+| Network | the bar is Fray's (on change, at most 4 a second); the cage is one tracked entity |
+
+Pictures (outside the repository): `C:/Users/bitto/VOID/.tools/share/bestiary/stage1/boss/` (each move from tell to hit,
+the transition, the Break and punish, at half speed; the yard with the boss bar; the overview; the elite nameplates).
+
+Open: Expanse lair anchors (the yard is the fallback); Arsenal's real parts for the loot; Gloam's music for the cues; a
+real two-client fight (the tests use mannequin bots as the second player); the knight has no sword (the design's
+"longsword cut" is a hook cut: the rig the user liked has the chain and hook only).

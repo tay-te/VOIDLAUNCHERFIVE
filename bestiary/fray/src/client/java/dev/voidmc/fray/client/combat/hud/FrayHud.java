@@ -557,6 +557,27 @@ public final class FrayHud {
 
 	// ------------------------------------------------------------------ H5 nameplates
 
+	/** A nameplate laid out before drawing: where it goes on screen and how big it is (GUI px). */
+	private record Plate(LivingEntity e, CombatPayloads.Profile prof, boolean elite, float x, float y, float scale, float w, float h) {
+		float left() {
+			return this.x - this.w / 2;
+		}
+
+		float top() {
+			return this.y - this.h;
+		}
+	}
+
+	private static final List<Plate> LAID = new ArrayList<>();
+	private static final List<float[]> TAKEN = new ArrayList<>();
+	/** Plates left out this frame because they would have covered another plate or the top frame (tests). */
+	public static int platesHidden;
+
+	/**
+	 * H5. Plates are laid out first and drawn without overlapping (since 2026-10-22): elites before commons, the nearer
+	 * first; a plate that would cover one already placed, or the boss bar or target frame at the top of the screen, is
+	 * left out this frame. The target-framed creature and the boss have no floating plate (their frame shows them).
+	 */
 	private static void nameplates(Paint p, Minecraft mc, FrayClientOptions opt, float partial) {
 		int bossId = ClientCombat.bar == null ? -1 : ClientCombat.bar.boss();
 		PLATES.clear();
@@ -568,9 +589,9 @@ public final class FrayHud {
 		if (PLATES.size() > MAX_PLATES) {
 			PLATES.sort(Comparator.comparingDouble(e -> e.distanceToSqr(mc.player)));
 		}
-		int drawn = 0;
+		LAID.clear();
 		for (Entity e : PLATES) {
-			if (drawn >= MAX_PLATES) {
+			if (LAID.size() >= MAX_PLATES) {
 				break;
 			}
 			if (!(e instanceof LivingEntity le) || e == mc.player || e instanceof Player || e instanceof ArmorStand || !le.isAlive() || le.isInvisible()
@@ -600,16 +621,50 @@ public final class FrayHud {
 			}
 			// Full size within 8 blocks, 70 % at 24.
 			float scale = (float) (1.0 - 0.3 * Math.max(0, Math.min(1, (d - 8) / 16)));
-			p.g.pose().pushMatrix();
-			p.g.pose().translate(at[0], at[1]);
-			p.g.pose().scale(p.k * scale, p.k * scale);
-			drawn++;
-			float frac = le.getHealth() / Math.max(1, le.getMaxHealth());
+			float w, h;
 			if (elite) {
-				String name = le.getName().getString();
-				float nw = p.width(name, 7);
 				int chips = prof == null ? 0 : Math.min(3, prof.affixes().size());
-				float w = Math.max(150, nw + chips * 18 + 24);
+				w = Math.max(150, p.width(le.getName().getString(), 7) + chips * 18 + 24);
+				h = 40;
+			} else {
+				w = 72;
+				h = 14;
+			}
+			float k = p.k * scale;
+			LAID.add(new Plate(le, prof, elite, at[0], at[1], scale, w * k, h * k));
+		}
+		LAID.sort((a, b) -> a.elite() != b.elite() ? (a.elite() ? -1 : 1) : Double.compare(a.e().distanceToSqr(mc.player), b.e().distanceToSqr(mc.player)));
+		TAKEN.clear();
+		// The top of the screen is the boss bar's or the target frame's.
+		if (ClientCombat.bar != null) {
+			TAKEN.add(new float[] {p.cx - 404 * p.k, 0, p.cx + 404 * p.k, 116 * p.k});
+		} else if (LockOn.target >= 0) {
+			TAKEN.add(new float[] {p.cx - 224 * p.k, 0, p.cx + 224 * p.k, 124 * p.k});
+		}
+		for (Plate pl : LAID) {
+			float[] r = {pl.left() - 2, pl.top() - 2, pl.left() + pl.w() + 2, pl.y() + 2};
+			boolean clash = false;
+			for (float[] t : TAKEN) {
+				if (r[0] < t[2] && r[2] > t[0] && r[1] < t[3] && r[3] > t[1]) {
+					clash = true;
+					break;
+				}
+			}
+			if (clash) {
+				platesHidden++;
+				continue;
+			}
+			TAKEN.add(r);
+			LivingEntity le = pl.e();
+			CombatPayloads.Profile prof = pl.prof();
+			p.g.pose().pushMatrix();
+			p.g.pose().translate(pl.x(), pl.y());
+			p.g.pose().scale(p.k * pl.scale(), p.k * pl.scale());
+			float frac = le.getHealth() / Math.max(1, le.getMaxHealth());
+			if (pl.elite()) {
+				String name = le.getName().getString();
+				int chips = prof == null ? 0 : Math.min(3, prof.affixes().size());
+				float w = pl.w() / (p.k * pl.scale());
 				p.round(-w / 2, -40, w, 40, 10, Paint.ink(0.55F));
 				float tx = -w / 2 + 10;
 				for (int i = 0; i < chips; i++) {

@@ -891,6 +891,10 @@ public class AiShowcase implements FabricClientGameTest {
 			}
 		});
 		long combat0 = CombatSync.bytes;
+		// Bestiary + Fray's own traffic, counted where the server encodes it (the payload bytes before compression).
+		AtomicLong ours = new AtomicLong(), encoded = new AtomicLong();
+		Channel sch = serverChannel(st);
+		boolean counting = watchOurs(sch, ours, encoded);
 		long t0 = System.nanoTime();
 		long tick0 = now(st);
 		if (Boolean.getBoolean("bestiary.netdiag")) {
@@ -918,6 +922,7 @@ public class AiShowcase implements FabricClientGameTest {
 		if (ch.pipeline().get("bestiary_packets") != null) {
 			ch.pipeline().remove("bestiary_packets");
 		}
+		unwatchOurs(sch);
 		int engaged = st.s.computeOnServer(server -> {
 			int n = 0;
 			for (Entity e : server.overworld().getAllEntities()) {
@@ -958,8 +963,9 @@ public class AiShowcase implements FabricClientGameTest {
 		Stage.log(String.format(Locale.ROOT, "G-NET: 30 creatures (%d engaged) fighting the player for %.1f s (%.1f s wall): %.2f KB/s down on the wire (Fray combat payloads %.2f KB/s before compression)",
 			engaged, secs, (System.nanoTime() - t0) / 1e9, kbs, combat));
 		Stage.expect(engaged >= 25, "G-NET: the 30 creatures are in the fight (" + engaged + " engaged)");
-		// Reported, not asserted: the wire is mostly vanilla's entity tracking (see the baseline below); docs/AI.md §5.
-		Stage.log(String.format(Locale.ROOT, "GATE G-NET %s: %.2f KB/s down per player (gate 6)", kbs <= 6.0 ? "met" : "NOT MET", kbs));
+		double oursKbs = ours.get() / 1024.0 / secs;
+		Stage.log(String.format(Locale.ROOT, "G-NET: Bestiary + Fray payloads %.2f KB/s (encoded, before compression; %s), of %.2f KB/s the server encoded for the player",
+			oursKbs, counting ? "counted on the server's connection" : "NOT COUNTED: no encoder in the pipeline", encoded.get() / 1024.0 / secs));
 		st.c.takeScreenshot(TestScreenshotOptions.of("ai_ds_net_fight").disableCounterPrefix());
 		// The same count of vanilla variants Bestiary doesn't run (husks, strays, cave spiders), for scale.
 		st.s.runOnServer(server -> {
@@ -995,8 +1001,81 @@ public class AiShowcase implements FabricClientGameTest {
 		st.c.waitTicks(400);
 		double vsecs = (now(st) - vt0) / 20.0;
 		ch.pipeline().remove("bestiary_bytes");
+		double baseline = vbytes.get() / 1024.0 / vsecs;
 		Stage.log(String.format(Locale.ROOT, "G-NET baseline: 30 vanilla variants Bestiary doesn't run (husks, strays, cave spiders, zombie villagers) on the same player: %.2f KB/s down",
-			vbytes.get() / 1024.0 / vsecs));
+			baseline));
+		// The gate (changed 2026-10-22, docs/AI.md §6): Bestiary + Fray's own traffic within 6 KB/s, and the whole wire no more
+		// than the same scene with vanilla AI costs. Both numbers are reported.
+		boolean met = counting && oursKbs <= 6.0 && kbs <= baseline;
+		Stage.log(String.format(Locale.ROOT, "GATE G-NET %s: Bestiary + Fray %.2f KB/s (gate 6); total %.2f KB/s down per player against the vanilla-AI baseline %.2f",
+			met ? "met" : "NOT MET", oursKbs, kbs, baseline));
+		Stage.expect(met, String.format(Locale.ROOT, "G-NET: Bestiary + Fray %.2f KB/s <= 6 and total %.2f <= vanilla-AI baseline %.2f KB/s", oursKbs, kbs, baseline));
+	}
+
+	/** The server side of the local player's connection (in-process dedicated server). */
+	static Channel serverChannel(Stage st) {
+		return st.s.computeOnServer(server -> {
+			try {
+				Object listener = sp(server).connection;
+				java.lang.reflect.Field cf = null;
+				for (Class<?> k = listener.getClass(); k != null && cf == null; k = k.getSuperclass()) {
+					for (java.lang.reflect.Field f : k.getDeclaredFields()) {
+						if (f.getType() == net.minecraft.network.Connection.class) {
+							cf = f;
+						}
+					}
+				}
+				cf.setAccessible(true);
+				net.minecraft.network.Connection conn = (net.minecraft.network.Connection) cf.get(listener);
+				java.lang.reflect.Field f = net.minecraft.network.Connection.class.getDeclaredField("channel");
+				f.setAccessible(true);
+				return (Channel) f.get(conn);
+			} catch (ReflectiveOperationException e) {
+				throw new RuntimeException(e);
+			}
+		});
+	}
+
+	/**
+	 * Counts the encoded size of every packet the server sends the player ({@code encoded}) and of Bestiary's and Fray's own
+	 * payloads ({@code ours}): a handler after the encoder sees each packet, one before it sees its bytes.
+	 */
+	static boolean watchOurs(Channel ch, AtomicLong ours, AtomicLong encoded) {
+		if (ch.pipeline().get("encoder") == null) {
+			Stage.log("G-NET: the server pipeline has no encoder: " + ch.pipeline().names());
+			return false;
+		}
+		boolean[] mine = new boolean[1];
+		ch.pipeline().addAfter("encoder", "bestiary_ours_pkt", new io.netty.channel.ChannelOutboundHandlerAdapter() {
+			@Override
+			public void write(ChannelHandlerContext ctx, Object msg, io.netty.channel.ChannelPromise promise) throws Exception {
+				mine[0] = msg instanceof net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket cp
+					&& (cp.payload().type().id().getNamespace().equals("fray") || cp.payload().type().id().getNamespace().equals("bestiary"));
+				super.write(ctx, msg, promise);
+			}
+		});
+		ch.pipeline().addBefore("encoder", "bestiary_ours_bytes", new io.netty.channel.ChannelOutboundHandlerAdapter() {
+			@Override
+			public void write(ChannelHandlerContext ctx, Object msg, io.netty.channel.ChannelPromise promise) throws Exception {
+				if (msg instanceof ByteBuf b) {
+					encoded.addAndGet(b.readableBytes());
+					if (mine[0]) {
+						ours.addAndGet(b.readableBytes());
+					}
+				}
+				mine[0] = false;
+				super.write(ctx, msg, promise);
+			}
+		});
+		return true;
+	}
+
+	static void unwatchOurs(Channel ch) {
+		for (String n : new String[] {"bestiary_ours_pkt", "bestiary_ours_bytes"}) {
+			if (ch.pipeline().get(n) != null) {
+				ch.pipeline().remove(n);
+			}
+		}
 	}
 
 	static void clearMobs(MinecraftServer server) {
