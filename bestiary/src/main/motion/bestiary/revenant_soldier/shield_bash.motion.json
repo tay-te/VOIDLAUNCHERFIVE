@@ -1,0 +1,194 @@
+{
+ "format": 1,
+ "rig": "fray:humanoid",
+ "ground": "floor",
+ "length": 0.9,
+ "loop": "none",
+ "blend_in": 2,
+ "blend_out": 4,
+ "mask": {
+  "right_leg": 0.5,
+  "left_leg": 0.5
+ },
+ "move_mask": {
+  "right_leg": 0,
+  "left_leg": 0,
+  "root": 0.3
+ },
+ "bones": {
+  "left_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      -30,
+      25,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      -20,
+      40,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.45,
+     [
+      -85,
+      5,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.55,
+     [
+      -80,
+      5,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "torso": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      0,
+      -20,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      6,
+      10,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "root": {
+   "position": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      0,
+      0,
+      1.5
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      0,
+      0,
+      -3
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  }
+ },
+ "cues": [
+  [
+   0.45,
+   "sound",
+   "minecraft:item.shield.block"
+  ]
+ ],
+ "markers": [
+  [
+   0.1,
+   "tell",
+   "white"
+  ],
+  [
+   0.4,
+   "windup_end"
+  ],
+  [
+   0.5,
+   "active_end"
+  ]
+ ],
+ "locators": {
+  "shield": {
+   "bone": "left_arm",
+   "a": [
+    1,
+    6,
+    -3
+   ],
+   "b": [
+    1,
+    10,
+    -6
+   ],
+   "radius": 0.5
+  }
+ },
+ "hits": [
+  "shield"
+ ],
+ "damage": 0,
+ "checks": [
+  "ground"
+ ]
+}

@@ -1,0 +1,158 @@
+{
+ "format": 1,
+ "rig": "fray:humanoid",
+ "ground": "floor",
+ "length": 0.8,
+ "loop": "none",
+ "blend_in": 2,
+ "blend_out": 4,
+ "mask": {
+  "right_leg": 0.5,
+  "left_leg": 0.5
+ },
+ "move_mask": {
+  "right_leg": 0,
+  "left_leg": 0,
+  "root": 0.3
+ },
+ "bones": {
+  "right_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      -60,
+      30,
+      10
+     ],
+     "catmullrom"
+    ],
+    [
+     0.2,
+     [
+      -110,
+      35,
+      15
+     ],
+     "catmullrom"
+    ],
+    [
+     0.3,
+     [
+      -60,
+      -45,
+      -10
+     ],
+     "catmullrom"
+    ],
+    [
+     0.8,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "torso": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      15,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.3,
+     [
+      4,
+      -22,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.8,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "left_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      -30,
+      25,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.8,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  }
+ },
+ "cues": [
+  [
+   0.27,
+   "sound",
+   "minecraft:entity.player.attack.sweep"
+  ]
+ ],
+ "markers": [
+  [
+   0.0,
+   "tell",
+   "white"
+  ],
+  [
+   0.25,
+   "windup_end"
+  ],
+  [
+   0.35,
+   "active_end"
+  ]
+ ],
+ "locators": {
+  "blade": {
+   "bone": "right_arm",
+   "a": [
+    -1,
+    10,
+    -2
+   ],
+   "b": [
+    -1,
+    11,
+    -15
+   ],
+   "radius": 0.3
+  }
+ },
+ "hits": [
+  "blade"
+ ],
+ "damage": 0,
+ "checks": [
+  "ground"
+ ]
+}

@@ -55,6 +55,7 @@ public final class Bestiary implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		DangerConfig.load();
+		dev.voidmc.bestiary.creature.BestiaryEntities.init();
 		CreatureProfiles.init();
 		Behaviours.init();
 		Grabs.init();

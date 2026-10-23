@@ -1,0 +1,113 @@
+{
+  "entity": "bestiary:revenant_soldier",
+  "family": "undead",
+  "poise": 35,
+  "guards": true,
+  "shieldable": true,
+  "resist": {
+    "radiant": -0.5,
+    "fire": -0.25
+  },
+  "senses": {
+    "sight": 24,
+    "night_sight": 18,
+    "fov": 120,
+    "sees_in_dark": true,
+    "hearing": 1.0,
+    "memory": 600,
+    "calls": false
+  },
+  "roles": [
+    "bruiser"
+  ],
+  "morale": {
+    "flees": false
+  },
+  "ring": [
+    3,
+    5
+  ],
+  "keep": [
+    0,
+    1.3
+  ],
+  "tactics": {
+    "close": 0.8,
+    "guard": 1.0,
+    "circle": 0.5,
+    "strafe": 0.3
+  },
+  "codex": {
+    "name": "Revenant",
+    "text": "An armoured dead man-at-arms who still keeps his drill. He holds his shield up, turns aside light blows and answers a careless one. Heavy blows, axes and his flank break him."
+  },
+  "moves": [
+    {
+      "id": "cut",
+      "clip": "bestiary:revenant_soldier/cut",
+      "range": [
+        0,
+        1.7
+      ],
+      "cooldown": 16,
+      "weight": 1.0
+    },
+    {
+      "id": "cut_2",
+      "clip": "bestiary:revenant_soldier/cut_2",
+      "range": [
+        0,
+        1.7
+      ],
+      "cooldown": 22,
+      "weight": 0.8
+    },
+    {
+      "id": "overhead",
+      "clip": "bestiary:revenant_soldier/overhead",
+      "range": [
+        0,
+        2.0
+      ],
+      "cooldown": 60,
+      "weight": 0.8,
+      "damage": 1.6,
+      "tags": [
+        "guard_break"
+      ]
+    },
+    {
+      "id": "shield_bash",
+      "clip": "bestiary:revenant_soldier/shield_bash",
+      "range": [
+        0,
+        1.7
+      ],
+      "cooldown": 70,
+      "weight": 0.6,
+      "damage": 0.6,
+      "tags": [
+        "guard_break"
+      ],
+      "considerations": [
+        {
+          "input": "target_guarding",
+          "curve": "bool",
+          "a": 1.0,
+          "b": 0.4
+        }
+      ]
+    },
+    {
+      "id": "riposte",
+      "clip": "bestiary:revenant_soldier/riposte",
+      "range": [
+        0,
+        2.4
+      ],
+      "cooldown": 30,
+      "weight": 0.0,
+      "damage": 1.2
+    }
+  ]
+}

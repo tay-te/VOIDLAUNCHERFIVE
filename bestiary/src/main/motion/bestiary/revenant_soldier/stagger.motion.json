@@ -1,0 +1,10 @@
+{
+ "same_as": "zombie/stagger",
+ "cues": [
+  [
+   0.0,
+   "sound",
+   "minecraft:entity.skeleton.hurt"
+  ]
+ ]
+}

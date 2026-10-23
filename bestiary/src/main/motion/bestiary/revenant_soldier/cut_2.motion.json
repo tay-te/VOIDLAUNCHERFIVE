@@ -1,0 +1,176 @@
+{
+ "format": 1,
+ "rig": "fray:humanoid",
+ "ground": "floor",
+ "length": 1.0,
+ "loop": "none",
+ "blend_in": 2,
+ "blend_out": 4,
+ "mask": {
+  "right_leg": 0.5,
+  "left_leg": 0.5
+ },
+ "move_mask": {
+  "right_leg": 0,
+  "left_leg": 0,
+  "root": 0.3
+ },
+ "bones": {
+  "right_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      -80,
+      -50,
+      -10
+     ],
+     "catmullrom"
+    ],
+    [
+     0.42,
+     [
+      -90,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      -100,
+      45,
+      20
+     ],
+     "catmullrom"
+    ],
+    [
+     1.0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "torso": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.35,
+     [
+      0,
+      -22,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.5,
+     [
+      4,
+      22,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "left_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      -30,
+      25,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  }
+ },
+ "cues": [
+  [
+   0.42,
+   "sound",
+   "minecraft:entity.player.attack.sweep"
+  ]
+ ],
+ "markers": [
+  [
+   0.1,
+   "tell",
+   "white"
+  ],
+  [
+   0.4,
+   "windup_end"
+  ],
+  [
+   0.5,
+   "active_end"
+  ]
+ ],
+ "locators": {
+  "blade": {
+   "bone": "right_arm",
+   "a": [
+    -1,
+    10,
+    -2
+   ],
+   "b": [
+    -1,
+    11,
+    -15
+   ],
+   "radius": 0.3
+  }
+ },
+ "hits": [
+  "blade"
+ ],
+ "damage": 0,
+ "checks": [
+  "ground"
+ ]
+}

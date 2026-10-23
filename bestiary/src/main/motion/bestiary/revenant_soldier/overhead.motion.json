@@ -1,0 +1,248 @@
+{
+ "format": 1,
+ "rig": "fray:humanoid",
+ "ground": "floor",
+ "length": 1.6,
+ "loop": "none",
+ "blend_in": 2,
+ "blend_out": 4,
+ "mask": {
+  "right_leg": 0.5,
+  "left_leg": 0.5
+ },
+ "move_mask": {
+  "right_leg": 0,
+  "left_leg": 0,
+  "root": 0.3
+ },
+ "bones": {
+  "right_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.65,
+     [
+      -150,
+      0,
+      10
+     ],
+     "catmullrom"
+    ],
+    [
+     0.75,
+     [
+      -140,
+      0,
+      5
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      -40,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.25,
+     [
+      -35,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.6,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "torso": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.65,
+     [
+      -12,
+      5,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      18,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.25,
+     [
+      16,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.6,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "head": {
+   "rotation": [
+    [
+     0,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.65,
+     [
+      -12,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.9,
+     [
+      10,
+      0,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.6,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  },
+  "left_arm": {
+   "rotation": [
+    [
+     0,
+     [
+      -30,
+      25,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     0.65,
+     [
+      -10,
+      20,
+      0
+     ],
+     "catmullrom"
+    ],
+    [
+     1.6,
+     [
+      0,
+      0,
+      0
+     ],
+     "catmullrom"
+    ]
+   ]
+  }
+ },
+ "cues": [
+  [
+   0.15,
+   "sound",
+   "minecraft:entity.zombie.ambient"
+  ],
+  [
+   0.8,
+   "sound",
+   "minecraft:entity.player.attack.strong"
+  ]
+ ],
+ "markers": [
+  [
+   0.1,
+   "tell",
+   "orange"
+  ],
+  [
+   0.75,
+   "windup_end"
+  ],
+  [
+   0.9,
+   "active_end"
+  ]
+ ],
+ "locators": {
+  "blade": {
+   "bone": "right_arm",
+   "a": [
+    -1,
+    10,
+    -2
+   ],
+   "b": [
+    -1,
+    11,
+    -15
+   ],
+   "radius": 0.3
+  }
+ },
+ "hits": [
+  "blade"
+ ],
+ "damage": 0,
+ "checks": [
+  "ground"
+ ]
+}
