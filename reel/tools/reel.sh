@@ -8,7 +8,7 @@
 #   bash tools/reel.sh snap   x=.. y=.. z=.. yaw=.. pitch=.. [fov=70 name=..]
 #   bash tools/reel.sh height "x,z;x,z"                    ground heights (top = water/leaves, ground = solid floor)
 #   bash tools/reel.sh terrain x=.. z=.. [radius=512 step=2 name=..]   height grids for Blender (renders/_terrain/NAME)
-#   bash tools/reel.sh export  x=.. z=.. [radius=96 y0=40 y1=200 oy=64 name=..]   loaded blocks as a textured OBJ (renders/_export/NAME)
+#   bash tools/reel.sh export  x=.. z=.. [radius=96 y0=40 y1=200 oy=64 cut=box|island name=..]   loaded blocks as a textured OBJ (renders/_export/NAME)
 #   bash tools/reel.sh cmd    "time set 23000"
 #   bash tools/reel.sh set    [syncBody=true jitter=shot supersample=2]   live filming settings
 #   bash tools/reel.sh pack   TAA_DEFINE=0                   shader pack options (pack reloads)

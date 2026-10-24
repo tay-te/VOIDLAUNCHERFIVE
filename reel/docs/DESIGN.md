@@ -157,6 +157,16 @@ ground and the visible surface around a point as float grids (loaded chunks read
 world generator, so no chunk is generated: 148k heights in 4 s); `tools/blender/reel_terrain.py` makes them a mesh,
 a holdout that hides overlays behind hills. Generator heights are bare land, without towns or trees.
 
+The world itself goes to Blender with `reel.sh export` (`client/WorldExport`): the loaded blocks in a square as a
+textured OBJ, every block's own model faces culled as the game culls them, the game's textures, biome tints as
+vertex colours. `cut=box` closes the square so its sides show their earth and stone; `cut=island` carves a round,
+ragged outline with a rocky underside tapering to a point, from the real underground (stone, ores, caves), under the
+generator's bare land so houses don't print their footprints on the rock. `tools/blender/reel_world.py` imports it
+(note: the OBJ importer keeps the mesh Y-up and turns the object, so mesh data is in Minecraft's axes);
+`tools/blender/scene_looks.py` shoots it in a named look at model scale (a block is 2 cm or 5 mm, so the lens blurs
+it like a real miniature): storybook, bluehour (a real light per lantern block), mist (a fog bank with a soft top at
+a world height) and island (a floating island on a dark stage, framed from its own silhouette).
+
 ## The report
 
 `renders/<shot>/render.json` (or `stills.json`): job, rig, wall time, prefetch chunks and seconds, prepare time,

@@ -47,7 +47,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * GET  /where                          where the player stands and looks
  * GET  /height?at=x,z;x,z;...          the ground (top solid or liquid block) at each point, loading land as needed
  * POST /terrain?x=..&amp;z=..&amp;radius=512&amp;step=2&amp;name=..   height grids around a point for Blender (renders/_terrain/NAME)
- * POST /export?x=..&amp;z=..&amp;radius=96&amp;y0=40&amp;y1=200&amp;oy=64&amp;name=..   the loaded blocks as a textured OBJ for Blender (renders/_export/NAME)
+ * POST /export?x=..&amp;z=..&amp;radius=96&amp;y0=40&amp;y1=200&amp;oy=64&amp;cut=box|island&amp;name=..   the loaded blocks as a textured OBJ for Blender
+ *            (renders/_export/NAME); cut closes the box or carves a floating island (cap=true is cut=box)
  * POST /cmd   (body: a server command) run on the integrated server where the player stands; answers its output
  *            ("locate structure #minecraft:village", "time set 23000")
  * POST /set?syncBody=true&jitter=shot&supersample=2   live filming settings (GET /set shows them)
@@ -207,10 +208,22 @@ public final class ControlServer {
 				int y1 = q.containsKey("y1") ? Integer.parseInt(q.get("y1")) : 200;
 				int oy = q.containsKey("oy") ? Integer.parseInt(q.get("oy")) : 64;
 				String name = q.getOrDefault("name", x + "_" + z);
+				WorldExport.Cut cut = WorldExport.Cut.valueOf(q.getOrDefault("cut", "true".equals(q.get("cap")) ? "box" : "none").toUpperCase(java.util.Locale.ROOT));
+				IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
+				if (cut == WorldExport.Cut.ISLAND && server == null) {
+					throw new IllegalArgumentException("an island needs single player (the bare land comes from its generator)");
+				}
+				int[] bare;
+				try {
+					var dimension = Minecraft.getInstance().level.dimension();
+					bare = cut == WorldExport.Cut.ISLAND ? server.submit(() -> WorldExport.bareLand(server.getLevel(dimension), x, z, radius)).get(300, TimeUnit.SECONDS) : null;
+				} catch (Exception e) {
+					yield error("export failed: " + e);
+				}
 				CompletableFuture<String> done = new CompletableFuture<>();
 				Minecraft.getInstance().execute(() -> {
 					try {
-						done.complete(WorldExport.export(Minecraft.getInstance(), name, x, z, radius, y0, y1, oy));
+						done.complete(WorldExport.export(Minecraft.getInstance(), name, x, z, radius, y0, y1, oy, cut, bare));
 					} catch (Exception e) {
 						done.complete(error("export failed: " + e));
 					}
