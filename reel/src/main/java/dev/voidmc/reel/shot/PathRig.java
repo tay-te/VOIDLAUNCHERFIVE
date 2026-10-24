@@ -4,6 +4,8 @@ import dev.voidmc.reel.math.Angles;
 import dev.voidmc.reel.math.ArcLength;
 import dev.voidmc.reel.math.Easing;
 import dev.voidmc.reel.math.Monotone;
+import dev.voidmc.reel.math.Pace;
+import dev.voidmc.reel.math.Ramps;
 import dev.voidmc.reel.math.Spline;
 import dev.voidmc.reel.math.Vec3;
 import java.util.ArrayList;
@@ -14,20 +16,24 @@ import java.util.function.Function;
 /**
  * The camera on a curve through keyed positions (a dolly, crane, flyover or a locked-off frame with one key).
  *
- * <p>Timing is "even" unless every key has a time: the camera covers equal distance in equal time, shaped by the
- * ease, so the move glides however the keys are spaced. "keyed" passes each key at its time instead. Everything
- * else a key may set (angles, field of view, a point to look at) is carried along the path by key, so a key's
- * values hold exactly where the camera passes its position.
+ * <p>Timing is "even" unless every key has a time or the move is paced: the camera covers equal distance in equal
+ * time, shaped by the ease, so the move glides however the keys are spaced. "keyed" passes each key at its time
+ * instead. "paced" runs at the speeds keys ask for, ramps in and out as the shot says (or not at all, to cut in or out
+ * moving) and holds at keys: see {@link Pace}. Everything else a key may set (angles, field of view, a point to look
+ * at) is carried along the path by key, so a key's values hold exactly where the camera passes its position.
  *
  * <p>Where it looks, first match wins: keys with "look" points (the camera keeps them centred, a moving target);
  * the shot's one "look" point; "face": "path" (along the direction of travel); keyed yaw and pitch.
  */
 public final class PathRig implements Rig {
-	/** One key of the move: only pos is required. */
-	public record Key(Vec3 pos, Double t, Double yaw, Double pitch, Double roll, Double fov, Vec3 look) {
+	/** One key of the move: only pos is required. speed (blocks a second) and hold (seconds) are for paced moves. */
+	public record Key(Vec3 pos, Double t, Double yaw, Double pitch, Double roll, Double fov, Vec3 look, Double speed, double hold) {
+		public Key(Vec3 pos, Double t, Double yaw, Double pitch, Double roll, Double fov, Vec3 look) {
+			this(pos, t, yaw, pitch, roll, fov, look, null, 0);
+		}
 	}
 
-	public enum Timing { EVEN, KEYED }
+	public enum Timing { EVEN, KEYED, PACED }
 
 	public enum Facing { KEYS, LOOK_POINT, PATH, KEYED_LOOK }
 
@@ -40,6 +46,7 @@ public final class PathRig implements Rig {
 	private final Spline spline;
 	private final ArcLength arc;
 	private final Monotone timeToKey;
+	private final Pace pace;
 	private final Monotone yaw;
 	private final Monotone pitch;
 	private final Monotone roll;
@@ -49,11 +56,18 @@ public final class PathRig implements Rig {
 	private final Monotone lookZ;
 
 	public PathRig(List<Key> keys, double duration, Timing timing, Easing ease, Vec3 lookPoint, boolean facePath, double defaultFov) {
+		this(keys, duration, timing, ease, null, lookPoint, facePath, defaultFov);
+	}
+
+	/**
+	 * A paced move takes ramps and may leave duration null (it then comes from the keys' speeds); the other timings
+	 * take an ease and a duration.
+	 */
+	public PathRig(List<Key> keys, Double duration, Timing timing, Easing ease, Ramps ramps, Vec3 lookPoint, boolean facePath, double defaultFov) {
 		if (keys.isEmpty()) {
 			throw new IllegalArgumentException("a path needs at least one key");
 		}
 		this.keys = List.copyOf(keys);
-		this.duration = duration;
 		this.timing = timing;
 		this.ease = ease;
 		this.lookPoint = lookPoint;
@@ -70,6 +84,30 @@ public final class PathRig implements Rig {
 			this.timeToKey = keys.size() > 1 ? new Monotone(times, index) : null;
 		} else {
 			this.timeToKey = null;
+		}
+
+		if (timing == Timing.PACED) {
+			int n = keys.size();
+			boolean still = this.arc.total() < 1e-6;
+			double[] keyAt = new double[n];
+			Double[] speeds = new Double[n];
+			double[] holds = new double[n];
+			for (int i = 0; i < n; i++) {
+				keyAt[i] = still ? i : this.arc.distanceAt(i);
+				speeds[i] = keys.get(i).speed();
+				holds[i] = keys.get(i).hold();
+				if (still && speeds[i] != null && n > 1) {
+					throw new IllegalArgumentException("key " + i + " sets a speed, but the camera stays in one place: pace a pan with holds and ramps");
+				}
+			}
+			this.pace = new Pace(keyAt, speeds, holds, ramps == null ? Ramps.DEFAULT : ramps, duration);
+			this.duration = this.pace.duration();
+		} else {
+			if (duration == null) {
+				throw new IllegalArgumentException("the shot needs a duration");
+			}
+			this.pace = null;
+			this.duration = duration;
 		}
 
 		this.yaw = channel(Key::yaw, true);
@@ -122,6 +160,10 @@ public final class PathRig implements Rig {
 		if (this.timing == Timing.KEYED) {
 			return this.timeToKey.at(t);
 		}
+		if (this.timing == Timing.PACED) {
+			double s = this.pace.distanceAt(t);
+			return this.arc.total() < 1e-6 ? s : this.arc.parameterAt(s);
+		}
 		double progress = this.ease.apply(this.duration <= 0 ? 1 : t / this.duration);
 		if (this.arc.total() < 1e-6) {
 			return progress * last;   // keys at one spot: a locked-off camera that pans or zooms through them
@@ -170,9 +212,15 @@ public final class PathRig implements Rig {
 		return this.arc.total();
 	}
 
+	public double duration() {
+		return this.duration;
+	}
+
 	@Override
 	public String describe() {
-		return String.format(Locale.ROOT, "path: %d keys, %.1f blocks, %s timing, %s, facing %s", this.keys.size(), this.arc.total(),
-			this.timing.name().toLowerCase(Locale.ROOT), this.ease.name().toLowerCase(Locale.ROOT), this.facing.name().toLowerCase(Locale.ROOT));
+		String pacing = this.timing == Timing.PACED ? this.pace.describe()
+			: this.timing.name().toLowerCase(Locale.ROOT) + " timing, " + this.ease.name().toLowerCase(Locale.ROOT);
+		return String.format(Locale.ROOT, "path: %d keys, %.1f blocks, %s, facing %s", this.keys.size(), this.arc.total(), pacing,
+			this.facing.name().toLowerCase(Locale.ROOT));
 	}
 }

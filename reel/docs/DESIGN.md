@@ -134,6 +134,16 @@ frame's blend); with both causes fixed it stays, as it keeps tile swaps from gho
 
 Live switches: `reel.sh set syncBody= lodClock= lodFreeze= lodCompensate= lodTrace= probe= verify= jitter= supersample=`, `reel.sh pack NAME=value`.
 
+## Motion between shots (2026-10-24)
+
+The first film's shots were good alone and disjointed together. Every shot used even timing with one ease over the
+whole move, so each one started and ended at rest, and every cut joined two stopped cameras (the report now says so:
+"enters at 0.0 b/s ... leaves at 0.0 b/s" for all four). Paced moves (`math/Pace`, `math/Ramps`, docs/SHOTS.md) fix
+the cause: keys set speeds in blocks a second, ramps are seconds long and may be 0 so a shot is cut into or out of
+mid-motion, and holds stop the camera at a key. The timing has a closed form (a stretch lasts G/k + (in + out)/2,
+with G its seconds at the keyed speeds), so a fixed duration scales the speeds instead of changing the shape.
+Orbits take the same ramps. Even and keyed timing are unchanged, so old shots film as before.
+
 ## The report
 
 `renders/<shot>/render.json` (or `stills.json`): job, rig, wall time, prefetch chunks and seconds, prepare time,

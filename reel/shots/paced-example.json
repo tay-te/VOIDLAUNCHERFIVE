@@ -1,0 +1,17 @@
+{
+	"notes": "A paced move: enters already moving at a walk, builds to a glide along the valley, holds a beat on the bend, then leaves at speed so the next shot can pick the motion up. Durations come from the speeds; set \"duration\" to scale them to a fixed length instead.",
+	"fps": 30,
+	"world": { "time": 1000, "timeRate": 1 },
+	"camera": {
+		"face": "path",
+		"lens": 24,
+		"motion": { "in": 0, "out": 0, "settle": 1.2 },
+		"keys": [
+			{ "pos": [0, 90, 0], "speed": 4, "pitch": 4 },
+			{ "pos": [40, 92, 10] },
+			{ "pos": [90, 96, 40], "speed": 12, "hold": 1 },
+			{ "pos": [150, 100, 60], "speed": 9, "pitch": 6 }
+		]
+	},
+	"render": { "samples": 6, "shutter": 180, "preroll": 2 }
+}

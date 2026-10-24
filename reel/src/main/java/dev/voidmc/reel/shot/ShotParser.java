@@ -7,6 +7,7 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import dev.voidmc.reel.math.Angles;
 import dev.voidmc.reel.math.Easing;
+import dev.voidmc.reel.math.Ramps;
 import dev.voidmc.reel.math.Vec3;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -53,7 +54,7 @@ public final class ShotParser {
 		}
 
 		JsonObject camera = object(root, "camera", "");
-		known(camera, "camera", Set.of("rig", "keys", "timing", "ease", "look", "face", "fov", "lens", "orbit"));
+		known(camera, "camera", Set.of("rig", "keys", "timing", "ease", "motion", "look", "face", "fov", "lens", "orbit"));
 		Easing ease = camera.has("ease") ? ease(camera, "camera") : Easing.IN_OUT_SINE;
 		double fov = fov(camera, "camera", DEFAULT_FOV);
 		String rigName = camera.has("rig") ? word(camera, "rig", "camera") : (camera.has("orbit") ? "orbit" : "path");
@@ -65,12 +66,25 @@ public final class ShotParser {
 				List<PathRig.Key> keys = keys(camera);
 				boolean allTimed = keys.stream().allMatch(k -> k.t() != null);
 				boolean anyTimed = keys.stream().anyMatch(k -> k.t() != null);
-				String timingName = camera.has("timing") ? word(camera, "timing", "camera") : (allTimed && keys.size() > 1 ? "keyed" : "even");
+				boolean paces = camera.has("motion") || keys.stream().anyMatch(k -> k.speed() != null || k.hold() > 0);
+				String timingName = camera.has("timing") ? word(camera, "timing", "camera")
+					: (paces ? "paced" : (allTimed && keys.size() > 1 ? "keyed" : "even"));
 				PathRig.Timing timing = switch (timingName) {
 					case "even" -> PathRig.Timing.EVEN;
 					case "keyed" -> PathRig.Timing.KEYED;
-					default -> throw new ShotException("camera.timing", "must be \"even\" or \"keyed\", was \"" + timingName + "\"");
+					case "paced" -> PathRig.Timing.PACED;
+					default -> throw new ShotException("camera.timing", "must be \"even\", \"keyed\" or \"paced\", was \"" + timingName + "\"");
 				};
+				if (timing == PathRig.Timing.PACED) {
+					if (camera.has("ease")) {
+						throw new ShotException("camera.ease", "a paced move ramps with motion.in and motion.out; ease is for even timing");
+					}
+					if (anyTimed) {
+						throw new ShotException("camera.keys", "a paced move takes its timing from speeds and holds: drop the keys' \"t\"");
+					}
+				} else if (paces) {
+					throw new ShotException("camera", "speed, hold and motion pace a move: they need \"timing\": \"paced\" (or no timing at all)");
+				}
 				if (timing == PathRig.Timing.KEYED) {
 					if (!allTimed) {
 						throw new ShotException("camera.keys", "keyed timing needs a \"t\" on every key");
@@ -86,7 +100,7 @@ public final class ShotParser {
 				} else if (anyTimed && !camera.has("timing")) {
 					throw new ShotException("camera.keys", "some keys have \"t\" and some do not: time every key, or none (even timing)");
 				}
-				if (duration == null) {
+				if (duration == null && timing != PathRig.Timing.PACED) {
 					throw new ShotException("duration", "missing: how many seconds the shot lasts");
 				}
 				Vec3 look = camera.has("look") ? vec(camera.get("look"), "camera.look") : null;
@@ -98,8 +112,11 @@ public final class ShotParser {
 					}
 					facePath = true;
 				}
+				Ramps ramps = timing == PathRig.Timing.PACED ? motion(camera, true) : null;
 				try {
-					rig = new PathRig(keys, duration, timing, ease, look, facePath, fov);
+					PathRig path = new PathRig(keys, duration, timing, ease, ramps, look, facePath, fov);
+					duration = path.duration();
+					rig = path;
 				} catch (IllegalArgumentException e) {
 					throw new ShotException("camera", e.getMessage());
 				}
@@ -111,8 +128,19 @@ public final class ShotParser {
 				JsonObject orbit = object(camera, "orbit", "camera");
 				String at = "camera.orbit";
 				known(orbit, at, Set.of("center", "radius", "height", "aim", "from", "sweep"));
-				rig = new OrbitRig(vec(orbit.get("center"), at + ".center"), range(orbit, "radius", at, null), range(orbit, "height", at, 0.0),
-					range(orbit, "aim", at, 0.0), number(orbit, "from", at, 0), number(orbit, "sweep", at, 90), duration, ease, fov);
+				Ramps ramps = null;
+				if (camera.has("motion")) {
+					if (camera.has("ease")) {
+						throw new ShotException("camera.ease", "give an ease or motion ramps, not both");
+					}
+					ramps = motion(camera, false);
+				}
+				try {
+					rig = new OrbitRig(vec(orbit.get("center"), at + ".center"), range(orbit, "radius", at, null), range(orbit, "height", at, 0.0),
+						range(orbit, "aim", at, 0.0), number(orbit, "from", at, 0), number(orbit, "sweep", at, 90), duration, ease, ramps, fov);
+				} catch (IllegalArgumentException e) {
+					throw new ShotException("camera.motion", e.getMessage());
+				}
 			}
 			default -> throw new ShotException("camera.rig", "must be \"path\" or \"orbit\", was \"" + rigName + "\"");
 		}
@@ -177,14 +205,41 @@ public final class ShotParser {
 				throw new ShotException(at, "expected an object");
 			}
 			JsonObject k = array.get(i).getAsJsonObject();
-			known(k, at, Set.of("pos", "t", "yaw", "pitch", "roll", "fov", "lens", "look", "note"));
+			known(k, at, Set.of("pos", "t", "yaw", "pitch", "roll", "fov", "lens", "look", "speed", "hold", "note"));
 			if (!k.has("pos")) {
 				throw new ShotException(at + ".pos", "missing");
 			}
+			Double speed = optional(k, "speed", at);
+			if (speed != null && !(speed > 0)) {
+				throw new ShotException(at + ".speed", "must be more than 0 blocks a second (to stop, hold at the key)");
+			}
+			double hold = number(k, "hold", at, 0);
+			if (hold < 0) {
+				throw new ShotException(at + ".hold", "must be 0 or more seconds");
+			}
 			keys.add(new PathRig.Key(vec(k.get("pos"), at + ".pos"), optional(k, "t", at), optional(k, "yaw", at), optional(k, "pitch", at),
-				optional(k, "roll", at), k.has("fov") || k.has("lens") ? fov(k, at, 0) : null, k.has("look") ? vec(k.get("look"), at + ".look") : null));
+				optional(k, "roll", at), k.has("fov") || k.has("lens") ? fov(k, at, 0) : null, k.has("look") ? vec(k.get("look"), at + ".look") : null,
+				speed, hold));
 		}
 		return keys;
+	}
+
+	/** camera.motion: seconds of ramp in, out, and (for paths) into and out of holds; 0 cuts in or out moving. */
+	private static Ramps motion(JsonObject camera, boolean path) {
+		if (!camera.has("motion")) {
+			return Ramps.DEFAULT;
+		}
+		JsonObject m = object(camera, "motion", "camera");
+		known(m, "camera.motion", path ? Set.of("in", "out", "settle") : Set.of("in", "out"));
+		double in = number(m, "in", "camera.motion", Ramps.DEFAULT.in());
+		double out = number(m, "out", "camera.motion", Ramps.DEFAULT.out());
+		double settle = number(m, "settle", "camera.motion", Ramps.DEFAULT.settle());
+		for (String key : List.of("in", "out", "settle")) {
+			if (number(m, key, "camera.motion", 0) < 0) {
+				throw new ShotException("camera.motion." + key, "must be 0 or more seconds");
+			}
+		}
+		return new Ramps(in, out, settle);
 	}
 
 	private static double fov(JsonObject o, String at, double fallback) {

@@ -10,9 +10,13 @@ import java.util.Locale;
  * A shot's numbers and a camera operator's warnings, worked out without the game: how far and how fast the camera
  * travels, how fast it turns (in frame widths a second, which is what decides whether a pan strobes), and whether
  * any of it lurches. Read it before filming; it is what /check and pathPreview print.
+ *
+ * <p>It also gives the speed and turn the camera enters and leaves with: two shots cut together read as one move
+ * when the second enters at about the speed the first leaves at.
  */
 public record ShotReport(Shot shot, double length, double meanSpeed, double maxSpeed, double maxSpeedAt, double maxTurn, double maxTurnAt,
-	double maxPan, double maxRoll, double maxZoom, double maxAccel, double maxAccelAt, List<String> warnings) {
+	double maxPan, double maxRoll, double maxZoom, double maxAccel, double maxAccelAt, double entrySpeed, double entryTurn, double exitSpeed,
+	double exitTurn, List<String> warnings) {
 
 	/** A pan faster than this many frame widths a second strobes visibly at 60 fps without motion blur. */
 	static final double JUDDER_PAN = 1.0 / 3;
@@ -34,6 +38,10 @@ public record ShotReport(Shot shot, double length, double meanSpeed, double maxS
 		double maxAccelAt = 0;
 		CameraState last = shot.camera(0);
 		double lastSpeed = 0;
+		double entrySpeed = 0;
+		double entryTurn = 0;
+		double exitSpeed = 0;
+		double exitTurn = 0;
 		for (int i = 1; i <= steps; i++) {
 			double t = i * dt;
 			CameraState now = shot.camera(t);
@@ -60,6 +68,12 @@ public record ShotReport(Shot shot, double length, double meanSpeed, double maxS
 				maxTurn = turn;
 				maxTurnAt = t;
 			}
+			if (i == 1) {
+				entrySpeed = speed;
+				entryTurn = turn;
+			}
+			exitSpeed = speed;
+			exitTurn = turn;
 			double hfov = Math.toDegrees(2 * Math.atan(Math.tan(Math.toRadians(now.fov()) / 2) * shot.aspect()));
 			maxPan = Math.max(maxPan, turn / hfov);
 			maxRoll = Math.max(maxRoll, Math.abs(now.roll() - last.roll()) / dt);
@@ -86,7 +100,7 @@ public record ShotReport(Shot shot, double length, double meanSpeed, double maxS
 			warnings.add("under two seconds: very short for a cinematic shot");
 		}
 		return new ShotReport(shot, length, length / shot.duration(), maxSpeed, maxSpeedAt, maxTurn, maxTurnAt, maxPan, maxRoll, maxZoom, maxAccel,
-			maxAccelAt, List.copyOf(warnings));
+			maxAccelAt, entrySpeed, entryTurn, exitSpeed, exitTurn, List.copyOf(warnings));
 	}
 
 	public String text() {
@@ -98,6 +112,8 @@ public record ShotReport(Shot shot, double length, double meanSpeed, double maxS
 			this.maxSpeedAt));
 		b.append(String.format(Locale.ROOT, "  turn up to %.1f deg/s at %.1fs (%.2f frame widths/s), roll %.1f deg/s, zoom %.1f deg/s%n", this.maxTurn,
 			this.maxTurnAt, this.maxPan, this.maxRoll, this.maxZoom));
+		b.append(String.format(Locale.ROOT, "  enters at %.1f b/s turning %.1f deg/s, leaves at %.1f b/s turning %.1f deg/s%n", this.entrySpeed,
+			this.entryTurn, this.exitSpeed, this.exitTurn));
 		CameraState first = this.shot.camera(0);
 		CameraState end = this.shot.camera(this.shot.duration());
 		b.append(String.format(Locale.ROOT, "  from %s yaw %.1f pitch %.1f fov %.1f%n", first.pos(), first.yaw(), first.pitch(), first.fov()));
