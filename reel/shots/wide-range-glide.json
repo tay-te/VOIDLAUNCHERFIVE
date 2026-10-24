@@ -1,0 +1,16 @@
+{
+	"notes": "Wide test: a high glide north over the main range at late golden hour, clouds drifting through the peaks; VOID LOD at 131 km, BSL. Enters and leaves at speed.",
+	"fps": 30,
+	"size": [1280, 720],
+	"world": { "time": 11300, "timeRate": 2, "weather": "clear" },
+	"camera": {
+		"fov": 65,
+		"motion": { "in": 0, "out": 0 },
+		"keys": [
+			{ "pos": [1400, 425, -6200], "speed": 30, "yaw": 180, "pitch": 5 },
+			{ "pos": [1396, 432, -6320], "yaw": 179, "pitch": 6 },
+			{ "pos": [1392, 440, -6440], "yaw": 178, "pitch": 7 }
+		]
+	},
+	"render": { "samples": 6, "shutter": 180, "preroll": 1 }
+}
