@@ -1,0 +1,7 @@
+{
+  "backdrop": "*rest",
+  "content": [".home__top", ".home__divider", ".strip"],
+  "friends": [".sheet--friends"],
+  "playbar": [".playbar-dock"],
+  "topbar": [".navbar"]
+}
