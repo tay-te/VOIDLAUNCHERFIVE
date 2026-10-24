@@ -8,6 +8,7 @@
 #   bash tools/reel.sh snap   x=.. y=.. z=.. yaw=.. pitch=.. [fov=70 name=..]
 #   bash tools/reel.sh height "x,z;x,z"                    ground heights (top = water/leaves, ground = solid floor)
 #   bash tools/reel.sh terrain x=.. z=.. [radius=512 step=2 name=..]   height grids for Blender (renders/_terrain/NAME)
+#   bash tools/reel.sh export  x=.. z=.. [radius=96 y0=40 y1=200 oy=64 name=..]   loaded blocks as a textured OBJ (renders/_export/NAME)
 #   bash tools/reel.sh cmd    "time set 23000"
 #   bash tools/reel.sh set    [syncBody=true jitter=shot supersample=2]   live filming settings
 #   bash tools/reel.sh pack   TAA_DEFINE=0                   shader pack options (pack reloads)
@@ -23,7 +24,7 @@ case "$verb" in
   stop|quit) curl -s -X POST "$BASE/$verb"; echo ;;
   check) curl -s "$BASE/check?shot=$1" | python -c "import json,sys; print(json.load(sys.stdin).get('report') or '')" ;;
   play|render|stills) shot="$1"; shift; curl -s -X POST "$BASE/$verb?$(query "shot=$shot" "$@")"; echo ;;
-  snap|terrain) curl -s -X POST "$BASE/$verb?$(query "$@")"; echo ;;
+  snap|terrain|export) curl -s -X POST "$BASE/$verb?$(query "$@")"; echo ;;
   cmd) curl -s -X POST --data "$*" "$BASE/cmd"; echo ;;
   set|pack) curl -s -X POST "$BASE/$verb?$(query "$@")"; echo ;;
   height) curl -s -G --data-urlencode "at=$1" "$BASE/height"; echo ;;
@@ -33,5 +34,5 @@ case "$verb" in
       case "$s" in *'"phase":"idle"'*) echo "$s"; break ;; esac
       sleep 3
     done ;;
-  *) sed -n '2,17p' "$0"; exit 1 ;;
+  *) sed -n '2,18p' "$0"; exit 1 ;;
 esac

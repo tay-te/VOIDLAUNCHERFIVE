@@ -47,6 +47,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * GET  /where                          where the player stands and looks
  * GET  /height?at=x,z;x,z;...          the ground (top solid or liquid block) at each point, loading land as needed
  * POST /terrain?x=..&amp;z=..&amp;radius=512&amp;step=2&amp;name=..   height grids around a point for Blender (renders/_terrain/NAME)
+ * POST /export?x=..&amp;z=..&amp;radius=96&amp;y0=40&amp;y1=200&amp;oy=64&amp;name=..   the loaded blocks as a textured OBJ for Blender (renders/_export/NAME)
  * POST /cmd   (body: a server command) run on the integrated server where the player stands; answers its output
  *            ("locate structure #minecraft:village", "time set 23000")
  * POST /set?syncBody=true&jitter=shot&supersample=2   live filming settings (GET /set shows them)
@@ -198,6 +199,28 @@ public final class ControlServer {
 					yield error("terrain failed: " + e);
 				}
 			}
+			case "/export" -> {
+				int x = (int) Math.floor(number(q, "x"));
+				int z = (int) Math.floor(number(q, "z"));
+				int radius = q.containsKey("radius") ? Integer.parseInt(q.get("radius")) : 96;
+				int y0 = q.containsKey("y0") ? Integer.parseInt(q.get("y0")) : 40;
+				int y1 = q.containsKey("y1") ? Integer.parseInt(q.get("y1")) : 200;
+				int oy = q.containsKey("oy") ? Integer.parseInt(q.get("oy")) : 64;
+				String name = q.getOrDefault("name", x + "_" + z);
+				CompletableFuture<String> done = new CompletableFuture<>();
+				Minecraft.getInstance().execute(() -> {
+					try {
+						done.complete(WorldExport.export(Minecraft.getInstance(), name, x, z, radius, y0, y1, oy));
+					} catch (Exception e) {
+						done.complete(error("export failed: " + e));
+					}
+				});
+				try {
+					yield done.get(900, TimeUnit.SECONDS);
+				} catch (Exception e) {
+					yield error("export failed: " + e);
+				}
+			}
 			case "/cmd" -> {
 				if (body.isEmpty()) {
 					throw new IllegalArgumentException("send the command as the request body");
@@ -258,7 +281,7 @@ public final class ControlServer {
 				quit = true;
 				yield "{\"quit\":true}";
 			}
-			default -> throw new IllegalArgumentException("unknown path " + path + " (status, shots, check, play, render, stills, snap, stop, where, height, terrain, cmd, quit)");
+			default -> throw new IllegalArgumentException("unknown path " + path + " (status, shots, check, play, render, stills, snap, stop, where, height, terrain, export, cmd, quit)");
 		};
 	}
 
