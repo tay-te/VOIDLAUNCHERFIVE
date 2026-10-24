@@ -144,6 +144,19 @@ mid-motion, and holds stop the camera at a key. The timing has a closed form (a 
 with G its seconds at the keyed speeds), so a fixed duration scales the speeds instead of changing the shape.
 Orbits take the same ramps. Even and keyed timing are unchanged, so old shots film as before.
 
+## Blender bridge (2026-10-24)
+
+Overlays made in Blender (labels on hills, rings on the land, a map that becomes the valley) have to sit in the
+filmed land to the pixel. Every movie now leaves `renders/<shot>/camera.json` (`tool/CameraExport`, also
+`./gradlew cameraExport -Pshot=NAME` without the game): each frame's instant, position, yaw, pitch, roll and vertical
+fov, shake included, jitter left out. `tools/blender/reel_camera.py` keys a Blender camera from it. Minecraft draws
+the view as rotationYXZ(pi - yaw, -pitch, roll) looking down its own -z with +y up, which are a Blender camera's own
+axes, so the import is that rotation turned by the one fixed change of world axes ((x, y, z) to (x, -z, y)); checked
+against Minecraft's projection, points land within 0.1 px. `reel.sh terrain` (`client/TerrainGrab`) writes the
+ground and the visible surface around a point as float grids (loaded chunks read for real, the rest asked of the
+world generator, so no chunk is generated: 148k heights in 4 s); `tools/blender/reel_terrain.py` makes them a mesh,
+a holdout that hides overlays behind hills. Generator heights are bare land, without towns or trees.
+
 ## The report
 
 `renders/<shot>/render.json` (or `stills.json`): job, rig, wall time, prefetch chunks and seconds, prepare time,

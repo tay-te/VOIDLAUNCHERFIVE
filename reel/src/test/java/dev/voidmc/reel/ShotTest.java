@@ -281,4 +281,19 @@ class ShotTest {
 		assertTrue(report.entrySpeed() < 0.5 && report.exitSpeed() < 0.5, report.text());
 		assertEquals(50, shot.camera(5).pos().x(), 1e-3);
 	}
+
+	@Test
+	void cameraExportHasEveryFrame() {
+		Shot shot = ShotParser.parse("""
+			{ "fps": 10, "duration": 2, "camera": { "look": [100, 64, 0], "keys": [ {"pos": [0,64,0]}, {"pos": [0,64,50]} ] } }
+			""", "export");
+		String json = dev.voidmc.reel.tool.CameraExport.json(shot, 640, 360);
+		com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+		assertEquals(20, o.get("frames").getAsInt());
+		com.google.gson.JsonArray rows = o.getAsJsonArray("camera");
+		assertEquals(20, rows.size());
+		assertEquals(8, rows.get(0).getAsJsonArray().size(), "t, x, y, z, yaw, pitch, roll, fov");
+		assertEquals(0.5, rows.get(5).getAsJsonArray().get(0).getAsDouble(), 1e-9, "each row is its frame's instant");
+		assertEquals(shot.camera(0.5).yaw(), rows.get(5).getAsJsonArray().get(4).getAsDouble(), 1e-4);
+	}
 }

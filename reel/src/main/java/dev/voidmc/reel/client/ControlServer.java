@@ -46,6 +46,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * POST /stop
  * GET  /where                          where the player stands and looks
  * GET  /height?at=x,z;x,z;...          the ground (top solid or liquid block) at each point, loading land as needed
+ * POST /terrain?x=..&amp;z=..&amp;radius=512&amp;step=2&amp;name=..   height grids around a point for Blender (renders/_terrain/NAME)
  * POST /cmd   (body: a server command) run on the integrated server where the player stands; answers its output
  *            ("locate structure #minecraft:village", "time set 23000")
  * POST /set?syncBody=true&jitter=shot&supersample=2   live filming settings (GET /set shows them)
@@ -170,6 +171,33 @@ public final class ControlServer {
 					yield error("height lookup failed: " + e);
 				}
 			}
+			case "/terrain" -> {
+				IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();
+				if (server == null) {
+					throw new IllegalArgumentException("not in single player");
+				}
+				int x = (int) Math.floor(number(q, "x"));
+				int z = (int) Math.floor(number(q, "z"));
+				int radius = q.containsKey("radius") ? Integer.parseInt(q.get("radius")) : 512;
+				int step = q.containsKey("step") ? Integer.parseInt(q.get("step")) : 2;
+				if (radius < 1 || step < 1) {
+					throw new IllegalArgumentException("radius and step must be 1 or more");
+				}
+				String name = q.getOrDefault("name", x + "_" + z);
+				var dimension = Minecraft.getInstance().level.dimension();
+				CompletableFuture<String> grid = server.submit(() -> {
+					try {
+						return TerrainGrab.grab(server.getLevel(dimension), name, x, z, radius, step);
+					} catch (Exception e) {
+						return error("terrain failed: " + e);
+					}
+				});
+				try {
+					yield grid.get(300, TimeUnit.SECONDS);
+				} catch (Exception e) {
+					yield error("terrain failed: " + e);
+				}
+			}
 			case "/cmd" -> {
 				if (body.isEmpty()) {
 					throw new IllegalArgumentException("send the command as the request body");
@@ -230,7 +258,7 @@ public final class ControlServer {
 				quit = true;
 				yield "{\"quit\":true}";
 			}
-			default -> throw new IllegalArgumentException("unknown path " + path + " (status, shots, check, play, render, stills, snap, stop, where, height, cmd, quit)");
+			default -> throw new IllegalArgumentException("unknown path " + path + " (status, shots, check, play, render, stills, snap, stop, where, height, terrain, cmd, quit)");
 		};
 	}
 

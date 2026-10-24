@@ -128,6 +128,17 @@ tasks.register('pathPreview', JavaExec) {
 		layout.buildDirectory.dir('reel').get().asFile.absolutePath]
 }
 
+// Writes a shot's camera for every frame as JSON, for Blender overlays.
+//   ./gradlew cameraExport -Pshot=valley-dawn   (the studio writes renders/<shot>/camera.json by itself)
+tasks.register('cameraExport', JavaExec) {
+	group = 'reel'
+	description = "Writes a shot's camera for every frame to build/reel/<shot>-camera.json, for Blender"
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'dev.voidmc.reel.tool.CameraExport'
+	args = [file('shots').absolutePath, (project.findProperty('shot') ?: 'example').toString(),
+		layout.buildDirectory.dir('reel').get().asFile.absolutePath]
+}
+
 // Tiles a render's frames into one contact sheet image (every Nth frame, labelled with its time).
 //   ./gradlew contactSheet -Pshot=valley-dawn [-Pevery=30]
 tasks.register('contactSheet', JavaExec) {

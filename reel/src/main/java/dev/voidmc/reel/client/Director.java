@@ -527,6 +527,10 @@ public final class Director {
 		try {
 			Files.createDirectories(done.out());
 			Files.writeString(done.out().resolve(done.movie() ? "render.json" : "stills.json"), this.report.json());
+			if (done.movie()) {
+				// the camera of every frame, for Blender overlays (tools/blender/reel_camera.py)
+				Files.writeString(done.out().resolve("camera.json"), dev.voidmc.reel.tool.CameraExport.json(done.shot(), done.width(), done.height()));
+			}
 		} catch (IOException e) {
 			Reel.LOG.error("[reel] could not write the report", e);
 		}
