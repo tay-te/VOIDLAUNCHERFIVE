@@ -1,0 +1,55 @@
+{
+	"notes": "autoshot: heading 135, clearance 90 over the path, scored 51",
+	"fps": 30,
+	"size": [
+		1280,
+		720
+	],
+	"world": {
+		"time": 12900.0,
+		"timeRate": 1,
+		"weather": "clear"
+	},
+	"camera": {
+		"fov": 50.0,
+		"motion": {
+			"in": 0,
+			"out": 0
+		},
+		"keys": [
+			{
+				"pos": [
+					-5882.1,
+					322.0,
+					-7319.1
+				],
+				"yaw": 135.0,
+				"pitch": 12.0,
+				"speed": 30
+			},
+			{
+				"pos": [
+					-5967.0,
+					322.0,
+					-7404.0
+				],
+				"yaw": 135.0,
+				"pitch": 12.0
+			},
+			{
+				"pos": [
+					-6051.9,
+					322.0,
+					-7488.9
+				],
+				"yaw": 135.0,
+				"pitch": 12.0
+			}
+		]
+	},
+	"render": {
+		"samples": 6,
+		"shutter": 180,
+		"preroll": 1
+	}
+}
