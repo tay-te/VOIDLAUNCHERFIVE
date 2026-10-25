@@ -1,0 +1,16 @@
+{
+	"notes": "Recording pass for the people of Bradhurst's square (actors only): a slow drift over the well and the market hall in the morning, so the folk are out at work.",
+	"fps": 24,
+	"duration": 12,
+	"size": [640, 360],
+	"world": { "time": 2500, "timeRate": 1, "weather": "clear" },
+	"camera": {
+		"lens": 30,
+		"look": [-3796, 99, -3606],
+		"keys": [
+			{ "pos": [-3768, 124, -3578] },
+			{ "pos": [-3784, 124, -3572] }
+		]
+	},
+	"render": { "samples": 1, "preroll": 12 }
+}

@@ -257,9 +257,19 @@ final class WorldExport {
 				}
 			}
 		}
+		if (bare != null) {
+			// the bare land as little-endian floats, a row of x per z from the north-west corner one block outside the square:
+			// what stands above it was built or grew there, which Blender can raise from the ground up
+			java.nio.ByteBuffer grid = java.nio.ByteBuffer.allocate(bare.length * 4).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+			for (int h : bare) {
+				grid.putFloat(h);
+			}
+			Files.write(out.resolve("bare.f32"), grid.array());
+		}
 		String meta = String.format(Locale.ROOT,
-			"{\"name\":\"%s\",\"origin\":[%d,%d,%d],\"radius\":%d,\"y\":[%d,%d],\"cut\":\"%s\",\"faces\":%d,\"materials\":%d,\"missingColumns\":%d,\"seconds\":%.1f}",
-			Report.escape(name), cx, oy, cz, radius, y0, y1, cut.name().toLowerCase(Locale.ROOT), w.faces, w.materials.size(), missing, (System.nanoTime() - start) / 1e9);
+			"{\"name\":\"%s\",\"origin\":[%d,%d,%d],\"radius\":%d,\"y\":[%d,%d],\"cut\":\"%s\",\"bare\":%s,\"faces\":%d,\"materials\":%d,\"missingColumns\":%d,\"seconds\":%.1f}",
+			Report.escape(name), cx, oy, cz, radius, y0, y1, cut.name().toLowerCase(Locale.ROOT), bare == null ? "null" : "\"bare.f32\"", w.faces,
+			w.materials.size(), missing, (System.nanoTime() - start) / 1e9);
 		Files.writeString(out.resolve("meta.json"), meta);
 		return "{\"export\":\"" + Report.escape(out.toString()) + "\",\"meta\":" + meta + "}";
 	}

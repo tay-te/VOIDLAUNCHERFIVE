@@ -40,7 +40,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * GET  /shots                          the shot files
  * GET  /check?shot=NAME                timing and warnings for a shot, without filming it
  * POST /play?shot=NAME                 real-time preview
- * POST /render?shot=NAME[&amp;samples=8&amp;w=1920&amp;h=1080&amp;encode=false]
+ * POST /render?shot=NAME[&amp;samples=8&amp;w=1920&amp;h=1080&amp;encode=false&amp;actors=96]   actors: record the people within that many blocks (ActorRecorder)
  * POST /stills?shot=NAME[&amp;count=8 | &amp;at=0,2.5,6][&amp;w=..&amp;h=..]
  * POST /snap?x=..&amp;y=..&amp;z=..&amp;yaw=..&amp;pitch=..[&amp;fov=70&amp;w=..&amp;h=..&amp;name=..]   one frame from anywhere
  * POST /stop
@@ -49,6 +49,8 @@ import net.minecraft.world.level.levelgen.Heightmap;
  * POST /terrain?x=..&amp;z=..&amp;radius=512&amp;step=2&amp;name=..   height grids around a point for Blender (renders/_terrain/NAME)
  * POST /export?x=..&amp;z=..&amp;radius=96&amp;y0=40&amp;y1=200&amp;oy=64&amp;cut=box|island&amp;name=..   the loaded blocks as a textured OBJ for Blender
  *            (renders/_export/NAME); cut closes the box or carves a floating island (cap=true is cut=box)
+ * POST /lod?name=..[&amp;x=..&amp;z=..&amp;radius=12000&amp;wait=120]   VOID LOD's far land around a point (the player by default)
+ *            as drawn: heights, colours, top blocks, for Blender (renders/_lod/NAME)
  * POST /cmd   (body: a server command) run on the integrated server where the player stands; answers its output
  *            ("locate structure #minecraft:village", "time set 23000")
  * POST /set?syncBody=true&jitter=shot&supersample=2   live filming settings (GET /set shows them)
@@ -118,7 +120,12 @@ public final class ControlServer {
 			case "/render" -> {
 				Shot shot = Reel.shot(need(q, "shot"));
 				RenderJob job = RenderJob.movie(shot, Reel.renders(), integer(q, "samples"), integer(q, "w"), integer(q, "h"), !"false".equals(q.get("encode")));
-				yield start(director, job);
+				double actors = q.containsKey("actors") ? number(q, "actors") : 0;
+				yield onClient(() -> {
+					ActorRecorder.arm(actors);
+					director.start(Minecraft.getInstance(), job);
+					return director.statusJson();
+				});
 			}
 			case "/stills" -> {
 				Shot shot = Reel.shot(need(q, "shot"));
@@ -200,6 +207,21 @@ public final class ControlServer {
 					yield error("terrain failed: " + e);
 				}
 			}
+			case "/lod" -> {
+				var player = Minecraft.getInstance().player;
+				if (player == null) {
+					throw new IllegalArgumentException("no world loaded");
+				}
+				double x = q.containsKey("x") ? number(q, "x") : player.getX();
+				double z = q.containsKey("z") ? number(q, "z") : player.getZ();
+				double radius = q.containsKey("radius") ? number(q, "radius") : 12000;
+				int wait = q.containsKey("wait") ? Integer.parseInt(q.get("wait")) : 120;
+				try {
+					yield LodExport.export(q.getOrDefault("name", "lod"), x, z, radius, wait);
+				} catch (Exception e) {
+					yield error("lod export failed: " + e);
+				}
+			}
 			case "/export" -> {
 				int x = (int) Math.floor(number(q, "x"));
 				int z = (int) Math.floor(number(q, "z"));
@@ -213,10 +235,11 @@ public final class ControlServer {
 				if (cut == WorldExport.Cut.ISLAND && server == null) {
 					throw new IllegalArgumentException("an island needs single player (the bare land comes from its generator)");
 				}
+				// the bare land goes out with every export from single player (bare.f32), and shapes an island's underside
 				int[] bare;
 				try {
 					var dimension = Minecraft.getInstance().level.dimension();
-					bare = cut == WorldExport.Cut.ISLAND ? server.submit(() -> WorldExport.bareLand(server.getLevel(dimension), x, z, radius)).get(300, TimeUnit.SECONDS) : null;
+					bare = server == null ? null : server.submit(() -> WorldExport.bareLand(server.getLevel(dimension), x, z, radius)).get(300, TimeUnit.SECONDS);
 				} catch (Exception e) {
 					yield error("export failed: " + e);
 				}
@@ -294,7 +317,7 @@ public final class ControlServer {
 				quit = true;
 				yield "{\"quit\":true}";
 			}
-			default -> throw new IllegalArgumentException("unknown path " + path + " (status, shots, check, play, render, stills, snap, stop, where, height, terrain, export, cmd, quit)");
+			default -> throw new IllegalArgumentException("unknown path " + path + " (status, shots, check, play, render, stills, snap, stop, where, height, terrain, export, lod, cmd, quit)");
 		};
 	}
 

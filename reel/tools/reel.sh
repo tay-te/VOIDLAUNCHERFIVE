@@ -3,11 +3,12 @@
 #   bash tools/reel.sh status | shots | where | stop | quit
 #   bash tools/reel.sh check  <shot>
 #   bash tools/reel.sh play   <shot>
-#   bash tools/reel.sh render <shot> [samples=8 w=1920 h=1080 encode=false]
+#   bash tools/reel.sh render <shot> [samples=8 w=1920 h=1080 encode=false actors=96]   actors: record the people near the camera
 #   bash tools/reel.sh stills <shot> [count=8 | at=0,2.5,6] [w=.. h=..]
 #   bash tools/reel.sh snap   x=.. y=.. z=.. yaw=.. pitch=.. [fov=70 name=..]
 #   bash tools/reel.sh height "x,z;x,z"                    ground heights (top = water/leaves, ground = solid floor)
 #   bash tools/reel.sh terrain x=.. z=.. [radius=512 step=2 name=..]   height grids for Blender (renders/_terrain/NAME)
+#   bash tools/reel.sh lod     name=.. [x=.. z=.. radius=12000 wait=120]   VOID LOD's far land as drawn (renders/_lod/NAME)
 #   bash tools/reel.sh export  x=.. z=.. [radius=96 y0=40 y1=200 oy=64 cut=box|island name=..]   loaded blocks as a textured OBJ (renders/_export/NAME)
 #   bash tools/reel.sh cmd    "time set 23000"
 #   bash tools/reel.sh set    [syncBody=true jitter=shot supersample=2]   live filming settings
@@ -24,7 +25,7 @@ case "$verb" in
   stop|quit) curl -s -X POST "$BASE/$verb"; echo ;;
   check) curl -s "$BASE/check?shot=$1" | python -c "import json,sys; print(json.load(sys.stdin).get('report') or '')" ;;
   play|render|stills) shot="$1"; shift; curl -s -X POST "$BASE/$verb?$(query "shot=$shot" "$@")"; echo ;;
-  snap|terrain|export) curl -s -X POST "$BASE/$verb?$(query "$@")"; echo ;;
+  snap|terrain|export|lod) curl -s -X POST "$BASE/$verb?$(query "$@")"; echo ;;
   cmd) curl -s -X POST --data "$*" "$BASE/cmd"; echo ;;
   set|pack) curl -s -X POST "$BASE/$verb?$(query "$@")"; echo ;;
   height) curl -s -G --data-urlencode "at=$1" "$BASE/height"; echo ;;

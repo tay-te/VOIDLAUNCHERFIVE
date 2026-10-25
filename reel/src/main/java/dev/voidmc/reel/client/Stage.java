@@ -31,6 +31,7 @@ final class Stage {
 	private CameraType cameraType;
 	private boolean hudWasHidden;
 	private GameType gameType;
+	private boolean performing;
 	private boolean timeTouched;
 	private boolean frozeWorld;
 
@@ -66,8 +67,14 @@ final class Stage {
 
 		Vec3 p = first.pos();
 		double feet = p.y() - (mc.player != null ? mc.player.getEyeHeight() : 1.62);
-		server(mc, "gamemode spectator @a",
+		// a recorded movie's body is an invisible flier rather than a spectator: towns (Hearth) bring their people out
+		// only around a player who is in the world
+		this.performing = ActorRecorder.armed();
+		server(mc, this.performing ? "gamemode creative @a" : "gamemode spectator @a",
 			String.format(Locale.ROOT, "tp @a %.3f %.3f %.3f %.2f %.2f", p.x(), feet, p.z(), first.yaw(), first.pitch()));
+		if (this.performing) {
+			server(mc, "effect give @a minecraft:invisibility infinite 0 true");
+		}
 		Shot.World world = shot.world();
 		if (world.weather() != null) {
 			server(mc, "gamerule advance_weather false", "weather " + world.weather());
@@ -116,7 +123,23 @@ final class Stage {
 		if (this.timeTouched) {
 			server(mc, "time resume");
 		}
+		if (this.performing) {
+			this.performing = false;
+			server(mc, "effect clear @a minecraft:invisibility");
+		}
 		server(mc, "gamemode " + this.gameType.getName() + " @a");
+	}
+
+	/** Whether the player is the body that follows the camera: a spectator, or a recorded movie's invisible flier. */
+	static boolean follows(net.minecraft.client.player.LocalPlayer player) {
+		if (player.isSpectator()) {
+			return true;
+		}
+		if (ActorRecorder.armed() && player.isCreative()) {
+			player.getAbilities().flying = true;
+			return true;
+		}
+		return false;
 	}
 
 	/** Runs commands on the integrated server as its console, quietly; does nothing (but say so) in multiplayer. */

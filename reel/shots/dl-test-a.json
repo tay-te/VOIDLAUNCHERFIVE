@@ -1,0 +1,17 @@
+{
+	"notes": "Devlog test A: low over the river into Bradhurst, already moving on frame one, leaving at full speed for B.",
+	"fps": 30,
+	"size": [1280, 720],
+	"world": { "time": 1000, "timeRate": 1, "weather": "clear" },
+	"camera": {
+		"lens": 24,
+		"look": [-3795, 106, -3606],
+		"motion": { "in": 0, "out": 0 },
+		"keys": [
+			{ "pos": [-3645, 92, -3520], "speed": 12 },
+			{ "pos": [-3672, 93, -3556] },
+			{ "pos": [-3700, 95, -3592] }
+		]
+	},
+	"render": { "samples": 4, "shutter": 180, "preroll": 2 }
+}

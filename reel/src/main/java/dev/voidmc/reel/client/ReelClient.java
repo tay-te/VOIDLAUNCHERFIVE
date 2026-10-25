@@ -121,7 +121,7 @@ public final class ReelClient implements ClientModInitializer {
 	private static void followCamera(Minecraft mc) {
 		CameraState state = Director.get().camera();
 		LocalPlayer player = mc.player;
-		if (state == null || player == null || !player.isSpectator()) {
+		if (state == null || player == null || !Stage.follows(player)) {
 			return;
 		}
 		player.snapTo(state.pos().x(), state.pos().y() - player.getEyeHeight(), state.pos().z(), (float) state.yaw(), (float) state.pitch());

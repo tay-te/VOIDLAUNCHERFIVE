@@ -226,7 +226,7 @@ public final class Director {
 			this.shotTime = t;
 			this.camera = this.playing.camera(t);
 		}
-		if (this.camera != null && Tuning.syncBody && mc.player != null && mc.player.isSpectator()) {
+		if (this.camera != null && Tuning.syncBody && mc.player != null && Stage.follows(mc.player)) {
 			// the body stands at the camera on this very frame (old position too, so nothing interpolates it elsewhere):
 			// anything drawn relative to the player rather than the camera then lines up with it between ticks
 			mc.player.snapTo(this.camera.pos().x(), this.camera.pos().y() - mc.player.getEyeHeight(), this.camera.pos().z(),
@@ -468,6 +468,11 @@ public final class Director {
 		return r;
 	}
 
+	/** The frame this pass films when it is a movie frame's first sample, when actors are recorded; else -1. */
+	public int recordingFrame() {
+		return this.phase == Phase.RENDER && this.captureNow && this.sample == 0 && this.job != null && this.job.movie() ? this.captureIndex : -1;
+	}
+
 	private void arm() {
 		this.captureNow = true;
 		this.captureIndex = this.cursor;
@@ -530,6 +535,8 @@ public final class Director {
 			if (done.movie()) {
 				// the camera of every frame, for Blender overlays (tools/blender/reel_camera.py)
 				Files.writeString(done.out().resolve("camera.json"), dev.voidmc.reel.tool.CameraExport.json(done.shot(), done.width(), done.height()));
+				// and its people, if asked for (tools/blender/reel_actors.py)
+				ActorRecorder.write(done.out(), done.shot().fps(), done.frames().length);
 			}
 		} catch (IOException e) {
 			Reel.LOG.error("[reel] could not write the report", e);

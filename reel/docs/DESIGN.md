@@ -167,6 +167,23 @@ generator's bare land so houses don't print their footprints on the rock. `tools
 it like a real miniature): storybook, bluehour (a real light per lantern block), mist (a fog bank with a soft top at
 a world height) and island (a floating island on a dark stage, framed from its own silhouette).
 
+The far land comes from VOID LOD itself: `reel.sh lod name=..` (`client/LodExport`, by reflection: Reel does not
+depend on LOD) listens to `LodApi.addVisibleTerrainListener` until `LodApi.complete()`, and writes every far tile LOD
+drew around the player (renders/_lod/NAME: each cell's height with water and trees, its colour as drawn, its top
+block), newest picture of any ground first. Cells grow with distance as LOD's do (1 block near, 64 at 15 km): Bradhurst
+to 12 km is 196 tiles, 0.8 M cells, written in 3.5 s. `tools/blender/reel_land.py` (`build_lod`) builds them as block
+columns, the coarsest (32 blocks and up) as smooth land; a coarse cell takes its highest point, so cells standing
+above their neighbours (a lone tree, a crag) come down, tree tops become a low canopy and buildings low roof patches.
+Without LOD, `build` paints generator grids (`reel.sh terrain`). Film with a small view distance: LOD draws nothing
+where the client has chunks.
+
+People come from the movie itself: `reel.sh render SHOT actors=96` (`client/ActorRecorder`, with
+`EntityRendererMixin` and `LivingEntityRendererMixin`) records every living thing near the camera on each frame's
+first sample: its model's parts as textured cubes, its skin as a picture (Hearth's composed skins from their
+pixels), and every part's world matrix, posed by the model's own setupAnim from the same render state the game drew.
+`tools/blender/reel_actors.py` rebuilds them and keys every part on every frame. Hearth brings its people out only
+around a player who is in the world, so a recording movie's body is an invisible creative flier, not a spectator.
+
 ## The report
 
 `renders/<shot>/render.json` (or `stills.json`): job, rig, wall time, prefetch chunks and seconds, prepare time,

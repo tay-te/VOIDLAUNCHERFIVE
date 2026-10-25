@@ -5,9 +5,11 @@
 	"client": [
 		"CameraMixin",
 		"ClockInstanceAccessor",
+		"EntityRendererMixin",
 		"GameRendererMixin",
 		"IntegratedServerMixin",
 		"IrisTimerMixin",
+		"LivingEntityRendererMixin",
 		"LodClockMixin",
 		"LodFreezeMixin",
 		"MinecraftMixin",

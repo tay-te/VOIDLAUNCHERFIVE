@@ -1,0 +1,16 @@
+{
+	"notes": "Devlog test B: picks up A's 12 b/s, cranes down over the bridge into the square and settles.",
+	"fps": 30,
+	"size": [1280, 720],
+	"world": { "time": 1180, "timeRate": 1, "weather": "clear" },
+	"camera": {
+		"lens": 35,
+		"motion": { "in": 0, "out": 2 },
+		"keys": [
+			{ "pos": [-3712, 116, -3600], "speed": 12, "yaw": 95, "pitch": 24 },
+			{ "pos": [-3745, 110, -3603], "yaw": 92, "pitch": 14 },
+			{ "pos": [-3772, 106, -3605], "yaw": 90, "pitch": 6 }
+		]
+	},
+	"render": { "samples": 4, "shutter": 180, "preroll": 2 }
+}

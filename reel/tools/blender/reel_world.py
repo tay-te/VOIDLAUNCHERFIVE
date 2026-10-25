@@ -28,7 +28,8 @@ def load(folder, glow=6.0, style="real"):
     return new[0] if new else None
 
 
-def rebuild(m, folder, glow, style="real"):
+def rebuild(m, folder, glow, style="real", image=None):
+    """The material for one export texture (textures/<material name>.png), or for the picture at `image`."""
     name = m.name.split(".")[0]
     m.use_nodes = True
     nt = m.node_tree
@@ -50,7 +51,7 @@ def rebuild(m, folder, glow, style="real"):
         bsdf.inputs["Emission Color"].default_value = (1.0, 0.35, 0.05, 1)
         bsdf.inputs["Emission Strength"].default_value = glow * 2
         return
-    path = os.path.join(folder, "textures", name + ".png")
+    path = image or os.path.join(folder, "textures", name + ".png")
     if not os.path.isfile(path):
         bsdf.inputs["Base Color"].default_value = (0.5, 0.5, 0.5, 1)
         return
@@ -96,7 +97,8 @@ def rebuild(m, folder, glow, style="real"):
         nt.links.new(clear.outputs["BSDF"], cut.inputs[1])
         nt.links.new(both.outputs["Shader"], cut.inputs[2])
         final = cut.outputs["Shader"]
-        if any(k in name for k in ("lantern", "torch", "glowstone", "lamp", "shroomlight", "candle", "magma")):
+        if any(k in name for k in ("lantern", "torch", "glowstone", "lamp", "shroomlight", "candle_lit", "magma", "campfire_fire",
+                                   "campfire_log_lit", "fire_0", "fire_1", "_front_on", "lava_still", "firefly_bush_emissive")):
             em = nt.nodes.new("ShaderNodeEmission")
             em.inputs["Strength"].default_value = glow
             nt.links.new(hs.outputs["Color"], em.inputs["Color"])
