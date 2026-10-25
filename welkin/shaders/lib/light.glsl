@@ -249,7 +249,8 @@ vec3 welkinLightGlow(vec3 albedo, vec3 n, vec2 lm, float emission, vec3 sunShare
 	float canopyS = canopyShade(lm.y, sunReach);
 	ns = normalize(mix(ns, vec3(0.0, 1.0, 0.0), CANOPY_FILL_UP * canopyS));
 	vec3 skyE = skyIrradiance(ns);
-	skyE = mix(vec3(lumaLin(skyE)), skyE, AMB_SKY_HUE);
+	// (review1-b: under a canopy the sky's hue whole and more, lib/foliage.glsl CANOPY_SKY_HUE)
+	skyE = max(mix(vec3(lumaLin(skyE)), skyE, mix(AMB_SKY_HUE, CANOPY_SKY_HUE, canopyS)), vec3(0.0));
 	vec3 hemi = fill.rgb * skyE + skyLandBounce() * (0.5 - 0.5 * nf.y);
 	// (a plant's thin blades take the sky on both their faces and pass some through: up to 1.45x a top's fill, so in the
 	// shade a meadow's tufts and stalks read light against the ground, as dry grass does at dusk)

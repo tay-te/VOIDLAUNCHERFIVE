@@ -103,6 +103,13 @@ uniform float viewHeight;
 #endif
 #endif
 
+//#define WELKIN_FRAME_PROBE // TEMP review1-b probe, remove before commit
+#ifdef WELKIN_FRAME_PROBE
+#ifndef WU_frameCounter
+#define WU_frameCounter
+uniform int frameCounter;
+#endif
+#endif
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 outColor;
 
@@ -185,6 +192,11 @@ void main() {
 	float tri = (float(h & 0xFFFFu) + float(h >> 16u)) / 65535.0 - 1.0;
 	c = clamp(c + tri / 255.0, 0.0, 1.0);
 	outColor = vec4(c, 1.0);
+#ifdef WELKIN_FRAME_PROBE
+	if (p.y == 1 && p.x < 96) {
+		outColor = vec4(vec3(float((frameCounter >> (p.x >> 2)) & 1)), 1.0);
+	}
+#endif
 }
 
 #endif

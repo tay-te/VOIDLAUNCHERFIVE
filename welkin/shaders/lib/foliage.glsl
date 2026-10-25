@@ -41,6 +41,10 @@ float canopyDuskDesat(float skyLevel) {
 #endif
 }
 // ---- end forest2
+// (review1-b, 2026-10-18) the fill under a canopy is the zenith's blue seen through the gaps, cooled past the open
+// shade's half hue (lib/light.glsl AMB_SKY_HUE): a grove's shade at noon was R/B 1.7 against Complementary's 0.95, its
+// leaves and floor a brownish olive. 1 is the sky's own hue; past 1 the blue is pushed further from grey.
+const float CANOPY_SKY_HUE = 1.6;
 
 // The share of the canopy the sky-light level says (the old key, where the map does not say): partly open to the sky
 // (sky light about 9..13).

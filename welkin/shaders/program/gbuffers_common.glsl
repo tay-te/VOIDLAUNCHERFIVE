@@ -17,6 +17,7 @@
 // Terrain's vertex colour carries Minecraft's corner shading in its alpha (separateAo, shaders.properties): G_BLOCKID
 // programs take it out of the albedo and hand it to the light ramp, which lays it on the sky's fill only.
 //   G_WATERFLAG  also write colortex3: the water's own lit colour where the pixel is water, for composite's water fog
+//   G_PARTICLE   particles (gbuffers_textured, textured_lit): water's own drops take the sky's pale light
 //   G_WEATHER    rain and snow: the texture's shape only, as a thin grey-white veil in the sky's light (gbuffers_weather)
 //
 // Without G_DEFERRED the program lights itself with the same light ramp deferred uses (lib/light.glsl).
@@ -320,6 +321,24 @@ void main() {
 		vec3 veil = welkinLight(vec3(0.82, 0.85, 0.90), vec3(0.0, 1.0, 0.0), lm, 0.0, d);
 		lit = mix(lit, veil * mix(1.0, 0.8 + 0.4 * lum, 0.5), blue);
 		albedo.a *= mix(1.0, 0.42, blue);
+	}
+#endif
+#if defined G_PARTICLE && !defined G_UNLIT
+	{
+		// (review1-b, 2026-10-18) water's own particles (rain splashes, drips off a ledge, a fall's drops): vanilla
+		// draws them in a saturated cobalt (the splash texture, the drip's blue tint) that, lit by an overcast sky,
+		// read as navy pixel Vs and squares on the sand and over the falls. A drop of water shows the sky's light, so
+		// they take the rain streaks' pale veil (gbuffers_weather) and some of their opacity. Block crumbs (Minecraft
+		// greys their tint to 0.6, a lapis or blue wool block's included) keep their own colour.
+		float blueW = clamp((albedo.b - max(albedo.r, albedo.g)) * 3.0, 0.0, 1.0);
+		float crumb = step(max(glcolor.r, max(glcolor.g, glcolor.b)), 0.7)
+			* step(max(glcolor.r, max(glcolor.g, glcolor.b)) - min(glcolor.r, min(glcolor.g, glcolor.b)), 0.04);
+		blueW *= 1.0 - crumb;
+		if (blueW > 0.0 && emission <= 0.0) {
+			vec3 veilP = welkinLight(vec3(0.80, 0.84, 0.90), vec3(0.0, 1.0, 0.0), lm, 0.0, d);
+			lit = mix(lit, veilP, blueW);
+			albedo.a *= mix(1.0, 0.6, blueW);
+		}
 	}
 #endif
 	outColor = vec4(lit, albedo.a);

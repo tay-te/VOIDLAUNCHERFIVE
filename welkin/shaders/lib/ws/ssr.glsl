@@ -18,11 +18,37 @@ vec3 wsScreenFromView(vec3 v) {
 	return (c.xyz / c.w) * 0.5 + 0.5;
 }
 
+// The view-space z of depth d at uv through an inverse projection: only its z and w rows (review1-b: the march asks
+// this some 23 times a water pixel, and the whole position, twice over with the LOD's, was most of its arithmetic).
+float wsViewZ(vec2 uv, float d, mat4 inv) {
+	vec4 ndc = vec4(vec3(uv, d) * 2.0 - 1.0, 1.0);
+	return dot(vec4(inv[0][2], inv[1][2], inv[2][2], inv[3][2]), ndc) / dot(vec4(inv[0][3], inv[1][3], inv[2][3], inv[3][3]), ndc);
+}
+
 // The opaque scene's view-space depth (z) at a screen position, the LOD's land included (it stands past the chunks).
+// As surfaceBehind: the chunks' surface where they drew, else the LOD's, else the sky (-1e7).
 float wsSceneZ(vec2 suv, vec2 res) {
 	ivec2 q = clamp(ivec2(suv * res), ivec2(0), ivec2(res) - 1);
-	Surface b = surfaceBehind(q, suv);
-	return b.sky ? -1e7 : b.view.z;
+	float d0 = texelFetch(depthtex1, q, 0).r;
+	if (d0 < 1.0) {
+		return wsViewZ(suv, d0, gbufferProjectionInverse);
+	}
+#ifdef DISTANT_HORIZONS
+	float dh = texelFetch(dhDepthTex1, q, 0).r;
+	if (dh < 1.0) {
+		return wsViewZ(suv, dh, dhProjectionInverse);
+	}
+#endif
+	return -1e7;
+}
+
+// Nothing drawn at q, by the chunks or the LOD, translucents included (as surfaceAt(q).sky), from the depths alone.
+bool wsSkyAt(ivec2 q) {
+	bool sky = texelFetch(depthtex0, q, 0).r >= 1.0;
+#ifdef DISTANT_HORIZONS
+	sky = sky && texelFetch(dhDepthTex0, q, 0).r >= 1.0;
+#endif
+	return sky;
 }
 
 // (the defects pass, 2026-10-16: on MEDIUM too, and far: 70 blocks of reach found the bank at one's feet but never
@@ -115,7 +141,7 @@ vec3 wsWaterSSR(vec3 col, ivec2 px) {
 			return col;
 		}
 		ivec2 sq = clamp(ivec2(su * res), ivec2(0), ivec2(res) - 1);
-		bool skyPx = surfaceAt(sq, su).sky;
+		bool skyPx = wsSkyAt(sq);
 		float ck = texelFetch(colortex6, sq, 0).r;
 		if (!skyPx && !(ck > 0.0 && ck < 999.0)) {
 			return col;
@@ -135,9 +161,8 @@ vec3 wsWaterSSR(vec3 col, ivec2 px) {
 				continue;
 			}
 			ivec2 tq = clamp(sq + ivec2(0, int(float(k) * sp)), ivec2(0), ivec2(res) - 1);
-			vec2 tu = (vec2(tq) + 0.5) / res;
 			float tk = texelFetch(colortex6, tq, 0).r;
-			bool ok = surfaceAt(tq, tu).sky || (tk > 0.0 && tk < 999.0);
+			bool ok = wsSkyAt(tq) || (tk > 0.0 && tk < 999.0);
 			accS += (ok ? texelFetch(colortex0, tq, 0).rgb : pixS) * (abs(k) == 1 ? 0.22 : 0.12);
 		}
 		pixS = accS;
